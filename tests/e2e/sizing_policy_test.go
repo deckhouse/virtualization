@@ -87,7 +87,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		newVmClassFilePath = fmt.Sprintf("%s/vmc-copy.yaml", conf.TestData.SizingPolicy)
 	})
 
-	Context("When resources are applied:", func() {
+	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.SizingPolicy},
@@ -97,7 +97,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When virtual images are applied:", func() {
+	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
@@ -108,7 +108,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When virtual disks are applied:", func() {
+	Context("When virtual disks are applied", func() {
 		It(fmt.Sprintf("checks VDs phases with %s and %s label", notExistingVmClassChanging, notExistingVmClassCreating), func() {
 			By(fmt.Sprintf("VDs should be in %s phases", phaseByVolumeBindingMode))
 			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
@@ -133,7 +133,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When virtual machines are applied:", func() {
+	Context("When virtual machines are applied", func() {
 		It(fmt.Sprintf("checks VMs phases with %s and %s label", notExistingVmClassChanging, notExistingVmClassCreating), func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhasePending))
 			WaitPhaseByLabel(kc.ResourceVM, PhasePending, kc.WaitOptions{
@@ -159,7 +159,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Describe("Not existing virtual machine class", func() {
-		Context(fmt.Sprintf("When virtual machine with label %s in phase %s:", notExistingVmClassChanging, PhasePending), func() {
+		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVmClassChanging, PhasePending), func() {
 			It("checks condition status before changing 'virtulaMachineCLass` field with existing class", func() {
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before changing", ReadyStatusFalse))
 				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, ReadyStatusFalse)
@@ -183,7 +183,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context(fmt.Sprintf("When virtual machine with label %s in phase %s:", notExistingVmClassCreating, PhasePending), func() {
+		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVmClassCreating, PhasePending), func() {
 			It("checks condition status before creating `VirtualMachineClass`", func() {
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before creating", ReadyStatusFalse))
 				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, ReadyStatusFalse)
@@ -223,7 +223,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context(fmt.Sprintf("When virtual machines in phase %s:", PhaseRunning), func() {
+	Context(fmt.Sprintf("When virtual machines in phase %s", PhaseRunning), func() {
 		It("checks sizing policy match", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
@@ -247,7 +247,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When test is complited:", func() {
+	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
 			DeleteTestCaseResources(ResourcesToDelete{
 				KustomizationDir: conf.TestData.SizingPolicy,

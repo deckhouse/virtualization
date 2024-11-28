@@ -102,7 +102,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		err           error
 	)
 
-	Context("When resources are applied:", func() {
+	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.Connectivity},
@@ -112,7 +112,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 	})
 
-	Context("When virtual images are applied:", func() {
+	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
@@ -123,7 +123,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 	})
 
-	Context("When virtual disks are applied:", func() {
+	Context("When virtual disks are applied", func() {
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phase", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
@@ -134,7 +134,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 	})
 
-	Context("When virtual machines are applied:", func() {
+	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phase", PhaseRunning))
 			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
@@ -145,7 +145,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 	})
 
-	Context(fmt.Sprintf("When run %s:", CurlPod), func() {
+	Context(fmt.Sprintf("When run %s", CurlPod), func() {
 		It(fmt.Sprintf("status should be in %s phase", PhaseRunning), func() {
 			jsonPath := "jsonpath={.status.phase}"
 			waitFor := fmt.Sprintf("%s=%s", jsonPath, PhaseRunning)
@@ -158,7 +158,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 	})
 
-	Context(fmt.Sprintf("When virtual machines in %s phase:", PhaseRunning), func() {
+	Context(fmt.Sprintf("When virtual machines in %s phase", PhaseRunning), func() {
 		It("gets VMs and SVCs objects", func() {
 			vmA = virtv2.VirtualMachine{}
 			err = GetObject(kc.ResourceVM, aObjName, &vmA, kc.GetOptions{
@@ -253,7 +253,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 	})
 
-	Context("When test is complited:", func() {
+	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
 			DeleteTestCaseResources(ResourcesToDelete{
 				KustomizationDir: conf.TestData.Connectivity,

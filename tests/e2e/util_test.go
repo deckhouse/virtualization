@@ -202,7 +202,32 @@ func GetObject(resource kc.Resource, name string, object client.Object, opts kc.
 	if opts.Namespace != "" {
 		cmdOpts.Namespace = opts.Namespace
 	}
+	if opts.Labels != nil {
+		cmdOpts.Labels = opts.Labels
+	}
 	cmd := kubectl.GetResource(resource, name, cmdOpts)
+	if cmd.Error() != nil {
+		return fmt.Errorf(cmd.StdErr())
+	}
+	err := json.Unmarshal(cmd.StdOutBytes(), object)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetObjects(resource kc.Resource, object client.ObjectList, opts kc.GetOptions) error {
+	GinkgoHelper()
+	cmdOpts := kc.GetOptions{
+		Output: "json",
+	}
+	if opts.Namespace != "" {
+		cmdOpts.Namespace = opts.Namespace
+	}
+	if opts.Labels != nil {
+		cmdOpts.Labels = opts.Labels
+	}
+	cmd := kubectl.List(resource, cmdOpts)
 	if cmd.Error() != nil {
 		return fmt.Errorf(cmd.StdErr())
 	}
