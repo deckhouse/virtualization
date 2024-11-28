@@ -90,7 +90,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		manualLabel    = map[string]string{"vm": "manual-conf"}
 	)
 
-	Context("When resources are applied:", func() {
+	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.VmConfiguration},
@@ -100,7 +100,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		})
 	})
 
-	Context("When virtual images are applied:", func() {
+	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
@@ -111,7 +111,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		})
 	})
 
-	Context("When virtual disks are applied:", func() {
+	Context("When virtual disks are applied", func() {
 		It(fmt.Sprintf("should be in %s phase", PhaseReady), func() {
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
@@ -121,7 +121,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		})
 	})
 
-	Context("When virtual machines are applied:", func() {
+	Context("When virtual machines are applied", func() {
 		It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
@@ -132,7 +132,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 	})
 
 	Describe("Manual restart approval mode", func() {
-		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
@@ -147,7 +147,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			})
 		})
 
-		Context("When virtual machine is patched:", func() {
+		Context("When virtual machine is patched", func() {
 			It("checks the number of processor cores in specification", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
@@ -161,7 +161,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			})
 		})
 
-		Context("When virtual machine is restarted:", func() {
+		Context("When virtual machine is restarted", func() {
 			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
@@ -183,7 +183,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			})
 		})
 
-		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
@@ -199,7 +199,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 	})
 
 	Describe("Automatic restart approval mode", func() {
-		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    automaticLabel,
@@ -214,7 +214,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			})
 		})
 
-		Context("When virtual machine is patched:", func() {
+		Context("When virtual machine is patched", func() {
 			It("checks the number of processor cores in specification", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    automaticLabel,
@@ -228,7 +228,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			})
 		})
 
-		Context("When virtual machine is restarted:", func() {
+		Context("When virtual machine is restarted", func() {
 			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    automaticLabel,
@@ -238,7 +238,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			})
 		})
 
-		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    automaticLabel,
@@ -253,7 +253,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		})
 	})
 
-	Context("When test is complited:", func() {
+	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
 			DeleteTestCaseResources(ResourcesToDelete{
 				KustomizationDir: conf.TestData.VmConfiguration,

@@ -18,262 +18,285 @@ package e2e
 
 import (
 	"fmt"
-	"io/fs"
-	"path/filepath"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("Label and Annotation", ginkgoutil.CommonE2ETestDecorators(), func() {
-	imageManifest := vmPath("image.yaml")
-	vmManifest := vmPath("vm_label_annotation.yaml")
-
-	const (
-		labelName       = "os"
-		labelValue      = "ubuntu"
-		annotationName  = "test-annotation"
-		annotationValue = "true"
-	)
-
-	getPodName := func(resourceName string) string {
-		getPodCMD := "get pod --no-headers -o custom-columns=':metadata.name'"
-		subCMD := fmt.Sprintf("-n %s %s | grep %s", conf.Namespace, getPodCMD, resourceName)
-		podCMD := kubectl.RawCommand(subCMD, ShortWaitDuration)
-		podName := strings.TrimSuffix(podCMD.StdOut(), "\n")
-		return podName
+func AddLabel(resource kc.Resource, labels map[string]string, names ...string) error {
+	formattedLabels := make([]string, 0, len(labels))
+	for k, v := range labels {
+		formattedLabels = append(formattedLabels, fmt.Sprintf("%s=%s", k, v))
 	}
-
-	getRecourseLabel := func(resourceType kc.Resource, resourceName string) *executor.CMDResult {
-		label := fmt.Sprintf("jsonpath='{.metadata.labels.%s}'", labelName)
-		cmdResult := kubectl.GetResource(resourceType, resourceName, kc.GetOptions{
-			Output:    label,
-			Namespace: conf.Namespace,
-		})
-		return cmdResult
+	rawResources := strings.Join(names, " ")
+	rawLabels := strings.Join(formattedLabels, "")
+	subCmd := fmt.Sprintf("label %s %s --namespace %s %s", resource, rawResources, conf.Namespace, rawLabels)
+	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 	}
+	return nil
+}
 
-	getRecourseAnnotation := func(resourceType kc.Resource, resourceName string) *executor.CMDResult {
-		annotation := fmt.Sprintf("jsonpath='{.metadata.annotations.%s}'", annotationName)
-		cmdResult := kubectl.GetResource(resourceType, resourceName, kc.GetOptions{
-			Output:    annotation,
-			Namespace: conf.Namespace,
-		})
-		return cmdResult
+func RemoveLabel(resource kc.Resource, labels map[string]string, names ...string) error {
+	formattedLabels := make([]string, 0, len(labels))
+	for k := range labels {
+		formattedLabels = append(formattedLabels, fmt.Sprintf("%s-", k))
 	}
-
-	WaitVmStatus := func(name, phase string) {
-		GinkgoHelper()
-		WaitResource(kc.ResourceVM, name, "jsonpath={.status.phase}="+phase, LongWaitDuration)
+	rawResources := strings.Join(names, " ")
+	rawLabels := strings.Join(formattedLabels, "")
+	subCmd := fmt.Sprintf("label %s %s --namespace %s %s", resource, rawResources, conf.Namespace, rawLabels)
+	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 	}
+	return nil
+}
 
-	BeforeAll(func() {
-		By("Apply image for vms")
-		ApplyFromFile(imageManifest)
-		WaitFromFile(imageManifest, PhaseReady, LongWaitDuration)
-	})
+func AddAnnotation(resource kc.Resource, annotations map[string]string, names ...string) error {
+	formattedAnnotations := make([]string, 0, len(annotations))
+	for k, v := range annotations {
+		formattedAnnotations = append(formattedAnnotations, fmt.Sprintf("%s=%s", k, v))
+	}
+	rawResources := strings.Join(names, " ")
+	rawAnnotations := strings.Join(formattedAnnotations, "")
+	subCmd := fmt.Sprintf("annotate %s %s --namespace %s %s", resource, rawResources, conf.Namespace, rawAnnotations)
+	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	return nil
+}
 
-	AfterAll(func() {
-		By("Delete all manifests")
-		files := make([]string, 0)
-		err := filepath.Walk(conf.VM.TestDataDir, func(path string, info fs.FileInfo, err error) error {
-			if err == nil && strings.HasSuffix(info.Name(), "yaml") {
-				files = append(files, path)
-			}
-			return nil
-		})
-		if err != nil || len(files) == 0 {
-			kubectl.Delete(kc.DeleteOptions{
-				Filename:       []string{imageManifest},
-				FilenameOption: kc.Filename,
-			})
-			kubectl.Delete(kc.DeleteOptions{
-				Filename:       []string{conf.VM.TestDataDir},
-				FilenameOption: kc.Filename,
-			})
-		} else {
-			for _, f := range files {
-				kubectl.Delete(kc.DeleteOptions{
-					Filename:       []string{f},
-					FilenameOption: kc.Filename,
-				})
-			}
+func RemoveAnnotation(resource kc.Resource, annotations map[string]string, names ...string) error {
+	formattedAnnotations := make([]string, 0, len(annotations))
+	for k := range annotations {
+		formattedAnnotations = append(formattedAnnotations, fmt.Sprintf("%s-", k))
+	}
+	rawResources := strings.Join(names, " ")
+	rawAnnotations := strings.Join(formattedAnnotations, "")
+	subCmd := fmt.Sprintf("annotate %s %s --namespace %s %s", resource, rawResources, conf.Namespace, rawAnnotations)
+	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	return nil
+}
+
+func GetActiveVirtualMachinePod(vmObj *virtv2.VirtualMachine) string {
+	for _, pod := range vmObj.Status.VirtualMachinePods {
+		if pod.Active {
+			return pod.Name
 		}
+	}
+	return ""
+}
+
+var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETestDecorators(), func() {
+	testCaseLabel := map[string]string{"testcase": "vm-label-annotation"}
+	specialKeyValue := map[string]string{"specialKey": "specialValue"}
+
+	Context("When resources are applied", func() {
+		It("result should be succeeded", func() {
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.VmLabelAnnotation},
+				FilenameOption: kc.Kustomize,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		})
 	})
 
-	Context("Label", func() {
-		var vm *virtv2.VirtualMachine
-		var err error
-
-		BeforeAll(func() {
-			By("Apply manifest")
-			vm, err = GetVMFromManifest(vmManifest)
-			Expect(err).NotTo(HaveOccurred())
-			ApplyFromFile(vmManifest)
-			WaitVmStatus(vm.Name, VMStatusRunning)
-		})
-
-		AfterAll(func() {
-			By("Delete manifest")
-			kubectl.Delete(kc.DeleteOptions{
-				Filename:       []string{vmManifest},
-				FilenameOption: kc.Filename,
-			})
-		})
-
-		Describe(fmt.Sprintf("Add label %s=%s", labelName, labelValue), func() {
-			It("Labeled", func() {
-				subCMD := fmt.Sprintf("-n %s label vm %s %s=%s", conf.Namespace, vm.Name, labelName, labelValue)
-				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
-				Expect(res.Error()).NotTo(HaveOccurred())
-			})
-		})
-
-		Describe("Check label on resource", func() {
-			It("VM", func() {
-				res := getRecourseLabel(kc.ResourceVM, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get VM %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(Equal(labelValue))
-			})
-			It("KVVM", func() {
-				res := getRecourseLabel(kc.ResourceKubevirtVM, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get KVVM %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(Equal(labelValue))
-			})
-			It("KVVMI", func() {
-				res := getRecourseLabel(kc.ResourceKubevirtVMI, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get KVVMI %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(Equal(labelValue))
-			})
-			It("POD virtlauncher", func() {
-				pod := getPodName(vm.Name)
-				res := getRecourseLabel(kc.ResourcePod, pod)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get pod %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(Equal(labelValue))
-			})
-		})
-
-		Describe(fmt.Sprintf("Remove label %s=%s", labelName, labelValue), func() {
-			It("Label was removed", func() {
-				subCMD := fmt.Sprintf("-n %s label vm %s %s-", conf.Namespace, vm.Name, labelName)
-				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
-				Expect(res.Error()).NotTo(HaveOccurred())
-			})
-		})
-
-		Describe("Label must be removed from resource", func() {
-			It("VM", func() {
-				res := getRecourseLabel(kc.ResourceVM, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get VM %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(BeEmpty())
-			})
-			It("KVVM", func() {
-				res := getRecourseLabel(kc.ResourceKubevirtVM, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get KVVM %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(BeEmpty())
-			})
-			It("KVVMI", func() {
-				res := getRecourseLabel(kc.ResourceKubevirtVMI, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get KVVMI %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(BeEmpty())
-			})
-			It("POD virtlauncher", func() {
-				pod := getPodName(vm.Name)
-				res := getRecourseLabel(kc.ResourcePod, pod)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get pod %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(BeEmpty())
+	Context("When virtual images are applied", func() {
+		It("checks VIs phases", func() {
+			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
-	Context("Annotation", func() {
-		var vm *virtv2.VirtualMachine
-
-		BeforeAll(func() {
-			By("Apply manifest")
-			var err error
-			vm, err = GetVMFromManifest(vmManifest)
-			Expect(err).NotTo(HaveOccurred())
-			ApplyFromFile(vmManifest)
-			WaitVmStatus(vm.Name, VMStatusRunning)
-		})
-
-		AfterAll(func() {
-			By("Delete manifest")
-			kubectl.Delete(kc.DeleteOptions{
-				Filename:       []string{vmManifest},
-				FilenameOption: kc.Filename,
+	Context("When virtual disks are applied", func() {
+		It("checks VDs phases", func() {
+			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Timeout:   MaxWaitTimeout,
 			})
 		})
+	})
 
-		Describe(fmt.Sprintf("Add annotation %s=%s", annotationName, annotationValue), func() {
-			It("Annotated", func() {
-				subCMD := fmt.Sprintf("-n %s annotate vm %s %s=%s", conf.Namespace, vm.Name, annotationName,
-					annotationValue)
-				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
-				Expect(res.Error()).NotTo(HaveOccurred())
+	Context("When virtual machines are applied", func() {
+		It("checks VMs phases", func() {
+			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Timeout:   MaxWaitTimeout,
 			})
 		})
+	})
 
-		Describe("Check annotation on resource", func() {
-			It("VM", func() {
-				res := getRecourseAnnotation(kc.ResourceVM, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get VM %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(Equal(annotationValue))
+	Context(fmt.Sprintf("Label `VirtualMachines` in %s phase", PhaseRunning), func() {
+		It(fmt.Sprintf("marks VMs with label %q", specialKeyValue), func() {
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
-			It("KVVM", func() {
-				res := getRecourseAnnotation(kc.ResourceKubevirtVM, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get KVVM %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(Equal(annotationValue))
-			})
-			It("KVVMI", func() {
-				res := getRecourseAnnotation(kc.ResourceKubevirtVMI, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get KVVMI %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(Equal(annotationValue))
-			})
-			It("POD virtlauncher", func() {
-				pod := getPodName(vm.Name)
-				res := getRecourseAnnotation(kc.ResourcePod, pod)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get pod %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(Equal(annotationValue))
-			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+
+			vms := strings.Split(res.StdOut(), " ")
+			err := AddLabel(kc.ResourceVM, specialKeyValue, vms...)
+			Expect(err).NotTo(HaveOccurred(), err)
 		})
 
-		Describe("Remove annotation test-annotation=true", func() {
-			It("Was removed", func() {
-				subCMD := fmt.Sprintf("-n %s annotate vm %s %s-", conf.Namespace, vm.Name, annotationName)
-				res := kubectl.RawCommand(subCMD, ShortWaitDuration)
-				Expect(res.Error()).NotTo(HaveOccurred())
+		It("checks VMs and pods labels after VMs labeling", func() {
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+
+			vms := strings.Split(res.StdOut(), " ")
+			for _, vm := range vms {
+				vmObj := virtv2.VirtualMachine{}
+				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmObj.Labels).Should(HaveKeyWithValue("specialKey", "specialValue"))
+
+				activePod := GetActiveVirtualMachinePod(&vmObj)
+				vmPodObj := v1.Pod{}
+				err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmPodObj.Labels).Should(HaveKeyWithValue("specialKey", "specialValue"))
+			}
 		})
 
-		Describe("Annotation must be removed from resource", func() {
-			It("VM", func() {
-				res := getRecourseAnnotation(kc.ResourceVM, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get VM %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(BeEmpty())
+		It(fmt.Sprintf("removes label %s from VMs", specialKeyValue), func() {
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
-			It("KVVM", func() {
-				res := getRecourseAnnotation(kc.ResourceKubevirtVM, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get KVVM %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(BeEmpty())
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+
+			vms := strings.Split(res.StdOut(), " ")
+			err := RemoveLabel(kc.ResourceVM, specialKeyValue, vms...)
+			Expect(err).NotTo(HaveOccurred(), err)
+		})
+
+		It("checks VMs and pods labels after VMs unlabeling", func() {
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
-			It("KVVMI", func() {
-				res := getRecourseAnnotation(kc.ResourceKubevirtVMI, vm.Name)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get KVVMI %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(BeEmpty())
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+
+			vms := strings.Split(res.StdOut(), " ")
+			for _, vm := range vms {
+				vmObj := virtv2.VirtualMachine{}
+				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmObj.Labels).ShouldNot(HaveKey("specialKey"))
+
+				activePod := GetActiveVirtualMachinePod(&vmObj)
+				vmPodObj := v1.Pod{}
+				err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmPodObj.Labels).ShouldNot(HaveKey("specialKey"))
+			}
+		})
+	})
+
+	Context(fmt.Sprintf("Annotate `VirtualMachines` in %s phase", PhaseRunning), func() {
+		It(fmt.Sprintf("marks VMs with annotation %q", specialKeyValue), func() {
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
-			It("POD virtlauncher", func() {
-				pod := getPodName(vm.Name)
-				res := getRecourseAnnotation(kc.ResourcePod, pod)
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to get pod %s.\n%s", vm.Name, res.StdErr())
-				Expect(res.StdOut()).To(BeEmpty())
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+
+			vms := strings.Split(res.StdOut(), " ")
+			err := AddAnnotation(kc.ResourceVM, specialKeyValue, vms...)
+			Expect(err).NotTo(HaveOccurred(), err)
+		})
+
+		It("checks VMs and pods annotations after VMs annotating", func() {
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+
+			vms := strings.Split(res.StdOut(), " ")
+			for _, vm := range vms {
+				vmObj := virtv2.VirtualMachine{}
+				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmObj.Annotations).Should(HaveKeyWithValue("specialKey", "specialValue"))
+
+				activePod := GetActiveVirtualMachinePod(&vmObj)
+				vmPodObj := v1.Pod{}
+				err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmPodObj.Annotations).Should(HaveKeyWithValue("specialKey", "specialValue"))
+			}
+		})
+
+		It(fmt.Sprintf("removes annotation %s from VMs", specialKeyValue), func() {
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+
+			vms := strings.Split(res.StdOut(), " ")
+			err := RemoveAnnotation(kc.ResourceVM, specialKeyValue, vms...)
+			Expect(err).NotTo(HaveOccurred(), err)
+		})
+
+		It("checks VMs and pods annotations after VMs unannotating", func() {
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+
+			vms := strings.Split(res.StdOut(), " ")
+			for _, vm := range vms {
+				vmObj := virtv2.VirtualMachine{}
+				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmObj.Annotations).ShouldNot(HaveKey("specialKey"))
+
+				activePod := GetActiveVirtualMachinePod(&vmObj)
+				vmPodObj := v1.Pod{}
+				err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmPodObj.Annotations).ShouldNot(HaveKey("specialKey"))
+			}
+		})
+	})
+
+	Context("When test is completed", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.VmLabelAnnotation,
 			})
 		})
 	})

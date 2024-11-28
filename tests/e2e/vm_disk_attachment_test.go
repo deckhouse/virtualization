@@ -122,7 +122,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 		vmbdaName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
 	})
 
-	Context("When resources are applied:", func() {
+	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.VmDiskAttachment},
@@ -132,7 +132,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 		})
 	})
 
-	Context("When virtual images are applied:", func() {
+	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
@@ -143,7 +143,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 		})
 	})
 
-	Context("When virtual disks are applied:", func() {
+	Context("When virtual disks are applied", func() {
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs with consumers should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
@@ -161,7 +161,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 		})
 	})
 
-	Context("When virtual machines are applied:", func() {
+	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
@@ -173,7 +173,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 	})
 
 	Describe("Attachment", func() {
-		Context(fmt.Sprintf("When virtual machines are in %s phases:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When virtual machines are in %s phases", PhaseRunning), func() {
 			It("get disk count before attachment", func() {
 				Eventually(func() error {
 					return GetDisksMetadata(vmName, &disksBefore)
@@ -211,7 +211,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 	})
 
 	Describe("Detachment", func() {
-		Context(fmt.Sprintf("When virtual machines are in %s phases:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When virtual machines are in %s phases", PhaseRunning), func() {
 			It("get disk count before detachment", func() {
 				Eventually(func() error {
 					return GetDisksMetadata(vmName, &disksBefore)
@@ -246,7 +246,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 		})
 	})
 
-	Context("When test is complited:", func() {
+	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
 			DeleteTestCaseResources(ResourcesToDelete{
 				KustomizationDir: conf.TestData.VmDiskAttachment,
