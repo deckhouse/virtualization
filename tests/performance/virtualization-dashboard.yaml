@@ -30,8 +30,6 @@ spec:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 1,
-      "id": 40,
-      "iteration": 1713860037748,
       "links": [],
       "liveNow": false,
       "panels": [
@@ -43,7 +41,7 @@ spec:
             "x": 0,
             "y": 0
           },
-          "id": 62,
+          "id": 66,
           "panels": [],
           "title": "Common statistic",
           "type": "row"
@@ -86,16 +84,18 @@ spec:
             "overrides": []
           },
           "gridPos": {
-            "h": 7,
-            "w": 5,
+            "h": 8,
+            "w": 6,
             "x": 0,
             "y": 1
           },
           "id": 45,
           "options": {
             "displayMode": "gradient",
+            "maxVizHeight": 300,
             "minVizHeight": 10,
             "minVizWidth": 0,
+            "namePlacement": "auto",
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [
@@ -104,9 +104,11 @@ spec:
               "fields": "",
               "values": false
             },
-            "showUnfilled": true
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.4.5",
           "targets": [
             {
               "datasource": {
@@ -115,7 +117,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sum(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\"}) by (name)) by (phase)",
+              "expr": "sum(d8_virtualization_virtualmachine_status_phase{namespace=~\"$namespace\"}) by (phase)",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -125,7 +127,6 @@ spec:
             }
           ],
           "title": "Count VMs",
-          "transformations": [],
           "type": "bargauge"
         },
         {
@@ -154,16 +155,18 @@ spec:
             "overrides": []
           },
           "gridPos": {
-            "h": 7,
-            "w": 5,
-            "x": 5,
+            "h": 8,
+            "w": 6,
+            "x": 6,
             "y": 1
           },
           "id": 65,
           "options": {
             "displayMode": "gradient",
+            "maxVizHeight": 300,
             "minVizHeight": 10,
             "minVizWidth": 0,
+            "namePlacement": "auto",
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [
@@ -172,9 +175,11 @@ spec:
               "fields": "",
               "values": false
             },
-            "showUnfilled": true
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.4.5",
           "targets": [
             {
               "datasource": {
@@ -182,18 +187,15 @@ spec:
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "exemplar": false,
-              "expr": "sum by (phase) ((kube_pod_status_phase{} * on (pod) group_left(label_vm_kubevirt_io_name) kube_pod_labels{label_vm_kubevirt_io_name!=\"\"})==1)",
-              "format": "time_series",
+              "expr": "sum by (phase) ((kube_pod_status_phase{} * on (pod) group_left(label_vm_kubevirt_internal_virtualization_deckhouse_io_name) kube_pod_labels{label_vm_kubevirt_internal_virtualization_deckhouse_io_name!=\"\"}))",
               "hide": false,
               "instant": false,
-              "legendFormat": "{{ phase }}",
+              "legendFormat": "{{phase}}",
               "range": true,
-              "refId": "F"
+              "refId": "A"
             }
           ],
           "title": "Count VM Pods",
-          "transformations": [],
           "type": "bargauge"
         },
         {
@@ -225,16 +227,18 @@ spec:
             "overrides": []
           },
           "gridPos": {
-            "h": 7,
-            "w": 5,
-            "x": 10,
+            "h": 8,
+            "w": 6,
+            "x": 12,
             "y": 1
           },
           "id": 52,
           "options": {
             "displayMode": "gradient",
+            "maxVizHeight": 300,
             "minVizHeight": 10,
             "minVizWidth": 0,
+            "namePlacement": "auto",
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [
@@ -243,9 +247,11 @@ spec:
               "fields": "",
               "values": false
             },
-            "showUnfilled": true
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.4.5",
           "targets": [
             {
               "datasource": {
@@ -253,18 +259,15 @@ spec:
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "exemplar": false,
-              "expr": "sum(topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\"}) by (name)) by (phase)",
-              "format": "time_series",
+              "expr": "sum(d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\",namespace=~\"$namespace\"}) by (phase)",
               "hide": false,
               "instant": false,
-              "legendFormat": "{{ phase }}",
+              "legendFormat": "__auto",
               "range": true,
-              "refId": "F"
+              "refId": "A"
             }
           ],
           "title": "Count VirtualDISKs",
-          "transformations": [],
           "type": "bargauge"
         },
         {
@@ -296,16 +299,18 @@ spec:
             "overrides": []
           },
           "gridPos": {
-            "h": 7,
-            "w": 5,
-            "x": 15,
+            "h": 8,
+            "w": 6,
+            "x": 18,
             "y": 1
           },
           "id": 58,
           "options": {
             "displayMode": "gradient",
+            "maxVizHeight": 300,
             "minVizHeight": 10,
             "minVizWidth": 0,
+            "namePlacement": "auto",
             "orientation": "horizontal",
             "reduceOptions": {
               "calcs": [
@@ -314,9 +319,11 @@ spec:
               "fields": "",
               "values": false
             },
-            "showUnfilled": true
+            "showUnfilled": true,
+            "sizing": "auto",
+            "valueMode": "color"
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.4.5",
           "targets": [
             {
               "datasource": {
@@ -324,18 +331,15 @@ spec:
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "exemplar": false,
-              "expr": "sum(topk(1, virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\"}) by (name)) by (phase)",
-              "format": "time_series",
+              "expr": "sum(d8_virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",namespace=~\"$namespace\"}) by (phase)",
               "hide": false,
               "instant": false,
-              "legendFormat": "{{ phase }}",
+              "legendFormat": "__auto",
               "range": true,
-              "refId": "F"
+              "refId": "A"
             }
           ],
           "title": "Count VMBDAs",
-          "transformations": [],
           "type": "bargauge"
         },
         {
@@ -344,7 +348,7 @@ spec:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 8
+            "y": 9
           },
           "id": 38,
           "panels": [],
@@ -363,6 +367,9 @@ spec:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
                 "axisSoftMin": 0,
@@ -375,6 +382,7 @@ spec:
                   "tooltip": false,
                   "viz": false
                 },
+                "insertNulls": false,
                 "lineInterpolation": "smooth",
                 "lineStyle": {
                   "fill": "solid"
@@ -411,14 +419,15 @@ spec:
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 9
+            "y": 10
           },
           "id": 63,
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "bottom"
+              "placement": "bottom",
+              "showLegend": true
             },
             "tooltip": {
               "mode": "single",
@@ -433,18 +442,15 @@ spec:
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "exemplar": false,
-              "expr": "sum by (phase) ((kube_pod_status_phase{} * on (pod) group_left(label_vm_kubevirt_io_name) kube_pod_labels{label_vm_kubevirt_io_name!=\"\"})==1)\n\n",
-              "format": "time_series",
+              "expr": "sum by (phase) ((kube_pod_status_phase{} * on (pod) group_left(label_vm_kubevirt_internal_virtualization_deckhouse_io_name) kube_pod_labels{label_vm_kubevirt_internal_virtualization_deckhouse_io_name!=\"\"})==1)",
               "hide": false,
               "instant": false,
-              "legendFormat": "{{ phase }}",
+              "legendFormat": "__auto",
               "range": true,
-              "refId": "F"
+              "refId": "A"
             }
           ],
           "title": "VM pods phases count",
-          "transformations": [],
           "type": "timeseries"
         },
         {
@@ -459,32 +465,32 @@ spec:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
-                "axisSoftMin": 0,
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 0,
+                "fillOpacity": 25,
                 "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
                   "viz": false
                 },
-                "lineInterpolation": "smooth",
-                "lineStyle": {
-                  "fill": "solid"
-                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
                 "lineWidth": 1,
                 "pointSize": 5,
                 "scaleDistribution": {
                   "type": "linear"
                 },
-                "showPoints": "always",
-                "spanNulls": true,
+                "showPoints": "auto",
+                "spanNulls": false,
                 "stacking": {
                   "group": "A",
-                  "mode": "none"
+                  "mode": "normal"
                 },
                 "thresholdsStyle": {
                   "mode": "off"
@@ -497,6 +503,10 @@ spec:
                   {
                     "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
                   }
                 ]
               }
@@ -507,14 +517,15 @@ spec:
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 9
+            "y": 10
           },
           "id": 64,
           "options": {
             "legend": {
               "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
+              "displayMode": "hidden",
+              "placement": "right",
+              "showLegend": false
             },
             "tooltip": {
               "mode": "single",
@@ -529,18 +540,15 @@ spec:
                 "uid": "${ds_prometheus}"
               },
               "editorMode": "code",
-              "exemplar": false,
-              "expr": "sum by (label_kubevirt_io_node_name) ((kube_pod_status_phase{} * on (pod) group_left(label_kubevirt_io_node_name) kube_pod_labels{label_kubevirt_io_node_name!=\"\"})==1)\n\n",
-              "format": "time_series",
+              "expr": "sum by (label_kubevirt_internal_virtualization_deckhouse_io_node_name) ((kube_pod_status_phase{} * on (pod) group_left(label_kubevirt_internal_virtualization_deckhouse_io_node_name) kube_pod_labels{label_kubevirt_internal_virtualization_deckhouse_io_node_name!=\"\"})==1)",
               "hide": false,
               "instant": false,
-              "legendFormat": "{{ phase }}",
+              "legendFormat": "__auto",
               "range": true,
-              "refId": "F"
+              "refId": "A"
             }
           ],
           "title": "VM pods by nodes count",
-          "transformations": [],
           "type": "timeseries"
         },
         {
@@ -555,6 +563,9 @@ spec:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
                 "axisSoftMin": 0,
@@ -567,6 +578,7 @@ spec:
                   "tooltip": false,
                   "viz": false
                 },
+                "insertNulls": false,
                 "lineInterpolation": "smooth",
                 "lineStyle": {
                   "fill": "solid"
@@ -603,14 +615,15 @@ spec:
             "h": 11,
             "w": 12,
             "x": 0,
-            "y": 17
+            "y": 18
           },
           "id": 34,
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "list",
-              "placement": "bottom"
+              "placement": "bottom",
+              "showLegend": true
             },
             "tooltip": {
               "mode": "single",
@@ -626,7 +639,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "count(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\"}==1) by (name)) by (phase)",
+              "expr": "sum(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\"}==1) by (phase)",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -636,7 +649,6 @@ spec:
             }
           ],
           "title": "VM phases count",
-          "transformations": [],
           "type": "timeseries"
         },
         {
@@ -651,32 +663,32 @@ spec:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
-                "axisSoftMin": 0,
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 0,
+                "fillOpacity": 25,
                 "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
                   "tooltip": false,
                   "viz": false
                 },
-                "lineInterpolation": "smooth",
-                "lineStyle": {
-                  "fill": "solid"
-                },
+                "insertNulls": false,
+                "lineInterpolation": "linear",
                 "lineWidth": 1,
                 "pointSize": 5,
                 "scaleDistribution": {
                   "type": "linear"
                 },
-                "showPoints": "always",
-                "spanNulls": true,
+                "showPoints": "auto",
+                "spanNulls": false,
                 "stacking": {
                   "group": "A",
-                  "mode": "none"
+                  "mode": "normal"
                 },
                 "thresholdsStyle": {
                   "mode": "off"
@@ -689,6 +701,10 @@ spec:
                   {
                     "color": "green",
                     "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
                   }
                 ]
               }
@@ -699,14 +715,17 @@ spec:
             "h": 11,
             "w": 12,
             "x": 12,
-            "y": 17
+            "y": 18
           },
           "id": 59,
           "options": {
             "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom"
+              "calcs": [
+                "lastNotNull"
+              ],
+              "displayMode": "table",
+              "placement": "right",
+              "showLegend": true
             },
             "tooltip": {
               "mode": "single",
@@ -722,7 +741,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "count(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\"}==1) by (name)) by (node)",
+              "expr": "count(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=~\"Migrating|Running\"}==1) by (node)",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -732,7 +751,6 @@ spec:
             }
           ],
           "title": "VM by nodes count",
-          "transformations": [],
           "type": "timeseries"
         },
         {
@@ -747,6 +765,9 @@ spec:
                 "mode": "palette-classic"
               },
               "custom": {
+                "axisBorderShow": false,
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
                 "axisLabel": "",
                 "axisPlacement": "auto",
                 "axisSoftMax": 9,
@@ -761,6 +782,7 @@ spec:
                   "tooltip": false,
                   "viz": false
                 },
+                "insertNulls": false,
                 "lineInterpolation": "linear",
                 "lineStyle": {
                   "fill": "solid"
@@ -851,8 +873,7 @@ spec:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "light-red",
@@ -901,14 +922,15 @@ spec:
             "h": 13,
             "w": 12,
             "x": 0,
-            "y": 28
+            "y": 29
           },
           "id": 8,
           "options": {
             "legend": {
               "calcs": [],
               "displayMode": "table",
-              "placement": "right"
+              "placement": "right",
+              "showLegend": true
             },
             "tooltip": {
               "mode": "single",
@@ -924,7 +946,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\",phase=\"Failed\"} > 0) by (name)) - 1 + 0",
+              "expr": "(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Failed\"} > 0) - 1 + 0",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -939,7 +961,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Stopping\"} > 0) by (name)) - 1 + 1",
+              "expr": "(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Stopping\"} > 0) - 1 + 1",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -954,7 +976,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Stopped\"} > 0) by (name)) - 1 + 2",
+              "expr": "(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Stopped\"} > 0) - 1 + 2",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -969,7 +991,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Terminating\"} > 0) by (name)) - 1 + 3",
+              "expr": "(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Terminating\"} > 0) - 1 + 3",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -984,7 +1006,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Pending\"} > 0) by (name)) - 1 + 4",
+              "expr": "(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Pending\"} > 0) - 1 + 4",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -999,7 +1021,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Pause\"} > 0) by (name)) - 1 + 5",
+              "expr": "(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Pause\"} > 0) - 1 + 5",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -1014,7 +1036,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Scheduling\"} > 0) by (name)) - 1 + 6",
+              "expr": "(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Scheduling\"} > 0) - 1 + 6",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -1029,7 +1051,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\",phase=\"Starting\"} > 0) by (name)) - 1 + 7",
+              "expr": "(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Starting\"} > 0) - 1 + 7",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -1044,7 +1066,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\",phase=\"Running\"} > 0) by (name)) - 1 + 8",
+              "expr": "(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Running\"} > 0) - 1 + 8",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -1059,7 +1081,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\",phase=\"Migrating\"} > 0) by (name)) - 1 + 9",
+              "expr": "(d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Migrating\"} > 0) - 1 + 9",
               "format": "time_series",
               "hide": false,
               "instant": false,
@@ -1069,7 +1091,6 @@ spec:
             }
           ],
           "title": "VirtualMachine Phases TimeLine",
-          "transformations": [],
           "type": "timeseries"
         },
         {
@@ -1085,7 +1106,9 @@ spec:
               },
               "custom": {
                 "align": "left",
-                "displayMode": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
                 "inspect": false
               },
               "mappings": [],
@@ -1093,8 +1116,7 @@ spec:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1122,11 +1144,13 @@ spec:
             "h": 13,
             "w": 6,
             "x": 12,
-            "y": 28
+            "y": 29
           },
           "id": 43,
           "options": {
+            "cellHeight": "sm",
             "footer": {
+              "countRows": false,
               "fields": "",
               "reducer": [
                 "sum"
@@ -1141,7 +1165,7 @@ spec:
               }
             ]
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.4.5",
           "targets": [
             {
               "datasource": {
@@ -1150,7 +1174,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "(kube_pod_status_phase{namespace=~\"$namespace\", phase!~\"(Running|Succeeded)\"} * on (pod) group_left(label_vm_kubevirt_io_name) kube_pod_labels{label_vm_kubevirt_io_name!=\"\"})==1",
+              "expr": "(kube_pod_status_phase{namespace=~\"$namespace\", phase!~\"(Running|Succeeded)\"} * on (pod) group_left(label_vm_kubevirt_internal_virtualization_deckhouse_io_name) kube_pod_labels{label_vm_kubevirt_internal_virtualization_deckhouse_io_name!=\"\"})==1",
               "format": "table",
               "instant": true,
               "legendFormat": "__auto",
@@ -1208,7 +1232,9 @@ spec:
               },
               "custom": {
                 "align": "left",
-                "displayMode": "auto",
+                "cellOptions": {
+                  "type": "auto"
+                },
                 "inspect": false
               },
               "mappings": [],
@@ -1216,8 +1242,7 @@ spec:
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -1245,11 +1270,13 @@ spec:
             "h": 13,
             "w": 6,
             "x": 18,
-            "y": 28
+            "y": 29
           },
           "id": 5,
           "options": {
+            "cellHeight": "sm",
             "footer": {
+              "countRows": false,
               "fields": "",
               "reducer": [
                 "sum"
@@ -1264,7 +1291,7 @@ spec:
               }
             ]
           },
-          "pluginVersion": "8.5.13",
+          "pluginVersion": "10.4.5",
           "targets": [
             {
               "datasource": {
@@ -1273,7 +1300,7 @@ spec:
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "topk(1, virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\", phase!=\"Running\"} > 0) by (name)",
+              "expr": "d8_virtualization_virtualmachine_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\", phase!=\"Running\"} > 0",
               "format": "table",
               "instant": true,
               "legendFormat": "__auto",
@@ -1320,7 +1347,7 @@ spec:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 41
+            "y": 42
           },
           "id": 42,
           "panels": [
@@ -1336,6 +1363,9 @@ spec:
                     "mode": "palette-classic"
                   },
                   "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
                     "axisLabel": "",
                     "axisPlacement": "auto",
                     "axisSoftMin": 0,
@@ -1348,6 +1378,7 @@ spec:
                       "tooltip": false,
                       "viz": false
                     },
+                    "insertNulls": false,
                     "lineInterpolation": "smooth",
                     "lineStyle": {
                       "fill": "solid"
@@ -1372,8 +1403,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       }
                     ]
                   }
@@ -1384,14 +1414,15 @@ spec:
                 "h": 10,
                 "w": 24,
                 "x": 0,
-                "y": 10
+                "y": 11
               },
               "id": 46,
               "options": {
                 "legend": {
                   "calcs": [],
                   "displayMode": "list",
-                  "placement": "bottom"
+                  "placement": "bottom",
+                  "showLegend": true
                 },
                 "tooltip": {
                   "mode": "single",
@@ -1407,7 +1438,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "count(topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\"}==1) by (name)) by (phase)",
+                  "expr": "count(d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\"}==1) by (phase)",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -1417,7 +1448,6 @@ spec:
                 }
               ],
               "title": "Count VirtualDISK Phases",
-              "transformations": [],
               "type": "timeseries"
             },
             {
@@ -1432,6 +1462,9 @@ spec:
                     "mode": "palette-classic"
                   },
                   "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
                     "axisLabel": "",
                     "axisPlacement": "left",
                     "axisSoftMax": 7,
@@ -1446,6 +1479,7 @@ spec:
                       "tooltip": false,
                       "viz": false
                     },
+                    "insertNulls": false,
                     "lineInterpolation": "linear",
                     "lineStyle": {
                       "fill": "solid"
@@ -1521,8 +1555,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       },
                       {
                         "color": "light-red",
@@ -1570,14 +1603,15 @@ spec:
                 "h": 11,
                 "w": 12,
                 "x": 0,
-                "y": 20
+                "y": 21
               },
               "id": 50,
               "options": {
                 "legend": {
                   "calcs": [],
                   "displayMode": "table",
-                  "placement": "right"
+                  "placement": "right",
+                  "showLegend": true
                 },
                 "tooltip": {
                   "mode": "single",
@@ -1593,7 +1627,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "(topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\",phase=\"Unknown\"} > 0) by (name)) - 1 + 0",
+                  "expr": "(d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Unknown\"} > 0) - 1 + 0",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -1608,7 +1642,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "(topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"PVCLost\"} > 0) by (name)) - 1 + 1",
+                  "expr": "(d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"PVCLost\"} > 0) - 1 + 1",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -1623,7 +1657,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "(topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Failed\"} > 0) by (name)) - 1 + 2",
+                  "expr": "(d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Failed\"} > 0) - 1 + 2",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -1638,7 +1672,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "(topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\",phase=\"Pending\"} > 0) by (name)) - 1 + 3",
+                  "expr": "(d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Pending\"} > 0) - 1 + 3",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -1653,7 +1687,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "(topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"WaitForUserUpload\"} > 0) by (name)) - 1 + 4",
+                  "expr": "(d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"WaitForUserUpload\"} > 0) - 1 + 4",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -1668,7 +1702,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "(topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Provisioning\"} > 0) by (name)) - 1 + 5",
+                  "expr": "(d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Provisioning\"} > 0) - 1 + 5",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -1683,7 +1717,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "(topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Ready\"} > 0) by (name)) -1 + 6",
+                  "expr": "(d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\",phase=\"Ready\"} > 0) -1 + 6",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -1693,7 +1727,6 @@ spec:
                 }
               ],
               "title": "VirtualDISK Phases TimeLine",
-              "transformations": [],
               "type": "timeseries"
             },
             {
@@ -1709,7 +1742,9 @@ spec:
                   },
                   "custom": {
                     "align": "left",
-                    "displayMode": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
                     "inspect": false
                   },
                   "mappings": [],
@@ -1717,8 +1752,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       }
                     ]
                   }
@@ -1742,11 +1776,13 @@ spec:
                 "h": 11,
                 "w": 6,
                 "x": 12,
-                "y": 20
+                "y": 21
               },
               "id": 47,
               "options": {
+                "cellHeight": "sm",
                 "footer": {
+                  "countRows": false,
                   "fields": "",
                   "reducer": [
                     "sum"
@@ -1761,7 +1797,7 @@ spec:
                   }
                 ]
               },
-              "pluginVersion": "8.5.13",
+              "pluginVersion": "10.4.5",
               "targets": [
                 {
                   "datasource": {
@@ -1770,8 +1806,9 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\"}==1) by (name)",
+                  "expr": "d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\",namespace=~\"$namespace\"}==1",
                   "format": "table",
+                  "hide": false,
                   "instant": true,
                   "legendFormat": "__auto",
                   "range": false,
@@ -1824,7 +1861,9 @@ spec:
                   },
                   "custom": {
                     "align": "left",
-                    "displayMode": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
                     "inspect": false
                   },
                   "mappings": [],
@@ -1832,8 +1871,7 @@ spec:
                     "mode": "absolute",
                     "steps": [
                       {
-                        "color": "green",
-                        "value": null
+                        "color": "green"
                       },
                       {
                         "color": "red",
@@ -1861,11 +1899,13 @@ spec:
                 "h": 11,
                 "w": 6,
                 "x": 18,
-                "y": 20
+                "y": 21
               },
               "id": 48,
               "options": {
+                "cellHeight": "sm",
                 "footer": {
+                  "countRows": false,
                   "fields": "",
                   "reducer": [
                     "sum"
@@ -1880,7 +1920,7 @@ spec:
                   }
                 ]
               },
-              "pluginVersion": "8.5.13",
+              "pluginVersion": "10.4.5",
               "targets": [
                 {
                   "datasource": {
@@ -1889,7 +1929,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "topk(1, virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\", phase!=\"Ready\"} > 0) by (name)",
+                  "expr": "d8_virtualization_virtualdisk_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\", phase!=\"Ready\"} > 0",
                   "format": "table",
                   "instant": true,
                   "legendFormat": "__auto",
@@ -1940,7 +1980,7 @@ spec:
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 42
+            "y": 43
           },
           "id": 54,
           "panels": [
@@ -1956,6 +1996,9 @@ spec:
                     "mode": "palette-classic"
                   },
                   "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
                     "axisLabel": "",
                     "axisPlacement": "auto",
                     "axisSoftMin": 0,
@@ -1968,6 +2011,7 @@ spec:
                       "tooltip": false,
                       "viz": false
                     },
+                    "insertNulls": false,
                     "lineInterpolation": "smooth",
                     "lineStyle": {
                       "fill": "solid"
@@ -2004,14 +2048,15 @@ spec:
                 "h": 10,
                 "w": 24,
                 "x": 0,
-                "y": 11
+                "y": 12
               },
               "id": 55,
               "options": {
                 "legend": {
                   "calcs": [],
                   "displayMode": "list",
-                  "placement": "bottom"
+                  "placement": "bottom",
+                  "showLegend": true
                 },
                 "tooltip": {
                   "mode": "single",
@@ -2027,7 +2072,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "count(topk(1, virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\", exported_namespace=~\"$namespace\"}==1) by (name)) by (phase)",
+                  "expr": "count(d8_virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\", namespace=~\"$namespace\"}==1) by (phase)",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -2037,7 +2082,6 @@ spec:
                 }
               ],
               "title": "Count VMBDA Phases",
-              "transformations": [],
               "type": "timeseries"
             },
             {
@@ -2052,10 +2096,13 @@ spec:
                     "mode": "palette-classic"
                   },
                   "custom": {
+                    "axisBorderShow": false,
+                    "axisCenteredZero": false,
+                    "axisColorMode": "text",
                     "axisLabel": "",
                     "axisPlacement": "auto",
                     "axisSoftMax": 3,
-                    "axisSoftMin": -1,
+                    "axisSoftMin": 1,
                     "barAlignment": 0,
                     "drawStyle": "line",
                     "fillOpacity": 0,
@@ -2065,6 +2112,7 @@ spec:
                       "tooltip": false,
                       "viz": false
                     },
+                    "insertNulls": false,
                     "lineInterpolation": "linear",
                     "lineStyle": {
                       "fill": "solid"
@@ -2134,45 +2182,21 @@ spec:
                     ]
                   }
                 },
-                "overrides": [
-                  {
-                    "__systemRef": "hideSeriesFrom",
-                    "matcher": {
-                      "id": "byNames",
-                      "options": {
-                        "mode": "exclude",
-                        "names": [
-                          "disk-blank-attachment-004"
-                        ],
-                        "prefix": "All except:",
-                        "readOnly": true
-                      }
-                    },
-                    "properties": [
-                      {
-                        "id": "custom.hideFrom",
-                        "value": {
-                          "legend": false,
-                          "tooltip": false,
-                          "viz": true
-                        }
-                      }
-                    ]
-                  }
-                ]
+                "overrides": []
               },
               "gridPos": {
                 "h": 8,
                 "w": 12,
                 "x": 0,
-                "y": 21
+                "y": 22
               },
               "id": 9,
               "options": {
                 "legend": {
                   "calcs": [],
                   "displayMode": "table",
-                  "placement": "right"
+                  "placement": "right",
+                  "showLegend": true
                 },
                 "tooltip": {
                   "mode": "single",
@@ -2188,7 +2212,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "(topk(1, virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Failed\"} > 0) by (name)) - 1 + 0",
+                  "expr": "d8_virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",namespace=~\"$namespace\",phase=\"Failed\"} > 0",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -2203,7 +2227,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "(topk(1, virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"InProgress\"} > 0) by (name)) - 1 + 1",
+                  "expr": "(d8_virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",namespace=~\"$namespace\",phase=\"InProgress\"} > 0) + 1",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
@@ -2218,17 +2242,31 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "(topk(1, virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase=\"Attached\"} > 0) by (name)) - 1 + 2",
+                  "expr": "(d8_virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",namespace=~\"$namespace\",phase=\"Attached\"} > 0) + 2",
                   "format": "time_series",
                   "hide": false,
                   "instant": false,
                   "legendFormat": "{{ name }}",
                   "range": true,
                   "refId": "B"
+                },
+                {
+                  "datasource": {
+                    "type": "prometheus",
+                    "uid": "P0D6E4079E36703EB"
+                  },
+                  "editorMode": "code",
+                  "exemplar": false,
+                  "expr": "(d8_virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",namespace=~\"$namespace\",phase=\"Pending\"} > 0) + 3",
+                  "format": "time_series",
+                  "hide": false,
+                  "instant": false,
+                  "legendFormat": "{{ name }}",
+                  "range": true,
+                  "refId": "C"
                 }
               ],
               "title": "VMBDA Phases TimeLine",
-              "transformations": [],
               "type": "timeseries"
             },
             {
@@ -2244,7 +2282,9 @@ spec:
                   },
                   "custom": {
                     "align": "left",
-                    "displayMode": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
                     "inspect": false
                   },
                   "mappings": [],
@@ -2289,11 +2329,13 @@ spec:
                 "h": 8,
                 "w": 6,
                 "x": 12,
-                "y": 21
+                "y": 22
               },
               "id": 56,
               "options": {
+                "cellHeight": "sm",
                 "footer": {
+                  "countRows": false,
                   "fields": "",
                   "reducer": [
                     "sum"
@@ -2308,7 +2350,7 @@ spec:
                   }
                 ]
               },
-              "pluginVersion": "8.5.13",
+              "pluginVersion": "10.4.5",
               "targets": [
                 {
                   "datasource": {
@@ -2317,7 +2359,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "topk(1, virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\"}==1) by (name)",
+                  "expr": "d8_virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",namespace=~\"$namespace\"}==1",
                   "format": "table",
                   "instant": true,
                   "legendFormat": "__auto",
@@ -2371,7 +2413,9 @@ spec:
                   },
                   "custom": {
                     "align": "left",
-                    "displayMode": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
                     "inspect": false
                   },
                   "mappings": [],
@@ -2404,11 +2448,13 @@ spec:
                 "h": 8,
                 "w": 6,
                 "x": 18,
-                "y": 21
+                "y": 22
               },
               "id": 57,
               "options": {
+                "cellHeight": "sm",
                 "footer": {
+                  "countRows": false,
                   "fields": "",
                   "reducer": [
                     "sum"
@@ -2423,7 +2469,7 @@ spec:
                   }
                 ]
               },
-              "pluginVersion": "8.5.13",
+              "pluginVersion": "10.4.5",
               "targets": [
                 {
                   "datasource": {
@@ -2432,7 +2478,7 @@ spec:
                   },
                   "editorMode": "code",
                   "exemplar": false,
-                  "expr": "topk(1, virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",exported_namespace=~\"$namespace\",phase!=\"Attached\"}==1) by (name)",
+                  "expr": "d8_virtualization_virtualmachineblockdeviceattachment_status_phase{prometheus!=\"deckhouse\",namespace=~\"$namespace\",phase!=\"Attached\"}==1",
                   "format": "table",
                   "instant": true,
                   "legendFormat": "__auto",
@@ -2478,17 +2524,16 @@ spec:
           "type": "row"
         }
       ],
-      "refresh": "5s",
-      "schemaVersion": 36,
-      "style": "dark",
+      "refresh": "",
+      "schemaVersion": 39,
       "tags": [],
       "templating": {
         "list": [
           {
             "current": {
               "selected": true,
-              "text": "main-old",
-              "value": "main-old"
+              "text": "main",
+              "value": "P0D6E4079E36703EB"
             },
             "hide": 0,
             "includeAll": false,
@@ -2538,10 +2583,10 @@ spec:
             "current": {
               "selected": true,
               "text": [
-                "d8-virt-node-1"
+                "All"
               ],
               "value": [
-                "d8-virt-node-1"
+                "$__all"
               ]
             },
             "datasource": {
@@ -2573,9 +2618,9 @@ spec:
       },
       "timepicker": {},
       "timezone": "browser",
-      "title": "VirtualMachines Overview",
-      "uid": "a2YH1nfSz",
-      "version": 8,
+      "title": "Virtualization",
+      "uid": "d10H1nfSz",
+      "version": 1,
       "weekStart": ""
     }
   folder: virtualization
