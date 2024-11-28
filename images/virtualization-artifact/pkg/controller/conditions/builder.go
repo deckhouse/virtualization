@@ -36,17 +36,26 @@ func HasCondition(conditionType Stringer, conditions []metav1.Condition) bool {
 }
 
 func SetCondition(c Conder, conditions *[]metav1.Condition) {
+	current := meta.FindStatusCondition(*conditions, c.Condition().Type)
+	changed := c.Condition()
+	if current != nil {
+		if current.Status == changed.Status {
+			changed.LastTransitionTime = current.LastTransitionTime
+		} else {
+			changed.LastTransitionTime = metav1.Now()
+		}
+	}
+
 	meta.SetStatusCondition(conditions, c.Condition())
 }
 
 func GetCondition(condType Stringer, conditions []metav1.Condition) (metav1.Condition, bool) {
-	for _, condition := range conditions {
-		if condition.Type == condType.String() {
-			return condition, true
-		}
+	condition := meta.FindStatusCondition(conditions, condType.String())
+	if condition == nil {
+		return metav1.Condition{}, false
+	} else {
+		return *condition, true
 	}
-
-	return metav1.Condition{}, false
 }
 
 func NewConditionBuilder(conditionType Stringer) *ConditionBuilder {
