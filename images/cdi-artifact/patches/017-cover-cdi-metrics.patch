@@ -36,3 +36,16 @@ index a8fdfb6b5..74fdd5210 100644
  	}
  
  	cfg = config.GetConfigOrDie()
+diff --git a/pkg/operator/resources/namespaced/controller.go b/pkg/operator/resources/namespaced/controller.go
+index 665a4517b..53ff9154b 100644
+--- a/pkg/operator/resources/namespaced/controller.go
++++ b/pkg/operator/resources/namespaced/controller.go
+@@ -383,7 +383,7 @@ func createPrometheusService() *corev1.Service {
+ 			Port: 8080,
+ 			TargetPort: intstr.IntOrString{
+ 				Type:   intstr.String,
+-				StrVal: "metrics",
++				StrVal: "https-metrics",
+ 			},
+ 			Protocol: corev1.ProtocolTCP,
+ 		},
