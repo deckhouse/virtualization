@@ -53,6 +53,20 @@ jobs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
       module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
     steps:
+      - name: Get Pull Request Labels
+        id: get-labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber,
+            });
+            return labels.map(label => label.name);
+          result-encoding: string
+
       - name: Set vars
         id: modules_module_tag
         run: |
@@ -70,9 +84,7 @@ jobs:
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
 
           # Slect edition for build, default EE
-          labels="${{ github.event.pull_request.labels.*.name }}"
-
-          if [[ "$labels" == *"edition/ce"* ]]; then
+          if echo "${{ steps.get-labels.outputs.result }}" | grep -q "edition/ce"; then
             echo "MODULE_EDITION=CE" >> $GITHUB_OUTPUT
           else
             echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
