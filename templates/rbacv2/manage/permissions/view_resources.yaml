@@ -1,7 +1,6 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  creationTimestamp: null
   labels:
     heritage: deckhouse
     module: virtualization
@@ -9,7 +8,7 @@ metadata:
     rbac.deckhouse.io/kind: manage
     rbac.deckhouse.io/level: module
     rbac.deckhouse.io/namespace: d8-virtualization
-  name: d8:manage:permission:virtualization:view_resources
+  name: d8:manage:permission:subsystem:virtualization:view_resources
 rules:
 - apiGroups:
   - virtualization.deckhouse.io
