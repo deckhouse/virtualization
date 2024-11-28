@@ -5,7 +5,7 @@ metadata:
   labels:
     heritage: deckhouse
     module: virtualization
-    rbac.deckhouse.io/aggregate-to-role: disaster-admin
+    rbac.deckhouse.io/aggregate-to-role: super-admin
     rbac.deckhouse.io/kind: use
-  name: d8:use:virtualization:disaster-admin
+  name: d8:use:virtualization:super-admin
 rules: []
