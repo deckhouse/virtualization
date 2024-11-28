@@ -37,6 +37,8 @@ spec:
     flags:
       controller:
         metrics_address: 127.0.0.1:8080
+      operator:
+        metrics_address: 127.0.0.1:8080
     patches:
       - resourceType: Deployment
         resourceName: cdi-apiserver
@@ -96,6 +98,7 @@ spec:
       {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
           (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-operator") 
       ) }}
       - resourceType: Deployment
         resourceName: cdi-apiserver
