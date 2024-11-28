@@ -8,4 +8,9 @@ metadata:
     rbac.deckhouse.io/aggregate-to-role: super-admin
     rbac.deckhouse.io/kind: use
   name: d8:use:virtualization:super-admin
+aggregationRule:
+  clusterRoleSelectors:
+    - matchLabels:
+        rbac.deckhouse.io/kind: use
+        rbac.deckhouse.io/aggregate-to-virtualization-as: super-admin
 rules: []
