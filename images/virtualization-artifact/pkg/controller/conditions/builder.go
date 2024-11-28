@@ -40,12 +40,13 @@ func SetCondition(c Conder, conditions *[]metav1.Condition) {
 }
 
 func GetCondition(condType Stringer, conditions []metav1.Condition) (metav1.Condition, bool) {
-	condition := meta.FindStatusCondition(conditions, condType.String())
-	if condition == nil {
-		return metav1.Condition{}, false
-	} else {
-		return *condition, true
+	for _, condition := range conditions {
+		if condition.Type == condType.String() {
+			return condition, true
+		}
 	}
+
+	return metav1.Condition{}, false
 }
 
 func NewConditionBuilder(conditionType Stringer) *ConditionBuilder {
