@@ -6,7 +6,7 @@ metadata:
     heritage: deckhouse
     module: virtualization
     # TODO
-    rbac.deckhouse.io/aggregate-to-virtualization-as: disaster-admin
+    rbac.deckhouse.io/aggregate-to-virtualization-as: super-admin
     rbac.deckhouse.io/kind: use
   name: d8:use:capability:virtualization:manage_internals
 rules:
