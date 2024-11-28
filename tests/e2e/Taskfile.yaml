@@ -56,7 +56,6 @@ tasks:
       - |
         ginkgo \
           --skip-file vm_test.go \
-          --skip-file vm_label_annotation_test.go \
           --skip-file ipam_test.go \
           --skip-file disks_test.go \
           -v

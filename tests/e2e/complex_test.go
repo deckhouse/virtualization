@@ -65,7 +65,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
 	)
 
-	Context("When virtualization resources are applied:", func() {
+	Context("When virtualization resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.ComplexTest},
@@ -75,7 +75,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When virtual images are applied:", func() {
+	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
@@ -86,7 +86,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When cluster virtual images are applied:", func() {
+	Context("When cluster virtual images are applied", func() {
 		It("checks CVIs phases", func() {
 			By(fmt.Sprintf("CVIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceCVI, PhaseReady, kc.WaitOptions{
@@ -97,7 +97,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When virtual machine classes are applied:", func() {
+	Context("When virtual machine classes are applied", func() {
 		It("checks VMClasses phases", func() {
 			By(fmt.Sprintf("VMClasses should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVMClass, PhaseReady, kc.WaitOptions{
@@ -108,7 +108,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When virtual machines IP addresses are applied:", func() {
+	Context("When virtual machines IP addresses are applied", func() {
 		It("patches custom VMIP with unassigned address", func() {
 			vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
 			Eventually(func() error {
@@ -126,7 +126,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When virtual disks are applied:", func() {
+	Context("When virtual disks are applied", func() {
 		It("checks VDs phases with consumers", func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
@@ -147,7 +147,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When virtual machines are applied:", func() {
+	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
@@ -158,7 +158,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 	})
 
-	Context("When virtual machine block device attachments are applied:", func() {
+	Context("When virtual machine block device attachments are applied", func() {
 		It("checks VMBDAs phases", func() {
 			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
 			WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
@@ -186,7 +186,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Describe("Migrations", func() {
-		Context(fmt.Sprintf("When VMs are in %s phases:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
 			It("starts migrations", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -200,7 +200,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context("When VMs migrations are applied:", func() {
+		Context("When VMs migrations are applied", func() {
 			It("checks VMs and KubevirtVMIMs phases", func() {
 				By(fmt.Sprintf("KubevirtVMIMs should be in %s phases", PhaseSucceeded))
 				WaitPhaseByLabel(kc.ResourceKubevirtVMIM, PhaseSucceeded, kc.WaitOptions{
@@ -229,7 +229,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context("When test is complited:", func() {
+		Context("When test is completed", func() {
 			It("deletes test case resources", func() {
 				DeleteTestCaseResources(ResourcesToDelete{
 					KustomizationDir: conf.TestData.ComplexTest,
