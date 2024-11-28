@@ -19,6 +19,7 @@ ipam:
 helperImages:
   curlImage: "curlimages/curl"
 testData:
+  affinityToleration: "/tmp/testdata/affinity-toleration"
   complexTest: "/tmp/testdata/complex-test"
   connectivity: "/tmp/testdata/connectivity"
   diskResizing: "/tmp/testdata/disk-resizing"

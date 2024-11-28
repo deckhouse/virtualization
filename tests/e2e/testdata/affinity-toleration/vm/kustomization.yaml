@@ -1,0 +1,7 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - overlays/vm-a-not-b
+  - overlays/vm-b-not-a
+  - overlays/vm-c-and-a
+  - overlays/vm-d
