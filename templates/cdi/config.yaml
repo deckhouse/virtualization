@@ -37,8 +37,6 @@ spec:
     flags:
       controller:
         metrics_address: 127.0.0.1:8080
-      operator:
-        metrics_address: 127.0.0.1:8080
     patches:
       - resourceType: Deployment
         resourceName: cdi-apiserver
