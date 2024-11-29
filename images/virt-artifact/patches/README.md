@@ -91,3 +91,5 @@ This is necessary for ensuring that the metrics can be accessed only by Promethe
 
 Currently covered metrics:
 - virt-handler
+- virt-controller
+- virt-api
