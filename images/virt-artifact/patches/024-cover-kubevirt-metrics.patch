@@ -229,35 +229,6 @@ index f80a0653ad..4a8d20d7be 100644
  
  	vca.AddCommonFlags()
  
-diff --git a/pkg/virt-operator/application.go b/pkg/virt-operator/application.go
-index 47b4880c38..7eb20f19b0 100644
---- a/pkg/virt-operator/application.go
-+++ b/pkg/virt-operator/application.go
-@@ -341,7 +341,6 @@ func Execute() {
- }
- 
- func (app *VirtOperatorApp) Run() {
--	promTLSConfig := kvtls.SetupPromTLS(app.operatorCertManager, app.clusterConfig)
- 
- 	go func() {
- 
-@@ -361,14 +360,10 @@ func (app *VirtOperatorApp) Run() {
- 		restfulContainer.Add(webService)
- 
- 		server := http.Server{
--			Addr:      app.ServiceListen.Address(),
-+			Addr:      app.ServiceListen.MetricsAddress(),
- 			Handler:   mux,
--			TLSConfig: promTLSConfig,
--			// Disable HTTP/2
--			// See CVE-2023-44487
--			TLSNextProto: map[string]func(*http.Server, *tls.Conn, http.Handler){},
- 		}
--		if err := server.ListenAndServeTLS("", ""); err != nil {
-+		if err := server.ListenAndServe(); err != nil {
- 			golog.Fatal(err)
- 		}
- 	}()
 diff --git a/pkg/virt-operator/resource/generate/components/daemonsets.go b/pkg/virt-operator/resource/generate/components/daemonsets.go
 index da6e00c783..9bfd336b70 100644
 --- a/pkg/virt-operator/resource/generate/components/daemonsets.go
