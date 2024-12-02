@@ -2,8 +2,10 @@ package vd
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	"os"
+	"time"
 
 	"statistic/internal/helpers"
 
@@ -19,6 +21,44 @@ type VD struct {
 
 type VDs struct {
 	Items []VD `json:"items"`
+}
+
+func (vds *VDs) SaveToCSV() {
+	filepath := fmt.Sprintf("/log-%s-%s.csv", "vd", time.Now().Format("2006-01-02_15-04-05"))
+	execpath, err := os.Getwd()
+	if err != nil {
+		os.Exit(1)
+	}
+
+	file, err := os.Create(execpath + filepath)
+	if err != nil {
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	header := []string{"Name", "WaitingForDependencies", "DVCRProvisioning", "TotalProvisioning"}
+	if err := writer.Write(header); err != nil {
+		fmt.Printf("Error writing header to CSV file: %v\n", err)
+		os.Exit(1)
+	}
+
+	for _, res := range vds.Items {
+
+		data := []string{
+			res.Name,
+			helpers.DurationToString(res.VirtualDiskStats.WaitingForDependencies),
+			helpers.DurationToString(res.VirtualDiskStats.DVCRProvisioning),
+			helpers.DurationToString(res.VirtualDiskStats.TotalProvisioning),
+		}
+		if err := writer.Write(data); err != nil {
+			fmt.Printf("Error writing data to CSV file: %v\n", err)
+			os.Exit(1)
+		}
+	}
+	fmt.Println("Data of VD saved successfully to csv", file.Name())
 }
 
 func Get(client kubeclient.Client, namespace string) {
@@ -60,9 +100,21 @@ func Get(client kubeclient.Client, namespace string) {
 	avgDVCRProvisioning := sumDVCRProvisioning / float64(totalItems)
 	avgTotalProvisioning := sumTotalProvisioning / float64(totalItems)
 
+	saveData := fmt.Sprintf(
+		"Total VDs count: %d\n"+
+			"Average WaitingForDependencies in seconds: %.2f\n"+
+			"Average DVCRProvisioning in seconds: %.2f\n"+
+			"Average TotalProvisioning in seconds: %.2f\n",
+		totalItems, avgWaitingForDependencies, avgDVCRProvisioning, avgTotalProvisioning,
+	)
+
+	helpers.SaveToFile(saveData, "vd")
+
 	fmt.Println("Total VDs count:", totalItems)
 
 	fmt.Println("Average WaitingForDependencies in seconds:", avgWaitingForDependencies)
 	fmt.Println("Average DVCRProvisioning in seconds:", avgDVCRProvisioning)
 	fmt.Println("Average TotalProvisioning in seconds:", avgTotalProvisioning)
+
+	vds.SaveToCSV()
 }

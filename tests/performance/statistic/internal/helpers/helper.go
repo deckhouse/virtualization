@@ -1,7 +1,6 @@
 package helpers
 
 import (
-	"encoding/csv"
 	"fmt"
 	"os"
 	"strings"
@@ -72,46 +71,29 @@ func CreateKubeConfig() kubeclient.Client {
 	return client
 }
 
-// vd.Name vd.WaitingForDependencies vd.DVCRProvisioning vd.TotalProvisioning
-// vm.Name vm.WaitingForDependencies vm.VirtualMachineStarting vm.GuestOSAgentStarting
-// func SaveToCSV(data []string, path string) error {
-func SaveToCSV(header []string, data struct{}) error {
-	logFiile := "/log-" + time.Now().Format("2006-01-02_15-04-05") + ".csv"
-	// execpath, err := os.Executable()
+func DurationToString(d *metav1.Duration) string {
+	if d == nil {
+		return ""
+	}
+	return d.Duration.String()
+}
+
+func SaveToFile(content string, resType string) {
+	filepath := fmt.Sprintf("/%s-%s.csv", resType, time.Now().Format("2006-01-02_15-04-05"))
 	execpath, err := os.Getwd()
 	if err != nil {
-		return err
+		os.Exit(1)
 	}
-	// exPath := filepath.Dir(execpath)
-	// fmt.Println(exPath)
-	// fmt.Println(execpath + logFiile)
-
-	file, err := os.Create(execpath + logFiile)
+	file, err := os.Create(execpath + filepath)
 	if err != nil {
-		return err
+		fmt.Printf("Error creating file: %v\n", err)
+		return
 	}
 	defer file.Close()
 
-	writer := csv.NewWriter(file)
-	defer writer.Flush()
-
-	// Write header row
-	if err := writer.Write(header); err != nil {
-		fmt.Printf("Error writing header to CSV file: %v\n", err)
-		os.Exit(1)
+	_, err = file.WriteString(content)
+	if err != nil {
+		fmt.Printf("Error writing to file: %v\n", err)
+		return
 	}
-
-	// Write pod details
-	// for _, res := range data. {
-	// 	row := []string{
-	// 		res,
-	// 	}
-
-	// 	if err := writer.Write(row); err != nil {
-	// 		fmt.Printf("Error writing row to CSV file: %v\n", err)
-	// 		os.Exit(1)
-	// 	}
-	// }
-
-	return nil
 }
