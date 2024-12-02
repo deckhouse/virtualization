@@ -52,7 +52,7 @@ tasks:
       - |
         cd ../ && docker run --rm \
           -v ./:/tmp/virt ghcr.io/deckhouse/virtualization/prettier:3.2.5 \
-          sh -c "cd /tmp/virt ; prettier -w \"**/*.yaml\" \"**/*.yml\""
+          sh -c "cd /tmp/virt ; prettier -w \"crds/*.yaml\""
 
   _ci:verify-gen:
     desc: "Check generated files are up-to-date."
@@ -87,4 +87,4 @@ tasks:
       - go install -mod=readonly sigs.k8s.io/controller-tools/cmd/controller-gen@v{{ .CONTROLLER_GEN_VERSION }}
     status:
       - |
-        ls $GOPATH/bin/controller-gen
+        $GOPATH/bin/controller-gen --version | grep -q "v{{ .CONTROLLER_GEN_VERSION }}"

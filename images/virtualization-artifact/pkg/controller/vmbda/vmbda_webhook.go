@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal/validators"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -46,6 +47,7 @@ func NewValidator(attachmentService *service.AttachmentService, service *service
 			validators.NewSpecMutateValidator(),
 			validators.NewAttachmentConflictValidator(attachmentService, log),
 			validators.NewVMConnectLimiterValidator(service, log),
+			validators.NewImageValidator(attachmentService),
 		},
 	}
 }
