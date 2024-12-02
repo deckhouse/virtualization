@@ -12,6 +12,7 @@ spec:
     type: "HTTP"
     http:
       url: {{ $.Values.imageURL }}
+{{- if ne .Values.vmDiskType "vi" }}
 {{- $count := (.Values.count | int) }}
 {{- range until $count  }}
 ---
@@ -33,5 +34,6 @@ spec:
     objectRef:
       kind: "VirtualImage"
       name: {{ $.Values.resourcesPrefix }}
+{{- end }}
 {{- end }}
 {{- end }}
