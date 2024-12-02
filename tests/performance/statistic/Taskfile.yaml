@@ -1,0 +1,9 @@
+version: "3"
+
+silent: true
+
+tasks:
+  run:
+    desc: "Run collect stat from vds"
+    cmds:
+      - go run cmd/stat/main.go
