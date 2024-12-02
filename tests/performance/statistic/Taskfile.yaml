@@ -3,7 +3,15 @@ version: "3"
 silent: true
 
 tasks:
-  run:
+  run:vd:
     desc: "Run collect stat from vds"
     cmds:
-      - go run cmd/stat/main.go
+      - go run cmd/stat/main.go -vd=true -ns=perf
+  run:vm:
+    desc: "Run collect stat from vms"
+    cmds:
+      - go run cmd/stat/main.go -vm=true -ns=perf
+  run:all:
+    desc: "Run collect stat from vds and vms"
+    cmds:
+      - go run cmd/stat/main.go -ns=perf
