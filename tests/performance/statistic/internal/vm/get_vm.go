@@ -2,8 +2,10 @@ package vm
 
 import (
 	"context"
+	"encoding/csv"
 	"fmt"
 	"os"
+	"time"
 
 	"statistic/internal/helpers"
 
@@ -19,6 +21,44 @@ type VM struct {
 
 type VMs struct {
 	Items []VM `json:"items"`
+}
+
+func (vms *VMs) SaveToCSV() {
+	filepath := fmt.Sprintf("/log-%s-%s.csv", "vm", time.Now().Format("2006-01-02_15-04-05"))
+	execpath, err := os.Getwd()
+	if err != nil {
+		os.Exit(1)
+	}
+
+	file, err := os.Create(execpath + filepath)
+	if err != nil {
+		os.Exit(1)
+	}
+	defer file.Close()
+
+	writer := csv.NewWriter(file)
+	defer writer.Flush()
+
+	header := []string{"Name", "WaitingForDependencies", "VirtualMachineStarting", "GuestOSAgentStarting"}
+	if err := writer.Write(header); err != nil {
+		fmt.Printf("Error writing header to CSV file: %v\n", err)
+		os.Exit(1)
+	}
+
+	for _, res := range vms.Items {
+
+		data := []string{
+			res.Name,
+			helpers.DurationToString(res.VirtualMachineLaunchTimeDuration.WaitingForDependencies),
+			helpers.DurationToString(res.VirtualMachineLaunchTimeDuration.VirtualMachineStarting),
+			helpers.DurationToString(res.VirtualMachineLaunchTimeDuration.GuestOSAgentStarting),
+		}
+		if err := writer.Write(data); err != nil {
+			fmt.Printf("Error writing data to CSV file: %v\n", err)
+			os.Exit(1)
+		}
+	}
+	fmt.Println("Data of VD saved successfully to csv", file.Name())
 }
 
 func Get(client kubeclient.Client, namespace string) {
@@ -59,9 +99,21 @@ func Get(client kubeclient.Client, namespace string) {
 	avgVirtualMachineStarting := sumVirtualMachineStarting / float64(totalItems)
 	avgGuestOSAgentStarting := sumGuestOSAgentStarting / float64(totalItems)
 
+	saveData := fmt.Sprintf(
+		"Total VMs count: %d\n"+
+			"Average WaitingForDependencies in seconds:: %.2f\n"+
+			"Average VirtualMachineStarting in seconds: %.2f\n"+
+			"Average GuestOSAgentStarting in seconds: %.2f\n",
+		totalItems, avgWaitingForDependencies, avgVirtualMachineStarting, avgGuestOSAgentStarting,
+	)
+
+	helpers.SaveToFile(saveData, "vm")
+
 	fmt.Println("Total VMs:", totalItems)
 
 	fmt.Println("Average WaitingForDependencies in seconds:", avgWaitingForDependencies)
 	fmt.Println("Average VirtualMachineStarting in seconds:", avgVirtualMachineStarting)
 	fmt.Println("Average GuestOSAgentStarting in seconds:", avgGuestOSAgentStarting)
+
+	vms.SaveToCSV()
 }
