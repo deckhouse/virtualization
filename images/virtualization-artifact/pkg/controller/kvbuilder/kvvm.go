@@ -158,18 +158,8 @@ func (b *KVVM) SetNodeSelector(vmNodeSelector, classNodeSelector map[string]stri
 }
 
 func (b *KVVM) SetTolerations(vmTolerations, classTolerations []corev1.Toleration) {
-	tolerationsMap := make(map[string]corev1.Toleration)
-	for _, toleration := range classTolerations {
-		tolerationsMap[toleration.Key] = toleration
-	}
-	for _, toleration := range vmTolerations {
-		tolerationsMap[toleration.Key] = toleration
-	}
-	resultTolerations := make([]corev1.Toleration, 0, len(tolerationsMap))
-	for _, toleration := range tolerationsMap {
-		resultTolerations = append(resultTolerations, toleration)
-	}
-	b.Resource.Spec.Template.Spec.Tolerations = resultTolerations
+	b.Resource.Spec.Template.Spec.Tolerations = append(b.Resource.Spec.Template.Spec.Tolerations, classTolerations...)
+	b.Resource.Spec.Template.Spec.Tolerations = append(b.Resource.Spec.Template.Spec.Tolerations, vmTolerations...)
 }
 
 func (b *KVVM) SetPriorityClassName(priorityClassName string) {
@@ -193,11 +183,16 @@ func (b *KVVM) SetAffinity(vmAffinity *corev1.Affinity, classMatchExpressions []
 	if vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms == nil {
 		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []corev1.NodeSelectorTerm{}
 	}
-
-	vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
-		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
-		corev1.NodeSelectorTerm{MatchExpressions: classMatchExpressions},
-	)
+	if len(vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms) == 0 {
+		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+			vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+			corev1.NodeSelectorTerm{MatchExpressions: classMatchExpressions})
+	} else {
+		for i := range vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+			vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions = append(
+				vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions, classMatchExpressions...)
+		}
+	}
 
 	b.Resource.Spec.Template.Spec.Affinity = vmAffinity
 }
