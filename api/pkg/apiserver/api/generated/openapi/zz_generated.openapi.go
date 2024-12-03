@@ -2937,7 +2937,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageSpec(ref common.Referen
 						},
 					},
 				},
-				Required: []string{"storage", "dataSource"},
+				Required: []string{"storage"},
 			},
 		},
 		Dependencies: []string{
