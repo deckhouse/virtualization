@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+
 	// "fmt"
 	"math/rand"
 	// "os"
@@ -24,8 +25,8 @@ import (
 
 var (
 	namespace string
-	target int
-)	
+	target    int
+)
 
 func main() {
 	// create client
@@ -45,7 +46,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		
+
 		// calculate target number of VMs to evict
 		vmNumTargetInMigration := target * vmTotal / 100
 
@@ -56,7 +57,7 @@ func main() {
 				vmMigrating[vm.Name] = true
 			}
 		}
-		
+
 		// delete migrating VMs from tracked VMs
 		for name := range vmMigrating {
 			delete(vmTracked, name)
@@ -64,14 +65,14 @@ func main() {
 		}
 		// delete VMs who are in Running phase for more than 30s, we probably missed it
 		for name, t := range vmTracked {
-			if time.Since(t) > 30 * time.Second {
+			if time.Since(t) > 30*time.Second {
 				delete(vmTracked, name)
 				log.Printf("Tracked VM in Running phase for more than 30s: %s\n", name)
 			}
 		}
 		vmNumTargetInMigration -= len(vmTracked)
-		log.Printf("Target number of VMs to evict: %d\n", vmNumTargetInMigration)		
-		
+		log.Printf("Target number of VMs to evict: %d\n", vmNumTargetInMigration)
+
 		// populate vmTracked with random Running VMs
 		for i := 0; i < vmNumTargetInMigration; i++ {
 			// try until find Running VM
