@@ -81,16 +81,11 @@ func TestSetAffinity(t *testing.T) {
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{
 							{
-								MatchExpressions: getDefaultMatchExpressions(),
-							},
-							{
-								MatchExpressions: []corev1.NodeSelectorRequirement{
-									{
-										Key:      "node-role.kubernetes.io/master",
-										Operator: corev1.NodeSelectorOpIn,
-										Values:   []string{""},
-									},
-								},
+								MatchExpressions: append(getDefaultMatchExpressions(), corev1.NodeSelectorRequirement{
+									Key:      "node-role.kubernetes.io/master",
+									Operator: corev1.NodeSelectorOpIn,
+									Values:   []string{""},
+								}),
 							},
 						},
 					},
