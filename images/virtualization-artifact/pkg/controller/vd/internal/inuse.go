@@ -21,7 +21,10 @@ import (
 	"fmt"
 	"slices"
 
+	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -83,6 +86,22 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 					allowUseForVM = true
 					break
 				}
+
+				podList := corev1.PodList{}
+				err = h.client.List(ctx, &podList, &client.ListOptions{
+					Namespace:     vm.GetNamespace(),
+					LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
+				})
+				if err != nil && !k8serrors.IsNotFound(err) {
+					return reconcile.Result{}, fmt.Errorf("unable to list virt-launcher Pod for VM %q: %w", vm.GetName(), err)
+				}
+
+				for _, pod := range podList.Items {
+					if pod.Status.Phase == corev1.PodRunning {
+						allowUseForVM = true
+						break
+					}
+				}
 			}
 		}
 	}
@@ -137,17 +156,19 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 		}
 	default:
-		if inUseCondition.Reason == vdcondition.AllowedForVirtualMachineUsage.String() && !allowUseForVM || inUseCondition.Reason == vdcondition.AllowedForImageUsage.String() && !allowUseForImage {
-			cb.
-				Generation(vd.Generation).
-				Status(metav1.ConditionUnknown).
-				Reason(conditions.ReasonUnknown).
-				Message("")
-			conditions.SetCondition(cb, &vd.Status.Conditions)
+		needChange := false
+
+		if inUseCondition.Reason == vdcondition.AllowedForVirtualMachineUsage.String() && !allowUseForVM {
+			needChange = true
 		}
 
-		if allowUseForImage || allowUseForVM {
-			return reconcile.Result{Requeue: true}, nil
+		if inUseCondition.Reason == vdcondition.AllowedForImageUsage.String() && !allowUseForImage {
+			needChange = true
+		}
+
+		if needChange {
+			cb.Generation(vd.Generation).Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown).Message("")
+			conditions.SetCondition(cb, &vd.Status.Conditions)
 		}
 	}
 
