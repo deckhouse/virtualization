@@ -7,11 +7,17 @@ metadata:
   labels:
     vm: {{ $.Values.resourcesPrefix }}
 spec:
+{{- if eq .Values.viType "pvc" }}
+  storage: PersistentVolumeClaim
+  persistentVolumeClaim:
+    storageClassName: {{ $.Values.storageClass }}
+{{- else }}
   storage: ContainerRegistry
   dataSource:
     type: "HTTP"
     http:
       url: {{ $.Values.imageURL }}
+{{- end }}
 {{- if ne .Values.vmDiskType "vi" }}
 {{- $count := (.Values.count | int) }}
 {{- range until $count  }}
