@@ -46,7 +46,7 @@ var _ Importer = &ImporterMock{}
 //			ProtectFunc: func(ctx context.Context, pod *corev1.Pod) error {
 //				panic("mock out the Protect method")
 //			},
-//			StartFunc: func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
+//			StartFunc: func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
 //			StartWithPodSettingFunc: func(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
@@ -81,7 +81,7 @@ type ImporterMock struct {
 	ProtectFunc func(ctx context.Context, pod *corev1.Pod) error
 
 	// StartFunc mocks the Start method.
-	StartFunc func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error
+	StartFunc func(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 
 	// StartWithPodSettingFunc mocks the StartWithPodSetting method.
 	StartWithPodSettingFunc func(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error
@@ -151,6 +151,8 @@ type ImporterMock struct {
 			Sup *supplements.Generator
 			// CaBundle is the caBundle argument value.
 			CaBundle *datasource.CABundle
+			// Opts is the opts argument value.
+			Opts []service.Option
 		}
 		// StartWithPodSetting holds details about calls to the StartWithPodSetting method.
 		StartWithPodSetting []struct {
@@ -413,7 +415,7 @@ func (mock *ImporterMock) ProtectCalls() []struct {
 }
 
 // Start calls StartFunc.
-func (mock *ImporterMock) Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
+func (mock *ImporterMock) Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 	if mock.StartFunc == nil {
 		panic("ImporterMock.StartFunc: method is nil but Importer.Start was just called")
 	}
@@ -423,17 +425,19 @@ func (mock *ImporterMock) Start(ctx context.Context, settings *importer.Settings
 		Obj      service.ObjectKind
 		Sup      *supplements.Generator
 		CaBundle *datasource.CABundle
+		Opts     []service.Option
 	}{
 		Ctx:      ctx,
 		Settings: settings,
 		Obj:      obj,
 		Sup:      sup,
 		CaBundle: caBundle,
+		Opts:     opts,
 	}
 	mock.lockStart.Lock()
 	mock.calls.Start = append(mock.calls.Start, callInfo)
 	mock.lockStart.Unlock()
-	return mock.StartFunc(ctx, settings, obj, sup, caBundle)
+	return mock.StartFunc(ctx, settings, obj, sup, caBundle, opts...)
 }
 
 // StartCalls gets all the calls that were made to Start.
@@ -446,6 +450,7 @@ func (mock *ImporterMock) StartCalls() []struct {
 	Obj      service.ObjectKind
 	Sup      *supplements.Generator
 	CaBundle *datasource.CABundle
+	Opts     []service.Option
 } {
 	var calls []struct {
 		Ctx      context.Context
@@ -453,6 +458,7 @@ func (mock *ImporterMock) StartCalls() []struct {
 		Obj      service.ObjectKind
 		Sup      *supplements.Generator
 		CaBundle *datasource.CABundle
+		Opts     []service.Option
 	}
 	mock.lockStart.RLock()
 	calls = mock.calls.Start
@@ -575,7 +581,7 @@ var _ Uploader = &UploaderMock{}
 //			ProtectFunc: func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
 //				panic("mock out the Protect method")
 //			},
-//			StartFunc: func(ctx context.Context, settings *uploader.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
+//			StartFunc: func(ctx context.Context, settings *uploader.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 //				panic("mock out the Start method")
 //			},
 //			UnprotectFunc: func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
@@ -610,7 +616,7 @@ type UploaderMock struct {
 	ProtectFunc func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 
 	// StartFunc mocks the Start method.
-	StartFunc func(ctx context.Context, settings *uploader.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error
+	StartFunc func(ctx context.Context, settings *uploader.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
 
 	// UnprotectFunc mocks the Unprotect method.
 	UnprotectFunc func(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
@@ -682,6 +688,8 @@ type UploaderMock struct {
 			Sup *supplements.Generator
 			// CaBundle is the caBundle argument value.
 			CaBundle *datasource.CABundle
+			// Opts is the opts argument value.
+			Opts []service.Option
 		}
 		// Unprotect holds details about calls to the Unprotect method.
 		Unprotect []struct {
@@ -967,7 +975,7 @@ func (mock *UploaderMock) ProtectCalls() []struct {
 }
 
 // Start calls StartFunc.
-func (mock *UploaderMock) Start(ctx context.Context, settings *uploader.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
+func (mock *UploaderMock) Start(ctx context.Context, settings *uploader.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error {
 	if mock.StartFunc == nil {
 		panic("UploaderMock.StartFunc: method is nil but Uploader.Start was just called")
 	}
@@ -977,17 +985,19 @@ func (mock *UploaderMock) Start(ctx context.Context, settings *uploader.Settings
 		Obj      service.ObjectKind
 		Sup      *supplements.Generator
 		CaBundle *datasource.CABundle
+		Opts     []service.Option
 	}{
 		Ctx:      ctx,
 		Settings: settings,
 		Obj:      obj,
 		Sup:      sup,
 		CaBundle: caBundle,
+		Opts:     opts,
 	}
 	mock.lockStart.Lock()
 	mock.calls.Start = append(mock.calls.Start, callInfo)
 	mock.lockStart.Unlock()
-	return mock.StartFunc(ctx, settings, obj, sup, caBundle)
+	return mock.StartFunc(ctx, settings, obj, sup, caBundle, opts...)
 }
 
 // StartCalls gets all the calls that were made to Start.
@@ -1000,6 +1010,7 @@ func (mock *UploaderMock) StartCalls() []struct {
 	Obj      service.ObjectKind
 	Sup      *supplements.Generator
 	CaBundle *datasource.CABundle
+	Opts     []service.Option
 } {
 	var calls []struct {
 		Ctx      context.Context
@@ -1007,6 +1018,7 @@ func (mock *UploaderMock) StartCalls() []struct {
 		Obj      service.ObjectKind
 		Sup      *supplements.Generator
 		CaBundle *datasource.CABundle
+		Opts     []service.Option
 	}
 	mock.lockStart.RLock()
 	calls = mock.calls.Start

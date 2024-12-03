@@ -19,6 +19,7 @@ package importer
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -53,7 +54,8 @@ func Test_MakePodSpec(t *testing.T) {
 
 	imp := NewImporter(podSettings, settings)
 
-	pod := imp.makeImporterPodSpec()
+	pod, err := imp.makeImporterPodSpec()
+	require.NoError(t, err)
 
 	if pod.Namespace == "" {
 		t.Fatalf("pod.Namespace should not be empty!")
@@ -90,7 +92,8 @@ func Test_MakePodSpec_CABundle(t *testing.T) {
 
 	imp := NewImporter(podSettings, settings)
 
-	pod := imp.makeImporterPodSpec()
+	pod, err := imp.makeImporterPodSpec()
+	require.NoError(t, err)
 
 	hasCAVol := false
 	for _, vol := range pod.Spec.Volumes {

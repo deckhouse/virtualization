@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -140,7 +141,14 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 
 		source := ds.getSource(supgen, vi)
 
-		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
+		var nodePlacement provisioner.NodePlacement
+		nodePlacement.Tolerations, err = getTolerations(ctx, ds.client, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, fmt.Errorf("fauled to get importer tolerations: %w", err)
+		}
+
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(&nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
@@ -173,6 +181,22 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		var isChanged bool
+		isChanged, err = checkDataVolume(ctx, dv, vd, ds.client)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
+			return reconcile.Result{}, err
+		}
+
+		if isChanged {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.Provisioning).
+				Message("PVC provisioner recreation due to a changes in the virtual machine tolerations.")
+
+			return reconcile.Result{}, nil
+		}
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(0, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
