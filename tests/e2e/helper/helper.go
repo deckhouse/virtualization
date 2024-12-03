@@ -78,3 +78,17 @@ func WriteYamlObject(filePath string, obj client.Object) error {
 
 	return nil
 }
+
+func UnmarshalResource(filePath string, obj client.Object) error {
+	file, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+
+	err = yaml.Unmarshal(file, obj)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
