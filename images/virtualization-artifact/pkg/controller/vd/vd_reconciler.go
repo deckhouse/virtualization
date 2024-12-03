@@ -42,6 +42,10 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
+}
+
 type Handler interface {
 	Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
 }
@@ -232,14 +236,15 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
-	w := watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient())
-	if err := w.Watch(mgr, ctr); err != nil {
-		return fmt.Errorf("error setting watch on VDSnapshots: %w", err)
-	}
-
-	storageClassReadyWatcher := watcher.NewStorageClassWatcher(mgr.GetClient())
-	if err := storageClassReadyWatcher.Watch(mgr, ctr); err != nil {
-		return fmt.Errorf("error setting watch on StorageClass: %w", err)
+	for _, w := range []Watcher{
+		watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient()),
+		watcher.NewStorageClassWatcher(mgr.GetClient()),
+		watcher.NewPodWatcher(mgr.GetClient()),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("error setting watcher: %w", err)
+		}
 	}
 
 	return nil

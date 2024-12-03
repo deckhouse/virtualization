@@ -27,6 +27,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -65,11 +66,39 @@ func NewImporterService(
 	}
 }
 
-func (s ImporterService) Start(ctx context.Context, settings *importer.Settings, obj ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
+type Option interface{}
+
+type NodePlacementOption struct {
+	nodePlacement *provisioner.NodePlacement
+}
+
+func WithNodePlacement(nodePlacement *provisioner.NodePlacement) Option {
+	return &NodePlacementOption{nodePlacement: nodePlacement}
+}
+
+func (s ImporterService) Start(
+	ctx context.Context,
+	settings *importer.Settings,
+	obj ObjectKind,
+	sup *supplements.Generator,
+	caBundle *datasource.CABundle,
+	opts ...Option,
+) error {
 	ownerRef := metav1.NewControllerRef(obj, obj.GroupVersionKind())
 	settings.Verbose = s.verbose
 
-	pod, err := importer.NewImporter(s.getPodSettings(ownerRef, sup), settings).CreatePod(ctx, s.client)
+	podSettings := s.getPodSettings(ownerRef, sup)
+
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case *NodePlacementOption:
+			podSettings.NodePlacement = v.nodePlacement
+		default:
+			return fmt.Errorf("unknown Start option")
+		}
+	}
+
+	pod, err := importer.NewImporter(podSettings, settings).CreatePod(ctx, s.client)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}

@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -140,7 +141,14 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 
 		source := ds.getSource(supgen, vi)
 
-		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
+		var nodePlacement provisioner.NodePlacement
+		nodePlacement.Tolerations, err = getTolerations(ctx, ds.client, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, fmt.Errorf("fauled to get importer tolerations: %w", err)
+		}
+
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(&nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
