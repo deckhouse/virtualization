@@ -8,6 +8,17 @@ metadata:
     vm: {{ $.Values.resourcesPrefix }}
 spec:
 {{- if eq .Values.viType "pvc" }}
+<<<<<<< Updated upstream
+  dataSource:
+    type: "HTTP"
+    http:
+      url: {{ $.Values.imageURL }}
+=======
+  # dataSource:
+  #   type: "HTTP"
+  #   http:
+  #     url: {{ $.Values.imageURL }}
+>>>>>>> Stashed changes
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
     storageClassName: {{ $.Values.storageClass }}
