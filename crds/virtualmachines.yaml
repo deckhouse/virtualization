@@ -1290,6 +1290,11 @@ spec:
           jsonPath: .status.ipAddress
           name: IPAddress
           type: string
+        - description: The waiting state of the virtual machine
+          jsonPath: .status.waitCondition
+          name: Wait condition
+          priority: 1
+          type: string
         - description: Time of creation resource.
           jsonPath: .metadata.creationTimestamp
           name: Age

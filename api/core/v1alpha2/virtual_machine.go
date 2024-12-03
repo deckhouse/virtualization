@@ -274,6 +274,7 @@ type VirtualMachineStatus struct {
 	// List of virtual machine pods.
 	VirtualMachinePods []VirtualMachinePod `json:"virtualMachinePods,omitempty"`
 	Resources          ResourcesStatus     `json:"resources,omitempty"`
+	WaitCondition      string              `json:"waitCondition,omitempty"`
 }
 
 type VirtualMachineStats struct {
