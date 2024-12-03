@@ -231,9 +231,9 @@ spec:
       type: strategic
     # Patch service for https-metrics 
     - resourceType: Service
-      resourceName: kubevirt-prometheus
-      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
-      type: strategic
+      resourceName: kubevirt-prometheus-metrics
+      patch: '[{"op": "replace", "path": "/spec/ports/0/targetPort", "value": "https-metrics"}]'
+      type: json
 
   imagePullPolicy: IfNotPresent
   imagePullSecrets:
