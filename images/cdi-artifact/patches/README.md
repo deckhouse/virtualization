@@ -61,3 +61,10 @@ options to set overhead percent globally or for the particular storage class. Ho
 is not the same and depends on the size the virtual VM image.
 Previously we adjusted the whole PVC size to get bigger scratch PVC. This patch adds overhead for the scratch PVC only,
 leaving the size of the target PVC intact.
+
+#### `017-add-format-conversion-for-pvc-cloning.patch`
+
+When cloning via DataVolume from PVC to PVC, there was no format conversion. 
+The target PVC should have a raw type for volume mode Block and a qcow2 type for Filesystem. 
+The patch adds this conversion.
+
