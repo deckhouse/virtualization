@@ -229,6 +229,11 @@ spec:
       resourceName: virt-handler
       patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
       type: strategic
+    # Patch service for https-metrics 
+    - resourceType: Service
+      resourceName: kubevirt-prometheus
+      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
+      type: strategic
 
   imagePullPolicy: IfNotPresent
   imagePullSecrets:

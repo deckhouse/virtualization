@@ -260,16 +260,3 @@ index da6e00c783..9bfd336b70 100644
  				Port: intstr.IntOrString{
  					Type:   intstr.Int,
  					IntVal: 8443,
-diff --git a/pkg/virt-operator/resource/generate/components/deployments.go b/pkg/virt-operator/resource/generate/components/deployments.go
-index c86493e95f..c05d274db9 100644
---- a/pkg/virt-operator/resource/generate/components/deployments.go
-+++ b/pkg/virt-operator/resource/generate/components/deployments.go
-@@ -75,7 +75,7 @@ func NewPrometheusService(namespace string) *corev1.Service {
- 					Port: 443,
- 					TargetPort: intstr.IntOrString{
- 						Type:   intstr.String,
--						StrVal: "metrics",
-+						StrVal: "https-metrics",
- 					},
- 					Protocol: corev1.ProtocolTCP,
- 				},
