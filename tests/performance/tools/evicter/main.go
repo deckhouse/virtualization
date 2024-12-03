@@ -39,6 +39,7 @@ func main() {
 	vmTracked := make(map[string]time.Time)
 	// main loop
 	for {
+		log.Println("===== Starting evicter loop =====")
 		// get all VMs
 		vmListTotal, err := client.VirtualMachines(namespace).List(context.TODO(), metav1.ListOptions{})
 		vmTotal := len(vmListTotal.Items)
