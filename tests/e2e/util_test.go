@@ -229,7 +229,7 @@ func GetObjects(resource kc.Resource, object client.ObjectList, opts kc.GetOptio
 	}
 	cmd := kubectl.List(resource, cmdOpts)
 	if cmd.Error() != nil {
-		return fmt.Errorf(cmd.StdErr())
+		return fmt.Errorf("cmd: %s\nstderr: %s", cmd.GetCmd(), cmd.StdErr())
 	}
 	err := json.Unmarshal(cmd.StdOutBytes(), object)
 	if err != nil {
@@ -283,7 +283,7 @@ func WaitPhaseByLabel(resource kc.Resource, phase string, opts kc.WaitOptions) {
 			res := kubectl.WaitResource(resource, name, waitOpts)
 			if res.Error() != nil {
 				mu.Lock()
-				waitErr = append(waitErr, res.StdErr())
+				waitErr = append(waitErr, fmt.Sprintf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()))
 				mu.Unlock()
 			}
 		}()
