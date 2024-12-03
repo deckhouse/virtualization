@@ -1,4 +1,4 @@
-count: 3
+count: 1
 spec:
   cpu:
     cores: 1
@@ -6,11 +6,11 @@ spec:
   memory:
     size: 256Mi
 
-# viType: vi
-viType: pvc
+viType: vi
+# viType: pvc
 vmDiskType: vd
 resources: "all"
 resourcesPrefix: "performance"
 diskSize: 300Mi
-storageClassName: ""
+storageClassName: "ceph-pool-r2-csi-rbd"
 imageURL: "https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/alpine/alpine-v3-20.qcow2"
