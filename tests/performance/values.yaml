@@ -6,6 +6,8 @@ spec:
   memory:
     size: 256Mi
 
+viType: vi
+# viType: pvc
 vmDiskType: vd
 resources: "all"
 resourcesPrefix: "performance"
