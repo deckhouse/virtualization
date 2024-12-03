@@ -111,6 +111,10 @@ spec:
         resourceName: cdi-deployment
         patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
         type: strategic
+      - resourceType: Service
+        resourceName: cdi-prometheus-metrics
+        patch: '[{"op": "replace", "path": "/spec/ports/0/targetPort", "value": "https-metrics"}]'
+        type: json
 
       # Add rewriter proxy container port to the Service used by webhook configurations.
       # First need to set name for existing port to make strategic patch works later.
