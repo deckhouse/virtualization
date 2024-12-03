@@ -66,14 +66,11 @@ type VirtualImageList struct {
 	Items []VirtualImage `json:"items"`
 }
 
-// +kubebuilder:validation:XValidation:rule="self.storage == 'ContainerRegistry' ? !has(self.persistentVolumeClaim) && has(self.dataSource): true",message="The storage type ContainerRegistry should contain only the dataSource."
-// +kubebuilder:validation:XValidation:rule="self.storage == 'PersistentVolumeClaim' ? !has(self.dataSource) && has(self.persistentVolumeClaim): true",message="The storage type PersistentVolumeClaim should contain only the persistentVolumeClaim."
-// +kubebuilder:validation:XValidation:rule="self.storage == 'Kubernetes' ? !has(self.dataSource) && has(self.persistentVolumeClaim): true",message="The storage type Kubernetes should contain only the persistentVolumeClaim."
 type VirtualImageSpec struct {
 	// +kubebuilder:default:=ContainerRegistry
 	Storage               StorageType                       `json:"storage"`
 	PersistentVolumeClaim VirtualImagePersistentVolumeClaim `json:"persistentVolumeClaim,omitempty"`
-	DataSource            VirtualImageDataSource            `json:"dataSource,omitempty"`
+	DataSource            VirtualImageDataSource            `json:"dataSource"`
 }
 
 type VirtualImageStatus struct {
