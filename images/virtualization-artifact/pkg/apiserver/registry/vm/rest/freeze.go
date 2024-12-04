@@ -65,7 +65,7 @@ func (r FreezeREST) Connect(ctx context.Context, name string, opts runtime.Objec
 	if err != nil {
 		return nil, err
 	}
-	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount)
+	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, false, responder, r.kubevirt.ServiceAccount)
 	return handler, nil
 }
 

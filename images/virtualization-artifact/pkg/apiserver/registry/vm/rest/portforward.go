@@ -69,7 +69,7 @@ func (r PortForwardREST) Connect(ctx context.Context, name string, opts runtime.
 	if err != nil {
 		return nil, err
 	}
-	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
+	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, false, responder, r.kubevirt.ServiceAccount)
 	return handler, nil
 }
 

@@ -70,11 +70,12 @@ func (r ConsoleREST) Connect(ctx context.Context, name string, opts runtime.Obje
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
+
 	location, transport, err := ConsoleLocation(ctx, r.vmLister, name, consoleOpts, r.kubevirt, r.proxyCertManager)
 	if err != nil {
 		return nil, err
 	}
-	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, responder, r.kubevirt.ServiceAccount)
+	handler := newThrottledUpgradeAwareProxyHandler(location, transport, true, true, responder, r.kubevirt.ServiceAccount)
 	return handler, nil
 }
 
