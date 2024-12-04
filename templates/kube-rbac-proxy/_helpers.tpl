@@ -11,7 +11,7 @@
   image: {{ include "helm_lib_module_common_image" (list $ctx "kubeRbacProxy") }}
   args:
   - "--secure-listen-address=$(KUBE_RBAC_PROXY_LISTEN_ADDRESS):{{ $settings.listenPort | default "8082" }}"
-  - "--v={{ $settings.logLevel | default "5" }}"
+  - "--v={{ $settings.logLevel | default "2" }}"
   - "--logtostderr=true"
   - "--stale-cache-interval={{ $settings.staleCacheInterval | default "1h30m" }}"
   env:

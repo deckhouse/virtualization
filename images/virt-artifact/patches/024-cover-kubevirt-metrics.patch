@@ -109,7 +109,7 @@ index 0368a0762b..473328fb4b 100644
  
  func (service *ServiceLibvirt) AddLibvirtFlags() {
 diff --git a/pkg/virt-api/api.go b/pkg/virt-api/api.go
-index a7ea3f44d6..4b08fbaa24 100644
+index a7ea3f44d6..6d9ccd800f 100644
 --- a/pkg/virt-api/api.go
 +++ b/pkg/virt-api/api.go
 @@ -82,9 +82,11 @@ import (
@@ -128,8 +128,8 @@ index a7ea3f44d6..4b08fbaa24 100644
  	app := &virtAPIApp{}
  	app.BindAddress = defaultHost
  	app.Port = defaultPort
-+	app.MetricsBindAddress = defaultHost
-+	app.MetricsPort = defaultPort
++	app.MetricsBindAddress = defaultMetricsHost
++	app.MetricsPort = defaultMetricsPort
  
  	return app
  }
