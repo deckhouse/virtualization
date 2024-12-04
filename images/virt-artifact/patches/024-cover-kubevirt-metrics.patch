@@ -230,9 +230,18 @@ index f80a0653ad..4a8d20d7be 100644
  	vca.AddCommonFlags()
  
 diff --git a/pkg/virt-operator/resource/generate/components/daemonsets.go b/pkg/virt-operator/resource/generate/components/daemonsets.go
-index da6e00c783..9bfd336b70 100644
+index da6e00c783..8fa14e93b5 100644
 --- a/pkg/virt-operator/resource/generate/components/daemonsets.go
 +++ b/pkg/virt-operator/resource/generate/components/daemonsets.go
+@@ -174,7 +174,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+ 	}
+ 	container.Args = []string{
+ 		"--port",
+-		"8443",
++		"8090",
+ 		"--hostname-override",
+ 		"$(NODE_NAME)",
+ 		"--pod-ip-address",
 @@ -192,7 +192,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
  		{
  			Name:          "metrics",
@@ -242,7 +251,7 @@ index da6e00c783..9bfd336b70 100644
  		},
  	}
  	container.SecurityContext = &corev1.SecurityContext{
-@@ -226,7 +226,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+@@ -226,10 +226,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
  		FailureThreshold: 3,
  		ProbeHandler: corev1.ProbeHandler{
  			HTTPGet: &corev1.HTTPGetAction{
@@ -250,8 +259,12 @@ index da6e00c783..9bfd336b70 100644
 +				Scheme: corev1.URISchemeHTTP,
  				Port: intstr.IntOrString{
  					Type:   intstr.Int,
- 					IntVal: 8443,
-@@ -241,7 +241,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+-					IntVal: 8443,
++					IntVal: 8090,
+ 				},
+ 				Path: "/healthz",
+ 			},
+@@ -241,10 +241,10 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
  	container.ReadinessProbe = &corev1.Probe{
  		ProbeHandler: corev1.ProbeHandler{
  			HTTPGet: &corev1.HTTPGetAction{
@@ -259,4 +272,8 @@ index da6e00c783..9bfd336b70 100644
 +				Scheme: corev1.URISchemeHTTP,
  				Port: intstr.IntOrString{
  					Type:   intstr.Int,
- 					IntVal: 8443,
+-					IntVal: 8443,
++					IntVal: 8090,
+ 				},
+ 				Path: "/healthz",
+ 			},
