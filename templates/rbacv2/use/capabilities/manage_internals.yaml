@@ -8,31 +8,84 @@ metadata:
     rbac.deckhouse.io/kind: use
   name: d8:use:capability:virtualization:manage_internals
 rules:
-- apiGroups:
-  - cdi.internal.virtualization.deckhouse.io
-  resources:
-  - internalvirtualizationdatavolumes
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
-  - deletecollection
-  - get
-  - list
-  - watch
-- apiGroups:
-  - internal.virtualization.deckhouse.io
-  resources:
-  - internalvirtualizationvirtualmachineinstancemigrations
-  - internalvirtualizationvirtualmachineinstances
-  - internalvirtualizationvirtualmachines
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
-  - deletecollection
-  - get
-  - list
-  - watch
+  - apiGroups:
+      - cdi.internal.virtualization.deckhouse.io
+    resources:
+      - internalvirtualizationdatavolumes
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - internal.virtualization.deckhouse.io
+    resources:
+      - internalvirtualizationvirtualmachineinstancemigrations
+      - internalvirtualizationvirtualmachineinstances
+      - internalvirtualizationvirtualmachines
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumeclaims
+      - pods
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - controllerrevisions
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - snapshot.storage.k8s.io
+    resources:
+      - volumesnapshots
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+      - get
+      - list
+      - watch
