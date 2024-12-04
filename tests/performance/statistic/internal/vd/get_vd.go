@@ -23,8 +23,8 @@ type VDs struct {
 	Items []VD `json:"items"`
 }
 
-func (vds *VDs) SaveToCSV() {
-	filepath := fmt.Sprintf("/log-%s-%s.csv", "vd", time.Now().Format("2006-01-02_15-04-05"))
+func (vds *VDs) SaveToCSV(ns string) {
+	filepath := fmt.Sprintf("/log-%s-%s-%s.csv", "vd", ns, time.Now().Format("2006-01-02_15-04-05"))
 	execpath, err := os.Getwd()
 	if err != nil {
 		os.Exit(1)
@@ -108,7 +108,7 @@ func Get(client kubeclient.Client, namespace string) {
 		totalItems, avgWaitingForDependencies, avgDVCRProvisioning, avgTotalProvisioning,
 	)
 
-	helpers.SaveToFile(saveData, "vd")
+	helpers.SaveToFile(saveData, "vd", namespace)
 
 	fmt.Println("Total VDs count:", totalItems)
 
@@ -116,5 +116,5 @@ func Get(client kubeclient.Client, namespace string) {
 	fmt.Println("Average DVCRProvisioning in seconds:", avgDVCRProvisioning)
 	fmt.Println("Average TotalProvisioning in seconds:", avgTotalProvisioning)
 
-	vds.SaveToCSV()
+	vds.SaveToCSV(namespace)
 }
