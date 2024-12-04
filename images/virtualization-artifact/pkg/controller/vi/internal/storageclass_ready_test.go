@@ -59,7 +59,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be false because no storage class can be return",
 			handlerTestArgs{
 				DiskServiceMock: newDiskServiceMock(nil),
-				VI:              newVI(nil, virtv2.StorageKubernetes),
+				VI:              newVI(nil, virtv2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
 					Reason: vicondition.StorageClassNotFound.String(),
@@ -70,7 +70,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be true because storage class from spec found",
 			handlerTestArgs{
 				DiskServiceMock: newDiskServiceMock(ptr.To("sc")),
-				VI:              newVI(ptr.To("sc"), virtv2.StorageKubernetes),
+				VI:              newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vicondition.StorageClassReady.String(),
@@ -81,7 +81,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 			"StorageClassReady must be true because default storage class found",
 			handlerTestArgs{
 				DiskServiceMock: newDiskServiceMock(ptr.To("sc")),
-				VI:              newVI(ptr.To("sc"), virtv2.StorageKubernetes),
+				VI:              newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vicondition.StorageClassReady.String(),

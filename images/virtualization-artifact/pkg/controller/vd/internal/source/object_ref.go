@@ -75,7 +75,8 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		}
 
 		switch vi.Spec.Storage {
-		case virtv2.StorageKubernetes:
+		case virtv2.StorageKubernetes,
+			virtv2.StoragePersistentVolumeClaim:
 			return ds.viPVCSyncer.Sync(ctx, vd)
 		case virtv2.StorageContainerRegistry:
 			return ds.viDVCRSyncer.Sync(ctx, vd)
@@ -117,7 +118,8 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDi
 		}
 
 		switch vi.Spec.Storage {
-		case virtv2.StorageKubernetes:
+		case virtv2.StorageKubernetes,
+			virtv2.StoragePersistentVolumeClaim:
 			return ds.viPVCSyncer.Validate(ctx, vd)
 		case virtv2.StorageContainerRegistry:
 			return ds.viDVCRSyncer.Validate(ctx, vd)
