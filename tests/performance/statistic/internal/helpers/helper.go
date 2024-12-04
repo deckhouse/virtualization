@@ -78,8 +78,8 @@ func DurationToString(d *metav1.Duration) string {
 	return d.Duration.String()
 }
 
-func SaveToFile(content string, resType string) {
-	filepath := fmt.Sprintf("/%s-%s.csv", resType, time.Now().Format("2006-01-02_15-04-05"))
+func SaveToFile(content string, resType string, ns string) {
+	filepath := fmt.Sprintf("/%s-%s-%s.csv", resType, ns, time.Now().Format("2006-01-02_15-04-05"))
 	execpath, err := os.Getwd()
 	if err != nil {
 		os.Exit(1)
