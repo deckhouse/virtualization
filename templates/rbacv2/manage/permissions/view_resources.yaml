@@ -10,23 +10,48 @@ metadata:
     rbac.deckhouse.io/namespace: d8-virtualization
   name: d8:manage:permission:subsystem:virtualization:view_resources
 rules:
-- apiGroups:
-  - virtualization.deckhouse.io
-  resources:
-  - clustervirtualimages
-  - virtualmachineclasses
-  - virtualmachineipaddressleases
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - deckhouse.io
-  resourceNames:
-  - virtualization
-  resources:
-  - moduleconfigs
-  verbs:
-  - get
-  - list
-  - watch
+  - apiGroups:
+      - virtualization.deckhouse.io
+    resources:
+      - clustervirtualimages
+      - virtualmachineclasses
+      - virtualmachineipaddressleases
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - deckhouse.io
+    resourceNames:
+      - virtualization
+    resources:
+      - moduleconfigs
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+      - namespaces/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - scheduling.k8s.io
+    resources:
+      - priorityclasses
+    verbs:
+      - get
+      - list
+      - watch

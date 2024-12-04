@@ -10,25 +10,61 @@ metadata:
     rbac.deckhouse.io/namespace: d8-virtualization
   name: d8:manage:permission:subsystem:virtualization:manage_resources
 rules:
-- apiGroups:
-  - virtualization.deckhouse.io
-  resources:
-  - clustervirtualimages
-  - virtualmachineclasses
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
-  - deletecollection
-- apiGroups:
-  - deckhouse.io
-  resourceNames:
-  - virtualization
-  resources:
-  - moduleconfigs
-  verbs:
-  - create
-  - update
-  - patch
-  - delete
+  - apiGroups:
+      - virtualization.deckhouse.io
+    resources:
+      - clustervirtualimages
+      - virtualmachineclasses
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+  - apiGroups:
+      - deckhouse.io
+    resourceNames:
+      - virtualization
+    resources:
+      - moduleconfigs
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - namespaces
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - nodes/log
+      - nodes/metrics
+      - nodes/proxy
+      - nodes/stats
+    verbs:
+      - '*'
+  - apiGroups:
+      - scheduling.k8s.io
+    resources:
+      - priorityclasses
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
