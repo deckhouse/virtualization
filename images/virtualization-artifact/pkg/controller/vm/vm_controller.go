@@ -63,6 +63,7 @@ func SetupController(
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder),
+		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
 		internal.NewStatisticHandler(client),
