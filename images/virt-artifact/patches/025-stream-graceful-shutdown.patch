@@ -1,16 +1,17 @@
 diff --git a/pkg/virt-handler/rest/console.go b/pkg/virt-handler/rest/console.go
-index 29fd317aa5..a42d85dc50 100644
+index 29fd317aa5..2d2fd4185a 100644
 --- a/pkg/virt-handler/rest/console.go
 +++ b/pkg/virt-handler/rest/console.go
-@@ -32,6 +32,7 @@ import (
- 	"sync"
+@@ -43,6 +43,8 @@ import (
 
- 	"github.com/emicklei/go-restful/v3"
+ 	"kubevirt.io/kubevirt/pkg/util"
+ 	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
++
 +	"github.com/gorilla/websocket"
- 	"github.com/mdlayher/vsock"
- 	"k8s.io/apimachinery/pkg/types"
- 	"k8s.io/client-go/tools/cache"
-@@ -324,7 +325,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
+ )
+
+ type ConsoleHandler struct {
+@@ -324,7 +326,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 
  	select {
  	case <-stopCh:
