@@ -94,7 +94,7 @@ Currently covered metrics:
 - virt-controller
 - virt-api
 
-#### `025-auto-migrate-if-nodeplacement-changed.patch`
+#### `026-auto-migrate-if-nodeplacement-changed.patch`
 
 Start the migration if the nodeSelector or affinity has changed.
 How does it work?
