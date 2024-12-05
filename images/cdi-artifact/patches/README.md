@@ -68,3 +68,11 @@ When cloning via DataVolume from PVC to PVC, there was no format conversion.
 The target PVC should have a raw type for volume mode Block and a qcow2 type for Filesystem. 
 The patch adds this conversion.
 
+#### `018-cover-cdi-metrics.patch`
+
+Configure cdi's components metrics web servers to listen on localhost. 
+This is necessary for ensuring that the metrics can be accessed only by Prometheus via kube-rbac-proxy sidecar.
+
+Currently covered metrics:
+- cdi-controller
+- cdi-deployment

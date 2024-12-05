@@ -42,8 +42,15 @@ spec:
       disableSerialConsoleLog: {}
   customizeComponents:
     flags:
-      api: {}
-      controller: {}
+      api:
+        metrics-listen: 127.0.0.1
+        metrics-port: "8080"
+      controller:
+        metrics-listen: 127.0.0.1
+        metrics-port: "8080"
+      handler:
+        metrics-listen: 127.0.0.1
+        metrics-port: "8080"
     patches:
     - resourceType: Deployment
       resourceName: virt-api
@@ -103,17 +110,26 @@ spec:
     {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
         (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-controller") 
     ) }}
     - resourceName: virt-controller
       resourceType: Deployment
       patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
       type: strategic
 
+    {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-api") 
+    ) }}
     - resourceName: virt-api
       resourceType: Deployment
       patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
       type: strategic
 
+    {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "resource" "daemonsets" "name" "kube-api-rewriter") 
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "resource" "daemonsets" "name" "virt-handler") 
+    ) }}
     - resourceName: virt-handler
       resourceType: DaemonSet
       patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
@@ -213,6 +229,11 @@ spec:
       resourceName: virt-handler
       patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
       type: strategic
+    # Patch service for https-metrics 
+    - resourceType: Service
+      resourceName: kubevirt-prometheus-metrics
+      patch: '[{"op": "replace", "path": "/spec/ports/0/targetPort", "value": "https-metrics"}]'
+      type: json
 
   imagePullPolicy: IfNotPresent
   imagePullSecrets:

@@ -34,6 +34,9 @@ spec:
     - HonorWaitForFirstConsumer
   {{- end }}
   customizeComponents:
+    flags:
+      controller:
+        metrics_address: 127.0.0.1:8080
     patches:
       - resourceType: Deployment
         resourceName: cdi-apiserver
@@ -93,16 +96,25 @@ spec:
       {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
           (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-operator") 
       ) }}
       - resourceType: Deployment
         resourceName: cdi-apiserver
         patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
         type: strategic
 
+      {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-deployment") 
+      ) }}
       - resourceType: Deployment
         resourceName: cdi-deployment
         patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
         type: strategic
+      - resourceType: Service
+        resourceName: cdi-prometheus-metrics
+        patch: '[{"op": "replace", "path": "/spec/ports/0/targetPort", "value": "https-metrics"}]'
+        type: json
 
       # Add rewriter proxy container port to the Service used by webhook configurations.
       # First need to set name for existing port to make strategic patch works later.
