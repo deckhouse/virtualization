@@ -150,7 +150,7 @@ tasks:
 
   dlv:virt-handler:build:
     desc: "Build image virt-handler with dlv"
-    cmd: docker build -f ./images/virt-handler/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" .
+    cmd: docker build -f ./images/virt-handler/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
   dlv:virt-handler:build-push:
     desc: "Build and Push image virt-handler with dlv"
