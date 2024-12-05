@@ -102,7 +102,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		conditions.SetCondition(readyCB, &vi.Status.Conditions)
 	}
 
-	if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim &&
+	if (vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim) &&
 		readyCondition.Status != metav1.ConditionTrue &&
 		storageClassReadyCondition.Status != metav1.ConditionTrue &&
 		vi.Status.StorageClassName != "" {
