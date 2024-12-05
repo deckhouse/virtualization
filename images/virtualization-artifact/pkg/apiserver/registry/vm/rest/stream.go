@@ -158,5 +158,3 @@ func newThrottledUpgradeAwareProxyHandler(
 	}
 	return handler
 }
-
-var urlPatchCheck = 0
