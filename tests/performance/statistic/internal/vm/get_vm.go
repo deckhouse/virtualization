@@ -24,7 +24,7 @@ type VMs struct {
 }
 
 func (vms *VMs) SaveToCSV(ns string) {
-	filepath := fmt.Sprintf("/log-%s-%s.csv", "vm", ns, time.Now().Format("2006-01-02_15-04-05"))
+	filepath := fmt.Sprintf("/log-%s-%s-%s.csv", "vm", ns, time.Now().Format("2006-01-02_15-04-05"))
 	execpath, err := os.Getwd()
 	if err != nil {
 		os.Exit(1)
@@ -101,7 +101,7 @@ func Get(client kubeclient.Client, namespace string) {
 
 	saveData := fmt.Sprintf(
 		"Total VMs count: %d\n"+
-			"Average WaitingForDependencies in seconds:: %.2f\n"+
+			"Average WaitingForDependencies in seconds: %.2f\n"+
 			"Average VirtualMachineStarting in seconds: %.2f\n"+
 			"Average GuestOSAgentStarting in seconds: %.2f\n",
 		totalItems, avgWaitingForDependencies, avgVirtualMachineStarting, avgGuestOSAgentStarting,
