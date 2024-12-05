@@ -52,3 +52,29 @@ func SetLastAppliedSpec(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine
 	annotations.AddAnnotation(kvvm, annotations.AnnVMLastAppliedSpec, string(lastApplied))
 	return nil
 }
+
+// LoadLastAppliedClassSpec loads VMClass spec from JSON in the last-applied-spec annotation.
+func LoadLastAppliedClassSpec(kvvm *virtv1.VirtualMachine) (*v1alpha2.VirtualMachineClassSpec, error) {
+	lastSpecJSON := kvvm.GetAnnotations()[common.AnnVMClassLastAppliedSpec]
+	if strings.TrimSpace(lastSpecJSON) == "" {
+		return nil, nil
+	}
+
+	var spec v1alpha2.VirtualMachineClassSpec
+	err := json.Unmarshal([]byte(lastSpecJSON), &spec)
+	if err != nil {
+		return nil, fmt.Errorf("load spec from JSON: %w", err)
+	}
+	return &spec, nil
+}
+
+// SetLastAppliedClassSpec updates the last-applied-spec annotation with VMClass spec JSON.
+func SetLastAppliedClassSpec(kvvm *virtv1.VirtualMachine, class *v1alpha2.VirtualMachineClass) error {
+	lastApplied, err := json.Marshal(class.Spec)
+	if err != nil {
+		return fmt.Errorf("convert spec to JSON: %w", err)
+	}
+
+	common.AddAnnotation(kvvm, common.AnnVMClassLastAppliedSpec, string(lastApplied))
+	return nil
+}
