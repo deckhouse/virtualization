@@ -31,7 +31,6 @@ import (
 	"k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -148,25 +147,14 @@ func newThrottledUpgradeAwareProxyHandler(
 	location *url.URL,
 	transport *http.Transport,
 	upgradeRequired bool,
-	mustBeOneUser bool,
 	responder rest.Responder,
 	sa types.NamespacedName,
 ) http.Handler {
-	if mustBeOneUser {
-		urlPatchCheck++
-	}
-
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Add(userHeader, fmt.Sprintf("system:serviceaccount:%s:%s", sa.Namespace, sa.Name))
 		r.Header.Add(groupHeader, "system:serviceaccounts")
 		proxyHandler := proxy.NewUpgradeAwareHandler(location, transport, false, upgradeRequired, proxy.NewErrorResponder(responder))
 		proxyHandler.ServeHTTP(w, r)
-
-		log.Errorf("CONFLICT: %v", urlPatchCheck)
-		if urlPatchCheck > 1 {
-			w.WriteHeader(http.StatusConflict)
-		}
-		urlPatchCheck--
 	}
 	return handler
 }
