@@ -94,6 +94,10 @@ Currently covered metrics:
 - virt-controller
 - virt-api
 
+#### `025-stream-graceful-shutdown.patch`
+
+Graceful termination of websocket connection for serial console and vnc connections.
+
 #### `026-auto-migrate-if-nodeplacement-changed.patch`
 
 Start the migration if the nodeSelector or affinity has changed.
