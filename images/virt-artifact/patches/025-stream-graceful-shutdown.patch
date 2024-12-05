@@ -1,5 +1,5 @@
 diff --git a/pkg/virt-handler/rest/console.go b/pkg/virt-handler/rest/console.go
-index 29fd317aa5..2d2fd4185a 100644
+index 4eb681018d..f76f6187a7 100644
 --- a/pkg/virt-handler/rest/console.go
 +++ b/pkg/virt-handler/rest/console.go
 @@ -43,6 +43,8 @@ import (
@@ -7,11 +7,11 @@ index 29fd317aa5..2d2fd4185a 100644
  	"kubevirt.io/kubevirt/pkg/util"
  	"kubevirt.io/kubevirt/pkg/virt-handler/isolation"
 +
-+	"github.com/gorilla/websocket"
++  "github.com/gorilla/websocket"
  )
 
- type ConsoleHandler struct {
-@@ -324,7 +326,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
+ //const failedRetrieveVMI = "Failed to retrieve VMI"
+@@ -326,7 +328,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
 
  	select {
  	case <-stopCh:
