@@ -93,7 +93,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vicondition.StorageClassReadyType)
 	}
 
-	if readyCondition.Status != metav1.ConditionTrue && vi.Spec.Storage == virtv2.StorageKubernetes && storageClassReadyCondition.Status != metav1.ConditionTrue {
+	if readyCondition.Status != metav1.ConditionTrue && (vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim) && storageClassReadyCondition.Status != metav1.ConditionTrue {
 		readyCB := conditions.NewConditionBuilder(vicondition.ReadyType).
 			Generation(vi.Generation).
 			Status(metav1.ConditionFalse).
@@ -102,7 +102,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		conditions.SetCondition(readyCB, &vi.Status.Conditions)
 	}
 
-	if vi.Spec.Storage == virtv2.StorageKubernetes &&
+	if (vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim) &&
 		readyCondition.Status != metav1.ConditionTrue &&
 		storageClassReadyCondition.Status != metav1.ConditionTrue &&
 		vi.Status.StorageClassName != "" {
