@@ -414,10 +414,10 @@ index 0000000000..b16c2f365f
 +	return false
 +}
 diff --git a/pkg/virt-controller/watch/application.go b/pkg/virt-controller/watch/application.go
-index f80a0653ad..d2f0bd36f4 100644
+index 4a8d20d7be..17711edba5 100644
 --- a/pkg/virt-controller/watch/application.go
 +++ b/pkg/virt-controller/watch/application.go
-@@ -638,6 +638,9 @@ func (vca *VirtControllerApp) initCommon() {
+@@ -656,6 +656,9 @@ func (vca *VirtControllerApp) initCommon() {
  		vca.cdiConfigInformer,
  		vca.clusterConfig,
  		topologyHinter,
