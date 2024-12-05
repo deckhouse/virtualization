@@ -26,7 +26,7 @@ spec:
     #   regex: "true"
     #   sourceLabels:
     #   - __meta_kubernetes_endpoint_ready
-    scheme: http
+    scheme: https
     tlsConfig:
       insecureSkipVerify: true
   namespaceSelector:
