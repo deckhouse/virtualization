@@ -1,0 +1,31 @@
+diff --git a/pkg/virt-handler/rest/console.go b/pkg/virt-handler/rest/console.go
+index 29fd317aa5..09922c0f18 100644
+--- a/pkg/virt-handler/rest/console.go
++++ b/pkg/virt-handler/rest/console.go
+@@ -32,6 +32,7 @@ import (
+ 	"sync"
+
+ 	"github.com/emicklei/go-restful/v3"
++	"github.com/gorilla/websocket"
+ 	"github.com/mdlayher/vsock"
+ 	"k8s.io/apimachinery/pkg/types"
+ 	"k8s.io/client-go/tools/cache"
+@@ -291,7 +292,7 @@ func unixSocketDialer(vmi *v1.VirtualMachineInstance, unixSocketPath string) fun
+ }
+
+ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful.Request, response *restful.Response, dial func() (net.Conn, error), stopCh chan struct{}) {
+-	var upgrader = kvcorev1.NewUpgrader()
++	upgrader := kvcorev1.NewUpgrader()
+ 	clientSocket, err := upgrader.Upgrade(response.ResponseWriter, request.Request, nil)
+ 	if err != nil {
+ 		log.Log.Object(vmi).Reason(err).Error("Failed to upgrade client websocket connection")
+@@ -324,7 +325,7 @@ func (t *ConsoleHandler) stream(vmi *v1.VirtualMachineInstance, request *restful
+
+ 	select {
+ 	case <-stopCh:
+-		break
++		clientSocket.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseGoingAway, "close by another connection"))
+ 	case err := <-errCh:
+ 		if err != nil && err != io.EOF {
+ 			log.Log.Object(vmi).Reason(err).Error("Error in proxing websocket and unix socket")
+
