@@ -59,11 +59,6 @@ type VirtualMachineClassList struct {
 	Items []VirtualMachineClass `json:"items"`
 }
 
-type VirtualMachineClassNodePlacement struct {
-	NodeSelector NodeSelector        `json:"nodeSelector,omitempty"`
-	Tolerations  []corev1.Toleration `json:"tolerations,omitempty"`
-}
-
 type VirtualMachineClassSpec struct {
 	NodeSelector NodeSelector `json:"nodeSelector,omitempty"`
 	// Tolerations are the same as `spec.tolerations` in the [Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
