@@ -5,12 +5,12 @@ metadata:
   labels:
     heritage: deckhouse
     module: virtualization
-    rbac.deckhouse.io/aggregate-to-role: super-admin
+    rbac.deckhouse.io/aggregate-to-role: superadmin
     rbac.deckhouse.io/kind: use
-  name: d8:use:virtualization:super-admin
+  name: d8:use:virtualization:superadmin
 aggregationRule:
   clusterRoleSelectors:
     - matchLabels:
         rbac.deckhouse.io/kind: use
-        rbac.deckhouse.io/aggregate-to-virtualization-as: super-admin
+        rbac.deckhouse.io/aggregate-to-virtualization-as: superadmin
 rules: []

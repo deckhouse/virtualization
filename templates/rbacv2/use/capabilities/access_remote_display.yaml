@@ -6,12 +6,12 @@ metadata:
     module: virtualization
     rbac.deckhouse.io/aggregate-to-virtualization-as: user
     rbac.deckhouse.io/kind: use
-  name: d8:use:capability:virtualization:access_console
+  name: d8:use:capability:virtualization:access_remote_display
 rules:
 - apiGroups:
   - subresources.virtualization.deckhouse.io
   resources:
-  - virtualmachines/console
+  - virtualmachines/vnc
   verbs:
   - get
   - create

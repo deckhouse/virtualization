@@ -6,7 +6,7 @@ metadata:
     module: virtualization
     rbac.deckhouse.io/aggregate-to-virtualization-as: user
     rbac.deckhouse.io/kind: use
-  name: d8:use:capability:virtualization:forward_port
+  name: d8:use:capability:virtualization:forward_ports
 rules:
 - apiGroups:
   - subresources.virtualization.deckhouse.io
