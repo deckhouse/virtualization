@@ -18,8 +18,8 @@ package watcher
 
 import (
 	"context"
-	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -79,7 +79,9 @@ func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Co
 				if !oldOk || !newOk {
 					return false
 				}
-				return !reflect.DeepEqual(oldVMC.Spec.SizingPolicies, newVMC.Spec.SizingPolicies)
+				return !equality.Semantic.DeepEqual(oldVMC.Spec.SizingPolicies, newVMC.Spec.SizingPolicies) ||
+					!equality.Semantic.DeepEqual(oldVMC.Spec.Tolerations, oldVMC.Spec.Tolerations) ||
+					!equality.Semantic.DeepEqual(oldVMC.Spec.NodeSelector, newVMC.Spec.NodeSelector)
 			},
 		},
 	)
