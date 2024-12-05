@@ -9,7 +9,7 @@ metadata:
     rbac.deckhouse.io/kind: manage
     rbac.deckhouse.io/level: subsystem
     rbac.deckhouse.io/subsystem: virtualization
-    rbac.deckhouse.io/aggregate-to-virtualization-as: super-admin
+    rbac.deckhouse.io/aggregate-to-virtualization-as: superadmin
     rbac.deckhouse.io/aggregate-to-all-as: manager
 aggregationRule:
   clusterRoleSelectors:

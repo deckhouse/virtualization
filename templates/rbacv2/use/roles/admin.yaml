@@ -6,7 +6,7 @@ metadata:
     heritage: deckhouse
     module: virtualization
     rbac.deckhouse.io/aggregate-to-all-as: admin
-    rbac.deckhouse.io/aggregate-to-virtualization-as: super-admin
+    rbac.deckhouse.io/aggregate-to-virtualization-as: superadmin
     rbac.deckhouse.io/kind: use
 aggregationRule:
   clusterRoleSelectors:
