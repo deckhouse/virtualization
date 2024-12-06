@@ -32,14 +32,20 @@ const (
 	// AnnAPIGroup is the APIGroup for virtualization-controller.
 	AnnAPIGroup = "virt.deckhouse.io"
 
-	// AnnCreatedBy is a pod annotation indicating if the pod was created by the PVC
+	// AnnCreatedBy is a pod annotation indicating if the pod was created by the PVC.
 	AnnCreatedBy = AnnAPIGroup + "/storage.createdByController"
 
 	// AnnPodRetainAfterCompletion is PVC annotation for retaining transfer pods after completion
 	AnnPodRetainAfterCompletion = AnnAPIGroup + "/storage.pod.retainAfterCompletion"
 
-	// AnnUploadURL provides a const for CVMI/VMI/VMD uploadURL annotation
+	// AnnUploadURL provides a const for CVMI/VMI/VMD uploadURL annotation.
 	AnnUploadURL = AnnAPIGroup + "/upload.url"
+
+	// AnnTolerationsHash provides a const for annotation with hash of applied tolerations.
+	AnnTolerationsHash = AnnAPIGroup + "/tolerations-hash"
+
+	// AnnProvisionerTolerations provides a const for tolerations to use for provisioners.
+	AnnProvisionerTolerations = AnnAPIGroup + "/provisioner-tolerations"
 
 	// AnnDefaultStorageClass is the annotation indicating that a storage class is the default one.
 	AnnDefaultStorageClass = "storageclass.kubernetes.io/is-default-class"

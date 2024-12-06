@@ -36,16 +36,6 @@ func CapitalizeFirstLetter(s string) string {
 	return string(runes)
 }
 
-func GetPodCondition(condType corev1.PodConditionType, conds []corev1.PodCondition) (corev1.PodCondition, bool) {
-	for _, cond := range conds {
-		if cond.Type == condType {
-			return cond, true
-		}
-	}
-
-	return corev1.PodCondition{}, false
-}
-
 func GetDataVolumeCondition(conditionType cdiv1.DataVolumeConditionType, conditions []cdiv1.DataVolumeCondition) *cdiv1.DataVolumeCondition {
 	for i, condition := range conditions {
 		if condition.Type == conditionType {

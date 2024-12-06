@@ -24,12 +24,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -41,12 +43,18 @@ import (
 type ObjectRefVirtualImagePVC struct {
 	diskService         *service.DiskService
 	storageClassService *service.VirtualDiskStorageClassService
+	client              client.Client
 }
 
-func NewObjectRefVirtualImagePVC(diskService *service.DiskService, storageClassService *service.VirtualDiskStorageClassService) *ObjectRefVirtualImagePVC {
+func NewObjectRefVirtualImagePVC(
+	diskService *service.DiskService,
+	storageClassService *service.VirtualDiskStorageClassService,
+	client client.Client,
+) *ObjectRefVirtualImagePVC {
 	return &ObjectRefVirtualImagePVC{
 		diskService:         diskService,
 		storageClassService: storageClassService,
+		client:              client,
 	}
 }
 
@@ -134,7 +142,14 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 			},
 		}
 
-		err = ds.diskService.Start(ctx, size, sc, source, vd, supgen)
+		var nodePlacement provisioner.NodePlacement
+		nodePlacement.Tolerations, err = getTolerations(ctx, ds.client, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, fmt.Errorf("fauled to get importer tolerations: %w", err)
+		}
+
+		err = ds.diskService.Start(ctx, size, sc, source, vd, supgen, service.WithNodePlacement(&nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}

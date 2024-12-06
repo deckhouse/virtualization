@@ -19,6 +19,7 @@ package uploader
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -50,7 +51,8 @@ func Test_MakePodSpec(t *testing.T) {
 
 	imp := NewPod(podSettings, settings)
 
-	pod := imp.makeSpec()
+	pod, err := imp.makeSpec()
+	require.NoError(t, err)
 
 	if pod.Namespace == "" {
 		t.Fatalf("pod.Namespace should not be empty!")

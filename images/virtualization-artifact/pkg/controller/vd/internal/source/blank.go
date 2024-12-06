@@ -19,14 +19,17 @@ package source
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -41,17 +44,20 @@ type BlankDataSource struct {
 	statService         *service.StatService
 	diskService         *service.DiskService
 	storageClassService *service.VirtualDiskStorageClassService
+	client              client.Client
 }
 
 func NewBlankDataSource(
 	statService *service.StatService,
 	diskService *service.DiskService,
 	storageClassService *service.VirtualDiskStorageClassService,
+	client client.Client,
 ) *BlankDataSource {
 	return &BlankDataSource{
 		statService:         statService,
 		diskService:         diskService,
 		storageClassService: storageClassService,
+		client:              client,
 	}
 }
 
@@ -113,7 +119,14 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 
 		source := ds.getSource()
 
-		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
+		var nodePlacement provisioner.NodePlacement
+		nodePlacement.Tolerations, err = getTolerations(ctx, ds.client, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, fmt.Errorf("fauled to get importer tolerations: %w", err)
+		}
+
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(&nodePlacement))
 
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
