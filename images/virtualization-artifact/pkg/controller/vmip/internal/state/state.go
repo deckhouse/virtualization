@@ -24,12 +24,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
@@ -39,7 +39,7 @@ type VMIPState interface {
 	VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachineIPAddressLease, error)
 	VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, error)
 
-	AllocatedIPs() common.AllocatedIPs
+	AllocatedIPs() ip.AllocatedIPs
 }
 
 type state struct {
@@ -47,7 +47,7 @@ type state struct {
 	vmip         *virtv2.VirtualMachineIPAddress
 	lease        *virtv2.VirtualMachineIPAddressLease
 	vm           *virtv2.VirtualMachine
-	allocatedIPs common.AllocatedIPs
+	allocatedIPs ip.AllocatedIPs
 }
 
 func New(c client.Client, vmip *virtv2.VirtualMachineIPAddress) VMIPState {
@@ -65,11 +65,11 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 
 	var err error
 
-	leaseName := common.IpToLeaseName(s.vmip.Status.Address)
+	leaseName := ip.IpToLeaseName(s.vmip.Status.Address)
 
 	if leaseName != "" {
 		leaseKey := types.NamespacedName{Name: leaseName}
-		s.lease, err = helper.FetchObject(ctx, leaseKey, s.client, &virtv2.VirtualMachineIPAddressLease{})
+		s.lease, err = object.FetchObject(ctx, leaseKey, s.client, &virtv2.VirtualMachineIPAddressLease{})
 		if err != nil {
 			return nil, fmt.Errorf("unable to get Lease %s: %w", leaseKey, err)
 		}
@@ -113,7 +113,7 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 	var err error
 	if s.vmip.Status.VirtualMachine != "" {
 		vmKey := types.NamespacedName{Name: s.vmip.Status.VirtualMachine, Namespace: s.vmip.Namespace}
-		vm, err := helper.FetchObject(ctx, vmKey, s.client, &virtv2.VirtualMachine{})
+		vm, err := object.FetchObject(ctx, vmKey, s.client, &virtv2.VirtualMachine{})
 		if err != nil {
 			return nil, fmt.Errorf("unable to get VM %s: %w", vmKey, err)
 		}
@@ -147,6 +147,6 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 	return s.vm, nil
 }
 
-func (s *state) AllocatedIPs() common.AllocatedIPs {
+func (s *state) AllocatedIPs() ip.AllocatedIPs {
 	return s.allocatedIPs
 }

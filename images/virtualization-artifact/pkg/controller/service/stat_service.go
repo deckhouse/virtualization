@@ -29,10 +29,12 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/humanize_bytes"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
+	"github.com/deckhouse/virtualization-controller/pkg/common/percent"
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/monitoring"
-	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -88,9 +90,9 @@ func (s StatService) GetSize(pod *corev1.Pod) virtv2.ImageStatusSize {
 	unpackedSizeBytes := resource.NewQuantity(int64(finalReport.UnpackedSizeBytes), resource.BinarySI)
 
 	return virtv2.ImageStatusSize{
-		Stored:        util.HumanizeIBytes(finalReport.StoredSizeBytes),
+		Stored:        humanize_bytes.HumanizeIBytes(finalReport.StoredSizeBytes),
 		StoredBytes:   strconv.FormatUint(finalReport.StoredSizeBytes, 10),
-		Unpacked:      util.HumanizeIBytes(uint64(unpackedSizeBytes.Value())),
+		Unpacked:      humanize_bytes.HumanizeIBytes(uint64(unpackedSizeBytes.Value())),
 		UnpackedBytes: strconv.FormatInt(unpackedSizeBytes.Value(), 10),
 	}
 }
@@ -181,7 +183,7 @@ type ScaleOption struct {
 }
 
 func (o ScaleOption) Apply(progress string) string {
-	return common.ScalePercentage(progress, o.Low, o.High)
+	return percent.ScalePercentage(progress, o.Low, o.High)
 }
 
 func (s StatService) GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...GetProgressOption) string {
@@ -245,7 +247,7 @@ func (s StatService) IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *
 		return false
 	}
 
-	return cc.IsPodRunning(pod) && cc.IsPodStarted(pod) && ing.Annotations[cc.AnnUploadURL] != ""
+	return podutil.IsPodRunning(pod) && podutil.IsPodStarted(pod) && ing.Annotations[annotations.AnnUploadURL] != ""
 }
 
 func (s StatService) IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool {

@@ -27,7 +27,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -86,7 +86,7 @@ type Cleaner interface {
 }
 
 func CleanUp(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, error) {
-	if cc.ShouldCleanupSubResources(vi) {
+	if object.ShouldCleanupSubResources(vi) {
 		return c.CleanUp(ctx, vi)
 	}
 
@@ -94,7 +94,7 @@ func CleanUp(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (bool, err
 }
 
 func CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner) (reconcile.Result, error) {
-	if cc.ShouldCleanupSubResources(vi) {
+	if object.ShouldCleanupSubResources(vi) {
 		return c.CleanUpSupplements(ctx, vi)
 	}
 

@@ -28,11 +28,11 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -94,7 +94,7 @@ func (s *state) KVVM(ctx context.Context) (*virtv1.VirtualMachine, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	kvvm, err := helper.FetchObject(ctx, s.vm.Name(), s.client, &virtv1.VirtualMachine{})
+	kvvm, err := object.FetchObject(ctx, s.vm.Name(), s.client, &virtv1.VirtualMachine{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch KVVM: %w", err)
 	}
@@ -112,7 +112,7 @@ func (s *state) KVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, erro
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	kvvmi, err := helper.FetchObject(ctx, s.vm.Name(), s.client, &virtv1.VirtualMachineInstance{})
+	kvvmi, err := object.FetchObject(ctx, s.vm.Name(), s.client, &virtv1.VirtualMachineInstance{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch KVVMI: %w", err)
 	}
@@ -187,7 +187,7 @@ func (s *state) VMBDAList(ctx context.Context) ([]virtv2.VirtualMachineBlockDevi
 }
 
 func (s *state) VirtualDisk(ctx context.Context, name string) (*virtv2.VirtualDisk, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{
+	return object.FetchObject(ctx, types.NamespacedName{
 		Name:      name,
 		Namespace: s.vm.Current().GetNamespace(),
 	}, s.client, &virtv2.VirtualDisk{})
@@ -206,7 +206,7 @@ func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*virtv2.Virt
 	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
 		switch bd.Kind {
 		case virtv2.DiskDevice:
-			vmd, err := helper.FetchObject(ctx, types.NamespacedName{
+			vmd, err := object.FetchObject(ctx, types.NamespacedName{
 				Name:      bd.Name,
 				Namespace: s.vm.Current().GetNamespace(),
 			}, s.client, &virtv2.VirtualDisk{})
@@ -238,7 +238,7 @@ func (s *state) VirtualImagesByName(ctx context.Context) (map[string]*virtv2.Vir
 	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
 		switch bd.Kind {
 		case virtv2.ImageDevice:
-			vi, err := helper.FetchObject(ctx, types.NamespacedName{
+			vi, err := object.FetchObject(ctx, types.NamespacedName{
 				Name:      bd.Name,
 				Namespace: s.vm.Current().GetNamespace(),
 			}, s.client, &virtv2.VirtualImage{})
@@ -270,7 +270,7 @@ func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*vir
 	for _, bd := range s.vm.Current().Spec.BlockDeviceRefs {
 		switch bd.Kind {
 		case virtv2.ClusterImageDevice:
-			cvi, err := helper.FetchObject(ctx, types.NamespacedName{
+			cvi, err := object.FetchObject(ctx, types.NamespacedName{
 				Name:      bd.Name,
 				Namespace: s.vm.Current().GetNamespace(),
 			}, s.client, &virtv2.ClusterVirtualImage{})
@@ -306,7 +306,7 @@ func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress,
 
 		err := s.client.List(ctx, vmipList, &client.ListOptions{
 			Namespace:     s.vm.Current().GetNamespace(),
-			LabelSelector: labels.SelectorFromSet(map[string]string{common.LabelVirtualMachineUID: string(s.vm.Current().GetUID())}),
+			LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineUID: string(s.vm.Current().GetUID())}),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list VirtualMachineIPAddress: %w", err)
@@ -321,7 +321,7 @@ func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress,
 	} else {
 		vmipKey := types.NamespacedName{Name: vmipName, Namespace: s.vm.Current().GetNamespace()}
 
-		ipAddress, err := helper.FetchObject(ctx, vmipKey, s.client, &virtv2.VirtualMachineIPAddress{})
+		ipAddress, err := object.FetchObject(ctx, vmipKey, s.client, &virtv2.VirtualMachineIPAddress{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to fetch VirtualMachineIPAddress: %w", err)
 		}
@@ -340,7 +340,7 @@ func (s *state) Class(ctx context.Context) (*virtv2.VirtualMachineClass, error) 
 	}
 	className := s.vm.Current().Spec.VirtualMachineClassName
 	classKey := types.NamespacedName{Name: className}
-	class, err := helper.FetchObject(ctx, classKey, s.client, &virtv2.VirtualMachineClass{})
+	class, err := object.FetchObject(ctx, classKey, s.client, &virtv2.VirtualMachineClass{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch VirtualMachineClass: %w", err)
 	}

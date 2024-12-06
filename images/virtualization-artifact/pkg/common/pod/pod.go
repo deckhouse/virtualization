@@ -19,6 +19,7 @@ package pod
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 // MakeOwnerReference makes owner reference from a Pod
@@ -75,4 +76,66 @@ func AddVolume(pod *corev1.Pod, container *corev1.Container, volume corev1.Volum
 func AddVolumeDevice(pod *corev1.Pod, container *corev1.Container, volume corev1.Volume, volumeDevice corev1.VolumeDevice) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes, volume)
 	container.VolumeDevices = append(container.VolumeDevices, volumeDevice)
+}
+
+// IsPodRunning returns true if a Pod is in 'Running' phase, false if not.
+func IsPodRunning(pod *corev1.Pod) bool {
+	return pod != nil && pod.Status.Phase == corev1.PodRunning
+}
+
+// IsPodStarted returns true if a Pod is in started state, false if not.
+func IsPodStarted(pod *corev1.Pod) bool {
+	if pod == nil || pod.Status.StartTime == nil {
+		return false
+	}
+
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Started == nil || !*cs.Started {
+			return false
+		}
+	}
+
+	return true
+}
+
+// IsPodComplete returns true if a Pod is in 'Succeeded' phase, false if not.
+func IsPodComplete(pod *corev1.Pod) bool {
+	return pod != nil && pod.Status.Phase == corev1.PodSucceeded
+}
+
+// QemuSubGid is the gid used as the qemu group in fsGroup
+const QemuSubGid = int64(107)
+
+// SetRestrictedSecurityContext sets the pod security params to be compatible with restricted PSA
+func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {
+	hasVolumeMounts := false
+	for _, containers := range [][]corev1.Container{podSpec.InitContainers, podSpec.Containers} {
+		for i := range containers {
+			container := &containers[i]
+			if container.SecurityContext == nil {
+				container.SecurityContext = &corev1.SecurityContext{}
+			}
+			container.SecurityContext.Capabilities = &corev1.Capabilities{
+				Drop: []corev1.Capability{
+					"ALL",
+				},
+			}
+			container.SecurityContext.SeccompProfile = &corev1.SeccompProfile{
+				Type: corev1.SeccompProfileTypeRuntimeDefault,
+			}
+			container.SecurityContext.AllowPrivilegeEscalation = ptr.To(false)
+			container.SecurityContext.RunAsNonRoot = ptr.To(true)
+			container.SecurityContext.RunAsUser = ptr.To(QemuSubGid)
+			if len(container.VolumeMounts) > 0 {
+				hasVolumeMounts = true
+			}
+		}
+	}
+
+	if hasVolumeMounts {
+		if podSpec.SecurityContext == nil {
+			podSpec.SecurityContext = &corev1.PodSecurityContext{}
+		}
+		podSpec.SecurityContext.FSGroup = ptr.To(QemuSubGid)
+	}
 }

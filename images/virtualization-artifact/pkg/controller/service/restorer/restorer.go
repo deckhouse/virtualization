@@ -28,8 +28,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -123,7 +123,7 @@ func (r SecretRestorer) setVirtualMachineBlockDeviceAttachments(ctx context.Cont
 			continue
 		}
 
-		vmbda, err := helper.FetchObject(ctx, types.NamespacedName{
+		vmbda, err := object.FetchObject(ctx, types.NamespacedName{
 			Name:      bdr.VirtualMachineBlockDeviceAttachmentName,
 			Namespace: vm.Namespace,
 		}, r.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
@@ -153,7 +153,7 @@ func (r SecretRestorer) setVirtualMachineBlockDeviceAttachments(ctx context.Cont
 }
 
 func (r SecretRestorer) setVirtualMachineIPAddress(ctx context.Context, secret *corev1.Secret, vm *virtv2.VirtualMachine, keepIPAddress virtv2.KeepIPAddress) error {
-	vmip, err := helper.FetchObject(ctx, types.NamespacedName{
+	vmip, err := object.FetchObject(ctx, types.NamespacedName{
 		Namespace: vm.Namespace,
 		Name:      vm.Status.VirtualMachineIPAddress,
 	}, r.client, &virtv2.VirtualMachineIPAddress{})
@@ -256,7 +256,7 @@ func (r SecretRestorer) setProvisioning(ctx context.Context, secret *corev1.Secr
 	}
 
 	secretKey := types.NamespacedName{Name: secretName, Namespace: vm.Namespace}
-	provisioner, err := helper.FetchObject(ctx, secretKey, r.client, &corev1.Secret{})
+	provisioner, err := object.FetchObject(ctx, secretKey, r.client, &corev1.Secret{})
 	if err != nil {
 		return err
 	}

@@ -22,8 +22,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -74,7 +74,7 @@ func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
 	}
 	for _, p := range phases {
 		s.defaultUpdate(MetricVirtualMachineStatusPhase,
-			util.BoolFloat64(p.value), m, p.name)
+			common.BoolFloat64(p.value), m, p.name)
 	}
 }
 
@@ -115,12 +115,12 @@ func (s *scraper) updateMetricVirtualMachineConfigurationMemorySizeBytes(m *data
 
 func (s *scraper) updateMetricVirtualMachineAwaitingRestartToApplyConfiguration(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineAwaitingRestartToApplyConfiguration,
-		util.BoolFloat64(m.AwaitingRestartToApplyConfiguration), m)
+		common.BoolFloat64(m.AwaitingRestartToApplyConfiguration), m)
 }
 
 func (s *scraper) updateMetricVirtualMachineConfigurationApplied(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationApplied,
-		util.BoolFloat64(m.ConfigurationApplied), m)
+		common.BoolFloat64(m.ConfigurationApplied), m)
 }
 
 func (s *scraper) updateMetricVirtualMachineConfigurationRunPolicy(m *dataMetric) {
@@ -136,13 +136,13 @@ func (s *scraper) updateMetricVirtualMachineConfigurationRunPolicy(m *dataMetric
 	}
 	for _, p := range policies {
 		s.defaultUpdate(MetricVirtualMachineConfigurationRunPolicy,
-			util.BoolFloat64(p.value), m, p.name)
+			common.BoolFloat64(p.value), m, p.name)
 	}
 }
 
 func (s *scraper) updateMetricVirtualMachinePod(m *dataMetric) {
 	for _, p := range m.Pods {
-		s.defaultUpdate(MetricVirtualMachinePod, util.BoolFloat64(p.Active), m, p.Name)
+		s.defaultUpdate(MetricVirtualMachinePod, common.BoolFloat64(p.Active), m, p.Name)
 	}
 }
 

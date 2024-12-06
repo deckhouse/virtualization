@@ -26,13 +26,14 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -60,7 +61,7 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -101,13 +102,13 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 		}
 
 		return CleanUpSupplements(ctx, vd, ds)
-	case common.AnyTerminating(dv, pvc):
+	case object.AnyTerminating(dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case dv == nil:
 		log.Info("Start import to PVC")
 
 		vd.Status.Progress = "0%"
-		vd.Status.SourceUID = util.GetPointer(vi.GetUID())
+		vd.Status.SourceUID = pointer.GetPointer(vi.GetUID())
 
 		if imageformat.IsISO(vi.Status.Format) {
 			setPhaseConditionToFailed(cb, &vd.Status.Phase, ErrISOSourceNotSupported)
@@ -208,7 +209,7 @@ func (ds ObjectRefVirtualImagePVC) Validate(ctx context.Context, vd *virtv2.Virt
 }
 
 func (ds ObjectRefVirtualImagePVC) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
 
 	diskRequeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {

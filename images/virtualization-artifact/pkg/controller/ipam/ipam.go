@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -61,7 +61,7 @@ func (m IPAM) CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, cl
 	return client.Create(ctx, &virtv2.VirtualMachineIPAddress{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				common.LabelVirtualMachineUID: string(vm.GetUID()),
+				annotations.LabelVirtualMachineUID: string(vm.GetUID()),
 			},
 			GenerateName:    GenerateName(vm),
 			Namespace:       vm.Namespace,

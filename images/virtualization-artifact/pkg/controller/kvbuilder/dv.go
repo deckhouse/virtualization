@@ -25,17 +25,17 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pvc"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 )
 
 // DV is a helper to construct DataVolume to import an image from DVCR onto PVC.
 type DV struct {
-	helper.ResourceBuilder[*cdiv1.DataVolume]
+	resource_builder.ResourceBuilder[*cdiv1.DataVolume]
 }
 
 func NewDV(name types.NamespacedName) *DV {
 	return &DV{
-		ResourceBuilder: helper.NewResourceBuilder(
+		ResourceBuilder: resource_builder.NewResourceBuilder(
 			&cdiv1.DataVolume{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "DataVolume",
@@ -51,7 +51,7 @@ func NewDV(name types.NamespacedName) *DV {
 				Spec: cdiv1.DataVolumeSpec{
 					Source: &cdiv1.DataVolumeSource{},
 				},
-			}, helper.ResourceBuilderOptions{},
+			}, resource_builder.ResourceBuilderOptions{},
 		),
 	}
 }

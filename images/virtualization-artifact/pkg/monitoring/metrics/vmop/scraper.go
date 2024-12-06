@@ -22,7 +22,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -57,7 +57,7 @@ func (s *scraper) updateMetricVMOPStatusPhase(m *dataMetric) {
 
 	for _, p := range phases {
 		s.defaultUpdate(MetricVMOPStatusPhase,
-			util.BoolFloat64(p.value), m, p.name)
+			common.BoolFloat64(p.value), m, p.name)
 	}
 }
 

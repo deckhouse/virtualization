@@ -25,10 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -67,7 +67,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		return reconcile.Result{}, fmt.Errorf("failed to update finalizer on the KVVM %q: %w", kvvm.GetName(), err)
 	}
 	if kvvm != nil {
-		err = helper.DeleteObject(ctx, h.client, kvvm)
+		err = object.DeleteObject(ctx, h.client, kvvm)
 		if err != nil {
 			return reconcile.Result{}, err
 		}

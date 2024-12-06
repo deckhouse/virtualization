@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -58,7 +58,7 @@ func (s *state) VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMac
 
 	if s.lease.Spec.VirtualMachineIPAddressRef != nil {
 		vmipKey := types.NamespacedName{Name: s.lease.Spec.VirtualMachineIPAddressRef.Name, Namespace: s.lease.Spec.VirtualMachineIPAddressRef.Namespace}
-		s.vmip, err = helper.FetchObject(ctx, vmipKey, s.client, &virtv2.VirtualMachineIPAddress{})
+		s.vmip, err = object.FetchObject(ctx, vmipKey, s.client, &virtv2.VirtualMachineIPAddress{})
 		if err != nil {
 			return nil, fmt.Errorf("unable to get VirtualMachineIP %s: %w", vmipKey, err)
 		}

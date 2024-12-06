@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helper
+package resource_builder
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,8 +22,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 )
 
 type ResourceBuilderOptions struct {
@@ -47,7 +47,7 @@ func (b *ResourceBuilder[T]) SetOwnerRef(obj metav1.Object, gvk schema.GroupVers
 }
 
 func (b *ResourceBuilder[T]) AddAnnotation(annotation, value string) {
-	common.AddAnnotation(b.Resource, annotation, value)
+	annotations.AddAnnotation(b.Resource, annotation, value)
 }
 
 func (b *ResourceBuilder[T]) AddFinalizer(finalizer string) {
@@ -63,7 +63,7 @@ func (b *ResourceBuilder[T]) IsResourceExists() bool {
 }
 
 func SetOwnerRef(obj metav1.Object, ref metav1.OwnerReference) bool {
-	newOwnerRefs := util.SetArrayElem(
+	newOwnerRefs := array.SetArrayElem(
 		obj.GetOwnerReferences(),
 		ref,
 		func(v1, v2 metav1.OwnerReference) bool {

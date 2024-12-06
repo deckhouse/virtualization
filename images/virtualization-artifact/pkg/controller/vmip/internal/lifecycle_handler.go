@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
@@ -87,7 +87,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 			conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
 				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s doesn't exist",
-					common.IpToLeaseName(vmipStatus.Address)))
+					ip.IpToLeaseName(vmipStatus.Address)))
 		}
 
 	case lease == nil:
@@ -109,7 +109,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 	case util.IsBoundLease(lease, vmip):
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhaseBound {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseBound
-			vmipStatus.Address = common.LeaseNameToIP(lease.Name)
+			vmipStatus.Address = ip.LeaseNameToIP(lease.Name)
 			conditionBound.Status(metav1.ConditionTrue).
 				Reason(vmipcondition.Bound)
 		}

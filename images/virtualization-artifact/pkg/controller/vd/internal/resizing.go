@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -70,7 +70,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, nil
 	}
 
-	supgen := supplements.NewGenerator(cc.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	pvc, err := h.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err

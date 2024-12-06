@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/pwgen"
 )
 
 type IngressSettings struct {
@@ -76,7 +76,7 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 			Name:      i.Settings.Name,
 			Namespace: i.Settings.Namespace,
 			Annotations: map[string]string{
-				cc.AnnUploadURL: fmt.Sprintf("https://%s%s", i.Settings.Host, path),
+				annotations.AnnUploadURL:                      fmt.Sprintf("https://%s%s", i.Settings.Host, path),
 				"nginx.ingress.kubernetes.io/ssl-redirect":    "true",
 				"nginx.ingress.kubernetes.io/proxy-body-size": "0",
 				"nginx.ingress.kubernetes.io/rewrite-target":  uploadPath,
@@ -121,7 +121,7 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 }
 
 func (i *Ingress) generatePath() string {
-	return fmt.Sprintf(tmplIngressPath, util.AlphaNum(32))
+	return fmt.Sprintf(tmplIngressPath, pwgen.AlphaNum(32))
 }
 
 type IngressNamer interface {
@@ -129,5 +129,5 @@ type IngressNamer interface {
 }
 
 func FindIngress(ctx context.Context, client client.Client, name IngressNamer) (*netv1.Ingress, error) {
-	return helper.FetchObject(ctx, name.UploaderIngress(), client, &netv1.Ingress{})
+	return object.FetchObject(ctx, name.UploaderIngress(), client, &netv1.Ingress{})
 }

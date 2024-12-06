@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/auth"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 )
 
 // AuthSecret copies auth credentials from the source Secret into
@@ -43,7 +43,7 @@ type AuthSecret struct {
 // a Secret with two fields: accessKeyId and secretKey.
 // ref is registry url or image name. It is used to select a desired auth pair from the config.
 func (a AuthSecret) CopyCDICompatible(ctx context.Context, client client.Client, ref string) error {
-	srcObj, err := helper.FetchObject(ctx, a.Source, client, &corev1.Secret{})
+	srcObj, err := object.FetchObject(ctx, a.Source, client, &corev1.Secret{})
 	if err != nil {
 		return err
 	}

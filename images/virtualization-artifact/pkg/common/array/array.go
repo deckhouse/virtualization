@@ -14,33 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package array
 
-import (
-	"fmt"
-	"math"
-)
-
-func CopyByPointer[T any](objP *T) *T {
-	copyObj := *objP
-	return &copyObj
-}
-
-func ToPointersArray[T any](items []T) (res []*T) {
-	for _, item := range items {
-		res = append(res, GetPointer(item))
-	}
-	return
-}
-
-func GetPointer[T any](obj T) *T {
-	return &obj
-}
-
-func IsEmpty[T comparable](v T) bool {
-	var empty T
-	return v == empty
-}
+import "slices"
 
 // SetArrayElem performs idempotent insert of new elem or optionally replace if it exists
 func SetArrayElem[T any](elems []T, newElem T, matchFunc func(v1, v2 T) bool, replaceExisting bool) (res []T) {
@@ -63,36 +39,22 @@ func SetArrayElem[T any](elems []T, newElem T, matchFunc func(v1, v2 T) bool, re
 	return
 }
 
-func BoolFloat64(b bool) float64 {
-	if b {
-		return 1
+type FilterFunc[T any] func(obj *T) (keep bool)
+
+// Filter removes an item from the "objs" array if at least one of the "keeps" functions return false for the item.
+func Filter[T any](objs []T, keeps ...FilterFunc[T]) []T {
+	if len(keeps) == 0 {
+		return slices.Clone(objs)
 	}
-	return 0
-}
-
-func HumanizeIBytes(s uint64) string {
-	sizes := []string{"B", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
-	return humanateBytes(s, 1024, sizes)
-}
-
-func humanateBytes(s uint64, base float64, sizes []string) string {
-	if s < 10 {
-		return fmt.Sprintf("%dB", s)
+	var filtered []T
+loop:
+	for _, o := range objs {
+		for _, keep := range keeps {
+			if !keep(&o) {
+				continue loop
+			}
+		}
+		filtered = append(filtered, o)
 	}
-	e := math.Floor(logn(float64(s), base))
-
-	suffix := sizes[int(e)]
-	val := math.Floor(float64(s)/math.Pow(base, e)*10+0.5) / 10
-	_, frac := math.Modf(val)
-	f := "%.0f%s"
-
-	if frac > 0 {
-		f = "%.1f%s"
-	}
-
-	return fmt.Sprintf(f, val, suffix)
-}
-
-func logn(n, b float64) float64 {
-	return math.Log(n) / math.Log(b)
+	return filtered
 }

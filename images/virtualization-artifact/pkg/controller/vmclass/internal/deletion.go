@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -63,7 +63,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 		return reconcile.Result{}, err
 	}
 	if len(vms) > 0 {
-		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it. %s...", common.NamespacedName(&vms[0]))
+		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it. %s...", object.NamespacedName(&vms[0]))
 		h.logger.Info(msg)
 		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonVMClassInUse, msg)
 		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil

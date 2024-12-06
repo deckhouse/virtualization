@@ -28,8 +28,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -71,7 +73,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -94,7 +96,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case cc.IsTerminating(pod):
+	case object.IsTerminating(pod):
 		vi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -107,7 +109,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 		switch {
 		case err == nil:
 			// OK.
-		case cc.ErrQuotaExceeded(err):
+		case common.ErrQuotaExceeded(err):
 			return setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
@@ -123,7 +125,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 
 		return reconcile.Result{Requeue: true}, nil
-	case cc.IsPodComplete(pod):
+	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vi.Status.Phase = virtv2.ImageFailed
@@ -188,7 +190,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -232,7 +234,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case cc.AnyTerminating(pod, dv, pvc):
+	case object.AnyTerminating(pod, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress)
@@ -242,7 +244,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		switch {
 		case err == nil:
 			// OK.
-		case cc.ErrQuotaExceeded(err):
+		case common.ErrQuotaExceeded(err):
 			return setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
@@ -258,7 +260,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 
 		return reconcile.Result{Requeue: true}, nil
-	case !cc.IsPodComplete(pod):
+	case !podutil.IsPodComplete(pod):
 		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
 
 		err = ds.statService.CheckPod(pod)
@@ -370,7 +372,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 }
 
 func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -386,7 +388,7 @@ func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (
 }
 
 func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(cc.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
