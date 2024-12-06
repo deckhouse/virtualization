@@ -34,6 +34,7 @@ spec:
       manufacturer: Flant
       family: Deckhouse
       product: DeckhouseVirtualizationPlatform
+      sku: "{{ add1 .Values.global.dvpNestingLevel }}"
     evictionStrategy: LiveMigrate
     vmRolloutStrategy: LiveUpdate
     developerConfiguration:
