@@ -17,6 +17,8 @@ limitations under the License.
 package kvbuilder
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +26,7 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pvc"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 )
@@ -74,6 +77,21 @@ func (b *DV) SetImmediate() {
 
 func (b *DV) SetDataSource(source *cdiv1.DataVolumeSource) {
 	b.Resource.Spec.Source = source
+}
+
+func (b *DV) SetNodePlacement(nodePlacement *provisioner.NodePlacement) error {
+	if nodePlacement == nil {
+		return nil
+	}
+
+	if len(nodePlacement.Tolerations) > 0 {
+		err := provisioner.KeepNodePlacement(nodePlacement, b.Resource)
+		if err != nil {
+			return fmt.Errorf("failed to keep node placement: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (b *DV) SetRegistryDataSource(imageName, authSecret, caBundleConfigMap string) {

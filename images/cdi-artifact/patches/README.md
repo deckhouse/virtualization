@@ -76,3 +76,7 @@ This is necessary for ensuring that the metrics can be accessed only by Promethe
 Currently covered metrics:
 - cdi-controller
 - cdi-deployment
+
+#### `019-add-provisioner-tolerations-anno.patch`
+
+Add annotation to manage provisioner tolerations to avoid unschedulable error.
