@@ -26,16 +26,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -85,7 +87,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 	switch cvi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualImageKind:
 		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
-		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		vi, err := object.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
@@ -99,7 +101,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		}
 	case virtv2.VirtualDiskKind:
 		vdKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
-		vd, err := helper.FetchObject(ctx, vdKey, ds.client, &virtv2.VirtualDisk{})
+		vd, err := object.FetchObject(ctx, vdKey, ds.client, &virtv2.VirtualDisk{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VD %s: %w", vdKey, err)
 		}
@@ -111,7 +113,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		return ds.vdSyncer.Sync(ctx, cvi, vd, cb)
 	}
 
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -135,7 +137,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		}
 
 		return CleanUp(ctx, cvi, ds)
-	case common.IsTerminating(pod):
+	case object.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -172,7 +174,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
 		return reconcile.Result{Requeue: true}, nil
-	case common.IsPodComplete(pod):
+	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			cvi.Status.Phase = virtv2.ImageFailed
@@ -265,7 +267,7 @@ func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVi
 		return reconcile.Result{}, err
 	}
 
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	objRefRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -283,7 +285,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterV
 	switch cvi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.ClusterVirtualImageObjectRefKindVirtualImage:
 		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
-		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		vi, err := object.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}

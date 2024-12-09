@@ -29,10 +29,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -78,7 +78,7 @@ func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virtua
 		}
 
 	case virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
-		vdSnapshot, err := helper.FetchObject(ctx, types.NamespacedName{
+		vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{
 			Name:      vd.Spec.DataSource.ObjectRef.Name,
 			Namespace: vd.Namespace,
 		}, v.client, &virtv2.VirtualDiskSnapshot{})
@@ -90,7 +90,7 @@ func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virtua
 			return nil, nil
 		}
 
-		vs, err := helper.FetchObject(ctx, types.NamespacedName{
+		vs, err := object.FetchObject(ctx, types.NamespacedName{
 			Name:      vdSnapshot.Status.VolumeSnapshotName,
 			Namespace: vdSnapshot.Namespace,
 		}, v.client, &vsv1.VolumeSnapshot{})
@@ -174,7 +174,7 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 		}
 
 	case virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot:
-		vdSnapshot, err := helper.FetchObject(ctx, types.NamespacedName{
+		vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{
 			Name:      newVD.Spec.DataSource.ObjectRef.Name,
 			Namespace: newVD.Namespace,
 		}, v.client, &virtv2.VirtualDiskSnapshot{})
@@ -186,7 +186,7 @@ func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *vir
 			return nil, nil
 		}
 
-		vs, err := helper.FetchObject(ctx, types.NamespacedName{
+		vs, err := object.FetchObject(ctx, types.NamespacedName{
 			Name:      vdSnapshot.Status.VolumeSnapshotName,
 			Namespace: vdSnapshot.Namespace,
 		}, v.client, &vsv1.VolumeSnapshot{})

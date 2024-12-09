@@ -32,8 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
@@ -330,7 +330,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 		return nil, nil
 	}
 	current := s.VirtualMachine().Current()
-	kvvmName := common.NamespacedName(current)
+	kvvmName := object.NamespacedName(current)
 
 	kvvmOpts := kvbuilder.KVVMOptions{
 		EnableParavirtualization: current.Spec.EnableParavirtualization,

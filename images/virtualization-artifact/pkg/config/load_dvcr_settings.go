@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	// DVCRAddressVar is an env variable holds address to DVCR registry.
+	// DVCRRegistryURLVar is an env variable holds address to DVCR registry.
 	DVCRRegistryURLVar = "DVCR_REGISTRY_URL"
 	// DVCRAuthSecretVar is an env variable holds the name of the Secret with DVCR auth credentials.
 	DVCRAuthSecretVar = "DVCR_AUTH_SECRET"

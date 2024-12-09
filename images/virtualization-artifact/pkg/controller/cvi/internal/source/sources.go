@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -80,7 +80,7 @@ type Cleaner interface {
 }
 
 func CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage, c Cleaner) (reconcile.Result, error) {
-	if cc.ShouldCleanupSubResources(cvi) {
+	if object.ShouldCleanupSubResources(cvi) {
 		return c.CleanUp(ctx, cvi)
 	}
 

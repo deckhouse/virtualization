@@ -25,9 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 )
 
 // Secret copies or creates Secret from Source to Destination.
@@ -53,7 +53,7 @@ func (s Secret) Create(ctx context.Context, client client.Client, data map[strin
 
 // Copy copies source Secret data and type as-is.
 func (s Secret) Copy(ctx context.Context, client client.Client) error {
-	srcObj, err := helper.FetchObject(ctx, s.Source, client, &corev1.Secret{})
+	srcObj, err := object.FetchObject(ctx, s.Source, client, &corev1.Secret{})
 	if err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func (s Secret) makeSecret(data map[string][]byte, secretType corev1.SecretType)
 			Name:      s.Destination.Name,
 			Namespace: s.Destination.Namespace,
 			Annotations: map[string]string{
-				cc.AnnCreatedBy: "yes",
+				annotations.AnnCreatedBy: "yes",
 			},
 			Labels: map[string]string{},
 		},
@@ -87,11 +87,11 @@ func (s Secret) makeSecret(data map[string][]byte, secretType corev1.SecretType)
 	}
 
 	if s.Labels != nil {
-		secret.Labels = common.MergeLabels(secret.GetLabels(), s.Labels)
+		secret.Labels = merger.MergeLabels(secret.GetLabels(), s.Labels)
 	}
 
 	if s.Annotations != nil {
-		secret.Annotations = common.MergeLabels(secret.GetAnnotations(), s.Annotations)
+		secret.Annotations = merger.MergeLabels(secret.GetAnnotations(), s.Annotations)
 	}
 
 	return secret

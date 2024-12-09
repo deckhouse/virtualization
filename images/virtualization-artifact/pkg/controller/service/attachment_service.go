@@ -27,10 +27,10 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kubevirt"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -269,23 +269,23 @@ func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *vi
 }
 
 func (s AttachmentService) GetVirtualDisk(ctx context.Context, name, namespace string) (*virtv2.VirtualDisk, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDisk{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDisk{})
 }
 
 func (s AttachmentService) GetPersistentVolumeClaim(ctx context.Context, vd *virtv2.VirtualDisk) (*corev1.PersistentVolumeClaim, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: vd.Status.Target.PersistentVolumeClaim}, s.client, &corev1.PersistentVolumeClaim{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: vd.Namespace, Name: vd.Status.Target.PersistentVolumeClaim}, s.client, &corev1.PersistentVolumeClaim{})
 }
 
 func (s AttachmentService) GetVirtualMachine(ctx context.Context, name, namespace string) (*virtv2.VirtualMachine, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualMachine{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualMachine{})
 }
 
 func (s AttachmentService) GetKVVM(ctx context.Context, vm *virtv2.VirtualMachine) (*virtv1.VirtualMachine, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, s.client, &virtv1.VirtualMachine{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, s.client, &virtv1.VirtualMachine{})
 }
 
 func (s AttachmentService) GetKVVMI(ctx context.Context, vm *virtv2.VirtualMachine) (*virtv1.VirtualMachineInstance, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, s.client, &virtv1.VirtualMachineInstance{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: vm.Namespace, Name: vm.Name}, s.client, &virtv1.VirtualMachineInstance{})
 }
 
 func isSameBlockDeviceRefs(a, b virtv2.VMBDAObjectRef) bool {

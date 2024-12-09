@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helper
+package object
 
 import (
 	"context"
@@ -23,8 +23,11 @@ import (
 	"time"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
 func FetchObject[T client.Object](ctx context.Context, key types.NamespacedName, client client.Client, obj T, opts ...client.GetOption) (T, error) {
@@ -123,4 +126,29 @@ func CleanupByName(ctx context.Context, client client.Client, key client.ObjectK
 // GetAge returns the age of an object.
 func GetAge(obj client.Object) time.Duration {
 	return time.Since(obj.GetCreationTimestamp().Time).Truncate(time.Second)
+}
+
+// ShouldCleanupSubResources returns whether sub resources should be deleted:
+// - CVMI, VMI has no annotation to retain pod after import
+// - CVMI, VMI is deleted
+func ShouldCleanupSubResources(obj metav1.Object) bool {
+	return obj.GetAnnotations()[annotations.AnnPodRetainAfterCompletion] != "true" || obj.GetDeletionTimestamp() != nil
+}
+
+func IsTerminating(obj client.Object) bool {
+	return !reflect.ValueOf(obj).IsNil() && obj.GetDeletionTimestamp() != nil
+}
+
+func AnyTerminating(objs ...client.Object) bool {
+	for _, obj := range objs {
+		if IsTerminating(obj) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func NamespacedName(obj client.Object) types.NamespacedName {
+	return types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}
 }

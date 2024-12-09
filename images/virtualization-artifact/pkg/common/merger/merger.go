@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package merger
 
 // MergeLabels merges maps of labels into one map.
 // Labels in the first argument are

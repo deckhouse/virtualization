@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -64,7 +64,7 @@ func (v *ProvisionerOverrideValidator) Override(rules []virtv2.NameReplacement) 
 
 func (v *ProvisionerOverrideValidator) Validate(ctx context.Context) error {
 	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
-	existed, err := helper.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
+	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
 	if err != nil {
 		return err
 	}

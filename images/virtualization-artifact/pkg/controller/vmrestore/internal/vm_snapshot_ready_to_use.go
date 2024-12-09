@@ -25,8 +25,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
@@ -56,7 +56,7 @@ func (h VirtualMachineSnapshotReadyToUseHandler) Handle(ctx context.Context, vmR
 	}
 
 	vmSnapshotKey := types.NamespacedName{Name: vmRestore.Spec.VirtualMachineSnapshotName, Namespace: vmRestore.Namespace}
-	vmSnapshot, err := helper.FetchObject(ctx, vmSnapshotKey, h.client, &virtv2.VirtualMachineSnapshot{})
+	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, h.client, &virtv2.VirtualMachineSnapshot{})
 	if err != nil {
 		return reconcile.Result{}, err
 	}

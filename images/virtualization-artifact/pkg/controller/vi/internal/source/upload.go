@@ -27,9 +27,11 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	cc "github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -73,7 +75,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -125,7 +127,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case common.AnyTerminating(pod, svc, ing, dv, pvc):
+	case object.AnyTerminating(pod, svc, ing, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil || svc == nil || ing == nil:
 		log.Info("Start import to DVCR")
@@ -151,7 +153,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 			Message("DVCR Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
-	case !common.IsPodComplete(pod):
+	case !podutil.IsPodComplete(pod):
 		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
 
 		err = ds.statService.CheckPod(pod)
@@ -298,7 +300,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -329,7 +331,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 		}
 
 		return CleanUpSupplements(ctx, vi, ds)
-	case common.AnyTerminating(pod, svc, ing):
+	case object.AnyTerminating(pod, svc, ing):
 		vi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -355,7 +357,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 		log.Info("Create uploader pod...", "progress", vi.Status.Progress, "pod.phase", nil)
 
 		return reconcile.Result{Requeue: true}, nil
-	case common.IsPodComplete(pod):
+	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			vi.Status.Phase = virtv2.ImageFailed
@@ -437,7 +439,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 }
 
 func (ds UploadDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	importerRequeue, err := ds.uploaderService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -470,7 +472,7 @@ func (ds UploadDataSource) getEnvSettings(vi *virtv2.VirtualImage, supgen *suppl
 }
 
 func (ds UploadDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(common.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	uploaderRequeue, err := ds.uploaderService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -503,7 +505,7 @@ func (ds UploadDataSource) getSource(sup *supplements.Generator, dvcrSourceImage
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
-	url := cc.DockerRegistrySchemePrefix + dvcrSourceImageName
+	url := common.DockerRegistrySchemePrefix + dvcrSourceImageName
 	secretName := sup.DVCRAuthSecretForDV().Name
 	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name
 

@@ -26,7 +26,8 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -68,8 +69,8 @@ func (s *state) VirtualMachines(ctx context.Context) ([]virtv2.VirtualMachine, e
 	return vms.Items, nil
 }
 
-func nodeFilter(nodes []corev1.Node, filters ...common.FilterFunc[corev1.Node]) []corev1.Node {
-	return common.Filter[corev1.Node](nodes, filters...)
+func nodeFilter(nodes []corev1.Node, filters ...array.FilterFunc[corev1.Node]) []corev1.Node {
+	return array.Filter[corev1.Node](nodes, filters...)
 }
 
 func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
@@ -85,7 +86,7 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	filters := []common.FilterFunc[corev1.Node]{
+	filters := []array.FilterFunc[corev1.Node]{
 		func(node *corev1.Node) (keep bool) {
 			_, found := virtHandlerNodes[node.GetName()]
 			return found
@@ -98,7 +99,7 @@ func (s *state) Nodes(ctx context.Context) ([]corev1.Node, error) {
 	case virtv2.CPUTypeDiscovery:
 		matchLabels = curr.Spec.CPU.Discovery.NodeSelector.MatchLabels
 		filters = append(filters, func(node *corev1.Node) bool {
-			return common.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions)
+			return annotations.MatchExpressions(node.GetLabels(), curr.Spec.CPU.Discovery.NodeSelector.MatchExpressions)
 		})
 	case virtv2.CPUTypeModel:
 		matchLabels = map[string]string{virtv1.CPUModelLabel + curr.Spec.CPU.Model: "true"}
@@ -151,9 +152,9 @@ func (s *state) AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error) {
 
 	nodeSelector := s.vmClass.Current().Spec.NodeSelector
 
-	filters := []common.FilterFunc[corev1.Node]{
+	filters := []array.FilterFunc[corev1.Node]{
 		func(node *corev1.Node) bool {
-			return common.MatchLabels(node.GetLabels(), nodeSelector.MatchLabels)
+			return annotations.MatchLabels(node.GetLabels(), nodeSelector.MatchLabels)
 		},
 	}
 

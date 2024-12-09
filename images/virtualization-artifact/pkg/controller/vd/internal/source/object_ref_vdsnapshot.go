@@ -27,12 +27,13 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -54,7 +55,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
-	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
 
 	condition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
@@ -85,13 +86,13 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 		}
 
 		return reconcile.Result{}, nil
-	case common.IsTerminating(pvc):
+	case object.IsTerminating(pvc):
 		log.Info("Waiting for supplements to be terminated")
 		return reconcile.Result{Requeue: true}, nil
 	case pvc == nil:
 		log.Info("Start import to PVC")
 
-		namespacedName := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID).PersistentVolumeClaim()
+		namespacedName := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID).PersistentVolumeClaim()
 
 		storageClassName := vs.Annotations["storageClass"]
 		volumeMode := vs.Annotations["volumeMode"]
@@ -151,7 +152,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 			Message("PVC has created: waiting to be Bound.")
 
 		vd.Status.Progress = "0%"
-		vd.Status.SourceUID = util.GetPointer(vs.UID)
+		vd.Status.SourceUID = pointer.GetPointer(vs.UID)
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vd.Status.Target.PersistentVolumeClaim = pvc.Name
 

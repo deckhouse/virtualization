@@ -29,9 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -78,7 +78,7 @@ func (r *Resource[T, ST]) Name() types.NamespacedName {
 }
 
 func (r *Resource[T, ST]) Fetch(ctx context.Context) error {
-	currentObj, err := helper.FetchObject(ctx, r.name, r.client, r.objFactory())
+	currentObj, err := object.FetchObject(ctx, r.name, r.client, r.objFactory())
 	if err != nil {
 		return err
 	}

@@ -24,8 +24,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -55,7 +58,7 @@ func NewObjectRefVirtualImageOnPvc(importerService Importer, dvcrSettings *dvcr.
 func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, viRef *virtv2.VirtualImage, cb *conditions.ConditionBuilder) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, viRef.Namespace, cvi.UID)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, viRef.Namespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -78,7 +81,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		}
 
 		return CleanUp(ctx, cvi, ds)
-	case common.IsTerminating(pod):
+	case object.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -110,7 +113,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		log.Info("Create importer pod...", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
 		return reconcile.Result{Requeue: true}, nil
-	case common.IsPodComplete(pod):
+	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			cvi.Status.Phase = virtv2.ImageFailed
