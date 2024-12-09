@@ -1,19 +1,19 @@
 package validators_test
 
 import (
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("AffinityValidator", func() {
 	validator := validators.NewAffinityValidator()
 
 	Context("VM with no affinities", func() {
-		//testAffinity := &v1alpha2.VMAffinity{}
 		vm := &v1alpha2.VirtualMachine{}
 
 		It("Should be no error", func() {
