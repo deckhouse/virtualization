@@ -34,12 +34,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type Handler interface {
@@ -216,7 +218,15 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				if !oldOk || !newOk {
 					return false
 				}
-				return oldVd.Status.Phase != newVd.Status.Phase
+
+				oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVd.Status.Conditions)
+				newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVd.Status.Conditions)
+
+				if oldVd.Status.Phase != newVd.Status.Phase || oldInUseCondition.Status != newInUseCondition.Status {
+					return true
+				}
+
+				return false
 			},
 		},
 	); err != nil {

@@ -232,8 +232,8 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
-	w := watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient())
-	if err := w.Watch(mgr, ctr); err != nil {
+	snapshotWatcher := watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient())
+	if err := snapshotWatcher.Watch(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on VDSnapshots: %w", err)
 	}
 
