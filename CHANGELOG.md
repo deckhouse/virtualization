@@ -1,5 +1,63 @@
 # Changelog
 
+## [0.15.0](https://github.com/deckhouse/virtualization/compare/v0.14.0...v0.15.0) (2024-12-09)
+
+
+### Features
+
+* **api:** console,vnc reconnect ([#553](https://github.com/deckhouse/virtualization/issues/553)) ([b0501a9](https://github.com/deckhouse/virtualization/commit/b0501a91c4d8a5212f2c10b513930c04ba179b02))
+* **api:** hide unknown conditions ([#471](https://github.com/deckhouse/virtualization/issues/471)) ([e40b7ae](https://github.com/deckhouse/virtualization/commit/e40b7aee6ce24a457b4fc26559140409f8e95987))
+* **api:** improve crd conditions ([#487](https://github.com/deckhouse/virtualization/issues/487)) ([44e2679](https://github.com/deckhouse/virtualization/commit/44e26795af397be58a59e0bc75ccd55f931e4423))
+* **controller:** add configuration metrics bind address ([#516](https://github.com/deckhouse/virtualization/issues/516)) ([aeb2e3d](https://github.com/deckhouse/virtualization/commit/aeb2e3dda969c86992244e612036c5bcc60de334))
+* **core, kubevirt:** disable kubevirt exportproxy  ([#479](https://github.com/deckhouse/virtualization/issues/479)) ([b649734](https://github.com/deckhouse/virtualization/commit/b649734849121fa185ee4284f43ef6beb2ae69ae))
+* **core:** add kube-rbac-proxy to kubevirt & cdi ([#532](https://github.com/deckhouse/virtualization/issues/532)) ([09830be](https://github.com/deckhouse/virtualization/commit/09830bec39b0cdc280755368addcf47a24aa0a60))
+* **core:** add kube-rbac-proxy to virtualization ([#505](https://github.com/deckhouse/virtualization/issues/505)) ([1737593](https://github.com/deckhouse/virtualization/commit/17375936860795b95ce7f49143bded687b86dd00))
+* **cvi/vi:** generate crd ([#507](https://github.com/deckhouse/virtualization/issues/507)) ([ed9244e](https://github.com/deckhouse/virtualization/commit/ed9244efee0ac5079ec846fa219e0533f205be88))
+* **cvi:** namespace validation for vi/vd ObjectRef ([#504](https://github.com/deckhouse/virtualization/issues/504)) ([ce8295c](https://github.com/deckhouse/virtualization/commit/ce8295cbfecde3a547711c854b12e7e403e80fa9))
+* **vd,vi:** add custom settings SC for VI and VD ([0bc3515](https://github.com/deckhouse/virtualization/commit/0bc3515513bf4383f7f3d0b8b32b59fedaca08a9))
+* **vd:** Allow change Virtual Disk spec after connect to Virtual Machine while Virtual Disk is not ready ([#461](https://github.com/deckhouse/virtualization/issues/461)) ([2ae87b8](https://github.com/deckhouse/virtualization/commit/2ae87b876b78c0688c99011f9d383ccd38dc6a5b))
+* **vd:** block resizing VirtualDisk if storage class not ready ([#526](https://github.com/deckhouse/virtualization/issues/526)) ([0056296](https://github.com/deckhouse/virtualization/commit/005629662626dd61236e5c96e5a7221ca859b639))
+* **vd:** crd generation ([#524](https://github.com/deckhouse/virtualization/issues/524)) ([8657aeb](https://github.com/deckhouse/virtualization/commit/8657aeb2b0b36f758f98345cb89f622849f72758))
+* **vd:** generate CRD ([8657aeb](https://github.com/deckhouse/virtualization/commit/8657aeb2b0b36f758f98345cb89f622849f72758))
+* **vd:** requeue for exceeded quota error ([6d047c3](https://github.com/deckhouse/virtualization/commit/6d047c3bb486e7b0d61b150456a80c565ade84d1))
+* **vi-vd:** get newest default StorageClass ([#499](https://github.com/deckhouse/virtualization/issues/499)) ([6e0c7e7](https://github.com/deckhouse/virtualization/commit/6e0c7e7a47407e1da5014e38eaf7a26454bee470))
+* **vi,cvi:** requeue for exceeded quota error ([56a26c6](https://github.com/deckhouse/virtualization/commit/56a26c6b60116efef7da207f73f9a552d140af1d))
+* **vi,vd:** add custom settings for SC ([#437](https://github.com/deckhouse/virtualization/issues/437)) ([0bc3515](https://github.com/deckhouse/virtualization/commit/0bc3515513bf4383f7f3d0b8b32b59fedaca08a9))
+* **vi,vd:** add storage class ready condition, waiting in pending while storage class not ready ([#423](https://github.com/deckhouse/virtualization/issues/423)) ([fff39cc](https://github.com/deckhouse/virtualization/commit/fff39cc993abf9a34d297aff9a91fb160d7e8cfb))
+* **vmclass:** improve vmclass ([#476](https://github.com/deckhouse/virtualization/issues/476)) ([a058abd](https://github.com/deckhouse/virtualization/commit/a058abdbd832c920899bfc4f7a5543d59e56a183))
+* **vm:** notify user if the virtual machine cannot be restarted immediately ([7efe3d9](https://github.com/deckhouse/virtualization/commit/7efe3d9850dc8211f95e89d708124d683f5a8dd4))
+* **vmop:** rename type migrate to evict ([#463](https://github.com/deckhouse/virtualization/issues/463)) ([e599b02](https://github.com/deckhouse/virtualization/commit/e599b02b6a5c8c0bd2bdc5764f4ff798775f9315))
+* **vm:** set limit of connected block devices ([#474](https://github.com/deckhouse/virtualization/issues/474)) ([c1b2e78](https://github.com/deckhouse/virtualization/commit/c1b2e787d9eaa486308cbdf910cc5c88ee943b7c))
+
+
+### Bug Fixes
+
+* **api:** do not update condition transition time if status not changed ([#544](https://github.com/deckhouse/virtualization/issues/544)) ([668201a](https://github.com/deckhouse/virtualization/commit/668201a339ea517345a50c15a9d33fe74fff059a))
+* **api:** rewrite conditions with empty reasons ([#498](https://github.com/deckhouse/virtualization/issues/498)) ([3f6c227](https://github.com/deckhouse/virtualization/commit/3f6c2275ed71dc82636ed44561bbff98527c27c7))
+* **core:** add kube-rbac-proxy to cdi-operator ([#530](https://github.com/deckhouse/virtualization/issues/530)) ([8b37ef1](https://github.com/deckhouse/virtualization/commit/8b37ef1a1961edc0a4962151df26ced745bda5fb))
+* **core:** fix scheme for cdi servicemonitor ([#554](https://github.com/deckhouse/virtualization/issues/554)) ([64effd2](https://github.com/deckhouse/virtualization/commit/64effd2be6ce637ecf5729b742e01183bf1411bd))
+* **cvi,vi,vd:** use default http port for uploader service ([3a5f738](https://github.com/deckhouse/virtualization/commit/3a5f738a7905f55fcd9e4bbb2fd0e1fcd1c8303c))
+* **kube-api-rewriter:** add VPA settings ([#449](https://github.com/deckhouse/virtualization/issues/449)) ([e4385c4](https://github.com/deckhouse/virtualization/commit/e4385c45f7003158c6d2a4a0d0c5935c3a592590))
+* **kube-api-rewriter:** fix discovery and ValidatingAdmissionPolicy rewrite ([#475](https://github.com/deckhouse/virtualization/issues/475)) ([b429542](https://github.com/deckhouse/virtualization/commit/b429542e59f424e8d5bfa1e08f74bf97cf0026ba))
+* **vd:** fix create vd from vi on pvc ([#552](https://github.com/deckhouse/virtualization/issues/552)) ([6f05a20](https://github.com/deckhouse/virtualization/commit/6f05a202ade882298b9284f3862a5f3e5f425d9a))
+* **vd:** patch cdi to convert image format ([c1d79d5](https://github.com/deckhouse/virtualization/commit/c1d79d59b04b62a3fc4de9d0bbe4e3ada5e5fe6c))
+* **vi:** hide dvcr url in pvc stored vi ([#488](https://github.com/deckhouse/virtualization/issues/488)) ([85396ba](https://github.com/deckhouse/virtualization/commit/85396ba3025b7a4fbbb158c9288769d4f61075c4))
+* **vi:** update CEL ([#549](https://github.com/deckhouse/virtualization/issues/549)) ([98da864](https://github.com/deckhouse/virtualization/commit/98da8646a9b82ba4c406bd3d5471df3306613d29))
+* **vmbda:** fix block device attached count condition processing ([#517](https://github.com/deckhouse/virtualization/issues/517)) ([d5c571c](https://github.com/deckhouse/virtualization/commit/d5c571c5ac67360206d135fa29e0687e4bb0329e))
+* **vm:** block connect more than 16 block devices to vm on reconcile level ([#495](https://github.com/deckhouse/virtualization/issues/495)) ([394e461](https://github.com/deckhouse/virtualization/commit/394e461efc7000a3ab9b823d74ba5027487debc9))
+* **vm:** check size policy matched condition in reconciler ([#514](https://github.com/deckhouse/virtualization/issues/514)) ([d26a0fb](https://github.com/deckhouse/virtualization/commit/d26a0fb4c061d5a52a10c10dab9bc103cb0ffd23))
+* **vmclass, vm:** proper affinity and tolerations merging ([#547](https://github.com/deckhouse/virtualization/issues/547)) ([62500cb](https://github.com/deckhouse/virtualization/commit/62500cb08f68d96369aecf95e906f98f92ceffe4))
+* **vm:** create a kvvm with an optional cpu feature invtsc ([#522](https://github.com/deckhouse/virtualization/issues/522)) ([ac7c8e2](https://github.com/deckhouse/virtualization/commit/ac7c8e24a6b5bf76330059e9c138f3b79a133bd6))
+* **vm:** do not attach VirtualDisk if it already attached to another VirtualMachine ([#540](https://github.com/deckhouse/virtualization/issues/540)) ([59776bf](https://github.com/deckhouse/virtualization/commit/59776bf8c10b76177f5c9e86c3bf0fb7e4df83ac))
+* **vm:** fix conditions with empty status ([#502](https://github.com/deckhouse/virtualization/issues/502)) ([083032e](https://github.com/deckhouse/virtualization/commit/083032ed399e5aac45a76516a387247858401461))
+* **vm:** fix generating wrong statistic ([#414](https://github.com/deckhouse/virtualization/issues/414)) ([e081e9a](https://github.com/deckhouse/virtualization/commit/e081e9a1c5efd14257f3396299fbc7c88f374f4c))
+* **vmiplease:** fix deletion after time of not claimed ([#543](https://github.com/deckhouse/virtualization/issues/543)) ([666b5a9](https://github.com/deckhouse/virtualization/commit/666b5a9abc0bc951398f1c0c601552111ecf006c))
+* **vmop:** patch /metadata/labels for reconciled object ([#443](https://github.com/deckhouse/virtualization/issues/443)) ([8bb34f4](https://github.com/deckhouse/virtualization/commit/8bb34f4a1fb3ee03f44575187a9da3cdfefe482a))
+* **vmop:** set uid vm label ([#537](https://github.com/deckhouse/virtualization/issues/537)) ([d988fc3](https://github.com/deckhouse/virtualization/commit/d988fc32527adf9e36ac5946dc95c2e99cbec06f))
+* **vm:** unfreeze fs after snapshot ([#561](https://github.com/deckhouse/virtualization/issues/561)) ([fb2423c](https://github.com/deckhouse/virtualization/commit/fb2423cb06ece90aa21f3376ae476cad72d82544))
+* **vm:** unsupported guest agent reason wrap ([79b9828](https://github.com/deckhouse/virtualization/commit/79b9828c8591097227f7636b393c0be375bab6f5))
+* **vm:** unsupported guest agent reason wrap ([#541](https://github.com/deckhouse/virtualization/issues/541)) ([79b9828](https://github.com/deckhouse/virtualization/commit/79b9828c8591097227f7636b393c0be375bab6f5))
+
 ## [0.14.0](https://github.com/deckhouse/virtualization/compare/v0.13.1...v0.14.0) (2024-10-14)
 
 
