@@ -23,12 +23,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -36,7 +36,7 @@ import (
 
 const nameClassHandler = "ClassHandler"
 
-func NewClassHandler(client client.Client, recorder record.EventRecorder) *ClassHandler {
+func NewClassHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *ClassHandler {
 	return &ClassHandler{
 		client:   client,
 		recorder: recorder,
@@ -45,7 +45,7 @@ func NewClassHandler(client client.Client, recorder record.EventRecorder) *Class
 
 type ClassHandler struct {
 	client   client.Client
-	recorder record.EventRecorder
+	recorder eventrecord.EventRecorderLogger
 }
 
 func (h *ClassHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {

@@ -27,10 +27,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -46,7 +48,7 @@ func SetupController(
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 ) error {
-	recorder := mgr.GetEventRecorderFor(ControllerName)
+	recorder := eventrecord.NewEventRecorderLogger(mgr.GetEventRecorderFor(ControllerName))
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
