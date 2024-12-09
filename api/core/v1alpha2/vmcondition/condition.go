@@ -34,6 +34,7 @@ const (
 	TypeAgentReady                          Type = "AgentReady"
 	TypeAgentVersionNotSupported            Type = "AgentVersionNotSupported"
 	TypeConfigurationApplied                Type = "ConfigurationApplied"
+	TypePowerConfigurationApplied           Type = "PowerConfigurationApplied"
 	TypeAwaitingRestartToApplyConfiguration Type = "AwaitingRestartToApplyConfiguration"
 	TypeFilesystemReady                     Type = "FilesystemReady"
 	TypeSizingPolicyMatched                 Type = "SizingPolicyMatched"
