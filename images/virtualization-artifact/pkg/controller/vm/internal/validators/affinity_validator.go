@@ -203,16 +203,6 @@ func (v *AffinityValidator) ValidateNodeFieldSelectorRequirement(req corev1.Node
 		allErrs = append(allErrs, errors.New("not a valid selector operator"))
 	}
 
-	// if vf, found := nodeFieldSelectorValidators[req.Key]; !found {
-	//	  allErrs = append(allErrs, field.Invalid(fldPath.Child("key"), req.Key, "not a valid field selector key"))
-	//  } else {
-	//	  for i, v := range req.Values {
-	//		  for _, msg := range vf(v, false) {
-	//			  allErrs = append(allErrs, field.Invalid(fldPath.Child("values").Index(i), v, msg))
-	//		  }
-	//	  }
-	//  }
-
 	return allErrs
 }
 
