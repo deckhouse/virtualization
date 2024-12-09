@@ -1,0 +1,18 @@
+diff --git a/pkg/controller/clone/csi-clone.go b/pkg/controller/clone/csi-clone.go
+index cbaff4c0d..8e2ea2714 100644
+--- a/pkg/controller/clone/csi-clone.go
++++ b/pkg/controller/clone/csi-clone.go
+@@ -103,9 +103,10 @@ func (p *CSIClonePhase) createClaim(ctx context.Context) (*corev1.PersistentVolu
+ 		Name: sourceClaim.Name,
+ 	}
+ 
+-	sourceSize := sourceClaim.Status.Capacity[corev1.ResourceStorage]
+-	p.Log.V(3).Info("setting desired pvc request size to", "restoreSize", sourceSize)
+-	desiredClaim.Spec.Resources.Requests[corev1.ResourceStorage] = sourceSize
++	// TODO: 111.
++	// sourceSize := sourceClaim.Status.Capacity[corev1.ResourceStorage]
++	// p.Log.V(3).Info("setting desired pvc request size to", "restoreSize", sourceSize)
++	// desiredClaim.Spec.Resources.Requests[corev1.ResourceStorage] = sourceSize
+ 
+ 	cc.AddAnnotation(desiredClaim, cc.AnnPopulatorKind, cdiv1.VolumeCloneSourceRef)
+ 	if p.OwnershipLabel != "" {

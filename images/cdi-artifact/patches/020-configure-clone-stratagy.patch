@@ -1,0 +1,12 @@
+diff --git a/pkg/storagecapabilities/storagecapabilities.go b/pkg/storagecapabilities/storagecapabilities.go
+index 11862364e..1d4fb97f2 100644
+--- a/pkg/storagecapabilities/storagecapabilities.go
++++ b/pkg/storagecapabilities/storagecapabilities.go
+@@ -144,6 +144,7 @@ var CloneStrategyByProvisionerKey = map[string]cdiv1.CDICloneStrategy{
+ 	"hspc.csi.hitachi.com":                     cdiv1.CloneStrategyCsiClone,
+ 	"csi.hpe.com":                              cdiv1.CloneStrategyCsiClone,
+ 	"spectrumscale.csi.ibm.com":                cdiv1.CloneStrategyCsiClone,
++	"rbd.csi.ceph.com":                         cdiv1.CloneStrategyCsiClone,
+ 	"rook-ceph.rbd.csi.ceph.com":               cdiv1.CloneStrategyCsiClone,
+ 	"openshift-storage.rbd.csi.ceph.com":       cdiv1.CloneStrategyCsiClone,
+ 	"cephfs.csi.ceph.com":                      cdiv1.CloneStrategyCsiClone,
