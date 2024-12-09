@@ -82,6 +82,16 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	switch vdSnapshot.Status.Phase {
 	case "":
 		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhasePending
+
+	case virtv2.VirtualDiskSnapshotPhaseFailed:
+		vdSnapshotCondition, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(conditions.CommonReason(vdSnapshotCondition.Reason)).
+			Message(vdSnapshotCondition.Message)
+
+		return reconcile.Result{}, nil
 	case virtv2.VirtualDiskSnapshotPhaseReady:
 		if vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
 			vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseFailed

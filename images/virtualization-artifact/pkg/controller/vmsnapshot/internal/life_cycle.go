@@ -72,6 +72,15 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	switch vmSnapshot.Status.Phase {
 	case "":
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
+	case virtv2.VirtualMachineSnapshotPhaseFailed:
+		vmSnapshotCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
+
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(conditions.CommonReason(vmSnapshotCondition.Reason)).
+			Message(vmSnapshotCondition.Message)
+
+		return reconcile.Result{}, nil
 	case virtv2.VirtualMachineSnapshotPhaseReady:
 		// Ensure vd snapshots aren't lost.
 		var lostVDSnapshots []string
