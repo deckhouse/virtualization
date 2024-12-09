@@ -24,7 +24,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -33,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -46,7 +46,7 @@ type IPAM interface {
 	CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
 }
 
-func NewIPAMHandler(ipam IPAM, cl client.Client, recorder record.EventRecorder) *IPAMHandler {
+func NewIPAMHandler(ipam IPAM, cl client.Client, recorder eventrecord.EventRecorderLogger) *IPAMHandler {
 	return &IPAMHandler{
 		ipam:       ipam,
 		client:     cl,
@@ -58,7 +58,7 @@ func NewIPAMHandler(ipam IPAM, cl client.Client, recorder record.EventRecorder) 
 type IPAMHandler struct {
 	ipam       IPAM
 	client     client.Client
-	recorder   record.EventRecorder
+	recorder   eventrecord.EventRecorderLogger
 	protection *service.ProtectionService
 }
 
