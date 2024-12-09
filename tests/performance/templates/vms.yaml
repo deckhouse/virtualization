@@ -32,8 +32,13 @@ spec:
   {{- end }}
   virtualMachineClassName: host
   blockDeviceRefs:
+    {{- if eq $.Values.vmDiskType "vi" }}
+    - kind: VirtualImage
+      name: {{ $.Values.resourcesPrefix }}
+    {{- else }}
     - kind: VirtualDisk
       name: {{ $.Values.resourcesPrefix }}-{{ . }}
+    {{- end }}
   provisioning:
     type: UserDataRef
     userDataRef:
