@@ -104,7 +104,10 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 		}
 
 		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
-		if ok {
+		if ok &&
+			vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady &&
+			vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseFailed &&
+			vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseTerminating {
 			return false, nil
 		}
 	}
@@ -118,7 +121,10 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 	}
 
 	for _, vmSnapshot := range vmSnapshots.Items {
-		if vmSnapshot.Spec.VirtualMachineName == vm.Name {
+		if vmSnapshot.Spec.VirtualMachineName == vm.Name &&
+			vmSnapshot.Status.Phase != virtv2.VirtualMachineSnapshotPhaseReady &&
+			vmSnapshot.Status.Phase != virtv2.VirtualMachineSnapshotPhaseFailed &&
+			vmSnapshot.Status.Phase != virtv2.VirtualMachineSnapshotPhaseTerminating {
 			return false, nil
 		}
 	}
