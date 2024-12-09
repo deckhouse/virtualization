@@ -225,7 +225,8 @@ func (b *KVVM) SetCpu(cores int, coreFraction string) error {
 	}
 	domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
 	domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
-	domainSpec.CPU.Cores = uint32(cores)
+	// https://bugzilla.redhat.com/show_bug.cgi?id=1653453
+	domainSpec.CPU.Cores = uint32(1)
 	domainSpec.CPU.Sockets = uint32(cpuRequest.Value())
 	domainSpec.CPU.MaxSockets = uint32(cpuLimit.Value())
 	return nil
