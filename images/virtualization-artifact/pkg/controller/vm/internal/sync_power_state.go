@@ -60,18 +60,18 @@ func (h *SyncPowerStateHandler) Handle(ctx context.Context, s state.VirtualMachi
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
-	cbConfApplied := conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
+	cbPowerConfApplied := conditions.NewConditionBuilder(vmcondition.TypePowerConfigurationApplied).
 		Generation(current.GetGeneration()).
 		Status(metav1.ConditionUnknown).
 		Reason(conditions.ReasonUnknown)
 
 	defer func() {
-		conditions.SetCondition(cbConfApplied, &changed.Status.Conditions)
+		conditions.SetCondition(cbPowerConfApplied, &changed.Status.Conditions)
 	}()
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
-		cbConfApplied.
+		cbPowerConfApplied.
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
@@ -82,10 +82,15 @@ func (h *SyncPowerStateHandler) Handle(ctx context.Context, s state.VirtualMachi
 	if err != nil {
 		err = fmt.Errorf("failed to sync powerstate: %w", err)
 		h.recorder.Event(current, corev1.EventTypeWarning, virtv2.ReasonErrVmNotSynced, err.Error())
-		cbConfApplied.
+		cbPowerConfApplied.
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+	} else {
+		cbPowerConfApplied.
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonConfigurationApplied).
+			Message("")
 	}
 
 	return reconcile.Result{}, err
@@ -119,7 +124,6 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				return fmt.Errorf("force AlwaysOff: delete KVVMI: %w", err)
 			}
 		}
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyHalted)
 	case virtv2.AlwaysOnPolicy:
 		strategy, _ := kvvm.RunStrategy()
 		if strategy == virtv1.RunStrategyAlways && kvvmi == nil {
@@ -145,8 +149,6 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				}
 			}
 		}
-
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
 	case virtv2.AlwaysOnUnlessStoppedManually:
 		strategy, _ := kvvm.RunStrategy()
 		if strategy == virtv1.RunStrategyAlways && kvvmi == nil {
@@ -183,8 +185,6 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				}
 			}
 		}
-
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
 	case virtv2.ManualPolicy:
 		// Manual policy requires to handle only guest-reset event.
 		// All types of shutdown are a final state.
@@ -207,10 +207,9 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				}
 			}
 		}
-
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
 	}
 
+	err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
 	if err != nil {
 		return fmt.Errorf("enforce runPolicy %s: %w", vmRunPolicy, err)
 	}
