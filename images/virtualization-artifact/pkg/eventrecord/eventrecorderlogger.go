@@ -89,20 +89,20 @@ func (e *EventRecorderLoggerImpl) WithLogging(logger infoLogger) EventRecorderLo
 
 // Event calls EventRecorder.Event as-is.
 func (e *EventRecorderLoggerImpl) Event(object client.Object, eventtype, reason, message string) {
-	e.recorder.Event(object, eventtype, reason, message)
 	e.logf(object, eventtype, reason, message)
+	e.recorder.Event(object, eventtype, reason, message)
 }
 
 // Eventf calls EventRecorder.Eventf as-is.
 func (e *EventRecorderLoggerImpl) Eventf(object client.Object, eventtype, reason, messageFmt string, args ...interface{}) {
-	e.recorder.Eventf(object, eventtype, reason, messageFmt, args)
 	e.logf(object, eventtype, reason, messageFmt, args...)
+	e.recorder.Eventf(object, eventtype, reason, messageFmt, args)
 }
 
 // AnnotatedEventf calls EventRecorder.AnnotatedEventf as-is.
 func (e *EventRecorderLoggerImpl) AnnotatedEventf(object client.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
-	e.recorder.AnnotatedEventf(object, annotations, eventtype, reason, messageFmt, args)
 	e.logf(object, eventtype, reason, messageFmt, args...)
+	e.recorder.AnnotatedEventf(object, annotations, eventtype, reason, messageFmt, args)
 }
 
 func (e *EventRecorderLoggerImpl) log(ev *Event) {
