@@ -180,3 +180,36 @@ tasks:
       }'
       kubectl -n d8-virtualization port-forward pod/<virt-handler-pod> 2345:2345
       EOF
+
+  dlv:virt-controller:build:
+    desc: "Build image virt-controller with dlv"
+    cmd: docker build -f ./images/virt-controller/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" .
+
+  dlv:virt-controller:build-push:
+    desc: "Build and Push image virt-controller with dlv"
+    cmds:
+      - task: dlv:virt-controller:build
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:virt-controller:print
+
+  dlv:virt-controller:print:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch deploy virt-controller --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [ {
+                "name": "virt-controller",
+                "image": "${IMAGE}",
+                "ports": [ { "containerPort": 2345, "name": "dlv" } ]
+              }]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward deploy/virt-controller 2345:2345
+      EOF
