@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 )
 
 const (
@@ -89,51 +90,29 @@ type PodSettings struct {
 	ImagePullSecrets     []corev1.LocalObjectReference
 	PriorityClassName    string
 	PVCName              string
-	// workloadNodePlacement   *sdkapi.NodePlacement
+	NodePlacement        *provisioner.NodePlacement
 }
 
 // CreatePod creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
 // name, etc. A nil secret means the endpoint credentials are not passed to the
 // importer pod.
 func (imp *Importer) CreatePod(ctx context.Context, client client.Client) (*corev1.Pod, error) {
-	var err error
-	// args.ResourceRequirements, err = cc.GetDefaultPodResourceRequirements(client)
-	// if err != nil {
-	//	return nil, err
-	// }
+	pod, err := imp.makeImporterPodSpec()
+	if err != nil {
+		return nil, err
+	}
 
-	// args.ImagePullSecrets, err = cc.GetImagePullSecrets(client)
-	// if err != nil {
-	//	return nil, err
-	// }
-
-	// args.workloadNodePlacement, err = cc.GetWorkloadNodePlacement(ctx, client)
-	// if err != nil {
-	//	return nil, err
-	// }
-
-	pod := imp.makeImporterPodSpec()
-
-	if err = client.Create(ctx, pod); err != nil {
+	err = client.Create(ctx, pod)
+	if err != nil {
 		return nil, err
 	}
 
 	return pod, nil
 }
 
-// CleanupPod deletes importer Pod.
-// No need to delete CABundle configmap and auth Secret. They have ownerRef and will be gc'ed.
-func CleanupPod(ctx context.Context, client client.Client, pod *corev1.Pod) error {
-	if pod == nil {
-		return nil
-	}
-
-	return object.CleanupObject(ctx, client, pod)
-}
-
 // makeImporterPodSpec creates and return the importer pod spec based on the passed-in endpoint, secret and pvc.
-func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
-	pod := &corev1.Pod{
+func (imp *Importer) makeImporterPodSpec() (*corev1.Pod, error) {
+	pod := corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
 			APIVersion: "v1",
@@ -144,36 +123,37 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 			Annotations: map[string]string{
 				annotations.AnnCreatedBy: "yes",
 			},
-			// Labels: map[string]string{
-			//	common.CDILabelKey:        common.CDILabelValue,
-			//	common.CDIComponentLabel:  common.ImporterPodNamePrefix,
-			//	common.PrometheusLabelKey: common.PrometheusLabelValue,
-			// },
 			OwnerReferences: []metav1.OwnerReference{
 				imp.PodSettings.OwnerReference,
 			},
 		},
 		Spec: corev1.PodSpec{
 			// Container and volumes will be added later.
-			Containers:    []corev1.Container{},
-			Volumes:       []corev1.Volume{},
-			RestartPolicy: corev1.RestartPolicyOnFailure,
-			// NodeSelector:      args.workloadNodePlacement.NodeSelector,
-			// Tolerations:       args.workloadNodePlacement.Tolerations,
-			// Affinity:          args.workloadNodePlacement.Affinity,
+			Containers:        []corev1.Container{},
+			Volumes:           []corev1.Volume{},
+			RestartPolicy:     corev1.RestartPolicyOnFailure,
 			PriorityClassName: imp.PodSettings.PriorityClassName,
 			ImagePullSecrets:  imp.PodSettings.ImagePullSecrets,
 		},
 	}
 
-	annotations.SetRecommendedLabels(pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
+	if imp.PodSettings.NodePlacement != nil && len(imp.PodSettings.NodePlacement.Tolerations) > 0 {
+		pod.Spec.Tolerations = imp.PodSettings.NodePlacement.Tolerations
+
+		err := provisioner.KeepNodePlacementTolerations(imp.PodSettings.NodePlacement, &pod)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	annotations.SetRecommendedLabels(&pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
 	podutil.SetRestrictedSecurityContext(&pod.Spec)
 
 	container := imp.makeImporterContainerSpec()
-	imp.addVolumes(pod, container)
+	imp.addVolumes(&pod, container)
 	pod.Spec.Containers = append(pod.Spec.Containers, *container)
 
-	return pod
+	return &pod, nil
 }
 
 func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
