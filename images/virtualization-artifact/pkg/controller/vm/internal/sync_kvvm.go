@@ -584,8 +584,8 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 				s.VirtualMachine().Current(),
 				corev1.EventTypeNormal,
 				virtv2.ReasonVMStart,
-				"Start initiated by controller for %s policy",
-				vmRunPolicy,
+				"Start initiated by controller for %v policy",
+				string(vmRunPolicy),
 			)
 
 			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
@@ -599,7 +599,7 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 					// Cleanup KVVMI is enough if VM was stopped from inside.
 					switch shutdownInfo.Reason {
 					case powerstate.GuestResetReason:
-						h.recorder.WithLogging(log).Event(
+						h.recorder.WithLogging(log).Eventf(
 							s.VirtualMachine().Current(),
 							corev1.EventTypeNormal,
 							virtv2.ReasonVMRestart,
@@ -613,7 +613,8 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 						h.recorder.WithLogging(log).Event(
 							s.VirtualMachine().Current(),
 							corev1.EventTypeNormal,
-							virtv2.ReasonVMStop,
+							"VMStopped",
+							//virtv2.ReasonVMStop,
 							"Stop initiated from inside the VM",
 						)
 						err = h.client.Delete(ctx, kvvmi)
