@@ -29,14 +29,3 @@ func (cr CommonReason) String() string {
 const (
 	ReasonUnknown CommonReason = "Unknown"
 )
-
-// Deprecated: avoid using this wrapper.
-// TODO: get rid of this wrapper.
-type DeprecatedWrappedString string
-
-func (s DeprecatedWrappedString) String() string {
-	if s == "" {
-		return "Unknown"
-	}
-	return string(s)
-}
