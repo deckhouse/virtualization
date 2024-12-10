@@ -140,3 +140,47 @@ d8-cni-cilium ensures that once the label is removed from the target pod, only t
 - Do not add cpu-model nodeSelector for "kvm64" model. This selector prevents starting VMs as node-labeler ignores to labeling nodes with "kvm64" model.
 
 - Overwrite calculated model on migration, put back "kvm64" for Discovery and Features vmclass types.
+
+---
+#### `032-hotplug-container-disk.patch`
+
+Add Hotplug container-disk volumes.
+How `container-disk` and HotPlug Work
+The `container-disk` is a program written in C used within KubeVirt to facilitate the mounting of container-based disk images into virtual machines. Its core function is to start up and create a UNIX socket within a specific directory. The program terminates when the socket is removed or upon receiving a `SIGTERM` signal.
+
+##### Key Workflow: `container-disk`
+
+##### Initialization
+- A sidecar container, running the `container-disk` image, is created alongside the `virt-launcher` pod.
+- An init-container in the `virt-launcher` pod copies the `container-disk` program to a shared `emptyDir` volume. This setup allows the sidecar to execute the program.
+
+##### Socket Creation
+
+- The `container-disk` program creates a socket in the `emptyDir` volume.
+- This shared volume allows the `virt-handler` to locate the socket on the host machine at:  
+  `/var/lib/kubelet/pods/.../volumes/kubernetes.io~empty-dir/`.
+
+##### Socket Detection and Mounting
+
+- Upon detecting the socket, `virt-handler` identifies it as a `container-disk` volume and retrieves its parent mount point.
+- For a container runtime like `containerd`, the mount point resolves to the root filesystem of the pulled image, typically at:  
+  `/run/containerd/io.containerd.runtime.v2.task/k8s.io/<uid>/rootfs/`.
+- The disk image must be located at `disk/disk.img` within this filesystem and is mounted into the VM.
+
+## HotPlug in KubeVirt
+The HotPlug mechanism allows dynamic attachment of PVCs and `container-disk` volumes to a running VM by leveraging a separate `hotplug` pod.
+
+### HotPlug Pod Setup
+- A `hotplug` pod is created with the target PVCs mounted into an `emptyDir` volume under the `/hp` directory.
+- The `container-disk` program runs in the `hotplug` pod to create the necessary sockets for these volumes.
+
+### Volume Detection and Mounting
+- The `virt-handler` locates the sockets on the host system at:  
+  `/var/lib/kubelet/pods/<uid-hotplug-pod>/volumes/empty-dir/hp-disks/...`.
+- For block devices, `virt-handler` creates a block device on the VM using `mknodat`.
+- For file systems, the volume is mounted as a file.
+
+### Unmounting
+- The unmount process is identical to that of `hotplug PVCs`.
+- The `emptyDir` resources are retained and cleaned up later by Kubernetes.
+---
