@@ -37,6 +37,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
@@ -51,6 +52,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/webhook"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -139,6 +141,11 @@ func main() {
 	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
 	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
 
+	serviceAccounts, err := appconfig.LoadServiceAccounts()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -303,6 +310,8 @@ func main() {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
+
+	webhook.SetupHTTPHooks(mgr, serviceAccounts)
 
 	log.Info("Starting the Manager.")
 
