@@ -50,6 +50,7 @@ func NewValidator(ipam internal.IPAM, client client.Client, service *service.Blo
 			validators.NewSizingPolicyValidator(client),
 			validators.NewBlockDeviceLimiterValidator(service, log),
 			validators.NewAffinityValidator(),
+			validators.NewTopologySpreadConstraintValidator(),
 		},
 		log: log.With("webhook", "validation"),
 	}
