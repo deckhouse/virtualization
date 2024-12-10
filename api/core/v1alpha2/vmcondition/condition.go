@@ -103,4 +103,9 @@ const (
 
 	ReasonBlockDeviceCapacityAvailable Reason = "BlockDeviceCapacityAvailable"
 	ReasonBlockDeviceCapacityReached   Reason = "BlockDeviceCapacityReached"
+
+	ReasonPodTerminatingReason      Reason = "PodTerminating"
+	ReasonPodNotExistsReason        Reason = "PodNotExists"
+	ReasonPodConditionMissingReason Reason = "PodConditionMissing"
+	ReasonGuestNotRunningReason     Reason = "GuestNotRunning"
 )
