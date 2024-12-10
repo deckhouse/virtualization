@@ -179,7 +179,7 @@ index 0af25f8074..803c0ed4cd 100644
  				})
  			}
 diff --git a/pkg/virt-controller/services/template.go b/pkg/virt-controller/services/template.go
-index 76ed7307ec..1e9259c109 100644
+index 76ed7307ec..a0a3ef1199 100644
 --- a/pkg/virt-controller/services/template.go
 +++ b/pkg/virt-controller/services/template.go
 @@ -64,13 +64,15 @@ import (
@@ -216,7 +216,7 @@ index 76ed7307ec..1e9259c109 100644
 +func (t *templateService) containerForHotplugContainerDisk(name string, cd *v1.ContainerDiskSource, vmi *v1.VirtualMachineInstance) k8sv1.Container {
 +	runUser := int64(util.NonRootUID)
 +	sharedMount := k8sv1.MountPropagationHostToContainer
-+	path := fmt.Sprintf("/path/hp-%s", name)
++	path := fmt.Sprintf("/path/%s", name)
 +	command := []string{fmt.Sprintf("/init/usr/bin/container-disk --copy-path %s", path)}
 +
 +	return k8sv1.Container{
@@ -297,7 +297,7 @@ index 4fd325ba86..82fcaee0a3 100644
          "//vendor/kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1:go_default_library",
      ],
 diff --git a/pkg/virt-controller/watch/vmi.go b/pkg/virt-controller/watch/vmi.go
-index 0c4bfca389..f16d7c73b8 100644
+index 0c4bfca389..c4b7a3c8b7 100644
 --- a/pkg/virt-controller/watch/vmi.go
 +++ b/pkg/virt-controller/watch/vmi.go
 @@ -1816,6 +1816,10 @@ func (c *VMIController) handleHotplugVolumes(hotplugVolumes []*virtv1.Volume, ho
@@ -333,7 +333,35 @@ index 0c4bfca389..f16d7c73b8 100644
  }
  
  func (c *VMIController) createAttachmentPod(vmi *virtv1.VirtualMachineInstance, virtLauncherPod *k8sv1.Pod, volumes []*virtv1.Volume) (*k8sv1.Pod, syncError) {
-@@ -2131,14 +2145,19 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
+@@ -1987,7 +2001,17 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
+ 	var pod *k8sv1.Pod
+ 	var err error
+ 
+-	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(volumes, c.pvcIndexer, virtlauncherPod.Namespace)
++	var hasContainerDisk bool
++	var newVolumes []*virtv1.Volume
++	for _, volume := range volumes {
++		if volume.VolumeSource.ContainerDisk != nil {
++			hasContainerDisk = true
++			continue
++		}
++		newVolumes = append(newVolumes, volume)
++	}
++
++	volumeNamesPVCMap, err := storagetypes.VirtVolumesToPVCMap(newVolumes, c.pvcIndexer, virtlauncherPod.Namespace)
+ 	if err != nil {
+ 		return nil, fmt.Errorf("failed to get PVC map: %v", err)
+ 	}
+@@ -2009,7 +2033,7 @@ func (c *VMIController) createAttachmentPodTemplate(vmi *virtv1.VirtualMachineIn
+ 		}
+ 	}
+ 
+-	if len(volumeNamesPVCMap) > 0 {
++	if len(volumeNamesPVCMap) > 0 || hasContainerDisk {
+ 		pod, err = c.templateService.RenderHotplugAttachmentPodTemplate(volumes, virtlauncherPod, vmi, volumeNamesPVCMap)
+ 	}
+ 	return pod, err
+@@ -2131,14 +2155,19 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
  					ClaimName: volume.Name,
  				}
  			}
@@ -360,7 +388,7 @@ index 0c4bfca389..f16d7c73b8 100644
  				}
  			} else {
  				status.HotplugVolume.AttachPodName = attachmentPod.Name
-@@ -2156,7 +2175,6 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
+@@ -2156,7 +2185,6 @@ func (c *VMIController) updateVolumeStatus(vmi *virtv1.VirtualMachineInstance, v
  				}
  			}
  		}
