@@ -25,10 +25,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -232,6 +235,132 @@ func setPhaseConditionForPVCProvisioningDisk(
 	default:
 		return err
 	}
+}
+
+func setPhaseConditionFromPodError(
+	ctx context.Context,
+	podErr error,
+	pod *corev1.Pod,
+	vd *virtv2.VirtualDisk,
+	cb *conditions.ConditionBuilder,
+	c client.Client,
+) error {
+	switch {
+	case errors.Is(podErr, service.ErrNotInitialized):
+		vd.Status.Phase = virtv2.DiskFailed
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ProvisioningNotStarted).
+			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
+		return nil
+	case errors.Is(podErr, service.ErrNotScheduled):
+		vd.Status.Phase = virtv2.DiskPending
+
+		nodePlacement, err := getNodePlacement(ctx, c, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return fmt.Errorf("fauled to get importer tolerations: %w", err)
+		}
+
+		var isChanged bool
+		isChanged, err = provisioner.IsNodePlacementChanged(nodePlacement, pod)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return err
+		}
+
+		if isChanged {
+			// log.Info("The node placement has changed for importer pod: recreate the provisioner")
+			err = c.Delete(ctx, pod)
+			if err != nil {
+				setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+				return err
+			}
+
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.ProvisioningNotStarted).
+				Message("Provisioner recreation due to a changes in the virtual machine tolerations.")
+		} else {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.ProvisioningNotStarted).
+				Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
+		}
+
+		return nil
+	case errors.Is(podErr, service.ErrProvisioningFailed):
+		setPhaseConditionToFailed(cb, &vd.Status.Phase, podErr)
+		return nil
+	default:
+		setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", podErr))
+		return podErr
+	}
+}
+
+func checkDataVolume(
+	ctx context.Context,
+	dv *cdiv1.DataVolume,
+	vd *virtv2.VirtualDisk,
+	cleaner Cleaner,
+	c client.Client,
+) (bool, error) {
+	if dv.Status.Phase != cdiv1.Pending {
+		return false, nil
+	}
+
+	nodePlacement, err := getNodePlacement(ctx, c, vd)
+	if err != nil {
+		return false, fmt.Errorf("failed to get tolerations: %w", err)
+	}
+
+	isChanged, err := provisioner.IsNodePlacementChanged(nodePlacement, dv)
+	if err != nil {
+		return false, err
+	}
+
+	if isChanged {
+		_, err = cleaner.CleanUpSupplements(ctx, vd)
+		if err != nil {
+			return false, err
+		}
+		return isChanged, nil
+	}
+
+	return false, nil
+}
+
+func getNodePlacement(ctx context.Context, c client.Client, vd *virtv2.VirtualDisk) (*provisioner.NodePlacement, error) {
+	if len(vd.Status.AttachedToVirtualMachines) != 1 {
+		return nil, nil
+	}
+
+	vmKey := types.NamespacedName{Name: vd.Status.AttachedToVirtualMachines[0].Name, Namespace: vd.Namespace}
+	vm, err := object.FetchObject(ctx, vmKey, c, &virtv2.VirtualMachine{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get the virtual machine %s: %w", vmKey, err)
+	}
+
+	if vm == nil {
+		return nil, nil
+	}
+
+	var nodePlacement provisioner.NodePlacement
+	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vm.Spec.Tolerations...)
+
+	vmClassKey := types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}
+	vmClass, err := object.FetchObject(ctx, vmClassKey, c, &virtv2.VirtualMachineClass{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get the virtual machine class %s: %w", vmClassKey, err)
+	}
+
+	if vmClass == nil {
+		return &nodePlacement, nil
+	}
+
+	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vmClass.Spec.Tolerations...)
+
+	return &nodePlacement, nil
 }
 
 const retryPeriod = 1

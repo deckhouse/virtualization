@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 )
 
 const (
@@ -64,22 +65,27 @@ type PodSettings struct {
 	ImagePullSecrets     []corev1.LocalObjectReference
 	PriorityClassName    string
 	ServiceName          string
+	NodePlacement        *provisioner.NodePlacement
 }
 
 // Create creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
 // name, etc. A nil secret means the endpoint credentials are not passed to the uploader pod.
 func (p *Pod) Create(ctx context.Context, client client.Client) (*corev1.Pod, error) {
-	pod := p.makeSpec()
+	pod, err := p.makeSpec()
+	if err != nil {
+		return nil, err
+	}
 
-	if err := client.Create(ctx, pod); err != nil {
+	err = client.Create(ctx, pod)
+	if err != nil {
 		return nil, err
 	}
 
 	return pod, nil
 }
 
-func (p *Pod) makeSpec() *corev1.Pod {
-	pod := &corev1.Pod{
+func (p *Pod) makeSpec() (*corev1.Pod, error) {
+	pod := corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
 			APIVersion: "v1",
@@ -107,14 +113,23 @@ func (p *Pod) makeSpec() *corev1.Pod {
 		},
 	}
 
-	annotations.SetRecommendedLabels(pod, p.PodSettings.InstallerLabels, p.PodSettings.ControllerName)
+	if p.PodSettings.NodePlacement != nil && len(p.PodSettings.NodePlacement.Tolerations) > 0 {
+		pod.Spec.Tolerations = p.PodSettings.NodePlacement.Tolerations
+
+		err := provisioner.KeepNodePlacementTolerations(p.PodSettings.NodePlacement, &pod)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	annotations.SetRecommendedLabels(&pod, p.PodSettings.InstallerLabels, p.PodSettings.ControllerName)
 	podutil.SetRestrictedSecurityContext(&pod.Spec)
 
 	container := p.makeUploaderContainerSpec()
-	p.addVolumes(pod, container)
+	p.addVolumes(&pod, container)
 	pod.Spec.Containers = append(pod.Spec.Containers, *container)
 
-	return pod
+	return &pod, nil
 }
 
 func (p *Pod) makeUploaderContainerSpec() *corev1.Container {
