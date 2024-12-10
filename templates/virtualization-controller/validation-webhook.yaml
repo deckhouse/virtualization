@@ -207,3 +207,28 @@ webhooks:
         {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
+  - name: "protect-resources.virtualization-controller.validate.d8-virtualization"
+    rules:
+      - apiGroups:
+          - "cdi.internal.virtualization.deckhouse.io"
+          - "clone.internal.virtualization.deckhouse.io"
+          - "export.internal.virtualization.deckhouse.io"
+          - "forklift.cdi.internal.virtualization.deckhouse.io"
+          - "instancetype.internal.virtualization.deckhouse.io"
+          - "internal.virtualization.deckhouse.io"
+          - "pool.internal.virtualization.deckhouse.io"
+          - "snapshot.internal.virtualization.deckhouse.io"
+        apiVersions: ["*"]
+        operations:  ["CREATE", "UPDATE", "DELETE"]
+        resources:   ["*"]
+        scope:       "*"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-controller
+        path: "/protect-resources"
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.controller.cert.ca }}
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
