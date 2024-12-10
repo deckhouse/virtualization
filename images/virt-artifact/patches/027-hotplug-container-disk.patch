@@ -104,10 +104,21 @@ index 10dbb92269..1ccc9e9fa7 100644
    - subresources.kubevirt.io
    resources:
 diff --git a/pkg/controller/controller.go b/pkg/controller/controller.go
-index 490cc445ef..8b82437f83 100644
+index 490cc445ef..4b7dbc12fe 100644
 --- a/pkg/controller/controller.go
 +++ b/pkg/controller/controller.go
-@@ -444,6 +444,9 @@ func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
+@@ -278,6 +278,10 @@ func ApplyVolumeRequestOnVMISpec(vmiSpec *v1.VirtualMachineInstanceSpec, request
+ 				dvSource := request.AddVolumeOptions.VolumeSource.DataVolume.DeepCopy()
+ 				dvSource.Hotpluggable = true
+ 				newVolume.VolumeSource.DataVolume = dvSource
++			} else if request.AddVolumeOptions.VolumeSource.ContainerDisk != nil {
++				containerDiskSource := request.AddVolumeOptions.VolumeSource.ContainerDisk.DeepCopy()
++				containerDiskSource.Hotpluggable = true
++				newVolume.VolumeSource.ContainerDisk = containerDiskSource
+ 			}
+ 
+ 			vmiSpec.Volumes = append(vmiSpec.Volumes, newVolume)
+@@ -444,6 +448,9 @@ func VMIHasHotplugVolumes(vmi *v1.VirtualMachineInstance) bool {
  		if volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.Hotpluggable {
  			return true
  		}
@@ -117,7 +128,7 @@ index 490cc445ef..8b82437f83 100644
  	}
  	return false
  }
-@@ -557,7 +560,7 @@ func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Po
+@@ -557,7 +564,7 @@ func GetHotplugVolumes(vmi *v1.VirtualMachineInstance, virtlauncherPod *k8sv1.Po
  		podVolumeMap[podVolume.Name] = podVolume
  	}
  	for _, vmiVolume := range vmiVolumes {
@@ -127,10 +138,20 @@ index 490cc445ef..8b82437f83 100644
  		}
  	}
 diff --git a/pkg/virt-api/rest/subresource.go b/pkg/virt-api/rest/subresource.go
-index b5d62f5af5..fc49cbbb20 100644
+index b5d62f5af5..bf561f00ae 100644
 --- a/pkg/virt-api/rest/subresource.go
 +++ b/pkg/virt-api/rest/subresource.go
-@@ -1125,6 +1125,8 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request,
+@@ -1023,7 +1023,8 @@ func volumeSourceName(volumeSource *v1.HotplugVolumeSource) string {
+ 
+ func volumeSourceExists(volume v1.Volume, volumeName string) bool {
+ 	return (volume.DataVolume != nil && volume.DataVolume.Name == volumeName) ||
+-		(volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == volumeName)
++		(volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == volumeName) ||
++		(volume.ContainerDisk != nil && volume.ContainerDisk.Image != "")
+ }
+ 
+ func volumeExists(volume v1.Volume, volumeName string) bool {
+@@ -1125,6 +1126,8 @@ func (app *SubresourceAPIApp) addVolumeRequestHandler(request *restful.Request,
  		opts.VolumeSource.DataVolume.Hotpluggable = true
  	} else if opts.VolumeSource.PersistentVolumeClaim != nil {
  		opts.VolumeSource.PersistentVolumeClaim.Hotpluggable = true
