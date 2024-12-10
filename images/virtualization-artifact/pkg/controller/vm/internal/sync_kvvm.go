@@ -559,6 +559,13 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 	switch vmRunPolicy {
 	case virtv2.AlwaysOffPolicy:
 		if kvvmi != nil {
+			h.recorder.WithLogging(log).Eventf(
+				s.VirtualMachine().Current(),
+				corev1.EventTypeNormal,
+				virtv2.ReasonVMStop,
+				"Stop initiated by controller to ensure %s policy",
+				vmRunPolicy,
+			)
 			// Ensure KVVMI is absent.
 			err = h.client.Delete(ctx, kvvmi)
 			if err != nil && !k8serrors.IsNotFound(err) {
@@ -573,6 +580,14 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 	case virtv2.AlwaysOnUnlessStoppedManually:
 		strategy, _ := kvvm.RunStrategy()
 		if strategy == virtv1.RunStrategyAlways && kvvmi == nil {
+			h.recorder.WithLogging(log).Eventf(
+				s.VirtualMachine().Current(),
+				corev1.EventTypeNormal,
+				virtv2.ReasonVMStart,
+				"Start initiated by controller for %s policy",
+				vmRunPolicy,
+			)
+
 			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
 				return fmt.Errorf("automatic start VM for %s policy: %w", vmRunPolicy, err)
 			}
@@ -584,13 +599,23 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 					// Cleanup KVVMI is enough if VM was stopped from inside.
 					switch shutdownInfo.Reason {
 					case powerstate.GuestResetReason:
-						log.Info("Restart for guest initiated reset")
+						h.recorder.WithLogging(log).Event(
+							s.VirtualMachine().Current(),
+							corev1.EventTypeNormal,
+							virtv2.ReasonVMRestart,
+							"Restart initiated from inside the VM",
+						)
 						err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
 						if err != nil {
 							return fmt.Errorf("restart VM on guest-reset: %w", err)
 						}
 					default:
-						log.Info("Cleanup Succeeded KVVMI")
+						h.recorder.WithLogging(log).Event(
+							s.VirtualMachine().Current(),
+							corev1.EventTypeNormal,
+							virtv2.ReasonVMStop,
+							"Stop initiated from inside the VM",
+						)
 						err = h.client.Delete(ctx, kvvmi)
 						if err != nil && !k8serrors.IsNotFound(err) {
 							return fmt.Errorf("delete Succeeded KVVMI: %w", err)
@@ -605,6 +630,7 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 				//	Reason:         "Restart",
 				//	Message:        fmt.Sprintf("Restart initiated by controller for %s runPolicy after observing failed VM instance", vmRunPolicy)),
 				//})
+
 				h.recorder.WithLogging(log).Eventf(
 					s.VirtualMachine().Current(),
 					corev1.EventTypeNormal,
@@ -626,16 +652,28 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 		// All types of shutdown are a final state.
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
 			if kvvmi.Status.Phase == virtv1.Succeeded && shutdownInfo.PodCompleted {
-				// Request to start new KVVMI (with updated settings).
 				switch shutdownInfo.Reason {
 				case powerstate.GuestResetReason:
+					h.recorder.WithLogging(log).Event(
+						s.VirtualMachine().Current(),
+						corev1.EventTypeNormal,
+						virtv2.ReasonVMRestart,
+						"Restart initiated from inside the VM",
+					)
+
+					// Request to start new KVVMI (with updated settings).
 					err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
 					if err != nil {
 						return fmt.Errorf("restart VM on guest-reset: %w", err)
 					}
 				default:
+					h.recorder.WithLogging(log).Event(
+						s.VirtualMachine().Current(),
+						corev1.EventTypeNormal,
+						virtv2.ReasonVMStop,
+						"Stop initiated from inside the VM",
+					)
 					// Cleanup old version of KVVMI.
-					log.Info("Cleanup Succeeded KVVMI")
 					err = h.client.Delete(ctx, kvvmi)
 					if err != nil && !k8serrors.IsNotFound(err) {
 						return fmt.Errorf("delete Succeeded KVVMI: %w", err)
