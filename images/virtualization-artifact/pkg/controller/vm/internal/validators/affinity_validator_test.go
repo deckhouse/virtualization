@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -69,6 +68,7 @@ var _ = Describe("AffinityValidator", func() {
 								{
 									MatchExpressions: []corev1.NodeSelectorRequirement{
 										{
+											Key:      "key",
 											Operator: corev1.NodeSelectorOpExists,
 										},
 									},
@@ -97,6 +97,7 @@ var _ = Describe("AffinityValidator", func() {
 								{
 									MatchExpressions: []corev1.NodeSelectorRequirement{
 										{
+											Key:      "key",
 											Operator: corev1.NodeSelectorOpIn,
 										},
 									},
@@ -126,6 +127,7 @@ var _ = Describe("AffinityValidator", func() {
 								Preference: corev1.NodeSelectorTerm{
 									MatchExpressions: []corev1.NodeSelectorRequirement{
 										{
+											Key:      "key",
 											Operator: corev1.NodeSelectorOpExists,
 										},
 									},
@@ -155,6 +157,7 @@ var _ = Describe("AffinityValidator", func() {
 								Preference: corev1.NodeSelectorTerm{
 									MatchExpressions: []corev1.NodeSelectorRequirement{
 										{
+											Key:      "key",
 											Operator: corev1.NodeSelectorOpIn,
 										},
 									},
@@ -184,6 +187,7 @@ var _ = Describe("AffinityValidator", func() {
 								Preference: corev1.NodeSelectorTerm{
 									MatchExpressions: []corev1.NodeSelectorRequirement{
 										{
+											Key:      "key",
 											Operator: corev1.NodeSelectorOpExists,
 										},
 									},
@@ -199,26 +203,6 @@ var _ = Describe("AffinityValidator", func() {
 			warnings, err := validator.Validate(vm)
 			Expect(len(warnings)).Should(BeNumerically("==", 0))
 			Expect(err).ShouldNot(BeNil())
-		})
-	})
-
-	Context("Correct input for ValidateLabelSelectorRequirement", func() {
-		errors := validator.ValidateLabelSelectorRequirement(metav1.LabelSelectorRequirement{
-			Operator: metav1.LabelSelectorOpExists,
-		})
-
-		It("Should be correct validation", func() {
-			Expect(len(errors)).Should(BeNumerically("==", 0))
-		})
-	})
-
-	Context("Incorrect input for ValidateLabelSelectorRequirement", func() {
-		errors := validator.ValidateLabelSelectorRequirement(metav1.LabelSelectorRequirement{
-			Operator: metav1.LabelSelectorOpIn,
-		})
-
-		It("Should be correct validation", func() {
-			Expect(len(errors)).Should(BeNumerically(">", 0))
 		})
 	})
 })

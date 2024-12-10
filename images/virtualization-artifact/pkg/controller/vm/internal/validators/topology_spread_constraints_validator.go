@@ -28,24 +28,27 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type AffinityValidator struct{}
+type TopologySpreadConstraintValidator struct{}
 
-func NewAffinityValidator() *AffinityValidator {
-	return &AffinityValidator{}
+func NewTopologySpreadConstraintValidator() *TopologySpreadConstraintValidator {
+	return &TopologySpreadConstraintValidator{}
 }
 
-func (v *AffinityValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *TopologySpreadConstraintValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	return v.Validate(vm)
 }
 
-func (v *AffinityValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *TopologySpreadConstraintValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	return v.Validate(newVM)
 }
 
-func (v *AffinityValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+func (v *TopologySpreadConstraintValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
 	var errs []error
 
-	errorList := k8sUtils.ValidateAffinity(vm.Spec.Affinity, k8sfield.NewPath("spec"))
+	errorList := k8sUtils.ValidateTopologySpreadConstraints(
+		vm.Spec.TopologySpreadConstraints,
+		k8sfield.NewPath("spec").Child("topologySpreadConstraints"),
+	)
 	for _, err := range errorList {
 		errs = append(errs, err)
 	}
