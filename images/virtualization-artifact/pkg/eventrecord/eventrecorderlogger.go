@@ -18,6 +18,7 @@ package eventrecord
 
 import (
 	"fmt"
+	"strings"
 
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,6 +40,10 @@ type infoLogger interface {
 	Info(msg string, args ...any)
 }
 
+type recorderProducer interface {
+	GetEventRecorderFor(name string) record.EventRecorder
+}
+
 // EventRecorderLogger is a wrapper around client-go's EventRecorder to record Events with logging.
 type EventRecorderLogger interface {
 	Event(object client.Object, eventtype, reason, message string)
@@ -52,20 +57,27 @@ type EventRecorderLogger interface {
 	WithLogging(logger infoLogger) EventRecorderLogger
 }
 
-func NewEventRecorderLogger(recorder record.EventRecorder) EventRecorderLogger {
-	return &EventRecorderLoggerImpl{recorder: recorder}
+func NewEventRecorderLogger(recorderProducer recorderProducer, controllerName string) EventRecorderLogger {
+	return &EventRecorderLoggerImpl{
+		recorderProducer: recorderProducer,
+		controllerName:   controllerName,
+	}
 }
 
 // EventRecorderLoggerImpl implements Event recorder that also log event object.
 type EventRecorderLoggerImpl struct {
-	recorder record.EventRecorder
-	logger   infoLogger
+	controllerName   string
+	recorderProducer recorderProducer
+	//recorder record.EventRecorder
+	logger infoLogger
 }
 
 func (e *EventRecorderLoggerImpl) WithLogging(logger infoLogger) EventRecorderLogger {
 	return &EventRecorderLoggerImpl{
-		recorder: e.recorder,
-		logger:   logger,
+		controllerName:   e.controllerName,
+		recorderProducer: e.recorderProducer,
+		//recorder: e.recorder,
+		logger: logger,
 	}
 }
 
@@ -90,19 +102,22 @@ func (e *EventRecorderLoggerImpl) WithLogging(logger infoLogger) EventRecorderLo
 // Event calls EventRecorder.Event as-is.
 func (e *EventRecorderLoggerImpl) Event(object client.Object, eventtype, reason, message string) {
 	e.logf(object, eventtype, reason, message)
-	e.recorder.Event(object, eventtype, reason, message)
+	recorder := e.recorderProducer.GetEventRecorderFor(e.recorderKey(reason))
+	recorder.Event(object, eventtype, reason, message)
 }
 
 // Eventf calls EventRecorder.Eventf as-is.
 func (e *EventRecorderLoggerImpl) Eventf(object client.Object, eventtype, reason, messageFmt string, args ...interface{}) {
 	e.logf(object, eventtype, reason, messageFmt, args...)
-	e.recorder.Eventf(object, eventtype, reason, messageFmt, args)
+	recorder := e.recorderProducer.GetEventRecorderFor(e.recorderKey(reason))
+	recorder.Eventf(object, eventtype, reason, messageFmt, args)
 }
 
 // AnnotatedEventf calls EventRecorder.AnnotatedEventf as-is.
 func (e *EventRecorderLoggerImpl) AnnotatedEventf(object client.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
 	e.logf(object, eventtype, reason, messageFmt, args...)
-	e.recorder.AnnotatedEventf(object, annotations, eventtype, reason, messageFmt, args)
+	recorder := e.recorderProducer.GetEventRecorderFor(e.recorderKey(reason))
+	recorder.AnnotatedEventf(object, annotations, eventtype, reason, messageFmt, args)
 }
 
 func (e *EventRecorderLoggerImpl) log(ev *Event) {
@@ -138,4 +153,11 @@ func (e *EventRecorderLoggerImpl) logf(involved client.Object, eventtype, reason
 		involvedNamespaceLabel, involved.GetNamespace(),
 		involvedKindLabel, involved.GetObjectKind().GroupVersionKind().Kind,
 	)
+}
+
+func (e *EventRecorderLoggerImpl) recorderKey(reason string) string {
+	return strings.Join([]string{
+		e.controllerName,
+		reason,
+	}, "")
 }

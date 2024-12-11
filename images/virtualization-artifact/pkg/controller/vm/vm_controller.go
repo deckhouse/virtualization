@@ -48,7 +48,7 @@ func SetupController(
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 ) error {
-	recorder := eventrecord.NewEventRecorderLogger(mgr.GetEventRecorderFor(ControllerName))
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
