@@ -8,6 +8,12 @@ spec:
 
 # viType: vi
 viType: pvc
+# VM startup policy
+# AlwaysOn - after creation the VM is always in a running state, even in case of its shutdown by OS means.
+# AlwaysOff - after creation the VM is always in the off state.
+# Manual - after creation the VM is switched off, the VM state (switching on/off) is controlled via sub-resources or OS means.
+# AlwaysOnUnlessStoppedManually - after creation the VM is always in a running state, even in case of its shutdown by means of the OS, the VM can be shut down using the corresponding subresource.
+runPolicy: AlwaysOnUnlessStoppedManually
 vmDiskType: vd
 resources: "all"
 resourcesPrefix: "performance"
