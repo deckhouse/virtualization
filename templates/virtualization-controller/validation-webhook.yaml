@@ -218,6 +218,7 @@ webhooks:
           - "internal.virtualization.deckhouse.io"
           - "pool.internal.virtualization.deckhouse.io"
           - "snapshot.internal.virtualization.deckhouse.io"
+          - "migrations.internal.virtualization.deckhouse.io"
         apiVersions: ["*"]
         operations:  ["CREATE", "UPDATE", "DELETE"]
         resources:   ["*"]
