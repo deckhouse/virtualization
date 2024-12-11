@@ -75,7 +75,7 @@ class ModuleConfigValidateHook(Hook):
     def reconcile(self) -> Callable[[hook.Context], None]:
         def r(ctx: hook.Context):
 
-            request = ctx.binding_context.get("review", {}).get("request")
+            request = ctx.binding_context.get("review", {}).get("request", {})
             if len(request) == 0:
                 self.__allow(ctx, "")
                 return
@@ -91,8 +91,8 @@ class ModuleConfigValidateHook(Hook):
                 self.__allow(ctx, "")
                 return
 
-            old_subnetes = request.get("oldObject", {}).get("spec", {}).get("settings", {}).get("virtualMachineCIDRs")
-            new_subnets = request.get("object", {}).get("spec", {}).get("settings", {}).get("virtualMachineCIDRs")
+            old_subnetes = request.get("oldObject", {}).get("spec", {}).get("settings", {}).get("virtualMachineCIDRs", [])
+            new_subnets = request.get("object", {}).get("spec", {}).get("settings", {}).get("virtualMachineCIDRs", [])
 
             validate_subnets = []
 
