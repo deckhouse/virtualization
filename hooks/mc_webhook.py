@@ -26,7 +26,6 @@ def parse_ip_address(ip_string):
 class ModuleConfigValidateHook(Hook):
     SNAPSHOT_NAME = "virtualmachineipaddresslease"
     VALIDATOR_NAME = "moduleconfig-virtualization"
-    MODULE_CONFIG_KIND = "ModuleConfig"
 
     def __init__(self, module_name: str):
         self.module_name = module_name
@@ -52,9 +51,9 @@ class ModuleConfigValidateHook(Hook):
                     "group": "main",
                     "rules": [
                         {
-                            "apiVersions": "v1alpha1",
-                            "apiGroups": "deckhouse.io",
-                            "resources": [self.MODULE_CONFIG_KIND],
+                            "apiVersions": ["v1alpha1"],
+                            "apiGroups": ["deckhouse.io"],
+                            "resources": ["moduleconfigs"],
                             "operations": ["UPDATE"],
                             "scope": "Cluster",
                         }
@@ -83,7 +82,7 @@ class ModuleConfigValidateHook(Hook):
 
             kind = request.get("kind", {}).get("kind", "")
             name = request.get("name", "")
-            if kind != self.MODULE_CONFIG_KIND or name != self.module_name:
+            if kind != "ModuleConfig" or name != self.module_name:
                 self.__allow(ctx, "")
                 return
 
