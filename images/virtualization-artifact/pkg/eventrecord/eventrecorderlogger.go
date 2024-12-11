@@ -30,9 +30,6 @@ const (
 	involvedNameLabel      = "involvedName"
 	involvedNamespaceLabel = "involvedNamespace"
 	involvedKindLabel      = "involvedKind"
-	relatedNameLabel       = "relatedName"
-	relatedNamespaceLabel  = "relatedNamespace"
-	relatedKindLabel       = "relatedKind"
 )
 
 // infoLogger is local interface to use Info method from different loggers.
@@ -57,6 +54,8 @@ type EventRecorderLogger interface {
 	WithLogging(logger infoLogger) EventRecorderLogger
 }
 
+// NewEventRecorderLogger implements EventRecorderLogger.
+// It creates recorder for each reason to workaround low qps limit of 1 event per 5 minutes.
 func NewEventRecorderLogger(recorderProducer recorderProducer, controllerName string) EventRecorderLogger {
 	return &EventRecorderLoggerImpl{
 		recorderProducer: recorderProducer,
@@ -68,77 +67,37 @@ func NewEventRecorderLogger(recorderProducer recorderProducer, controllerName st
 type EventRecorderLoggerImpl struct {
 	controllerName   string
 	recorderProducer recorderProducer
-	//recorder record.EventRecorder
-	logger infoLogger
+	logger           infoLogger
 }
 
 func (e *EventRecorderLoggerImpl) WithLogging(logger infoLogger) EventRecorderLogger {
 	return &EventRecorderLoggerImpl{
 		controllerName:   e.controllerName,
 		recorderProducer: e.recorderProducer,
-		//recorder: e.recorder,
-		logger: logger,
+		logger:           logger,
 	}
 }
 
-//// FromObject records an event from an existing event object.
-//// Notice that only involvedObject, type, reason, and message are used.
-//func (e *EventRecorderLoggerImpl) FromObject(ev *Event) {
-//	e.recorder.Event(ev.InvolvedObject, ev.Type, ev.Reason, ev.Message)
-//}
-
-//// EventRelated records an event and adds related object info to log.
-//func (e *EventRecorderLoggerImpl) EventRelated(object client.Object, related client.Object, eventtype, reason, message string) {
-//	e.recorder.Event(object, eventtype, reason, message)
-//	e.log(&Event{
-//		InvolvedObject: object,
-//		RelatedObject:  related,
-//		Type:           eventtype,
-//		Reason:         reason,
-//		Message:        message,
-//	})
-//}
-
-// Event calls EventRecorder.Event as-is.
+// Event logs info about event and records it as Event resource.
 func (e *EventRecorderLoggerImpl) Event(object client.Object, eventtype, reason, message string) {
 	e.logf(object, eventtype, reason, message)
 	recorder := e.recorderProducer.GetEventRecorderFor(e.recorderKey(reason))
 	recorder.Event(object, eventtype, reason, message)
 }
 
-// Eventf calls EventRecorder.Eventf as-is.
+// Eventf logs info about event and records it as Event resource. The difference with Event method is that it formats message.
 func (e *EventRecorderLoggerImpl) Eventf(object client.Object, eventtype, reason, messageFmt string, args ...interface{}) {
 	e.logf(object, eventtype, reason, messageFmt, args...)
 	recorder := e.recorderProducer.GetEventRecorderFor(e.recorderKey(reason))
-	recorder.Eventf(object, eventtype, reason, messageFmt, args)
+	recorder.Eventf(object, eventtype, reason, messageFmt, args...)
 }
 
-// AnnotatedEventf calls EventRecorder.AnnotatedEventf as-is.
+// AnnotatedEventf logs info about event and records it as Event resource.
+// The difference with the Event method is that it formats message and add annotations to the Event resource.
 func (e *EventRecorderLoggerImpl) AnnotatedEventf(object client.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
 	e.logf(object, eventtype, reason, messageFmt, args...)
 	recorder := e.recorderProducer.GetEventRecorderFor(e.recorderKey(reason))
-	recorder.AnnotatedEventf(object, annotations, eventtype, reason, messageFmt, args)
-}
-
-func (e *EventRecorderLoggerImpl) log(ev *Event) {
-	if e.logger == nil {
-		return
-	}
-	args := []any{
-		eventTypeLabel, ev.Type,
-		reasonLabel, ev.Reason,
-		involvedNameLabel, ev.InvolvedObject.GetName(),
-		involvedNamespaceLabel, ev.InvolvedObject.GetNamespace(),
-		involvedKindLabel, ev.InvolvedObject.GetObjectKind().GroupVersionKind().Kind,
-	}
-	if ev.RelatedObject != nil {
-		args = append(args,
-			relatedNameLabel, ev.RelatedObject.GetName(),
-			relatedNamespaceLabel, ev.RelatedObject.GetNamespace(),
-			relatedKindLabel, ev.RelatedObject.GetObjectKind().GroupVersionKind().Kind,
-		)
-	}
-	e.logger.Info(ev.Message, args...)
+	recorder.AnnotatedEventf(object, annotations, eventtype, reason, messageFmt, args...)
 }
 
 func (e *EventRecorderLoggerImpl) logf(involved client.Object, eventtype, reason, messageFmt string, args ...interface{}) {
@@ -158,6 +117,7 @@ func (e *EventRecorderLoggerImpl) logf(involved client.Object, eventtype, reason
 func (e *EventRecorderLoggerImpl) recorderKey(reason string) string {
 	return strings.Join([]string{
 		e.controllerName,
+		"/",
 		reason,
 	}, "")
 }
