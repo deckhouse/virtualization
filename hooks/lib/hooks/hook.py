@@ -15,7 +15,6 @@
 
 from deckhouse import hook
 from typing import Callable
-from lib.module import module
 from lib.module import values as module_values
 import yaml
 

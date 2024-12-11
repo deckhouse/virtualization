@@ -121,7 +121,7 @@ shell:
 ---
 image: python-dependencies
 from: python:3.9-slim
-fromCacheVersion: "2024-11-07.1"
+fromCacheVersion: "2024-12-11.0"
 git:
   - add: /lib/python/requirements.txt
     to: /requirements.txt
