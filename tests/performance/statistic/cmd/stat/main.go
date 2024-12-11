@@ -16,11 +16,6 @@ func main() {
 	getVM := flag.Bool("vm", false, "Get VMs, default false")
 	flag.Parse()
 
-	// err := helpers.SaveToCSV()
-	// if err != nil {
-	// 	os.Exit(1)
-	// }
-
 	ns := *namespace
 
 	if *getVM {
