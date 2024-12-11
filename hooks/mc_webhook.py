@@ -37,7 +37,7 @@ class ModuleConfigValidateHook(Hook):
             "kubernetes": [
                 {
                     "name": self.SNAPSHOT_NAME,
-                    "apiVersion": "v1alpha2",
+                    "apiVersion": "virtualization.deckhouse.io/v1alpha2",
                     "kind": "VirtualMachineIPAddressLease",
                     "group": "main",
                     "jqFilter": '{"name": .metadata.name}',
