@@ -306,16 +306,6 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 	return nil
 }
 
-// restartKVVM deletes KVVMI to restart VM.
-func (h *SyncKvvmHandler) restartKVVM(ctx context.Context, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
-	err := powerstate.RestartVM(ctx, h.client, kvvm, kvvmi, false)
-	if err != nil {
-		return fmt.Errorf("failed to restart the current internal virtual machine instance: %w", err)
-	}
-
-	return nil
-}
-
 func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
 	if s.VirtualMachine().IsEmpty() {
 		return nil, nil
@@ -380,12 +370,12 @@ func (h *SyncKvvmHandler) loadLastAppliedSpec(vm *virtv2.VirtualMachine, kvvm *v
 	lastSpec, err := kvbuilder.LoadLastAppliedSpec(kvvm)
 	// TODO Add smarter handler for empty/invalid annotation.
 	if lastSpec == nil && err == nil {
-		h.recorder.Event(vm, corev1.EventTypeWarning, virtv2.ReasonVMLastAppliedSpecInvalid, "Could not find last applied spec. Possible old VM or partial backup restore. Restart or recreate VM to adopt it.")
+		h.recorder.Event(vm, corev1.EventTypeWarning, virtv2.ReasonVMLastAppliedSpecIsInvalid, "Could not find last applied spec. Possible old VM or partial backup restore. Restart or recreate VM to adopt it.")
 		lastSpec = &virtv2.VirtualMachineSpec{}
 	}
 	if err != nil {
 		msg := fmt.Sprintf("Could not restore last applied spec: %v. Possible old VM or partial backup restore. Restart or recreate VM to adopt it.", err)
-		h.recorder.Event(vm, corev1.EventTypeWarning, virtv2.ReasonVMLastAppliedSpecInvalid, msg)
+		h.recorder.Event(vm, corev1.EventTypeWarning, virtv2.ReasonVMLastAppliedSpecIsInvalid, msg)
 		// In Automatic mode changes are applied immediately, so last-applied-spec annotation will be restored.
 		if vmutil.ApprovalMode(vm) == virtv2.Automatic {
 			lastSpec = &virtv2.VirtualMachineSpec{}
@@ -477,18 +467,22 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 
 	switch action {
 	case vmchange.ActionRestart:
-		log.Info("Restart VM to apply changes", "vm.name", current.GetName())
-
-		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes")
-		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMRestart, "")
+		h.recorder.WithLogging(log).Event(current, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes with restart")
+		h.recorder.WithLogging(log).Event(
+			current,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVMRestarted,
+			"Restart initiated by controller to apply changes",
+		)
 
 		// Update KVVM spec according the current VM spec.
 		if err = h.updateKVVM(ctx, s); err != nil {
-			return fmt.Errorf("failed to update the internal virtual machine using the new spec: %w", err)
+			return fmt.Errorf("update virtual machine instance with new spec: %w", err)
 		}
 		// Ask kubevirt to re-create KVVMI to apply new spec from KVVM.
-		if err = h.restartKVVM(ctx, kvvm, kvvmi); err != nil {
-			return fmt.Errorf("failed to restart the internal virtual machine instance to apply changes: %w", err)
+		err = powerstate.RestartVM(ctx, h.client, kvvm, kvvmi, false)
+		if err != nil {
+			return fmt.Errorf("restart virtual machine instance to apply changes: %w", err)
 		}
 
 	case vmchange.ActionApplyImmediate:
@@ -496,8 +490,8 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 		if changes.IsDisruptive() {
 			message = "Apply disruptive changes without restart"
 		}
-		log.Info(message, "vm.name", current.GetName(), "action", changes)
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, message)
+		log.Debug(message, "vm.name", current.GetName(), "changes", changes)
 
 		if err := h.updateKVVM(ctx, s); err != nil {
 			return fmt.Errorf("unable to update KVVM using new VM spec: %w", err)
@@ -581,7 +575,7 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 			h.recorder.WithLogging(log).Eventf(
 				s.VirtualMachine().Current(),
 				corev1.EventTypeNormal,
-				virtv2.ReasonVMStart,
+				virtv2.ReasonVMStarted,
 				"Start initiated by controller for %v policy",
 				string(vmRunPolicy),
 			)
@@ -600,7 +594,7 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 						h.recorder.WithLogging(log).Event(
 							s.VirtualMachine().Current(),
 							corev1.EventTypeNormal,
-							virtv2.ReasonVMRestart,
+							virtv2.ReasonVMRestarted,
 							"Restart initiated from inside the VM",
 						)
 						err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
@@ -621,7 +615,7 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 				h.recorder.WithLogging(log).Eventf(
 					s.VirtualMachine().Current(),
 					corev1.EventTypeNormal,
-					virtv2.ReasonVMRestart,
+					virtv2.ReasonVMRestarted,
 					"Restart initiated by controller for %s runPolicy after observing failed VM instance",
 					vmRunPolicy,
 				)
@@ -644,7 +638,7 @@ func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMac
 					h.recorder.WithLogging(log).Event(
 						s.VirtualMachine().Current(),
 						corev1.EventTypeNormal,
-						virtv2.ReasonVMRestart,
+						virtv2.ReasonVMRestarted,
 						"Restart initiated from inside the VM",
 					)
 
@@ -697,7 +691,7 @@ func (h *SyncKvvmHandler) recordStopEventf(ctx context.Context, obj client.Objec
 	h.recorder.WithLogging(logger.FromContext(ctx)).Eventf(
 		obj,
 		corev1.EventTypeNormal,
-		virtv2.ReasonVMStop,
+		virtv2.ReasonVMStopped,
 		messageFmt,
 		args...,
 	)
