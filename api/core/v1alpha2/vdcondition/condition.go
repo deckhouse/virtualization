@@ -34,7 +34,7 @@ const (
 	SnapshottingType Type = "Snapshotting"
 	// StorageClassReadyType indicates whether the storage class is ready.
 	StorageClassReadyType Type = "StorageClassReady"
-	// InUseType indicates whether the VirtualDisk is attached to a running VirtualMachine or is being used in a process of a VirtualImage creation.
+	// InUseType indicates whether the VirtualDisk is attached to a running VirtualMachine or is being used in a process of an image creation.
 	InUseType Type = "InUse"
 )
 

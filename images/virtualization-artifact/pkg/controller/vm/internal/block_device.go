@@ -169,10 +169,10 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, err
 	}
 
-	if !h.checkAllowVirtualDisks(vds) {
+	if !h.areVirtualDisksAllowedToUse(vds) {
 		mgr.Update(cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDevicesNotReady).
-			Message("virtual disks are not allowed for use in the virtual machine, it may be used to create an images").Condition())
+			Message("Virtual disks are not allowed to be used in the virtual machine, check where else they are used.").Condition())
 		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{}, nil
 	}
@@ -184,10 +184,12 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	return reconcile.Result{}, nil
 }
 
-func (h *BlockDeviceHandler) checkAllowVirtualDisks(vds map[string]*virtv2.VirtualDisk) bool {
+func (h *BlockDeviceHandler) areVirtualDisksAllowedToUse(vds map[string]*virtv2.VirtualDisk) bool {
 	for _, vd := range vds {
 		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-		if inUseCondition.Status != metav1.ConditionTrue || inUseCondition.Reason != vdcondition.AllowedForVirtualMachineUsage.String() {
+		if inUseCondition.Status != metav1.ConditionTrue ||
+			inUseCondition.Reason != vdcondition.AllowedForVirtualMachineUsage.String() ||
+			inUseCondition.ObservedGeneration != vd.Status.ObservedGeneration {
 			return false
 		}
 	}

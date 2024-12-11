@@ -19,8 +19,8 @@ package internal
 import (
 	"context"
 
-	"github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -34,24 +34,24 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-var _ = ginkgo.Describe("InUseHandler", func() {
+var _ = Describe("InUseHandler", func() {
 	var (
 		scheme  *runtime.Scheme
 		ctx     context.Context
 		handler *InUseHandler
 	)
 
-	ginkgo.BeforeEach(func() {
+	BeforeEach(func() {
 		scheme = runtime.NewScheme()
-		gomega.Expect(clientgoscheme.AddToScheme(scheme)).To(gomega.Succeed())
-		gomega.Expect(virtv2.AddToScheme(scheme)).To(gomega.Succeed())
-		gomega.Expect(virtv1.AddToScheme(scheme)).To(gomega.Succeed())
+		Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
+		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
+		Expect(virtv1.AddToScheme(scheme)).To(Succeed())
 
 		ctx = context.TODO()
 	})
 
-	ginkgo.Context("when VirtualDisk is not in use", func() {
-		ginkgo.It("must set status Unknown and reason Unknown", func() {
+	Context("when VirtualDisk is not in use", func() {
+		It("must set status Unknown and reason Unknown", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -66,17 +66,17 @@ var _ = ginkgo.Describe("InUseHandler", func() {
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(result).To(gomega.Equal(ctrl.Result{}))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-			gomega.Expect(cond).ToNot(gomega.BeNil())
-			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionUnknown))
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
 		})
 	})
 
-	ginkgo.Context("when VirtualDisk is used by running VirtualMachine", func() {
-		ginkgo.It("must set status True and reason AllowedForVirtualMachineUsage", func() {
+	Context("when VirtualDisk is used by running VirtualMachine", func() {
+		It("must set status True and reason AllowedForVirtualMachineUsage", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -115,18 +115,18 @@ var _ = ginkgo.Describe("InUseHandler", func() {
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(result).To(gomega.Equal(ctrl.Result{}))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-			gomega.Expect(cond).ToNot(gomega.BeNil())
-			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionTrue))
-			gomega.Expect(cond.Reason).To(gomega.Equal(vdcondition.AllowedForVirtualMachineUsage.String()))
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vdcondition.AllowedForVirtualMachineUsage.String()))
 		})
 	})
 
-	ginkgo.Context("when VirtualDisk is used by not ready VirtualMachine", func() {
-		ginkgo.It("must set status True and reason AllowedForVirtualMachineUsage", func() {
+	Context("when VirtualDisk is used by not ready VirtualMachine", func() {
+		It("it sets Unknown", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -166,17 +166,17 @@ var _ = ginkgo.Describe("InUseHandler", func() {
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(result).To(gomega.Equal(ctrl.Result{}))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-			gomega.Expect(cond).ToNot(gomega.BeNil())
-			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionUnknown))
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
 		})
 	})
 
-	ginkgo.Context("when VirtualDisk is used by VirtualImage", func() {
-		ginkgo.It("must set status True and reason AllowedForImageUsage", func() {
+	Context("when VirtualDisk is used by VirtualImage", func() {
+		It("must set status True and reason AllowedForImageUsage", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -211,18 +211,18 @@ var _ = ginkgo.Describe("InUseHandler", func() {
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(result).To(gomega.Equal(ctrl.Result{}))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-			gomega.Expect(cond).ToNot(gomega.BeNil())
-			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionTrue))
-			gomega.Expect(cond.Reason).To(gomega.Equal(vdcondition.AllowedForImageUsage.String()))
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vdcondition.AllowedForImageUsage.String()))
 		})
 	})
 
-	ginkgo.Context("when VirtualDisk is used by ClusterVirtualImage", func() {
-		ginkgo.It("must set status True and reason AllowedForImageUsage", func() {
+	Context("when VirtualDisk is used by ClusterVirtualImage", func() {
+		It("must set status True and reason AllowedForImageUsage", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -258,18 +258,18 @@ var _ = ginkgo.Describe("InUseHandler", func() {
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(result).To(gomega.Equal(ctrl.Result{}))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-			gomega.Expect(cond).ToNot(gomega.BeNil())
-			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionTrue))
-			gomega.Expect(cond.Reason).To(gomega.Equal(vdcondition.AllowedForImageUsage.String()))
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vdcondition.AllowedForImageUsage.String()))
 		})
 	})
 
-	ginkgo.Context("when VirtualDisk is used by VirtualImage and VirtualMachine", func() {
-		ginkgo.It("must set status True and reason AllowedForVirtualMachineUsage", func() {
+	Context("when VirtualDisk is used by VirtualImage and VirtualMachine", func() {
+		It("must set status True and reason AllowedForVirtualMachineUsage", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -319,18 +319,18 @@ var _ = ginkgo.Describe("InUseHandler", func() {
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(result).To(gomega.Equal(ctrl.Result{}))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-			gomega.Expect(cond).ToNot(gomega.BeNil())
-			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionTrue))
-			gomega.Expect(cond.Reason).To(gomega.Equal(vdcondition.AllowedForVirtualMachineUsage.String()))
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vdcondition.AllowedForVirtualMachineUsage.String()))
 		})
 	})
 
-	ginkgo.Context("when VirtualDisk is used by VirtualMachine after create image", func() {
-		ginkgo.It("must set status True and reason AllowedForVirtualMachineUsage", func() {
+	Context("when VirtualDisk is used by VirtualMachine after create image", func() {
+		It("must set status True and reason AllowedForVirtualMachineUsage", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -366,18 +366,18 @@ var _ = ginkgo.Describe("InUseHandler", func() {
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(result).To(gomega.Equal(ctrl.Result{}))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-			gomega.Expect(cond).ToNot(gomega.BeNil())
-			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionTrue))
-			gomega.Expect(cond.Reason).To(gomega.Equal(vdcondition.AllowedForVirtualMachineUsage.String()))
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vdcondition.AllowedForVirtualMachineUsage.String()))
 		})
 	})
 
-	ginkgo.Context("when VirtualDisk is used by VirtualImage after running VM", func() {
-		ginkgo.It("must set status True and reason AllowedForImageUsage", func() {
+	Context("when VirtualDisk is used by VirtualImage after running VM", func() {
+		It("must set status True and reason AllowedForImageUsage", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -418,18 +418,18 @@ var _ = ginkgo.Describe("InUseHandler", func() {
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(result).To(gomega.Equal(ctrl.Result{}))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-			gomega.Expect(cond).ToNot(gomega.BeNil())
-			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionTrue))
-			gomega.Expect(cond.Reason).To(gomega.Equal(vdcondition.AllowedForImageUsage.String()))
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vdcondition.AllowedForImageUsage.String()))
 		})
 	})
 
-	ginkgo.Context("when VirtualDisk is not in use after create image", func() {
-		ginkgo.It("must set status Unknown and reason Unknown", func() {
+	Context("when VirtualDisk is not in use after image creation", func() {
+		It("must set status Unknown and reason Unknown", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -450,17 +450,17 @@ var _ = ginkgo.Describe("InUseHandler", func() {
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(result).To(gomega.Equal(ctrl.Result{}))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{Requeue: true}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-			gomega.Expect(cond).ToNot(gomega.BeNil())
-			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionUnknown))
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
 		})
 	})
 
-	ginkgo.Context("when VirtualDisk is not in use after running VM", func() {
-		ginkgo.It("must set status Unknown and reason Unknown", func() {
+	Context("when VirtualDisk is not in use after VM deletion", func() {
+		It("must set status Unknown and reason Unknown", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -481,12 +481,12 @@ var _ = ginkgo.Describe("InUseHandler", func() {
 			handler = NewInUseHandler(k8sClient)
 
 			result, err := handler.Handle(ctx, vd)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(result).To(gomega.Equal(ctrl.Result{}))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{Requeue: true}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-			gomega.Expect(cond).ToNot(gomega.BeNil())
-			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionUnknown))
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
 		})
 	})
 })

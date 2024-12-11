@@ -22,7 +22,6 @@ import (
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -71,7 +70,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 	for _, vm := range vms.Items {
 		if h.isVDAttachedToVM(vd.GetName(), vm) {
 			if vm.Status.Phase != virtv2.MachineStopped {
-				allowUseForVM = isVMReady(vm.Status.Conditions)
+				allowUseForVM = isVMCanStart(vm.Status.Conditions)
 
 				if allowUseForVM {
 					break
@@ -92,7 +91,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 					Namespace:     vm.GetNamespace(),
 					LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
 				})
-				if err != nil && !k8serrors.IsNotFound(err) {
+				if err != nil {
 					return reconcile.Result{}, fmt.Errorf("unable to list virt-launcher Pod for VM %q: %w", vm.GetName(), err)
 				}
 
@@ -117,7 +116,11 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 	allowedPhases := []virtv2.ImagePhase{virtv2.ImageProvisioning, virtv2.ImagePending}
 
 	for _, vi := range vis.Items {
-		if slices.Contains(allowedPhases, vi.Status.Phase) && vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef && vi.Spec.DataSource.ObjectRef != nil && vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind {
+		if slices.Contains(allowedPhases, vi.Status.Phase) &&
+			vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
+			vi.Spec.DataSource.ObjectRef != nil &&
+			vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind &&
+			vi.Spec.DataSource.ObjectRef.Name == vd.Name {
 			allowUseForImage = true
 			break
 		}
@@ -129,13 +132,16 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		return reconcile.Result{}, fmt.Errorf("error getting cluster virtual images: %w", err)
 	}
 	for _, cvi := range cvis.Items {
-		if slices.Contains(allowedPhases, cvi.Status.Phase) && cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef && cvi.Spec.DataSource.ObjectRef != nil && cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind {
+		if slices.Contains(allowedPhases, cvi.Status.Phase) &&
+			cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
+			cvi.Spec.DataSource.ObjectRef != nil &&
+			cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind &&
+			cvi.Spec.DataSource.ObjectRef.Name == vd.Name {
 			allowUseForImage = true
 		}
 	}
 
 	cb := conditions.NewConditionBuilder(vdcondition.InUseType)
-
 	switch {
 	case allowUseForVM && inUseCondition.Status == metav1.ConditionUnknown:
 		if inUseCondition.Reason != vdcondition.AllowedForVirtualMachineUsage.String() {
@@ -156,19 +162,20 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 		}
 	default:
-		needChange := false
+		setUnknown := false
 
 		if inUseCondition.Reason == vdcondition.AllowedForVirtualMachineUsage.String() && !allowUseForVM {
-			needChange = true
+			setUnknown = true
 		}
 
 		if inUseCondition.Reason == vdcondition.AllowedForImageUsage.String() && !allowUseForImage {
-			needChange = true
+			setUnknown = true
 		}
 
-		if needChange {
+		if setUnknown {
 			cb.Generation(vd.Generation).Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown).Message("")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
+			return reconcile.Result{Requeue: true}, nil
 		}
 	}
 
@@ -185,7 +192,7 @@ func (h InUseHandler) isVDAttachedToVM(vdName string, vm virtv2.VirtualMachine) 
 	return false
 }
 
-func isVMReady(conditions []metav1.Condition) bool {
+func isVMCanStart(conditions []metav1.Condition) bool {
 	critConditions := []string{
 		vmcondition.TypeIPAddressReady.String(),
 		vmcondition.TypeClassReady.String(),
