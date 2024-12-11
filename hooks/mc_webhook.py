@@ -25,7 +25,7 @@ def parse_ip_address(ip_string):
 
 class ModuleConfigValidateHook(Hook):
     SNAPSHOT_NAME = "virtualmachineipaddresslease"
-    VALIDATOR_NAME = "moduleconfig-virtualization"
+    VALIDATOR_NAME = "moduleconfig.virtualization"
 
     def __init__(self, module_name: str):
         self.module_name = module_name
