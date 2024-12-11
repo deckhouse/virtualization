@@ -74,7 +74,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 			continue
 		}
 
-		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 		if resized.Reason == vdcondition.InProgress.String() {
 			cb.
 				Status(metav1.ConditionFalse).

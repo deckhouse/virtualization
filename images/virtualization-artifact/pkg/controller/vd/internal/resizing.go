@@ -48,8 +48,8 @@ func NewResizingHandler(diskService DiskService) *ResizingHandler {
 func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("resizing"))
 
-	condition, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
-	cb := conditions.NewConditionBuilder(vdcondition.ResizedType).Generation(vd.Generation)
+	condition, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
+	cb := conditions.NewConditionBuilder(vdcondition.ResizingType).Generation(vd.Generation)
 
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
@@ -107,7 +107,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		vd.Status.Phase = virtv2.DiskResizing
 		cb.
-			Status(metav1.ConditionFalse).
+			Status(metav1.ConditionTrue).
 			Reason(vdcondition.InProgress).
 			Message(pvcResizing.Message)
 		return reconcile.Result{}, nil
@@ -155,7 +155,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		vd.Status.Phase = virtv2.DiskResizing
 		cb.
-			Status(metav1.ConditionFalse).
+			Status(metav1.ConditionTrue).
 			Reason(vdcondition.InProgress).
 			Message("The virtual disk resizing has started.")
 		return reconcile.Result{}, nil
@@ -165,7 +165,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	switch condition.Reason {
 	case vdcondition.InProgress.String(), vdcondition.Resized.String():
 		cb.
-			Status(metav1.ConditionTrue).
+			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Resized).
 			Message("")
 	default:
