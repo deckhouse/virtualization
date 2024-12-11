@@ -81,6 +81,7 @@ func Get(client kubeclient.Client, namespace string) {
 		if string(vm.Status.Phase) == "Running" {
 
 			vms.Items = append(vms.Items, VM{
+				// Name: vm.Status.Stats.PhasesTransitions[len(vm.Status.Stats.PhasesTransitions)-1], use range
 				Name: vm.Name,
 				VirtualMachineLaunchTimeDuration: v1alpha2.VirtualMachineLaunchTimeDuration{
 					WaitingForDependencies: vm.Status.Stats.LaunchTimeDuration.WaitingForDependencies,

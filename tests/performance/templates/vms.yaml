@@ -10,7 +10,7 @@ metadata:
   labels:
     vm: {{ $.Values.resourcesPrefix }}
 spec:
-  runPolicy: AlwaysOn
+  runPolicy: {{ $.Values.runPolicy }}
   enableParavirtualization: true
   disruptions:
     # To ensure an equal amount of virtual machines with Manual and Automatic modes during testing,
