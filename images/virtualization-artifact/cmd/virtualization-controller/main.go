@@ -25,6 +25,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
@@ -36,7 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
+	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
+
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
@@ -166,6 +169,7 @@ func main() {
 		cdiv1beta1.AddToScheme,
 		virtv1.AddToScheme,
 		vsv1.AddToScheme,
+		mcapi.AddToScheme,
 	} {
 		err = f(scheme)
 		if err != nil {
@@ -301,6 +305,11 @@ func main() {
 		os.Exit(1)
 	}
 	if err = vmop.SetupGC(mgr, vmopLogger, gcSettings.VMOP); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	if err = mc.SetupWebhookWithManager(mgr); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
