@@ -222,8 +222,10 @@ webhooks:
         port: 443
       caBundle: |
         {{ .Values.virtualization.internal.controller.cert.ca }}
-    objectSelector:
-      matchLabels:
-        moduleconfig.deckhouse.io/name: "virtualization"
     admissionReviewVersions: ["v1"]
     sideEffects: None
+    {{- if semverCompare ">=1.27.0" .Values.global.clusterConfiguration.kubernetesVersion }}
+    matchConditions:
+      - name: 'match-virtualization'
+        expression: 'request.name == "virtualization"'
+    {{- end }}

@@ -1,3 +1,19 @@
+/*
+Copyright 2024 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package moduleconfig
 
 import (
@@ -25,24 +41,29 @@ func newReduceCIDRsValidator(client client.Client) *reduceCIDRsValidator {
 	}
 }
 
-func (v *reduceCIDRsValidator) ValidateUpdate(ctx context.Context, oldMC, newMC *mcapi.ModuleConfig) (admission.Warnings, error) {
+func (v reduceCIDRsValidator) ValidateUpdate(ctx context.Context, oldMC, newMC *mcapi.ModuleConfig) (admission.Warnings, error) {
+	oldCIDRs, err := parseCIDRs(oldMC.Spec.Settings)
+	if err != nil {
+		return admission.Warnings{}, err
+	}
+	newCIDRs, err := parseCIDRs(newMC.Spec.Settings)
+	if err != nil {
+		return admission.Warnings{}, err
+	}
 
-	oldCIDRs := oldMC.Spec.Settings[virtualMachineCIDRs].([]string)
-	newCIDRs := newMC.Spec.Settings[virtualMachineCIDRs].([]string)
-
-	var validateCIDRs []string
+	var validateCIDRs []netip.Prefix
 
 loop:
 	for _, oldCIDR := range oldCIDRs {
 		for _, newCIDR := range newCIDRs {
-			if oldCIDR == newCIDR {
+			if isEqualCIDRs(oldCIDR, newCIDR) {
 				continue loop
 			}
 		}
 		validateCIDRs = append(validateCIDRs, oldCIDR)
 	}
 
-	if len(validateCIDRs) != 0 {
+	if len(validateCIDRs) == 0 {
 		return nil, nil
 	}
 
@@ -51,21 +72,12 @@ loop:
 		return nil, fmt.Errorf("failed to list VirtualMachineIPAddressLeases: %w", err)
 	}
 
-	parseCIDRs := make([]netip.Prefix, len(validateCIDRs))
-	for i, validateCIDR := range validateCIDRs {
-		parsedCIDR, err := netip.ParsePrefix(validateCIDR)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse CIDR %s: %w", validateCIDR, err)
-		}
-		parseCIDRs[i] = parsedCIDR
-	}
-
 	for _, lease := range leases.Items {
 		leaseIP, err := netip.ParseAddr(ip.LeaseNameToIP(lease.Name))
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse lease ip: %w", err)
 		}
-		for _, CIDR := range parseCIDRs {
+		for _, CIDR := range validateCIDRs {
 			if CIDR.Contains(leaseIP) {
 				return nil, fmt.Errorf("CIDR %q is in use by one or more IP addresses", CIDR)
 			}

@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/validator"
 )
@@ -45,10 +44,19 @@ func SetupWebhookWithManager(mgr manager.Manager) error {
 func NewModuleConfigValidator(client client.Client) *validator.Validator[*mcapi.ModuleConfig] {
 	lg := log.Default().With(slog.String("validator", "moduleconfig"))
 
-	v := newReduceCIDRsValidator(client)
+	cidrs := newCIDRsValidator(client)
+	reduceCIDRs := newReduceCIDRsValidator(client)
+
 	return validator.NewValidator[*mcapi.ModuleConfig](lg).
-		WithPredicates(func(mc *mcapi.ModuleConfig) bool {
-			return mc.GetName() == moduleConfigName
+		WithPredicate(&validator.Predicate[*mcapi.ModuleConfig]{
+			Create: func(mc *mcapi.ModuleConfig) bool {
+				return mc.GetName() == moduleConfigName
+			},
+			Update: func(oldMC, newMC *mcapi.ModuleConfig) bool {
+				return newMC.GetName() == moduleConfigName &&
+					oldMC.GetGeneration() != newMC.GetGeneration()
+			},
 		}).
-		WithUpdateValidators(v)
+		WithCreateValidators(cidrs).
+		WithUpdateValidators(cidrs, reduceCIDRs)
 }

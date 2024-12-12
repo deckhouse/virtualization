@@ -1,3 +1,19 @@
+/*
+Copyright 2024 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package validator
 
 import (
@@ -9,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -25,7 +40,17 @@ type DeleteValidator[T client.Object] interface {
 	ValidateDelete(ctx context.Context, obj T) (admission.Warnings, error)
 }
 
-type Predicate[T client.Object] func(obj T) bool
+type (
+	PredicateCreateFunc[T client.Object] func(obj T) bool
+	PredicateUpdateFunc[T client.Object] func(oldObj, newObj T) bool
+	PredicateDeleteFunc[T client.Object] func(obj T) bool
+)
+
+type Predicate[T client.Object] struct {
+	Create PredicateCreateFunc[T]
+	Update PredicateUpdateFunc[T]
+	Delete PredicateDeleteFunc[T]
+}
 
 var _ admission.CustomValidator = &Validator[client.Object]{}
 
@@ -34,7 +59,7 @@ type Validator[T client.Object] struct {
 	update []UpdateValidator[T]
 	delete []DeleteValidator[T]
 
-	predicates []Predicate[T]
+	predicate *Predicate[T]
 
 	log *log.Logger
 }
@@ -58,8 +83,8 @@ func (v *Validator[T]) WithDeleteValidators(validators ...DeleteValidator[T]) *V
 	return v
 }
 
-func (v *Validator[T]) WithPredicates(predicates ...Predicate[T]) *Validator[T] {
-	v.predicates = append(v.predicates, predicates...)
+func (v *Validator[T]) WithPredicate(predicate *Predicate[T]) *Validator[T] {
+	v.predicate = predicate
 	return v
 }
 
@@ -74,7 +99,7 @@ func (v *Validator[T]) ValidateCreate(ctx context.Context, obj runtime.Object) (
 	if err != nil {
 		return nil, err
 	}
-	if !v.needValidate(o) {
+	if !v.needCreateValidate(o) {
 		return nil, nil
 	}
 
@@ -89,7 +114,6 @@ func (v *Validator[T]) ValidateCreate(ctx context.Context, obj runtime.Object) (
 	}
 
 	return warnings, nil
-
 }
 
 func (v *Validator[T]) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (w admission.Warnings, err error) {
@@ -107,7 +131,7 @@ func (v *Validator[T]) ValidateUpdate(ctx context.Context, oldObj, newObj runtim
 	if err != nil {
 		return nil, err
 	}
-	if !v.needValidate(newO) {
+	if !v.needUpdateValidate(oldO, newO) {
 		return nil, nil
 	}
 	var warnings admission.Warnings
@@ -134,7 +158,7 @@ func (v *Validator[T]) ValidateDelete(ctx context.Context, obj runtime.Object) (
 	if err != nil {
 		return nil, err
 	}
-	if !v.needValidate(o) {
+	if !v.needDeleteValidate(o) {
 		return nil, nil
 	}
 
@@ -160,11 +184,23 @@ func (v *Validator[T]) newObject(obj runtime.Object) (T, error) {
 	return newObj, nil
 }
 
-func (v *Validator[T]) needValidate(obj T) bool {
-	for _, predicate := range v.predicates {
-		if !predicate(obj) {
-			return false
-		}
+func (v *Validator[T]) needCreateValidate(obj T) bool {
+	if v.predicate != nil && v.predicate.Create != nil {
+		return v.predicate.Create(obj)
+	}
+	return true
+}
+
+func (v *Validator[T]) needUpdateValidate(oldObj, newObj T) bool {
+	if v.predicate != nil && v.predicate.Update != nil {
+		return v.predicate.Update(oldObj, newObj)
+	}
+	return true
+}
+
+func (v *Validator[T]) needDeleteValidate(obj T) bool {
+	if v.predicate != nil && v.predicate.Delete != nil {
+		return v.predicate.Delete(obj)
 	}
 	return true
 }
