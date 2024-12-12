@@ -27,19 +27,19 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	ingutil "github.com/deckhouse/virtualization-controller/pkg/common/ingress"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements/copier"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type DataSource interface {
 	HasCABundle() bool
 	GetCABundle() string
-	GetContainerImage() *virtv2.DataSourceContainerRegistry
+	GetContainerImage() *datasource.ContainerRegistry
 }
 
 // EnsureForPod make supplements for importer or uploader Pod:
@@ -116,7 +116,7 @@ func ShouldCopyUploaderTLSSecret(dvcrSettings *dvcr.Settings, supGen *Generator)
 	return dvcrSettings.UploaderIngressSettings.TLSSecretNamespace != supGen.Namespace
 }
 
-func ShouldCopyImagePullSecret(ctrImg *virtv2.DataSourceContainerRegistry, targetNS string) bool {
+func ShouldCopyImagePullSecret(ctrImg *datasource.ContainerRegistry, targetNS string) bool {
 	if ctrImg == nil || ctrImg.ImagePullSecret.Name == "" {
 		return false
 	}
@@ -169,7 +169,7 @@ func CleanupForDataVolume(ctx context.Context, client client.Client, supGen *Gen
 	// AuthSecret has type dockerconfigjson and should be transformed, so it always copied.
 	if dvcrSettings.AuthSecret != "" {
 		authSecret := supGen.DVCRAuthSecretForDV()
-		err := helper.CleanupByName(ctx, client, authSecret, &corev1.Secret{})
+		err := object.CleanupByName(ctx, client, authSecret, &corev1.Secret{})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return err
 		}
@@ -178,7 +178,7 @@ func CleanupForDataVolume(ctx context.Context, client client.Client, supGen *Gen
 	// CABundle needs transformation, so it always copied.
 	if dvcrSettings.CertsSecret != "" {
 		caBundleCM := supGen.DVCRCABundleConfigMapForDV()
-		err := helper.CleanupByName(ctx, client, caBundleCM, &corev1.ConfigMap{})
+		err := object.CleanupByName(ctx, client, caBundleCM, &corev1.ConfigMap{})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return err
 		}

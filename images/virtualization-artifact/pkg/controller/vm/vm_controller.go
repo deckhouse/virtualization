@@ -18,7 +18,6 @@ package vm
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -27,7 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -36,38 +37,39 @@ import (
 )
 
 const (
-	controllerName = "vm-controller"
+	ControllerName = "vm-controller"
 )
 
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
-	lg *slog.Logger,
+	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 ) error {
-	log := lg.With(logger.SlogController(controllerName))
-	recorder := mgr.GetEventRecorderFor(controllerName)
+	recorder := mgr.GetEventRecorderFor(ControllerName)
 	mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
+	blockDeviceService := service.NewBlockDeviceService(client)
 	handlers := []Handler{
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
 		internal.NewIPAMHandler(ipam.New(), client, recorder),
 		internal.NewBlockDeviceHandler(client, recorder),
+		internal.NewBlockDeviceLimiterHandler(blockDeviceService),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
 		internal.NewFilesystemHandler(),
 		internal.NewSnapshottingHandler(client),
 		internal.NewPodHandler(client),
+		internal.NewSizePolicyHandler(),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
 		internal.NewStatisticHandler(client),
-		internal.NewSizePolicyHandler(),
 	}
 	r := NewReconciler(client, handlers...)
 
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),
@@ -83,12 +85,12 @@ func SetupController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(ipam.New(), mgr.GetClient(), log)).
+		WithValidator(NewValidator(ipam.New(), client, blockDeviceService, log)).
 		Complete(); err != nil {
 		return err
 	}
 
-	vmmetrics.SetupCollector(mgrCache, metrics.Registry, lg)
+	vmmetrics.SetupCollector(mgrCache, metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachine controller")
 	return nil

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -36,13 +37,13 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -274,7 +275,7 @@ func (s DiskService) Resize(ctx context.Context, pvc *corev1.PersistentVolumeCla
 }
 
 func (s DiskService) IsImportDone(dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) bool {
-	return common.IsDataVolumeComplete(dv) && common.IsPVCBound(pvc)
+	return dv != nil && dv.Status.Phase == cdiv1.Succeeded && pvc != nil && pvc.Status.Phase == corev1.ClaimBound
 }
 
 func (s DiskService) GetProgress(dv *cdiv1.DataVolume, prevProgress string, opts ...GetProgressOption) string {
@@ -296,7 +297,7 @@ func (s DiskService) GetProgress(dv *cdiv1.DataVolume, prevProgress string, opts
 
 func (s DiskService) GetCapacity(pvc *corev1.PersistentVolumeClaim) string {
 	if pvc != nil && pvc.Status.Phase == corev1.ClaimBound {
-		return util.GetPointer(pvc.Status.Capacity[corev1.ResourceStorage]).String()
+		return pointer.GetPointer(pvc.Status.Capacity[corev1.ResourceStorage]).String()
 	}
 
 	return ""
@@ -354,7 +355,7 @@ func (s DiskService) parseVolumeMode(sc *storev1.StorageClass) (corev1.Persisten
 	if sc == nil {
 		return "", false
 	}
-	switch sc.GetAnnotations()[common.AnnVirtualDiskVolumeMode] {
+	switch sc.GetAnnotations()[annotations.AnnVirtualDiskVolumeMode] {
 	case string(corev1.PersistentVolumeBlock):
 		return corev1.PersistentVolumeBlock, true
 	case string(corev1.PersistentVolumeFilesystem):
@@ -368,7 +369,7 @@ func (s DiskService) parseAccessMode(sc *storev1.StorageClass) (corev1.Persisten
 	if sc == nil {
 		return "", false
 	}
-	switch sc.GetAnnotations()[common.AnnVirtualDiskAccessMode] {
+	switch sc.GetAnnotations()[annotations.AnnVirtualDiskAccessMode] {
 	case string(corev1.ReadWriteOnce):
 		return corev1.ReadWriteOnce, true
 	case string(corev1.ReadWriteMany):
@@ -382,7 +383,7 @@ func (s DiskService) parseImmediateBindingMode(sc *storev1.StorageClass) bool {
 	if sc == nil {
 		return false
 	}
-	return sc.GetAnnotations()[common.AnnVirtualDiskBindingMode] == string(storev1.VolumeBindingImmediate)
+	return sc.GetAnnotations()[annotations.AnnVirtualDiskBindingMode] == string(storev1.VolumeBindingImmediate)
 }
 
 func (s DiskService) parseStorageCapabilities(status cdiv1.StorageProfileStatus) StorageCapabilities {
@@ -417,23 +418,23 @@ func (s DiskService) parseStorageCapabilities(status cdiv1.StorageProfileStatus)
 }
 
 func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error) {
-	return helper.FetchObject(ctx, sup.DataVolume(), s.client, &cdiv1.DataVolume{})
+	return object.FetchObject(ctx, sup.DataVolume(), s.client, &cdiv1.DataVolume{})
 }
 
 func (s DiskService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-	return helper.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
+	return object.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
 }
 
 func (s DiskService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &vsv1.VolumeSnapshot{})
+	return object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &vsv1.VolumeSnapshot{})
 }
 
 func (s DiskService) GetVirtualImage(ctx context.Context, name, namespace string) (*virtv2.VirtualImage, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualImage{})
+	return object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualImage{})
 }
 
 func (s DiskService) GetClusterVirtualImage(ctx context.Context, name string) (*virtv2.ClusterVirtualImage, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &virtv2.ClusterVirtualImage{})
+	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &virtv2.ClusterVirtualImage{})
 }
 
 func (s DiskService) ListVirtualDiskSnapshots(ctx context.Context, namespace string) ([]virtv2.VirtualDiskSnapshot, error) {
@@ -449,7 +450,7 @@ func (s DiskService) ListVirtualDiskSnapshots(ctx context.Context, namespace str
 }
 
 func (s DiskService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*virtv2.VirtualDiskSnapshot, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualDiskSnapshot{})
+	return object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualDiskSnapshot{})
 }
 
 func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
@@ -475,7 +476,7 @@ func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolum
 		Name:      dvutil.GetImporterPrimeName(pvc.UID),
 	}
 
-	cdiImporterPrime, err := helper.FetchObject(ctx, key, s.client, &corev1.Pod{})
+	cdiImporterPrime, err := object.FetchObject(ctx, key, s.client, &corev1.Pod{})
 	if err != nil {
 		return err
 	}
@@ -497,25 +498,39 @@ func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolum
 
 func (s DiskService) GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error) {
 	if storageClassName == nil || *storageClassName == "" {
-		return s.getDefaultStorageClass(ctx)
+		return s.GetDefaultStorageClass(ctx)
 	}
 	return s.getStorageClass(ctx, *storageClassName)
 }
 
-func (s DiskService) getDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
+func (s DiskService) GetDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
 	var scs storev1.StorageClassList
 	err := s.client.List(ctx, &scs, &client.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
 
-	for _, sc := range scs.Items {
-		if sc.Annotations[common.AnnDefaultStorageClass] == "true" {
-			return &sc, nil
+	var defaultClasses []*storev1.StorageClass
+	for idx := range scs.Items {
+		if scs.Items[idx].Annotations[annotations.AnnDefaultStorageClass] == "true" {
+			defaultClasses = append(defaultClasses, &scs.Items[idx])
 		}
 	}
 
-	return nil, ErrDefaultStorageClassNotFound
+	if len(defaultClasses) == 0 {
+		return nil, ErrDefaultStorageClassNotFound
+	}
+
+	// Primary sort by creation timestamp, newest first
+	// Secondary sort by class name, ascending order
+	sort.Slice(defaultClasses, func(i, j int) bool {
+		if defaultClasses[i].CreationTimestamp.UnixNano() == defaultClasses[j].CreationTimestamp.UnixNano() {
+			return defaultClasses[i].Name < defaultClasses[j].Name
+		}
+		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
+	})
+
+	return defaultClasses[0], nil
 }
 
 func (s DiskService) getStorageClass(ctx context.Context, storageClassName string) (*storev1.StorageClass, error) {

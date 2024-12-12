@@ -57,15 +57,11 @@ var _ = Describe("BlockDeviceHandler", func() {
 		})
 		vi = &virtv2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{Name: "vi-01"},
-			Status: virtv2.VirtualImageStatus{
-				ImageStatus: virtv2.ImageStatus{Phase: virtv2.ImageReady},
-			},
+			Status:     virtv2.VirtualImageStatus{Phase: virtv2.ImageReady},
 		}
 		cvi = &virtv2.ClusterVirtualImage{
 			ObjectMeta: metav1.ObjectMeta{Name: "cvi-01"},
-			Status: virtv2.ClusterVirtualImageStatus{
-				ImageStatus: virtv2.ImageStatus{Phase: virtv2.ImageReady},
-			},
+			Status:     virtv2.ClusterVirtualImageStatus{Phase: virtv2.ImageReady},
 		}
 		vdFoo = &virtv2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "vd-foo"},

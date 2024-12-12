@@ -26,15 +26,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -72,13 +75,19 @@ func NewObjectRefDataSource(
 func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
+	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
+	defer func() {
+		// It is necessary to avoid setting unknown for the ready condition if it was already set to true.
+		if !(cb.Condition().Status == metav1.ConditionUnknown && condition.Status == metav1.ConditionTrue) {
+			conditions.SetCondition(cb, &cvi.Status.Conditions)
+		}
+	}()
 
 	switch cvi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualImageKind:
 		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
-		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		vi, err := object.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
@@ -87,12 +96,12 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 			return reconcile.Result{}, fmt.Errorf("VI object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if vi.Spec.Storage == virtv2.StorageKubernetes {
-			return ds.viOnPvcSyncer.Sync(ctx, cvi, vi, &condition)
+		if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
+			return ds.viOnPvcSyncer.Sync(ctx, cvi, vi, cb)
 		}
 	case virtv2.VirtualDiskKind:
 		vdKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
-		vd, err := helper.FetchObject(ctx, vdKey, ds.client, &virtv2.VirtualDisk{})
+		vd, err := object.FetchObject(ctx, vdKey, ds.client, &virtv2.VirtualDisk{})
 		if err != nil {
 			return reconcile.Result{}, fmt.Errorf("unable to get VD %s: %w", vdKey, err)
 		}
@@ -101,10 +110,10 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 			return reconcile.Result{}, fmt.Errorf("VD object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
 		}
 
-		return ds.vdSyncer.Sync(ctx, cvi, vd, &condition)
+		return ds.vdSyncer.Sync(ctx, cvi, vd, cb)
 	}
 
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -114,9 +123,10 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 	case isDiskProvisioningFinished(condition):
 		log.Info("Cluster virtual image provisioning finished: clean up")
 
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = cvicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(cvicondition.Ready).
+			Message("")
 
 		cvi.Status.Phase = virtv2.ImageReady
 
@@ -127,7 +137,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		}
 
 		return CleanUp(ctx, cvi, ds)
-	case common.IsTerminating(pod):
+	case object.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -149,39 +159,42 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			return setQuotaExceededPhaseCondition(&condition, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
+			return setQuotaExceededPhaseCondition(cb, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
 		default:
-			setPhaseConditionToFailed(&condition, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			setPhaseConditionToFailed(cb, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
 		cvi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.Provisioning
-		condition.Message = "DVCR Provisioner not found: create the new one."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.Provisioning).
+			Message("DVCR Provisioner not found: create the new one.")
 
 		log.Info("Ready", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
 		return reconcile.Result{Requeue: true}, nil
-	case common.IsPodComplete(pod):
+	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			cvi.Status.Phase = virtv2.ImageFailed
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(cvicondition.ProvisioningFailed).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
 			}
 		}
 
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = cvicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(cvicondition.Ready).
+			Message("")
 
 		cvi.Status.Phase = virtv2.ImageReady
 
@@ -192,9 +205,10 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		}
 
 		if !dvcrDataSource.IsReady() {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = cvicondition.ProvisioningFailed
-			condition.Message = "Failed to get stats from non-ready datasource: waiting for the DataSource to be ready."
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(cvicondition.ProvisioningFailed).
+				Message("Failed to get stats from non-ready datasource: waiting for the DataSource to be ready.")
 			return reconcile.Result{}, nil
 		}
 
@@ -212,23 +226,26 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ProvisioningNotStarted
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(cvicondition.ProvisioningNotStarted).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(cvicondition.ProvisioningFailed).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
 			}
 		}
 
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.Provisioning
-		condition.Message = "Import is in the process of provisioning to DVCR."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.Provisioning).
+			Message("Import is in the process of provisioning to DVCR.")
 
 		cvi.Status.Phase = virtv2.ImageProvisioning
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
@@ -250,7 +267,7 @@ func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVi
 		return reconcile.Result{}, err
 	}
 
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	objRefRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -268,7 +285,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterV
 	switch cvi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.ClusterVirtualImageObjectRefKindVirtualImage:
 		viKey := types.NamespacedName{Name: cvi.Spec.DataSource.ObjectRef.Name, Namespace: cvi.Spec.DataSource.ObjectRef.Namespace}
-		vi, err := helper.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
+		vi, err := object.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualImage{})
 		if err != nil {
 			return fmt.Errorf("unable to get VI %s: %w", viKey, err)
 		}
@@ -277,7 +294,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterV
 			return NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 		}
 
-		if vi.Spec.Storage == virtv2.StorageKubernetes {
+		if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
 			if vi.Status.Phase != virtv2.ImageReady {
 				return NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 			}

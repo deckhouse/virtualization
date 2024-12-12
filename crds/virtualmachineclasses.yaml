@@ -3,9 +3,9 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.4
   labels:
-    backup.deckhouse.io/cluster-config: ""
+    backup.deckhouse.io/cluster-config: "true"
     heritage: deckhouse
     module: virtualization
   name: virtualmachineclasses.virtualization.deckhouse.io
@@ -159,6 +159,8 @@ spec:
                     - type
                   type: object
                   x-kubernetes-validations:
+                    - message: .spec.cpu is immutable
+                      rule: self == oldSelf
                     - message:
                         HostPassthrough and Host cannot have model, features or
                         discovery
@@ -184,6 +186,7 @@ spec:
                     to VM scheduling.
                   properties:
                     matchExpressions:
+                      description: A list of node selector requirements by node's labels.
                       items:
                         description: |-
                           A node selector requirement is a selector that contains values, a key, and an operator
@@ -325,6 +328,47 @@ spec:
                         type: object
                     type: object
                   type: array
+                tolerations:
+                  description: |-
+                    Tolerations are the same as `spec.tolerations` in the [Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
+                    These tolerations will be merged with tolerations specified in VirtualMachine resource. VirtualMachine tolerations have higher priority.
+                  items:
+                    description: |-
+                      The pod this Toleration is attached to tolerates any taint that matches
+                      the triple <key,value,effect> using the matching operator <operator>.
+                    properties:
+                      effect:
+                        description: |-
+                          Effect indicates the taint effect to match. Empty means match all taint effects.
+                          When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.
+                        type: string
+                      key:
+                        description: |-
+                          Key is the taint key that the toleration applies to. Empty means match all taint keys.
+                          If the key is empty, operator must be Exists; this combination means to match all values and all keys.
+                        type: string
+                      operator:
+                        description: |-
+                          Operator represents a key's relationship to the value.
+                          Valid operators are Exists and Equal. Defaults to Equal.
+                          Exists is equivalent to wildcard for value, so that a pod can
+                          tolerate all taints of a particular category.
+                        type: string
+                      tolerationSeconds:
+                        description: |-
+                          TolerationSeconds represents the period of time the toleration (which must be
+                          of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default,
+                          it is not set, which means tolerate the taint forever (do not evict). Zero and
+                          negative values will be treated as 0 (evict immediately) by the system.
+                        format: int64
+                        type: integer
+                      value:
+                        description: |-
+                          Value is the taint value the toleration matches to.
+                          If the operator is Exists, the value should be empty, otherwise just a regular string.
+                        type: string
+                    type: object
+                  type: array
               required:
                 - cpu
               type: object
@@ -341,18 +385,13 @@ spec:
                     type: string
                   type: array
                 conditions:
+                  description:
+                    The latest detailed observations of the VirtualMachineClass
+                    resource.
                   items:
                     description:
-                      "Condition contains details for one aspect of the current
-                      state of this API Resource.\n---\nThis struct is intended for
-                      direct use as an array at the field path .status.conditions.  For
-                      example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                      observations of a foo's current state.\n\t    // Known .status.conditions.type
-                      are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                      +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                      \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                      patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                      \   // other fields\n\t}"
+                      Condition contains details for one aspect of the current
+                      state of this API Resource.
                     properties:
                       lastTransitionTime:
                         description: |-
@@ -393,12 +432,7 @@ spec:
                           - Unknown
                         type: string
                       type:
-                        description: |-
-                          type of condition in CamelCase or in foo.example.com/CamelCase.
-                          ---
-                          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                          useful (see .node.status.conditions), the ability to deconflict is important.
-                          The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -436,8 +470,21 @@ spec:
                         type: string
                       type: array
                   type: object
+                maxAllocatableResources:
+                  additionalProperties:
+                    anyOf:
+                      - type: integer
+                      - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  description:
+                    The maximum amount of free CPU and Memory resources observed
+                    among all available nodes.
+                  example:
+                    - 'maxAllocatableResources: {"cpu": 1, "memory": "10Gi"}'
+                  type: object
                 observedGeneration:
-                  description: The generation last processed by the controller
+                  description: The generation last processed by the controller.
                   format: int64
                   type: integer
                 phase:

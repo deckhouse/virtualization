@@ -18,7 +18,6 @@ package vmbda
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -27,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -39,15 +39,15 @@ const ControllerName = "vmbda-controller"
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	lg *slog.Logger,
+	lg *log.Logger,
 	ns string,
 ) (controller.Controller, error) {
-	log := lg.With(logger.SlogController(ControllerName))
-
 	attacher := service.NewAttachmentService(mgr.GetClient(), ns)
+	blockDeviceService := service.NewBlockDeviceService(mgr.GetClient())
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		internal.NewBlockDeviceLimiter(blockDeviceService),
 		internal.NewBlockDeviceReadyHandler(attacher),
 		internal.NewVirtualMachineReadyHandler(attacher),
 		internal.NewLifeCycleHandler(attacher),
@@ -57,7 +57,7 @@ func NewController(
 	vmbdaController, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       reconciler,
 		RecoverPanic:     ptr.To(true),
-		LogConstructor:   logger.NewConstructor(log),
+		LogConstructor:   logger.NewConstructor(lg),
 		CacheSyncTimeout: 10 * time.Minute,
 	})
 	if err != nil {
@@ -71,7 +71,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&virtv2.VirtualMachineBlockDeviceAttachment{}).
-		WithValidator(NewValidator(attacher, mgr.GetClient(), log)).
+		WithValidator(NewValidator(attacher, blockDeviceService, lg)).
 		Complete(); err != nil {
 		return nil, err
 	}

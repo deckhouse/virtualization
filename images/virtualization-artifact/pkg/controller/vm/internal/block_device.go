@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -101,7 +101,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	// Get BlockDeviceRefs from spec.
-	bdStatusRefs, conflictWarning := h.getBlockDeviceStatusRefsFromSpec(current.Spec.BlockDeviceRefs, bdState, vmbdaStatusRefs)
+	bdStatusRefs, conflictWarning := h.getBlockDeviceStatusRefsFromSpec(current, bdState, vmbdaStatusRefs)
 
 	// Fill BlockDeviceRefs every time without knowledge of previously kept BlockDeviceRefs.
 	changed.Status.BlockDeviceRefs = bdStatusRefs
@@ -174,7 +174,7 @@ func (h *BlockDeviceHandler) Name() string {
 	return nameBlockDeviceHandler
 }
 
-func (h *BlockDeviceHandler) getBlockDeviceStatusRefsFromSpec(bdSpecRefs []virtv2.BlockDeviceSpecRef, bdState BlockDevicesState, hotplugs []virtv2.BlockDeviceStatusRef) ([]virtv2.BlockDeviceStatusRef, string) {
+func (h *BlockDeviceHandler) getBlockDeviceStatusRefsFromSpec(vm *virtv2.VirtualMachine, bdState BlockDevicesState, hotplugs []virtv2.BlockDeviceStatusRef) ([]virtv2.BlockDeviceStatusRef, string) {
 	hotplugsByName := make(map[string]struct{}, len(hotplugs))
 	for _, hotplug := range hotplugs {
 		hotplugsByName[hotplug.Name] = struct{}{}
@@ -183,10 +183,28 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefsFromSpec(bdSpecRefs []virtv
 	var conflictedRefs []string
 	var refs []virtv2.BlockDeviceStatusRef
 
-	for _, bdSpecRef := range bdSpecRefs {
+	for _, bdSpecRef := range vm.Spec.BlockDeviceRefs {
 		// It is a precaution to not apply changes in spec.blockDeviceRefs if disk is already
-		// hotplugged using the VMBDA resource. The reverse check is done by the vmbda-controller.
+		// hotplugged using the VMBDA resource or plugged in Spec of another VM.
+		// spec check is done by VirtualDisk status
+		// the reverse check is done by the vmbda-controller.
 		if bdSpecRef.Kind == virtv2.DiskDevice {
+			vd, hasKey := bdState.VDByName[bdSpecRef.Name]
+
+			switch {
+			case !hasKey:
+				continue // can't attach not existing disk, waiting
+			case len(vd.Status.AttachedToVirtualMachines) == 0: // Not connected to another VM, don't skip
+			case len(vd.Status.AttachedToVirtualMachines) == 1:
+				if vd.Status.AttachedToVirtualMachines[0].Name != vm.Name {
+					conflictedRefs = append(conflictedRefs, bdSpecRef.Name)
+					continue
+				}
+			default:
+				conflictedRefs = append(conflictedRefs, bdSpecRef.Name)
+				continue
+			}
+
 			if _, conflict := hotplugsByName[bdSpecRef.Name]; conflict {
 				conflictedRefs = append(conflictedRefs, bdSpecRef.Name)
 				continue

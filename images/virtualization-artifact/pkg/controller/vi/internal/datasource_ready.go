@@ -24,10 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
@@ -42,15 +42,9 @@ func NewDatasourceReadyHandler(sources *source.Sources) *DatasourceReadyHandler 
 }
 
 func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vicondition.DatasourceReadyType, vi.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vicondition.DatasourceReadyType,
-			Status: metav1.ConditionUnknown,
-		}
-	}
+	cb := conditions.NewConditionBuilder(vicondition.DatasourceReadyType).Generation(vi.Generation)
 
-	defer func() { service.SetCondition(condition, &vi.Status.Conditions) }()
+	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
 	if vi.DeletionTimestamp != nil {
 		return reconcile.Result{}, nil
@@ -59,41 +53,47 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualIm
 	s, ok := h.sources.For(vi.Spec.DataSource.Type)
 	if !ok {
 		err := fmt.Errorf("data source validator not found for type: %s", vi.Spec.DataSource.Type)
-		condition.Message = err.Error()
+		cb.Message(err.Error())
 		return reconcile.Result{}, err
 	}
 
 	err := s.Validate(ctx, vi)
 	switch {
 	case err == nil:
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vicondition.DatasourceReady
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.DatasourceReady).
+			Message("")
 		return reconcile.Result{}, nil
 	case errors.Is(err, source.ErrSecretNotFound):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ContainerRegistrySecretNotFound
-		condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ContainerRegistrySecretNotFound).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ImageNotReadyError{}):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ImageNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ImageNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.ClusterImageNotReadyError{}):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.ClusterImageNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ClusterImageNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskNotReadyError{}):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vicondition.VirtualDiskNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.VirtualDiskNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return reconcile.Result{}, nil
 	case errors.As(err, &source.VirtualDiskAttachedToRunningVMError{}):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.VirtualDiskNotReady
-		condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.VirtualDiskNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err

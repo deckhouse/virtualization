@@ -27,10 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	common "github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 const (
@@ -41,7 +41,7 @@ const (
 	caBundleVolName = "ca-bundle-vol"
 
 	// AnnOwnerRef is used when owner is in a different namespace
-	AnnOwnerRef = cc.AnnAPIGroup + "/storage.ownerRef"
+	AnnOwnerRef = annotations.AnnAPIGroup + "/storage.ownerRef"
 
 	// PodRunningReason is const that defines the pod was started as a reason
 	// PodRunningReason = "Pod is running"
@@ -57,6 +57,12 @@ const (
 
 	// sourceRegistryAuthVol is the name of the volume containing source registry docker auth config.
 	sourceRegistryAuthVol = "source-registry-secret-vol"
+
+	// KeyAccess provides a constant to the accessKeyId label using in controller pkg and transport_test.go
+	KeyAccess = "accessKeyId"
+
+	// KeySecret provides a constant to the secretKey label using in controller pkg and transport_test.go
+	KeySecret = "secretKey"
 )
 
 type Importer struct {
@@ -122,7 +128,7 @@ func CleanupPod(ctx context.Context, client client.Client, pod *corev1.Pod) erro
 		return nil
 	}
 
-	return helper.CleanupObject(ctx, client, pod)
+	return object.CleanupObject(ctx, client, pod)
 }
 
 // makeImporterPodSpec creates and return the importer pod spec based on the passed-in endpoint, secret and pvc.
@@ -136,7 +142,7 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 			Name:      imp.PodSettings.Name,
 			Namespace: imp.PodSettings.Namespace,
 			Annotations: map[string]string{
-				cc.AnnCreatedBy: "yes",
+				annotations.AnnCreatedBy: "yes",
 			},
 			// Labels: map[string]string{
 			//	common.CDILabelKey:        common.CDILabelValue,
@@ -160,8 +166,8 @@ func (imp *Importer) makeImporterPodSpec() *corev1.Pod {
 		},
 	}
 
-	cc.SetRecommendedLabels(pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
-	cc.SetRestrictedSecurityContext(&pod.Spec)
+	annotations.SetRecommendedLabels(pod, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
+	podutil.SetRestrictedSecurityContext(&pod.Spec)
 
 	container := imp.makeImporterContainerSpec()
 	imp.addVolumes(pod, container)
@@ -298,7 +304,7 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: imp.EnvSettings.SecretName,
 					},
-					Key: common.KeyAccess,
+					Key: KeyAccess,
 				},
 			},
 		}, corev1.EnvVar{
@@ -308,7 +314,7 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 					LocalObjectReference: corev1.LocalObjectReference{
 						Name: imp.EnvSettings.SecretName,
 					},
-					Key: common.KeySecret,
+					Key: KeySecret,
 				},
 			},
 		})
@@ -406,5 +412,5 @@ type PodNamer interface {
 }
 
 func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
-	return helper.FetchObject(ctx, name.ImporterPod(), client, &corev1.Pod{})
+	return object.FetchObject(ctx, name.ImporterPod(), client, &corev1.Pod{})
 }

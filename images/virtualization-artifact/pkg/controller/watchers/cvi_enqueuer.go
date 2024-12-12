@@ -19,14 +19,14 @@ package watchers
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -35,7 +35,7 @@ type ClusterVirtualImageRequestEnqueuer struct {
 	enqueueFromObj  client.Object
 	enqueueFromKind virtv2.ClusterVirtualImageObjectRefKind
 	client          client.Client
-	logger          *slog.Logger
+	logger          *log.Logger
 }
 
 func NewClusterVirtualImageRequestEnqueuer(client client.Client, enqueueFromObj client.Object, enqueueFromKind virtv2.ClusterVirtualImageObjectRefKind) *ClusterVirtualImageRequestEnqueuer {
@@ -43,7 +43,7 @@ func NewClusterVirtualImageRequestEnqueuer(client client.Client, enqueueFromObj 
 		enqueueFromObj:  enqueueFromObj,
 		enqueueFromKind: enqueueFromKind,
 		client:          client,
-		logger:          slog.Default().With("enqueuer", "cvi"),
+		logger:          log.Default().With("enqueuer", "cvi"),
 	}
 }
 
@@ -60,7 +60,7 @@ func (w ClusterVirtualImageRequestEnqueuer) EnqueueRequests(ctx context.Context,
 	}
 
 	for _, cvi := range cvis.Items {
-		dsReady, _ := service.GetCondition(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
+		dsReady, _ := conditions.GetCondition(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
 		if dsReady.Status == metav1.ConditionTrue {
 			continue
 		}

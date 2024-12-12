@@ -19,22 +19,22 @@ package vmiplease
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewValidator(log *slog.Logger) *Validator {
+func NewValidator(log *log.Logger) *Validator {
 	return &Validator{log: log.With("webhook", "validation")}
 }
 
 type Validator struct {
-	log *slog.Logger
+	log *log.Logger
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
@@ -45,7 +45,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 
 	v.log.Info("Validate VirtualMachineIpAddressLease creating", "name", lease.Name)
 
-	if !isValidAddressFormat(common.LeaseNameToIP(lease.Name)) {
+	if !isValidAddressFormat(ip.LeaseNameToIP(lease.Name)) {
 		return nil, fmt.Errorf("the lease address is not a valid textual representation of an IP address")
 	}
 

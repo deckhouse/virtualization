@@ -26,6 +26,8 @@ const (
 	VirtualMachineReadyType Type = "VirtualMachineReady"
 	// AttachedType indicates that the block device is hot-plugged into the virtual machine.
 	AttachedType Type = "Attached"
+	// DiskAttachmentCapacityAvailableType indicates that the entity has not yet reached its predefined limit for block device attachments.
+	DiskAttachmentCapacityAvailableType Type = "DiskAttachmentCapacityAvailableType"
 )
 
 type (
@@ -35,25 +37,21 @@ type (
 	VirtualMachineReadyReason string
 	// AttachedReason represents the various reasons for the `Attached` condition type.
 	AttachedReason string
+	// DiskAttachmentCapacityAvailableReason represent the various reasons for the `DiskAttachmentCapacityAvailableType` condition type.
+	DiskAttachmentCapacityAvailableReason string
 )
 
 const (
-	// BlockDeviceReadyUnknown represents unknown condition state.
-	BlockDeviceReadyUnknown BlockDeviceReadyReason = "Unknown"
 	// BlockDeviceReady signifies that the block device is ready to be hot-plugged, allowing the hot-plug process to start.
 	BlockDeviceReady BlockDeviceReadyReason = "BlockDeviceReady"
 	// BlockDeviceNotReady signifies that the block device is not ready, preventing the hot-plug process from starting.
 	BlockDeviceNotReady BlockDeviceReadyReason = "BlockDeviceNotReady"
 
-	// VirtualMachineReadyUnknown represents unknown condition state.
-	VirtualMachineReadyUnknown VirtualMachineReadyReason = "Unknown"
 	// VirtualMachineReady signifies that the virtual machine is ready for hot-plugging a disk, allowing the hot-plug process to start.
 	VirtualMachineReady VirtualMachineReadyReason = "VirtualMachineReady"
 	// VirtualMachineNotReady signifies that the virtual machine is not ready, preventing the hot-plug process from starting.
 	VirtualMachineNotReady VirtualMachineReadyReason = "VirtualMachineNotReady"
 
-	// AttachedUnknown represents unknown condition state.
-	AttachedUnknown BlockDeviceReadyReason = "Unknown"
 	// Attached signifies that the virtual disk is successfully hot-plugged into the virtual machine.
 	Attached AttachedReason = "Attached"
 	// NotAttached signifies that the virtual disk is not yet hot-plugged into the virtual machine.
@@ -65,6 +63,13 @@ const (
 	// or the virtual disk is already attached to the virtual machine spec.
 	// Only the one that was created or started sooner can be processed.
 	Conflict AttachedReason = "Conflict"
+
+	// CapacityAvailable signifies that the capacity not reached and attaching available.
+	CapacityAvailable DiskAttachmentCapacityAvailableReason = "CapacityAvailable"
+	// CapacityReached signifies that the capacity reached and attaching not available.
+	CapacityReached DiskAttachmentCapacityAvailableReason = "CapacityReached"
+	// CapacityUnknown represents unknown condition state
+	CapacityUnknown DiskAttachmentCapacityAvailableReason = "CapacityUnknown"
 )
 
 func (t Type) String() string {
@@ -80,5 +85,9 @@ func (t VirtualMachineReadyReason) String() string {
 }
 
 func (t AttachedReason) String() string {
+	return string(t)
+}
+
+func (t DiskAttachmentCapacityAvailableReason) String() string {
 	return string(t)
 }

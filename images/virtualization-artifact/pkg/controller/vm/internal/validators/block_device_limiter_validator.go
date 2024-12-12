@@ -19,11 +19,10 @@ package validators
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -31,12 +30,12 @@ import (
 
 type BlockDeviceLimiterValidator struct {
 	service *service.BlockDeviceService
-	log     *slog.Logger
+	log     *log.Logger
 }
 
-func NewBlockDeviceLimiterValidator(client client.Client, log *slog.Logger) *BlockDeviceLimiterValidator {
+func NewBlockDeviceLimiterValidator(service *service.BlockDeviceService, log *log.Logger) *BlockDeviceLimiterValidator {
 	return &BlockDeviceLimiterValidator{
-		service: service.NewBlockDeviceService(client),
+		service: service,
 		log:     log,
 	}
 }

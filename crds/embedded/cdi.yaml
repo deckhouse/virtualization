@@ -9,8 +9,6 @@ metadata:
 spec:
   group: cdi.internal.virtualization.deckhouse.io
   names:
-    categories:
-      - intvirt
     kind: InternalVirtualizationCDI
     listKind: InternalVirtualizationCDIList
     plural: internalvirtualizationcdis

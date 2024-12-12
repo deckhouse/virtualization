@@ -23,13 +23,13 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // LoadLastAppliedSpec loads VM spec from JSON in the last-applied-spec annotation.
 func LoadLastAppliedSpec(kvvm *virtv1.VirtualMachine) (*v1alpha2.VirtualMachineSpec, error) {
-	lastSpecJSON := kvvm.GetAnnotations()[common.AnnVMLastAppliedSpec]
+	lastSpecJSON := kvvm.GetAnnotations()[annotations.AnnVMLastAppliedSpec]
 	if strings.TrimSpace(lastSpecJSON) == "" {
 		return nil, nil
 	}
@@ -49,6 +49,6 @@ func SetLastAppliedSpec(kvvm *virtv1.VirtualMachine, vm *v1alpha2.VirtualMachine
 		return fmt.Errorf("convert spec to JSON: %w", err)
 	}
 
-	common.AddAnnotation(kvvm, common.AnnVMLastAppliedSpec, string(lastApplied))
+	annotations.AddAnnotation(kvvm, annotations.AnnVMLastAppliedSpec, string(lastApplied))
 	return nil
 }

@@ -18,7 +18,6 @@ package vmiplease
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -26,22 +25,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
-	controllerName = "vmiplease-controller"
+	ControllerName = "vmiplease-controller"
 )
 
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	log *log.Logger,
 	retentionDurationStr string,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(controllerName))
 	retentionDuration, err := time.ParseDuration(retentionDurationStr)
 	if err != nil {
 		log.Error("Failed to parse retention duration", "err", err)
@@ -56,7 +55,7 @@ func NewController(
 
 	r := NewReconciler(mgr.GetClient(), handlers...)
 
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),

@@ -43,6 +43,9 @@ configVersion: 1
 # Source repo settings
 {{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
 
+# Edition module settings
+{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
+
 # Modules_images
 {{- define "module_image_template" }}
 
@@ -75,6 +78,7 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "ImageBuildData" $content }}
   {{- $_ := set $ctx "Images" $Root.Images }}
   {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
+  {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
 
   {{- include "module_image_template" $ctx }}
   {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
@@ -117,7 +121,7 @@ shell:
 ---
 image: python-dependencies
 from: python:3.9-slim
-fromCacheVersion: "2024-06-25.0"
+fromCacheVersion: "2024-11-07.1"
 git:
   - add: /lib/python/requirements.txt
     to: /requirements.txt
@@ -127,7 +131,7 @@ shell:
 ---
 image: bundle
 from: {{ .Images.BASE_SCRATCH }}
-fromCacheVersion: "2024-09-17.0"
+fromCacheVersion: "2024-11-07.1"
 import:
   - image: images-digests
     add: /images_digests.json

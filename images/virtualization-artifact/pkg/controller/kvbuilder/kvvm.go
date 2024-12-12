@@ -27,9 +27,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/array"
+	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -51,13 +52,13 @@ type KVVMOptions struct {
 }
 
 type KVVM struct {
-	helper.ResourceBuilder[*virtv1.VirtualMachine]
+	resource_builder.ResourceBuilder[*virtv1.VirtualMachine]
 	opts KVVMOptions
 }
 
 func NewKVVM(currentKVVM *virtv1.VirtualMachine, opts KVVMOptions) *KVVM {
 	return &KVVM{
-		ResourceBuilder: helper.NewResourceBuilder(currentKVVM, helper.ResourceBuilderOptions{ResourceExists: true}),
+		ResourceBuilder: resource_builder.NewResourceBuilder(currentKVVM, resource_builder.ResourceBuilderOptions{ResourceExists: true}),
 		opts:            opts,
 	}
 }
@@ -65,7 +66,7 @@ func NewKVVM(currentKVVM *virtv1.VirtualMachine, opts KVVMOptions) *KVVM {
 func NewEmptyKVVM(name types.NamespacedName, opts KVVMOptions) *KVVM {
 	return &KVVM{
 		opts: opts,
-		ResourceBuilder: helper.NewResourceBuilder(
+		ResourceBuilder: resource_builder.NewResourceBuilder(
 			&virtv1.VirtualMachine{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
@@ -78,7 +79,7 @@ func NewEmptyKVVM(name types.NamespacedName, opts KVVMOptions) *KVVM {
 				Spec: virtv1.VirtualMachineSpec{
 					Template: &virtv1.VirtualMachineInstanceTemplateSpec{},
 				},
-			}, helper.ResourceBuilderOptions{},
+			}, resource_builder.ResourceBuilderOptions{},
 		),
 	}
 }
@@ -107,9 +108,13 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 	case virtv2.CPUTypeFeatures, virtv2.CPUTypeDiscovery:
 		cpu.Features = make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
 		for i, feature := range class.Status.CpuFeatures.Enabled {
+			policy := "require"
+			if feature == "invtsc" {
+				policy = "optional"
+			}
 			cpu.Features[i] = virtv1.CPUFeature{
 				Name:   feature,
-				Policy: "require",
+				Policy: policy,
 			}
 		}
 	default:
@@ -124,18 +129,18 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) error {
 	switch runPolicy {
 	case virtv2.AlwaysOnPolicy:
-		b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyAlways)
+		b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyAlways)
 	case virtv2.AlwaysOffPolicy:
-		b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyHalted)
+		b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyHalted)
 	case virtv2.ManualPolicy:
 		if !b.ResourceExists {
 			// initialize only
-			b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyManual)
+			b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyManual)
 		}
 	case virtv2.AlwaysOnUnlessStoppedManually:
 		if !b.ResourceExists {
 			// initialize only
-			b.Resource.Spec.RunStrategy = util.GetPointer(virtv1.RunStrategyAlways)
+			b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyAlways)
 		}
 	default:
 		return fmt.Errorf("unexpected runPolicy %s. %w", runPolicy, common.ErrUnknownValue)
@@ -153,8 +158,9 @@ func (b *KVVM) SetNodeSelector(vmNodeSelector, classNodeSelector map[string]stri
 	b.Resource.Spec.Template.Spec.NodeSelector = selector
 }
 
-func (b *KVVM) SetTolerations(tolerations []corev1.Toleration) {
-	b.Resource.Spec.Template.Spec.Tolerations = tolerations
+func (b *KVVM) SetTolerations(vmTolerations, classTolerations []corev1.Toleration) {
+	b.Resource.Spec.Template.Spec.Tolerations = append(b.Resource.Spec.Template.Spec.Tolerations, classTolerations...)
+	b.Resource.Spec.Template.Spec.Tolerations = append(b.Resource.Spec.Template.Spec.Tolerations, vmTolerations...)
 }
 
 func (b *KVVM) SetPriorityClassName(priorityClassName string) {
@@ -178,11 +184,16 @@ func (b *KVVM) SetAffinity(vmAffinity *corev1.Affinity, classMatchExpressions []
 	if vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms == nil {
 		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []corev1.NodeSelectorTerm{}
 	}
-
-	vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
-		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
-		corev1.NodeSelectorTerm{MatchExpressions: classMatchExpressions},
-	)
+	if len(vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms) == 0 {
+		vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = append(
+			vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms,
+			corev1.NodeSelectorTerm{MatchExpressions: classMatchExpressions})
+	} else {
+		for i := range vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms {
+			vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions = append(
+				vmAffinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[i].MatchExpressions, classMatchExpressions...)
+		}
+	}
 
 	b.Resource.Spec.Template.Spec.Affinity = vmAffinity
 }
@@ -276,7 +287,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 		disk.BootOrder = &opts.BootOrder
 	}
 
-	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = util.SetArrayElem(
+	b.Resource.Spec.Template.Spec.Domain.Devices.Disks = array.SetArrayElem(
 		b.Resource.Spec.Template.Spec.Domain.Devices.Disks, disk,
 		func(v1, v2 virtv1.Disk) bool {
 			return v1.Name == v2.Name
@@ -353,7 +364,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 		Name:         name,
 		VolumeSource: vs,
 	}
-	b.Resource.Spec.Template.Spec.Volumes = util.SetArrayElem(
+	b.Resource.Spec.Template.Spec.Volumes = array.SetArrayElem(
 		b.Resource.Spec.Template.Spec.Volumes, volume,
 		func(v1, v2 virtv1.Volume) bool {
 			return v1.Name == v2.Name
@@ -369,7 +380,7 @@ func (b *KVVM) SetTablet(name string) {
 		Type: virtv1.InputTypeTablet,
 	}
 
-	b.Resource.Spec.Template.Spec.Domain.Devices.Inputs = util.SetArrayElem(
+	b.Resource.Spec.Template.Spec.Domain.Devices.Inputs = array.SetArrayElem(
 		b.Resource.Spec.Template.Spec.Domain.Devices.Inputs, i,
 		func(v1, v2 virtv1.Input) bool {
 			return v1.Name == v2.Name
@@ -408,34 +419,34 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) error {
 		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
 			Type: "q35",
 		}
-		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = util.GetPointer(true)
+		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.GetPointer(true)
 		b.Resource.Spec.Template.Spec.Domain.Devices.TPM = &virtv1.TPMDevice{}
 		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
-			ACPI: virtv1.FeatureState{Enabled: util.GetPointer(true)},
-			APIC: &virtv1.FeatureAPIC{Enabled: util.GetPointer(true)},
-			SMM:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+			ACPI: virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+			APIC: &virtv1.FeatureAPIC{Enabled: pointer.GetPointer(true)},
+			SMM:  &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
 			Hyperv: &virtv1.FeatureHyperv{
-				Frequencies:     &virtv1.FeatureState{Enabled: util.GetPointer(true)},
-				IPI:             &virtv1.FeatureState{Enabled: util.GetPointer(true)},
-				Reenlightenment: &virtv1.FeatureState{Enabled: util.GetPointer(true)},
-				Relaxed:         &virtv1.FeatureState{Enabled: util.GetPointer(true)},
-				Reset:           &virtv1.FeatureState{Enabled: util.GetPointer(true)},
-				Runtime:         &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				Frequencies:     &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+				IPI:             &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+				Reenlightenment: &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+				Relaxed:         &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+				Reset:           &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+				Runtime:         &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
 				Spinlocks: &virtv1.FeatureSpinlocks{
-					Enabled: util.GetPointer(true),
-					Retries: util.GetPointer[uint32](8191),
+					Enabled: pointer.GetPointer(true),
+					Retries: pointer.GetPointer[uint32](8191),
 				},
-				TLBFlush: &virtv1.FeatureState{Enabled: util.GetPointer(true)},
-				VAPIC:    &virtv1.FeatureState{Enabled: util.GetPointer(true)},
-				VPIndex:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				TLBFlush: &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+				VAPIC:    &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+				VPIndex:  &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
 			},
 		}
 
 		if !b.opts.DisableHypervSyNIC {
-			b.Resource.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC = &virtv1.FeatureState{Enabled: util.GetPointer(true)}
+			b.Resource.Spec.Template.Spec.Domain.Features.Hyperv.SyNIC = &virtv1.FeatureState{Enabled: pointer.GetPointer(true)}
 			b.Resource.Spec.Template.Spec.Domain.Features.Hyperv.SyNICTimer = &virtv1.SyNICTimer{
-				Enabled: util.GetPointer(true),
-				Direct:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+				Enabled: pointer.GetPointer(true),
+				Direct:  &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
 			}
 		}
 
@@ -443,11 +454,11 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) error {
 		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
 			Type: "q35",
 		}
-		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = util.GetPointer(true)
+		b.Resource.Spec.Template.Spec.Domain.Devices.AutoattachInputDevice = pointer.GetPointer(true)
 		b.Resource.Spec.Template.Spec.Domain.Devices.Rng = &virtv1.Rng{}
 		b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{
-			ACPI: virtv1.FeatureState{Enabled: util.GetPointer(true)},
-			SMM:  &virtv1.FeatureState{Enabled: util.GetPointer(true)},
+			ACPI: virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
+			SMM:  &virtv1.FeatureState{Enabled: pointer.GetPointer(true)},
 		}
 	default:
 		return fmt.Errorf("unexpected os type %q. %w", osType, common.ErrUnknownType)
@@ -482,7 +493,7 @@ func (b *KVVM) SetNetworkInterface(name string) {
 			Pod: &virtv1.PodNetwork{},
 		},
 	}
-	b.Resource.Spec.Template.Spec.Networks = util.SetArrayElem(
+	b.Resource.Spec.Template.Spec.Networks = array.SetArrayElem(
 		b.Resource.Spec.Template.Spec.Networks, net,
 		func(v1, v2 virtv1.Network) bool {
 			return v1.Name == v2.Name
@@ -494,7 +505,7 @@ func (b *KVVM) SetNetworkInterface(name string) {
 		Model: devPreset.InterfaceModel,
 	}
 	iface.InterfaceBindingMethod.Bridge = &virtv1.InterfaceBridge{}
-	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = util.SetArrayElem(
+	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = array.SetArrayElem(
 		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, iface,
 		func(v1, v2 virtv1.Interface) bool {
 			return v1.Name == v2.Name
@@ -513,7 +524,7 @@ func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) error {
 	case virtv2.EFI:
 		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = &virtv1.Bootloader{
 			EFI: &virtv1.EFI{
-				SecureBoot: util.GetPointer(false),
+				SecureBoot: pointer.GetPointer(false),
 			},
 		}
 	case virtv2.EFIWithSecureBoot:
@@ -521,10 +532,10 @@ func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) error {
 			b.Resource.Spec.Template.Spec.Domain.Features = &virtv1.Features{}
 		}
 		b.Resource.Spec.Template.Spec.Domain.Features.SMM = &virtv1.FeatureState{
-			Enabled: util.GetPointer(true),
+			Enabled: pointer.GetPointer(true),
 		}
 		b.Resource.Spec.Template.Spec.Domain.Firmware.Bootloader = &virtv1.Bootloader{
-			EFI: &virtv1.EFI{SecureBoot: util.GetPointer(true)},
+			EFI: &virtv1.EFI{SecureBoot: pointer.GetPointer(true)},
 		}
 	default:
 		return fmt.Errorf("unexpected bootloader type %q. %w", bootloader, common.ErrUnknownType)

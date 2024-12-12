@@ -24,7 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
@@ -52,20 +52,26 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 		return reconcile.Result{}, err
 	}
 
-	//nolint:staticcheck
-	mgr := conditions.NewManager(vmipStatus.Conditions)
 	conditionBound := conditions.NewConditionBuilder(vmipcondition.BoundType).
-		Generation(vmip.GetGeneration())
+		Generation(vmip.GetGeneration()).
+		Reason(conditions.ReasonUnknown).
+		Status(metav1.ConditionUnknown)
 
 	conditionAttach := conditions.NewConditionBuilder(vmipcondition.AttachedType).
-		Generation(vmip.GetGeneration())
+		Generation(vmip.GetGeneration()).
+		Reason(conditions.ReasonUnknown).
+		Status(metav1.ConditionUnknown)
+
+	defer func() {
+		conditions.SetCondition(conditionBound, &vmipStatus.Conditions)
+		conditions.SetCondition(conditionAttach, &vmipStatus.Conditions)
+	}()
 
 	if vm == nil || vm.DeletionTimestamp != nil {
 		vmipStatus.VirtualMachine = ""
-		mgr.Update(conditionAttach.Status(metav1.ConditionFalse).
+		conditionAttach.Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineNotFound).
-			Message("Virtual machine not found").
-			Condition())
+			Message("Virtual machine not found")
 	}
 
 	lease, err := state.VirtualMachineIPLease(ctx)
@@ -78,38 +84,34 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 	case lease == nil && vmipStatus.Address != "":
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
-			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
+			conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
 				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s doesn't exist",
-					common.IpToLeaseName(vmipStatus.Address))).
-				Condition())
+					ip.IpToLeaseName(vmipStatus.Address)))
 		}
 
 	case lease == nil:
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
-			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
+			conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseNotFound).
-				Message("VirtualMachineIPAddressLease is not found").
-				Condition())
+				Message("VirtualMachineIPAddressLease is not found")
 		}
 
 	case vm != nil && vm.GetDeletionTimestamp().IsZero():
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhaseAttached {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseAttached
 			vmipStatus.VirtualMachine = vm.Name
-			mgr.Update(conditionAttach.Status(metav1.ConditionTrue).
-				Reason(vmipcondition.Attached).
-				Condition())
+			conditionAttach.Status(metav1.ConditionTrue).
+				Reason(vmipcondition.Attached)
 		}
 
 	case util.IsBoundLease(lease, vmip):
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhaseBound {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseBound
-			vmipStatus.Address = common.LeaseNameToIP(lease.Name)
-			mgr.Update(conditionBound.Status(metav1.ConditionTrue).
-				Reason(vmipcondition.Bound).
-				Condition())
+			vmipStatus.Address = ip.LeaseNameToIP(lease.Name)
+			conditionBound.Status(metav1.ConditionTrue).
+				Reason(vmipcondition.Bound)
 		}
 
 	case lease.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseBound:
@@ -117,36 +119,33 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
 			log.Warn(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress resource: %s/%s",
 				lease.Name, lease.Spec.VirtualMachineIPAddressRef.Name, lease.Spec.VirtualMachineIPAddressRef.Namespace))
-			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
+			conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
 				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress resource",
-					lease.Name)).
-				Condition())
+					lease.Name))
 		}
 
 	case lease.Spec.VirtualMachineIPAddressRef.Namespace != vmip.Namespace:
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
-			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
+			conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
-				Message(fmt.Sprintf("The VirtualMachineIPLease %s belongs to a different namespace", lease.Name)).
-				Condition())
+				Message(fmt.Sprintf("The VirtualMachineIPLease %s belongs to a different namespace", lease.Name))
 		}
 		needRequeue = true
 
 	default:
 		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
-			mgr.Update(conditionBound.Status(metav1.ConditionFalse).
+			conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
 				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is not ready",
-					lease.Name)).
-				Condition())
+					lease.Name))
 		}
 	}
 
-	log.Info("Set VirtualMachineIP phase", "phase", vmipStatus.Phase)
-	vmipStatus.Conditions = mgr.Generate()
+	log.Debug("Set VirtualMachineIP phase", "phase", vmipStatus.Phase)
+
 	vmipStatus.ObservedGeneration = vmip.GetGeneration()
 	if !needRequeue {
 		return reconcile.Result{}, nil

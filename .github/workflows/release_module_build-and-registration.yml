@@ -23,6 +23,7 @@ env:
   MODULES_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
   MODULES_MODULE_TAG: ${{ github.ref_name }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
+  WERF_SECONDARY_REPO_1: ${{vars.DEV_MODULE_SOURCE}}/${{vars.MODULE_NAME}}
 
 on:
   push:
@@ -45,6 +46,7 @@ jobs:
       - name: SET VAR
         run: |
           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ce/modules" >> "$GITHUB_ENV"
+          echo "MODULE_EDITION=CE" >> "$GITHUB_ENV"
       - run: |
           echo $MODULES_REGISTRY
           echo $MODULES_MODULE_NAME
@@ -70,6 +72,7 @@ jobs:
       - name: SET VAR
         run: |
           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ee/modules" >> "$GITHUB_ENV"
+          echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
       - run: |
           echo $MODULES_REGISTRY
           echo $MODULES_MODULE_NAME
@@ -90,11 +93,13 @@ jobs:
 
   prod_fe_setup_build:
     runs-on: ubuntu-latest
+    needs: prod_ee_setup_build
     name: Build and Push FE
     steps:
       - name: SET VAR
         run: |
           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/fe/modules" >> "$GITHUB_ENV"
+          echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
       - run: |
           echo $MODULES_REGISTRY
           echo $MODULES_MODULE_NAME

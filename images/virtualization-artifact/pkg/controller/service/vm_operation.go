@@ -26,9 +26,10 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -48,11 +49,11 @@ func NewVMOperationService(client client.Client, virtClient kubeclient.Client) V
 }
 
 func (s VMOperationService) getKVVM(ctx context.Context, vmNamespace, vmName string) (*virtv1.VirtualMachine, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: vmNamespace, Name: vmName}, s.client, &virtv1.VirtualMachine{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: vmNamespace, Name: vmName}, s.client, &virtv1.VirtualMachine{})
 }
 
 func (s VMOperationService) getKVVMI(ctx context.Context, vmNamespace, vmName string) (*virtv1.VirtualMachineInstance, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: vmNamespace, Name: vmName}, s.client, &virtv1.VirtualMachineInstance{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: vmNamespace, Name: vmName}, s.client, &virtv1.VirtualMachineInstance{})
 }
 
 func (s VMOperationService) Do(ctx context.Context, vmop *virtv2.VirtualMachineOperation) error {
@@ -174,7 +175,7 @@ func (s VMOperationService) OtherVMOPIsInProgress(ctx context.Context, vmop *vir
 
 func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineOperation) vmopcondition.ReasonCompleted {
 	if vmop == nil || vmop.Spec.Type == "" {
-		return vmopcondition.ReasonCompletedUnknown
+		return vmopcondition.ReasonCompleted(conditions.ReasonUnknown)
 	}
 	switch vmop.Spec.Type {
 	case virtv2.VMOPTypeStart:
@@ -186,7 +187,7 @@ func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineO
 	case virtv2.VMOPTypeEvict, virtv2.VMOPTypeMigrate:
 		return vmopcondition.ReasonMigrationInProgress
 	}
-	return vmopcondition.ReasonCompletedUnknown
+	return vmopcondition.ReasonCompleted(conditions.ReasonUnknown)
 }
 
 func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (bool, error) {
@@ -234,7 +235,7 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 func (s VMOperationService) isAfterSignalSentOrCreation(timestamp time.Time, vmop *virtv2.VirtualMachineOperation) bool {
 	// Use vmop creation time or time from SignalSent condition.
 	signalSentTime := vmop.GetCreationTimestamp().Time
-	signalSendCond, found := GetCondition(vmopcondition.SignalSentType.String(), vmop.Status.Conditions)
+	signalSendCond, found := conditions.GetCondition(vmopcondition.SignalSentType, vmop.Status.Conditions)
 	if found && signalSendCond.Status == metav1.ConditionTrue && signalSendCond.LastTransitionTime.After(signalSentTime) {
 		signalSentTime = signalSendCond.LastTransitionTime.Time
 	}

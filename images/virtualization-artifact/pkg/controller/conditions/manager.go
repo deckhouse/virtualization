@@ -25,31 +25,22 @@ import (
 
 // Deprecated: use direct SetCondition instead.
 type Manager struct {
-	conds      []metav1.Condition
-	indexConds map[string]int
+	conds []metav1.Condition
 }
 
 // Deprecated: use direct SetCondition instead.
 func NewManager(conditions []metav1.Condition) *Manager {
-	conds := make([]metav1.Condition, len(conditions))
-	indexConds := make(map[string]int, len(conds))
-	for i, c := range conditions {
-		conds[i] = c
-		indexConds[c.Type] = i
-	}
 	return &Manager{
-		conds:      conds,
-		indexConds: indexConds,
+		conds: slices.Clone(conditions),
 	}
 }
 
 func (m *Manager) Add(c metav1.Condition) (addedCondition bool) {
-	if _, found := m.indexConds[c.Type]; found {
+	findCond := meta.FindStatusCondition(m.conds, c.Type)
+	if findCond != nil {
 		return false
 	}
-	m.conds = append(m.conds, c)
-	m.indexConds[c.Type] = len(m.conds) - 1
-	return true
+	return meta.SetStatusCondition(&m.conds, c)
 }
 
 func (m *Manager) Update(c metav1.Condition) {

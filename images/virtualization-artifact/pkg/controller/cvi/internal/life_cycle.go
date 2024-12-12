@@ -24,8 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/source"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
@@ -43,14 +43,15 @@ func NewLifeCycleHandler(sources *source.Sources, client client.Client) *LifeCyc
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
-	readyCondition, ok := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+	readyCondition, ok := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	if !ok {
-		readyCondition = metav1.Condition{
-			Type:   cvicondition.ReadyType,
-			Status: metav1.ConditionUnknown,
-		}
+		cb := conditions.NewConditionBuilder(cvicondition.ReadyType).
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Generation(cvi.Generation)
+		conditions.SetCondition(cb, &cvi.Status.Conditions)
 
-		service.SetCondition(readyCondition, &cvi.Status.Conditions)
+		readyCondition = cb.Condition()
 	}
 
 	if cvi.DeletionTimestamp != nil {
@@ -62,7 +63,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 		cvi.Status.Phase = virtv2.ImagePending
 	}
 
-	dataSourceReadyCondition, exists := service.GetCondition(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
+	dataSourceReadyCondition, exists := conditions.GetCondition(cvicondition.DatasourceReadyType, cvi.Status.Conditions)
 	if !exists {
 		return reconcile.Result{}, fmt.Errorf("condition %s not found, but required", cvicondition.DatasourceReadyType)
 	}
@@ -73,9 +74,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtual
 
 	if readyCondition.Status != metav1.ConditionTrue && h.sources.Changed(ctx, cvi) {
 		cvi.Status = virtv2.ClusterVirtualImageStatus{
-			ImageStatus: virtv2.ImageStatus{
-				Phase: virtv2.ImagePending,
-			},
+			Phase:              virtv2.ImagePending,
 			Conditions:         cvi.Status.Conditions,
 			ObservedGeneration: cvi.Status.ObservedGeneration,
 		}

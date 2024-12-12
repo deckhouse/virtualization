@@ -18,7 +18,6 @@ package vdsnapshot
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -26,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -38,11 +38,9 @@ const ControllerName = "vdsnapshot-controller"
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	log *log.Logger,
 	virtClient kubeclient.Client,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(ControllerName))
-
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDSnapshotProtection)
 	freezer := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
 

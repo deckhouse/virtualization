@@ -17,7 +17,11 @@ limitations under the License.
 package vdscondition
 
 // Type represents the various condition types for the `VirtualDiskSnapshot`.
-type Type = string
+type Type string
+
+func (s Type) String() string {
+	return string(s)
+}
 
 const (
 	// VirtualDiskReadyType indicates that the source `VirtualDisk` is ready for snapshotting.
@@ -28,10 +32,22 @@ const (
 
 type (
 	// VirtualDiskReadyReason represents the various reasons for the `VirtualDiskReady` condition type.
-	VirtualDiskReadyReason = string
+	VirtualDiskReadyReason string
 	// VirtualDiskSnapshotReadyReason represents the various reasons for the `VirtualDiskSnapshotReady` condition type.
-	VirtualDiskSnapshotReadyReason = string
+	VirtualDiskSnapshotReadyReason string
 )
+
+func (s VirtualDiskReadyReason) String() string {
+	return string(s)
+}
+
+func (s VirtualDiskSnapshotReadyReason) String() string {
+	return string(s)
+}
+
+func (s Type) VirtualDiskSnapshotReadyReason() string {
+	return string(s)
+}
 
 const (
 	// VirtualDiskReady signifies that the source virtual disk is ready for snapshotting, allowing the snapshot process to begin.

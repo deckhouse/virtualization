@@ -19,11 +19,13 @@ ipam:
 helperImages:
   curlImage: "curlimages/curl"
 testData:
+  affinityToleration: "/tmp/testdata/affinity-toleration"
   complexTest: "/tmp/testdata/complex-test"
   connectivity: "/tmp/testdata/connectivity"
   diskResizing: "/tmp/testdata/disk-resizing"
   sizingPolicy: "/tmp/testdata/sizing-policy"
   vmConfiguration: "/tmp/testdata/vm-configuration"
+  vmLabelAnnotation: "/tmp/testdata/vm-label-annotation"
   vmMigration: "/tmp/testdata/vm-migration"
   vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
   sshKey: "/tmp/testdata/sshkeys/id_ed"

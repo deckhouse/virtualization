@@ -29,35 +29,47 @@ import (
 )
 
 const (
-	Cmd           = "kubectl"
-	ShortTimeout  = 10 * time.Second
-	MediumTimeout = 30 * time.Second
-	LongTimeout   = 60 * time.Second
+	Cmd                             = "kubectl"
+	ShortTimeout                    = 10 * time.Second
+	MediumTimeout                   = 30 * time.Second
+	LongTimeout                     = 60 * time.Second
+	ExecExtraTimeout                = 20 * time.Second
+	Filename         FilenameOption = "--filename"
+	Kustomize        FilenameOption = "--kustomize"
 )
 
-type Resource string
+type (
+	Resource       string
+	FilenameOption string
+)
 
 type Kubectl interface {
-	Apply(filepath string, opts ApplyOptions) *executor.CMDResult
+	Apply(opts ApplyOptions) *executor.CMDResult
 	Create(filepath string, opts CreateOptions) *executor.CMDResult
 	CreateResource(resource Resource, name string, opts CreateOptions) *executor.CMDResult
 	Get(filepath string, opts GetOptions) *executor.CMDResult
 	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
-	Delete(filepath string, opts DeleteOptions) *executor.CMDResult
-	DeleteResource(resource Resource, name string, opts DeleteOptions) *executor.CMDResult
-	Kustomize(directory string, opts KustomizeOptions) *executor.CMDResult
+	Delete(opts DeleteOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
 	Wait(filepath string, opts WaitOptions) *executor.CMDResult
+	WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult
 	WaitResources(resource Resource, opts WaitOptions, name ...string) *executor.CMDResult
 	Patch(filepath string, opts PatchOptions) *executor.CMDResult
 	PatchResource(resource Resource, name string, opts PatchOptions) *executor.CMDResult
 	RawCommand(subCmd string, timeout time.Duration) *executor.CMDResult
 }
 
+// FilenameOption:
+//
+//	kubectl.Filename  // --filename
+//	kubectl.Kustomize // --kustomize
 type ApplyOptions struct {
-	Namespace string
-	Output    string
-	Force     bool
+	Filename       []string
+	FilenameOption FilenameOption
+	Force          bool
+	Namespace      string
+	Output         string
+	Recursive      bool
 }
 
 type CreateOptions struct {
@@ -66,28 +78,30 @@ type CreateOptions struct {
 }
 
 type DeleteOptions struct {
-	Labels    map[string]string
-	Namespace string
+	ExcludedLabels []string
+	Filename       []string
+	FilenameOption FilenameOption
+	IgnoreNotFound bool
+	Labels         map[string]string
+	Namespace      string
+	Recursive      bool
+	Resource       Resource
 }
 
 type GetOptions struct {
-	ExcludeLabels  []string
+	ExcludedLabels []string
 	IgnoreNotFound bool
 	Labels         map[string]string
 	Namespace      string
 	Output         string
 }
 
-type KustomizeOptions struct {
-	Namespace string
-	Output    string
-	Force     bool
-}
-
 type WaitOptions struct {
-	Namespace string
-	For       string
-	Timeout   time.Duration
+	ExcludedLabels []string
+	Labels         map[string]string
+	Namespace      string
+	For            string
+	Timeout        time.Duration
 }
 
 type PatchOptions struct {
@@ -149,10 +163,10 @@ type KubectlCMD struct {
 	cmd string
 }
 
-func (k KubectlCMD) Apply(filepath string, opts ApplyOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s apply -f %s", k.cmd, filepath)
+func (k KubectlCMD) Apply(opts ApplyOptions) *executor.CMDResult {
+	cmd := fmt.Sprintf("%s apply", k.cmd)
 	cmd = k.applyOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), ShortTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
@@ -189,24 +203,10 @@ func (k KubectlCMD) GetResource(resource Resource, name string, opts GetOptions)
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) Delete(filepath string, opts DeleteOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s delete -f %s", k.cmd, filepath)
+func (k KubectlCMD) Delete(opts DeleteOptions) *executor.CMDResult {
+	cmd := fmt.Sprintf("%s delete", k.cmd)
 	cmd = k.deleteOptions(cmd, opts)
 	return k.Exec(cmd)
-}
-
-func (k KubectlCMD) DeleteResource(resource Resource, name string, opts DeleteOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s delete %s %s", k.cmd, resource, name)
-	cmd = k.deleteOptions(cmd, opts)
-	return k.Exec(cmd)
-}
-
-func (k KubectlCMD) Kustomize(directory string, opts KustomizeOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s apply --kustomize %s", k.cmd, directory)
-	cmd = k.kustomizeOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), LongTimeout)
-	defer cancel()
-	return k.ExecContext(ctx, cmd)
 }
 
 func (k KubectlCMD) List(resource Resource, opts GetOptions) *executor.CMDResult {
@@ -221,7 +221,7 @@ func (k KubectlCMD) Wait(filepath string, opts WaitOptions) *executor.CMDResult 
 	cmd := k.waitOptions(fmt.Sprintf("%s wait -f %s", k.cmd, filepath), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout
+		timeout = opts.Timeout + ExecExtraTimeout
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -232,7 +232,7 @@ func (k KubectlCMD) WaitResource(resource Resource, name string, opts WaitOption
 	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %s", k.cmd, resource, name), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout * time.Second
+		timeout = opts.Timeout + ExecExtraTimeout
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -243,7 +243,7 @@ func (k KubectlCMD) WaitResources(resource Resource, opts WaitOptions, names ...
 	cmd := k.waitOptions(fmt.Sprintf("%s wait %s %v", k.cmd, resource, strings.Join(names, " ")), opts)
 	timeout := MediumTimeout
 	if opts.Timeout != 0 {
-		timeout = opts.Timeout * time.Second
+		timeout = opts.Timeout + ExecExtraTimeout
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -278,28 +278,37 @@ func (k KubectlCMD) addNamespace(cmd, ns string) string {
 	return cmd
 }
 
-func (k KubectlCMD) addLabels(cmd string, labels map[string]string) string {
-	if len(labels) != 0 {
-		rawLabels := make([]string, 0, len(labels))
-
-		for k, v := range labels {
-			rawLabels = append(rawLabels, fmt.Sprintf("-l %s=%s", k, v))
-		}
-		l := strings.Join(rawLabels, " ")
-		return fmt.Sprintf("%s %s", cmd, l)
+func (k KubectlCMD) addFilenameOptions(cmd string, resource Resource, filenameOpt FilenameOption, recursive bool, filenames ...string) string {
+	if resource != "" {
+		cmd = fmt.Sprintf("%s %s", cmd, resource)
+	}
+	if filenameOpt != "" {
+		cmd = fmt.Sprintf("%s %s", cmd, filenameOpt)
+	}
+	if len(filenames) != 0 {
+		files := strings.Join(filenames, " ")
+		cmd = fmt.Sprintf("%s %s", cmd, files)
+	}
+	if recursive {
+		cmd = fmt.Sprintf("%s --recoursive=%t", cmd, recursive)
 	}
 	return cmd
 }
 
-func (k KubectlCMD) excludeLabels(cmd string, labels []string) string {
-	if len(labels) != 0 {
-		rawLabels := make([]string, 0, len(labels))
+func (k KubectlCMD) addLabels(cmd string, labels map[string]string, excludedLabels []string) string {
+	if len(labels) != 0 || len(excludedLabels) != 0 {
+		rawLabels := make([]string, 0, len(labels)+len(excludedLabels))
 
-		for _, v := range labels {
-			rawLabels = append(rawLabels, fmt.Sprintf("-l '!%s'", v))
+		for k, v := range labels {
+			rawLabels = append(rawLabels, fmt.Sprintf("%s=%s", k, v))
 		}
-		l := strings.Join(rawLabels, " ")
-		return fmt.Sprintf("%s %s", cmd, l)
+
+		for _, v := range excludedLabels {
+			rawLabels = append(rawLabels, fmt.Sprintf("!%s", v))
+		}
+
+		l := strings.Join(rawLabels, ",")
+		return fmt.Sprintf("%s -l '%s'", cmd, l)
 	}
 	return cmd
 }
@@ -319,12 +328,8 @@ func (k KubectlCMD) addIgnoreNotFound(cmd string, ignoreNotFound bool) string {
 }
 
 func (k KubectlCMD) applyOptions(cmd string, opts ApplyOptions) string {
-	cmd = k.addNamespace(cmd, opts.Namespace)
-	cmd = k.addOutput(cmd, opts.Output)
-	return fmt.Sprintf("%s --force=%t", cmd, opts.Force)
-}
-
-func (k KubectlCMD) kustomizeOptions(cmd string, opts KustomizeOptions) string {
+	var resourceEmptyValue Resource = ""
+	cmd = k.addFilenameOptions(cmd, resourceEmptyValue, opts.FilenameOption, opts.Recursive, opts.Filename...)
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
 	return fmt.Sprintf("%s --force=%t", cmd, opts.Force)
@@ -340,24 +345,26 @@ func (k KubectlCMD) getOptions(cmd string, opts GetOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addOutput(cmd, opts.Output)
 	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
-	cmd = k.addLabels(cmd, opts.Labels)
-	cmd = k.excludeLabels(cmd, opts.ExcludeLabels)
+	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
 	return cmd
 }
 
 func (k KubectlCMD) deleteOptions(cmd string, opts DeleteOptions) string {
+	cmd = k.addFilenameOptions(cmd, opts.Resource, opts.FilenameOption, opts.Recursive, opts.Filename...)
 	cmd = k.addNamespace(cmd, opts.Namespace)
-	cmd = k.addLabels(cmd, opts.Labels)
+	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
+	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
 	return cmd
 }
 
 func (k KubectlCMD) waitOptions(cmd string, opts WaitOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
 	if opts.For != "" {
 		cmd = fmt.Sprintf("%s --for=%s", cmd, opts.For)
 	}
 	if opts.Timeout != 0 {
-		cmd = fmt.Sprintf("%s --timeout=%s", cmd, opts.Timeout*time.Second)
+		cmd = fmt.Sprintf("%s --timeout=%s", cmd, opts.Timeout)
 	}
 	return cmd
 }

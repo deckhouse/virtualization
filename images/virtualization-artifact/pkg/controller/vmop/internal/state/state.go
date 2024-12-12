@@ -23,8 +23,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -54,7 +54,7 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 
 	vmName := s.vmop.Current().Spec.VirtualMachine
 	vmNs := s.vmop.Current().GetNamespace()
-	vm, err := helper.FetchObject(ctx,
+	vm, err := object.FetchObject(ctx,
 		types.NamespacedName{Name: vmName, Namespace: vmNs},
 		s.client,
 		&virtv2.VirtualMachine{})

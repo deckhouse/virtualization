@@ -94,6 +94,12 @@ spec:
               {{- end }}
           env: {{ include "dvcr.envs" . | nindent 12 }}
           volumeMounts: {{ include "dvcr.volumeMounts" . | nindent 12 }}
+        {{- $kubeRbacProxySettings := dict }}
+        {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
+        {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+            (dict "upstream" "http://127.0.0.1:5001/metrics" "path" "/metrics" "name" "dvcr") 
+        ) }}
+        {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 8 }}
       volumes: {{ include "dvcr.volumes" . | nindent 8 }}
       {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
       {{- include "helm_lib_node_selector" (tuple . "system") | nindent 6 }}

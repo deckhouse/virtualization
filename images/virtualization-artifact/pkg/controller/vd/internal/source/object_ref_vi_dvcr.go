@@ -27,32 +27,37 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	common2 "github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type ObjectRefVirtualImageDVCR struct {
-	statService *service.StatService
-	diskService *service.DiskService
-	client      client.Client
+	statService         *service.StatService
+	diskService         *service.DiskService
+	storageClassService *service.VirtualDiskStorageClassService
+	client              client.Client
 }
 
 func NewObjectRefVirtualImageDVCR(
 	statService *service.StatService,
 	diskService *service.DiskService,
+	storageClassService *service.VirtualDiskStorageClassService,
 	client client.Client,
 ) *ObjectRefVirtualImageDVCR {
 	return &ObjectRefVirtualImageDVCR{
-		statService: statService,
-		diskService: diskService,
-		client:      client,
+		statService:         statService,
+		diskService:         diskService,
+		storageClassService: storageClassService,
+		client:              client,
 	}
 }
 
@@ -63,10 +68,11 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
-	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+	condition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -83,11 +89,17 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 		return reconcile.Result{}, errors.New("the source virtual image not found")
 	}
 
+	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
+	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
+		return reconcile.Result{}, err
+	}
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pvc, &condition, &vd.Status.Phase, supgen)
+		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vd, nil, pvc)
@@ -101,23 +113,23 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 		}
 
 		return CleanUpSupplements(ctx, vd, ds)
-	case common.AnyTerminating(dv, pvc):
+	case object.AnyTerminating(dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case dv == nil:
 		log.Info("Start import to PVC")
 
 		vd.Status.Progress = "0%"
-		vd.Status.SourceUID = util.GetPointer(vi.GetUID())
+		vd.Status.SourceUID = pointer.GetPointer(vi.GetUID())
 
 		if imageformat.IsISO(vi.Status.Format) {
-			setPhaseConditionToFailed(&condition, &vd.Status.Phase, ErrISOSourceNotSupported)
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, ErrISOSourceNotSupported)
 			return reconcile.Result{}, nil
 		}
 
 		var diskSize resource.Quantity
 		diskSize, err = ds.getPVCSize(vd, vi.Status.Size)
 		if err != nil {
-			setPhaseConditionToFailed(&condition, &vd.Status.Phase, err)
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
 
 			if errors.Is(err, service.ErrInsufficientPVCSize) {
 				return reconcile.Result{}, nil
@@ -128,30 +140,33 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 
 		source := ds.getSource(supgen, vi)
 
-		err = ds.diskService.Start(ctx, diskSize, vd.Spec.PersistentVolumeClaim.StorageClass, source, vd, supgen)
-		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
+		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
 
 		vd.Status.Phase = virtv2.DiskProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.Provisioning
-		condition.Message = "PVC Provisioner not found: create the new one."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.Provisioning).
+			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.Provisioning
-		condition.Message = "PVC not found: waiting for creation."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.Provisioning).
+			Message("PVC not found: waiting for creation.")
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
 		vd.Status.Phase = virtv2.DiskReady
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdcondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vdcondition.Ready).
+			Message("")
 
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
@@ -168,10 +183,10 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 			return reconcile.Result{}, err
 		}
 		sc, err := ds.diskService.GetStorageClass(ctx, pvc.Spec.StorageClassName)
-		if updated, err := setPhaseConditionFromStorageError(err, vd, &condition); err != nil || updated {
+		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
-		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, &condition, ds.diskService); err != nil {
+		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, cb, ds.diskService); err != nil {
 			return reconcile.Result{}, err
 		}
 
@@ -199,7 +214,7 @@ func (ds ObjectRefVirtualImageDVCR) Validate(ctx context.Context, vd *virtv2.Vir
 }
 
 func (ds ObjectRefVirtualImageDVCR) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
 
 	requeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -210,7 +225,7 @@ func (ds ObjectRefVirtualImageDVCR) CleanUpSupplements(ctx context.Context, vd *
 }
 
 func (ds ObjectRefVirtualImageDVCR) getSource(sup *supplements.Generator, vi *virtv2.VirtualImage) *cdiv1.DataVolumeSource {
-	url := common2.DockerRegistrySchemePrefix + vi.Status.Target.RegistryURL
+	url := common.DockerRegistrySchemePrefix + vi.Status.Target.RegistryURL
 	secretName := sup.DVCRAuthSecretForDV().Name
 	certConfigMapName := sup.DVCRCABundleConfigMapForDV().Name
 

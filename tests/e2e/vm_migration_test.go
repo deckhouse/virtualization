@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -41,8 +42,10 @@ func MigrateVirtualMachines(label map[string]string, templatePath string, virtua
 		migrationFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
 		err := CreateMigrationManifest(vm, migrationFilePath, label)
 		Expect(err).NotTo(HaveOccurred(), err)
-		res := kubectl.Apply(migrationFilePath, kc.ApplyOptions{
-			Namespace: conf.Namespace,
+		res := kubectl.Apply(kc.ApplyOptions{
+			Filename:       []string{migrationFilePath},
+			FilenameOption: kc.Filename,
+			Namespace:      conf.Namespace,
 		})
 		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 	}
@@ -71,50 +74,53 @@ func CreateMigrationManifest(vmName, filePath string, labels map[string]string) 
 	return nil
 }
 
-var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration"}
 
-	Context("When resources are applied:", func() {
+	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.VmMigration, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.VmMigration},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})
 
-	Context("When virtual images are applied:", func() {
+	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
-	Context("When virtual disks are applied:", func() {
+	Context("When virtual disks are applied", func() {
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
-	Context("When virtual machines are applied:", func() {
+	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
-	Context(fmt.Sprintf("When virtual machines are in %s phases:", PhaseRunning), func() {
+	Context(fmt.Sprintf("When virtual machines are in %s phases", PhaseRunning), func() {
 		It("starts migrations", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
@@ -128,19 +134,19 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 		})
 	})
 
-	Context("When VMs migrations are applied:", func() {
+	Context("When VMs migrations are applied", func() {
 		It("checks VMs and KubevirtVMIMs phases", func() {
 			By(fmt.Sprintf("KubevirtVMIMs should be in %s phases", PhaseSucceeded))
-			WaitPhase(kc.ResourceKubevirtVMIM, PhaseSucceeded, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceKubevirtVMIM, PhaseSucceeded, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 			By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
-			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 
@@ -154,6 +160,20 @@ var _ = Describe("Virtual machine migration", Ordered, ContinueOnFailure, func()
 
 			vms := strings.Split(res.StdOut(), " ")
 			CheckExternalConnection(externalHost, httpStatusOk, vms...)
+		})
+	})
+
+	Context("When test is completed", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.VmMigration,
+				AdditionalResources: []AdditionalResource{
+					{
+						Resource: kc.ResourceKubevirtVMIM,
+						Labels:   testCaseLabel,
+					},
+				},
+			})
 		})
 	})
 })

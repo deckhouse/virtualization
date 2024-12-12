@@ -27,7 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -53,7 +54,7 @@ func (s *SnapshotService) IsFrozen(vm *virtv2.VirtualMachine) bool {
 		return false
 	}
 
-	filesystemReady, _ := GetCondition(vmcondition.TypeFilesystemReady.String(), vm.Status.Conditions)
+	filesystemReady, _ := conditions.GetCondition(vmcondition.TypeFilesystemReady, vm.Status.Conditions)
 
 	return filesystemReady.Status == metav1.ConditionFalse && filesystemReady.Reason == vmcondition.ReasonFilesystemFrozen.String()
 }
@@ -63,7 +64,7 @@ func (s *SnapshotService) CanFreeze(vm *virtv2.VirtualMachine) bool {
 		return false
 	}
 
-	agentReady, _ := GetCondition(vmcondition.TypeAgentReady.String(), vm.Status.Conditions)
+	agentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, vm.Status.Conditions)
 
 	return agentReady.Status == metav1.ConditionTrue
 }
@@ -103,7 +104,10 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 		}
 
 		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
-		if ok {
+		if ok &&
+			vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady &&
+			vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseFailed &&
+			vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseTerminating {
 			return false, nil
 		}
 	}
@@ -117,7 +121,10 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 	}
 
 	for _, vmSnapshot := range vmSnapshots.Items {
-		if vmSnapshot.Spec.VirtualMachineName == vm.Name {
+		if vmSnapshot.Spec.VirtualMachineName == vm.Name &&
+			vmSnapshot.Status.Phase != virtv2.VirtualMachineSnapshotPhaseReady &&
+			vmSnapshot.Status.Phase != virtv2.VirtualMachineSnapshotPhaseFailed &&
+			vmSnapshot.Status.Phase != virtv2.VirtualMachineSnapshotPhaseTerminating {
 			return false, nil
 		}
 	}
@@ -163,27 +170,27 @@ func (s *SnapshotService) DeleteVolumeSnapshot(ctx context.Context, vs *vsv1.Vol
 }
 
 func (s *SnapshotService) GetVirtualDisk(ctx context.Context, name, namespace string) (*virtv2.VirtualDisk, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDisk{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDisk{})
 }
 
 func (s *SnapshotService) GetPersistentVolumeClaim(ctx context.Context, name, namespace string) (*corev1.PersistentVolumeClaim, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &corev1.PersistentVolumeClaim{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &corev1.PersistentVolumeClaim{})
 }
 
 func (s *SnapshotService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*virtv2.VirtualDiskSnapshot, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDiskSnapshot{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualDiskSnapshot{})
 }
 
 func (s *SnapshotService) GetVirtualMachine(ctx context.Context, name, namespace string) (*virtv2.VirtualMachine, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualMachine{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &virtv2.VirtualMachine{})
 }
 
 func (s *SnapshotService) GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &vsv1.VolumeSnapshot{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &vsv1.VolumeSnapshot{})
 }
 
 func (s *SnapshotService) GetSecret(ctx context.Context, name, namespace string) (*corev1.Secret, error) {
-	return helper.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &corev1.Secret{})
+	return object.FetchObject(ctx, types.NamespacedName{Namespace: namespace, Name: name}, s.client, &corev1.Secret{})
 }
 
 func (s *SnapshotService) CreateVirtualDiskSnapshot(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error) {

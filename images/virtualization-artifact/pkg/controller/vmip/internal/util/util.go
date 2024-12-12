@@ -22,11 +22,11 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func GetAllocatedIPs(ctx context.Context, apiClient client.Client, vmipType virtv2.VirtualMachineIPAddressType) (common.AllocatedIPs, error) {
+func GetAllocatedIPs(ctx context.Context, apiClient client.Client, vmipType virtv2.VirtualMachineIPAddressType) (ip.AllocatedIPs, error) {
 	var leases virtv2.VirtualMachineIPAddressLeaseList
 
 	err := apiClient.List(ctx, &leases)
@@ -34,13 +34,13 @@ func GetAllocatedIPs(ctx context.Context, apiClient client.Client, vmipType virt
 		return nil, fmt.Errorf("error getting leases: %w", err)
 	}
 
-	allocatedIPs := make(common.AllocatedIPs, len(leases.Items))
+	allocatedIPs := make(ip.AllocatedIPs, len(leases.Items))
 	for _, lease := range leases.Items {
 		l := lease
 		if vmipType == virtv2.VirtualMachineIPAddressTypeStatic && l.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseReleased {
 			continue
 		} else {
-			allocatedIPs[common.LeaseNameToIP(lease.Name)] = &l
+			allocatedIPs[ip.LeaseNameToIP(lease.Name)] = &l
 		}
 	}
 

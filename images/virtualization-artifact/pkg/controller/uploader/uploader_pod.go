@@ -27,9 +27,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 const (
@@ -88,10 +88,10 @@ func (p *Pod) makeSpec() *corev1.Pod {
 			Name:      p.PodSettings.Name,
 			Namespace: p.PodSettings.Namespace,
 			Annotations: map[string]string{
-				cc.AnnCreatedBy: "yes",
+				annotations.AnnCreatedBy: "yes",
 			},
 			Labels: map[string]string{
-				cc.UploaderServiceLabel: p.PodSettings.ServiceName,
+				annotations.UploaderServiceLabel: p.PodSettings.ServiceName,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				p.PodSettings.OwnerReference,
@@ -107,8 +107,8 @@ func (p *Pod) makeSpec() *corev1.Pod {
 		},
 	}
 
-	cc.SetRecommendedLabels(pod, p.PodSettings.InstallerLabels, p.PodSettings.ControllerName)
-	cc.SetRestrictedSecurityContext(&pod.Spec)
+	annotations.SetRecommendedLabels(pod, p.PodSettings.InstallerLabels, p.PodSettings.ControllerName)
+	podutil.SetRestrictedSecurityContext(&pod.Spec)
 
 	container := p.makeUploaderContainerSpec()
 	p.addVolumes(pod, container)
@@ -193,5 +193,5 @@ type PodNamer interface {
 }
 
 func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
-	return helper.FetchObject(ctx, name.UploaderPod(), client, &corev1.Pod{})
+	return object.FetchObject(ctx, name.UploaderPod(), client, &corev1.Pod{})
 }

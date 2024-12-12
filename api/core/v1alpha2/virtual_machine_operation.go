@@ -19,8 +19,8 @@ package v1alpha2
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 const (
-	VMOPKind     = "VirtualMachineOperation"
-	VMOPResource = "virtualmachineoperations"
+	VirtualMachineOperationKind     = "VirtualMachineOperation"
+	VirtualmachineOperationResource = "virtualmachineoperations"
 )
 
 // VirtualMachineOperation resource provides the ability to declaratively manage state changes of virtual machines.

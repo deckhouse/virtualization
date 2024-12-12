@@ -25,6 +25,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -37,14 +38,17 @@ const (
 
 func ExecSshCommand(vmName, cmd string) {
 	GinkgoHelper()
-	Eventually(func(g Gomega) {
+	Eventually(func() error {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 			Namespace:   conf.Namespace,
 			Username:    conf.TestData.SshUser,
 			IdenityFile: conf.TestData.Sshkey,
 		})
-		g.Expect(res.Error()).NotTo(HaveOccurred(), "execution of SSH command failed for %s/%s.\n%s\n", conf.Namespace, vmName, res.StdErr())
-	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+		if res.Error() != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return nil
+	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
 }
 
 func ChangeCPUCoresNumber(namespace string, cpuNumber int, virtualMachines ...string) {
@@ -52,7 +56,7 @@ func ChangeCPUCoresNumber(namespace string, cpuNumber int, virtualMachines ...st
 	cmd := fmt.Sprintf("patch %s --namespace %s %s --type merge --patch '{\"spec\":{\"cpu\":{\"cores\":%d}}}'", kc.ResourceVM, conf.Namespace, vms, cpuNumber)
 	By("Patching virtual machine specification")
 	patchRes := kubectl.RawCommand(cmd, ShortWaitDuration)
-	Expect(patchRes.WasSuccess()).To(Equal(true), patchRes.StdErr())
+	Expect(patchRes.Error()).NotTo(HaveOccurred(), patchRes.StdErr())
 }
 
 func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, virtualMachines ...string) {
@@ -79,60 +83,63 @@ func CheckCPUCoresNumberFromVirtualMachine(requiredValue string, virtualMachines
 	}
 }
 
-var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel  = map[string]string{"testcase": "vm-configuration"}
 		automaticLabel = map[string]string{"vm": "automatic-conf"}
 		manualLabel    = map[string]string{"vm": "manual-conf"}
 	)
 
-	Context("When resources are applied:", func() {
+	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.VmConfiguration, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.VmConfiguration},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})
 
-	Context("When virtual images are applied:", func() {
+	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
-	Context("When virtual disks are applied:", func() {
+	Context("When virtual disks are applied", func() {
 		It(fmt.Sprintf("should be in %s phase", PhaseReady), func() {
-			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
-	Context("When virtual machines are applied:", func() {
+	Context("When virtual machines are applied", func() {
 		It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
-			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
 	Describe("Manual restart approval mode", func() {
-		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
-				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
 				CheckCPUCoresNumber(ManualMode, StageBefore, 1, vms...)
@@ -140,7 +147,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 			})
 		})
 
-		Context("When virtual machine is patched:", func() {
+		Context("When virtual machine is patched", func() {
 			It("checks the number of processor cores in specification", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
@@ -154,7 +161,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 			})
 		})
 
-		Context("When virtual machine is restarted:", func() {
+		Context("When virtual machine is restarted", func() {
 			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
@@ -168,15 +175,15 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 					cmd := "sudo reboot"
 					ExecSshCommand(vm, cmd)
 				}
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    manualLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 			})
 		})
 
-		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
@@ -192,7 +199,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 	})
 
 	Describe("Automatic restart approval mode", func() {
-		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    automaticLabel,
@@ -207,7 +214,7 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 			})
 		})
 
-		Context("When virtual machine is patched:", func() {
+		Context("When virtual machine is patched", func() {
 			It("checks the number of processor cores in specification", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    automaticLabel,
@@ -221,27 +228,35 @@ var _ = Describe("Virtual machine configuration", Ordered, ContinueOnFailure, fu
 			})
 		})
 
-		Context("When virtual machine is restarted:", func() {
+		Context("When virtual machine is restarted", func() {
 			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    automaticLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 			})
 		})
 
-		Context(fmt.Sprintf("When virtual machine is in %s phase:", PhaseRunning), func() {
+		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    automaticLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
-				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
 				CheckCPUCoresNumberFromVirtualMachine("2", vms...)
+			})
+		})
+	})
+
+	Context("When test is completed", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.VmConfiguration,
 			})
 		})
 	})

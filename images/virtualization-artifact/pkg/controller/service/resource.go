@@ -29,8 +29,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type ResourceObject[T, ST any] interface {
@@ -76,7 +78,7 @@ func (r *Resource[T, ST]) Name() types.NamespacedName {
 }
 
 func (r *Resource[T, ST]) Fetch(ctx context.Context) error {
-	currentObj, err := helper.FetchObject(ctx, r.name, r.client, r.objFactory())
+	currentObj, err := object.FetchObject(ctx, r.name, r.client, r.objFactory())
 	if err != nil {
 		return err
 	}
@@ -103,10 +105,70 @@ func (r *Resource[T, ST]) Changed() T {
 	return r.changedObj
 }
 
+// rewriteObject is part of the transition from version 1.14, where you can specify empty reasons. After version 1.15, this feature is not needed.
+// TODO: Delete me after release v1.15
+func rewriteObject(obj client.Object) {
+	var conds []metav1.Condition
+
+	switch obj.GetObjectKind().GroupVersionKind().Kind {
+	case virtv2.VirtualMachineKind:
+		vm := obj.(*virtv2.VirtualMachine)
+		conds = vm.Status.Conditions
+	case virtv2.VirtualDiskKind:
+		vd := obj.(*virtv2.VirtualDisk)
+		conds = vd.Status.Conditions
+	case virtv2.VirtualImageKind:
+		vi := obj.(*virtv2.VirtualImage)
+		conds = vi.Status.Conditions
+	case virtv2.ClusterVirtualImageKind:
+		cvi := obj.(*virtv2.ClusterVirtualImage)
+		conds = cvi.Status.Conditions
+	case virtv2.VirtualMachineBlockDeviceAttachmentKind:
+		vmbda := obj.(*virtv2.VirtualMachineBlockDeviceAttachment)
+		conds = vmbda.Status.Conditions
+	case virtv2.VirtualMachineIPAddressKind:
+		ip := obj.(*virtv2.VirtualMachineIPAddress)
+		conds = ip.Status.Conditions
+	case virtv2.VirtualMachineIPAddressLeaseKind:
+		ipl := obj.(*virtv2.VirtualMachineIPAddressLease)
+		conds = ipl.Status.Conditions
+	case virtv2.VirtualMachineOperationKind:
+		vmop := obj.(*virtv2.VirtualMachineOperation)
+		conds = vmop.Status.Conditions
+	case virtv2.VirtualDiskSnapshotKind:
+		snap := obj.(*virtv2.VirtualDiskSnapshot)
+		conds = snap.Status.Conditions
+	case virtv2.VirtualMachineClassKind:
+		class := obj.(*virtv2.VirtualMachineClass)
+		conds = class.Status.Conditions
+	case virtv2.VirtualMachineRestoreKind:
+		restore := obj.(*virtv2.VirtualMachineRestore)
+		conds = restore.Status.Conditions
+	case virtv2.VirtualMachineSnapshotKind:
+		snap := obj.(*virtv2.VirtualMachineSnapshot)
+		conds = snap.Status.Conditions
+	}
+
+	rewriteConditions(conds)
+}
+
+func rewriteConditions(conds []metav1.Condition) {
+	for i := range conds {
+		if conds[i].Reason == "" {
+			conds[i].Reason = conditions.ReasonUnknown.String()
+		}
+		if conds[i].Status == "" {
+			conds[i].Status = metav1.ConditionUnknown
+		}
+	}
+}
+
 func (r *Resource[T, ST]) Update(ctx context.Context) error {
 	if r.IsEmpty() {
 		return nil
 	}
+
+	rewriteObject(r.changedObj)
 
 	if !reflect.DeepEqual(r.getObjStatus(r.currentObj), r.getObjStatus(r.changedObj)) {
 		// Save some metadata fields.

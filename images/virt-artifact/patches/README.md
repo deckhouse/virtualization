@@ -78,3 +78,18 @@ Cleanup stale Pods owned by the VMI, keep only last 3 in the Failed phase.
 Why we need it?
 
 Unsuccessful migrations may leave a lot of Pods. These huge lists reduce performance on virtualization-controller and cdi-deployment restarts.
+
+#### `023-replace-expressions-for-validating-admission-policy.patch`
+
+Replace the expressions for the ValidatingAdmissionPolicy kubevirt-node-restriction-policy.
+This is necessary because of the kube-api-rewriter that changes the labels.
+
+#### `024-cover-kubevirt-metrics.patch`
+
+Configure kubevirt's components metrics web servers to listen on localhost. 
+This is necessary for ensuring that the metrics can be accessed only by Prometheus via kube-rbac-proxy sidecar.
+
+Currently covered metrics:
+- virt-handler
+- virt-controller
+- virt-api

@@ -76,7 +76,7 @@ func (s *Modifier) Do(ctx context.Context, vm v1alpha2.VirtualMachine) {
 
 	vmop := v1alpha2.VirtualMachineOperation{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       v1alpha2.VMOPKind,
+			Kind:       v1alpha2.VirtualMachineOperationKind,
 			APIVersion: v1alpha2.Version,
 		},
 		ObjectMeta: metav1.ObjectMeta{

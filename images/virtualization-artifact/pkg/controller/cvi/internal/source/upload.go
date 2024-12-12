@@ -24,8 +24,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
@@ -59,10 +63,16 @@ func NewUploadDataSource(
 func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "upload")
 
-	condition, _ := service.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-	defer func() { service.SetCondition(condition, &cvi.Status.Conditions) }()
+	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+	cb := conditions.NewConditionBuilder(cvicondition.ReadyType).Generation(cvi.Generation)
+	defer func() {
+		// It is necessary to avoid setting unknown for the ready condition if it was already set to true.
+		if !(cb.Condition().Status == metav1.ConditionUnknown && condition.Status == metav1.ConditionTrue) {
+			conditions.SetCondition(cb, &cvi.Status.Conditions)
+		}
+	}()
 
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 	pod, err := ds.uploaderService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -80,9 +90,10 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	case isDiskProvisioningFinished(condition):
 		log.Info("Cluster virtual image provisioning finished: clean up")
 
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = cvicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(cvicondition.Ready).
+			Message("")
 
 		cvi.Status.Phase = virtv2.ImageReady
 
@@ -93,7 +104,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		}
 
 		return CleanUp(ctx, cvi, ds)
-	case common.AnyTerminating(pod, svc, ing):
+	case object.AnyTerminating(pod, svc, ing):
 		cvi.Status.Phase = virtv2.ImagePending
 
 		log.Info("Cleaning up...")
@@ -104,39 +115,42 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
-			return setQuotaExceededPhaseCondition(&condition, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
+			return setQuotaExceededPhaseCondition(cb, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
 		default:
-			setPhaseConditionToFailed(&condition, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			setPhaseConditionToFailed(cb, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
 			return reconcile.Result{}, err
 		}
 
 		cvi.Status.Phase = virtv2.ImageProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.Provisioning
-		condition.Message = "DVCR Provisioner not found: create the new one."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.Provisioning).
+			Message("DVCR Provisioner not found: create the new one.")
 
 		log.Info("Create uploader pod...", "progress", cvi.Status.Progress, "pod.phase", nil)
 
 		return reconcile.Result{Requeue: true}, nil
-	case common.IsPodComplete(pod):
+	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
 			cvi.Status.Phase = virtv2.ImageFailed
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(cvicondition.ProvisioningFailed).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
 			}
 		}
 
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = cvicondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(cvicondition.Ready).
+			Message("")
 
 		cvi.Status.Phase = virtv2.ImageReady
 		cvi.Status.Size = ds.statService.GetSize(pod)
@@ -154,23 +168,26 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ProvisioningNotStarted
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(cvicondition.ProvisioningNotStarted).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
-				condition.Status = metav1.ConditionFalse
-				condition.Reason = cvicondition.ProvisioningFailed
-				condition.Message = service.CapitalizeFirstLetter(err.Error() + ".")
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(cvicondition.ProvisioningFailed).
+					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			default:
 				return reconcile.Result{}, err
 			}
 		}
 
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.Provisioning
-		condition.Message = "Import is in the process of provisioning to DVCR."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.Provisioning).
+			Message("Import is in the process of provisioning to DVCR.")
 
 		cvi.Status.Phase = virtv2.ImageProvisioning
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
@@ -184,9 +201,10 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	case ds.statService.IsUploaderReady(pod, svc, ing):
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.WaitForUserUpload
-		condition.Message = "Waiting for the user upload."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.WaitForUserUpload).
+			Message("Waiting for the user upload.")
 
 		cvi.Status.Phase = virtv2.ImageWaitForUserUpload
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
@@ -197,9 +215,10 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 		log.Info("Waiting for the user upload", "pod.phase", pod.Status.Phase)
 	default:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = cvicondition.ProvisioningNotStarted
-		condition.Message = fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.ProvisioningNotStarted).
+			Message(fmt.Sprintf("Waiting for the uploader %q to be ready to process the user's upload.", pod.Name))
 
 		cvi.Status.Phase = virtv2.ImagePending
 
@@ -210,7 +229,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 }
 
 func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(common.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	requeue, err := ds.uploaderService.CleanUp(ctx, supgen)
 	if err != nil {

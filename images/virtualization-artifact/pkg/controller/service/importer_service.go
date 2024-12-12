@@ -25,7 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -93,7 +93,7 @@ func (s ImporterService) CleanUp(ctx context.Context, sup *supplements.Generator
 }
 
 func (s ImporterService) DeletePod(ctx context.Context, obj ObjectKind, controllerName string) (bool, error) {
-	labelSelector := client.MatchingLabels{common.AppKubernetesManagedByLabel: controllerName}
+	labelSelector := client.MatchingLabels{annotations.AppKubernetesManagedByLabel: controllerName}
 
 	podList := &corev1.PodList{}
 	if err := s.client.List(ctx, podList, labelSelector); err != nil {

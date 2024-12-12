@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmscondition"
@@ -49,11 +48,11 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *virt
 	defer func() { conditions.SetCondition(cb.Generation(vmSnapshot.Generation), &vmSnapshot.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmSnapshot.Status.Conditions) {
-		cb.Status(metav1.ConditionUnknown).Reason(vmscondition.VirtualMachineUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 	}
 
 	if vmSnapshot.DeletionTimestamp != nil {
-		cb.Status(metav1.ConditionUnknown).Reason(vmscondition.VirtualMachineUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 		return reconcile.Result{}, nil
 	}
 
@@ -85,7 +84,7 @@ func (h VirtualMachineReadyHandler) Handle(ctx context.Context, vmSnapshot *virt
 
 	switch vm.Status.Phase {
 	case virtv2.MachineRunning, virtv2.MachineStopped:
-		snapshotting, _ := service.GetCondition(vmcondition.TypeSnapshotting.String(), vm.Status.Conditions)
+		snapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, vm.Status.Conditions)
 		if snapshotting.Status != metav1.ConditionTrue {
 			cb.Status(metav1.ConditionFalse).Reason(vmscondition.VirtualMachineNotReadyForSnapshotting)
 			if snapshotting.Message == "" {

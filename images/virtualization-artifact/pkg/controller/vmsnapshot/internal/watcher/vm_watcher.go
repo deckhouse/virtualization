@@ -32,8 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -98,15 +98,15 @@ func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		return false
 	}
 
-	oldFSReady, _ := service.GetCondition(vmcondition.TypeFilesystemReady.String(), oldVM.Status.Conditions)
-	newFSReady, _ := service.GetCondition(vmcondition.TypeFilesystemReady.String(), newVM.Status.Conditions)
+	oldFSReady, _ := conditions.GetCondition(vmcondition.TypeFilesystemReady, oldVM.Status.Conditions)
+	newFSReady, _ := conditions.GetCondition(vmcondition.TypeFilesystemReady, newVM.Status.Conditions)
 
 	if oldFSReady.Reason != newFSReady.Reason {
 		return true
 	}
 
-	oldSnapshotting, _ := service.GetCondition(vmcondition.TypeSnapshotting.String(), oldVM.Status.Conditions)
-	newSnapshotting, _ := service.GetCondition(vmcondition.TypeSnapshotting.String(), newVM.Status.Conditions)
+	oldSnapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, oldVM.Status.Conditions)
+	newSnapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, newVM.Status.Conditions)
 
 	return oldSnapshotting.Status != newSnapshotting.Status
 }

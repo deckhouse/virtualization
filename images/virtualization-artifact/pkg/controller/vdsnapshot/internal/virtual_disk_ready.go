@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
@@ -40,27 +40,23 @@ func NewVirtualDiskReadyHandler(snapshotter VirtualDiskReadySnapshotter) *Virtua
 }
 
 func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error) {
-	condition, ok := service.GetCondition(vdscondition.VirtualDiskReadyType, vdSnapshot.Status.Conditions)
-	if !ok {
-		condition = metav1.Condition{
-			Type:   vdscondition.VirtualDiskReadyType,
-			Status: metav1.ConditionUnknown,
-		}
-	}
+	cb := conditions.NewConditionBuilder(vdscondition.VirtualDiskReadyType).Generation(vdSnapshot.Generation)
 
-	defer func() { service.SetCondition(condition, &vdSnapshot.Status.Conditions) }()
+	defer func() { conditions.SetCondition(cb, &vdSnapshot.Status.Conditions) }()
 
 	if vdSnapshot.DeletionTimestamp != nil {
-		condition.Status = metav1.ConditionUnknown
-		condition.Reason = ""
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Message("")
 		return reconcile.Result{}, nil
 	}
 
 	if vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseReady {
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdscondition.VirtualDiskReady
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vdscondition.VirtualDiskReady).
+			Message("")
 		return reconcile.Result{}, nil
 	}
 
@@ -70,37 +66,42 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.
 	}
 
 	if vd == nil {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdscondition.VirtualDiskNotReadyForSnapshotting
-		condition.Message = fmt.Sprintf("The virtual disk %q not found.", vdSnapshot.Spec.VirtualDiskName)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).
+			Message(fmt.Sprintf("The virtual disk %q not found.", vdSnapshot.Spec.VirtualDiskName))
 		return reconcile.Result{}, nil
 	}
 
 	if vd.GetDeletionTimestamp() != nil {
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdscondition.VirtualDiskNotReadyForSnapshotting
-		condition.Message = fmt.Sprintf("The virtual disk %q is in process of deletion.", vd.Name)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).
+			Message(fmt.Sprintf("The virtual disk %q is in process of deletion.", vd.Name))
 		return reconcile.Result{}, nil
 	}
 
 	switch vd.Status.Phase {
 	case virtv2.DiskReady:
-		snapshotting, _ := service.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
+		snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 		if snapshotting.Status != metav1.ConditionTrue {
-			condition.Status = metav1.ConditionFalse
-			condition.Reason = vdscondition.VirtualDiskNotReadyForSnapshotting
-			condition.Message = snapshotting.Message
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).
+				Message(snapshotting.Message)
 			return reconcile.Result{}, nil
 		}
 
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdscondition.VirtualDiskReady
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vdscondition.VirtualDiskReady).
+			Message("")
 		return reconcile.Result{}, nil
 	default:
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdscondition.VirtualDiskNotReadyForSnapshotting
-		condition.Message = fmt.Sprintf("The virtual disk %q is in the %q phase: waiting for it to reach the Ready phase.", vd.Name, vd.Status.Phase)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).
+			Message(fmt.Sprintf("The virtual disk %q is in the %q phase: waiting for it to reach the Ready phase.", vd.Name, vd.Status.Phase))
 		return reconcile.Result{}, nil
 	}
 }

@@ -23,10 +23,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
+	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
-	"github.com/deckhouse/virtualization-controller/pkg/imageformat"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -87,7 +87,7 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetNetworkInterface(NetworkInterfaceName)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
-	kvvm.SetTolerations(vm.Spec.Tolerations)
+	kvvm.SetTolerations(vm.Spec.Tolerations, class.Spec.Tolerations)
 	kvvm.SetAffinity(virtv2.NewAffinityFromVMAffinity(vm.Spec.Affinity), class.Spec.NodeSelector.MatchExpressions)
 	kvvm.SetPriorityClassName(vm.Spec.PriorityClassName)
 	kvvm.SetTerminationGracePeriod(vm.Spec.TerminationGracePeriodSeconds)
@@ -126,10 +126,11 @@ func ApplyVirtualMachineSpec(
 
 			name := GenerateVMIDiskName(bd.Name)
 			switch vi.Spec.Storage {
-			case virtv2.StorageKubernetes:
+			case virtv2.StorageKubernetes,
+				virtv2.StoragePersistentVolumeClaim:
 				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
 				if err := kvvm.SetDisk(name, SetDiskOptions{
-					PersistentVolumeClaim: util.GetPointer(vi.Status.Target.PersistentVolumeClaim),
+					PersistentVolumeClaim: pointer.GetPointer(vi.Status.Target.PersistentVolumeClaim),
 					IsEphemeral:           true,
 					Serial:                name,
 					BootOrder:             bootOrder,
@@ -138,7 +139,7 @@ func ApplyVirtualMachineSpec(
 				}
 			case virtv2.StorageContainerRegistry:
 				if err := kvvm.SetDisk(name, SetDiskOptions{
-					ContainerDisk: util.GetPointer(vi.Status.Target.RegistryURL),
+					ContainerDisk: pointer.GetPointer(vi.Status.Target.RegistryURL),
 					IsCdrom:       imageformat.IsISO(vi.Status.Format),
 					Serial:        name,
 					BootOrder:     bootOrder,
@@ -157,7 +158,7 @@ func ApplyVirtualMachineSpec(
 
 			name := GenerateCVMIDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
-				ContainerDisk: util.GetPointer(cvi.Status.Target.RegistryURL),
+				ContainerDisk: pointer.GetPointer(cvi.Status.Target.RegistryURL),
 				IsCdrom:       imageformat.IsISO(cvi.Status.Format),
 				Serial:        name,
 				BootOrder:     bootOrder,
@@ -177,7 +178,7 @@ func ApplyVirtualMachineSpec(
 
 			name := GenerateVMDDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
-				PersistentVolumeClaim: util.GetPointer(vd.Status.Target.PersistentVolumeClaim),
+				PersistentVolumeClaim: pointer.GetPointer(vd.Status.Target.PersistentVolumeClaim),
 				Serial:                name,
 				BootOrder:             bootOrder,
 			}); err != nil {
@@ -193,7 +194,7 @@ func ApplyVirtualMachineSpec(
 		switch {
 		case device.PVCName != "":
 			if err := kvvm.SetDisk(device.VolumeName, SetDiskOptions{
-				PersistentVolumeClaim: util.GetPointer(device.PVCName),
+				PersistentVolumeClaim: pointer.GetPointer(device.PVCName),
 				IsHotplugged:          true,
 			}); err != nil {
 				return err

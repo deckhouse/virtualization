@@ -25,9 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 )
 
 type CABundleConfigMap struct {
@@ -58,7 +58,7 @@ func (c CABundleConfigMap) Create(ctx context.Context, client client.Client, caB
 func (c CABundleConfigMap) Copy(ctx context.Context, client client.Client) error {
 	var caBundle string
 
-	srcObj, err := helper.FetchObject(ctx, c.SourceSecret, client, &corev1.Secret{})
+	srcObj, err := object.FetchObject(ctx, c.SourceSecret, client, &corev1.Secret{})
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (c CABundleConfigMap) makeConfigMap(caBundle string) *corev1.ConfigMap {
 			Name:      c.Destination.Name,
 			Namespace: c.Destination.Namespace,
 			Annotations: map[string]string{
-				cc.AnnCreatedBy: "yes",
+				annotations.AnnCreatedBy: "yes",
 			},
 			Labels: map[string]string{},
 			OwnerReferences: []metav1.OwnerReference{
@@ -103,11 +103,11 @@ func (c CABundleConfigMap) makeConfigMap(caBundle string) *corev1.ConfigMap {
 	}
 
 	if c.Labels != nil {
-		cm.Labels = common.MergeLabels(cm.GetLabels(), c.Labels)
+		cm.Labels = merger.MergeLabels(cm.GetLabels(), c.Labels)
 	}
 
 	if c.Annotations != nil {
-		cm.Annotations = common.MergeLabels(cm.GetAnnotations(), c.Annotations)
+		cm.Annotations = merger.MergeLabels(cm.GetAnnotations(), c.Annotations)
 	}
 
 	return cm

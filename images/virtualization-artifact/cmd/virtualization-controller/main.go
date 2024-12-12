@@ -34,8 +34,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/deckhouse/pkg/log"
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
@@ -56,11 +57,17 @@ import (
 )
 
 const (
-	pprofBindAddrEnv     = "PPROF_BIND_ADDRESS"
-	logLevelEnv          = "LOG_LEVEL"
-	logDebugVerbosityEnv = "LOG_DEBUG_VERBOSITY"
-	logFormatEnv         = "LOG_FORMAT"
-	logOutputEnv         = "LOG_OUTPUT"
+	logDebugControllerListEnv = "LOG_DEBUG_CONTROLLER_LIST"
+	logDebugVerbosityEnv      = "LOG_DEBUG_VERBOSITY"
+	logFormatEnv              = "LOG_FORMAT"
+	logLevelEnv               = "LOG_LEVEL"
+	logOutputEnv              = "LOG_OUTPUT"
+
+	metricsBindAddrEnv                         = "METRICS_BIND_ADDRESS"
+	podNamespaceEnv                            = "POD_NAMESPACE"
+	pprofBindAddrEnv                           = "PPROF_BIND_ADDRESS"
+	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
+	virtualMachineIPLeasesRetentionDurationEnv = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
 )
 
 func main() {
@@ -78,11 +85,16 @@ func main() {
 		}
 	}
 
+	var logDebugControllerList []string
+	fmt.Print(len(logDebugControllerList))
+	logDebugControllerListRaw := os.Getenv(logDebugControllerListEnv)
+	if logDebugControllerListRaw != "" {
+		logDebugControllerListRaw = strings.ReplaceAll(logDebugControllerListRaw, " ", "")
+		logDebugControllerList = strings.Split(logDebugControllerListRaw, ",")
+	}
+
 	var logDebugVerbosity int
 	flag.IntVar(&logDebugVerbosity, "log-debug-verbosity", int(defaultDebugVerbosity), "log debug verbosity")
-
-	var logFormat string
-	flag.StringVar(&logFormat, "log-format", os.Getenv(logFormatEnv), "log format")
 
 	var logOutput string
 	flag.StringVar(&logOutput, "log-output", os.Getenv(logOutputEnv), "log output")
@@ -90,20 +102,17 @@ func main() {
 	var pprofBindAddr string
 	flag.StringVar(&pprofBindAddr, "pprof-bind-address", os.Getenv(pprofBindAddrEnv), "enable pprof")
 
+	var metricsBindAddr string
+	flag.StringVar(&metricsBindAddr, "metrics-bind-address", getEnv(metricsBindAddrEnv, ":8080"), "metric bind address")
+
 	flag.Parse()
 
-	log := logger.New(logger.Options{
-		Level:          logLevel,
-		DebugVerbosity: logDebugVerbosity,
-		Format:         logFormat,
-		Output:         logOutput,
-	})
-
+	log := logger.NewLogger(logLevel, logOutput, logDebugVerbosity)
 	logger.SetDefaultLogger(log)
 
 	printVersion(log)
 
-	controllerNamespace, err := appconfig.GetRequiredEnvVar(common.PodNamespaceVar)
+	controllerNamespace, err := appconfig.GetRequiredEnvVar(podNamespaceEnv)
 	if err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
@@ -127,6 +136,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
+	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
+
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
@@ -138,7 +150,7 @@ func main() {
 	cfg.ContentType = apiruntime.ContentTypeJSON
 	cfg.NegotiatedSerializer = clientgoscheme.Codecs.WithoutConversion()
 
-	leaderElectionNS := os.Getenv(common.PodNamespaceVar)
+	leaderElectionNS := os.Getenv(podNamespaceEnv)
 	if leaderElectionNS == "" {
 		leaderElectionNS = "default"
 	}
@@ -168,27 +180,25 @@ func main() {
 		LeaderElectionID:           "d8-virt-operator-leader-election-helper",
 		LeaderElectionResourceLock: "leases",
 		Scheme:                     scheme,
+		Metrics: metricsserver.Options{
+			BindAddress: metricsBindAddr,
+		},
 	}
 	if pprofBindAddr != "" {
 		managerOpts.PprofBindAddress = pprofBindAddr
 	}
 
-	vmCIDRsRaw := os.Getenv(common.VirtualMachineCIDRs)
+	vmCIDRsRaw := os.Getenv(virtualMachineCIDRsEnv)
 	if vmCIDRsRaw == "" {
 		log.Error("Failed to get virtualMachineCIDRs: virtualMachineCIDRs not found, but required")
 		os.Exit(1)
 	}
 	virtualMachineCIDRs := strings.Split(vmCIDRsRaw, ",")
 
-	virtualMachineIPLeasesRetentionDuration := os.Getenv(common.VirtualMachineIPLeasesRetentionDuration)
+	virtualMachineIPLeasesRetentionDuration := os.Getenv(virtualMachineIPLeasesRetentionDurationEnv)
 	if virtualMachineIPLeasesRetentionDuration == "" {
 		log.Info("virtualMachineIPLeasesRetentionDuration not found -> set default value '10m'")
 		virtualMachineIPLeasesRetentionDuration = "10m"
-	}
-
-	storageClassForVirtualImageOnPVC := os.Getenv(common.VirtualImageStorageClass)
-	if storageClassForVirtualImageOnPVC == "" {
-		log.Info("virtualImages.storageClassName not found in ModuleConfig, default storage class will be used for images on PVCs.")
 	}
 
 	// Create a new Manager to provide shared dependencies and start components
@@ -214,70 +224,82 @@ func main() {
 		os.Exit(1)
 	}
 
-	if _, err = cvi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
+	cviLogger := logger.NewControllerLogger(cvi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = cvi.NewController(ctx, mgr, cviLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vd.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings); err != nil {
+	vdLogger := logger.NewControllerLogger(vd.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vd.NewController(ctx, mgr, vdLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, vdStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vi.NewController(ctx, mgr, log, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, storageClassForVirtualImageOnPVC); err != nil {
+	viLogger := logger.NewControllerLogger(vi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = vm.SetupController(ctx, mgr, log, dvcrSettings); err != nil {
+	vmLogger := logger.NewControllerLogger(vm.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	if err = vm.SetupGC(mgr, log, gcSettings.VMIMigration); err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
-
-	if _, err = vmbda.NewController(ctx, mgr, log, controllerNamespace); err != nil {
+	if err = vm.SetupGC(mgr, vmLogger, gcSettings.VMIMigration); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vmip.NewController(ctx, mgr, log, virtualMachineCIDRs); err != nil {
+	vmbdaLogger := logger.NewControllerLogger(vmbda.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmbda.NewController(ctx, mgr, vmbdaLogger, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vmiplease.NewController(ctx, mgr, log, virtualMachineIPLeasesRetentionDuration); err != nil {
+	vmipLogger := logger.NewControllerLogger(vmip.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmip.NewController(ctx, mgr, vmipLogger, virtualMachineCIDRs); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vmclass.NewController(ctx, mgr, log); err != nil {
+	vmipleaseLogger := logger.NewControllerLogger(vmiplease.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmiplease.NewController(ctx, mgr, vmipleaseLogger, virtualMachineIPLeasesRetentionDuration); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if _, err = vdsnapshot.NewController(ctx, mgr, log, virtClient); err != nil {
+	vmclassLogger := logger.NewControllerLogger(vmclass.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmclass.NewController(ctx, mgr, controllerNamespace, vmclassLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = vmsnapshot.NewController(ctx, mgr, log, virtClient); err != nil {
+	vdsnapshotLogger := logger.NewControllerLogger(vdsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vdsnapshot.NewController(ctx, mgr, vdsnapshotLogger, virtClient); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = vmrestore.NewController(ctx, mgr, log); err != nil {
+	vmsnapshotLogger := logger.NewControllerLogger(vmsnapshot.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmsnapshot.NewController(ctx, mgr, vmsnapshotLogger, virtClient); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
 
-	if err = vmop.SetupController(ctx, mgr, virtClient, log); err != nil {
+	vmrestoreLogger := logger.NewControllerLogger(vmrestore.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmrestore.NewController(ctx, mgr, vmrestoreLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
-	if err = vmop.SetupGC(mgr, log, gcSettings.VMOP); err != nil {
+
+	vmopLogger := logger.NewControllerLogger(vmop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vmop.SetupController(ctx, mgr, virtClient, vmopLogger); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+	if err = vmop.SetupGC(mgr, vmopLogger, gcSettings.VMOP); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -291,7 +313,14 @@ func main() {
 	}
 }
 
-func printVersion(log *slog.Logger) {
+func printVersion(log *log.Logger) {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+}
+
+func getEnv(env, defaultEnv string) string {
+	if e, found := os.LookupEnv(env); found {
+		return e
+	}
+	return defaultEnv
 }

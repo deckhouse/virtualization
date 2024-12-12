@@ -23,7 +23,9 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -71,7 +73,10 @@ func ItApplyFromFile(filepath string) {
 func ApplyFromFile(filepath string) {
 	GinkgoHelper()
 	fmt.Printf("Apply file %s\n", filepath)
-	res := kubectl.Apply(filepath, kc.ApplyOptions{})
+	res := kubectl.Apply(kc.ApplyOptions{
+		Filename:       []string{filepath},
+		FilenameOption: kc.Filename,
+	})
 	Expect(res.Error()).NotTo(HaveOccurred(), "apply failed for file %s\n%s", filepath, res.StdErr())
 }
 
@@ -197,7 +202,32 @@ func GetObject(resource kc.Resource, name string, object client.Object, opts kc.
 	if opts.Namespace != "" {
 		cmdOpts.Namespace = opts.Namespace
 	}
+	if opts.Labels != nil {
+		cmdOpts.Labels = opts.Labels
+	}
 	cmd := kubectl.GetResource(resource, name, cmdOpts)
+	if cmd.Error() != nil {
+		return fmt.Errorf(cmd.StdErr())
+	}
+	err := json.Unmarshal(cmd.StdOutBytes(), object)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func GetObjects(resource kc.Resource, object client.ObjectList, opts kc.GetOptions) error {
+	GinkgoHelper()
+	cmdOpts := kc.GetOptions{
+		Output: "json",
+	}
+	if opts.Namespace != "" {
+		cmdOpts.Namespace = opts.Namespace
+	}
+	if opts.Labels != nil {
+		cmdOpts.Labels = opts.Labels
+	}
+	cmd := kubectl.List(resource, cmdOpts)
 	if cmd.Error() != nil {
 		return fmt.Errorf(cmd.StdErr())
 	}
@@ -222,21 +252,44 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
-func WaitPhase(resource kc.Resource, phase string, opts kc.GetOptions) {
+// Useful when require to async await resources filtered by labels.
+//
+//	Static condition `wait --for`: `jsonpath={.status.phase}=phase`.
+func WaitPhaseByLabel(resource kc.Resource, phase string, opts kc.WaitOptions) {
 	GinkgoHelper()
-	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
+	wg := sync.WaitGroup{}
+	mu := sync.Mutex{}
 
-	res := kubectl.List(resource, opts)
-	Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+	res := kubectl.List(resource, kc.GetOptions{
+		ExcludedLabels: opts.ExcludedLabels,
+		Labels:         opts.Labels,
+		Namespace:      opts.Namespace,
+		Output:         "jsonpath='{.items[*].metadata.name}'",
+	})
+	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 	resources := strings.Split(res.StdOut(), " ")
+	waitErr := make([]string, 0, len(resources))
 	waitOpts := kc.WaitOptions{
+		For:       fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase),
 		Namespace: opts.Namespace,
-		For:       jsonPath,
-		Timeout:   600,
+		Timeout:   opts.Timeout,
 	}
-	waitResult := kubectl.WaitResources(resource, waitOpts, resources...)
-	Expect(waitResult.Error()).NotTo(HaveOccurred(), waitResult.StdErr())
+
+	for _, name := range resources {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			res := kubectl.WaitResource(resource, name, waitOpts)
+			if res.Error() != nil {
+				mu.Lock()
+				waitErr = append(waitErr, res.StdErr())
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	Expect(waitErr).To(BeEmpty())
 }
 
 func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
@@ -251,14 +304,27 @@ func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 		return nil, err
 	}
 
-	for _, sc := range scList.Items {
-		isDefault, ok := sc.Annotations["storageclass.kubernetes.io/is-default-class"]
-		if ok && isDefault == "true" {
-			return &sc, nil
+	var defaultClasses []*storagev1.StorageClass
+	for idx := range scList.Items {
+		if scList.Items[idx].Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			defaultClasses = append(defaultClasses, &scList.Items[idx])
 		}
 	}
 
-	return nil, fmt.Errorf("Default StorageClass not found in the cluster: please set a default StorageClass.")
+	if len(defaultClasses) == 0 {
+		return nil, fmt.Errorf("Default StorageClass not found in the cluster: please set a default StorageClass.")
+	}
+
+	// Primary sort by creation timestamp, newest first
+	// Secondary sort by class name, ascending order
+	sort.Slice(defaultClasses, func(i, j int) bool {
+		if defaultClasses[i].CreationTimestamp.UnixNano() == defaultClasses[j].CreationTimestamp.UnixNano() {
+			return defaultClasses[i].Name < defaultClasses[j].Name
+		}
+		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
+	})
+
+	return defaultClasses[0], nil
 }
 
 func toIPNet(prefix netip.Prefix) *net.IPNet {
@@ -365,5 +431,56 @@ func GetPhaseByVolumeBindingMode(c *Config) string {
 		return PhaseWaitForFirstConsumer
 	default:
 		return PhaseReady
+	}
+}
+
+// Test data templates does not contain this resources, but this resources are created in test case.
+type AdditionalResource struct {
+	Resource kc.Resource
+	Labels   map[string]string
+}
+
+// KustomizationDir - `kubectl delete --kustomize <dir>`
+//
+// AdditionalResources - for each resource `kubectl delete <resource> <labels>`
+//
+// Files - `kubectl delete --filename <files>`
+type ResourcesToDelete struct {
+	KustomizationDir    string
+	AdditionalResources []AdditionalResource
+	Files               []string
+}
+
+// This function checks that all resources in test case can be deleted correctly.
+func DeleteTestCaseResources(resources ResourcesToDelete) {
+	By("Response on deletion request should be successful")
+	errMessage := "cannot delete test case resources"
+	kustimizationFile := fmt.Sprintf("%s/%s", resources.KustomizationDir, "kustomization.yaml")
+	err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
+	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\nstderr: %s", errMessage, resources.KustomizationDir, err))
+
+	if resources.KustomizationDir != "" {
+		res := kubectl.Delete(kc.DeleteOptions{
+			Filename:       []string{resources.KustomizationDir},
+			FilenameOption: kc.Kustomize,
+		})
+		Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\ncmd: %s\nstderr: %s", errMessage, resources.KustomizationDir, res.GetCmd(), res.StdErr()))
+	}
+
+	for _, r := range resources.AdditionalResources {
+		res := kubectl.Delete(kc.DeleteOptions{
+			Labels:    r.Labels,
+			Namespace: conf.Namespace,
+			Resource:  r.Resource,
+		})
+		Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr()))
+	}
+
+	if len(resources.Files) != 0 {
+		res := kubectl.Delete(kc.DeleteOptions{
+			Filename:       resources.Files,
+			FilenameOption: kc.Filename,
+		})
+		Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr()))
 	}
 }

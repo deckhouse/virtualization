@@ -17,21 +17,41 @@ limitations under the License.
 package vicondition
 
 // Type represents the various condition types for the `VirtualImage`.
-type Type = string
+type Type string
+
+func (s Type) String() string {
+	return string(s)
+}
 
 const (
 	// DatasourceReadyType indicates whether the datasource (for example, a `VirtualImage`) is ready, allowing the import process for the `VirtualImage` to start.
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `VirtualImage` is ready for use.
 	ReadyType Type = "Ready"
+	// StorageClassReadyType indicates whether the storageClass ready
+	StorageClassReadyType Type = "StorageClassReady"
 )
 
 type (
 	// DatasourceReadyReason represents the various reasons for the DatasourceReady condition type.
-	DatasourceReadyReason = string
+	DatasourceReadyReason string
 	// ReadyReason represents the various reasons for the Ready condition type.
-	ReadyReason = string
+	ReadyReason string
+	// StorageClassReadyReason represents the various reasons for the StorageClassReady condition type.
+	StorageClassReadyReason string
 )
+
+func (s DatasourceReadyReason) String() string {
+	return string(s)
+}
+
+func (s ReadyReason) String() string {
+	return string(s)
+}
+
+func (s StorageClassReadyReason) String() string {
+	return string(s)
+}
 
 const (
 	// DatasourceReady indicates that the datasource is ready for use, allowing the import process to start.
@@ -53,9 +73,18 @@ const (
 	ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
 	// ProvisioningFailed indicates that the provisioning process has failed.
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
+	// StorageClassNotReady indicates that the provisioning process pending because `StorageClass` not ready.
+	StorageClassNotReady ReadyReason = "StorageClassNotReady"
 	// Ready indicates that the import process is complete and the `VirtualImage` is ready for use.
 	Ready ReadyReason = "Ready"
 
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualImage` can no longer be used.
 	Lost ReadyReason = "PVCLost"
+
+	// StorageClassReady indicates that the chosen StorageClass exists.
+	StorageClassReady StorageClassReadyReason = "StorageClassReady"
+	// StorageClassNotFound indicates that the chosen StorageClass not found.
+	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
+	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
+	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
 )

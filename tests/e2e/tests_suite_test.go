@@ -28,13 +28,17 @@ import (
 
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
 const (
+	Interval                  = 5 * time.Second
+	Timeout                   = 90 * time.Second
 	ShortWaitDuration         = 60 * time.Second
 	LongWaitDuration          = 300 * time.Second
+	MaxWaitTimeout            = 600 * time.Second
 	PhaseAttached             = "Attached"
 	PhaseReady                = "Ready"
 	PhaseBound                = "Bound"
@@ -87,11 +91,13 @@ func init() {
 	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(conf)
 	// TODO: get kustomization files from testdata directory when all tests will be refactored
 	kustomizationFiles := []string{
+		fmt.Sprintf("%s/%s", conf.TestData.AffinityToleration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.VmLabelAnnotation, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml"),
 	}
@@ -100,7 +106,10 @@ func init() {
 			log.Fatal(err)
 		}
 	}
-	Cleanup()
+	err = Cleanup()
+	if err != nil {
+		log.Fatal(err)
+	}
 	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})
 	if !res.WasSuccess() {
 		log.Fatalf("err: %v\n%s", res.Error(), res.StdErr())
@@ -111,15 +120,33 @@ func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
 	fmt.Fprintf(GinkgoWriter, "Starting test suite\n")
 	RunSpecs(t, "Tests")
-	Cleanup()
+	if !(ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() {
+		Cleanup()
+	}
 }
 
-func Cleanup() {
-	kubectl.DeleteResource(kc.ResourceNamespace, conf.Namespace, kc.DeleteOptions{})
-	kubectl.DeleteResource(kc.ResourceCVI, "", kc.DeleteOptions{
-		Labels: map[string]string{"id": namePrefix},
+func Cleanup() error {
+	res := kubectl.Delete(kc.DeleteOptions{
+		Filename:       []string{conf.Namespace},
+		IgnoreNotFound: true,
+		Resource:       kc.ResourceNamespace,
 	})
-	kubectl.DeleteResource(kc.ResourceVMClass, "", kc.DeleteOptions{
-		Labels: map[string]string{"id": namePrefix},
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	res = kubectl.Delete(kc.DeleteOptions{
+		Labels:   map[string]string{"id": namePrefix},
+		Resource: kc.ResourceCVI,
 	})
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	res = kubectl.Delete(kc.DeleteOptions{
+		Labels:   map[string]string{"id": namePrefix},
+		Resource: kc.ResourceVMClass,
+	})
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	return nil
 }

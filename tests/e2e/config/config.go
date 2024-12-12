@@ -128,15 +128,17 @@ type Config struct {
 }
 
 type TestData struct {
-	ComplexTest      string `yaml:"complexTest"`
-	Connectivity     string `yaml:"connectivity"`
-	DiskResizing     string `yaml:"diskResizing"`
-	SizingPolicy     string `yaml:"sizingPolicy"`
-	VmConfiguration  string `yaml:"vmConfiguration"`
-	VmMigration      string `yaml:"vmMigration"`
-	VmDiskAttachment string `yaml:"vmDiskAttachment"`
-	Sshkey           string `yaml:"sshKey"`
-	SshUser          string `yaml:"sshUser"`
+	AffinityToleration string `yaml:"affinityToleration"`
+	ComplexTest        string `yaml:"complexTest"`
+	Connectivity       string `yaml:"connectivity"`
+	DiskResizing       string `yaml:"diskResizing"`
+	SizingPolicy       string `yaml:"sizingPolicy"`
+	VmConfiguration    string `yaml:"vmConfiguration"`
+	VmLabelAnnotation  string `yaml:"vmLabelAnnotation"`
+	VmMigration        string `yaml:"vmMigration"`
+	VmDiskAttachment   string `yaml:"vmDiskAttachment"`
+	Sshkey             string `yaml:"sshKey"`
+	SshUser            string `yaml:"sshUser"`
 }
 
 type StorageClass struct {
@@ -250,6 +252,39 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 	kustomizeFile.Namespace = namespace
 	kustomizeFile.NamePrefix = namePrefix + "-"
 	kustomizeFile.Labels[0].Pairs["id"] = namePrefix
+	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
+	if marshalErr != nil {
+		return marshalErr
+	}
+
+	writeErr := os.WriteFile(filePath, updatedKustomizeFile, 0o644)
+	if writeErr != nil {
+		return writeErr
+	}
+
+	return nil
+}
+
+func (k *Kustomize) ExcludeResource(filePath, resourceName string) error {
+	var kustomizeFile Kustomize
+
+	data, readErr := os.ReadFile(filePath)
+	if readErr != nil {
+		return readErr
+	}
+
+	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
+	if unmarshalErr != nil {
+		return unmarshalErr
+	}
+	newResourceList := make([]string, 0, len(kustomizeFile.Resources))
+	for _, v := range kustomizeFile.Resources {
+		if v != resourceName {
+			newResourceList = append(newResourceList, v)
+		}
+	}
+
+	kustomizeFile.Resources = newResourceList
 	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
 	if marshalErr != nil {
 		return marshalErr

@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -176,7 +176,7 @@ func (h *LifeCycleHandler) syncPodStarted(vm *virtv2.VirtualMachine, kvvm *virtv
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypePodStarted).Generation(vm.GetGeneration())
 
-	if common.IsPodStarted(pod) {
+	if podutil.IsPodStarted(pod) {
 		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonPodStarted)
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		return
@@ -266,8 +266,7 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 		for _, c := range kvvmi.Status.Conditions {
 			if c.Type == virtv1.VirtualMachineInstanceReady {
 				cb.Status(conditionStatus(string(c.Status))).
-					//nolint:staticcheck
-					Reason(conditions.DeprecatedWrappedString(c.Reason)).
+					Reason(getKVMIReadyReason(c.Reason)).
 					Message(c.Message)
 				conditions.SetCondition(cb, &vm.Status.Conditions)
 				return

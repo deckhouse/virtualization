@@ -24,7 +24,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/util"
+	"github.com/deckhouse/virtualization-controller/pkg/common/humanize_bytes"
 )
 
 // FinalReport example: { "source-image-size": 1111, "source-image-virtual-size": 8888, "source-image-format": "qcow2"}
@@ -38,7 +38,7 @@ type FinalReport struct {
 }
 
 func (r *FinalReport) GetAverageSpeed() string {
-	return util.HumanizeIBytes(r.AverageSpeed) + "/s"
+	return humanize_bytes.HumanizeIBytes(r.AverageSpeed) + "/s"
 }
 
 func (r *FinalReport) GetAverageSpeedRaw() uint64 {

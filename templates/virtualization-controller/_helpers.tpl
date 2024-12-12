@@ -1,7 +1,5 @@
 {{- define "virtualization-controller.envs" -}}
 {{- $registry := include "dvcr.get_registry" (list .) }}
-- name: KUBECONFIG
-  value: "/kubeconfig.local/proxy.kubeconfig"
 - name: LOG_LEVEL
   value: {{ .Values.virtualization.logLevel }}
 {{- if eq .Values.virtualization.logLevel "debug" }}
@@ -35,6 +33,20 @@
 {{- if (hasKey .Values.virtualization "virtualImages") }}
 - name: VIRTUAL_IMAGE_STORAGE_CLASS
   value: {{ .Values.virtualization.virtualImages.storageClassName }}
+- name: VIRTUAL_IMAGE_DEFAULT_STORAGE_CLASS
+  value: {{ .Values.virtualization.virtualImages.defaultStorageClassName }}
+{{- if (hasKey .Values.virtualization.virtualImages "allowedStorageClassSelector") }}
+- name: VIRTUAL_IMAGE_ALLOWED_STORAGE_CLASSES
+  value: {{ join "," .Values.virtualization.virtualImages.allowedStorageClassSelector.matchNames | quote }}
+{{- end }}
+{{- end }}
+{{- if (hasKey .Values.virtualization "virtualDisks") }}
+- name: VIRTUAL_DISK_DEFAULT_STORAGE_CLASS
+  value: {{ .Values.virtualization.virtualDisks.defaultStorageClassName }}
+{{- if (hasKey .Values.virtualization.virtualDisks "allowedStorageClassSelector") }}
+- name: VIRTUAL_DISK_ALLOWED_STORAGE_CLASSES
+  value: {{ join "," .Values.virtualization.virtualDisks.allowedStorageClassSelector.matchNames | quote }}
+{{- end }}
 {{- end }}
 - name: VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION
   value: "10m"
@@ -56,7 +68,8 @@
   value: "24h"
 - name: GC_VMI_MIGRATION_SCHEDULE
   value: "0 * * * *"
-
+- name: METRICS_BIND_ADDRESS
+  value: "127.0.0.1:8080"
 {{- if eq .Values.virtualization.logLevel "debug" }}
 - name: PPROF_BIND_ADDRESS
   value: ":8081"

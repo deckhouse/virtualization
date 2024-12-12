@@ -45,7 +45,7 @@ func addAllUnknown(vm *virtv2.VirtualMachine, conds ...vmcondition.Type) (update
 		}
 		cb := conditions.NewConditionBuilder(cond).
 			Generation(vm.GetGeneration()).
-			Reason(vmcondition.ReasonUnknown).
+			Reason(conditions.ReasonUnknown).
 			Status(metav1.ConditionUnknown)
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 		update = true
@@ -132,6 +132,29 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]virtv2.MachinePhase{
 }
 
 const kvvmEmptyPhase virtv1.VirtualMachinePrintableStatus = ""
+
+func getKVMIReadyReason(kvmiReason string) conditions.Stringer {
+	if r, ok := mapReasons[kvmiReason]; ok {
+		return r
+	}
+
+	if kvmiReason == "" {
+		return conditions.ReasonUnknown
+	}
+
+	return conditions.CommonReason(kvmiReason)
+}
+
+var mapReasons = map[string]vmcondition.Reason{
+	// PodTerminatingReason indicates on the Ready condition on the VMI if the underlying pod is terminating
+	virtv1.PodTerminatingReason: vmcondition.ReasonPodTerminatingReason,
+	// PodNotExistsReason indicates on the Ready condition on the VMI if the underlying pod does not exist
+	virtv1.PodNotExistsReason: vmcondition.ReasonPodNotExistsReason,
+	// PodConditionMissingReason indicates on the Ready condition on the VMI if the underlying pod does not report a Ready condition
+	virtv1.PodConditionMissingReason: vmcondition.ReasonPodConditionMissingReason,
+	// GuestNotRunningReason indicates on the Ready condition on the VMI if the underlying guest VM is not running
+	virtv1.GuestNotRunningReason: vmcondition.ReasonGuestNotRunningReason,
+}
 
 func isPodStartedError(phase virtv1.VirtualMachinePrintableStatus) bool {
 	return slices.Contains([]virtv1.VirtualMachinePrintableStatus{

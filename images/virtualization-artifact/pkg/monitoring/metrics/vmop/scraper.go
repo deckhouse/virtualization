@@ -18,21 +18,21 @@ package vmop
 
 import (
 	"fmt"
-	"log/slog"
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/deckhouse/virtualization-controller/pkg/util"
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func newScraper(ch chan<- prometheus.Metric, log *slog.Logger) *scraper {
+func newScraper(ch chan<- prometheus.Metric, log *log.Logger) *scraper {
 	return &scraper{ch: ch, log: log}
 }
 
 type scraper struct {
 	ch  chan<- prometheus.Metric
-	log *slog.Logger
+	log *log.Logger
 }
 
 func (s *scraper) Report(m *dataMetric) {
@@ -57,7 +57,7 @@ func (s *scraper) updateMetricVMOPStatusPhase(m *dataMetric) {
 
 	for _, p := range phases {
 		s.defaultUpdate(MetricVMOPStatusPhase,
-			util.BoolFloat64(p.value), m, p.name)
+			common.BoolFloat64(p.value), m, p.name)
 	}
 }
 

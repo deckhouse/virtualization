@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -42,7 +43,7 @@ func vdPath(file string) string {
 	return path.Join(conf.Disks.VdTestDataDir, file)
 }
 
-var _ = Describe("Disks", func() {
+var _ = Describe("Disks", ginkgoutil.CommonE2ETestDecorators(), func() {
 	CheckProgress := func(filepath string) {
 		GinkgoHelper()
 		out := "jsonpath={.status.progress}"
@@ -71,10 +72,13 @@ var _ = Describe("Disks", func() {
 		ItChekStatusPhaseFromFile(filepath, PhaseReady)
 	}
 
-	Context("CVI", Ordered, ContinueOnFailure, func() {
+	Context("CVI", func() {
 		AfterAll(func() {
 			By("Removing resources for cvi tests")
-			kubectl.Delete(conf.Disks.CviTestDataDir, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{conf.Disks.CviTestDataDir},
+				FilenameOption: kc.Filename,
+			})
 		})
 		When("http source", func() {
 			filepath := cviPath("/cvi_http.yaml")
@@ -103,8 +107,10 @@ var _ = Describe("Disks", func() {
 		When("upload", func() {
 			AfterAll(func() {
 				By("Removing support resources for cvi upload test")
-				kubectl.DeleteResource(kc.ResourcePod, UploadHelpPod, kc.DeleteOptions{
+				kubectl.Delete(kc.DeleteOptions{
+					Filename:  []string{UploadHelpPod},
 					Namespace: conf.Namespace,
+					Resource:  kc.ResourcePod,
 				})
 			})
 			filepath := cviPath("/cvi_upload.yaml")
@@ -112,10 +118,13 @@ var _ = Describe("Disks", func() {
 			CheckProgress(filepath)
 		})
 	})
-	Context("VI", Ordered, ContinueOnFailure, func() {
+	Context("VI", func() {
 		AfterAll(func() {
 			By("Removing resources for vi tests")
-			kubectl.Delete(conf.Disks.ViTestDataDir, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{conf.Disks.ViTestDataDir},
+				FilenameOption: kc.Filename,
+			})
 		})
 		When("http source", func() {
 			filepath := viPath("/vi_http.yaml")
@@ -144,8 +153,10 @@ var _ = Describe("Disks", func() {
 		When("upload", func() {
 			AfterAll(func() {
 				By("Removing support resources for vi upload test")
-				kubectl.DeleteResource(kc.ResourcePod, UploadHelpPod, kc.DeleteOptions{
+				kubectl.Delete(kc.DeleteOptions{
+					Filename:  []string{UploadHelpPod},
 					Namespace: conf.Namespace,
+					Resource:  kc.ResourcePod,
 				})
 			})
 			filepath := viPath("/vi_upload.yaml")
@@ -153,10 +164,13 @@ var _ = Describe("Disks", func() {
 			CheckProgress(filepath)
 		})
 	})
-	Context("VD", Ordered, ContinueOnFailure, func() {
+	Context("VD", func() {
 		AfterAll(func() {
 			By("Removing resources for vd tests")
-			kubectl.Delete(conf.Disks.VdTestDataDir, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{conf.Disks.VdTestDataDir},
+				FilenameOption: kc.Filename,
+			})
 		})
 		When("http source", func() {
 			filepath := vdPath("/vd_http.yaml")
@@ -196,8 +210,10 @@ var _ = Describe("Disks", func() {
 		When("upload", func() {
 			AfterAll(func() {
 				By("Removing support resources for vd upload test")
-				kubectl.DeleteResource(kc.ResourcePod, UploadHelpPod, kc.DeleteOptions{
+				kubectl.Delete(kc.DeleteOptions{
+					Filename:  []string{UploadHelpPod},
 					Namespace: conf.Namespace,
+					Resource:  kc.ResourcePod,
 				})
 			})
 			filepath := vdPath("/vd_upload.yaml")

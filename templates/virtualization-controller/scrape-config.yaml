@@ -11,7 +11,7 @@ spec:
     credentials:
       key: token
       name: prometheus-token
-  scheme: HTTP
+  scheme: HTTPS
   tlsConfig:
     insecureSkipVerify: true
   staticConfigs:

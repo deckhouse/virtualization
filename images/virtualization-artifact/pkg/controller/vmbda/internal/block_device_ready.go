@@ -47,11 +47,11 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 	defer func() { conditions.SetCondition(cb.Generation(vmbda.Generation), &vmbda.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmbda.Status.Conditions) {
-		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.BlockDeviceReadyUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 	}
 
 	if vmbda.DeletionTimestamp != nil {
-		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.BlockDeviceReadyUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 		return reconcile.Result{}, nil
 	}
 
@@ -92,7 +92,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 		}
 
 		if vd.Status.Phase == virtv2.DiskReady {
-			diskReadyCondition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+			diskReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 			if diskReadyCondition.Status != metav1.ConditionTrue {
 				cb.
 					Status(metav1.ConditionFalse).

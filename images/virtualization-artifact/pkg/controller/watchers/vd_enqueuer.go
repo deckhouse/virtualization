@@ -19,14 +19,14 @@ package watchers
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -35,7 +35,7 @@ type VirtualDiskRequestEnqueuer struct {
 	enqueueFromObj  client.Object
 	enqueueFromKind virtv2.VirtualDiskObjectRefKind
 	client          client.Client
-	logger          *slog.Logger
+	logger          *log.Logger
 }
 
 func NewVirtualDiskRequestEnqueuer(client client.Client, enqueueFromObj client.Object, enqueueFromKind virtv2.VirtualDiskObjectRefKind) *VirtualDiskRequestEnqueuer {
@@ -43,7 +43,7 @@ func NewVirtualDiskRequestEnqueuer(client client.Client, enqueueFromObj client.O
 		enqueueFromObj:  enqueueFromObj,
 		enqueueFromKind: enqueueFromKind,
 		client:          client,
-		logger:          slog.Default().With("enqueuer", "vd"),
+		logger:          log.Default().With("enqueuer", "vd"),
 	}
 }
 
@@ -60,7 +60,7 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequests(ctx context.Context, obj cli
 	}
 
 	for _, vd := range vds.Items {
-		dsReady, _ := service.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+		dsReady, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 		if dsReady.Status == metav1.ConditionTrue {
 			continue
 		}

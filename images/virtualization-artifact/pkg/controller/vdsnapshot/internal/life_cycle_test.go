@@ -26,7 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
 )
@@ -65,7 +65,7 @@ var _ = Describe("LifeCycle handler", func() {
 			Status: virtv2.VirtualDiskSnapshotStatus{
 				Conditions: []metav1.Condition{
 					{
-						Type:   vdscondition.VirtualDiskReadyType,
+						Type:   vdscondition.VirtualDiskReadyType.String(),
 						Status: metav1.ConditionTrue,
 					},
 				},
@@ -98,9 +98,9 @@ var _ = Describe("LifeCycle handler", func() {
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseInProgress))
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting))
+			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
 
@@ -119,9 +119,9 @@ var _ = Describe("LifeCycle handler", func() {
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseFailed))
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotFailed))
+			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotFailed.String()))
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
 
@@ -135,9 +135,9 @@ var _ = Describe("LifeCycle handler", func() {
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseInProgress))
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting))
+			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
 
@@ -154,9 +154,9 @@ var _ = Describe("LifeCycle handler", func() {
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseReady))
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
-			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotReady))
+			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotReady.String()))
 			Expect(ready.Message).To(BeEmpty())
 		})
 	})
@@ -199,9 +199,9 @@ var _ = Describe("LifeCycle handler", func() {
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseInProgress))
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-			Expect(ready.Reason).To(Equal(vdscondition.FileSystemFreezing))
+			Expect(ready.Reason).To(Equal(vdscondition.FileSystemFreezing.String()))
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
 
@@ -215,9 +215,9 @@ var _ = Describe("LifeCycle handler", func() {
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseInProgress))
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting))
+			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
 
@@ -231,9 +231,9 @@ var _ = Describe("LifeCycle handler", func() {
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhasePending))
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-			Expect(ready.Reason).To(Equal(vdscondition.PotentiallyInconsistent))
+			Expect(ready.Reason).To(Equal(vdscondition.PotentiallyInconsistent.String()))
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
 
@@ -247,9 +247,9 @@ var _ = Describe("LifeCycle handler", func() {
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseInProgress))
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionFalse))
-			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting))
+			Expect(ready.Reason).To(Equal(vdscondition.Snapshotting.String()))
 			Expect(ready.Message).ToNot(BeEmpty())
 		})
 
@@ -268,9 +268,9 @@ var _ = Describe("LifeCycle handler", func() {
 			_, err := h.Handle(testContext(), vdSnapshot)
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseReady))
-			ready, _ := service.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
+			ready, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 			Expect(ready.Status).To(Equal(metav1.ConditionTrue))
-			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotReady))
+			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotReady.String()))
 			Expect(ready.Message).To(BeEmpty())
 		})
 	})

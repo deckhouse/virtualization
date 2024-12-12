@@ -18,7 +18,6 @@ package vmclass
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -26,32 +25,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
-	controllerName = "vmclass-controller"
+	ControllerName = "vmclass-controller"
 )
 
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	controllerNamespace string,
+	log *log.Logger,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(controllerName))
-
-	recorder := mgr.GetEventRecorderFor(controllerName)
+	recorder := mgr.GetEventRecorderFor(ControllerName)
 	client := mgr.GetClient()
 	handlers := []Handler{
 		internal.NewDeletionHandler(client, recorder, log),
 		internal.NewDiscoveryHandler(),
 		internal.NewLifeCycleHandler(client),
 	}
-	r := NewReconciler(client, handlers...)
+	r := NewReconciler(controllerNamespace, client, handlers...)
 
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),

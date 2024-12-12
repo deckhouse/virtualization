@@ -20,13 +20,12 @@ type Stringer interface {
 	String() string
 }
 
-// Deprecated: avoid using this wrapper.
-// TODO: get rid of this wrapper.
-type DeprecatedWrappedString string
+type CommonReason string
 
-func (s DeprecatedWrappedString) String() string {
-	if s == "" {
-		return "Unknown"
-	}
-	return string(s)
+func (cr CommonReason) String() string {
+	return string(cr)
 }
+
+const (
+	ReasonUnknown CommonReason = "Unknown"
+)

@@ -18,7 +18,6 @@ package vmop
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/client-go/util/workqueue"
@@ -28,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -37,18 +37,16 @@ import (
 )
 
 const (
-	controllerName = "vmop-controller"
+	ControllerName = "vmop-controller"
 )
 
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
 	virtClient kubeclient.Client,
-	lg *slog.Logger,
+	log *log.Logger,
 ) error {
-	log := lg.With(logger.SlogController(controllerName))
-
-	recorder := mgr.GetEventRecorderFor(controllerName)
+	recorder := mgr.GetEventRecorderFor(ControllerName)
 	client := mgr.GetClient()
 	vmopSrv := service.NewVMOperationService(mgr.GetClient(), virtClient)
 
@@ -60,7 +58,7 @@ func SetupController(
 
 	reconciler := NewReconciler(client, handlers...)
 
-	vmopController, err := controller.New(controllerName, mgr, controller.Options{
+	vmopController, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       reconciler,
 		RateLimiter:      workqueue.NewItemExponentialFailureRateLimiter(time.Second, 32*time.Second),
 		RecoverPanic:     ptr.To(true),
@@ -83,7 +81,7 @@ func SetupController(
 		return err
 	}
 
-	vmopcolelctor.SetupCollector(mgr.GetCache(), metrics.Registry, lg)
+	vmopcolelctor.SetupCollector(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachineOperation controller")
 	return nil

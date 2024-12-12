@@ -20,7 +20,6 @@ import (
 	"cmp"
 	"context"
 	"fmt"
-	"log/slog"
 	"slices"
 	"time"
 
@@ -36,8 +35,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
 )
 
 var _ source.Source = &CronSource{}
@@ -48,7 +48,7 @@ func NewCronSource(c client.Client,
 	standardSpec string,
 	objList client.ObjectList,
 	option CronSourceOption,
-	log *slog.Logger,
+	log *log.Logger,
 ) *CronSource {
 	return &CronSource{
 		Client:       c,
@@ -64,20 +64,20 @@ type CronSource struct {
 	standardSpec string
 	objList      client.ObjectList
 	option       CronSourceOption
-	log          *slog.Logger
+	log          *log.Logger
 }
 
 type CronSourceOption struct {
 	GetOlder func(objList client.ObjectList) client.ObjectList
 }
 
-func NewDefaultCronSourceOption(objs client.ObjectList, ttl time.Duration, log *slog.Logger) CronSourceOption {
+func NewDefaultCronSourceOption(objs client.ObjectList, ttl time.Duration, log *log.Logger) CronSourceOption {
 	return CronSourceOption{
 		GetOlder: DefaultGetOlder(objs, ttl, 10, log),
 	}
 }
 
-func DefaultGetOlder(objs client.ObjectList, ttl time.Duration, maxCount int, log *slog.Logger) func(objList client.ObjectList) client.ObjectList {
+func DefaultGetOlder(objs client.ObjectList, ttl time.Duration, maxCount int, log *log.Logger) func(objList client.ObjectList) client.ObjectList {
 	return func(objList client.ObjectList) client.ObjectList {
 		var expiredItems []runtime.Object
 		var notExpiredItems []runtime.Object
@@ -87,7 +87,7 @@ func DefaultGetOlder(objs client.ObjectList, ttl time.Duration, maxCount int, lo
 			if !ok {
 				return nil
 			}
-			if helper.GetAge(obj) > ttl {
+			if object.GetAge(obj) > ttl {
 				expiredItems = append(expiredItems, o)
 			} else {
 				notExpiredItems = append(notExpiredItems, o)
@@ -103,7 +103,7 @@ func DefaultGetOlder(objs client.ObjectList, ttl time.Duration, maxCount int, lo
 				aObj, _ := a.(client.Object)
 				bObj, _ := b.(client.Object)
 
-				return cmp.Compare(helper.GetAge(aObj), helper.GetAge(bObj))
+				return cmp.Compare(object.GetAge(aObj), object.GetAge(bObj))
 			})
 			expiredItems = append(expiredItems, notExpiredItems[maxCount:]...)
 		}

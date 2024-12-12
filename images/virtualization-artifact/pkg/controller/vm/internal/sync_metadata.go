@@ -27,8 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	merger "github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -170,8 +170,8 @@ func PropagateVMMetadata(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine,
 func GetLastPropagatedLabels(kvvm *virtv1.VirtualMachine) (map[string]string, error) {
 	var lastPropagatedLabels map[string]string
 
-	if kvvm.Annotations[common.LastPropagatedVMLabelsAnnotation] != "" {
-		err := json.Unmarshal([]byte(kvvm.Annotations[common.LastPropagatedVMLabelsAnnotation]), &lastPropagatedLabels)
+	if kvvm.Annotations[annotations.LastPropagatedVMLabelsAnnotation] != "" {
+		err := json.Unmarshal([]byte(kvvm.Annotations[annotations.LastPropagatedVMLabelsAnnotation]), &lastPropagatedLabels)
 		if err != nil {
 			return nil, err
 		}
@@ -188,19 +188,19 @@ func SetLastPropagatedLabels(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMach
 
 	newAnnoValue := string(data)
 
-	if kvvm.Annotations[common.LastPropagatedVMLabelsAnnotation] == newAnnoValue {
+	if kvvm.Annotations[annotations.LastPropagatedVMLabelsAnnotation] == newAnnoValue {
 		return false, nil
 	}
 
-	common.AddAnnotation(kvvm, common.LastPropagatedVMLabelsAnnotation, newAnnoValue)
+	annotations.AddAnnotation(kvvm, annotations.LastPropagatedVMLabelsAnnotation, newAnnoValue)
 	return true, nil
 }
 
 func GetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine) (map[string]string, error) {
 	var lastPropagatedAnno map[string]string
 
-	if kvvm.Annotations[common.LastPropagatedVMAnnotationsAnnotation] != "" {
-		err := json.Unmarshal([]byte(kvvm.Annotations[common.LastPropagatedVMAnnotationsAnnotation]), &lastPropagatedAnno)
+	if kvvm.Annotations[annotations.LastPropagatedVMAnnotationsAnnotation] != "" {
+		err := json.Unmarshal([]byte(kvvm.Annotations[annotations.LastPropagatedVMAnnotationsAnnotation]), &lastPropagatedAnno)
 		if err != nil {
 			return nil, err
 		}
@@ -217,11 +217,11 @@ func SetLastPropagatedAnnotations(kvvm *virtv1.VirtualMachine, vm *virtv2.Virtua
 
 	newAnnoValue := string(data)
 
-	if kvvm.Annotations[common.LastPropagatedVMAnnotationsAnnotation] == newAnnoValue {
+	if kvvm.Annotations[annotations.LastPropagatedVMAnnotationsAnnotation] == newAnnoValue {
 		return false, nil
 	}
 
-	common.AddAnnotation(kvvm, common.LastPropagatedVMAnnotationsAnnotation, newAnnoValue)
+	annotations.AddAnnotation(kvvm, annotations.LastPropagatedVMAnnotationsAnnotation, newAnnoValue)
 	return true, nil
 }
 
@@ -230,7 +230,7 @@ func RemoveNonPropagatableAnnotations(anno map[string]string) map[string]string 
 	res := make(map[string]string)
 
 	for k, v := range anno {
-		if k == common.LastPropagatedVMAnnotationsAnnotation || k == common.LastPropagatedVMLabelsAnnotation {
+		if k == annotations.LastPropagatedVMAnnotationsAnnotation || k == annotations.LastPropagatedVMLabelsAnnotation {
 			continue
 		}
 

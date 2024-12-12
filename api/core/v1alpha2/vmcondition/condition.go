@@ -38,6 +38,7 @@ const (
 	TypeFilesystemReady                     Type = "FilesystemReady"
 	TypeSizingPolicyMatched                 Type = "SizingPolicyMatched"
 	TypeSnapshotting                        Type = "Snapshotting"
+	TypeDiskAttachmentCapacityAvailable     Type = "DiskAttachmentCapacityAvailable"
 )
 
 type Reason string
@@ -47,9 +48,11 @@ func (r Reason) String() string {
 }
 
 const (
-	ReasonUnknown Reason = "Unknown"
-
+	ReasonAgentReady    Reason = "AgentReady"
 	ReasonAgentNotReady Reason = "AgentNotReady"
+
+	ReasonAgentSupported    Reason = "AgentVersionSupported"
+	ReasonAgentNotSupported Reason = "AgentVersionNotSupported"
 
 	ReasonClassReady    Reason = "VirtualMachineClassReady"
 	ReasonClassNotReady Reason = "VirtualMachineClassNotReady"
@@ -97,4 +100,12 @@ const (
 	ReasonSizingPolicyNotMatched         Reason = "SizingPolicyNotMatched"
 	ReasonVirtualMachineClassTerminating Reason = "VirtualMachineClassTerminating"
 	ReasonVirtualMachineClassNotExists   Reason = "VirtalMachineClassNotExists"
+
+	ReasonBlockDeviceCapacityAvailable Reason = "BlockDeviceCapacityAvailable"
+	ReasonBlockDeviceCapacityReached   Reason = "BlockDeviceCapacityReached"
+
+	ReasonPodTerminatingReason      Reason = "PodTerminating"
+	ReasonPodNotExistsReason        Reason = "PodNotExists"
+	ReasonPodConditionMissingReason Reason = "PodConditionMissing"
+	ReasonGuestNotRunningReason     Reason = "GuestNotRunning"
 )

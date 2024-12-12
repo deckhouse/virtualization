@@ -18,11 +18,21 @@ package importer
 
 import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	dsutil "github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+const (
+	// SourceHTTP is the source type HTTP, if unspecified or invalid, it defaults to SourceHTTP
+	SourceHTTP = "http"
+	// SourceRegistry is the source type of Registry
+	SourceRegistry = "registry"
+	// SourceDVCR is the source type of dvcr
+	SourceDVCR = "dvcr"
+	// SourceBlockDevice is the source type of block device
+	SourceBlockDevice = "blockDevice"
 )
 
 // Settings stores all possible settings for dvcr-importer binary.
@@ -69,7 +79,7 @@ func ApplyDVCRDestinationSettings(podEnvVars *Settings, dvcrSettings *dvcr.Setti
 
 // ApplyHTTPSourceSettings updates importer Pod settings to use http source.
 func ApplyHTTPSourceSettings(podEnvVars *Settings, http *virtv2alpha1.DataSourceHTTP, supGen *supplements.Generator) {
-	podEnvVars.Source = cc.SourceHTTP
+	podEnvVars.Source = SourceHTTP
 	podEnvVars.Endpoint = http.URL
 
 	if http.Checksum != nil {
@@ -90,14 +100,14 @@ func ApplyHTTPSourceSettings(podEnvVars *Settings, http *virtv2alpha1.DataSource
 }
 
 // ApplyRegistrySourceSettings updates importer Pod settings to use registry source.
-func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *virtv2alpha1.DataSourceContainerRegistry, supGen *supplements.Generator) {
-	podEnvVars.Source = cc.SourceRegistry
+func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *datasource.ContainerRegistry, supGen *supplements.Generator) {
+	podEnvVars.Source = SourceRegistry
 	podEnvVars.Endpoint = common.DockerRegistrySchemePrefix + ctrImg.Image
 
 	// Optional auth secret from imagePullSecret.
 	if secretName := ctrImg.ImagePullSecret.Name; secretName != "" {
 		// Copy imagePullSecret if resides in a different namespace.
-		if dsutil.ShouldCopyImagePullSecret(ctrImg, supGen.Namespace) {
+		if datasource.ShouldCopyImagePullSecret(ctrImg, supGen.Namespace) {
 			imgPull := supGen.ImagePullSecret()
 			podEnvVars.AuthSecret = imgPull.Name
 		} else {
@@ -115,11 +125,11 @@ func ApplyRegistrySourceSettings(podEnvVars *Settings, ctrImg *virtv2alpha1.Data
 // ApplyDVCRSourceSettings updates importer Pod settings to use dvcr registry source.
 // NOTE: no auth secret required, it will be taken from DVCR destination settings.
 func ApplyDVCRSourceSettings(podEnvVars *Settings, dvcrImageName string) {
-	podEnvVars.Source = cc.SourceDVCR
+	podEnvVars.Source = SourceDVCR
 	podEnvVars.Endpoint = dvcrImageName
 }
 
 // ApplyBlockDeviceSourceSettings updates importer Pod settings to use BlockDevice as source.
 func ApplyBlockDeviceSourceSettings(podEnvVars *Settings) {
-	podEnvVars.Source = cc.SourceBlockDevice
+	podEnvVars.Source = SourceBlockDevice
 }

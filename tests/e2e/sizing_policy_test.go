@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -65,12 +66,13 @@ func CompareVirtualMachineClassReadyStatus(vmName, expectedStatus string) {
 	Expect(status).To(Equal(expectedStatus), fmt.Sprintf("VirtualMachineClassReady status should be '%s'", expectedStatus))
 }
 
-var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
+var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		vmNotValidSizingPolicyChanging string
 		vmNotValidSizingPolicyCreating string
 		vmClassDiscovery               string
 		vmClassDiscoveryCopy           string
+		newVmClassFilePath             string
 		notExistingVmClassChanging     = map[string]string{"vm": "not-existing-vmclass-with-changing"}
 		notExistingVmClassCreating     = map[string]string{"vm": "not-existing-vmclass-with-creating"}
 		existingVmClass                = map[string]string{"vm": "existing-vmclass"}
@@ -82,78 +84,82 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 		vmNotValidSizingPolicyCreating = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVmClassCreating["vm"])
 		vmClassDiscovery = fmt.Sprintf("%s-discovery", namePrefix)
 		vmClassDiscoveryCopy = fmt.Sprintf("%s-discovery-copy", namePrefix)
+		newVmClassFilePath = fmt.Sprintf("%s/vmc-copy.yaml", conf.TestData.SizingPolicy)
 	})
 
-	Context("When resources are applied:", func() {
+	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
-			res := kubectl.Kustomize(conf.TestData.SizingPolicy, kc.KustomizeOptions{})
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.SizingPolicy},
+				FilenameOption: kc.Kustomize,
+			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 		})
 	})
 
-	Context("When virtual images are applied:", func() {
+	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVI, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
-	Context("When virtual disks are applied:", func() {
+	Context("When virtual disks are applied", func() {
 		It(fmt.Sprintf("checks VDs phases with %s and %s label", notExistingVmClassChanging, notExistingVmClassCreating), func() {
 			By(fmt.Sprintf("VDs should be in %s phases", phaseByVolumeBindingMode))
-			WaitPhase(kc.ResourceVD, phaseByVolumeBindingMode, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
 				Labels:    notExistingVmClassChanging,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
-			WaitPhase(kc.ResourceVD, phaseByVolumeBindingMode, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
 				Labels:    notExistingVmClassCreating,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 
 		It(fmt.Sprintf("checks VDs phases with %s label", existingVmClass), func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhase(kc.ResourceVD, PhaseReady, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    existingVmClass,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
-	Context("When virtual machines are applied:", func() {
+	Context("When virtual machines are applied", func() {
 		It(fmt.Sprintf("checks VMs phases with %s and %s label", notExistingVmClassChanging, notExistingVmClassCreating), func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhasePending))
-			WaitPhase(kc.ResourceVM, PhasePending, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhasePending, kc.WaitOptions{
 				Labels:    notExistingVmClassChanging,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
-			WaitPhase(kc.ResourceVM, PhasePending, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhasePending, kc.WaitOptions{
 				Labels:    notExistingVmClassCreating,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 
 		It(fmt.Sprintf("checks VMs phases with %s label", existingVmClass), func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-			WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    existingVmClass,
 				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
+				Timeout:   MaxWaitTimeout,
 			})
 		})
 	})
 
 	Describe("Not existing virtual machine class", func() {
-		Context(fmt.Sprintf("When virtual machine with label %s in phase %s:", notExistingVmClassChanging, PhasePending), func() {
+		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVmClassChanging, PhasePending), func() {
 			It("checks condition status before changing 'virtulaMachineCLass` field with existing class", func() {
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before changing", ReadyStatusFalse))
 				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, ReadyStatusFalse)
@@ -167,17 +173,17 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 
 			It("checks VM phase and condition status after changing", func() {
 				By(fmt.Sprintf("VM should be in %s phase", PhaseRunning))
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    notExistingVmClassChanging,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' after changing", ReadyStatusTrue))
 				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, ReadyStatusTrue)
 			})
 		})
 
-		Context(fmt.Sprintf("When virtual machine with label %s in phase %s:", notExistingVmClassCreating, PhasePending), func() {
+		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVmClassCreating, PhasePending), func() {
 			It("checks condition status before creating `VirtualMachineClass`", func() {
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before creating", ReadyStatusFalse))
 				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, ReadyStatusFalse)
@@ -193,21 +199,23 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 				vmClass := virtv2.VirtualMachineClass{}
 				err := GetObject(kc.ResourceVMClass, vmClassDiscovery, &vmClass, kc.GetOptions{})
 				Expect(err).NotTo(HaveOccurred(), err)
-				filePath := fmt.Sprintf("%s/vmc.yaml", conf.TestData.SizingPolicy)
 				vmClass.Name = vmClassDiscoveryCopy
 				vmClass.Labels = map[string]string{"id": namePrefix}
-				writeErr := WriteYamlObject(filePath, &vmClass)
+				writeErr := WriteYamlObject(newVmClassFilePath, &vmClass)
 				Expect(writeErr).NotTo(HaveOccurred(), writeErr)
-				res := kubectl.Apply(filePath, kc.ApplyOptions{})
+				res := kubectl.Apply(kc.ApplyOptions{
+					Filename:       []string{newVmClassFilePath},
+					FilenameOption: kc.Filename,
+				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 			})
 
 			It("checks VM phase and condition after creating", func() {
 				By(fmt.Sprintf("VM should be in %s phase", PhaseRunning))
-				WaitPhase(kc.ResourceVM, PhaseRunning, kc.GetOptions{
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    notExistingVmClassCreating,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' after creating", ReadyStatusTrue))
 				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, ReadyStatusTrue)
@@ -215,7 +223,7 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 		})
 	})
 
-	Context(fmt.Sprintf("When virtual machines in phase %s:", PhaseRunning), func() {
+	Context(fmt.Sprintf("When virtual machines in phase %s", PhaseRunning), func() {
 		It("checks sizing policy match", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
@@ -236,6 +244,15 @@ var _ = Describe("Sizing policy", Ordered, ContinueOnFailure, func() {
 				Expect(err).NotTo(HaveOccurred(), err)
 				ValidateVirtualMachineByClass(&vmClass, &vmObj)
 			}
+		})
+	})
+
+	Context("When test is completed", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.SizingPolicy,
+				Files:            []string{newVmClassFilePath},
+			})
 		})
 	})
 })

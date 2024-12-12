@@ -20,17 +20,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -42,16 +46,18 @@ type Handler interface {
 	Name() string
 }
 
-func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
+func NewReconciler(controllerNamespace string, client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
-		client:   client,
-		handlers: handlers,
+		controllerNamespace: controllerNamespace,
+		client:              client,
+		handlers:            handlers,
 	}
 }
 
 type Reconciler struct {
-	client   client.Client
-	handlers []Handler
+	controllerNamespace string
+	client              client.Client
+	handlers            []Handler
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
@@ -62,8 +68,8 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	}
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &corev1.Node{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			node, ok := object.(*corev1.Node)
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			node, ok := obj.(*corev1.Node)
 			if !ok {
 				return nil
 			}
@@ -74,14 +80,47 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			if err != nil {
 				return nil
 			}
+
 			for _, class := range classList.Items {
-				if common.MatchLabelSelector(node.GetLabels(), class.Spec.CPU.Discovery.NodeSelector) {
-					result = append(result, reconcile.Request{NamespacedName: common.NamespacedName(&class)})
+				if slices.Contains(class.Status.AvailableNodes, node.GetName()) {
+					result = append(result, reconcile.Request{
+						NamespacedName: object.NamespacedName(&class),
+					})
+					continue
 				}
+				if !annotations.MatchLabels(node.GetLabels(), class.Spec.NodeSelector.MatchLabels) {
+					continue
+				}
+				ns, err := nodeaffinity.NewNodeSelector(&corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: class.Spec.NodeSelector.MatchExpressions}},
+				})
+				if err != nil || !ns.Match(node) {
+					continue
+				}
+				result = append(result, reconcile.Request{
+					NamespacedName: object.NamespacedName(&class),
+				})
 			}
 			return result
 		}),
-		predicate.LabelChangedPredicate{},
+		predicate.Or(
+			predicate.LabelChangedPredicate{},
+			predicate.Funcs{
+				CreateFunc: func(e event.CreateEvent) bool { return true },
+				DeleteFunc: func(e event.DeleteEvent) bool { return true },
+				UpdateFunc: func(e event.UpdateEvent) bool {
+					oldNode := e.ObjectOld.(*corev1.Node)
+					newNode := e.ObjectNew.(*corev1.Node)
+					if !oldNode.Status.Allocatable[corev1.ResourceCPU].Equal(newNode.Status.Allocatable[corev1.ResourceCPU]) {
+						return true
+					}
+					if !oldNode.Status.Allocatable[corev1.ResourceMemory].Equal(newNode.Status.Allocatable[corev1.ResourceMemory]) {
+						return true
+					}
+					return false
+				},
+			},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on Node: %w", err)
 	}
@@ -102,7 +141,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		log.Info("Reconcile observe an absent VirtualMachineClass: it may be deleted")
 		return reconcile.Result{}, nil
 	}
-	s := state.New(r.client, class)
+	s := state.New(r.client, r.controllerNamespace, class)
 
 	log.Debug("Start reconcile VMClass")
 

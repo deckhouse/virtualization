@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -50,7 +50,11 @@ var _ = Describe("Resizing handler Run", func() {
 			Status: virtv2.VirtualDiskStatus{
 				Conditions: []metav1.Condition{
 					{
-						Type:   vdcondition.ReadyType,
+						Type:   vdcondition.ReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   vdcondition.StorageClassReadyType.String(),
 						Status: metav1.ConditionTrue,
 					},
 				},
@@ -100,9 +104,9 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.InProgress))
+		Expect(resized.Reason).To(Equal(vdcondition.InProgress.String()))
 	})
 
 	It("Resize is not requested (vd.spec.size == nil)", func() {
@@ -112,9 +116,9 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested))
+		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested.String()))
 	})
 
 	It("Resize is not requested (vd.spec.size < pvc.spec.size)", func() {
@@ -124,9 +128,9 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested))
+		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested.String()))
 	})
 
 	It("Resize is not requested (vd.spec.size == pvc.spec.size)", func() {
@@ -134,9 +138,9 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested))
+		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested.String()))
 	})
 
 	It("Resize has started (vd.spec.size > pvc.spec.size)", func() {
@@ -146,25 +150,25 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.InProgress))
+		Expect(resized.Reason).To(Equal(vdcondition.InProgress.String()))
 	})
 
 	It("Resize has completed", func() {
 		vd.Status.Conditions = append(vd.Status.Conditions, metav1.Condition{
-			Type:   vdcondition.ResizedType,
+			Type:   vdcondition.ResizedType.String(),
 			Status: metav1.ConditionFalse,
-			Reason: vdcondition.InProgress,
+			Reason: vdcondition.InProgress.String(),
 		})
 
 		h := NewResizingHandler(diskService)
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := service.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionTrue))
-		Expect(resized.Reason).To(Equal(vdcondition.Resized))
+		Expect(resized.Reason).To(Equal(vdcondition.Resized.String()))
 	})
 })
 

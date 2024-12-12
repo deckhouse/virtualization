@@ -27,11 +27,13 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization-controller/pkg/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -53,10 +55,11 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
-	supgen := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
 
-	condition, _ := service.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	defer func() { service.SetCondition(condition, &vd.Status.Conditions) }()
+	condition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
@@ -74,7 +77,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 	case isDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pvc, &condition, &vd.Status.Phase, supgen)
+		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vd, nil, pvc)
@@ -83,13 +86,13 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 		}
 
 		return reconcile.Result{}, nil
-	case common.IsTerminating(pvc):
+	case object.IsTerminating(pvc):
 		log.Info("Waiting for supplements to be terminated")
 		return reconcile.Result{Requeue: true}, nil
 	case pvc == nil:
 		log.Info("Start import to PVC")
 
-		namespacedName := supplements.NewGenerator(common.VDShortName, vd.Name, vd.Namespace, vd.UID).PersistentVolumeClaim()
+		namespacedName := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID).PersistentVolumeClaim()
 
 		storageClassName := vs.Annotations["storageClass"]
 		volumeMode := vs.Annotations["volumeMode"]
@@ -110,6 +113,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 		if storageClassName != "" {
 			spec.StorageClassName = &storageClassName
+			vd.Status.StorageClassName = storageClassName
 		}
 
 		if volumeMode != "" {
@@ -137,26 +141,28 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 		err = ds.diskService.CreatePersistentVolumeClaim(ctx, pvc)
 		if err != nil {
-			setPhaseConditionToFailed(&condition, &vd.Status.Phase, err)
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
 			return reconcile.Result{}, err
 		}
 
 		vd.Status.Phase = virtv2.DiskProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.Provisioning
-		condition.Message = "PVC has created: waiting to be Bound."
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.Provisioning).
+			Message("PVC has created: waiting to be Bound.")
 
 		vd.Status.Progress = "0%"
-		vd.Status.SourceUID = util.GetPointer(vs.UID)
+		vd.Status.SourceUID = pointer.GetPointer(vs.UID)
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
 		vd.Status.Target.PersistentVolumeClaim = pvc.Name
 
 		return reconcile.Result{}, nil
 	case pvc.Status.Phase == corev1.ClaimBound:
 		vd.Status.Phase = virtv2.DiskReady
-		condition.Status = metav1.ConditionTrue
-		condition.Reason = vdcondition.Ready
-		condition.Message = ""
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vdcondition.Ready).
+			Message("")
 
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
@@ -165,9 +171,10 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 		return reconcile.Result{Requeue: true}, nil
 	default:
 		vd.Status.Phase = virtv2.DiskProvisioning
-		condition.Status = metav1.ConditionFalse
-		condition.Reason = vdcondition.Provisioning
-		condition.Message = fmt.Sprintf("Waiting for the PVC %s to be Bound.", pvc.Name)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.Provisioning).
+			Message(fmt.Sprintf("Waiting for the PVC %s to be Bound.", pvc.Name))
 
 		return reconcile.Result{}, nil
 	}

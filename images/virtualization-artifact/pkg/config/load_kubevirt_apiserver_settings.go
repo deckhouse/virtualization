@@ -20,14 +20,20 @@ import (
 	"os"
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
-	"github.com/deckhouse/virtualization-controller/pkg/common"
+)
+
+const (
+	KubevirtAPIServerEndpointVar                    = "KUBEVIRT_APISERVER_ENDPOINT"
+	KubevirtAPIServerCABundlePathVar                = "KUBEVIRT_APISERVER_CABUNDLE"
+	VirtualizationApiAuthServiceAccountNameVar      = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAME"
+	VirtualizationApiAuthServiceAccountNamespaceVar = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAMESPACE"
 )
 
 func LoadKubevirtAPIServerFromEnv() rest.KubevirtApiServerConfig {
 	conf := rest.KubevirtApiServerConfig{}
-	conf.Endpoint = os.Getenv(common.KubevirtAPIServerEndpointVar)
-	conf.CaBundlePath = os.Getenv(common.KubevirtAPIServerCABundlePathVar)
-	conf.ServiceAccount.Name = os.Getenv(common.VirtualizationApiAuthServiceAccountNameVar)
-	conf.ServiceAccount.Namespace = os.Getenv(common.VirtualizationApiAuthServiceAccountNamespaceVar)
+	conf.Endpoint = os.Getenv(KubevirtAPIServerEndpointVar)
+	conf.CaBundlePath = os.Getenv(KubevirtAPIServerCABundlePathVar)
+	conf.ServiceAccount.Name = os.Getenv(VirtualizationApiAuthServiceAccountNameVar)
+	conf.ServiceAccount.Namespace = os.Getenv(VirtualizationApiAuthServiceAccountNamespaceVar)
 	return conf
 }

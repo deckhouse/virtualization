@@ -32,8 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
@@ -75,7 +75,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 	cbConfApplied := conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
 		Generation(current.GetGeneration()).
 		Status(metav1.ConditionUnknown).
-		Reason(vmcondition.ReasonUnknown)
+		Reason(conditions.ReasonUnknown)
 
 	cbAwaitingRestart := conditions.NewConditionBuilder(vmcondition.TypeAwaitingRestartToApplyConfiguration).
 		Generation(current.GetGeneration()).
@@ -210,6 +210,16 @@ func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 			if c.Status != metav1.ConditionTrue {
 				return true
 			}
+
+		case vmcondition.TypeDiskAttachmentCapacityAvailable:
+			if c.Status != metav1.ConditionTrue {
+				return true
+			}
+
+		case vmcondition.TypeSizingPolicyMatched:
+			if c.Status != metav1.ConditionTrue {
+				return true
+			}
 		}
 	}
 	return false
@@ -320,7 +330,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 		return nil, nil
 	}
 	current := s.VirtualMachine().Current()
-	kvvmName := common.NamespacedName(current)
+	kvvmName := object.NamespacedName(current)
 
 	kvvmOpts := kvbuilder.KVVMOptions{
 		EnableParavirtualization: current.Spec.EnableParavirtualization,

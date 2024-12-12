@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -28,14 +27,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const nameDeletionHandler = "DeletionHandler"
 
-func NewDeletionHandler(client client.Client, recorder record.EventRecorder, logger *slog.Logger) *DeletionHandler {
+func NewDeletionHandler(client client.Client, recorder record.EventRecorder, logger *log.Logger) *DeletionHandler {
 	return &DeletionHandler{
 		client:   client,
 		recorder: recorder,
@@ -46,7 +46,7 @@ func NewDeletionHandler(client client.Client, recorder record.EventRecorder, log
 type DeletionHandler struct {
 	client   client.Client
 	recorder record.EventRecorder
-	logger   *slog.Logger
+	logger   *log.Logger
 }
 
 func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClassState) (reconcile.Result, error) {
@@ -63,12 +63,12 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 		return reconcile.Result{}, err
 	}
 	if len(vms) > 0 {
-		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it. %s...", common.NamespacedName(&vms[0]))
+		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it. %s...", object.NamespacedName(&vms[0]))
 		h.logger.Info(msg)
 		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonVMClassInUse, msg)
 		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 	}
-	h.logger.Info("Delete VmClass, remove protection finalizers")
+	h.logger.Info("Deletion observed: remove cleanup finalizer from VirtualMachineClass")
 	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMCleanup)
 	return reconcile.Result{}, nil
 }

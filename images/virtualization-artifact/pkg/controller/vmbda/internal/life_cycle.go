@@ -51,7 +51,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	defer func() { conditions.SetCondition(cb.Generation(vmbda.Generation), &vmbda.Status.Conditions) }()
 
 	if !conditions.HasCondition(cb.GetType(), vmbda.Status.Conditions) {
-		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.AttachedUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 	}
 
 	vd, err := h.attacher.GetVirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name, vmbda.Namespace)
@@ -86,7 +86,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 		}
 
 		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhaseTerminating
-		cb.Status(metav1.ConditionUnknown).Reason(vmbdacondition.BlockDeviceReadyUnknown)
+		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 
 		return reconcile.Result{}, nil
 	}
@@ -208,8 +208,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	_, err = h.attacher.CanHotPlug(vd, vm, kvvm)
+	blockDeviceLimitCondition, _ := conditions.GetCondition(vmbdacondition.DiskAttachmentCapacityAvailableType, vmbda.Status.Conditions)
+
 	switch {
-	case err == nil:
+	case err == nil && blockDeviceLimitCondition.Status == metav1.ConditionTrue:
 		log.Info("Send attachment request")
 
 		err = h.attacher.HotPlugDisk(ctx, vd, vm, kvvm)
@@ -249,6 +251,15 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.NotAttached).
 			Message(service.CapitalizeFirstLetter(err.Error()))
+		return reconcile.Result{}, nil
+	case blockDeviceLimitCondition.Status != metav1.ConditionTrue:
+		log.Info("Virtual machine block device capacity reached")
+
+		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmbdacondition.NotAttached).
+			Message("Virtual machine block device capacity reached")
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err

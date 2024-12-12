@@ -52,13 +52,6 @@ func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClass
 		return reconcile.Result{}, nil
 	}
 
-	if updated := addAllUnknown(changed, vmclasscondition.TypeReady); updated {
-		changed.Status.Phase = virtv2.ClassPhasePending
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	//nolint:staticcheck
-	mgr := conditions.NewManager(changed.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vmclasscondition.TypeReady).
 		Generation(current.GetGeneration())
 	var phase virtv2.VirtualMachineClassPhase
@@ -103,9 +96,7 @@ func (h *LifeCycleHandler) Handle(_ context.Context, s state.VirtualMachineClass
 			Reason(vmclasscondition.ReasonSuitableNodesFound).
 			Status(metav1.ConditionTrue)
 	}
-
-	mgr.Update(cb.Condition())
-	changed.Status.Conditions = mgr.Generate()
+	conditions.SetCondition(cb, &changed.Status.Conditions)
 	changed.Status.Phase = phase
 
 	return reconcile.Result{}, nil

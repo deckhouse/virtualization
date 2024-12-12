@@ -179,14 +179,47 @@ properties:
   virtualImages:
     type: object
     description: |
-      Configuring storage class for virtual images. If the this setting is not specified,
-      the default storage class will be used.
-    required: [storageClassName]
+      Configuring storage class for virtual images on PVC.
     properties:
       storageClassName:
+        deprecated: true
+        x-doc-deprecated: true
         type: string
         description: |
-          Specifies the name of the storage class to be used for virtual images.
+          Since the parameter has been deprecated, use the `defaultStorageClassName` parameter.
+      defaultStorageClassName:
+        type: string
+        description: |
+          Specifies the name of the default storage class to be used for virtual images on PVC.
+      allowedStorageClassSelector:
+        type: object
+        description: |
+          Selector for allowed storage classes to be used for virtual images on PVC.
+        properties:
+          matchNames:
+            type: array
+            items:
+              type: string
+            x-examples: ["sc-1", "sc-2"]
+  virtualDisks:
+    type: object
+    description: |
+      Configuring storage class for virtual disks.
+    properties:
+      defaultStorageClassName:
+        type: string
+        description: |
+          Specifies the name of the default storage class to be used for virtual disks.
+      allowedStorageClassSelector:
+        type: object
+        description: |
+          Selector for allowed storage classes to be used for virtual disks.
+        properties:
+          matchNames:
+            type: array
+            items:
+              type: string
+            x-examples: ["sc-1", "sc-2"]
   logLevel:
     type: string
     description: |
@@ -195,7 +228,7 @@ properties:
       Working for this components:
       - `virtualization-api`
       - `virtualization-controller`
-      - `kube-api-proxy`
+      - `kube-api-rewriter`
       - `vm-route-forge`
     enum:
       - "debug"

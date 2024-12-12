@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
@@ -70,18 +70,17 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 
 	// Initialize new VMOP resource: set label with vm name, set phase to Pending and all conditions to Unknown.
 	if changed.Status.Phase == "" {
-		cc.AddLabel(changed, cc.LabelVirtualMachineUID, string(changed.GetUID()))
 		changed.Status.Phase = virtv2.VMOPPhasePending
 		// Add all conditions in unknown state.
 		conditions.SetCondition(
 			completedCond.
-				Reason(vmopcondition.ReasonCompletedUnknown).
+				Reason(conditions.ReasonUnknown).
 				Message("").
 				Status(metav1.ConditionUnknown),
 			&changed.Status.Conditions)
 		conditions.SetCondition(
 			signalSendCond.
-				Reason(vmopcondition.ReasonSignalSentUnknown).
+				Reason(conditions.ReasonUnknown).
 				Message("").
 				Status(metav1.ConditionUnknown),
 			&changed.Status.Conditions)
@@ -107,6 +106,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 			&changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
+	annotations.AddLabel(changed, annotations.LabelVirtualMachineUID, string(vm.GetUID()))
 
 	if changed.Status.Phase == virtv2.VMOPPhaseInProgress {
 		log.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", changed.Status.Phase)

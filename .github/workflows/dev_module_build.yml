@@ -31,7 +31,7 @@ on:
         required: false
         type: number
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, labeled, unlabeled]
   push:
     branches:
       - main
@@ -51,7 +51,26 @@ jobs:
     name: Set MODULES_MODULE_TAG
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
+      module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
     steps:
+      - name: Get Pull Request Labels
+        id: get-labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (context.eventName === "pull_request" || context.eventName === "pull_request_target" ) {
+              const prNumber = context.payload.pull_request.number;
+              const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: prNumber,
+              });
+              return labels.map(label => label.name);
+            } else {
+              return [];
+            }
+          result-encoding: string
+
       - name: Set vars
         id: modules_module_tag
         run: |
@@ -62,12 +81,18 @@ jobs:
           elif [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
             MODULES_MODULE_TAG="pr${{ github.event.inputs.pr_number }}"
           else
-            echo "Cannot set MODULES_MODULE_TAG variable"
-            echo "Exit"
+            echo "::error title=Module image tag is required::Can't detect module tag from workflow context. Dev build uses branch name as tag for pre-alpha and main branches, and PR number for builds from pull requests. Check workflow for correctness."
             exit 1
           fi
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
+
+          # Slect edition for build, default EE
+          if echo "${{ steps.get-labels.outputs.result }}" | grep -q "edition/ce"; then
+            echo "MODULE_EDITION=CE" >> $GITHUB_OUTPUT
+          else
+            echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
+          fi
 
   show_dev_manifest:
     runs-on: ubuntu-latest
@@ -188,6 +213,7 @@ jobs:
     needs: set_vars
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
+      MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
       WERF_VIRTUAL_MERGE: 0
     steps:
       - name: Print vars
@@ -197,6 +223,7 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
+          echo MODULE_EDITION=$MODULE_EDITION
 
       - uses: actions/checkout@v4
         with:

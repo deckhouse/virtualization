@@ -81,32 +81,18 @@ spec:
     spec:
       {{- include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "cdi-operator")) | nindent 6 }}
       containers:
-      - name: proxy
-        env:
-        {{- include "kube_api_rewriter.env" . | nindent 8 }}
-        image: {{ include "helm_lib_module_image" (list . "kubeApiProxy") }}
-        imagePullPolicy: IfNotPresent
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-              - ALL
-          seccompProfile:
-            type: RuntimeDefault
-        terminationMessagePath: /dev/termination-log
-        terminationMessagePolicy: File
-        resources:
-          requests:
-          {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
-          {{- if not ( .Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
-          {{- include "cdi_operator_resources" . | nindent 12 }}
-          {{- end }}
+      {{- include "kube_api_rewriter.sidecar_container" . | nindent 6 }}
+      {{- $kubeRbacProxySettings := dict }}
+      {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
+      {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+      ) }}
+      {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 6 }}
       - name: cdi-operator
         {{- include "helm_lib_module_container_security_context_read_only_root_filesystem_capabilities_drop_all" . | nindent 8 }}
         env:
+        {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 8 }}
         {{- include "cdi_images" . | nindent 8 }}
-        - name: KUBECONFIG
-          value: "/kubeconfig.local/proxy.kubeconfig"
         - name: DEPLOY_CLUSTER_RESOURCES
           value: "true"
         - name: OPERATOR_VERSION
@@ -116,6 +102,9 @@ spec:
         - name: PULL_POLICY
           value: IfNotPresent
         - name: MONITORING_NAMESPACE
+        args:
+        - -metrics_address
+        - 127.0.0.1:8080
         image: {{ include "helm_lib_module_image" (list . "cdiOperator") }}
         imagePullPolicy: IfNotPresent
         ports:
@@ -129,15 +118,11 @@ spec:
             {{- include "cdi_operator_resources" . | nindent 12 }}
             {{- end }}
         volumeMounts:
-          - name: kube-api-proxy-kubeconfig
-            mountPath: /kubeconfig.local
+        {{- include "kube_api_rewriter.kubeconfig_volume_mount" . | nindent 8 }}
       {{- include "helm_lib_priority_class" (tuple . $priorityClassName) | nindent 6 }}
       {{- include "helm_lib_node_selector" (tuple . "system") | nindent 6 }}
       {{- include "helm_lib_tolerations" (tuple . "system") | nindent 6 }}
       {{- include "helm_lib_module_pod_security_context_run_as_user_nobody" . | nindent 6 }}
       serviceAccountName: cdi-operator
       volumes:
-      - name: kube-api-proxy-kubeconfig
-        configMap:
-          defaultMode: 0644
-          name: kube-api-proxy-kubeconfig
+      {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 6 }}

@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -30,10 +31,13 @@ func ipamPath(file string) string {
 }
 
 var _ = Describe("Ipam", func() {
-	Context("VirtualMachineIPAddressClaim", Ordered, ContinueOnFailure, func() {
+	Context("VirtualMachineIPAddressClaim", ginkgoutil.CommonE2ETestDecorators(), func() {
 		AfterAll(func() {
 			By("Removing resources for vmip tests")
-			kubectl.Delete(conf.Ipam.TestDataDir, kc.DeleteOptions{})
+			kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{conf.Ipam.TestDataDir},
+				FilenameOption: kc.Filename,
+			})
 		})
 		GetLeaseNameFromClaim := func(manifestClaim string) string {
 			res := kubectl.Get(manifestClaim, kc.GetOptions{Output: "jsonpath={.spec.virtualMachineIPAddressLeaseName}"})
@@ -41,7 +45,10 @@ var _ = Describe("Ipam", func() {
 			return res.StdOut()
 		}
 		DeleteVMIP := func(manifest string) {
-			res := kubectl.Delete(manifest, kc.DeleteOptions{})
+			res := kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{manifest},
+				FilenameOption: kc.Filename,
+			})
 			Expect(res.Error()).NotTo(HaveOccurred(), "failed delete vmip from file %s.\n%s", manifest, res.StdErr())
 		}
 		When("reclaimPolicy Delete", func() {
@@ -64,7 +71,11 @@ var _ = Describe("Ipam", func() {
 				CheckField(kc.ResourceVMIPLease, leaseName, "jsonpath={'.status.phase'}", PhaseBound)
 				DeleteVMIP(filepath)
 				CheckField(kc.ResourceVMIPLease, leaseName, "jsonpath={'.status.phase'}", PhaseReleased)
-				kubectl.DeleteResource(kc.ResourceVMIPLease, leaseName, kc.DeleteOptions{Namespace: conf.Namespace})
+				kubectl.Delete(kc.DeleteOptions{
+					Filename:  []string{leaseName},
+					Namespace: conf.Namespace,
+					Resource:  kc.ResourceVMIPLease,
+				})
 			})
 		})
 	})

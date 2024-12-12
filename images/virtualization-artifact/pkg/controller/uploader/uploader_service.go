@@ -26,8 +26,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	cc "github.com/deckhouse/virtualization-controller/pkg/controller/common"
-	"github.com/deckhouse/virtualization-controller/pkg/sdk/framework/helper"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 )
 
 type ServiceSettings struct {
@@ -64,7 +64,7 @@ func (s *Service) makeSpec() *corev1.Service {
 			Name:      s.Settings.Name,
 			Namespace: s.Settings.Namespace,
 			Annotations: map[string]string{
-				cc.AnnCreatedBy: "yes",
+				annotations.AnnCreatedBy: "yes",
 			},
 			Labels: map[string]string{},
 			OwnerReferences: []metav1.OwnerReference{
@@ -84,7 +84,7 @@ func (s *Service) makeSpec() *corev1.Service {
 				},
 			},
 			Selector: map[string]string{
-				cc.UploaderServiceLabel: s.Settings.Name,
+				annotations.UploaderServiceLabel: s.Settings.Name,
 			},
 			Type: corev1.ServiceTypeClusterIP,
 		},
@@ -98,5 +98,5 @@ type ServiceNamer interface {
 }
 
 func FindService(ctx context.Context, client client.Client, name ServiceNamer) (*corev1.Service, error) {
-	return helper.FetchObject(ctx, name.UploaderService(), client, &corev1.Service{})
+	return object.FetchObject(ctx, name.UploaderService(), client, &corev1.Service{})
 }

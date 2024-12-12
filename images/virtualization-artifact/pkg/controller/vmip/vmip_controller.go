@@ -18,7 +18,6 @@ package vmip
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -26,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -33,18 +33,16 @@ import (
 )
 
 const (
-	controllerName = "vmip-controller"
+	ControllerName = "vmip-controller"
 )
 
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
-	log *slog.Logger,
+	log *log.Logger,
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
-	log = log.With(logger.SlogController(controllerName))
-
-	recorder := mgr.GetEventRecorderFor(controllerName)
+	recorder := mgr.GetEventRecorderFor(ControllerName)
 	ipService := service.NewIpAddressService(log, virtualMachineCIDRs)
 
 	handlers := []Handler{
@@ -58,7 +56,7 @@ func NewController(
 		return nil, err
 	}
 
-	c, err := controller.New(controllerName, mgr, controller.Options{
+	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
 		RecoverPanic:     ptr.To(true),
 		LogConstructor:   logger.NewConstructor(log),

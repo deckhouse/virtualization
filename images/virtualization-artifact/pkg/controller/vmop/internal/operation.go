@@ -72,7 +72,7 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 
 	// VirtualMachineOperation should contain Complete condition in Unknown state to perform operation.
 	// Other statuses may indicate waiting state, e.g. non-existent VM or other VMOPs in progress.
-	completeCondition, found := service.GetCondition(vmopcondition.TypeCompleted.String(), changed.Status.Conditions)
+	completeCondition, found := conditions.GetCondition(vmopcondition.TypeCompleted, changed.Status.Conditions)
 	if !found {
 		log.Debug("Skip operation, no Complete condition found", "vmop.phase", changed.Status.Phase)
 		return reconcile.Result{}, nil

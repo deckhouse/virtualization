@@ -91,13 +91,43 @@ properties:
   virtualImages:
     type: object
     description: |
-      Настройка класса хранения для виртуальных образов. Если это значение не указано,
-      будет использоваться класс хранения по умолчанию.
+      Настройка класса хранения для виртуальных образов на PVC.
     properties:
       storageClassName:
         type: string
         description: |
-          Указывает имя класса хранения, который будет использоваться для виртуальных образов.
+          Поскольку этот параметр был устаревшим, используйте параметр `defaultStorageClassName`.
+      defaultStorageClassName:
+        type: string
+        description: |
+          Указывает имя класса хранения по умолчанию, который будет использоваться для виртуальных образов на PVC.
+      allowedStorageClassSelector:
+        type: object
+        description: |
+          Селектор разрешенных классов хранения, которые можно использовать для виртуальных образов на PVC.
+        properties:
+          matchNames:
+            type: array
+            items:
+              type: string
+  virtualDisks:
+    type: object
+    description: |
+      Настройка класса хранения для виртуальных дисков.
+    properties:
+      defaultStorageClassName:
+        type: string
+        description: |
+          Указывает имя класса хранения по умолчанию, который будет использоваться для виртуальных дисков.
+      allowedStorageClassSelector:
+        type: object
+        description: |
+          Селектор разрешенных классов хранения, используемых для виртуальных дисков.
+        properties:
+          matchNames:
+            type: array
+            items:
+              type: string
   logLevel:
     type: string
     description: |
@@ -106,7 +136,7 @@ properties:
       Работает для следующих компонентов:
       - `virtualization-api`
       - `virtualization-controller`
-      - `kube-api-proxy`
+      - `kube-api-rewriter`
       - `vm-route-forge`
   logFormat:
     type: string
