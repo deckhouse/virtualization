@@ -40,7 +40,7 @@ class ModuleConfigLabelHook(Hook):
                     "nameSelector": {
                         "matchNames": [self.module_name]
                     },
-                    "group": "main",
+                    "includeSnapshotsFrom": [self.SNAPSHOT_NAME],
                     "jqFilter": '{"labels": .metadata.labels}',
                     "queue": f"/modules/{self.module_name}/{self.SNAPSHOT_NAME}",
                     "keepFullObjectsInMemory": False
@@ -52,14 +52,18 @@ class ModuleConfigLabelHook(Hook):
     def reconcile(self) -> Callable[[hook.Context], None]:
         def r(ctx: hook.Context):
             labels = {}
-            if (snaps := ctx.snapshots.get(self.SNAPSHOT_NAME, [])) and len(snaps) > 0:
-                labels = snaps[0]["filterResult"]["labels"]
+            try:
+                if (l := ctx.snapshots[self.SNAPSHOT_NAME][0]["filterResult"]["labels"]) and l is not None:
+                    labels = l
+            except (IndexError, KeyError):
+                pass
 
             if labels.get(self.LABEL, "") == self.module_name:
                 return
 
             ctx.kubernetes.merge_patch(
                 kind=self.KIND,
+                namespace="",
                 name=self.module_name,
                 patch={
                     "metadata": {

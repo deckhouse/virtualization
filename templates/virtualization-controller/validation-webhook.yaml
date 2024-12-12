@@ -218,7 +218,7 @@ webhooks:
       service:
         namespace: d8-{{ .Chart.Name }}
         name: virtualization-controller
-        path: /validate-deckhouse-io-v1alpha1-moduleconfigs
+        path: /validate-deckhouse-io-v1alpha1-moduleconfig
         port: 443
       caBundle: |
         {{ .Values.virtualization.internal.controller.cert.ca }}
