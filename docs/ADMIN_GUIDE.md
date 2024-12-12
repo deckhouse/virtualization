@@ -583,3 +583,16 @@ spec:
 `allowedStorageClassNames` - (optional) is a list of allowed `StorageClass` for creating a `VirtualDisk` that can be explicitly specified in the resource specification.
 
 `defaultStorageClassName` - (optional) is the `StorageClass` used by default when creating a `VirtualDisk` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
+
+### Fine-tune storage classes for disks
+
+When you create a disk, the controller will automatically select the most optimal parameters supported by the storage based on what it knows.
+
+Prioritizes `PersistentVolumeClaim` parameter settings when creating a disk by automatically determining the characteristics of the storage:
+
+- RWX + Block
+- RWX + FileSystem
+- RWO + Block
+- RWO + FileSystem
+
+If the storage is unknown and it is not possible to automatically characterize it, then RWO + FileSystem is used.
