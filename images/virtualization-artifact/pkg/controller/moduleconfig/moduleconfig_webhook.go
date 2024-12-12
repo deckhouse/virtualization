@@ -34,6 +34,7 @@ import (
 )
 
 const virtualMachineCIDRs = "virtualMachineCIDRs"
+const moduleConfigName = "virtualization"
 
 func SetupWebhookWithManager(mgr manager.Manager) error {
 	if err := builder.WebhookManagedBy(mgr).
@@ -71,6 +72,10 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	newMC, ok := newObj.(*mcapi.ModuleConfig)
 	if !ok {
 		return nil, fmt.Errorf("expected a new ModuleConfig but got a %T", newObj)
+	}
+
+	if newMC.GetName() != moduleConfigName {
+		return nil, nil
 	}
 
 	oldCIDRs := oldMC.Spec.Settings[virtualMachineCIDRs].([]string)

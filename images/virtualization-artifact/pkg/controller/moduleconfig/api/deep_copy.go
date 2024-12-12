@@ -24,7 +24,6 @@ func (in *ModuleConfig) DeepCopyInto(out *ModuleConfig) {
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 	in.Spec.DeepCopyInto(&out.Spec)
 	out.Status = in.Status
-	return
 }
 
 func (in *ModuleConfig) DeepCopy() *ModuleConfig {
@@ -54,7 +53,6 @@ func (in *ModuleConfigList) DeepCopyInto(out *ModuleConfigList) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	return
 }
 
 func (in *ModuleConfigList) DeepCopy() *ModuleConfigList {
@@ -81,7 +79,6 @@ func (in *ModuleConfigSpec) DeepCopyInto(out *ModuleConfigSpec) {
 		*out = new(bool)
 		**out = **in
 	}
-	return
 }
 
 func (in *ModuleConfigSpec) DeepCopy() *ModuleConfigSpec {
@@ -95,7 +92,6 @@ func (in *ModuleConfigSpec) DeepCopy() *ModuleConfigSpec {
 
 func (in *ModuleConfigStatus) DeepCopyInto(out *ModuleConfigStatus) {
 	*out = *in
-	return
 }
 
 func (in *ModuleConfigStatus) DeepCopy() *ModuleConfigStatus {
