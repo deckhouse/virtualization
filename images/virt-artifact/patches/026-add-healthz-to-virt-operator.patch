@@ -1,28 +1,8 @@
 diff --git a/pkg/virt-operator/application.go b/pkg/virt-operator/application.go
-index 47b4880c38..a7f884fbdd 100644
+index 47b4880c38..7e889dd48b 100644
 --- a/pkg/virt-operator/application.go
 +++ b/pkg/virt-operator/application.go
-@@ -29,6 +29,8 @@ import (
- 
- 	kvtls "kubevirt.io/kubevirt/pkg/util/tls"
- 
-+	"kubevirt.io/kubevirt/pkg/healthz"
-+
- 	"github.com/emicklei/go-restful/v3"
- 	"github.com/prometheus/client_golang/prometheus/promhttp"
- 	"github.com/spf13/pflag"
-@@ -78,6 +80,10 @@ const (
- 	defaultHost = "0.0.0.0"
- )
- 
-+var (
-+	apiHealthVersion = new(healthz.KubeApiHealthzVersion)
-+)
-+
- type VirtOperatorApp struct {
- 	service.ServiceListen
- 
-@@ -341,8 +347,6 @@ func Execute() {
+@@ -341,8 +341,6 @@ func Execute() {
  }
  
  func (app *VirtOperatorApp) Run() {
@@ -31,7 +11,7 @@ index 47b4880c38..a7f884fbdd 100644
  	go func() {
  
  		mux := http.NewServeMux()
-@@ -360,15 +364,31 @@ func (app *VirtOperatorApp) Run() {
+@@ -360,15 +358,34 @@ func (app *VirtOperatorApp) Run() {
  		restfulContainer.ServeMux = mux
  		restfulContainer.Add(webService)
  
@@ -44,17 +24,20 @@ index 47b4880c38..a7f884fbdd 100644
 +		}
 +	}()
 +	go func() {
-+
++		var handle200 = restful.RouteFunction(func(req *restful.Request, resp *restful.Response) {
++			resp.WriteHeader(http.StatusOK)
++		})
 +		mux := http.NewServeMux()
 +
 +		webService := new(restful.WebService)
 +		webService.Path("/").Consumes(restful.MIME_JSON).Produces(restful.MIME_JSON)
-+		webService.Route(webService.GET("/healthz").To(healthz.KubeConnectionHealthzFuncFactory(app.clusterConfig, apiHealthVersion)).Doc("Health endpoint"))
++		webService.Route(webService.GET("/healthz").To(handle200).
++		Produces(restful.MIME_JSON).
++		Returns(200, "OK", nil))
 +
 +		restfulContainer := restful.NewContainer()
 +		restfulContainer.ServeMux = mux
 +		restfulContainer.Add(webService)
-+
  		server := http.Server{
  			Addr:      app.ServiceListen.Address(),
  			Handler:   mux,
