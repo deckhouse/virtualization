@@ -224,6 +224,6 @@ webhooks:
         {{ .Values.virtualization.internal.controller.cert.ca }}
     objectSelector:
       matchLabels:
-        moduleconfigs.deckhouse.io/name: "virtualization"
+        moduleconfig.deckhouse.io/name: "virtualization"
     admissionReviewVersions: ["v1"]
     sideEffects: None
