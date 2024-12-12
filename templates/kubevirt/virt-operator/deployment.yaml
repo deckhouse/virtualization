@@ -103,6 +103,7 @@ spec:
       {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
           (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-operator") 
       ) }}
       {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 6 }}
       - name: virt-operator
@@ -110,6 +111,10 @@ spec:
         args:
         - --port
         - "8443"
+        - --metrics-listen
+        - 127.0.0.1
+        - --metrics-port
+        - "8080"
         - -v
         - "2"
         command:
@@ -124,17 +129,14 @@ spec:
         image: {{ include "helm_lib_module_image" (list . "virtOperator") }}
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 8443
-          name: metrics
-          protocol: TCP
         - containerPort: 8444
           name: webhooks
           protocol: TCP
         readinessProbe:
           httpGet:
-            path: /metrics
+            path: /healthz
             port: 8443
-            scheme: HTTPS
+            scheme: HTTP
           initialDelaySeconds: 5
           timeoutSeconds: 10
         resources:
