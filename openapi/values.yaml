@@ -99,3 +99,12 @@ properties:
           key:
             type: string
             default: ""
+      network:
+        type: object
+        properties:
+          macAddress:
+            type: object
+            properties:
+              oui:
+                type: string
+                default: ""

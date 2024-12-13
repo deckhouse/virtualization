@@ -23,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -84,7 +85,7 @@ var _ = Describe("IpAddressService", func() {
 		})
 	})
 
-	Describe("AllocateNewIP", func() {
+	Describe("AllocateNewAddress", func() {
 		Context("when there are available IP addresses in the range", func() {
 			It("should allocate a new IP address", func() {
 				ip, err := ipService.AllocateNewIP(allocatedIPs)
