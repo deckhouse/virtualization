@@ -25,7 +25,6 @@ class ModuleConfigValidateHook(Hook):
     KIND="ModuleConfig"
     API_VERSION="deckhouse.io/v1alpha1"
     SNAPSHOT_NAME = "module-config-validate"
-    LABEL = "moduleconfig.deckhouse.io/name"
 
     def __init__(self, module_name: str):
         self.module_name = module_name

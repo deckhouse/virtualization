@@ -66,15 +66,15 @@ func parseCIDRs(settings mcapi.SettingsValues) ([]netip.Prefix, error) {
 	if err != nil {
 		return nil, err
 	}
-	parseCIDRs := make([]netip.Prefix, len(CIDRs))
-	for i, validateCIDR := range CIDRs {
-		parsedCIDR, err := netip.ParsePrefix(validateCIDR)
+	parsedCIDRs := make([]netip.Prefix, len(CIDRs))
+	for i, CIDR := range CIDRs {
+		parsedCIDR, err := netip.ParsePrefix(CIDR)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse CIDR %s: %w", validateCIDR, err)
+			return nil, fmt.Errorf("failed to parse CIDR %s: %w", CIDR, err)
 		}
-		parseCIDRs[i] = parsedCIDR
+		parsedCIDRs[i] = parsedCIDR
 	}
-	return parseCIDRs, nil
+	return parsedCIDRs, nil
 }
 
 func convertToStringSlice(input []interface{}) ([]string, error) {
