@@ -20,5 +20,6 @@ const (
 	virtualMachineKey                      = "vm"
 	virtualMachineBlockDeviceAttachmentKey = "vmbdas"
 	virtualMachineIPAddressKey             = "vmip"
+	virtualMachineMACAddressKey            = "vmmac"
 	provisionerKey                         = "provisioner"
 )
