@@ -45,9 +45,9 @@ func NewRetentionHandler(retentionDuration time.Duration) *RetentionHandler {
 func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(RetentionHandlerName))
 
-	lease := state.VirtualMachineIPAddressLease()
+	lease := state.VirtualMachineMACAddressLease()
 
-	vmip, err := state.VirtualMachineIPAddress(ctx)
+	vmip, err := state.VirtualMachineMACAddress(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
