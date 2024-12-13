@@ -18,18 +18,21 @@ package internal
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/fake"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -57,7 +60,21 @@ func setupEnvironment(vm *virtv2.VirtualMachine, objs ...client.Object) (client.
 	err = resource.Fetch(context.Background())
 	Expect(err).NotTo(HaveOccurred())
 
-	vmState := state.New(fakeClient, resource)
+	var rtObjects []runtime.Object
+	for _, obj := range objs {
+		if reflect.ValueOf(obj).IsNil() {
+			continue
+		}
+
+		if obj.GetObjectKind().GroupVersionKind().Group == virtv2.SchemeGroupVersion.Group {
+			if rtObj, ok := obj.(runtime.Object); ok {
+				rtObjects = append(rtObjects, rtObj)
+			}
+		}
+	}
+
+	fakeVirtClient := fake.NewSimpleClientset(rtObjects...)
+	vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), resource)
 
 	return fakeClient, resource, vmState
 }

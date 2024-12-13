@@ -53,7 +53,6 @@ func CreateNetworkSpec(vmSpec virtv2.VirtualMachineSpec) InterfaceSpecList {
 		if network.Type == virtv2.NetworksTypeMain {
 			continue
 		}
-
 		networksSpec = append(networksSpec, InterfaceSpec{
 			Type:          network.Type,
 			Name:          network.Name,

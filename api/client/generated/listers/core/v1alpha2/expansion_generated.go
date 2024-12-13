@@ -78,6 +78,18 @@ type VirtualMachineIPAddressNamespaceListerExpansion interface{}
 // VirtualMachineIPAddressLeaseLister.
 type VirtualMachineIPAddressLeaseListerExpansion interface{}
 
+// VirtualMachineMACAddressListerExpansion allows custom methods to be added to
+// VirtualMachineMACAddressLister.
+type VirtualMachineMACAddressListerExpansion interface{}
+
+// VirtualMachineMACAddressNamespaceListerExpansion allows custom methods to be added to
+// VirtualMachineMACAddressNamespaceLister.
+type VirtualMachineMACAddressNamespaceListerExpansion interface{}
+
+// VirtualMachineMACAddressLeaseListerExpansion allows custom methods to be added to
+// VirtualMachineMACAddressLeaseLister.
+type VirtualMachineMACAddressLeaseListerExpansion interface{}
+
 // VirtualMachineOperationListerExpansion allows custom methods to be added to
 // VirtualMachineOperationLister.
 type VirtualMachineOperationListerExpansion interface{}
