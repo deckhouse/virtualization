@@ -38,16 +38,8 @@ func newCIDRsValidator(client client.Client) *cidrsValidator {
 	}
 }
 
-func (v cidrsValidator) ValidateCreate(ctx context.Context, mc *mcapi.ModuleConfig) (admission.Warnings, error) {
-	return v.validate(ctx, mc)
-}
-
 func (v cidrsValidator) ValidateUpdate(ctx context.Context, _, newMC *mcapi.ModuleConfig) (admission.Warnings, error) {
-	return v.validate(ctx, newMC)
-}
-
-func (v cidrsValidator) validate(ctx context.Context, mc *mcapi.ModuleConfig) (admission.Warnings, error) {
-	CIDRs, err := parseCIDRs(mc.Spec.Settings)
+	CIDRs, err := parseCIDRs(newMC.Spec.Settings)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
