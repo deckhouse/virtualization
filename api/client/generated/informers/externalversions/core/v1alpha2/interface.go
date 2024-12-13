@@ -42,6 +42,10 @@ type Interface interface {
 	VirtualMachineIPAddresses() VirtualMachineIPAddressInformer
 	// VirtualMachineIPAddressLeases returns a VirtualMachineIPAddressLeaseInformer.
 	VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseInformer
+	// VirtualMachineMACAddresses returns a VirtualMachineMACAddressInformer.
+	VirtualMachineMACAddresses() VirtualMachineMACAddressInformer
+	// VirtualMachineMACAddressLeases returns a VirtualMachineMACAddressLeaseInformer.
+	VirtualMachineMACAddressLeases() VirtualMachineMACAddressLeaseInformer
 	// VirtualMachineOperations returns a VirtualMachineOperationInformer.
 	VirtualMachineOperations() VirtualMachineOperationInformer
 	// VirtualMachineRestores returns a VirtualMachineRestoreInformer.
@@ -104,6 +108,16 @@ func (v *version) VirtualMachineIPAddresses() VirtualMachineIPAddressInformer {
 // VirtualMachineIPAddressLeases returns a VirtualMachineIPAddressLeaseInformer.
 func (v *version) VirtualMachineIPAddressLeases() VirtualMachineIPAddressLeaseInformer {
 	return &virtualMachineIPAddressLeaseInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// VirtualMachineMACAddresses returns a VirtualMachineMACAddressInformer.
+func (v *version) VirtualMachineMACAddresses() VirtualMachineMACAddressInformer {
+	return &virtualMachineMACAddressInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// VirtualMachineMACAddressLeases returns a VirtualMachineMACAddressLeaseInformer.
+func (v *version) VirtualMachineMACAddressLeases() VirtualMachineMACAddressLeaseInformer {
+	return &virtualMachineMACAddressLeaseInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualMachineOperations returns a VirtualMachineOperationInformer.

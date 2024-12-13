@@ -15,7 +15,7 @@ disks:
 vm:
   testDataDir: "./testdata/vm"
 ipam:
-  testDataDir: "./testdata/ipam"
+  testDataDir: "./testdata/netmanage"
 helperImages:
   curlImage: "curlimages/curl"
 testData:

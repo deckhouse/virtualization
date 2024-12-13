@@ -120,7 +120,7 @@ type Config struct {
 	ClusterTransport ClusterTransport `yaml:"clusterTransport"`
 	Disks            DisksConf        `yaml:"disks"`
 	VM               VmConf           `yaml:"vm"`
-	Ipam             IpamConf         `yaml:"ipam"`
+	Ipam             IpamConf         `yaml:"netmanage"`
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	Namespace        string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
