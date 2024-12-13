@@ -128,15 +128,10 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 
 func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) error {
 	switch runPolicy {
-	case virtv2.AlwaysOnPolicy:
-		b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyAlways)
-	case virtv2.AlwaysOffPolicy:
-		b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyHalted)
-	case virtv2.ManualPolicy:
-		if !b.ResourceExists {
-			// initialize only
-			b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyManual)
-		}
+	case virtv2.AlwaysOnPolicy,
+		virtv2.AlwaysOffPolicy,
+		virtv2.ManualPolicy:
+		b.Resource.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyManual)
 	case virtv2.AlwaysOnUnlessStoppedManually:
 		if !b.ResourceExists {
 			// initialize only

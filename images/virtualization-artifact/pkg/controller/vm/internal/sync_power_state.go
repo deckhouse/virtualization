@@ -20,72 +20,48 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const nameSyncPowerStateHandler = "SyncPowerStateHandler"
 
-func NewSyncPowerStateHandler(client client.Client, recorder record.EventRecorder) *SyncPowerStateHandler {
+func NewSyncPowerStateHandler(client client.Client) *SyncPowerStateHandler {
 	return &SyncPowerStateHandler{
-		client:   client,
-		recorder: recorder,
+		client: client,
 	}
 }
 
 type SyncPowerStateHandler struct {
-	client   client.Client
-	recorder record.EventRecorder
+	client client.Client
 }
 
 func (h *SyncPowerStateHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
+	log, ctx := logger.GetHandlerContext(ctx, nameSyncPowerStateHandler)
+
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
 
-	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
-
-	cbConfApplied := conditions.NewConditionBuilder(vmcondition.TypeConfigurationApplied).
-		Generation(current.GetGeneration()).
-		Status(metav1.ConditionUnknown).
-		Reason(conditions.ReasonUnknown)
-
-	defer func() {
-		conditions.SetCondition(cbConfApplied, &changed.Status.Conditions)
-	}()
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
-		cbConfApplied.
-			Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonConfigurationNotApplied).
-			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("find the internal virtual machine: %w", err)
 	}
 
 	err = h.syncPowerState(ctx, s, kvvm, &changed.Spec)
 	if err != nil {
 		err = fmt.Errorf("failed to sync powerstate: %w", err)
-		h.recorder.Event(current, corev1.EventTypeWarning, virtv2.ReasonErrVmNotSynced, err.Error())
-		cbConfApplied.
-			Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonConfigurationNotApplied).
-			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+		log.Error(err.Error())
 	}
 
 	return reconcile.Result{}, err
@@ -119,10 +95,8 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				return fmt.Errorf("force AlwaysOff: delete KVVMI: %w", err)
 			}
 		}
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyHalted)
 	case virtv2.AlwaysOnPolicy:
-		strategy, _ := kvvm.RunStrategy()
-		if strategy == virtv1.RunStrategyAlways && kvvmi == nil {
+		if kvvmi == nil {
 			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
 				return fmt.Errorf("failed to start VM: %w", err)
 			}
@@ -145,8 +119,6 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				}
 			}
 		}
-
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
 	case virtv2.AlwaysOnUnlessStoppedManually:
 		strategy, _ := kvvm.RunStrategy()
 		if strategy == virtv1.RunStrategyAlways && kvvmi == nil {
@@ -207,8 +179,6 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				}
 			}
 		}
-
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
 	}
 
 	if err != nil {
