@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
@@ -137,7 +137,7 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 		}
 
 		for i, vm := range vms.Items {
-			if vm.Spec.VirtualMachineIPAddress == s.vmip.Name || vm.Spec.VirtualMachineIPAddress == "" && vm.Name == ipam.GetVirtualMachineName(s.vmip) {
+			if vm.Spec.VirtualMachineIPAddress == s.vmip.Name || vm.Spec.VirtualMachineIPAddress == "" && vm.Name == netmanager.GetVirtualMachineName(s.vmip) {
 				s.vm = &vms.Items[i]
 				break
 			}
