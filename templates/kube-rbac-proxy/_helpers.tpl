@@ -9,6 +9,9 @@
     runAsGroup: 65534
   {{- end }}
   image: {{ include "helm_lib_module_common_image" (list $ctx "kubeRbacProxy") }}
+  imagePullPolicy: IfNotPresent
+  terminationMessagePath: /dev/termination-log
+  terminationMessagePolicy: File
   args:
   - "--secure-listen-address=$(KUBE_RBAC_PROXY_LISTEN_ADDRESS):{{ $settings.listenPort | default "8082" }}"
   - "--v={{ $settings.logLevel | default "2" }}"
@@ -18,6 +21,7 @@
   - name: KUBE_RBAC_PROXY_LISTEN_ADDRESS
     valueFrom:
       fieldRef:
+        apiVersion: v1
         fieldPath: status.podIP
   - name: KUBE_RBAC_PROXY_CONFIG
     value: |
