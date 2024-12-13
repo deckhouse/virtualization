@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/validator"
 )
@@ -49,14 +50,10 @@ func NewModuleConfigValidator(client client.Client) *validator.Validator[*mcapi.
 
 	return validator.NewValidator[*mcapi.ModuleConfig](lg).
 		WithPredicate(&validator.Predicate[*mcapi.ModuleConfig]{
-			Create: func(mc *mcapi.ModuleConfig) bool {
-				return mc.GetName() == moduleConfigName
-			},
 			Update: func(oldMC, newMC *mcapi.ModuleConfig) bool {
 				return newMC.GetName() == moduleConfigName &&
 					oldMC.GetGeneration() != newMC.GetGeneration()
 			},
 		}).
-		WithCreateValidators(cidrs).
 		WithUpdateValidators(cidrs, reduceCIDRs)
 }
