@@ -33,127 +33,136 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine":                    schema_virtualization_api_core_v1alpha2_AttachedVirtualMachine(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceSpecRef":                        schema_virtualization_api_core_v1alpha2_BlockDeviceSpecRef(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef":                      schema_virtualization_api_core_v1alpha2_BlockDeviceStatusRef(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPU":                                       schema_virtualization_api_core_v1alpha2_CPU(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUSpec":                                   schema_virtualization_api_core_v1alpha2_CPUSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUStatus":                                 schema_virtualization_api_core_v1alpha2_CPUStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.Checksum":                                  schema_virtualization_api_core_v1alpha2_Checksum(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImage":                       schema_virtualization_api_core_v1alpha2_ClusterVirtualImage(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageContainerImage":         schema_virtualization_api_core_v1alpha2_ClusterVirtualImageContainerImage(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageDataSource":             schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageList":                   schema_virtualization_api_core_v1alpha2_ClusterVirtualImageList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageObjectRef":              schema_virtualization_api_core_v1alpha2_ClusterVirtualImageObjectRef(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageSpec":                   schema_virtualization_api_core_v1alpha2_ClusterVirtualImageSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatus":                 schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget":           schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatusTarget(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuDiscovery":                              schema_virtualization_api_core_v1alpha2_CpuDiscovery(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuFeatures":                               schema_virtualization_api_core_v1alpha2_CpuFeatures(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP":                            schema_virtualization_api_core_v1alpha2_DataSourceHTTP(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget":                                schema_virtualization_api_core_v1alpha2_DiskTarget(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.Disruptions":                               schema_virtualization_api_core_v1alpha2_Disruptions(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecret":                           schema_virtualization_api_core_v1alpha2_ImagePullSecret(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecretName":                       schema_virtualization_api_core_v1alpha2_ImagePullSecretName(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize":                           schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs":                           schema_virtualization_api_core_v1alpha2_ImageUploadURLs(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryMinMax":                              schema_virtualization_api_core_v1alpha2_MemoryMinMax(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemorySpec":                                schema_virtualization_api_core_v1alpha2_MemorySpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryStatus":                              schema_virtualization_api_core_v1alpha2_MemoryStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacement":                           schema_virtualization_api_core_v1alpha2_NameReplacement(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacementFrom":                       schema_virtualization_api_core_v1alpha2_NameReplacementFrom(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.NetworksSpec":                              schema_virtualization_api_core_v1alpha2_NetworksSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.NetworksStatus":                            schema_virtualization_api_core_v1alpha2_NetworksStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector":                              schema_virtualization_api_core_v1alpha2_NodeSelector(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.Provisioning":                              schema_virtualization_api_core_v1alpha2_Provisioning(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ResourceRef":                               schema_virtualization_api_core_v1alpha2_ResourceRef(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus":                           schema_virtualization_api_core_v1alpha2_ResourcesStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicy":                              schema_virtualization_api_core_v1alpha2_SizingPolicy(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyCores":                         schema_virtualization_api_core_v1alpha2_SizingPolicyCores(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyMemory":                        schema_virtualization_api_core_v1alpha2_SizingPolicyMemory(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyMemoryPerCore":                 schema_virtualization_api_core_v1alpha2_SizingPolicyMemoryPerCore(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed":                               schema_virtualization_api_core_v1alpha2_StatusSpeed(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.SysprepRef":                                schema_virtualization_api_core_v1alpha2_SysprepRef(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.Topology":                                  schema_virtualization_api_core_v1alpha2_Topology(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.UserDataRef":                               schema_virtualization_api_core_v1alpha2_UserDataRef(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VMAffinity":                                schema_virtualization_api_core_v1alpha2_VMAffinity(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VMBDAObjectRef":                            schema_virtualization_api_core_v1alpha2_VMBDAObjectRef(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.Versions":                                  schema_virtualization_api_core_v1alpha2_Versions(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDisk":                               schema_virtualization_api_core_v1alpha2_VirtualDisk(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskContainerImage":                 schema_virtualization_api_core_v1alpha2_VirtualDiskContainerImage(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDataSource":                     schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskList":                           schema_virtualization_api_core_v1alpha2_VirtualDiskList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskObjectRef":                      schema_virtualization_api_core_v1alpha2_VirtualDiskObjectRef(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskPersistentVolumeClaim":          schema_virtualization_api_core_v1alpha2_VirtualDiskPersistentVolumeClaim(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSnapshot":                       schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshot(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSnapshotList":                   schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSnapshotSpec":                   schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSnapshotStatus":                 schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSpec":                           schema_virtualization_api_core_v1alpha2_VirtualDiskSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats":                          schema_virtualization_api_core_v1alpha2_VirtualDiskStats(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatsCreationDuration":          schema_virtualization_api_core_v1alpha2_VirtualDiskStatsCreationDuration(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatus":                         schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImage":                              schema_virtualization_api_core_v1alpha2_VirtualImage(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageContainerImage":                schema_virtualization_api_core_v1alpha2_VirtualImageContainerImage(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageDataSource":                    schema_virtualization_api_core_v1alpha2_VirtualImageDataSource(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageList":                          schema_virtualization_api_core_v1alpha2_VirtualImageList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageObjectRef":                     schema_virtualization_api_core_v1alpha2_VirtualImageObjectRef(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImagePersistentVolumeClaim":         schema_virtualization_api_core_v1alpha2_VirtualImagePersistentVolumeClaim(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageSpec":                          schema_virtualization_api_core_v1alpha2_VirtualImageSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageStatus":                        schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageStatusTarget":                  schema_virtualization_api_core_v1alpha2_VirtualImageStatusTarget(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachine":                            schema_virtualization_api_core_v1alpha2_VirtualMachine(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineAndPodAffinity":              schema_virtualization_api_core_v1alpha2_VirtualMachineAndPodAffinity(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineAndPodAffinityTerm":          schema_virtualization_api_core_v1alpha2_VirtualMachineAndPodAffinityTerm(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineAndPodAntiAffinity":          schema_virtualization_api_core_v1alpha2_VirtualMachineAndPodAntiAffinity(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineBlockDeviceAttachment":       schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineBlockDeviceAttachmentList":   schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachmentList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineBlockDeviceAttachmentSpec":   schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachmentSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineBlockDeviceAttachmentStatus": schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachmentStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineClass":                       schema_virtualization_api_core_v1alpha2_VirtualMachineClass(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineClassList":                   schema_virtualization_api_core_v1alpha2_VirtualMachineClassList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineClassSpec":                   schema_virtualization_api_core_v1alpha2_VirtualMachineClassSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineClassStatus":                 schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddress":                   schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddress(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLease":              schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLease(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef":  schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseIpAddressRef(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseList":          schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseSpec":          schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseStatus":        schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressList":               schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressSpec":               schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLaunchTimeDuration":          schema_virtualization_api_core_v1alpha2_VirtualMachineLaunchTimeDuration(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineList":                        schema_virtualization_api_core_v1alpha2_VirtualMachineList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLocation":                    schema_virtualization_api_core_v1alpha2_VirtualMachineLocation(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState":              schema_virtualization_api_core_v1alpha2_VirtualMachineMigrationState(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperation":                   schema_virtualization_api_core_v1alpha2_VirtualMachineOperation(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationList":               schema_virtualization_api_core_v1alpha2_VirtualMachineOperationList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationSpec":               schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePhaseTransitionTimestamp":    schema_virtualization_api_core_v1alpha2_VirtualMachinePhaseTransitionTimestamp(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod":                         schema_virtualization_api_core_v1alpha2_VirtualMachinePod(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestore":                     schema_virtualization_api_core_v1alpha2_VirtualMachineRestore(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreList":                 schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreSpec":                 schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreStatus":               schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshot":                    schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshot(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotList":                schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotList(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotSpec":                schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotStatus":              schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSpec":                        schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats":                       schema_virtualization_api_core_v1alpha2_VirtualMachineStats(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStatus":                      schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.WeightedVirtualMachineAndPodAffinityTerm":  schema_virtualization_api_core_v1alpha2_WeightedVirtualMachineAndPodAffinityTerm(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineAddVolume":           schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineCancelEvacuation":    schema_virtualization_api_subresources_v1alpha2_VirtualMachineCancelEvacuation(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineConsole":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineFreeze":              schema_virtualization_api_subresources_v1alpha2_VirtualMachineFreeze(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachinePortForward":         schema_virtualization_api_subresources_v1alpha2_VirtualMachinePortForward(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineRemoveVolume":        schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveVolume(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineUnfreeze":            schema_virtualization_api_subresources_v1alpha2_VirtualMachineUnfreeze(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineVNC":                 schema_virtualization_api_subresources_v1alpha2_VirtualMachineVNC(ref),
-		"k8s.io/api/core/v1.AWSElasticBlockStoreVolumeSource":                                             schema_k8sio_api_core_v1_AWSElasticBlockStoreVolumeSource(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.AttachedVirtualMachine":                     schema_virtualization_api_core_v1alpha2_AttachedVirtualMachine(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceSpecRef":                         schema_virtualization_api_core_v1alpha2_BlockDeviceSpecRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef":                       schema_virtualization_api_core_v1alpha2_BlockDeviceStatusRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPU":                                        schema_virtualization_api_core_v1alpha2_CPU(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUSpec":                                    schema_virtualization_api_core_v1alpha2_CPUSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUStatus":                                  schema_virtualization_api_core_v1alpha2_CPUStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.Checksum":                                   schema_virtualization_api_core_v1alpha2_Checksum(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImage":                        schema_virtualization_api_core_v1alpha2_ClusterVirtualImage(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageContainerImage":          schema_virtualization_api_core_v1alpha2_ClusterVirtualImageContainerImage(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageDataSource":              schema_virtualization_api_core_v1alpha2_ClusterVirtualImageDataSource(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageList":                    schema_virtualization_api_core_v1alpha2_ClusterVirtualImageList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageObjectRef":               schema_virtualization_api_core_v1alpha2_ClusterVirtualImageObjectRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageSpec":                    schema_virtualization_api_core_v1alpha2_ClusterVirtualImageSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatus":                  schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget":            schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatusTarget(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuDiscovery":                               schema_virtualization_api_core_v1alpha2_CpuDiscovery(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.CpuFeatures":                                schema_virtualization_api_core_v1alpha2_CpuFeatures(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.DataSourceHTTP":                             schema_virtualization_api_core_v1alpha2_DataSourceHTTP(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.DiskTarget":                                 schema_virtualization_api_core_v1alpha2_DiskTarget(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.Disruptions":                                schema_virtualization_api_core_v1alpha2_Disruptions(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecret":                            schema_virtualization_api_core_v1alpha2_ImagePullSecret(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImagePullSecretName":                        schema_virtualization_api_core_v1alpha2_ImagePullSecretName(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageStatusSize":                            schema_virtualization_api_core_v1alpha2_ImageStatusSize(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ImageUploadURLs":                            schema_virtualization_api_core_v1alpha2_ImageUploadURLs(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryMinMax":                               schema_virtualization_api_core_v1alpha2_MemoryMinMax(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemorySpec":                                 schema_virtualization_api_core_v1alpha2_MemorySpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryStatus":                               schema_virtualization_api_core_v1alpha2_MemoryStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacement":                            schema_virtualization_api_core_v1alpha2_NameReplacement(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacementFrom":                        schema_virtualization_api_core_v1alpha2_NameReplacementFrom(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.NetworksSpec":                               schema_virtualization_api_core_v1alpha2_NetworksSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.NetworksStatus":                             schema_virtualization_api_core_v1alpha2_NetworksStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector":                               schema_virtualization_api_core_v1alpha2_NodeSelector(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.Provisioning":                               schema_virtualization_api_core_v1alpha2_Provisioning(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ResourceRef":                                schema_virtualization_api_core_v1alpha2_ResourceRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus":                            schema_virtualization_api_core_v1alpha2_ResourcesStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicy":                               schema_virtualization_api_core_v1alpha2_SizingPolicy(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyCores":                          schema_virtualization_api_core_v1alpha2_SizingPolicyCores(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyMemory":                         schema_virtualization_api_core_v1alpha2_SizingPolicyMemory(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyMemoryPerCore":                  schema_virtualization_api_core_v1alpha2_SizingPolicyMemoryPerCore(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.StatusSpeed":                                schema_virtualization_api_core_v1alpha2_StatusSpeed(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.SysprepRef":                                 schema_virtualization_api_core_v1alpha2_SysprepRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.Topology":                                   schema_virtualization_api_core_v1alpha2_Topology(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.UserDataRef":                                schema_virtualization_api_core_v1alpha2_UserDataRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VMAffinity":                                 schema_virtualization_api_core_v1alpha2_VMAffinity(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VMBDAObjectRef":                             schema_virtualization_api_core_v1alpha2_VMBDAObjectRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.Versions":                                   schema_virtualization_api_core_v1alpha2_Versions(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDisk":                                schema_virtualization_api_core_v1alpha2_VirtualDisk(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskContainerImage":                  schema_virtualization_api_core_v1alpha2_VirtualDiskContainerImage(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDataSource":                      schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskList":                            schema_virtualization_api_core_v1alpha2_VirtualDiskList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskObjectRef":                       schema_virtualization_api_core_v1alpha2_VirtualDiskObjectRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskPersistentVolumeClaim":           schema_virtualization_api_core_v1alpha2_VirtualDiskPersistentVolumeClaim(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSnapshot":                        schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshot(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSnapshotList":                    schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSnapshotSpec":                    schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSnapshotStatus":                  schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskSpec":                            schema_virtualization_api_core_v1alpha2_VirtualDiskSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStats":                           schema_virtualization_api_core_v1alpha2_VirtualDiskStats(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatsCreationDuration":           schema_virtualization_api_core_v1alpha2_VirtualDiskStatsCreationDuration(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskStatus":                          schema_virtualization_api_core_v1alpha2_VirtualDiskStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImage":                               schema_virtualization_api_core_v1alpha2_VirtualImage(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageContainerImage":                 schema_virtualization_api_core_v1alpha2_VirtualImageContainerImage(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageDataSource":                     schema_virtualization_api_core_v1alpha2_VirtualImageDataSource(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageList":                           schema_virtualization_api_core_v1alpha2_VirtualImageList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageObjectRef":                      schema_virtualization_api_core_v1alpha2_VirtualImageObjectRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImagePersistentVolumeClaim":          schema_virtualization_api_core_v1alpha2_VirtualImagePersistentVolumeClaim(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageSpec":                           schema_virtualization_api_core_v1alpha2_VirtualImageSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageStatus":                         schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualImageStatusTarget":                   schema_virtualization_api_core_v1alpha2_VirtualImageStatusTarget(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachine":                             schema_virtualization_api_core_v1alpha2_VirtualMachine(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineAndPodAffinity":               schema_virtualization_api_core_v1alpha2_VirtualMachineAndPodAffinity(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineAndPodAffinityTerm":           schema_virtualization_api_core_v1alpha2_VirtualMachineAndPodAffinityTerm(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineAndPodAntiAffinity":           schema_virtualization_api_core_v1alpha2_VirtualMachineAndPodAntiAffinity(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineBlockDeviceAttachment":        schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachment(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineBlockDeviceAttachmentList":    schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachmentList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineBlockDeviceAttachmentSpec":    schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachmentSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineBlockDeviceAttachmentStatus":  schema_virtualization_api_core_v1alpha2_VirtualMachineBlockDeviceAttachmentStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineClass":                        schema_virtualization_api_core_v1alpha2_VirtualMachineClass(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineClassList":                    schema_virtualization_api_core_v1alpha2_VirtualMachineClassList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineClassSpec":                    schema_virtualization_api_core_v1alpha2_VirtualMachineClassSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineClassStatus":                  schema_virtualization_api_core_v1alpha2_VirtualMachineClassStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddress":                    schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddress(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLease":               schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLease(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseIpAddressRef":   schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseIpAddressRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseList":           schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseSpec":           schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressLeaseStatus":         schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressLeaseStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressList":                schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressSpec":                schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineIPAddressStatus":              schema_virtualization_api_core_v1alpha2_VirtualMachineIPAddressStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLaunchTimeDuration":           schema_virtualization_api_core_v1alpha2_VirtualMachineLaunchTimeDuration(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineList":                         schema_virtualization_api_core_v1alpha2_VirtualMachineList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineLocation":                     schema_virtualization_api_core_v1alpha2_VirtualMachineLocation(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddress":                   schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddress(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLease":              schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLease(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLeaseList":          schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLeaseList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLeaseMACAddressRef": schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLeaseMACAddressRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLeaseSpec":          schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLeaseSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLeaseStatus":        schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLeaseStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressList":               schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressSpec":               schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState":               schema_virtualization_api_core_v1alpha2_VirtualMachineMigrationState(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperation":                    schema_virtualization_api_core_v1alpha2_VirtualMachineOperation(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationList":                schema_virtualization_api_core_v1alpha2_VirtualMachineOperationList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationSpec":                schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationStatus":              schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePhaseTransitionTimestamp":     schema_virtualization_api_core_v1alpha2_VirtualMachinePhaseTransitionTimestamp(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod":                          schema_virtualization_api_core_v1alpha2_VirtualMachinePod(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestore":                      schema_virtualization_api_core_v1alpha2_VirtualMachineRestore(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreList":                  schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreSpec":                  schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineRestoreStatus":                schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshot":                     schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshot(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotList":                 schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotSpec":                 schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSnapshotStatus":               schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSpec":                         schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats":                        schema_virtualization_api_core_v1alpha2_VirtualMachineStats(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStatus":                       schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.WeightedVirtualMachineAndPodAffinityTerm":   schema_virtualization_api_core_v1alpha2_WeightedVirtualMachineAndPodAffinityTerm(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineAddVolume":            schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineCancelEvacuation":     schema_virtualization_api_subresources_v1alpha2_VirtualMachineCancelEvacuation(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineConsole":              schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineFreeze":               schema_virtualization_api_subresources_v1alpha2_VirtualMachineFreeze(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachinePortForward":          schema_virtualization_api_subresources_v1alpha2_VirtualMachinePortForward(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineRemoveVolume":         schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveVolume(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineUnfreeze":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineUnfreeze(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineVNC":                  schema_virtualization_api_subresources_v1alpha2_VirtualMachineVNC(ref),
+		"k8s.io/api/core/v1.AWSElasticBlockStoreVolumeSource":                                              schema_k8sio_api_core_v1_AWSElasticBlockStoreVolumeSource(ref),
 		"k8s.io/api/core/v1.Affinity":                                                                schema_k8sio_api_core_v1_Affinity(ref),
 		"k8s.io/api/core/v1.AttachedVolume":                                                          schema_k8sio_api_core_v1_AttachedVolume(ref),
 		"k8s.io/api/core/v1.AvoidPods":                                                               schema_k8sio_api_core_v1_AvoidPods(ref),
@@ -1754,8 +1763,15 @@ func schema_virtualization_api_core_v1alpha2_NetworksStatus(ref common.Reference
 							Format:  "",
 						},
 					},
+					"virtualMachineMACAddressName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"type", "name", "macAddress"},
+				Required: []string{"type", "name", "macAddress", "virtualMachineMACAddressName"},
 			},
 		},
 	}
@@ -4341,6 +4357,367 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineLocation(ref common.R
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddress(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineMACAddress defines MAC address for virtual machine.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressStatus"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLease(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineMACAddressLease defines fact of issued lease for `VirtualMachineMACAddress`.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"),
+						},
+					},
+					"spec": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLeaseSpec"),
+						},
+					},
+					"status": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLeaseStatus"),
+						},
+					},
+				},
+				Required: []string{"status"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLeaseSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLeaseStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLeaseList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineMACAddressLeaseList contains a list of VirtualMachineMACAddressLease",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLease"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLease", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLeaseMACAddressRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"namespace": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The Namespace of the referenced `VirtualMachineMACAddress`.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the referenced `VirtualMachineMACAddress`.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"namespace", "name"},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLeaseSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineMACAddressLeaseSpec is the desired state of `VirtualMachineMACAddressLease`.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"virtualMachineMACAddressRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The link to existing `VirtualMachineMACAddress`.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLeaseMACAddressRef"),
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddressLeaseMACAddressRef"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressLeaseStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineMACAddressLeaseStatus is the observed state of `VirtualMachineMACAddressLease`.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Represents the current state of issued MAC address lease.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Type:   []string{"integer"},
+							Format: "int64",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressList(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineMACAddressList contains a list of VirtualMachineMACAddress",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"metadata": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"),
+						},
+					},
+					"items": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddress"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"items"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMACAddress", "k8s.io/apimachinery/pkg/apis/meta/v1.ListMeta"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineMACAddressSpec is the desired state of `VirtualMachineMACAddress`.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"address": {
+						SchemaProps: spec.SchemaProps{
+							Description: "MACAddress is the requested MAC address. If omitted - random generate.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineMACAddressStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineMACAddressStatus is the observed state of `VirtualMachineMACAddress`.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"virtualMachineName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "VirtualMachine represents the virtual machine that currently uses this MAC address. It's the name of the virtual machine instance.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"address": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Address is the assigned MAC address allocated to the virtual machine.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"phase": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Phase represents the current state of the MAC address. It could indicate whether the MAC address is in use, available, or in any other defined state.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"observedGeneration": {
+						SchemaProps: spec.SchemaProps{
+							Description: "ObservedGeneration is the most recent generation observed by the controller. This is used to identify changes that have been recently observed and handled.",
+							Type:        []string{"integer"},
+							Format:      "int64",
+						},
+					},
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Conditions represents the latest available observations of the object's state. They provide detailed status and information, such as whether the MAC address allocation was successful, in progress, etc.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.Condition"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualMachineMigrationState(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -5267,8 +5644,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 					},
 					"blockDeviceRefs": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The list of attached block device attachments.",
-							Type:        []string{"array"},
+							Type: []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{

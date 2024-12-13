@@ -1,0 +1,55 @@
+spec:
+  versions:
+    - name: v1alpha2
+      schema:
+        openAPIV3Schema:
+          description: |
+            Ресурс, определяющий MAC-адрес для виртуальной машины.
+          properties:
+            spec:
+              description: |
+                Настройки `VirtualMachineMACAddress`.
+              properties:
+                address:
+                  description: |
+                    Запрашиваемый MAC-адрес, который должен быть присвоен виртуальной машине. Если поле пустое, назначается случайный адрес.
+            status:
+              properties:
+                conditions:
+                  description: |
+                    Последнее подтвержденное состояние данного ресурса.
+                  items:
+                    description: |
+                      `condition` содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
+                    properties:
+                      lastTransitionTime:
+                        description: Время перехода условия из одного состояния в другое.
+                      message:
+                        description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
+                      observedGeneration:
+                        description: |
+                          observedGeneration представляет собой .metadata.generation, на основе которого было установлено условие.
+                          Например, если `.metadata.generation` в настоящее время имеет значение `12`, а `.status.conditions[x].observedgeneration` имеет значение `9`, то условие устарело.
+                      reason:
+                        description: Краткая причина последнего перехода состояния.
+                      status:
+                        description: |
+                          Статус условия. Возможные значения: `True`, `False`, `Unknown`.
+                      type:
+                        description: Тип условия.
+                address:
+                  description: |
+                    Назначенный MAC-адрес.
+                phase:
+                  description: |
+                    Представляет текущее состояние ресурса `VirtualMachineMACAddress`. Возможные значения:
+
+                    * `Pending` — ресурс создается.
+                    * `Bound` — ресурс `VirtualMachineMACAddress` привязан к ресурсу `VirtualMachineMACAddressLease`.
+                    * `Attached` — ресурс `VirtualMachineMACAddress` подключен к ресурсу `VirtualMachine`.
+                virtualMachineName:
+                  description: |
+                    Имя виртуальной машины, которая в настоящее время использует этот MAC-адрес.
+                observedGeneration:
+                  description: |
+                    Поколение ресурса, которое в последний раз обрабатывалось контроллером.
