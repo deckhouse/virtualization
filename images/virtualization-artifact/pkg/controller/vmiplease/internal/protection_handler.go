@@ -37,9 +37,9 @@ func NewProtectionHandler() *ProtectionHandler {
 
 func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(ProtectionHandlerName))
-	lease := state.VirtualMachineIPAddressLease()
+	lease := state.VirtualMachineMACAddressLease()
 
-	vmip, err := state.VirtualMachineIPAddress(ctx)
+	vmip, err := state.VirtualMachineMACAddress(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -47,7 +47,7 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPLeaseSta
 	if vmip != nil {
 		controllerutil.AddFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
 	} else if lease.GetDeletionTimestamp() == nil {
-		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineIPAddressLease")
+		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineMACAddressLease")
 		controllerutil.RemoveFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
 	}
 

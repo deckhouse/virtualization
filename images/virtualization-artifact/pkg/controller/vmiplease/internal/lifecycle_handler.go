@@ -37,7 +37,7 @@ func NewLifecycleHandler() *LifecycleHandler {
 }
 
 func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {
-	lease := state.VirtualMachineIPAddressLease()
+	lease := state.VirtualMachineMACAddressLease()
 	leaseStatus := &lease.Status
 
 	// Do nothing if object is being deleted as any update will lead to en error.
@@ -50,7 +50,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 		Reason(conditions.ReasonUnknown).
 		Status(metav1.ConditionUnknown)
 
-	vmip, err := state.VirtualMachineIPAddress(ctx)
+	vmip, err := state.VirtualMachineMACAddress(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -67,7 +67,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 			leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmiplcondition.Released).
-				Message("VirtualMachineIPAddress lease is not used by any VirtualMachineIPAddress")
+				Message("VirtualMachineMACAddress lease is not used by any VirtualMachineMACAddress")
 			conditions.SetCondition(cb, &leaseStatus.Conditions)
 		}
 	}
