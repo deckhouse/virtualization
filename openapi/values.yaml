@@ -122,3 +122,12 @@ properties:
         properties:
           nodeCount:
             type: integer
+      network:
+        type: object
+        properties:
+          macAddress:
+            type: object
+            properties:
+              oui:
+                type: string
+                default: ""

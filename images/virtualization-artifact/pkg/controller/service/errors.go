@@ -25,4 +25,6 @@ var (
 	ErrDefaultStorageClassNotFound        = errors.New("default storage class not found")
 	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
 	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
+
+	ErrMACAddressAlreadyExist = errors.New("the MAC address is already allocated")
 )

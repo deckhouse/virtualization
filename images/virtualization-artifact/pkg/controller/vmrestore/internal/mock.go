@@ -32,6 +32,9 @@ var _ Restorer = &RestorerMock{}
 //			RestoreVirtualMachineIPAddressFunc: func(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error) {
 //				panic("mock out the RestoreVirtualMachineIPAddress method")
 //			},
+//			RestoreVirtualMachineMACAddressFunc: func(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineMACAddress, error) {
+//				panic("mock out the RestoreVirtualMachineMACAddress method")
+//			},
 //		}
 //
 //		// use mockedRestorer in code that requires Restorer
@@ -50,6 +53,9 @@ type RestorerMock struct {
 
 	// RestoreVirtualMachineIPAddressFunc mocks the RestoreVirtualMachineIPAddress method.
 	RestoreVirtualMachineIPAddressFunc func(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error)
+
+	// RestoreVirtualMachineMACAddressFunc mocks the RestoreVirtualMachineMACAddress method.
+	RestoreVirtualMachineMACAddressFunc func(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineMACAddress, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -81,11 +87,19 @@ type RestorerMock struct {
 			// Secret is the secret argument value.
 			Secret *corev1.Secret
 		}
+		// RestoreVirtualMachineMACAddress holds details about calls to the RestoreVirtualMachineMACAddress method.
+		RestoreVirtualMachineMACAddress []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Secret is the secret argument value.
+			Secret *corev1.Secret
+		}
 	}
 	lockRestoreProvisioner                          sync.RWMutex
 	lockRestoreVirtualMachine                       sync.RWMutex
 	lockRestoreVirtualMachineBlockDeviceAttachments sync.RWMutex
 	lockRestoreVirtualMachineIPAddress              sync.RWMutex
+	lockRestoreVirtualMachineMACAddress             sync.RWMutex
 }
 
 // RestoreProvisioner calls RestoreProvisionerFunc.
@@ -229,5 +243,41 @@ func (mock *RestorerMock) RestoreVirtualMachineIPAddressCalls() []struct {
 	mock.lockRestoreVirtualMachineIPAddress.RLock()
 	calls = mock.calls.RestoreVirtualMachineIPAddress
 	mock.lockRestoreVirtualMachineIPAddress.RUnlock()
+	return calls
+}
+
+// RestoreVirtualMachineMACAddress calls RestoreVirtualMachineMACAddressFunc.
+func (mock *RestorerMock) RestoreVirtualMachineMACAddress(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineMACAddress, error) {
+	if mock.RestoreVirtualMachineMACAddressFunc == nil {
+		panic("RestorerMock.RestoreVirtualMachineMACAddressFunc: method is nil but Restorer.RestoreVirtualMachineMACAddress was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		Secret *corev1.Secret
+	}{
+		Ctx:    ctx,
+		Secret: secret,
+	}
+	mock.lockRestoreVirtualMachineMACAddress.Lock()
+	mock.calls.RestoreVirtualMachineMACAddress = append(mock.calls.RestoreVirtualMachineMACAddress, callInfo)
+	mock.lockRestoreVirtualMachineMACAddress.Unlock()
+	return mock.RestoreVirtualMachineMACAddressFunc(ctx, secret)
+}
+
+// RestoreVirtualMachineMACAddressCalls gets all the calls that were made to RestoreVirtualMachineMACAddress.
+// Check the length with:
+//
+//	len(mockedRestorer.RestoreVirtualMachineMACAddressCalls())
+func (mock *RestorerMock) RestoreVirtualMachineMACAddressCalls() []struct {
+	Ctx    context.Context
+	Secret *corev1.Secret
+} {
+	var calls []struct {
+		Ctx    context.Context
+		Secret *corev1.Secret
+	}
+	mock.lockRestoreVirtualMachineMACAddress.RLock()
+	calls = mock.calls.RestoreVirtualMachineMACAddress
+	mock.lockRestoreVirtualMachineMACAddress.RUnlock()
 	return calls
 }

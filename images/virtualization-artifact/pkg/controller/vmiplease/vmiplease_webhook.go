@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -40,7 +41,7 @@ type Validator struct {
 func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
 	lease, ok := obj.(*v1alpha2.VirtualMachineIPAddressLease)
 	if !ok {
-		return nil, fmt.Errorf("expected a new VirtualMachineIPAddressLease but got a %T", obj)
+		return nil, fmt.Errorf("expected a new VirtualMachineMACAddressLease but got a %T", obj)
 	}
 
 	v.log.Info("Validate VirtualMachineIpAddressLease creating", "name", lease.Name)

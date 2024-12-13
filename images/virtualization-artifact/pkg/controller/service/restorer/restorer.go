@@ -70,6 +70,11 @@ func (r SecretRestorer) Store(ctx context.Context, vm *virtv2.VirtualMachine, vm
 		return nil, err
 	}
 
+	err = r.setVirtualMachineMACAddress(ctx, &secret, vm)
+	if err != nil {
+		return nil, err
+	}
+
 	err = r.setProvisioning(ctx, &secret, vm)
 	if err != nil {
 		return nil, err
@@ -98,6 +103,10 @@ func (r SecretRestorer) RestoreProvisioner(_ context.Context, secret *corev1.Sec
 
 func (r SecretRestorer) RestoreVirtualMachineIPAddress(_ context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error) {
 	return get[*virtv2.VirtualMachineIPAddress](secret, virtualMachineIPAddressKey)
+}
+
+func (r SecretRestorer) RestoreVirtualMachineMACAddress(_ context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineMACAddress, error) {
+	return get[*virtv2.VirtualMachineMACAddress](secret, virtualMachineMACAddressKey)
 }
 
 func (r SecretRestorer) RestoreVirtualMachineBlockDeviceAttachments(_ context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error) {
@@ -275,6 +284,31 @@ func (r SecretRestorer) setProvisioning(ctx context.Context, secret *corev1.Secr
 	}
 
 	secret.Data[provisionerKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
+
+	return nil
+}
+
+func (r SecretRestorer) setVirtualMachineMACAddress(ctx context.Context, secret *corev1.Secret, vm *virtv2.VirtualMachine) error {
+	vmmac, err := object.FetchObject(ctx, types.NamespacedName{
+		Namespace: vm.Namespace,
+		Name:      vm.Status.VirtualMachineMACAddress,
+	}, r.client, &virtv2.VirtualMachineMACAddress{})
+	if err != nil {
+		return err
+	}
+
+	if vmmac == nil {
+		return fmt.Errorf("the virtual machine mac address %q not found", vm.Status.VirtualMachineIPAddress)
+	}
+
+	vmmac.Spec.Address = vmmac.Status.Address
+
+	JSON, err := json.Marshal(vmmac)
+	if err != nil {
+		return err
+	}
+
+	secret.Data[virtualMachineMACAddressKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
 
 	return nil
 }
