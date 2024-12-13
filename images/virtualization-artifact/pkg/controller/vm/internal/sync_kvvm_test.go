@@ -134,7 +134,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 	}
 
 	reconcile := func() {
-		h := NewSyncKvvmHandler(nil, fakeClient, recorder, "")
+		h := NewSyncKvvmHandler(nil, fakeClient, recorder)
 		_, err := h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		err = resource.Update(context.Background())
