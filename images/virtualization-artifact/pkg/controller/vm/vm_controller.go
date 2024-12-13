@@ -66,6 +66,7 @@ func SetupController(
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
 		internal.NewStatisticHandler(client),
+		internal.NewQuotaExceedHandler(),
 	}
 	r := NewReconciler(client, handlers...)
 

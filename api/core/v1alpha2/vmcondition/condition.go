@@ -39,6 +39,7 @@ const (
 	TypeSizingPolicyMatched                 Type = "SizingPolicyMatched"
 	TypeSnapshotting                        Type = "Snapshotting"
 	TypeDiskAttachmentCapacityAvailable     Type = "DiskAttachmentCapacityAvailable"
+	TypeQuotaNotExceeded                    Type = "QuotaNotExceeded"
 )
 
 type Reason string
@@ -108,4 +109,8 @@ const (
 	ReasonPodNotExistsReason        Reason = "PodNotExists"
 	ReasonPodConditionMissingReason Reason = "PodConditionMissing"
 	ReasonGuestNotRunningReason     Reason = "GuestNotRunning"
+
+	ReasonKVVMINotExists   Reason = "KVVMINotExists"
+	ReasonQuotaExceeded    Reason = "QuotaExceeded"
+	ReasonQuotaNotExceeded Reason = "QuotaNotExceeded"
 )
