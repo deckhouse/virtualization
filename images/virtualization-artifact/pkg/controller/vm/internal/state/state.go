@@ -48,6 +48,7 @@ type VirtualMachineState interface {
 	VirtualImagesByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error)
 	ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error)
 	IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
+	MACAddress(ctx context.Context) (*virtv2.VirtualMachineMACAddress, error)
 	Class(ctx context.Context) (*virtv2.VirtualMachineClass, error)
 	Shared(fn func(s *Shared))
 }
@@ -57,19 +58,20 @@ func New(c client.Client, vm *service.Resource[*virtv2.VirtualMachine, virtv2.Vi
 }
 
 type state struct {
-	client    client.Client
-	mu        sync.RWMutex
-	vm        *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
-	kvvm      *virtv1.VirtualMachine
-	kvvmi     *virtv1.VirtualMachineInstance
-	pods      *corev1.PodList
-	pod       *corev1.Pod
-	vdByName  map[string]*virtv2.VirtualDisk
-	viByName  map[string]*virtv2.VirtualImage
-	cviByName map[string]*virtv2.ClusterVirtualImage
-	ipAddress *virtv2.VirtualMachineIPAddress
-	vmClass   *virtv2.VirtualMachineClass
-	shared    Shared
+	client     client.Client
+	mu         sync.RWMutex
+	vm         *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+	kvvm       *virtv1.VirtualMachine
+	kvvmi      *virtv1.VirtualMachineInstance
+	pods       *corev1.PodList
+	pod        *corev1.Pod
+	vdByName   map[string]*virtv2.VirtualDisk
+	viByName   map[string]*virtv2.VirtualImage
+	cviByName  map[string]*virtv2.ClusterVirtualImage
+	ipAddress  *virtv2.VirtualMachineIPAddress
+	macAddress *virtv2.VirtualMachineMACAddress
+	vmClass    *virtv2.VirtualMachineClass
+	shared     Shared
 }
 
 type Shared struct {
@@ -287,6 +289,48 @@ func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*vir
 	}
 	s.cviByName = cviByName
 	return cviByName, nil
+}
+
+func (s *state) MACAddress(ctx context.Context) (*virtv2.VirtualMachineMACAddress, error) {
+	if s.vm == nil {
+		return nil, nil
+	}
+
+	if s.macAddress != nil {
+		return s.macAddress, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	vmmacName := s.vm.Current().Spec.VirtualMachineMACAddress
+	if vmmacName == "" {
+		vmmacList := &virtv2.VirtualMachineMACAddressList{}
+
+		err := s.client.List(ctx, vmmacList, &client.ListOptions{
+			Namespace:     s.vm.Current().GetNamespace(),
+			LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineUID: string(s.vm.Current().GetUID())}),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list VirtualMachineMACAddress: %w", err)
+		}
+
+		if len(vmmacList.Items) == 0 {
+			// TODO add search for resource by owner ref
+			return nil, nil
+		}
+
+		s.macAddress = &vmmacList.Items[0]
+	} else {
+		vmmacKey := types.NamespacedName{Name: vmmacName, Namespace: s.vm.Current().GetNamespace()}
+
+		macAddress, err := object.FetchObject(ctx, vmmacKey, s.client, &virtv2.VirtualMachineMACAddress{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch VirtualMachineMACAddress: %w", err)
+		}
+		s.macAddress = macAddress
+	}
+
+	return s.macAddress, nil
 }
 
 func (s *state) IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error) {

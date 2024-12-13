@@ -532,6 +532,13 @@ spec:
                     Указывается при необходимости использования ранее созданного IP-адреса ВМ.
 
                     Если не указано явно, по умолчанию для ВМ создается ресурс `virtualMachineIPAddress` с именем аналогичным ресурсу ВМ (`.metadata.name`).
+                virtualMachineMACAddressName:
+                  description: |
+                    Имя для связанного ресурса `virtualMachineMACAddress`.
+
+                    Указывается при необходимости использования ранее созданного MAC-адреса ВМ.
+
+                    Если не указано явно, по умолчанию для ВМ создается ресурс `virtualMachineMACAddress` с именем аналогичным ресурсу ВМ (`.metadata.name`).
             status:
               properties:
                 blockDeviceRefs:
@@ -591,6 +598,9 @@ spec:
                 ipAddress:
                   description: |
                     IP-адрес ВМ.
+                macAddress:
+                  description: |
+                    MAC-адрес ВМ.
                 nodeName:
                   description: |
                     Имя узла, на котором в данный момент запущена ВМ.
@@ -610,6 +620,9 @@ spec:
                 virtualMachineIPAddressName:
                   description: |
                     Имя `virtualMachineIPAddressName`, содержащее IP-адрес виртуальной машины.
+                virtualMachineMACAddressName:
+                  description: |
+                    Имя `virtualMachineMACAddressName`, содержащее MAC-адрес виртуальной машины.
                 migrationState:
                   description: |
                     Информация о миграции Виртуальной машины.

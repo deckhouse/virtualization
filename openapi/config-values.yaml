@@ -220,6 +220,19 @@ properties:
             items:
               type: string
             x-examples: ["sc-1", "sc-2"]
+    network:
+      description: |
+        Configuring network settings for virtual machines.
+      properties:
+        macAddress:
+          description: |
+            Configuring MAC address for virtual machines.
+          properties:
+            prefix:
+              type: string
+              description: |
+                MAC address prefix for virtual machines.
+                Supported formats: xx-xx-xx-xx, xx:xx:xx:xx, xxxxxxxx.
   logLevel:
     type: string
     description: |

@@ -35,6 +35,11 @@ var (
 	ErrIPAddressOutOfRange   = errors.New("the IP address is out of range")
 )
 
+var (
+	ErrMACAddressAlreadyExist = errors.New("the MAC address is already allocated")
+	ErrMACAddressOutOfRange   = errors.New("the MAC address is out of range")
+)
+
 type VirtualDiskUsedByImageError struct {
 	vdName string
 }

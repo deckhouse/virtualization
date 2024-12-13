@@ -128,6 +128,19 @@ properties:
             type: array
             items:
               type: string
+  network:
+    description: |
+      Настройка сетевых параметров для виртуальных машин.
+    properties:
+      macAddress:
+        description: |
+          Настройка MAC-адреса для виртуальных машин.
+        properties:
+          prefix:
+            type: string
+            description: |
+              Префикс MAC-адреса для виртуальных машин.
+              Поддерживаемые форматы: xx-xx-xx-xx, xx:xx:xx:xx, xxxxxxx.
   logLevel:
     type: string
     description: |

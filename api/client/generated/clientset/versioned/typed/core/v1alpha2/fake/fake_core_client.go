@@ -64,6 +64,14 @@ func (c *FakeVirtualizationV1alpha2) VirtualMachineIPAddressLeases() v1alpha2.Vi
 	return &FakeVirtualMachineIPAddressLeases{c}
 }
 
+func (c *FakeVirtualizationV1alpha2) VirtualMachineMACAddresses(namespace string) v1alpha2.VirtualMachineMACAddressInterface {
+	return &FakeVirtualMachineMACAddresses{c, namespace}
+}
+
+func (c *FakeVirtualizationV1alpha2) VirtualMachineMACAddressLeases() v1alpha2.VirtualMachineMACAddressLeaseInterface {
+	return &FakeVirtualMachineMACAddressLeases{c}
+}
+
 func (c *FakeVirtualizationV1alpha2) VirtualMachineOperations(namespace string) v1alpha2.VirtualMachineOperationInterface {
 	return &FakeVirtualMachineOperations{c, namespace}
 }

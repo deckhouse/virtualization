@@ -30,6 +30,10 @@
   value: "true"
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.virtualMachineCIDRs | quote }}
+{{- if and (hasKey .Values.virtualization "network") (hasKey .Values.virtualization.network "macAddress") (hasKey .Values.virtualization.network.macAddress "prefix") }}
+- name: VIRTUAL_MACHINE_MAC_ADDRESS_PREFIX
+value: {{ .Values.virtualization.network.macAddress.prefix }}
+{{- end }}
 {{- if (hasKey .Values.virtualization "virtualImages") }}
 - name: VIRTUAL_IMAGE_STORAGE_CLASS
   value: {{ .Values.virtualization.virtualImages.storageClassName }}
@@ -50,6 +54,8 @@
 {{- end }}
 - name: VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION
   value: "10m"
+- name: VIRTUAL_MACHINE_MAC_LEASES_RETENTION_DURATION
+  value: "24h"
 - name: UPLOADER_INGRESS_HOST
   value: {{ include "helm_lib_module_public_domain" (list . "virtualization") }}
 - name: UPLOADER_INGRESS_TLS_SECRET

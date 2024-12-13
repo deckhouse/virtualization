@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ipam
+package netmanager
 
 import (
 	"context"
@@ -30,7 +30,7 @@ import (
 
 const AnnoIPAddressCNIRequest = "cni.cilium.io/ipAddress"
 
-func New() *IPAM {
+func NewIPAM() *IPAM {
 	return &IPAM{}
 }
 
