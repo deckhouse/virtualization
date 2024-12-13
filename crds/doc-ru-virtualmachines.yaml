@@ -631,6 +631,12 @@ spec:
                 virtualMachineIPAddressName:
                   description: |
                     Имя virtualMachineIPAddressName, содержащее IP-адрес виртуальной машины.
+                virtualMachineMACAddressNames:
+                  description: |
+                    Список MAC-адресов виртуальной машины.
+                  items:
+                    description: |
+                      Имя virtualMachineMACAddressName, содержащее MAC-адрес виртуальной машины.
                 migrationState:
                   description: |
                     Информация о миграции виртуальной машины.

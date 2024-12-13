@@ -382,8 +382,17 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 		return nil, fmt.Errorf("the IP address is not found for the virtual machine")
 	}
 
+	macAddresses := make(map[string]string)
+	macAddressesByIfName, err := s.MACAddressesByInterfaceName(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, macAddress := range macAddressesByIfName {
+		macAddresses[macAddress.Spec.InterfaceName] = macAddress.Status.Address
+	}
+
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ip.Status.Address)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ip.Status.Address, macAddresses)
 	if err != nil {
 		return nil, err
 	}
