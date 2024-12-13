@@ -28,8 +28,8 @@ import (
 )
 
 type VMIPLeaseState interface {
-	VirtualMachineIPAddressLease() *virtv2.VirtualMachineIPAddressLease
-	VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
+	VirtualMachineMACAddressLease() *virtv2.VirtualMachineIPAddressLease
+	VirtualMachineMACAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
 	SetDeletion(value bool)
 	ShouldDeletion() bool
 }
@@ -45,11 +45,11 @@ func New(c client.Client, lease *virtv2.VirtualMachineIPAddressLease) VMIPLeaseS
 	return &state{client: c, lease: lease}
 }
 
-func (s *state) VirtualMachineIPAddressLease() *virtv2.VirtualMachineIPAddressLease {
+func (s *state) VirtualMachineMACAddressLease() *virtv2.VirtualMachineIPAddressLease {
 	return s.lease
 }
 
-func (s *state) VirtualMachineIPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error) {
+func (s *state) VirtualMachineMACAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error) {
 	if s.vmip != nil {
 		return s.vmip, nil
 	}
