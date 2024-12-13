@@ -53,6 +53,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
@@ -127,9 +129,6 @@ func main() {
 
 	var isSdnEnabled bool
 	flag.BoolVar(&isSdnEnabled, "sdn-enabled", os.Getenv(SdnEnabledEnv) == "true", "SDN enabled")
-
-	var clusterUUID string
-	flag.StringVar(&clusterUUID, "cluster-uuid", getEnv(clusterUUIDEnv, ""), "Cluster UUID")
 
 	flag.Parse()
 
@@ -238,6 +237,12 @@ func main() {
 		virtualMachineIPLeasesRetentionDuration = "10m"
 	}
 
+	clusterUUID := os.Getenv(clusterUUIDEnv)
+	if clusterUUID == "" {
+		log.Error("clusterUUID not found, but required")
+		os.Exit(1)
+	}
+
 	// Create a new Manager to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, managerOpts)
 	if err != nil {
@@ -292,7 +297,7 @@ func main() {
 	}
 
 	vmLogger := logger.NewControllerLogger(vm.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage, isSdnEnabled, clusterUUID); err != nil {
+	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage, isSdnEnabled); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -370,6 +375,18 @@ func main() {
 	}
 
 	if err = evacuation.SetupController(ctx, mgr, virtClient, log); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmmacLogger := logger.NewControllerLogger(vmmac.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, clusterUUID, virtClient); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmmacleaseLogger := logger.NewControllerLogger(vmmaclease.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmmaclease.NewController(ctx, mgr, vmmacleaseLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
