@@ -279,6 +279,15 @@ rules:
   verbs:
     - '*'
 - apiGroups:
+    - storage.deckhouse.io
+  resources:
+    - replicatedstorageclasses
+    - replicatedstoragepools
+  verbs:
+    - get
+    - list
+    - watch
+- apiGroups:
     - snapshot.storage.k8s.io
   resources:
     - volumesnapshots
@@ -585,4 +594,4 @@ subjects:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: d8:rbac-proxy 
+  name: d8:rbac-proxy
