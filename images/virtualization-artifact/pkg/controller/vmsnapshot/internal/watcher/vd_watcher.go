@@ -105,8 +105,8 @@ func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		return false
 	}
 
-	oldResized, _ := conditions.GetCondition(vdcondition.ResizedType, oldVD.Status.Conditions)
-	newResized, _ := conditions.GetCondition(vdcondition.ResizedType, newVD.Status.Conditions)
+	oldResized, _ := conditions.GetCondition(vdcondition.ResizingType, oldVD.Status.Conditions)
+	newResized, _ := conditions.GetCondition(vdcondition.ResizingType, newVD.Status.Conditions)
 
 	return oldResized.Status != newResized.Status || oldResized.Reason != newResized.Reason
 }
