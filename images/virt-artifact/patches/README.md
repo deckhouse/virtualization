@@ -98,7 +98,11 @@ Currently covered metrics:
 
 Graceful termination of websocket connection for serial console and vnc connections.
 
-#### `026-auto-migrate-if-nodeplacement-changed.patch`
+#### `026-add-healthz-to-virt-operator.patch`
+
+Add separate healthz endpoint to virt-operator.
+
+#### `027-auto-migrate-if-nodeplacement-changed.patch`
 
 Start the migration if the nodeSelector or affinity has changed.
 How does it work?
