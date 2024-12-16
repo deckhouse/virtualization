@@ -165,7 +165,6 @@ func isPodStartedError(vm *virtv1.VirtualMachine) bool {
 		return true
 	}
 
-	phase := vm.Status.PrintableStatus
 	return slices.Contains([]virtv1.VirtualMachinePrintableStatus{
 		virtv1.VirtualMachineStatusErrImagePull,
 		virtv1.VirtualMachineStatusImagePullBackOff,
@@ -173,7 +172,7 @@ func isPodStartedError(vm *virtv1.VirtualMachine) bool {
 		virtv1.VirtualMachineStatusUnschedulable,
 		virtv1.VirtualMachineStatusDataVolumeError,
 		virtv1.VirtualMachineStatusPvcNotFound,
-	}, phase)
+	}, vm.Status.PrintableStatus)
 }
 
 func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) bool {
