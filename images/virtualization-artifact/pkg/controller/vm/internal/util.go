@@ -131,7 +131,10 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]virtv2.MachinePhase{
 	kvvmEmptyPhase: virtv2.MachinePending,
 }
 
-const kvvmEmptyPhase virtv1.VirtualMachinePrintableStatus = ""
+const (
+	kvvmEmptyPhase        virtv1.VirtualMachinePrintableStatus = ""
+	failedCreatePodReason string                               = "FailedCreate"
+)
 
 func getKVMIReadyReason(kvmiReason string) conditions.Stringer {
 	if r, ok := mapReasons[kvmiReason]; ok {
@@ -156,7 +159,14 @@ var mapReasons = map[string]vmcondition.Reason{
 	virtv1.GuestNotRunningReason: vmcondition.ReasonGuestNotRunningReason,
 }
 
-func isPodStartedError(phase virtv1.VirtualMachinePrintableStatus) bool {
+func isPodStartedError(vm *virtv1.VirtualMachine) bool {
+	synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), vm.Status.Conditions)
+	if synchronized != nil &&
+		synchronized.Status == corev1.ConditionFalse &&
+		synchronized.Reason == failedCreatePodReason {
+		return true
+	}
+
 	return slices.Contains([]virtv1.VirtualMachinePrintableStatus{
 		virtv1.VirtualMachineStatusErrImagePull,
 		virtv1.VirtualMachineStatusImagePullBackOff,
@@ -164,7 +174,7 @@ func isPodStartedError(phase virtv1.VirtualMachinePrintableStatus) bool {
 		virtv1.VirtualMachineStatusUnschedulable,
 		virtv1.VirtualMachineStatusDataVolumeError,
 		virtv1.VirtualMachineStatusPvcNotFound,
-	}, phase)
+	}, vm.Status.PrintableStatus)
 }
 
 func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) bool {
