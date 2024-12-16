@@ -52,6 +52,5 @@ func (f ClusterVirtualImageFilter) FilterUpdateEvents(e event.UpdateEvent) bool 
 		return false
 	}
 
-	// Triggered only if the resource phase changed to Ready.
-	return oldCVI.Status.Phase != newCVI.Status.Phase && newCVI.Status.Phase == virtv2.ImageReady
+	return oldCVI.Status.Phase != newCVI.Status.Phase
 }

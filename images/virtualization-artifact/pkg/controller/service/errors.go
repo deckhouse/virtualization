@@ -16,7 +16,10 @@ limitations under the License.
 
 package service
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 var (
 	ErrStorageClassNotFound        = errors.New("storage class not found")
@@ -30,3 +33,31 @@ var (
 	ErrIPAddressAlreadyExist = errors.New("the IP address is already allocated")
 	ErrIPAddressOutOfRange   = errors.New("the IP address is out of range")
 )
+
+type VirtualDiskUsedByImageError struct {
+	vdName string
+}
+
+func (e VirtualDiskUsedByImageError) Error() string {
+	return fmt.Sprintf("the virtual disk %q already used by creating image", e.vdName)
+}
+
+func NewVirtualDiskUsedByImageError(name string) error {
+	return VirtualDiskUsedByImageError{
+		vdName: name,
+	}
+}
+
+type VirtualDiskUsedByVirtualMachineError struct {
+	vdName string
+}
+
+func (e VirtualDiskUsedByVirtualMachineError) Error() string {
+	return fmt.Sprintf("the virtual disk %q already used by running virtual machine", e.vdName)
+}
+
+func NewVirtualDiskUsedByVirtualMachineError(name string) error {
+	return VirtualDiskUsedByVirtualMachineError{
+		vdName: name,
+	}
+}

@@ -34,6 +34,8 @@ const (
 	SnapshottingType Type = "Snapshotting"
 	// StorageClassReadyType indicates whether the storage class is ready.
 	StorageClassReadyType Type = "StorageClassReady"
+	// InUseType indicates whether the VirtualDisk is attached to a running VirtualMachine or is being used in a process of an image creation.
+	InUseType Type = "InUse"
 )
 
 type (
@@ -47,6 +49,8 @@ type (
 	SnapshottingReason string
 	// StorageClassReadyReason represents the various reasons for the Storageclass ready condition type.
 	StorageClassReadyReason string
+	// InUseReason represents the various reasons for the InUse condition type.
+	InUseReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -66,6 +70,10 @@ func (s SnapshottingReason) String() string {
 }
 
 func (s StorageClassReadyReason) String() string {
+	return string(s)
+}
+
+func (s InUseReason) String() string {
 	return string(s)
 }
 
@@ -118,4 +126,9 @@ const (
 	StorageClassReady StorageClassReadyReason = "StorageClassReady"
 	// StorageClassNotFound indicates that the storage class is not ready
 	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
+
+	// AllowedForImageUsage indicates that the VirtualDisk is permitted for use in a process of an image creation.
+	AllowedForImageUsage InUseReason = "AllowedForImageUsage"
+	// AllowedForVirtualMachineUsage indicates that the VirtualDisk is permitted for use by a running VirtualMachine.
+	AllowedForVirtualMachineUsage InUseReason = "AllowedForVirtualMachineUsage"
 )

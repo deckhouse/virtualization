@@ -108,14 +108,14 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 			return ds.viObjectRefOnPvc.StoreToPVC(ctx, vi, viRef, cb)
 		}
 	case virtv2.VirtualDiskKind:
-		viKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
-		vd, err := object.FetchObject(ctx, viKey, ds.client, &virtv2.VirtualDisk{})
+		vdKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
+		vd, err := object.FetchObject(ctx, vdKey, ds.client, &virtv2.VirtualDisk{})
 		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("unable to get VI %s: %w", viKey, err)
+			return reconcile.Result{}, fmt.Errorf("unable to get VD %s: %w", vdKey, err)
 		}
 
 		if vd == nil {
-			return reconcile.Result{}, fmt.Errorf("VD object ref %s is nil", viKey)
+			return reconcile.Result{}, fmt.Errorf("VD object ref %s is nil", vdKey)
 		}
 
 		return ds.vdSyncer.StoreToPVC(ctx, vi, vd, cb)
