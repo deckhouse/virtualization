@@ -80,6 +80,7 @@ git:
       - '**/*'
     includePaths:
     - scripts
+    - generic-cpu
   # Override libvirt daemon configuration.
   - add: /images/{{ $.ImageName }}
     to: /etc/libvirt
@@ -147,7 +148,12 @@ shell:
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
   - chmod +x /usr/bin/virt-launcher-monitor
-  # Configure liboverride globally.
+  # Add dvp generic cpu model.
+  - cp /generic-cpu/dvp-generic-cpu.xml /usr/share/libvirt/cpu_map/x86_dvp-generic-cpu.xml
+  #   Concatenation-escaping to produce single quotes.
+  #   The 'x86_486.xml' marker should work for later versions of libvirt where CPUs are grouped.
+  - sed 's#\(filename=.x86_486.xml..>\)#\1 <include filename='"'x86_dvp-generic-cpu.xml'"'/>#' -i /usr/share/libvirt/cpu_map/index.xml
+  # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
   - cp /etc/ld.so.preload.in /etc/ld.so.preload
   # Create qemu group and user.
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
