@@ -28,7 +28,7 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `VirtualDisk` is ready for use.
 	ReadyType Type = "Ready"
-	// ResizingType indicates whether the disk resizing operation is completed.
+	// ResizingType indicates whether a disk resizing operation is in progress.
 	ResizingType Type = "Resizing"
 	// SnapshottingType indicates whether the disk snapshotting operation is in progress.
 	SnapshottingType Type = "Snapshotting"

@@ -463,7 +463,7 @@ func (h LifeCycleHandler) ensureBlockDeviceConsistency(ctx context.Context, vm *
 		}
 
 		resizingReady, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
-		if resizingReady.Reason == vdcondition.InProgress.String() {
+		if resizingReady.Status == metav1.ConditionTrue && vd.Generation == resizingReady.ObservedGeneration {
 			return fmt.Errorf("%w: waiting for the virtual disk %q to be resized", ErrVirtualDiskResizing, vd.Name)
 		}
 	}
