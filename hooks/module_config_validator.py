@@ -30,12 +30,13 @@ class ModuleConfigValidateHook(Hook):
         self.module_name = module_name
 
     def generate_config(self) -> dict:
+        """executeHookOnEvent is empty because we need only execute at module start."""
         return {
             "configVersion": "v1",
-            "onStartup": 1,
             "kubernetes": [
                 {
                     "name": self.SNAPSHOT_NAME,
+                    "executeHookOnSynchronization": True,
                     "executeHookOnEvent": [],
                     "apiVersion": self.API_VERSION,
                     "kind": self.KIND,
@@ -49,6 +50,7 @@ class ModuleConfigValidateHook(Hook):
                 },
                 {
                     "name": "nodes",
+                    "executeHookOnSynchronization": True,
                     "executeHookOnEvent": [],
                     "apiVersion": "v1",
                     "kind": "Node",
@@ -66,14 +68,14 @@ class ModuleConfigValidateHook(Hook):
             for net2 in networks[i + 1:]:
                 if net1.overlaps(net2):
                     raise ValueError(f"Overlapping CIDRs {net1} and {net2}")
-  
+
     def check_node_addresses_overlap(networks: list[IPv4Network], node_addresses: list[IPv4Address]) -> None:
         """Check if node addresses overlap with any subnet."""
         for addr in node_addresses:
             for net in networks:
                 if addr in net:
                     raise ValueError(f"Node address {addr} overlaps with subnet {net}")
-        
+
     def reconcile(self) -> Callable[[hook.Context], None]:
         def r(ctx: hook.Context):
             cidrs: list[IPv4Network] = [
@@ -83,7 +85,7 @@ class ModuleConfigValidateHook(Hook):
                 .get("cidrs", [])
             ]
             self.check_overlaps_cidrs(cidrs)
-                        
+
             node_addresses: list[IPv4Address] = [
                 ip_address(addr["address"])
                 for snap in ctx.snapshots.get("nodes", [])
@@ -91,7 +93,7 @@ class ModuleConfigValidateHook(Hook):
                 if addr.get("type") in {"InternalIP", "ExternalIP"}
             ]
             self.check_node_addresses_overlap(cidrs, node_addresses)
-                
+
         return r
 
 
