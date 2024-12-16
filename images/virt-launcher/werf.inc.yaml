@@ -149,6 +149,8 @@ shell:
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
   # Add dvp generic cpu model.
   - cp /generic-cpu/dvp-generic-cpu.xml /usr/share/libvirt/cpu_map/x86_dvp-generic-cpu.xml
+  # Concatenation-escaping to produce single quotes.
+  - sed 's#\(<group name=.generic.>\)#\1 <include filename='"'x86_dvp-generic-cpu.xml'"'/>#' -i /app/index.xml
   - chmod +x /usr/bin/virt-launcher-monitor
   # Configure liboverride globally.
   - cp /etc/ld.so.preload.in /etc/ld.so.preload
