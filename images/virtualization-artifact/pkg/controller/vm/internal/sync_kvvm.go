@@ -107,6 +107,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		lastAppliedSpec *virtv2.VirtualMachineSpec
 		changes         vmchange.SpecChanges
 		allChanges      vmchange.SpecChanges
+		classChanged    bool
 	)
 	if kvvm != nil {
 		lastAppliedSpec = h.loadLastAppliedSpec(current, kvvm)
@@ -117,17 +118,8 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		}
 		classChanges := h.detectClassSpecChanges(ctx, &class.Spec, lastClassAppliedSpec)
 		if !classChanges.IsEmpty() {
-			allChanges.Add(classChanges.GetAll()...)
-			cbClassChanged := conditions.NewConditionBuilder(vmcondition.TypeClassChanged).
-				Generation(current.GetGeneration()).
-				Status(metav1.ConditionTrue).
-				Reason(vmcondition.ReasonClassChanged)
-			conditions.SetCondition(cbClassChanged, &changed.Status.Conditions)
-		} else {
-			conditions.RemoveCondition(vmcondition.TypeClassChanged, &changed.Status.Conditions)
+			classChanged = true
 		}
-	} else {
-		conditions.RemoveCondition(vmcondition.TypeClassChanged, &changed.Status.Conditions)
 	}
 
 	if kvvm == nil || changes.IsEmpty() {
@@ -178,7 +170,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
 			Message(service.CapitalizeFirstLetter(errs.Error()) + ".")
-	case len(changed.Status.RestartAwaitingChanges) > 0 || h.classChanged(changed):
+	case len(changed.Status.RestartAwaitingChanges) > 0:
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonErrRestartAwaitingChanges, "The virtual machine configuration successfully synced")
 		cbConfApplied.
 			Status(metav1.ConditionFalse).
@@ -188,6 +180,16 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonRestartAwaitingChangesExist).
 			Message("Waiting for the user to restart in order to apply the configuration changes.")
+	case classChanged:
+		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonErrRestartAwaitingChanges, "The virtual machine configuration successfully synced")
+		cbConfApplied.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonConfigurationNotApplied).
+			Message("VirtualMachineClass.spec has been modified. Waiting for the user to restart in order to apply the configuration changes.")
+		cbAwaitingRestart.
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonRestartAwaitingVMClassChangesExist).
+			Message("VirtualMachineClass.spec has been modified. Waiting for the user to restart in order to apply the configuration changes.")
 	case synced:
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonErrVmSynced, "The virtual machine configuration successfully synced")
 		cbConfApplied.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonConfigurationApplied)
@@ -200,14 +202,6 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 func (h *SyncKvvmHandler) Name() string {
 	return nameSyncKvvmHandler
-}
-
-func (h *SyncKvvmHandler) classChanged(vm *virtv2.VirtualMachine) bool {
-	if vm == nil {
-		return false
-	}
-	c, _ := conditions.GetCondition(vmcondition.TypeClassChanged, vm.Status.Conditions)
-	return c.Status == metav1.ConditionTrue
 }
 
 func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {

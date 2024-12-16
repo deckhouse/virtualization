@@ -25,7 +25,6 @@ func (t Type) String() string {
 const (
 	TypeIPAddressReady                      Type = "VirtualMachineIPAddressReady"
 	TypeClassReady                          Type = "VirtualMachineClassReady"
-	TypeClassChanged                        Type = "VirtualMachineClassChanged"
 	TypeBlockDevicesReady                   Type = "BlockDevicesReady"
 	TypeRunning                             Type = "Running"
 	TypeMigrating                           Type = "Migrating"
@@ -57,7 +56,6 @@ const (
 
 	ReasonClassReady    Reason = "VirtualMachineClassReady"
 	ReasonClassNotReady Reason = "VirtualMachineClassNotReady"
-	ReasonClassChanged  Reason = "VirtualMachineClassChanged"
 
 	ReasonIPAddressReady        Reason = "VirtualMachineIPAddressReady"
 	ReasonIPAddressNotReady     Reason = "VirtualMachineIPAddressNotReady"
@@ -74,8 +72,9 @@ const (
 	ReasonConfigurationApplied    Reason = "ConfigurationApplied"
 	ReasonConfigurationNotApplied Reason = "ConfigurationNotApplied"
 
-	ReasonRestartAwaitingChangesExist Reason = "RestartAwaitingChangesExist"
-	ReasonRestartNoNeed               Reason = "NoNeedRestart"
+	ReasonRestartAwaitingChangesExist        Reason = "RestartAwaitingChangesExist"
+	ReasonRestartAwaitingVMClassChangesExist Reason = "RestartAwaitingVMClassChangesExist"
+	ReasonRestartNoNeed                      Reason = "NoNeedRestart"
 
 	ReasonPodStarted    Reason = "PodStarted"
 	ReasonPodNotFound   Reason = "PodNotFound"
