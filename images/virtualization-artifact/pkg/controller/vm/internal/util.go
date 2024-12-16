@@ -131,7 +131,10 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]virtv2.MachinePhase{
 	kvvmEmptyPhase: virtv2.MachinePending,
 }
 
-const kvvmEmptyPhase virtv1.VirtualMachinePrintableStatus = ""
+const (
+	kvvmEmptyPhase        virtv1.VirtualMachinePrintableStatus = ""
+	failedCreatePodReason string                               = "FailedCreate"
+)
 
 func getKVMIReadyReason(kvmiReason string) conditions.Stringer {
 	if r, ok := mapReasons[kvmiReason]; ok {
@@ -157,7 +160,6 @@ var mapReasons = map[string]vmcondition.Reason{
 }
 
 func isPodStartedError(vm *virtv1.VirtualMachine) bool {
-	const failedCreatePodReason = "FailedCreate"
 	synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), vm.Status.Conditions)
 	if synchronized != nil &&
 		synchronized.Status == corev1.ConditionFalse &&
