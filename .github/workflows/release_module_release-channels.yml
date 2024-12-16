@@ -45,7 +45,7 @@ on:
         description: CE
       ee:
         type: boolean
-        description: EE
+        description: EE (also build CE ans SEPlus)
 
       tag:
         description: "Tag of the module, example v1.21.1"
@@ -109,7 +109,7 @@ jobs:
       - name: SET VAR
         run: |
           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ee/modules" >> "$GITHUB_ENV"
-          echo "EDITION=EE" >> "$GITHUB_ENV"
+          echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
       - name: ECHO VAR
         run: |
           echo $MODULES_MODULE_SOURCE
@@ -134,6 +134,34 @@ jobs:
             --new_layer "" \
             --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
         shell: bash
+
+      - uses: deckhouse/modules-actions/deploy@v1
+
+  job-SE-Plus:
+    name: Edition SE Plus
+    needs: job-EE
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "SE Plus"
+      - name: SET VAR
+        run: |
+          echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/se-plus/modules" >> "$GITHUB_ENV"
+          echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
+      - name: ECHO VAR
+        run: |
+          echo $MODULES_MODULE_SOURCE
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Remove unwanted software
+        if: ${{ github.event.inputs.enableBuild == 'true' }}
+        uses: ./.github/actions/remove-unwanted-software
+
+      - uses: deckhouse/modules-actions/setup@v1
+
+      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+        uses: deckhouse/modules-actions/build@v1
 
       - uses: deckhouse/modules-actions/deploy@v1
 
