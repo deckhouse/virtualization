@@ -156,7 +156,16 @@ var mapReasons = map[string]vmcondition.Reason{
 	virtv1.GuestNotRunningReason: vmcondition.ReasonGuestNotRunningReason,
 }
 
-func isPodStartedError(phase virtv1.VirtualMachinePrintableStatus) bool {
+func isPodStartedError(vm *virtv1.VirtualMachine) bool {
+	const failedCreatePodReason = "FailedCreate"
+	synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), vm.Status.Conditions)
+	if synchronized != nil &&
+		synchronized.Status == corev1.ConditionFalse &&
+		synchronized.Reason == failedCreatePodReason {
+		return true
+	}
+
+	phase := vm.Status.PrintableStatus
 	return slices.Contains([]virtv1.VirtualMachinePrintableStatus{
 		virtv1.VirtualMachineStatusErrImagePull,
 		virtv1.VirtualMachineStatusImagePullBackOff,
