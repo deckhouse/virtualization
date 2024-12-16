@@ -17,6 +17,7 @@ import (
 type VM struct {
 	Name                             string                                    `json:"name"`
 	VirtualMachineLaunchTimeDuration v1alpha2.VirtualMachineLaunchTimeDuration `json:"launchTimeDuration"`
+	VirtualMachineStopTime           time.Duration                             `json:"stopTime,omitempty"`
 }
 
 type VMs struct {
@@ -117,4 +118,42 @@ func Get(client kubeclient.Client, namespace string) {
 	fmt.Println("Average GuestOSAgentStarting in seconds:", avgGuestOSAgentStarting)
 
 	vms.SaveToCSV(namespace)
+}
+
+func getStoppingAndStoppedDuration(vm v1alpha2.VirtualMachine) time.Duration {
+	var (
+		stopping metav1.Time
+		stopped  metav1.Time
+	)
+	for _, transition := range vm.Status.Stats.PhasesTransitions {
+		if string(transition.Phase) == "Stopping" {
+			stopping = transition.Timestamp
+		}
+		if string(transition.Phase) == "Stopped" {
+			stopped = transition.Timestamp
+		}
+	}
+	return stopped.Time.Sub(stopping.Time) // `Time` is from metav1.Time
+}
+
+func GetStatStop(client kubeclient.Client, namespace string) {
+	var vms VMs
+
+	vmList, err := client.VirtualMachines(namespace).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		fmt.Printf("Failed to get vm: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Total VMs:", len(vmList.Items))
+
+	for _, vm := range vmList.Items {
+		if string(vm.Status.Phase) == "Stopped" {
+			vms.Items = append(vms.Items, VM{
+				Name: vm.Name,
+				// VirtualMachinePhaseTransitionTimestamp
+				// vm.Status.Stats.PhasesTransitions[len(vm.Status.Stats.PhasesTransitions)-1]
+				VirtualMachineStopTime: getStoppingAndStoppedDuration(vm),
+			})
+		}
+	}
 }

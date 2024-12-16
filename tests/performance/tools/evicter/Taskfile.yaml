@@ -1,0 +1,13 @@
+version: "3"
+
+silent: true
+
+vars:
+  NS: '{{ .NS | default "perf" }}'
+  TARGET: '{{ .TARGET | default 10 }}'
+
+tasks:
+  run:miration:
+    desc: "Run migration | NS=myns TARGET=10 task run:miration"
+    cmds:
+      - go run main.go -ns={{.NS}} -target={{.TARGET}}
