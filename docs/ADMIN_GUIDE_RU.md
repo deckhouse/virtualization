@@ -599,11 +599,3 @@ spec:
 - RWO + FileSystem
 
 Если хранилище неизвестно и определить его параметры автоматически - невозможно, используется режим: RWO + FileSystem
-
-Для изменения стандартного процесса определения параметров `PersistentVolumeClaim` для `StorageClass` можно применять следующие аннотации:
-
-| Аннотация                                            | Допустимые значения              |
-| ---------------------------------------------------- | -------------------------------- |
-| virtualdisk.virtualization.deckhouse.io/volume-mode  | `Block`, `Filesystem`            |
-| virtualdisk.virtualization.deckhouse.io/access-mode  | `ReadWriteOnce`, `ReadWriteMany` |
-| virtualdisk.virtualization.deckhouse.io/binding-mode | `Immediate`                      |
