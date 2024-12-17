@@ -45,7 +45,7 @@ func NewModuleConfigValidator(client client.Client) *validator.Validator[*mcapi.
 	lg := log.Default().With(slog.String("validator", "moduleconfig"))
 
 	cidrs := newCIDRsValidator(client)
-	reduceCIDRs := newReduceCIDRsValidator(client)
+	reduceCIDRs := newRemoveCIDRsValidator(client)
 
 	return validator.NewValidator[*mcapi.ModuleConfig](lg).
 		WithPredicate(&validator.Predicate[*mcapi.ModuleConfig]{

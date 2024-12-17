@@ -25,6 +25,8 @@ import (
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 )
 
+const virtualMachineCIDRs = "virtualMachineCIDRs"
+
 func isEqualCIDRs(a, b netip.Prefix) bool {
 	return a.Addr() == b.Addr() && a.Bits() == b.Bits()
 }
@@ -46,7 +48,7 @@ func checkNodeAddressesOverlap(nodes []corev1.Node, excludedPrefixes []netip.Pre
 			if address.Type == corev1.NodeInternalIP || address.Type == corev1.NodeExternalIP {
 				ip, err := netip.ParseAddr(address.Address)
 				if err != nil {
-					return fmt.Errorf("error parsing node IP: %w", err)
+					continue
 				}
 
 				for _, prefix := range excludedPrefixes {

@@ -29,19 +29,17 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const virtualMachineCIDRs = "virtualMachineCIDRs"
-
-type reduceCIDRsValidator struct {
+type removeCIDRsValidator struct {
 	client client.Client
 }
 
-func newReduceCIDRsValidator(client client.Client) *reduceCIDRsValidator {
-	return &reduceCIDRsValidator{
+func newRemoveCIDRsValidator(client client.Client) *removeCIDRsValidator {
+	return &removeCIDRsValidator{
 		client: client,
 	}
 }
 
-func (v reduceCIDRsValidator) ValidateUpdate(ctx context.Context, oldMC, newMC *mcapi.ModuleConfig) (admission.Warnings, error) {
+func (v removeCIDRsValidator) ValidateUpdate(ctx context.Context, oldMC, newMC *mcapi.ModuleConfig) (admission.Warnings, error) {
 	oldCIDRs, err := parseCIDRs(oldMC.Spec.Settings)
 	if err != nil {
 		return admission.Warnings{}, err
