@@ -93,3 +93,20 @@ Currently covered metrics:
 - virt-handler
 - virt-controller
 - virt-api
+
+#### `025-stream-graceful-shutdown.patch`
+
+Graceful termination of websocket connection for serial console and vnc connections.
+
+#### `026-add-healthz-to-virt-operator.patch`
+
+Add separate healthz endpoint to virt-operator.
+
+#### `027-auto-migrate-if-nodeplacement-changed.patch`
+
+Start the migration if the nodeSelector or affinity has changed.
+How does it work?
+1. When changing the affinity or nodeSelector in the vm, the vm controller updates the vmi specification.
+2. When changing the affinity or nodeSelector in vmi, the vmi controller will set the `NodePlacementNotMatched` condition to True in vmi.
+3. The workload-updater controller monitors the vmi and starts migration when there is a `NodePlacementNotMatched` conditions on the vmi.
+4. When the migration is completed, virt-handler will remove the condition `NodePlacementNotMatched` from the vmi 

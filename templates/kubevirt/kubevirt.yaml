@@ -22,11 +22,18 @@ spec:
           tokenBucketRateLimiter:
             qps: 5000
             burst: 6000
+    migrations:
+      bandwidthPerMigration: 64Mi
+      completionTimeoutPerGiB: 800
+      parallelMigrationsPerCluster: 5
+      parallelOutboundMigrationsPerNode: 2
+      progressTimeout: 150
     smbios:
       manufacturer: Flant
       family: Deckhouse
       product: DeckhouseVirtualizationPlatform
     evictionStrategy: LiveMigrate
+    vmRolloutStrategy: LiveUpdate
     developerConfiguration:
       featureGates:
       - HotplugVolumes
