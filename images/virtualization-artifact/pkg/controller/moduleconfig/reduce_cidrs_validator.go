@@ -79,7 +79,7 @@ loop:
 		}
 		for _, CIDR := range validateCIDRs {
 			if CIDR.Contains(leaseIP) {
-				return nil, fmt.Errorf("CIDR %q is in use by one or more IP addresses", CIDR)
+				return nil, fmt.Errorf("virtualMachineCIDRs item %q can't be removed: VirtualMachineIPAddressLease/%s holds IP address from this network", CIDR, lease.GetName())
 			}
 		}
 	}
