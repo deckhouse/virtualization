@@ -44,7 +44,7 @@ func compareAffinity(current, desired *v1alpha2.VirtualMachineSpec) []FieldChang
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(current.Affinity, desired.Affinity),
-		ActionRestart,
+		placementAction,
 	)
 }
 
@@ -57,7 +57,7 @@ func compareNodeSelector(current, desired *v1alpha2.VirtualMachineSpec) []FieldC
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(current.NodeSelector, desired.NodeSelector),
-		ActionRestart,
+		placementAction,
 	)
 }
 

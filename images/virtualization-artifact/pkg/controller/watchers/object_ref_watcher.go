@@ -62,8 +62,8 @@ func (w ObjectRefWatcher) Run(mgr manager.Manager, ctr controller.Controller) er
 		source.Kind(mgr.GetCache(), w.enqueuer.GetEnqueueFrom()),
 		handler.EnqueueRequestsFromMapFunc(w.enqueuer.EnqueueRequests),
 		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
 			UpdateFunc: w.filter.FilterUpdateEvents,
 		},
 	)

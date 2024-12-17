@@ -116,7 +116,7 @@ type VirtualMachineSpec struct {
 // * `AlwaysOn` - after creation the VM is always in a running state, even in case of its shutdown by OS means.
 // * `AlwaysOff` - after creation the VM is always in the off state.
 // * `Manual` - after creation the VM is switched off, the VM state (switching on/off) is controlled via sub-resources or OS means.
-// * `AlwaysOnUnlessStoppedManually` - after creation the VM is always in a running state, even in case of its shutdown by means of the OS, the VM can be shut down using the corresponding subresource.
+// * `AlwaysOnUnlessStoppedManually` - after creation the VM is always in a running state. The VM can be shutdown by means of the OS or use the d8 utility: `d8 v stop <vm_name>`.
 //
 // +kubebuilder:validation:Enum={AlwaysOn,AlwaysOff,Manual,AlwaysOnUnlessStoppedManually}
 type RunPolicy string

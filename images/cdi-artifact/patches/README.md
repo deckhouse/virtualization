@@ -76,3 +76,12 @@ This is necessary for ensuring that the metrics can be accessed only by Promethe
 Currently covered metrics:
 - cdi-controller
 - cdi-deployment
+
+#### `019-optimize-csi-clone.patch`
+
+Cloning PVC to PVC for provisioner `rbd.csi.ceph.com` now works via csi-clone instead of snapshot.
+With csi-clone, it's possible to specify the same or a larger capacity for the target pvc immediately, with no need to postpone resizing.
+
+#### `020-manage-provisioner-tolerations.patch`
+
+Add annotation to manage provisioner tolerations to avoid unschedulable error.

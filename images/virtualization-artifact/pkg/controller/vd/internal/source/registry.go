@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -133,7 +134,15 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		vd.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(vd, supgen)
-		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource))
+
+		var nodePlacement *provisioner.NodePlacement
+		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
+		}
+
+		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
 		switch {
 		case err == nil:
 			// OK.
@@ -156,24 +165,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			vd.Status.Phase = virtv2.DiskFailed
-
-			switch {
-			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdcondition.ProvisioningNotStarted).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			case errors.Is(err, service.ErrProvisioningFailed):
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdcondition.ProvisioningFailed).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			default:
-				return reconcile.Result{}, err
-			}
+			return reconcile.Result{}, setPhaseConditionFromPodError(ctx, err, pod, vd, cb, ds.client)
 		}
 
 		vd.Status.Phase = virtv2.DiskProvisioning
@@ -228,7 +220,14 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
+		var nodePlacement *provisioner.NodePlacement
+		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
+		}
+
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
@@ -260,6 +259,11 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		err = ds.diskService.CheckProvisioning(ctx, pvc)
+		if err != nil {
+			return reconcile.Result{}, setPhaseConditionFromProvisioningError(ctx, err, cb, vd, dv, ds.diskService, ds.client)
+		}
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)

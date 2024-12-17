@@ -25,13 +25,122 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 func TestBlockDeviceHandler(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "BlockDeviceHandler Suite")
 }
+
+var _ = Describe("func areVirtualDisksAllowedToUse", func() {
+	var h *BlockDeviceHandler
+	var vdFoo *virtv2.VirtualDisk
+	var vdBar *virtv2.VirtualDisk
+
+	BeforeEach(func() {
+		h = NewBlockDeviceHandler(nil, &EventRecorderMock{
+			EventFunc: func(_ runtime.Object, _, _, _ string) {},
+		})
+		vdFoo = &virtv2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: "vd-foo"},
+			Status: virtv2.VirtualDiskStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.InUseType.String(),
+						Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+						Status: metav1.ConditionTrue,
+					},
+				},
+			},
+		}
+		vdBar = &virtv2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{Name: "vd-bar"},
+			Status: virtv2.VirtualDiskStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.InUseType.String(),
+						Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+						Status: metav1.ConditionTrue,
+					},
+				},
+			},
+		}
+	})
+
+	Context("VirtualDisk is not allowed", func() {
+		It("returns false", func() {
+			anyVd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: "anyVd"},
+				Status: virtv2.VirtualDiskStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:   vdcondition.InUseType.String(),
+							Reason: conditions.ReasonUnknown.String(),
+							Status: metav1.ConditionUnknown,
+						},
+					},
+				},
+			}
+
+			vds := map[string]*virtv2.VirtualDisk{
+				vdFoo.Name: vdFoo,
+				vdBar.Name: vdBar,
+				anyVd.Name: anyVd,
+			}
+
+			allowed := h.areVirtualDisksAllowedToUse(vds)
+			Expect(allowed).To(BeFalse())
+		})
+	})
+
+	Context("VirtualDisk is used to create image", func() {
+		It("returns false", func() {
+			anyVd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{Name: "anyVd"},
+				Status: virtv2.VirtualDiskStatus{
+					Phase:  virtv2.DiskReady,
+					Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
+					Conditions: []metav1.Condition{
+						{
+							Type:   vdcondition.ReadyType.String(),
+							Reason: vdcondition.Ready.String(),
+							Status: metav1.ConditionTrue,
+						},
+						{
+							Type:   vdcondition.InUseType.String(),
+							Reason: vdcondition.AllowedForImageUsage.String(),
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			}
+
+			vds := map[string]*virtv2.VirtualDisk{
+				vdFoo.Name: vdFoo,
+				vdBar.Name: vdBar,
+				anyVd.Name: anyVd,
+			}
+
+			allowed := h.areVirtualDisksAllowedToUse(vds)
+			Expect(allowed).To(BeFalse())
+		})
+	})
+
+	Context("VirtualDisk is allowed", func() {
+		It("returns true", func() {
+			vds := map[string]*virtv2.VirtualDisk{
+				vdFoo.Name: vdFoo,
+				vdBar.Name: vdBar,
+			}
+
+			allowed := h.areVirtualDisksAllowedToUse(vds)
+			Expect(allowed).To(BeTrue())
+		})
+	})
+})
 
 var _ = Describe("BlockDeviceHandler", func() {
 	var h *BlockDeviceHandler
@@ -68,6 +177,18 @@ var _ = Describe("BlockDeviceHandler", func() {
 			Status: virtv2.VirtualDiskStatus{
 				Phase:  virtv2.DiskReady,
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.ReadyType.String(),
+						Reason: vdcondition.Ready.String(),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   vdcondition.InUseType.String(),
+						Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+						Status: metav1.ConditionTrue,
+					},
+				},
 			},
 		}
 		vdBar = &virtv2.VirtualDisk{
@@ -75,6 +196,18 @@ var _ = Describe("BlockDeviceHandler", func() {
 			Status: virtv2.VirtualDiskStatus{
 				Phase:  virtv2.DiskReady,
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-bar"},
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.ReadyType.String(),
+						Reason: vdcondition.Ready.String(),
+						Status: metav1.ConditionTrue,
+					},
+					{
+						Type:   vdcondition.InUseType.String(),
+						Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+						Status: metav1.ConditionTrue,
+					},
+				},
 			},
 		}
 		vm = &virtv2.VirtualMachine{
@@ -166,6 +299,18 @@ var _ = Describe("BlockDeviceHandler", func() {
 
 		It("VirtualDisk's target pvc is created", func() {
 			vdFoo.Status.Phase = virtv2.DiskProvisioning
+			vdFoo.Status.Conditions = []metav1.Condition{
+				{
+					Type:   vdcondition.ReadyType.String(),
+					Reason: vdcondition.Provisioning.String(),
+					Status: metav1.ConditionFalse,
+				},
+				{
+					Type:   vdcondition.InUseType.String(),
+					Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+					Status: metav1.ConditionTrue,
+				},
+			}
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
 			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, logger)
 			Expect(ready).To(Equal(3))

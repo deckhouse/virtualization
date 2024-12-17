@@ -41,6 +41,7 @@ import (
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -72,10 +73,23 @@ func (s DiskService) Start(
 	source *cdiv1.DataVolumeSource,
 	obj ObjectKind,
 	sup *supplements.Generator,
+	opts ...Option,
 ) error {
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
 	dvBuilder.SetDataSource(source)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
+
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case *NodePlacementOption:
+			err := dvBuilder.SetNodePlacement(v.nodePlacement)
+			if err != nil {
+				return fmt.Errorf("set node placement: %w", err)
+			}
+		default:
+			return fmt.Errorf("unknown Start option")
+		}
+	}
 
 	sc, err := s.GetStorageClass(ctx, storageClass)
 	if err != nil {
@@ -149,6 +163,25 @@ func (s DiskService) StartImmediate(
 	}
 
 	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
+}
+
+func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
+	podName, ok := pvc.Annotations[annotations.AnnProvisionerName]
+	if !ok || podName == "" {
+		return nil
+	}
+
+	pod, err := object.FetchObject(ctx, types.NamespacedName{Name: podName, Namespace: pvc.Namespace}, s.client, &corev1.Pod{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch data volume provisioner %s: %w", podName, err)
+	}
+
+	scheduled, _ := conditions.GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
+	if scheduled.Status == corev1.ConditionFalse && scheduled.Reason == corev1.PodReasonUnschedulable {
+		return ErrDataVolumeProvisionerUnschedulable
+	}
+
+	return nil
 }
 
 func (s DiskService) CreatePersistentVolumeClaim(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
@@ -482,12 +515,12 @@ func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolum
 	}
 
 	if cdiImporterPrime != nil {
-		podInitializedCond, ok := GetPodCondition(corev1.PodInitialized, cdiImporterPrime.Status.Conditions)
+		podInitializedCond, ok := conditions.GetPodCondition(corev1.PodInitialized, cdiImporterPrime.Status.Conditions)
 		if ok && podInitializedCond.Status == corev1.ConditionFalse && strings.Contains(podInitializedCond.Reason, "Error") {
 			return fmt.Errorf("%w; %s error %s: %s", ErrDataVolumeNotRunning, key.String(), podInitializedCond.Reason, podInitializedCond.Message)
 		}
 
-		podScheduledCond, ok := GetPodCondition(corev1.PodScheduled, cdiImporterPrime.Status.Conditions)
+		podScheduledCond, ok := conditions.GetPodCondition(corev1.PodScheduled, cdiImporterPrime.Status.Conditions)
 		if ok && podScheduledCond.Status == corev1.ConditionFalse && strings.Contains(podScheduledCond.Reason, "Error") {
 			return fmt.Errorf("%w; %s error %s: %s", ErrDataVolumeNotRunning, key.String(), podScheduledCond.Reason, podScheduledCond.Message)
 		}

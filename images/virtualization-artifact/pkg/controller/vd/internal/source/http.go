@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -33,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -51,6 +53,7 @@ type HTTPDataSource struct {
 	diskService         *service.DiskService
 	dvcrSettings        *dvcr.Settings
 	storageClassService *service.VirtualDiskStorageClassService
+	client              client.Client
 }
 
 func NewHTTPDataSource(
@@ -59,6 +62,7 @@ func NewHTTPDataSource(
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	storageClassService *service.VirtualDiskStorageClassService,
+	client client.Client,
 ) *HTTPDataSource {
 	return &HTTPDataSource{
 		statService:         statService,
@@ -66,6 +70,7 @@ func NewHTTPDataSource(
 		diskService:         diskService,
 		dvcrSettings:        dvcrSettings,
 		storageClassService: storageClassService,
+		client:              client,
 	}
 }
 
@@ -128,7 +133,15 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		vd.Status.Progress = "0%"
 
 		envSettings := ds.getEnvSettings(vd, supgen)
-		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource))
+
+		var nodePlacement *provisioner.NodePlacement
+		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
+		}
+
+		err = ds.importerService.Start(ctx, envSettings, vd, supgen, datasource.NewCABundleForVMD(vd.GetNamespace(), vd.Spec.DataSource), service.WithNodePlacement(nodePlacement))
 		switch {
 		case err == nil:
 			// OK.
@@ -151,24 +164,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
-			vd.Status.Phase = virtv2.DiskFailed
-
-			switch {
-			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdcondition.ProvisioningNotStarted).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			case errors.Is(err, service.ErrProvisioningFailed):
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdcondition.ProvisioningFailed).
-					Message(service.CapitalizeFirstLetter(err.Error() + "."))
-				return reconcile.Result{}, nil
-			default:
-				return reconcile.Result{}, err
-			}
+			return reconcile.Result{}, setPhaseConditionFromPodError(ctx, err, pod, vd, cb, ds.client)
 		}
 
 		err = ds.importerService.Protect(ctx, pod)
@@ -225,7 +221,14 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
-		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
+		var nodePlacement *provisioner.NodePlacement
+		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
+		}
+
+		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
 		}
@@ -258,6 +261,11 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		err = ds.diskService.CheckProvisioning(ctx, pvc)
+		if err != nil {
+			return reconcile.Result{}, setPhaseConditionFromProvisioningError(ctx, err, cb, vd, dv, ds.diskService, ds.client)
+		}
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)

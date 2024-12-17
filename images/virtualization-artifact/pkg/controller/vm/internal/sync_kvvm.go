@@ -24,14 +24,12 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/record"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -145,17 +143,10 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	if synced {
 		// 3.1. Changes are applied, consider current spec as last applied.
-		lastAppliedSpec = &current.Spec
 		changed.Status.RestartAwaitingChanges = nil
 	}
 
-	// 4. Ensure power state according to the runPolicy.
-	powerStateSyncErr := h.syncPowerState(ctx, s, kvvm, lastAppliedSpec)
-	if powerStateSyncErr != nil {
-		errs = errors.Join(errs, fmt.Errorf("failed to sync powerstate: %w", powerStateSyncErr))
-	}
-
-	// 5. Set ConfigurationApplied condition.
+	// 4. Set ConfigurationApplied condition.
 	switch {
 	case errs != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, virtv2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
@@ -539,128 +530,6 @@ func (h *SyncKvvmHandler) updateKVVMLastAppliedSpec(ctx context.Context, vm *vir
 
 	log := logger.FromContext(ctx)
 	log.Info("Update last applied spec on KubeVirt VM done", "name", kvvm.GetName())
-
-	return nil
-}
-
-// syncPowerState enforces runPolicy on the underlying KVVM.
-func (h *SyncKvvmHandler) syncPowerState(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, effectiveSpec *virtv2.VirtualMachineSpec) error {
-	log := logger.FromContext(ctx)
-
-	if kvvm == nil {
-		return nil
-	}
-
-	kvvmi, err := s.KVVMI(ctx)
-	if err != nil {
-		return fmt.Errorf("find the internal virtual machine instance: %w", err)
-	}
-
-	vmRunPolicy := effectiveSpec.RunPolicy
-	var shutdownInfo powerstate.ShutdownInfo
-	s.Shared(func(s *state.Shared) {
-		shutdownInfo = s.ShutdownInfo
-	})
-
-	switch vmRunPolicy {
-	case virtv2.AlwaysOffPolicy:
-		if kvvmi != nil {
-			// Ensure KVVMI is absent.
-			err = h.client.Delete(ctx, kvvmi)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return fmt.Errorf("force AlwaysOff: delete KVVMI: %w", err)
-			}
-		}
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyHalted)
-	case virtv2.AlwaysOnPolicy:
-		// Power state change reason is not significant for AlwaysOn:
-		// kubevirt restarts VM via re-creation of KVVMI.
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyAlways)
-	case virtv2.AlwaysOnUnlessStoppedManually:
-		strategy, _ := kvvm.RunStrategy()
-		if strategy == virtv1.RunStrategyAlways && kvvmi == nil {
-			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
-				return fmt.Errorf("failed to start VM: %w", err)
-			}
-		}
-		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
-			if kvvmi.Status.Phase == virtv1.Succeeded {
-				if shutdownInfo.PodCompleted {
-					// Request to start new KVVMI if guest was restarted.
-					// Cleanup KVVMI is enough if VM was stopped from inside.
-					switch shutdownInfo.Reason {
-					case powerstate.GuestResetReason:
-						log.Info("Restart for guest initiated reset")
-						err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
-						if err != nil {
-							return fmt.Errorf("restart VM on guest-reset: %w", err)
-						}
-					default:
-						log.Info("Cleanup Succeeded KVVMI")
-						err = h.client.Delete(ctx, kvvmi)
-						if err != nil && !k8serrors.IsNotFound(err) {
-							return fmt.Errorf("delete Succeeded KVVMI: %w", err)
-						}
-					}
-				}
-			}
-			if kvvmi.Status.Phase == virtv1.Failed {
-				log.Info("Restart on Failed KVVMI", "obj", kvvmi.GetName())
-				err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
-				if err != nil {
-					return fmt.Errorf("restart VM on failed: %w", err)
-				}
-			}
-		}
-
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
-	case virtv2.ManualPolicy:
-		// Manual policy requires to handle only guest-reset event.
-		// All types of shutdown are a final state.
-		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
-			if kvvmi.Status.Phase == virtv1.Succeeded && shutdownInfo.PodCompleted {
-				// Request to start new KVVMI (with updated settings).
-				switch shutdownInfo.Reason {
-				case powerstate.GuestResetReason:
-					err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
-					if err != nil {
-						return fmt.Errorf("restart VM on guest-reset: %w", err)
-					}
-				default:
-					// Cleanup old version of KVVMI.
-					log.Info("Cleanup Succeeded KVVMI")
-					err = h.client.Delete(ctx, kvvmi)
-					if err != nil && !k8serrors.IsNotFound(err) {
-						return fmt.Errorf("delete Succeeded KVVMI: %w", err)
-					}
-				}
-			}
-		}
-
-		err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
-	}
-
-	if err != nil {
-		return fmt.Errorf("enforce runPolicy %s: %w", vmRunPolicy, err)
-	}
-
-	return nil
-}
-
-func (h *SyncKvvmHandler) ensureRunStrategy(ctx context.Context, kvvm *virtv1.VirtualMachine, desiredRunStrategy virtv1.VirtualMachineRunStrategy) error {
-	if kvvm == nil {
-		return nil
-	}
-	kvvmRunStrategy := kvvmutil.GetRunStrategy(kvvm)
-
-	if kvvmRunStrategy == desiredRunStrategy {
-		return nil
-	}
-	patch := kvvmutil.PatchRunStrategy(desiredRunStrategy)
-	err := h.client.Patch(ctx, kvvm, patch)
-	if err != nil {
-		return fmt.Errorf("patch KVVM with runStrategy %s: %w", desiredRunStrategy, err)
-	}
 
 	return nil
 }

@@ -25,10 +25,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -87,11 +91,11 @@ func (s Sources) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, err
 	return requeue, nil
 }
 
-type Cleaner interface {
+type SupplementsCleaner interface {
 	CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
 }
 
-func CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk, c Cleaner) (reconcile.Result, error) {
+func CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk, c SupplementsCleaner) (reconcile.Result, error) {
 	if object.ShouldCleanupSubResources(vd) {
 		return c.CleanUpSupplements(ctx, vd)
 	}
@@ -232,6 +236,160 @@ func setPhaseConditionForPVCProvisioningDisk(
 	default:
 		return err
 	}
+}
+
+func setPhaseConditionFromPodError(
+	ctx context.Context,
+	podErr error,
+	pod *corev1.Pod,
+	vd *virtv2.VirtualDisk,
+	cb *conditions.ConditionBuilder,
+	c client.Client,
+) error {
+	switch {
+	case errors.Is(podErr, service.ErrNotInitialized):
+		vd.Status.Phase = virtv2.DiskFailed
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ProvisioningNotStarted).
+			Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
+		return nil
+	case errors.Is(podErr, service.ErrNotScheduled):
+		vd.Status.Phase = virtv2.DiskPending
+
+		nodePlacement, err := getNodePlacement(ctx, c, vd)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return fmt.Errorf("failed to get importer tolerations: %w", err)
+		}
+
+		var isChanged bool
+		isChanged, err = provisioner.IsNodePlacementChanged(nodePlacement, pod)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+			return err
+		}
+
+		if isChanged {
+			err = c.Delete(ctx, pod)
+			if err != nil {
+				setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
+				return err
+			}
+
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.ProvisioningNotStarted).
+				Message("Provisioner recreation due to a changes in the virtual machine tolerations.")
+		} else {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.ProvisioningNotStarted).
+				Message(service.CapitalizeFirstLetter(podErr.Error()) + ".")
+		}
+
+		return nil
+	case errors.Is(podErr, service.ErrProvisioningFailed):
+		setPhaseConditionToFailed(cb, &vd.Status.Phase, podErr)
+		return nil
+	default:
+		setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", podErr))
+		return podErr
+	}
+}
+
+type Cleaner interface {
+	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+}
+
+func setPhaseConditionFromProvisioningError(
+	ctx context.Context,
+	provisioningErr error,
+	cb *conditions.ConditionBuilder,
+	vd *virtv2.VirtualDisk,
+	dv *cdiv1.DataVolume,
+	cleaner Cleaner,
+	c client.Client,
+) error {
+	switch {
+	case errors.Is(provisioningErr, service.ErrDataVolumeProvisionerUnschedulable):
+		nodePlacement, err := getNodePlacement(ctx, c, vd)
+		if err != nil {
+			err = errors.Join(provisioningErr, err)
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
+			return err
+		}
+
+		isChanged, err := provisioner.IsNodePlacementChanged(nodePlacement, dv)
+		if err != nil {
+			err = errors.Join(provisioningErr, err)
+			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
+			return err
+		}
+
+		vd.Status.Phase = virtv2.DiskProvisioning
+
+		if isChanged {
+			supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+
+			_, err = cleaner.CleanUp(ctx, supgen)
+			if err != nil {
+				if err != nil {
+					err = errors.Join(provisioningErr, err)
+					setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
+					return err
+				}
+			}
+
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.Provisioning).
+				Message("PVC provisioner recreation due to a changes in the virtual machine tolerations.")
+		} else {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.Provisioning).
+				Message("Trying to schedule the PVC provisioner.")
+		}
+
+		return nil
+	default:
+		setPhaseConditionToFailed(cb, &vd.Status.Phase, provisioningErr)
+		return provisioningErr
+	}
+}
+
+func getNodePlacement(ctx context.Context, c client.Client, vd *virtv2.VirtualDisk) (*provisioner.NodePlacement, error) {
+	if len(vd.Status.AttachedToVirtualMachines) != 1 {
+		return nil, nil
+	}
+
+	vmKey := types.NamespacedName{Name: vd.Status.AttachedToVirtualMachines[0].Name, Namespace: vd.Namespace}
+	vm, err := object.FetchObject(ctx, vmKey, c, &virtv2.VirtualMachine{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get the virtual machine %s: %w", vmKey, err)
+	}
+
+	if vm == nil {
+		return nil, nil
+	}
+
+	var nodePlacement provisioner.NodePlacement
+	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vm.Spec.Tolerations...)
+
+	vmClassKey := types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}
+	vmClass, err := object.FetchObject(ctx, vmClassKey, c, &virtv2.VirtualMachineClass{})
+	if err != nil {
+		return nil, fmt.Errorf("unable to get the virtual machine class %s: %w", vmClassKey, err)
+	}
+
+	if vmClass == nil {
+		return &nodePlacement, nil
+	}
+
+	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vmClass.Spec.Tolerations...)
+
+	return &nodePlacement, nil
 }
 
 const retryPeriod = 1

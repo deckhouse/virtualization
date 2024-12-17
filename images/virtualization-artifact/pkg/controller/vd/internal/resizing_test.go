@@ -104,8 +104,8 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
-		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
+		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
+		Expect(resized.Status).To(Equal(metav1.ConditionTrue))
 		Expect(resized.Reason).To(Equal(vdcondition.InProgress.String()))
 	})
 
@@ -116,7 +116,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested.String()))
 	})
@@ -128,7 +128,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested.String()))
 	})
@@ -138,7 +138,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
+		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested.String()))
 	})
@@ -150,14 +150,14 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
-		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
+		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
+		Expect(resized.Status).To(Equal(metav1.ConditionTrue))
 		Expect(resized.Reason).To(Equal(vdcondition.InProgress.String()))
 	})
 
 	It("Resize has completed", func() {
 		vd.Status.Conditions = append(vd.Status.Conditions, metav1.Condition{
-			Type:   vdcondition.ResizedType.String(),
+			Type:   vdcondition.ResizingType.String(),
 			Status: metav1.ConditionFalse,
 			Reason: vdcondition.InProgress.String(),
 		})
@@ -166,8 +166,8 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := conditions.GetCondition(vdcondition.ResizedType, vd.Status.Conditions)
-		Expect(resized.Status).To(Equal(metav1.ConditionTrue))
+		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
+		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.Resized.String()))
 	})
 })

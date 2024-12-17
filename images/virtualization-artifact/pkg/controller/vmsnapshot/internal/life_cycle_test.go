@@ -53,8 +53,8 @@ var _ = Describe("LifeCycle handler", func() {
 						Status: metav1.ConditionTrue,
 					},
 					{
-						Type:   vdcondition.Resized.String(),
-						Status: metav1.ConditionTrue,
+						Type:   vdcondition.ResizingType.String(),
+						Status: metav1.ConditionFalse,
 						Reason: vdcondition.Resized.String(),
 					},
 				},
@@ -198,9 +198,9 @@ var _ = Describe("LifeCycle handler", func() {
 
 		It("The virtual disk is the process of Resizing", func() {
 			snapshotter.GetVirtualDiskFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDisk, error) {
-				cb := conditions.NewConditionBuilder(vdcondition.Resized).
+				cb := conditions.NewConditionBuilder(vdcondition.ResizingType).
 					Generation(vd.Generation).
-					Status(metav1.ConditionFalse).
+					Status(metav1.ConditionTrue).
 					Reason(vdcondition.InProgress)
 				conditions.SetCondition(cb, &vd.Status.Conditions)
 				return vd, nil

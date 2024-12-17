@@ -39,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type ObjectRefVirtualDisk struct {
@@ -226,18 +227,12 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.Cluster
 		return NewVirtualDiskNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 	}
 
-	if len(vd.Status.AttachedToVirtualMachines) != 0 {
-		vmName := vd.Status.AttachedToVirtualMachines[0]
-
-		vm, err := object.FetchObject(ctx, types.NamespacedName{Name: vmName.Name, Namespace: vd.Namespace}, ds.client, &virtv2.VirtualMachine{})
-		if err != nil {
-			return err
-		}
-
-		if vm.Status.Phase != virtv2.MachineStopped {
-			return NewVirtualDiskAttachedToRunningVMError(vd.Name, vmName.Name)
-		}
+	inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+	if inUseCondition.Status == metav1.ConditionTrue &&
+		inUseCondition.Reason == vdcondition.AllowedForImageUsage.String() &&
+		inUseCondition.ObservedGeneration == vd.Status.ObservedGeneration {
+		return nil
 	}
 
-	return nil
+	return NewVirtualDiskNotAllowedForUseError(vd.Name)
 }

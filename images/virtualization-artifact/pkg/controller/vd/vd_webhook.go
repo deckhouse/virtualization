@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/validators"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/validator"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -41,9 +41,9 @@ type Validator struct {
 func NewValidator(client client.Client) *Validator {
 	return &Validator{
 		validators: []VirtualDiskValidator{
-			validators.NewPVCSizeValidator(client),
-			validators.NewSpecChangesValidator(),
-			validators.NewISOSourceValidator(client),
+			validator.NewPVCSizeValidator(client),
+			validator.NewSpecChangesValidator(),
+			validator.NewISOSourceValidator(client),
 		},
 	}
 }

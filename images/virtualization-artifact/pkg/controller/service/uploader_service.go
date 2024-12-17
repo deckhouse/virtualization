@@ -67,11 +67,29 @@ func NewUploaderService(
 	}
 }
 
-func (s UploaderService) Start(ctx context.Context, settings *uploader.Settings, obj ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle) error {
+func (s UploaderService) Start(
+	ctx context.Context,
+	settings *uploader.Settings,
+	obj ObjectKind,
+	sup *supplements.Generator,
+	caBundle *datasource.CABundle,
+	opts ...Option,
+) error {
 	ownerRef := metav1.NewControllerRef(obj, obj.GroupVersionKind())
 	settings.Verbose = s.verbose
 
-	pod, err := uploader.NewPod(s.getPodSettings(ownerRef, sup), settings).Create(ctx, s.client)
+	podSettings := s.getPodSettings(ownerRef, sup)
+
+	for _, opt := range opts {
+		switch v := opt.(type) {
+		case *NodePlacementOption:
+			podSettings.NodePlacement = v.nodePlacement
+		default:
+			return fmt.Errorf("unknown Start option")
+		}
+	}
+
+	pod, err := uploader.NewPod(podSettings, settings).Create(ctx, s.client)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}

@@ -66,13 +66,13 @@ func NewController(
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 	scService := service.NewVirtualDiskStorageClassService(storageClassSettings)
 
-	blank := source.NewBlankDataSource(stat, disk, scService)
+	blank := source.NewBlankDataSource(stat, disk, scService, mgr.GetClient())
 
 	sources := source.NewSources()
-	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, disk, dvcr, scService))
+	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, disk, dvcr, scService, mgr.GetClient()))
 	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, disk, dvcr, mgr.GetClient(), scService))
 	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, disk, mgr.GetClient(), scService))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, disk, dvcr, scService))
+	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, disk, dvcr, scService, mgr.GetClient()))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
@@ -84,6 +84,7 @@ func NewController(
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
+		internal.NewInUseHandler(mgr.GetClient()),
 	)
 
 	vdController, err := controller.New(ControllerName, mgr, controller.Options{
