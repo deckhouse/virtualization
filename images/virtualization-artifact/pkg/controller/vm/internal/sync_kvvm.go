@@ -118,6 +118,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		}
 		classChanges := h.detectClassSpecChanges(ctx, &class.Spec, lastClassAppliedSpec)
 		if !classChanges.IsEmpty() {
+			allChanges.Add(classChanges.GetAll()...)
 			classChanged = true
 		}
 	}
@@ -181,7 +182,7 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			Reason(vmcondition.ReasonRestartAwaitingChangesExist).
 			Message("Waiting for the user to restart in order to apply the configuration changes.")
 	case classChanged:
-		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonErrRestartAwaitingChanges, "Restart required to propogate changes from the vmclass spec")
+		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonErrRestartAwaitingChanges, "Restart required to propagate changes from the vmclass spec")
 		cbConfApplied.
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
