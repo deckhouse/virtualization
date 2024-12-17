@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vdcolelctor "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vd"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -65,6 +66,7 @@ func NewController(
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 	scService := service.NewVirtualDiskStorageClassService(storageClassSettings)
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
 	blank := source.NewBlankDataSource(stat, disk, scService, mgr.GetClient())
 
@@ -80,9 +82,9 @@ func NewController(
 		internal.NewDatasourceReadyHandler(blank, sources),
 		internal.NewLifeCycleHandler(blank, sources, mgr.GetClient()),
 		internal.NewSnapshottingHandler(disk),
-		internal.NewResizingHandler(disk),
+		internal.NewResizingHandler(recorder, disk),
 		internal.NewDeletionHandler(sources),
-		internal.NewAttacheeHandler(mgr.GetClient()),
+		internal.NewAttacheeHandler(recorder, mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
 		internal.NewInUseHandler(mgr.GetClient()),
 	)

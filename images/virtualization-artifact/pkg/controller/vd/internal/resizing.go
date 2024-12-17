@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -37,11 +38,13 @@ import (
 
 type ResizingHandler struct {
 	diskService DiskService
+	recorder    eventrecord.EventRecorderLogger
 }
 
-func NewResizingHandler(diskService DiskService) *ResizingHandler {
+func NewResizingHandler(recorder eventrecord.EventRecorderLogger, diskService DiskService) *ResizingHandler {
 	return &ResizingHandler{
 		diskService: diskService,
+		recorder:    recorder,
 	}
 }
 
@@ -139,6 +142,14 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 				}
 				return reconcile.Result{}, err
 			}
+
+			h.recorder.Event(
+				vd,
+				corev1.EventTypeNormal,
+				"Resizing started",
+				"The virtual disk resizing has started",
+			)
+
 		case metav1.ConditionFalse:
 			cb.
 				Status(metav1.ConditionFalse).
@@ -164,6 +175,13 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	// Expected disk size is NOT GREATER THAN expected pvc size: no resize needed since downsizing is not possible, and resizing to the same value makes no sense.
 	switch condition.Reason {
 	case vdcondition.InProgress.String(), vdcondition.Resized.String():
+		h.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			"ResizeCompleted",
+			"The virtual disk resizing has completed",
+		)
+
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Resized).

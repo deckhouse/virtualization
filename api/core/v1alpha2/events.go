@@ -22,11 +22,17 @@ const (
 	// ReasonVMChangesApplied is event reason that changes applied from VM to underlying KVVM.
 	ReasonVMChangesApplied = "ChangesApplied"
 
-	// ReasonVMRestarted is event reason that VM restarted.
-	ReasonVMRestarted = "VMRestarted"
+	// ReasonVMStarted is event reason that VM is about to start.
+	ReasonVMStarted = "Started"
 
-	// ReasonVMLastAppliedSpecInvalid is event reason that JSON in last-applied-spec annotation is invalid.
-	ReasonVMLastAppliedSpecInvalid = "VMLastAppliedSpecInvalid"
+	// ReasonVMStopped is event reason that VM is about to stop.
+	ReasonVMStopped = "Stopped"
+
+	// ReasonVMRestarted is event reason that VM is about to restart.
+	ReasonVMRestarted = "Restarted"
+
+	// ReasonVMLastAppliedSpecIsInvalid is event reason that JSON in last-applied-spec annotation is invalid.
+	ReasonVMLastAppliedSpecIsInvalid = "LastAppliedSpecIsInvalid"
 
 	// ReasonErrVmNotSynced is event reason that vm is not synced.
 	ReasonErrVmNotSynced = "VirtualMachineNotSynced"
