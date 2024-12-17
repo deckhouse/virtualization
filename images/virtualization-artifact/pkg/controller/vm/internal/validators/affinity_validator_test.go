@@ -33,7 +33,7 @@ var _ = Describe("AffinityValidator", func() {
 
 		It("Should be no error", func() {
 			warnings, err := validator.Validate(vm)
-			Expect(len(warnings)).Should(BeNumerically("==", 0))
+			Expect(warnings).Should(BeEmpty())
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -53,7 +53,7 @@ var _ = Describe("AffinityValidator", func() {
 
 		It("Should return error", func() {
 			warnings, err := validator.Validate(vm)
-			Expect(len(warnings)).Should(BeNumerically("==", 0))
+			Expect(warnings).Should(BeEmpty())
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -82,7 +82,7 @@ var _ = Describe("AffinityValidator", func() {
 
 		It("Should pass validation", func() {
 			warnings, err := validator.Validate(vm)
-			Expect(len(warnings)).Should(BeNumerically("==", 0))
+			Expect(warnings).Should(BeEmpty())
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -111,7 +111,7 @@ var _ = Describe("AffinityValidator", func() {
 
 		It("Should not pass validation", func() {
 			warnings, err := validator.Validate(vm)
-			Expect(len(warnings)).Should(BeNumerically("==", 0))
+			Expect(warnings).Should(BeEmpty())
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -141,7 +141,7 @@ var _ = Describe("AffinityValidator", func() {
 
 		It("Should pass validation", func() {
 			warnings, err := validator.Validate(vm)
-			Expect(len(warnings)).Should(BeNumerically("==", 0))
+			Expect(warnings).Should(BeEmpty())
 			Expect(err).Should(BeNil())
 		})
 	})
@@ -171,7 +171,7 @@ var _ = Describe("AffinityValidator", func() {
 
 		It("Should not pass validation", func() {
 			warnings, err := validator.Validate(vm)
-			Expect(len(warnings)).Should(BeNumerically("==", 0))
+			Expect(warnings).Should(BeEmpty())
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
@@ -201,7 +201,7 @@ var _ = Describe("AffinityValidator", func() {
 
 		It("Should not pass validation", func() {
 			warnings, err := validator.Validate(vm)
-			Expect(len(warnings)).Should(BeNumerically("==", 0))
+			Expect(warnings).Should(BeEmpty())
 			Expect(err).ShouldNot(BeNil())
 		})
 	})
