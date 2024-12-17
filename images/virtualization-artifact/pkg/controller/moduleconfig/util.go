@@ -51,7 +51,7 @@ func checkNodeAddressesOverlap(nodes []corev1.Node, excludedPrefixes []netip.Pre
 
 				for _, prefix := range excludedPrefixes {
 					if prefix.Contains(ip) {
-						return fmt.Errorf("node address %s may overlap with subnet %s", ip, prefix)
+						return fmt.Errorf("subnet %s is invalid, it should not contains addresses assigned to nodes: got node %s with IP %s", prefix, node.GetName(), ip)
 					}
 				}
 			}
