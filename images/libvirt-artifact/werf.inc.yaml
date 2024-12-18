@@ -5,16 +5,23 @@ image: {{ $.ImageName }}
 final: false
 from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
 shell:
-  install:
+  beforeInstall:
   - apt-get -qq update
   - |
-    apt install --yes build-essential git automake autoconf libtool \
+    apt-get install --yes build-essential meson ninja-build libxml2-utils \
+    python3-dev \
+    git automake autoconf libtool \
     pkg-config libglib2.0-dev libgnutls28-dev libxml2-dev libyajl-dev \
-    libxslt1-dev libpolkit-gobject-1-dev libsystemd-dev \
-    libpciaccess-dev python3-dev
+    libxslt1-dev libpolkit-gobject-1-dev libsystemd-dev libpciaccess-dev
+  install:
   - git clone --depth 1 --branch v{{ $version }} https://gitlab.com/libvirt/libvirt.git
   - cd libvirt
-  - ./configure --prefix=/usr --localstatedir=/var --with-qemu
-  - make
-  - make install
-  - which virtqemud
+  - |
+    echo "Setup build: meson setup build -Dsystem=true -Ddriver_qemu=enabled"
+    meson setup build -Dsystem=true -Ddriver_qemu=enabled --optimization=0
+  
+  - |
+    echo "Build ninja -C build"
+    ninja -C build
+  - |
+    ls -la $(pwd)/checkout/build
