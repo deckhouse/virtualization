@@ -96,6 +96,8 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 		return reconcile.Result{}, err
 	}
 
+	quotaExceeded, quotaExceededMessage := checkIfQuotaExceeded(dv)
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
@@ -160,6 +162,12 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
+	case quotaExceeded:
+				cb.
+								Status(metav1.ConditionFalse).
+								Reason(vdcondition.QuotaExceeded).
+								Message(quotaExceededMessage)
+						return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning
 		cb.
@@ -201,6 +209,13 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 		}
 		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, cb, ds.diskService); err != nil {
 			return reconcile.Result{}, err
+		}
+
+		if pvc.Status.Phase == "Pending" {
+						cb.
+											Status(metav1.ConditionFalse).
+											Reason(vdcondition.Provisioning).
+											Message("")
 		}
 
 		return reconcile.Result{}, nil
