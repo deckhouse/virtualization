@@ -51,4 +51,12 @@ const (
 
 	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
 	ReasonVMClassInUse = "VirtualMachineClassInUse"
+
+	ReasonVDResizingStarted   = "VirtualDiskResizingStarted"
+	ReasonVDResizingCompleted = "VirtualDiskResizingCompleted"
+	ReasonVDResizingFailed    = "VirtualDiskResizingFailed"
+
+	ReasonDataSourceSyncStarted   = "DataSourceImportStarted"
+	ReasonDataSourceSyncCompleted = "DataSourceImportCompleted"
+	ReasonDataSourceSyncFailed    = "DataSourceImportFailed"
 )

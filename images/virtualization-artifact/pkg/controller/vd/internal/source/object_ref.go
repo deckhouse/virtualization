@@ -26,6 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -37,9 +38,11 @@ type ObjectRefDataSource struct {
 	viDVCRSyncer     *ObjectRefVirtualImageDVCR
 	viPVCSyncer      *ObjectRefVirtualImagePVC
 	cviSyncer        *ObjectRefClusterVirtualImage
+	recorder         eventrecord.EventRecorderLogger
 }
 
 func NewObjectRefDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService *service.StatService,
 	diskService *service.DiskService,
 	client client.Client,
@@ -47,10 +50,11 @@ func NewObjectRefDataSource(
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
 		diskService:      diskService,
-		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(diskService),
-		viDVCRSyncer:     NewObjectRefVirtualImageDVCR(statService, diskService, storageClassService, client),
-		viPVCSyncer:      NewObjectRefVirtualImagePVC(diskService, storageClassService),
-		cviSyncer:        NewObjectRefClusterVirtualImage(statService, diskService, storageClassService, client),
+		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(recorder, diskService),
+		viDVCRSyncer:     NewObjectRefVirtualImageDVCR(recorder, statService, diskService, storageClassService, client),
+		viPVCSyncer:      NewObjectRefVirtualImagePVC(recorder, diskService, storageClassService),
+		cviSyncer:        NewObjectRefClusterVirtualImage(recorder, statService, diskService, storageClassService, client),
+		recorder:         recorder,
 	}
 }
 

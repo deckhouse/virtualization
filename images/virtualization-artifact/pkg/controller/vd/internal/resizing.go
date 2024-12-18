@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -146,7 +147,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			h.recorder.Event(
 				vd,
 				corev1.EventTypeNormal,
-				"Resizing started",
+				v1alpha2.ReasonVDResizingStarted,
 				"The virtual disk resizing has started",
 			)
 
@@ -178,7 +179,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			"ResizeCompleted",
+			v1alpha2.ReasonVDResizingCompleted,
 			"The virtual disk resizing has completed",
 		)
 

@@ -38,7 +38,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -51,9 +53,11 @@ type HTTPDataSource struct {
 	diskService         *service.DiskService
 	dvcrSettings        *dvcr.Settings
 	storageClassService *service.VirtualDiskStorageClassService
+	recorder            eventrecord.EventRecorderLogger
 }
 
 func NewHTTPDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService *service.StatService,
 	importerService *service.ImporterService,
 	diskService *service.DiskService,
@@ -66,6 +70,7 @@ func NewHTTPDataSource(
 		diskService:         diskService,
 		dvcrSettings:        dvcrSettings,
 		storageClassService: storageClassService,
+		recorder:            recorder,
 	}
 }
 
@@ -123,7 +128,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 	case object.AnyTerminating(pod, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
-		log.Info("Start import to DVCR")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"The HTTP DataSource import to DVCR has started",
+		)
 
 		vd.Status.Progress = "0%"
 
@@ -185,7 +195,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
 		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 	case dv == nil:
-		log.Info("Start import to PVC")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"The HTTP DataSource import to PVC has started",
+		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -246,6 +261,13 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncCompleted,
+			"The HTTP DataSource import has completed",
+		)
 
 		vd.Status.Phase = virtv2.DiskReady
 		cb.
