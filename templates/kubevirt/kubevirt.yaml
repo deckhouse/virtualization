@@ -83,7 +83,11 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
-
+    # Add node affinity for the lowest virtualization level
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: '[{"op":"add","path":"/spec/template/spec/affinity","value":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node.deckhouse.io/dvp-nesting-level","operator":"In","values":["{{ .Values.global.discovery.dvpNestingLevel }}"]}]},{"matchExpressions":[{"key":"node.deckhouse.io/dvp-nesting-level","operator":"DoesNotExist"}]}]}}}}]'
+      type: json
     {{- if (include "helm_lib_ha_enabled" .) }}
     # HA settings for deploy/virt-api.
     - resourceType: Deployment
