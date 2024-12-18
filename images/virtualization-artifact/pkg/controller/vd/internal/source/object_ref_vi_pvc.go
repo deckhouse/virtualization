@@ -98,6 +98,8 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 		return reconcile.Result{}, err
 	}
 
+	quotaExceeded, quotaExceededMessage := checkIfQuotaExceeded(dv)
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
@@ -172,6 +174,12 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
+	case quotaExceeded:
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.QuotaExceeded).
+			Message(quotaExceededMessage)
+		return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning
 		cb.
@@ -220,6 +228,13 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 
 		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, cb, ds.diskService); err != nil {
 			return reconcile.Result{}, err
+		}
+
+		if pvc.Status.Phase == "Pending" {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.Provisioning).
+				Message("PVC in pending state, if this continues for a long time, check the status of PVC and DataVolume manually.")
 		}
 
 		return reconcile.Result{}, nil

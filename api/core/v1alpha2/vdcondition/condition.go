@@ -36,8 +36,6 @@ const (
 	StorageClassReadyType Type = "StorageClassReady"
 	// InUseType indicates whether the VirtualDisk is attached to a running VirtualMachine or is being used in a process of an image creation.
 	InUseType Type = "InUse"
-	// QuotaNotExceededType indicates whether the disk not exceed project quotas.
-	QuotaNotExceededType Type = "QuotaNotExceeded"
 )
 
 type (
@@ -53,8 +51,6 @@ type (
 	StorageClassReadyReason string
 	// InUseReason represents the various reasons for the InUse condition type.
 	InUseReason string
-	// QuotaNotExceededReason represents the various reasons for the QuotaNotExceeded condition type.
-	QuotaNotExceededReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -78,10 +74,6 @@ func (s StorageClassReadyReason) String() string {
 }
 
 func (s InUseReason) String() string {
-	return string(s)
-}
-
-func (s QuotaNotExceededReason) String() string {
 	return string(s)
 }
 
@@ -113,6 +105,8 @@ const (
 	Ready ReadyReason = "Ready"
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualDisk` can no longer be used.
 	Lost ReadyReason = "PVCLost"
+	// QuotaExceeded indicates that the VirtualDisk is reached project quotas and can not be provisioned.
+	QuotaExceeded ReadyReason = "QuotaExceeded"
 
 	// ResizingNotRequested indicates that the resize operation has not been requested yet.
 	ResizingNotRequested ResizedReason = "NotRequested"
@@ -141,11 +135,4 @@ const (
 	AttachedToVirtualMachine InUseReason = "AttachedToVirtualMachine"
 	// NotInUse indicates that VirtualDisk free for use.
 	NotInUse InUseReason = "NotInUse"
-
-	// QuotaNotExceeded indicates that the VirtualDisk is not reached project quotas.
-	QuotaNotExceeded QuotaNotExceededReason = "QuotaNotExceeded"
-	// QuotaExceeded indicates that the VirtualDisk is reached project quotas and can not be provisioned.
-	QuotaExceeded QuotaNotExceededReason = "QuotaExceeded"
-	// PVCIsPending indicates that the VirtualDisk has unknown state of provisioning and need to check DataVolume and PVC manually.
-	PVCIsPending QuotaNotExceededReason = "PVCIsPending"
 )
