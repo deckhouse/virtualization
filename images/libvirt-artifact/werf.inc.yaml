@@ -1,21 +1,145 @@
 ---
-{{- $version := "10.10.0" }}
+{{- $versionLibvirt := "10.10.0" }}
+{{- $gitRepoUrl := "https://github.com/libvirt/libvirt.git" }}
+{{- $gitRepoName := "libvirt" }}
 
 image: {{ $.ImageName }}
 final: false
-from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+fromImage: base-alt-p11
+git:
+- add: /images/{{ $.ImageName }}/
+  to: /
+  includePaths:
+  - install-libvirt.sh
+  stageDependencies:
+    beforeSetup:
+      - install-libvirt.sh
 shell:
+  beforeInstall:
+  - | 
+    apt-get update && apt-get install --yes \
+    su sudo \
+    dmidecode \
+    gcc-c++ \
+    git \
+    gettext \
+    bash-completion \
+    clang \
+    ccache \
+    make cmake \
+    meson \
+    ninja-build \
+    libudev-devel \
+    libpciaccess-devel \
+    libyajl-devel \
+    sanlock-devel \
+    libpcap-devel \
+    libnl-devel \
+    libselinux-devel \
+    iproute \
+    iptables \
+    iptables-nft \
+    iptables-ipv6 \
+    openvswitch \
+    ebtables \
+    libsasl2-devel \
+    pkgconfig \
+    libssh-devel \
+    libssh2-devel \
+    polkit kmod \
+    qemu-img \
+    lvm2 \
+    libparted-devel \
+    parted \
+    libdevmapper-devel \
+    ceph-devel \
+    open-iscsi \
+    libiscsi-devel \
+    libglusterfs-devel \
+    libnuma-devel \
+    libcap-ng-devel \
+    libcurl-devel \
+    libaudit-devel \
+    libfuse-devel \
+    libnbd-devel \
+    libblkid-devel \
+    libgcrypt-devel \
+    libgnutls-devel \
+    libp11-kit-devel \
+    libreadline-devel \
+    libtasn1-devel \
+    libattr-devel \
+    libbsd-devel \
+    libsystemd-devel \
+    libuuid-devel \
+    libjson-c-devel \
+    systemtap-sdt-devel \
+    systemd-container \
+    attr \
+    libacl-devel \
+    glib2-devel \
+    glibc-utils \
+    libgio-devel \
+    libxml2-devel \
+    xml-utils \
+    xsltproc \
+    python3 python3-devel \
+    python3-module-pytest \
+    python3-module-docutils \
+    python3-tools \
+    python3-module-pip \
+    polkit \
+    libtirpc-devel \
+    libsasl2-devel \
+    wireshark-devel \
+    tshark \
+    zlib-devel \
+    mdevctl \
+    util-linux dmsetup pm-utils \
+    libfuse3-devel libnuma libslirp-devel libtirpc-devel \
+    libyajl-devel libselinux-devel
+
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
+    rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
+    rpm -qa | sort > /packages.txt
+    mkdir -p /usr/libexec/ccache-wrappers
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+  
+    pip3 install black
+    grep -qw ^rpm /etc/group || groupadd rpm
+    id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
+
   install:
-  - apt-get -qq update
   - |
-    apt install --yes build-essential git automake autoconf libtool \
-    pkg-config libglib2.0-dev libgnutls28-dev libxml2-dev libyajl-dev \
-    libxslt1-dev libpolkit-gobject-1-dev libsystemd-dev \
-    libpciaccess-dev python3-dev
-  - git clone --depth 1 --branch v{{ $version }} https://gitlab.com/libvirt/libvirt.git
-  - cd libvirt
-  - ./autogen.sh
-  - ./configure --with-qemu
-  - make
-  - make install
-  - which virtqemud
+    su - builder -s /bin/bash <<'EOFBASH'
+    echo "export CCACHE_WRAPPERSDIR=/usr/libexec/ccache-wrappers" >> .bashrc
+    echo "export MAKE=/usr/bin/make" >> .bashrc
+    echo "export NINJA="/usr/bin/ninja" >> .bashrc
+    echo "export PYTHON="/usr/bin/python3" >> .bashrc
+    EOFBASH
+  - |
+    su - builder -s /bin/bash <<'EOFBASH'
+    
+    git clone --depth=1 --branch v{{ $versionLibvirt }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionLibvirt }}
+    
+    cd {{ $gitRepoName }}-{{ $versionLibvirt }}
+    
+    CFLAGS="-Wframe-larger-than=8192" meson setup build \
+    -Dsystem=true \
+    -Ddriver_qemu=enabled \
+    -Ddocs=disabled \
+    -Ddriver_libvirtd=enabled && \
+    ninja -C build -j$(nproc)
+    EOFBASH
+
+  setup:
+  - |
+    mkdir -p /BINS
+    ls -la
+    /install-libvirt.sh
+    ls -lah /BINS
+    ls -lah /BINS/usr

@@ -1,0 +1,142 @@
+---
+{{- $versionQemu := "9.1.2" }}
+{{- $gitRepoUrl := "https://github.com/qemu/qemu.git" }}
+{{- $gitRepoName := "qemu" }}
+
+image: {{ $.ImageName }}
+final: false
+fromImage: base-alt-p11
+shell:
+  beforeInstall:
+  - | 
+    apt-get update && apt-get install -y su sudo \
+    pkgconfig \
+    pkg-config \
+    gear rpm dmidecode \
+    rpm-build \
+    rpm-build-systemd \
+    rpm-build-python3 \
+    gcc-c++ \
+    git \
+    gettext \
+    bash-completion \
+    clang \
+    ccache \
+    make cmake \
+    meson \
+    ninja-build \
+    glibc-devel-static \
+    zlib-devel-static \
+    glib2-devel-static \
+    libpcre2-devel-static \
+    libattr-devel-static \
+    libdw-devel-static \
+    libatomic-devel-static \
+    glib2-devel \
+    libdw-devel \
+    makeinfo \
+    perl-devel \
+    python3 python3-dev \
+    python3-module-pytest \
+    python3-module-docutils \
+    python3-tools \
+    python3-module-pip \
+    python3-module-sphinx \
+    python3-module-sphinx_rtd_theme \
+    pkgconfig \
+    libssh-devel \
+    libssh2-devel \
+    libcap-ng-devel \
+    libxfs-devel \
+    zlib-devel \
+    libcurl-devel \
+    libpci-devel \
+    libgvnc-devel \
+    glibc-kernheaders \
+    ipxe-roms-qemu \
+    seavgabios \
+    seabios \
+    libfdt-devel \
+    qboot \
+    libpixman-devel \
+    libkeyutils-devel \
+    flex \
+    libuuid-devel \
+    libpam0-devel \
+    libtasn1-devel \
+    libslirp-devel \
+    libdrm-devel \
+    libxdp-devel libSDL2-devel libSDL2_image-devel \
+    libncursesw-devel libalsa-devel libpulseaudio-devel \
+    pipewire-libs pipewire-jack-libs-devel \
+    libsoundio-devel libcapstone-devel libsasl2-devel \
+    libjpeg-devel libpng-devel libxkbcommon-devel xkeyboard-config-devel \
+    glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel \
+    libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel \
+    libspice-server-devel spice-protocol ceph-devel \
+    libnfs-devel libzstd-devel libseccomp-devel \
+    libgcrypt-devel libgnutls-devel libnettle-devel \
+    libudev-devel libmultipath-devel libblkio-devel libpmem-devel \
+    libdaxctl-devel libfuse3-devel rdma-core-devel libnuma-devel \
+    bzlib-devel liblzo2-devel libsnappy-devel \
+    libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel \
+    libvitastor-devel libiscsi-devel glusterfs-coreutils \
+    libaio-devel libselinux-devel libqpl-devel \
+    qemu-kvm-core shadow-utils sysvinit-utils libglusterfs11-api-devel hasher-provides-dev-kvm \
+    filesystem libvdeplug-devel
+    
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+    rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
+    rpm -qa | sort > /packages.txt
+    
+    mkdir -p /usr/libexec/ccache-wrappers
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+
+    pip3 install black
+
+  - |
+    grep -qw ^rpm /etc/group || groupadd rpm
+    id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
+
+  install:
+  - |
+    su - builder -s /bin/bash <<'EOFBASH'
+    echo "export CCACHE_WRAPPERSDIR=/usr/libexec/ccache-wrappers" >> .bashrc
+    echo "export MAKE=/usr/bin/make" >> .bashrc
+    echo "export NINJA="/usr/bin/ninja" >> .bashrc
+    echo "export PYTHON="/usr/bin/python3" >> .bashrc
+    EOFBASH
+  
+  - |
+    # su - builder -s /bin/bash <<'EOFBASH'
+    
+    echo "export MAKE=/usr/bin/make" >> .bashrc
+    echo "export NINJA="/usr/bin/ninja" >> .bashrc
+    echo "export PYTHON="/usr/bin/python3" >> .bashrc
+    source ~/.bashrc
+
+    git clone --depth=1 --branch v{{ $versionQemu }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionQemu }}
+    
+    cd {{ $gitRepoName }}-{{ $versionQemu }}
+    
+    # ./configure --prefix=/home/builder/BINS \
+    ./configure --prefix=/BINS \
+      --target-list="x86_64-softmmu i386-softmmu" \
+      --enable-kvm \
+      --enable-curses \
+      --enable-vnc \
+      --enable-gtk \
+      --enable-system \
+      --enable-tools \
+      --disable-docs \
+      make -j$(nproc)
+
+      make install -j$(nproc)
+    # EOFBASH
+  setup:
+  - |
+    # ls -lah  /home/builder/BINS
+    ls -lah  /BINS
