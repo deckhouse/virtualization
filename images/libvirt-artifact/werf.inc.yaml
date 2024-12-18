@@ -14,8 +14,7 @@ shell:
     libpciaccess-dev python3-dev
   - git clone --depth 1 --branch v{{ $version }} https://gitlab.com/libvirt/libvirt.git
   - cd libvirt
-  - ./autogen.sh
-  - ./configure --with-qemu
+  - ./configure --prefix=/usr --localstatedir=/var --with-qemu
   - make
   - make install
   - which virtqemud
