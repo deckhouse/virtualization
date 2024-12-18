@@ -123,6 +123,13 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	if vdSpecSize != nil && vdSpecSize.Cmp(pvcSpecSize) == common.CmpGreater {
 		snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 		if snapshotting.Status == metav1.ConditionTrue {
+			h.recorder.Event(
+				vd,
+				corev1.EventTypeNormal,
+				v1alpha2.ReasonVDStorageClassNotFound,
+				"The virtual disk cannot be selected for resizing as it is currently snapshotting.",
+			)
+
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ResizingNotAvailable).

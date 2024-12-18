@@ -52,11 +52,18 @@ const (
 	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
 	ReasonVMClassInUse = "VirtualMachineClassInUse"
 
+	ReasonVDStorageClassWasDeleted          = "VirtualDiskStorageClassWasDeleted"
+	ReasonVDStorageClassNotFound            = "VirtualDiskStorageClassNotFound"
+	ReasonVDSpecChanged                     = "VirtualDiskSpecChanged"
+	ReasonVDContainerRegistrySecretNotFound = "VirtualDiskContainerRegistrySecretNotFound"
+
 	ReasonVDResizingStarted   = "VirtualDiskResizingStarted"
 	ReasonVDResizingCompleted = "VirtualDiskResizingCompleted"
 	ReasonVDResizingFailed    = "VirtualDiskResizingFailed"
 
-	ReasonDataSourceSyncStarted   = "DataSourceImportStarted"
-	ReasonDataSourceSyncCompleted = "DataSourceImportCompleted"
-	ReasonDataSourceSyncFailed    = "DataSourceImportFailed"
+	ReasonDataSourceSyncStarted               = "DataSourceImportStarted"
+	ReasonDataSourceSyncInProgress            = "DataSourceImportInProgress"
+	ReasonDataSourceSyncCompleted             = "DataSourceImportCompleted"
+	ReasonDataSourceSyncFailed                = "DataSourceImportFailed"
+	ReasonDataSourceDiskProvisioningCompleted = "DataSourceImportDiskProvisioningCompleted"
 )

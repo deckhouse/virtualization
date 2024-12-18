@@ -108,7 +108,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		log.Debug("Disk provisioning finished: clean up")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceDiskProvisioningCompleted,
+			"Disk provisioning finished: clean up",
+		)
 
 		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
@@ -162,7 +167,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		return reconcile.Result{Requeue: true}, nil
 	case !podutil.IsPodComplete(pod):
-		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
+		ds.recorder.Eventf(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase,
+		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
