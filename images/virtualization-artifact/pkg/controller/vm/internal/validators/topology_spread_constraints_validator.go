@@ -54,7 +54,7 @@ func (v *TopologySpreadConstraintValidator) Validate(vm *v1alpha2.VirtualMachine
 	}
 
 	if len(errs) > 0 {
-		return nil, fmt.Errorf("errors while validating affinity: %w", errors.Join(errs...))
+		return nil, fmt.Errorf("errors while validating topology spread constraints: %w", errors.Join(errs...))
 	}
 
 	return nil, nil
