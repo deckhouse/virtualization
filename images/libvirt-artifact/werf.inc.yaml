@@ -6,22 +6,132 @@ final: false
 from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
 shell:
   beforeInstall:
-  - apt-get -qq update
   - |
-    apt-get install --yes build-essential meson ninja-build libxml2-utils \
-    python3-dev \
-    git automake autoconf libtool \
-    pkg-config libglib2.0-dev libgnutls28-dev libxml2-dev libyajl-dev \
-    libxslt1-dev libpolkit-gobject-1-dev libsystemd-dev libpciaccess-dev
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y eatmydata && \
+    eatmydata apt-get dist-upgrade -y && \
+    eatmydata apt-get install --no-install-recommends -y \
+                      augeas-lenses \
+                      augeas-tools \
+                      bash-completion \
+                      black \
+                      ca-certificates \
+                      ccache \
+                      clang \
+                      codespell \
+                      cpp \
+                      diffutils \
+                      dwarves \
+                      ebtables \
+                      flake8 \
+                      gcc \
+                      gettext \
+                      git \
+                      grep \
+                      iproute2 \
+                      iptables \
+                      kmod \
+                      libacl1-dev \
+                      libapparmor-dev \
+                      libattr1-dev \
+                      libaudit-dev \
+                      libblkid-dev \
+                      libc6-dev \
+                      libcap-ng-dev \
+                      libclang-rt-dev \
+                      libcurl4-gnutls-dev \
+                      libdevmapper-dev \
+                      libfuse-dev \
+                      libglib2.0-dev \
+                      libglusterfs-dev \
+                      libgnutls28-dev \
+                      libiscsi-dev \
+                      libjson-c-dev \
+                      libnbd-dev \
+                      libnl-3-dev \
+                      libnl-route-3-dev \
+                      libnuma-dev \
+                      libparted-dev \
+                      libpcap0.8-dev \
+                      libpciaccess-dev \
+                      librbd-dev \
+                      libreadline-dev \
+                      libsanlock-dev \
+                      libsasl2-dev \
+                      libselinux1-dev \
+                      libssh-gcrypt-dev \
+                      libssh2-1-dev \
+                      libtirpc-dev \
+                      libudev-dev \
+                      libxen-dev \
+                      libxml2-dev \
+                      libxml2-utils \
+                      locales \
+                      lvm2 \
+                      make \
+                      meson \
+                      nfs-common \
+                      ninja-build \
+                      numad \
+                      open-iscsi \
+                      perl-base \
+                      pkgconf \
+                      polkitd \
+                      python3 \
+                      python3-docutils \
+                      python3-pytest \
+                      qemu-utils \
+                      sed \
+                      systemtap-sdt-dev \
+                      wireshark-dev \
+                      xsltproc
+
+    eatmydata apt-get autoremove -y
+    eatmydata apt-get autoclean -y
+    sed -Ei 's,^# (en_US\.UTF-8 .*)$,\1,' /etc/locale.gen
+    dpkg-reconfigure locales
+    rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
+    dpkg-query --showformat '${Package}_${Version}_${Architecture}\n' --show > /packages.txt
+    
+    echo "Setup ccache wrapper"
+    mkdir -p /usr/libexec/ccache-wrappers
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+
+    echo "Setup environment variables"
+    export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
+    export LANG="en_US.UTF-8"
+    export MAKE="/usr/bin/make"
+    export NINJA="/usr/bin/ninja"
+    export PYTHON="/usr/bin/python3"
+
   install:
-  - git clone --depth 1 --branch v{{ $version }} https://gitlab.com/libvirt/libvirt.git
-  - cd libvirt
   - |
-    echo "Setup build: meson setup build -Dsystem=true -Ddriver_qemu=enabled"
-    meson setup build -Dsystem=true -Ddriver_qemu=enabled --optimization=0
-  
+    git clone --depth 1 --branch v${{ $version }} https://github.com/libvirt/libvirt.git
+    cd libvirt
+    echo "Show libvirt folder files"
+    ls -la
   - |
+    echo "Setup environment variables"
+    export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
+    export LANG="en_US.UTF-8"
+    export MAKE="/usr/bin/make"
+    export NINJA="/usr/bin/ninja"
+    export PYTHON="/usr/bin/python3"
+  - |
+    echo "Setup build: meson setup build"
+    meson setup build
+
+    # echo "Setup build: meson setup build -Dsystem=true -Ddriver_qemu=enabled"
+    # meson setup build -Dsystem=true -Ddriver_qemu=enabled --optimization=0
+    # meson setup build -Dsystem=true -Ddriver_qemu=enabled
+
+    # mkdir -p build
+
     echo "Build ninja -C build"
     ninja -C build
-  - |
+    
+    echo "List dir files"
     ls -la $(pwd)/checkout/build
