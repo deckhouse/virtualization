@@ -1,0 +1,21 @@
+---
+{{- $version := "10.10.0" }}
+
+image: {{ $.ImageName }}
+final: false
+from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+shell:
+  install:
+  - apt-get -qq update
+  - |
+    apt install --yes build-essential git automake autoconf libtool \
+    pkg-config libglib2.0-dev libgnutls28-dev libxml2-dev libyajl-dev \
+    libxslt1-dev libpolkit-gobject-1-dev libsystemd-dev \
+    libpciaccess-dev python3-dev
+  - git clone --depth 1 --branch v{{ $version }} https://gitlab.com/libvirt/libvirt.git
+  - cd libvirt
+  - ./autogen.sh
+  - ./configure --with-qemu
+  - make
+  - make install
+  - which virtqemud
