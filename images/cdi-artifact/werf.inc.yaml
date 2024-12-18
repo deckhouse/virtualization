@@ -35,7 +35,13 @@ shell:
       done
 
     - echo Download Go modules.
+    - go get golang.org/x/crypto@v0.31.0
     - go mod download
+    
+    - go mod tidy
+    - go mod vendor
+
+    - git apply  --ignore-space-change --ignore-whitespace /patches/015-fix-replace-op-for-evanphx-json-patch-v5-lib.patch && echo OK || (echo FAIL ; exit 1)    
 
   setup:
     - mkdir /cdi-binaries
