@@ -34,14 +34,17 @@ shell:
         git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
       done
 
-    - go mod edit -go={{ $goVersion }}
+    # - go mod edit -go={{ $goVersion }}
 
     - echo Download Go modules.
     - go mod download
 
-    - go get golang.org/x/crypto@v0.31.0
+    # - go get golang.org/x/crypto@v0.31.0
 
-    - go mod tidy
+    # - go mod tidy
+    # - |
+    #   go mod vendor -v -o /tmp/vendor
+
 
   setup:
     - mkdir /cdi-binaries
