@@ -3,7 +3,9 @@ module github.com/deckhouse/virtualization/tests/e2e
 go 1.22.7
 
 require (
+	github.com/deckhouse/sds-replicated-volume/api v0.0.0-20241109122839-a1ae840eb5db
 	github.com/deckhouse/virtualization/api v0.0.0-20240923080356-bb5809dba578
+	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.0.0
 	github.com/onsi/ginkgo/v2 v2.20.0
 	github.com/onsi/gomega v1.34.1
 	gopkg.in/yaml.v3 v3.0.1

@@ -85,3 +85,9 @@ With csi-clone, it's possible to specify the same or a larger capacity for the t
 #### `020-manage-provisioner-tolerations.patch`
 
 Add annotation to manage provisioner tolerations to avoid unschedulable error.
+
+#### `021-fallback-to-host-clone-for-lvm-thick.patch`
+
+When cloning from PVC to PVC, it's necessary to select a cloning strategy. By default, the cloning strategy `snapshot` is selected.
+However, `replicated.csi.storage.deckhouse.io` and `local.csi.storage.deckhouse.io` can create snapshots only when using LVM Thin.
+To avoid errors, for LVM Thick, it's necessary to use `copy` cloning strategy (`csi-clone` is also unavailable since the CSI itself creates a snapshot when using `csi-clone`).

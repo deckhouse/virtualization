@@ -1,5 +1,6 @@
 ---
 {{- $version := "1.60.3" }}
+{{- $goVersion := "1.22.7" }}
 
 image: {{ $.ImageName }}
 final: false
@@ -27,14 +28,19 @@ shell:
   install:
     - git clone --depth 1 --branch v{{ $version }} {{ .SOURCE_REPO }}/kubevirt/containerized-data-importer.git /containerized-data-importer
     - cd /containerized-data-importer
+
+    - echo Download Go modules.
+    - go get golang.org/x/crypto@v0.31.0
+    - go mod download
+    
+    - go mod tidy
+    - go mod vendor
+
     - |
       for p in /patches/*.patch ; do
         echo -n "Apply ${p} ... "
         git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
       done
-
-    - echo Download Go modules.
-    - go mod download
 
   setup:
     - mkdir /cdi-binaries
