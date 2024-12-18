@@ -1,0 +1,30 @@
+diff --git a/pkg/network/setup/podnic.go b/pkg/network/setup/podnic.go
+index 473ca555d8..87952d5331 100644
+--- a/pkg/network/setup/podnic.go
++++ b/pkg/network/setup/podnic.go
+@@ -20,6 +20,7 @@
+ package network
+ 
+ import (
++	goerrors "errors"
+ 	"fmt"
+ 	"os"
+ 
+@@ -27,8 +28,6 @@ import (
+ 	"kubevirt.io/client-go/log"
+ 	"kubevirt.io/client-go/precond"
+ 
+-	goerrors "errors"
+-
+ 	"kubevirt.io/kubevirt/pkg/network/cache"
+ 	dhcpconfigurator "kubevirt.io/kubevirt/pkg/network/dhcp"
+ 	"kubevirt.io/kubevirt/pkg/network/domainspec"
+@@ -67,7 +66,7 @@ func newPhase2PodNIC(vmi *v1.VirtualMachineInstance, network *v1.Network, iface
+ 		podnic.podInterfaceName = ifaceLink.Attrs().Name
+ 	}
+ 
+-	podnic.dhcpConfigurator = podnic.newDHCPConfigurator()
++	podnic.dhcpConfigurator = nil
+ 	podnic.domainGenerator = podnic.newLibvirtSpecGenerator(domain, domainAttachment)
+ 
+ 	return podnic, nil
