@@ -11,6 +11,23 @@ import:
   includePaths:
   - edk2-ovmf-20240811-alt2.noarch.rpm
 
+# Add bins from libvirt and qemu artifacts.
+- image: tmp-merged
+  add: /BINS
+  to: /
+  before: install
+
+{{/*
+# - image: libvirt-artifact
+#   add: /BINS
+#   to: /
+#   before: install
+# - image: qemu-artifact
+#   add: /BINS
+#   to: /
+#   before: install
+*/}}
+
 # After install stage.
 #  Add libxcrypto library.
 - image: {{ $.ImageName }}-libxcrypt-builder
@@ -20,14 +37,16 @@ import:
   includePaths:
   - libcrypt.so.2.0.0
 
-#   Add OpenSSL libraries.
-- image: {{ $.ImageName }}-openssl-builder
-  add: /usr/local/lib64/
-  to: /lib64
-  after: install
-  includePaths:
-  - libcrypto.so.3
-  - libssl.so.3
+{{/*
+# #   Add OpenSSL libraries.
+# - image: {{ $.ImageName }}-openssl-builder
+#   add: /usr/local/lib64/
+#   to: /lib64
+#   after: install
+#   includePaths:
+#   - libcrypto.so.3
+#   - libssl.so.3
+*/}}
 
 #   Add liboverride library.
 - image: {{ $.ImageName }}-liboverride-builder
@@ -99,20 +118,25 @@ git:
 shell:
   beforeInstall:
   # Install main packages.
+
   - |
     apt-get update && apt-get install --yes \
     acl \
     pcre \
+    procps \
     ethtool \
     nftables \
     xorriso \
     passt \
+    ipxe-roms-qemu \
     seabios \
+    seavgabios \
     libffi8 \
     swtpm-tools \
-    libvirt-client==10.7.0-alt1 \
-    libvirt-daemon-driver-qemu==10.7.0-alt1 \
-    qemu-kvm-core==9.1.2-alt1
+    libcrypt libcrypto3
+    # libvirt-client==10.7.0-alt1 \
+    # libvirt-daemon-driver-qemu==10.7.0-alt1 \
+    # qemu-kvm-core==9.1.2-alt2
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
@@ -161,6 +185,37 @@ shell:
 #docker:
 #  ENTRYPOINT: ["/usr/bin/virt-launcher"]
 ---
+image: tmp-merged
+final: false
+fromImage: base-alt-p11
+import:
+- image: libvirt-artifact
+  add: /BINS
+  to: /libvirt-bins
+  before: install
+- image: qemu-artifact
+  add: /BINS
+  to: /qemu-bins
+  before: install
+shell:
+  install:
+  - |
+    apt-get update && apt-get install -y \
+    tree
+
+    echo "/libvirt-bins"
+    tree /libvirt-bins
+
+    echo "/qemu-bins"
+    tree /qemu-bins
+
+    echo "==========="
+    cp -rf /libvirt-bins /BINS
+    cp -rf /qemu-bins /BINS
+
+    ls -lah /BINS
+    tree /BINS
+---
 image: {{ $.ImageName }}-lib-builder
 final: false
 fromImage: base-alt-p11
@@ -195,19 +250,23 @@ shell:
   - ./autogen.sh
   - ./configure --disable-obsolete-api
   - make && make install
----
-image: {{ $.ImageName }}-openssl-builder
-final: false
-fromImage: {{ $.ImageName }}-lib-builder
-shell:
-  beforeInstall:
-  # Download OpenSSL sources.
-  - git clone --branch openssl-3.3.1 {{ $.SOURCE_REPO }}/openssl/openssl.git /tmp/openssl
-  install:
-  # Build libcrypto.so.3 and libssl.so.3.
-  - cd /tmp/openssl
-  - ./config no-docs
-  - make && make install
+
+{{/*
+# ---
+# image: {{ $.ImageName }}-openssl-builder
+# final: false
+# fromImage: {{ $.ImageName }}-lib-builder
+# shell:
+#   beforeInstall:
+#   # Download OpenSSL sources.
+#   - git clone --branch openssl-3.3.1 {{ $.SOURCE_REPO }}/openssl/openssl.git /tmp/openssl
+#   install:
+#   # Build libcrypto.so.3 and libssl.so.3.
+#   - cd /tmp/openssl
+#   - ./config no-docs
+#   - make && make install
+#
+*/}}
 ---
 image: {{ $.ImageName }}-liboverride-builder
 final: false
