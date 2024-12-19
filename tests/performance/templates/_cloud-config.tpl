@@ -32,9 +32,9 @@ apt:
 package_update: true
 package_upgrade: true
 packages:
-  - prometheus-node-exporter
-  - qemu-guest-agent
-  - stress-ng
+  # - prometheus-node-exporter
+  # - qemu-guest-agent
+  # - stress-ng
   - nginx
 write_files:
   - path: /usr/local/bin/generate.sh
