@@ -18,7 +18,9 @@ package cvi
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,8 +43,15 @@ func NewValidator(logger *log.Logger) *Validator {
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
-	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
+	if !ok {
+		return nil, fmt.Errorf("expected a new ClusterVirtualImage but got a %T", obj)
+	}
+
+	if strings.Contains(cvi.ObjectMeta.Name, ".") {
+		return nil, errors.New("cluster virtual image name cannot contain '.'")
+	}
+
 	return nil, nil
 }
 
@@ -59,6 +68,8 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 
 	v.logger.Info("Validating ClusterVirtualImage")
 
+	var warnings admission.Warnings
+
 	if oldCVI.Generation == newCVI.Generation {
 		return nil, nil
 	}
@@ -68,7 +79,11 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		return nil, fmt.Errorf("ClusterVirtualImage is in a Ready state: configuration changes are not available")
 	}
 
-	return nil, nil
+	if strings.Contains(newCVI.ObjectMeta.Name, ".") {
+		warnings = append(warnings, fmt.Sprintf("cluster virtual image name contain '.', it may be cause of problems in future, please recreate resource."))
+	}
+
+	return warnings, nil
 }
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {

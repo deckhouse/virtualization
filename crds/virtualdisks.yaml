@@ -439,8 +439,6 @@ spec:
           x-kubernetes-validations:
             - message: The name must be no longer than 128 characters.
               rule: self.metadata.name.size() <= 128
-            - message: The name must not contain dots.
-              rule: (!self.metadata.name.contains("."))
       served: true
       storage: true
       subresources:
