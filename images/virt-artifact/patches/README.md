@@ -113,5 +113,5 @@ How does it work?
 
 #### `028-inject-placement-anynode.patch`
 
-By default, the virtual operator adds a nodePlacement with the RequireControlPlanePreferNonWorker.
+By default, the virtual-operator adds a nodePlacement with the RequireControlPlanePreferNonWorker.
 But we set up the placement ourselves, so we replace the policy with AnyNode.
