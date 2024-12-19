@@ -189,14 +189,6 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, cb, ds.diskService); err != nil {
 			return reconcile.Result{}, err
 		}
-
-		if pvc.Status.Phase == "Pending" {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.Provisioning).
-				Message("PVC in pending state, if this continues for a long time, check the status of PVC and DataVolume manually.")
-		}
-
 		return reconcile.Result{}, nil
 	}
 
