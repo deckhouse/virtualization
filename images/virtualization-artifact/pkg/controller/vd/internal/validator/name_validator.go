@@ -19,9 +19,9 @@ package validator
 import (
 	"context"
 	"errors"
-	"fmt"
-	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 	"strings"
+
+	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -43,7 +43,7 @@ func (v *NameValidator) ValidateCreate(_ context.Context, vd *virtv2.VirtualDisk
 func (v *NameValidator) ValidateUpdate(_ context.Context, _, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
 	if strings.Contains(newVD.ObjectMeta.Name, ".") {
 		var warnings admission.Warnings
-		warnings = append(warnings, fmt.Sprintf("virtual disk name contain '.', it may be cause of problems in future, please recreate resource."))
+		warnings = append(warnings, "virtual disk name contain '.', it may be cause of problems in future, please recreate resource.")
 		return warnings, nil
 	}
 

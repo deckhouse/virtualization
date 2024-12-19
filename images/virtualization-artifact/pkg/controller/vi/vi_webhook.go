@@ -87,7 +87,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	}
 
 	if strings.Contains(newVI.ObjectMeta.Name, ".") {
-		warnings = append(warnings, fmt.Sprintf("virtual image name contain '.', it may be cause of problems in future, please recreate resource."))
+		warnings = append(warnings, "virtual image name contain '.', it may be cause of problems in future, please recreate resource.")
 	}
 
 	return warnings, nil
