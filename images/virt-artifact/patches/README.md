@@ -110,3 +110,7 @@ How does it work?
 2. When changing the affinity or nodeSelector in vmi, the vmi controller will set the `NodePlacementNotMatched` condition to True in vmi.
 3. The workload-updater controller monitors the vmi and starts migration when there is a `NodePlacementNotMatched` conditions on the vmi.
 4. When the migration is completed, virt-handler will remove the condition `NodePlacementNotMatched` from the vmi 
+
+#### `028-hotplug-container-disk.patch`
+
+Hotplug container-disk volumes.
