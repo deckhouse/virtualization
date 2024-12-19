@@ -132,7 +132,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			leaseStatus := lease.Changed().Status.DeepCopy()
 			err = r.client.Update(ctx, lease.Changed())
 			if err != nil {
-				log.Error("Failed to update VirtualMachineIPAddressLease", "err", err)
+				log.Error("Failed to update VirtualMachineMACAddressLease", "err", err)
 				handlerErrs = append(handlerErrs, err)
 			}
 			lease.Changed().Status = *leaseStatus
