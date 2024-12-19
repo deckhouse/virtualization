@@ -54,11 +54,42 @@ tasks:
       - d8
     cmds:
       - |
-        ginkgo \
+        RESULT=$(ginkgo \
           --skip-file vm_test.go \
           --skip-file ipam_test.go \
           --skip-file disks_test.go \
-          -v
+          --no-color \
+          -v | grep --color=never \|)
+
+        if [[ $RESULT == SUCCESS!* ]]; then
+          RESULT_STATUS=":white_check_mark: SUCCESS!"
+        elif [[ $RESULT == FAIL!* ]]; then
+          RESULT_STATUS=":x: FAIL!"
+        else
+          RESULT_STATUS=":question: UNKNOWN"
+        fi
+        DATE=$(date +"%Y-%m-%d")
+
+        PASSED=$(echo "$RESULT" | grep -oP '\d+(?= Passed)')
+        FAILED=$(echo "$RESULT" | grep -oP '\d+(?= Failed)')
+        PENDING=$(echo "$RESULT" | grep -oP '\d+(?= Pending)')
+        SKIPPED=$(echo "$RESULT" | grep -oP '\d+(?= Skipped)')
+
+        SUMMARY="
+        ### :dvp: **DVP $DATE Nightly e2e Tests**
+
+        **Branch:** \`$GITHUB_REF\`
+        **Status: $RESULT_STATUS**
+
+        - ${PASSED:-0} Passed
+        - ${FAILED:-0} Failed
+        - ${PENDING:-0} Pending
+        - ${SKIPPED:-0} Skipped
+
+        [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+        "
+        curl -XPOST -H 'Content-Type: application/json' -d "{\"text\": \"${SUMMARY}\"}" $LOOP_WEBHOOK_URL
+        
 
   run:
     desc: "Run e2e tests"
