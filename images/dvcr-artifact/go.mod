@@ -21,6 +21,8 @@ require (
 	kubevirt.io/containerized-data-importer-api v1.60.3
 )
 
+require github.com/spf13/cobra v1.8.1
+
 require (
 	cloud.google.com/go v0.112.0 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
@@ -61,6 +63,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -88,6 +91,7 @@ require (
 	github.com/prometheus/common v0.51.1 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/ulikunitz/xz v0.5.12 // indirect
 	github.com/vbatts/tar-split v0.11.5 // indirect
