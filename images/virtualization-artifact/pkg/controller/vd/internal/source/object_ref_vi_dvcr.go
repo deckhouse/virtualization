@@ -227,14 +227,6 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, cb, ds.diskService); err != nil {
 			return reconcile.Result{}, err
 		}
-
-		if pvc.Status.Phase == "Pending" {
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.Provisioning).
-				Message("")
-		}
-
 		return reconcile.Result{}, nil
 	}
 
