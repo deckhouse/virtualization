@@ -23,9 +23,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -41,8 +42,8 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 	var vdBar *virtv2.VirtualDisk
 
 	BeforeEach(func() {
-		h = NewBlockDeviceHandler(nil, &EventRecorderMock{
-			EventFunc: func(_ runtime.Object, _, _, _ string) {},
+		h = NewBlockDeviceHandler(nil, &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
 		})
 		vdFoo = &virtv2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "vd-foo"},
@@ -161,8 +162,8 @@ var _ = Describe("BlockDeviceHandler", func() {
 
 	BeforeEach(func() {
 		logger = slog.Default()
-		h = NewBlockDeviceHandler(nil, &EventRecorderMock{
-			EventFunc: func(_ runtime.Object, _, _, _ string) {},
+		h = NewBlockDeviceHandler(nil, &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
 		})
 		vi = &virtv2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{Name: "vi-01"},
