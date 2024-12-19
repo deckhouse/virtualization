@@ -279,3 +279,55 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virt
 	cb.Message(fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod))
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
+
+const (
+	DVBoundConditionType     string = "Bound"
+	DVRunningConditionType   string = "Running"
+	DVReadyConditionType     string = "Ready"
+	DVErrExceededQuotaReason string = "ErrExceededQuota"
+)
+
+func checkIfQuotaExceeded(dv *cdiv1.DataVolume) (bool, string) {
+	if dv == nil {
+		return false, ""
+	}
+
+	boundCondition, ok := getDVCondition(dv, DVBoundConditionType)
+	if !ok {
+		return false, ""
+	}
+
+	readyDVCondition, ok := getDVCondition(dv, DVReadyConditionType)
+	if !ok {
+		return false, ""
+	}
+
+	runningCondition, ok := getDVCondition(dv, DVRunningConditionType)
+	if !ok {
+		return false, ""
+	}
+
+	if boundCondition.Reason == DVErrExceededQuotaReason {
+		return true, service.CapitalizeFirstLetter(boundCondition.Message)
+	}
+
+	if readyDVCondition.Reason == DVErrExceededQuotaReason {
+		return true, service.CapitalizeFirstLetter(readyDVCondition.Message)
+	}
+
+	if runningCondition.Reason == DVErrExceededQuotaReason {
+		return true, service.CapitalizeFirstLetter(runningCondition.Message)
+	}
+
+	return false, ""
+}
+
+func getDVCondition(dv *cdiv1.DataVolume, conditionType string) (*cdiv1.DataVolumeCondition, bool) {
+	for _, cond := range dv.Status.Conditions {
+		if string(cond.Type) == conditionType {
+			return &cond, true
+		}
+	}
+
+	return nil, false
+}
