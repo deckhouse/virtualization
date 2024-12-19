@@ -165,6 +165,8 @@ var _ = Describe("LifeCycle handler", func() {
 		var vm *virtv2.VirtualMachine
 
 		BeforeEach(func() {
+			vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseInProgress
+
 			vm = &virtv2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{Name: "vm"},
 				Status: virtv2.VirtualMachineStatus{
@@ -185,7 +187,7 @@ var _ = Describe("LifeCycle handler", func() {
 			snapshotter.FreezeFunc = func(_ context.Context, _, _ string) error {
 				return nil
 			}
-			snapshotter.CanUnfreezeFunc = func(_ context.Context, _ string, _ *virtv2.VirtualMachine) (bool, error) {
+			snapshotter.CanUnfreezeWithVirtualDiskSnapshotFunc = func(_ context.Context, _ string, _ *virtv2.VirtualMachine) (bool, error) {
 				return true, nil
 			}
 			snapshotter.UnfreezeFunc = func(_ context.Context, _, _ string) error {

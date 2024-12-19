@@ -38,7 +38,7 @@ func NewDeletionHandler(snapshotter *service.SnapshotService) *DeletionHandler {
 
 func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (reconcile.Result, error) {
 	if vdSnapshot.DeletionTimestamp != nil {
-		vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot.Name, vdSnapshot.Namespace)
+		vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot.Status.VolumeSnapshotName, vdSnapshot.Namespace)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -48,24 +48,24 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualD
 			return reconcile.Result{}, err
 		}
 
-		vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
-		if err != nil {
-			return reconcile.Result{}, err
+		var vm *virtv2.VirtualMachine
+		if vd != nil {
+			vm, err = getVirtualMachine(ctx, vd, h.snapshotter)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
-
-		var requeue bool
 
 		if vs != nil {
 			err = h.snapshotter.DeleteVolumeSnapshot(ctx, vs)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			requeue = true
 		}
 
 		if vm != nil {
 			var canUnfreeze bool
-			canUnfreeze, err = h.snapshotter.CanUnfreeze(ctx, vdSnapshot.Name, vm)
+			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -76,10 +76,6 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualD
 					return reconcile.Result{}, err
 				}
 			}
-		}
-
-		if requeue {
-			return reconcile.Result{Requeue: true}, nil
 		}
 
 		controllerutil.RemoveFinalizer(vdSnapshot, virtv2.FinalizerVDSnapshotCleanup)

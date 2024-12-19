@@ -41,5 +41,5 @@ type Snapshotter interface {
 	Unfreeze(ctx context.Context, name, namespace string) error
 	IsFrozen(vm *virtv2.VirtualMachine) bool
 	CanFreeze(vm *virtv2.VirtualMachine) bool
-	CanUnfreeze(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
+	CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
 }
