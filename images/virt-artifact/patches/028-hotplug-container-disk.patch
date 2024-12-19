@@ -22,28 +22,6 @@ index c4822a0448..d6bb534249 100644
       "dataVolume": {
        "description": "DataVolume represents the dynamic creation a PVC for this volume as well as the process of populating that PVC with a disk image.",
        "$ref": "#/definitions/v1.DataVolumeSource"
-diff --git a/cmd/hp-container-disk/main.go b/cmd/hp-container-disk/main.go
-new file mode 100644
-index 0000000000..e4f734a516
---- /dev/null
-+++ b/cmd/hp-container-disk/main.go
-@@ -0,0 +1,16 @@
-+package main
-+
-+import klog "kubevirt.io/client-go/log"
-+
-+func main() {
-+	klog.InitializeLogging("virt-hp-container-disk")
-+}
-+
-+type Config struct {
-+	DstDir string  `json:"dstDir"`
-+	Images []Image `json:"images"`
-+}
-+
-+type Image struct {
-+	Name string `json:"name"`
-+}
 diff --git a/cmd/virt-chroot/main.go b/cmd/virt-chroot/main.go
 index e28daa07c7..7a69b7451b 100644
 --- a/cmd/virt-chroot/main.go
@@ -1146,45 +1124,27 @@ index 953c20f3af..d99bec3a43 100644
  		}
  
 diff --git a/pkg/virt-handler/hotplug-disk/mount.go b/pkg/virt-handler/hotplug-disk/mount.go
-index 971c8d55fc..03fcec8c92 100644
+index 971c8d55fc..034c3d8526 100644
 --- a/pkg/virt-handler/hotplug-disk/mount.go
 +++ b/pkg/virt-handler/hotplug-disk/mount.go
-@@ -310,14 +310,17 @@ func (m *volumeMounter) mountHotplugVolume(
- 	logger := log.DefaultLogger()
- 	logger.V(4).Infof("Hotplug check volume name: %s", volumeName)
- 	if sourceUID != types.UID("") {
--		if m.isBlockVolume(&vmi.Status, volumeName) {
-+		switch {
-+		case m.isContainerDisk(&vmi.Status, volumeName):
-+		// skip
-+		case m.isBlockVolume(&vmi.Status, volumeName):
- 			logger.V(4).Infof("Mounting block volume: %s", volumeName)
- 			if err := m.mountBlockHotplugVolume(vmi, volumeName, sourceUID, record, cgroupManager); err != nil {
- 				if !errors.Is(err, os.ErrNotExist) {
- 					return fmt.Errorf("failed to mount block hotplug volume %s: %v", volumeName, err)
- 				}
+@@ -343,7 +343,7 @@ func (m *volumeMounter) mountFromPod(vmi *v1.VirtualMachineInstance, sourceUID t
+ 		return err
+ 	}
+ 	for _, volumeStatus := range vmi.Status.VolumeStatus {
+-		if volumeStatus.HotplugVolume == nil {
++		if volumeStatus.HotplugVolume == nil || volumeStatus.ContainerDiskVolume != nil {
+ 			// Skip non hotplug volumes
+ 			continue
+ 		}
+@@ -649,7 +649,7 @@ func (m *volumeMounter) Unmount(vmi *v1.VirtualMachineInstance, cgroupManager cg
+ 			return err
+ 		}
+ 		for _, volumeStatus := range vmi.Status.VolumeStatus {
+-			if volumeStatus.HotplugVolume == nil {
++			if volumeStatus.HotplugVolume == nil || volumeStatus.ContainerDiskVolume != nil {
+ 				continue
  			}
--		} else {
-+		default:
- 			logger.V(4).Infof("Mounting file system volume: %s", volumeName)
- 			if err := m.mountFileSystemHotplugVolume(vmi, volumeName, sourceUID, record, mountDirectory); err != nil {
- 				if !errors.Is(err, os.ErrNotExist) {
-@@ -382,6 +385,15 @@ func (m *volumeMounter) isBlockVolume(vmiStatus *v1.VirtualMachineInstanceStatus
- 	return false
- }
- 
-+func (m *volumeMounter) isContainerDisk(vmiStatus *v1.VirtualMachineInstanceStatus, volumeName string) bool {
-+	for _, status := range vmiStatus.VolumeStatus {
-+		if status.Name == volumeName {
-+			return status.ContainerDiskVolume != nil
-+		}
-+	}
-+	return false
-+}
-+
- func (m *volumeMounter) mountBlockHotplugVolume(
- 	vmi *v1.VirtualMachineInstance,
- 	volume string,
+ 			var path *safepath.Path
 diff --git a/pkg/virt-handler/isolation/detector.go b/pkg/virt-handler/isolation/detector.go
 index f83f96ead4..5e38c6cedd 100644
 --- a/pkg/virt-handler/isolation/detector.go
