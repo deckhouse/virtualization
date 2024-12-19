@@ -24,10 +24,12 @@ import common
 class ModuleConfigValidateHook(Hook):
     KIND="ModuleConfig"
     API_VERSION="deckhouse.io/v1alpha1"
-    SNAPSHOT_NAME = "module-config-validate"
+    SNAPSHOT_MODULE_CONFIG = "module-config"
+    SNAPSHOT_NODES = "nodes"
 
     def __init__(self, module_name: str):
         self.module_name = module_name
+        self.queue = f"/modules/{self.module_name}/{self.SNAPSHOT_MODULE_CONFIG}"
 
     def generate_config(self) -> dict:
         """executeHookOnEvent is empty because we need only execute at module start."""
@@ -35,7 +37,7 @@ class ModuleConfigValidateHook(Hook):
             "configVersion": "v1",
             "kubernetes": [
                 {
-                    "name": self.SNAPSHOT_NAME,
+                    "name": self.SNAPSHOT_MODULE_CONFIG,
                     "executeHookOnSynchronization": True,
                     "executeHookOnEvent": [],
                     "apiVersion": self.API_VERSION,
@@ -45,18 +47,18 @@ class ModuleConfigValidateHook(Hook):
                     },
                     "group": "main",
                     "jqFilter": '{"cidrs": .spec.settings.virtualMachineCIDRs}',
-                    "queue": f"/modules/{self.module_name}/{self.SNAPSHOT_NAME}",
+                    "queue": self.queue,
                     "keepFullObjectsInMemory": False
                 },
                 {
-                    "name": "nodes",
+                    "name": self.SNAPSHOT_NODES,
                     "executeHookOnSynchronization": True,
                     "executeHookOnEvent": [],
                     "apiVersion": "v1",
                     "kind": "Node",
                     "group": "main",
                     "jqFilter": '{"addresses": .status.addresses}',
-                    "queue": f"/modules/{self.module_name}/{self.SNAPSHOT_NAME}",
+                    "queue": self.queue,
                     "keepFullObjectsInMemory": False
                 }
             ]
@@ -80,7 +82,7 @@ class ModuleConfigValidateHook(Hook):
         def r(ctx: hook.Context):
             cidrs: list[IPv4Network] = [
                 ip_network(c)
-                for c in ctx.snapshots.get(self.SNAPSHOT_NAME, [{}])[0]
+                for c in ctx.snapshots.get(self.SNAPSHOT_MODULE_CONFIG, [{}])[0]
                 .get("filterResult", {})
                 .get("cidrs", [])
             ]
@@ -88,7 +90,7 @@ class ModuleConfigValidateHook(Hook):
 
             node_addresses: list[IPv4Address] = [
                 ip_address(addr["address"])
-                for snap in ctx.snapshots.get("nodes", [])
+                for snap in ctx.snapshots.get(self.SNAPSHOT_NODES, [])
                 for addr in (snap.get("filterResult", {}).get("addresses") or [])
                 if addr.get("type") in {"InternalIP", "ExternalIP"}
             ]
