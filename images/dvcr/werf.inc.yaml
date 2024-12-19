@@ -6,7 +6,13 @@ import:
   add: /container-registry-binary
   to: /bin
   after: install
-# Registry configuration is stored in configmap: templates/dvcr/configmap.yaml 
+# Registry configuration is stored in configmap: templates/dvcr/configmap.yaml
+- image: {{ $.ImageName }}-artifact-builder
+  add: /out
+  to: /bin
+  includePaths:
+  - dvcr-cleaner
+  after: install
 ---
 {{- $version := "2.8.3" }}
 
