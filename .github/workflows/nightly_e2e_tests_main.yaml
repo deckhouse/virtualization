@@ -71,3 +71,5 @@ jobs:
         working-directory: ./tests/e2e/
         run: |
           task run:ci -v
+        env:
+          LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
