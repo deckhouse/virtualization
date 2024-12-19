@@ -97,6 +97,8 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 		return reconcile.Result{}, err
 	}
 
+	quotaExceeded, quotaExceededMessage := checkIfQuotaExceeded(dv)
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
@@ -161,6 +163,12 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
+	case quotaExceeded:
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.QuotaExceeded).
+			Message(quotaExceededMessage)
+		return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning
 		cb.
