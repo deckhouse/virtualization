@@ -136,6 +136,8 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 		return reconcile.Result{}, err
 	}
 
+	quotaExceeded, quotaExceededMessage := checkIfQuotaExceeded(dv)
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
@@ -211,6 +213,12 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
+	case quotaExceeded:
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.QuotaExceeded).
+			Message(quotaExceededMessage)
+		return reconcile.Result{}, nil
 	case pvc == nil:
 		vi.Status.Phase = virtv2.ImageProvisioning
 		cb.
