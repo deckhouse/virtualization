@@ -82,15 +82,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	switch vdSnapshot.Status.Phase {
 	case "":
 		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhasePending
-
 	case virtv2.VirtualDiskSnapshotPhaseFailed:
-		vdSnapshotCondition, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
-
+		readyCondition, _ := conditions.GetCondition(vdscondition.VirtualDiskSnapshotReadyType, vdSnapshot.Status.Conditions)
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(conditions.CommonReason(vdSnapshotCondition.Reason)).
-			Message(vdSnapshotCondition.Message)
-
+			Reason(conditions.CommonReason(readyCondition.Reason)).
+			Message(readyCondition.Message)
 		return reconcile.Result{}, nil
 	case virtv2.VirtualDiskSnapshotPhaseReady:
 		if vs == nil || vs.Status == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
@@ -144,6 +141,15 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			if h.snapshotter.CanFreeze(vm) {
 				log.Debug("Freeze the virtual machine to take a snapshot")
 
+				if vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhasePending {
+					vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseInProgress
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vdscondition.Snapshotting).
+						Message("The snapshotting process has started.")
+					return reconcile.Result{Requeue: true}, nil
+				}
+
 				err = h.snapshotter.Freeze(ctx, vm.Name, vm.Namespace)
 				if err != nil {
 					setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
@@ -174,6 +180,15 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 					))
 				return reconcile.Result{}, nil
 			}
+		}
+
+		if vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhasePending {
+			vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseInProgress
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdscondition.Snapshotting).
+				Message("The snapshotting process has started.")
+			return reconcile.Result{Requeue: true}, nil
 		}
 
 		log.Debug("The corresponding volume snapshot not found: create the new one")
@@ -252,7 +267,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			vdSnapshot.Status.Consistent = ptr.To(true)
 
 			var canUnfreeze bool
-			canUnfreeze, err = h.snapshotter.CanUnfreeze(ctx, vdSnapshot.Name, vm)
+			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm)
 			if err != nil {
 				setPhaseConditionToFailed(cb, &vdSnapshot.Status.Phase, err)
 				return reconcile.Result{}, err
