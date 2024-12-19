@@ -77,7 +77,7 @@ func (s *SnapshotService) Freeze(ctx context.Context, name, namespace string) er
 	return nil
 }
 
-func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
+func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
 	if vm == nil || !s.IsFrozen(vm) {
 		return false, nil
 	}
@@ -103,7 +103,7 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 		}
 
 		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
-		if ok {
+		if ok && vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseInProgress {
 			return false, nil
 		}
 	}
@@ -117,7 +117,55 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 	}
 
 	for _, vmSnapshot := range vmSnapshots.Items {
-		if vmSnapshot.Spec.VirtualMachineName == vm.Name {
+		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == virtv2.VirtualMachineSnapshotPhaseInProgress {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
+	if vm == nil || !s.IsFrozen(vm) {
+		return false, nil
+	}
+
+	vdByName := make(map[string]struct{})
+	for _, bdr := range vm.Status.BlockDeviceRefs {
+		if bdr.Kind == virtv2.DiskDevice {
+			vdByName[bdr.Name] = struct{}{}
+		}
+	}
+
+	var vdSnapshots virtv2.VirtualDiskSnapshotList
+	err := s.client.List(ctx, &vdSnapshots, &client.ListOptions{
+		Namespace: vm.Namespace,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	for _, vdSnapshot := range vdSnapshots.Items {
+		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
+		if ok && vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseInProgress {
+			return false, nil
+		}
+	}
+
+	var vmSnapshots virtv2.VirtualMachineSnapshotList
+	err = s.client.List(ctx, &vmSnapshots, &client.ListOptions{
+		Namespace: vm.Namespace,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	for _, vmSnapshot := range vmSnapshots.Items {
+		if vmSnapshot.Name == vmSnapshotName {
+			continue
+		}
+
+		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == virtv2.VirtualMachineSnapshotPhaseInProgress {
 			return false, nil
 		}
 	}

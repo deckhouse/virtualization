@@ -113,7 +113,8 @@ var _ = Describe("LifeCycle handler", func() {
 		vdSnapshot = &virtv2.VirtualDiskSnapshot{
 			ObjectMeta: metav1.ObjectMeta{Name: getVDSnapshotName(vd.Name, vmSnapshot)},
 			Status: virtv2.VirtualDiskSnapshotStatus{
-				Phase: virtv2.VirtualDiskSnapshotPhaseReady,
+				Phase:      virtv2.VirtualDiskSnapshotPhaseReady,
+				Consistent: ptr.To(true),
 			},
 		}
 
@@ -127,8 +128,11 @@ var _ = Describe("LifeCycle handler", func() {
 			IsFrozenFunc: func(_ *virtv2.VirtualMachine) bool {
 				return true
 			},
-			CanUnfreezeFunc: func(_ context.Context, _ string, _ *virtv2.VirtualMachine) (bool, error) {
+			CanUnfreezeWithVirtualMachineSnapshotFunc: func(_ context.Context, _ string, _ *virtv2.VirtualMachine) (bool, error) {
 				return true, nil
+			},
+			CanFreezeFunc: func(_ *virtv2.VirtualMachine) bool {
+				return false
 			},
 			UnfreezeFunc: func(ctx context.Context, _, _ string) error {
 				return nil
@@ -279,6 +283,10 @@ var _ = Describe("LifeCycle handler", func() {
 	})
 
 	Context("The virtual machine snapshot is Ready", func() {
+		BeforeEach(func() {
+			vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseInProgress
+		})
+
 		It("The snapshot of virtual machine is Ready", func() {
 			h := NewLifeCycleHandler(snapshotter, storer)
 
@@ -315,11 +323,9 @@ var _ = Describe("LifeCycle handler", func() {
 
 		It("The virtual machine snapshot is potentially inconsistent", func() {
 			vmSnapshot.Spec.RequiredConsistency = false
-			snapshotter.IsFrozenFunc = func(_ *virtv2.VirtualMachine) bool {
-				return false
-			}
-			snapshotter.CanFreezeFunc = func(_ *virtv2.VirtualMachine) bool {
-				return false
+			snapshotter.GetVirtualDiskSnapshotFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualDiskSnapshot, error) {
+				vdSnapshot.Status.Consistent = nil
+				return vdSnapshot, nil
 			}
 			h := NewLifeCycleHandler(snapshotter, storer)
 
