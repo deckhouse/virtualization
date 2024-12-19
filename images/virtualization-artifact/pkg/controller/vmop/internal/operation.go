@@ -184,5 +184,4 @@ func (h OperationHandler) recordEventForVM(ctx context.Context, s state.VMOperat
 	case virtv2.VMOPTypeMigrate:
 		// TODO
 	}
-
 }

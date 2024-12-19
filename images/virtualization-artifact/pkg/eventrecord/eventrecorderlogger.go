@@ -82,7 +82,7 @@ func (e *EventRecorderLoggerImpl) WithLogging(logger infoLogger) EventRecorderLo
 
 // Event logs info about event and records it as Event resource.
 func (e *EventRecorderLoggerImpl) Event(object client.Object, eventtype, reason, message string) {
-	e.logf(object, eventtype, reason, message)
+	e.logf(object, eventtype, reason, message, nil)
 	recorder := e.recorderProducer.GetEventRecorderFor(e.recorderKey(reason))
 	recorder.Event(object, eventtype, reason, message)
 }
