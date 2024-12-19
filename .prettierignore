@@ -1,4 +1,4 @@
-**/.git
+**/*.git
 **/.svn
 **/.hg
 **/werf*.yaml
@@ -9,3 +9,4 @@ crds/embedded
 images/cdi-artifact/__containerized-data-importer*
 images/virt-artifact/__kubevirt*
 .gitlab-ci.yml
+tools/kubeconform
