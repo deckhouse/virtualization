@@ -52,7 +52,7 @@ tasks:
       - |
         cd ../ && docker run --rm \
           -v ./:/tmp/virt ghcr.io/deckhouse/virtualization/prettier:3.2.5 \
-          sh -c "cd /tmp/virt ; prettier -w \"**/*.yaml\" \"**/*.yml\""
+          sh -c "cd /tmp/virt ; prettier -w \"crds/*.yaml\""
 
   _ci:verify-gen:
     desc: "Check generated files are up-to-date."
