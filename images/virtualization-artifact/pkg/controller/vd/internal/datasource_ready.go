@@ -21,25 +21,30 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type DatasourceReadyHandler struct {
-	sources Sources
-	blank   source.Handler
+	sources  Sources
+	blank    source.Handler
+	recorder eventrecord.EventRecorderLogger
 }
 
-func NewDatasourceReadyHandler(blank source.Handler, sources Sources) *DatasourceReadyHandler {
+func NewDatasourceReadyHandler(recorder eventrecord.EventRecorderLogger, blank source.Handler, sources Sources) *DatasourceReadyHandler {
 	return &DatasourceReadyHandler{
-		blank:   blank,
-		sources: sources,
+		blank:    blank,
+		sources:  sources,
+		recorder: recorder,
 	}
 }
 
@@ -76,6 +81,13 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 			Message("")
 		return reconcile.Result{}, nil
 	case errors.Is(err, source.ErrSecretNotFound):
+		h.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonVDContainerRegistrySecretNotFound,
+			"Container registry secret not found",
+		)
+
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ContainerRegistrySecretNotFound).
