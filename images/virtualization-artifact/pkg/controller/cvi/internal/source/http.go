@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -44,9 +46,11 @@ type HTTPDataSource struct {
 	importerService     Importer
 	dvcrSettings        *dvcr.Settings
 	controllerNamespace string
+	recorder            eventrecord.EventRecorderLogger
 }
 
 func NewHTTPDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService Stat,
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
@@ -57,6 +61,7 @@ func NewHTTPDataSource(
 		importerService:     importerService,
 		dvcrSettings:        dvcrSettings,
 		controllerNamespace: controllerNamespace,
+		recorder:            recorder,
 	}
 }
 
@@ -81,6 +86,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Cluster virtual image provisioning finished: clean up")
+		ds.recorder.Event(
+			cvi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceDiskProvisioningCompleted,
+			"Disk provisioning finished: clean up",
+		)
 
 		cb.Status(metav1.ConditionTrue).
 			Reason(cvicondition.Ready).
@@ -100,6 +111,13 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 
 		log.Info("Cleaning up...")
 	case pod == nil:
+		ds.recorder.Event(
+			cvi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncStarted,
+			"The HTTP DataSource import has started",
+		)
+
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
 
 		envSettings := ds.getEnvSettings(cvi, supgen)
@@ -129,6 +147,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
@@ -137,6 +156,13 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 				return reconcile.Result{}, err
 			}
 		}
+
+		ds.recorder.Event(
+			cvi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncCompleted,
+			"The HTTP DataSource import has completed",
+		)
 
 		cb.Status(metav1.ConditionTrue).
 			Reason(cvicondition.Ready).
@@ -163,6 +189,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
