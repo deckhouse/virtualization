@@ -78,7 +78,7 @@ func (s *SnapshotService) Freeze(ctx context.Context, name, namespace string) er
 	return nil
 }
 
-func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
+func (s *SnapshotService) CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
 	if vm == nil || !s.IsFrozen(vm) {
 		return false, nil
 	}
@@ -104,10 +104,7 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 		}
 
 		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
-		if ok &&
-			vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady &&
-			vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseFailed &&
-			vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseTerminating {
+		if ok && vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseInProgress {
 			return false, nil
 		}
 	}
@@ -121,10 +118,55 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 	}
 
 	for _, vmSnapshot := range vmSnapshots.Items {
-		if vmSnapshot.Spec.VirtualMachineName == vm.Name &&
-			vmSnapshot.Status.Phase != virtv2.VirtualMachineSnapshotPhaseReady &&
-			vmSnapshot.Status.Phase != virtv2.VirtualMachineSnapshotPhaseFailed &&
-			vmSnapshot.Status.Phase != virtv2.VirtualMachineSnapshotPhaseTerminating {
+		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == virtv2.VirtualMachineSnapshotPhaseInProgress {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}
+
+func (s *SnapshotService) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
+	if vm == nil || !s.IsFrozen(vm) {
+		return false, nil
+	}
+
+	vdByName := make(map[string]struct{})
+	for _, bdr := range vm.Status.BlockDeviceRefs {
+		if bdr.Kind == virtv2.DiskDevice {
+			vdByName[bdr.Name] = struct{}{}
+		}
+	}
+
+	var vdSnapshots virtv2.VirtualDiskSnapshotList
+	err := s.client.List(ctx, &vdSnapshots, &client.ListOptions{
+		Namespace: vm.Namespace,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	for _, vdSnapshot := range vdSnapshots.Items {
+		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
+		if ok && vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseInProgress {
+			return false, nil
+		}
+	}
+
+	var vmSnapshots virtv2.VirtualMachineSnapshotList
+	err = s.client.List(ctx, &vmSnapshots, &client.ListOptions{
+		Namespace: vm.Namespace,
+	})
+	if err != nil {
+		return false, err
+	}
+
+	for _, vmSnapshot := range vmSnapshots.Items {
+		if vmSnapshot.Name == vmSnapshotName {
+			continue
+		}
+
+		if vmSnapshot.Spec.VirtualMachineName == vm.Name && vmSnapshot.Status.Phase == virtv2.VirtualMachineSnapshotPhaseInProgress {
 			return false, nil
 		}
 	}
@@ -135,7 +177,7 @@ func (s *SnapshotService) CanUnfreeze(ctx context.Context, vdSnapshotName string
 func (s *SnapshotService) Unfreeze(ctx context.Context, name, namespace string) error {
 	err := s.virtClient.VirtualMachines(namespace).Unfreeze(ctx, name)
 	if err != nil {
-		return fmt.Errorf("failed to unfreeze internal virtual machine %s/%s: %w", namespace, name, err)
+		return fmt.Errorf("unfreeze virtual machine %s/%s: %w", namespace, name, err)
 	}
 
 	return nil
