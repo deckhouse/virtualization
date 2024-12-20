@@ -34,6 +34,9 @@ const (
 	// ReasonVMLastAppliedSpecIsInvalid is event reason that JSON in last-applied-spec annotation is invalid.
 	ReasonVMLastAppliedSpecIsInvalid = "LastAppliedSpecIsInvalid"
 
+	// ReasonVMClassLastAppliedSpecInvalid is event reason that JSON in last-applied-spec annotation is invalid.
+	ReasonVMClassLastAppliedSpecInvalid = "VMClassLastAppliedSpecInvalid"
+
 	// ReasonErrVmNotSynced is event reason that vm is not synced.
 	ReasonErrVmNotSynced = "VirtualMachineNotSynced"
 
