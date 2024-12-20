@@ -59,8 +59,7 @@ tasks:
           --skip-file ipam_test.go \
           --skip-file disks_test.go \
           --no-color \
-          -v | grep --color=never \|)
-
+          -v | tee /dev/stderr | grep --color=never !)
         if [[ $RESULT == SUCCESS!* ]]; then
           RESULT_STATUS=":white_check_mark: SUCCESS!"
         elif [[ $RESULT == FAIL!* ]]; then
