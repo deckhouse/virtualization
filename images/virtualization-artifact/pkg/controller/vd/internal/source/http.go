@@ -40,7 +40,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -54,9 +56,11 @@ type HTTPDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	storageClassService *service.VirtualDiskStorageClassService
 	client              client.Client
+	recorder            eventrecord.EventRecorderLogger
 }
 
 func NewHTTPDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService *service.StatService,
 	importerService *service.ImporterService,
 	diskService *service.DiskService,
@@ -71,6 +75,7 @@ func NewHTTPDataSource(
 		dvcrSettings:        dvcrSettings,
 		storageClassService: storageClassService,
 		client:              client,
+		recorder:            recorder,
 	}
 }
 
@@ -103,7 +108,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		log.Debug("Disk provisioning finished: clean up")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceDiskProvisioningCompleted,
+			"Disk provisioning finished: clean up",
+		)
 
 		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
@@ -128,7 +138,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 	case object.AnyTerminating(pod, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
-		log.Info("Start import to DVCR")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"The HTTP DataSource import to DVCR has started",
+		)
 
 		vd.Status.Progress = "0%"
 
@@ -160,7 +175,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		return reconcile.Result{Requeue: true}, nil
 	case !podutil.IsPodComplete(pod):
-		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
+		ds.recorder.Eventf(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase,
+		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -181,7 +201,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		vd.Status.Progress = ds.statService.GetProgress(vd.GetUID(), pod, vd.Status.Progress, service.NewScaleOption(0, 50))
 		vd.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vd.GetUID(), pod)
 	case dv == nil:
-		log.Info("Start import to PVC")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"The HTTP DataSource import to PVC has started",
+		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -189,6 +214,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdcondition.ProvisioningFailed).
@@ -249,6 +275,13 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncCompleted,
+			"The HTTP DataSource import has completed",
+		)
 
 		vd.Status.Phase = virtv2.DiskReady
 		cb.
