@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -48,12 +50,14 @@ type ObjectRefDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	client              client.Client
 	controllerNamespace string
+	recorder            eventrecord.EventRecorderLogger
 
 	viOnPvcSyncer *ObjectRefVirtualImageOnPvc
 	vdSyncer      *ObjectRefVirtualDisk
 }
 
 func NewObjectRefDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService Stat,
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
@@ -66,9 +70,10 @@ func NewObjectRefDataSource(
 		dvcrSettings:        dvcrSettings,
 		client:              client,
 		controllerNamespace: controllerNamespace,
+		recorder:            recorder,
 
-		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(importerService, dvcrSettings, statService),
-		vdSyncer:      NewObjectRefVirtualDisk(importerService, client, controllerNamespace, dvcrSettings, statService),
+		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(recorder, importerService, dvcrSettings, statService),
+		vdSyncer:      NewObjectRefVirtualDisk(recorder, importerService, client, controllerNamespace, dvcrSettings, statService),
 	}
 }
 
@@ -121,7 +126,12 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		log.Info("Cluster virtual image provisioning finished: clean up")
+		ds.recorder.Event(
+			cvi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceDiskProvisioningCompleted,
+			"Disk provisioning finished: clean up",
+		)
 
 		cb.
 			Status(metav1.ConditionTrue).
@@ -181,6 +191,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
@@ -232,6 +243,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
