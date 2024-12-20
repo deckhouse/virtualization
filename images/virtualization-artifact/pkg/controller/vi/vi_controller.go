@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -63,16 +64,17 @@ func NewController(
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 	scService := service.NewVirtualImageStorageClassService(storageClassSettings)
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
 	sources := source.NewSources()
-	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(stat, importer, dvcr, disk, scService))
-	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(stat, importer, dvcr, mgr.GetClient(), disk, scService))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(stat, importer, dvcr, mgr.GetClient(), disk, scService))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(stat, uploader, dvcr, disk, scService))
+	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcr, disk, scService))
+	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcr, mgr.GetClient(), disk, scService))
+	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, dvcr, mgr.GetClient(), disk, scService))
+	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcr, disk, scService))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		internal.NewStorageClassReadyHandler(disk),
+		internal.NewStorageClassReadyHandler(recorder, disk),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
 		internal.NewDeletionHandler(sources),
