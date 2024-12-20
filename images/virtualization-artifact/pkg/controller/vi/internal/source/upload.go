@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -50,9 +51,11 @@ type UploadDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	diskService         *service.DiskService
 	storageClassService *service.VirtualImageStorageClassService
+	recorder            eventrecord.EventRecorderLogger
 }
 
 func NewUploadDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService Stat,
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
@@ -130,7 +133,12 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 	case object.AnyTerminating(pod, svc, ing, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil || svc == nil || ing == nil:
-		log.Info("Start import to DVCR")
+		ds.recorder.Event(
+			vi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncStarted,
+			"The Upload DataSource import to DVCR has started",
+		)
 
 		vi.Status.Progress = "0%"
 
@@ -202,7 +210,12 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 			return reconcile.Result{}, err
 		}
 	case dv == nil:
-		log.Info("Start import to PVC")
+		ds.recorder.Event(
+			vi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncStarted,
+			"The Upload DataSource import to PVC has started",
+		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -210,6 +223,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -258,6 +272,12 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+		ds.recorder.Event(
+			vi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncCompleted,
+			"The Upload DataSource import has completed",
+		)
 
 		vi.Status.Phase = virtv2.ImageReady
 		cb.

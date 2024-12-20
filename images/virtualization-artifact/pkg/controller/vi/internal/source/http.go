@@ -37,6 +37,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -48,9 +49,11 @@ type HTTPDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	diskService         *service.DiskService
 	storageClassService *service.VirtualImageStorageClassService
+	recorder            eventrecord.EventRecorderLogger
 }
 
 func NewHTTPDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService Stat,
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
@@ -63,6 +66,7 @@ func NewHTTPDataSource(
 		dvcrSettings:        dvcrSettings,
 		diskService:         diskService,
 		storageClassService: storageClassService,
+		recorder:            recorder,
 	}
 }
 
@@ -132,6 +136,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -282,7 +287,12 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		vi.Status.Progress = ds.statService.GetProgress(vi.GetUID(), pod, vi.Status.Progress, service.NewScaleOption(0, 50))
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 	case dv == nil:
-		log.Info("Start import to PVC")
+		ds.recorder.Event(
+			vi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncStarted,
+			"The HTTP DataSource import has started",
+		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -290,6 +300,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -338,6 +349,12 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+		ds.recorder.Event(
+			vi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncCompleted,
+			"The HTTP DataSource import has completed",
+		)
 
 		vi.Status.Phase = virtv2.ImageReady
 		cb.
