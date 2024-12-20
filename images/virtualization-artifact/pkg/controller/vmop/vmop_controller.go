@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	vmopcolelctor "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmop"
+	vmopcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmop"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -82,7 +82,7 @@ func SetupController(
 		return err
 	}
 
-	vmopcolelctor.SetupCollector(mgr.GetCache(), metrics.Registry, log)
+	vmopcollector.SetupCollector(mgr.GetCache(), metrics.Registry, log)
 
 	log.Info("Initialized VirtualMachineOperation controller")
 	return nil

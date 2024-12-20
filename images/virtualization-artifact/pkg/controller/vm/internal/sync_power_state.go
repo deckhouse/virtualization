@@ -73,8 +73,6 @@ func (h *SyncPowerStateHandler) Handle(ctx context.Context, s state.VirtualMachi
 
 // syncPowerState enforces runPolicy on the underlying KVVM.
 func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, runPolicy virtv2.RunPolicy) error {
-	log := logger.FromContext(ctx)
-
 	if kvvm == nil {
 		return nil
 	}
@@ -88,11 +86,8 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 		if kvvmi != nil {
 			err = h.ensureRunStrategy(ctx, kvvm, virtv1.RunStrategyManual)
 		} else if kvvm.Spec.RunStrategy != nil && *kvvm.Spec.RunStrategy == virtv1.RunStrategyAlways {
-			h.recorder.WithLogging(log).Eventf(
-				s.VirtualMachine().Current(),
-				corev1.EventTypeNormal,
-				virtv2.ReasonVMStarted,
-				"Start initiated by controller for %v policy",
+			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
+				"Start on create initiated by controller for %v policy",
 				runPolicy,
 			)
 		}
@@ -125,6 +120,11 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 		}
 	case virtv2.AlwaysOnPolicy:
 		if kvvmi == nil {
+			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
+				"Start initiated by controller for %v policy",
+				runPolicy,
+			)
+
 			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
 				return fmt.Errorf("failed to start VM: %w", err)
 			}
@@ -132,7 +132,24 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
 			if kvvmi.Status.Phase == virtv1.Succeeded {
-				log.Info("Restart for guest initiated reset")
+				if shutdownInfo.PodCompleted {
+					// Treat completed Pod as restart if guest was restarted or as a start if guest was stopped.
+					switch shutdownInfo.Reason {
+					case powerstate.GuestResetReason:
+						h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
+							"Restart initiated from inside the guest VM",
+						)
+					default:
+						h.recordStartEventf(ctx, s.VirtualMachine().Current(),
+							"Start initiated by controller after stopping from inside the guest VM",
+						)
+					}
+				} else {
+					h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
+						"Restart initiated by controller for %v runPolicy",
+						runPolicy,
+					)
+				}
 				err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
 				if err != nil {
 					return fmt.Errorf("restart VM on guest-reset: %w", err)
@@ -140,7 +157,10 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 			}
 
 			if kvvmi.Status.Phase == virtv1.Failed {
-				log.Info("Restart on Failed KVVMI", "obj", kvvmi.GetName())
+				h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
+					"Restart initiated by controller for %s runPolicy after observing failed guest VM",
+					runPolicy,
+				)
 				err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
 				if err != nil {
 					return fmt.Errorf("restart VM on failed: %w", err)
@@ -155,18 +175,17 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 					// Cleanup KVVMI is enough if VM was stopped from inside.
 					switch shutdownInfo.Reason {
 					case powerstate.GuestResetReason:
-						h.recorder.WithLogging(log).Event(
-							s.VirtualMachine().Current(),
-							corev1.EventTypeNormal,
-							virtv2.ReasonVMRestarted,
-							"Restart initiated from inside the VM",
+						h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
+							"Restart initiated from inside the guest VM",
 						)
 						err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
 						if err != nil {
 							return fmt.Errorf("restart VM on guest-reset: %w", err)
 						}
 					default:
-						h.recordStopEventf(ctx, s.VirtualMachine().Current(), "Stop initiated from inside the VM")
+						h.recordStopEventf(ctx, s.VirtualMachine().Current(),
+							"Stop initiated from inside the guest VM",
+						)
 						err = h.client.Delete(ctx, kvvmi)
 						if err != nil && !k8serrors.IsNotFound(err) {
 							return fmt.Errorf("delete Succeeded KVVMI: %w", err)
@@ -175,11 +194,8 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				}
 			}
 			if kvvmi.Status.Phase == virtv1.Failed {
-				h.recorder.WithLogging(log).Eventf(
-					s.VirtualMachine().Current(),
-					corev1.EventTypeNormal,
-					virtv2.ReasonVMRestarted,
-					"Restart initiated by controller for %s runPolicy after observing failed VM instance",
+				h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
+					"Restart initiated by controller for %s runPolicy after observing failed guest VM",
 					runPolicy,
 				)
 				err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
@@ -196,18 +212,17 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				// Request to start new KVVMI (with updated settings).
 				switch shutdownInfo.Reason {
 				case powerstate.GuestResetReason:
-					h.recorder.WithLogging(log).Event(
-						s.VirtualMachine().Current(),
-						corev1.EventTypeNormal,
-						virtv2.ReasonVMRestarted,
-						"Restart initiated from inside the VM",
+					h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
+						"Restart initiated from inside the guest VM",
 					)
 					err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
 					if err != nil {
 						return fmt.Errorf("restart VM on guest-reset: %w", err)
 					}
 				default:
-					h.recordStopEventf(ctx, s.VirtualMachine().Current(), "Stop initiated from inside the VM")
+					h.recordStopEventf(ctx, s.VirtualMachine().Current(),
+						"Stop initiated from inside the guest VM",
+					)
 					// Cleanup old version of KVVMI.
 					err = h.client.Delete(ctx, kvvmi)
 					if err != nil && !k8serrors.IsNotFound(err) {
@@ -243,11 +258,31 @@ func (h *SyncPowerStateHandler) Name() string {
 	return nameSyncPowerStateHandler
 }
 
+func (h *SyncPowerStateHandler) recordStartEventf(ctx context.Context, obj client.Object, messageFmt string, args ...any) {
+	h.recorder.WithLogging(logger.FromContext(ctx)).Eventf(
+		obj,
+		corev1.EventTypeNormal,
+		virtv2.ReasonVMStarted,
+		messageFmt,
+		args...,
+	)
+}
+
 func (h *SyncPowerStateHandler) recordStopEventf(ctx context.Context, obj client.Object, messageFmt string, args ...any) {
 	h.recorder.WithLogging(logger.FromContext(ctx)).Eventf(
 		obj,
 		corev1.EventTypeNormal,
 		virtv2.ReasonVMStopped,
+		messageFmt,
+		args...,
+	)
+}
+
+func (h *SyncPowerStateHandler) recordRestartEventf(ctx context.Context, obj client.Object, messageFmt string, args ...any) {
+	h.recorder.WithLogging(logger.FromContext(ctx)).Eventf(
+		obj,
+		corev1.EventTypeNormal,
+		virtv2.ReasonVMRestarted,
 		messageFmt,
 		args...,
 	)
