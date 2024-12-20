@@ -22,12 +22,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -37,11 +37,11 @@ const operationHandlerName = "OperationHandler"
 
 // OperationHandler performs operation on Virtual Machine.
 type OperationHandler struct {
-	recorder record.EventRecorder
+	recorder eventrecord.EventRecorderLogger
 	vmopSrv  service.VMOperationService
 }
 
-func NewOperationHandler(recorder record.EventRecorder, vmopSrv service.VMOperationService) *OperationHandler {
+func NewOperationHandler(recorder eventrecord.EventRecorderLogger, vmopSrv service.VMOperationService) *OperationHandler {
 	return &OperationHandler{
 		recorder: recorder,
 		vmopSrv:  vmopSrv,
@@ -88,6 +88,7 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 		Generation(changed.GetGeneration())
 
 	// Send signal to perform operation, set phase to InProgress on success and to Fail on error.
+	h.recordEventForVM(ctx, s)
 	err := h.vmopSrv.Do(ctx, changed)
 	if err != nil {
 		failMsg := fmt.Sprintf("Sending signal %q to VM", changed.Spec.Type)
@@ -135,4 +136,52 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 
 func (h OperationHandler) Name() string {
 	return operationHandlerName
+}
+
+func (h OperationHandler) recordEventForVM(ctx context.Context, s state.VMOperationState) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(operationHandlerName))
+
+	vmop := s.VirtualMachineOperation()
+	if vmop == nil {
+		return
+	}
+
+	// Get VM for Pending and InProgress checks.
+	vm, err := s.VirtualMachine(ctx)
+	if err != nil {
+		// Only log the error.
+		log.Error("Get VirtualMachine to record Event for VMOP", logger.SlogErr(err))
+		return
+	}
+	if vm == nil {
+		return
+	}
+
+	switch vmop.Current().Spec.Type {
+	case virtv2.VMOPTypeStart:
+		h.recorder.WithLogging(log).Event(
+			vm,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVMStarted,
+			"Start initiated with VirtualMachineOperation",
+		)
+	case virtv2.VMOPTypeStop:
+		h.recorder.WithLogging(log).Event(
+			vm,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVMStopped,
+			"Stop initiated with VirtualMachineOperation",
+		)
+	case virtv2.VMOPTypeRestart:
+		h.recorder.WithLogging(log).Event(
+			vm,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVMRestarted,
+			"Restart initiated with VirtualMachineOperation",
+		)
+	case virtv2.VMOPTypeEvict:
+		// TODO
+	case virtv2.VMOPTypeMigrate:
+		// TODO
+	}
 }
