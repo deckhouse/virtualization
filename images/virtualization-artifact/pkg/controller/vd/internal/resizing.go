@@ -30,18 +30,22 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type ResizingHandler struct {
 	diskService DiskService
+	recorder    eventrecord.EventRecorderLogger
 }
 
-func NewResizingHandler(diskService DiskService) *ResizingHandler {
+func NewResizingHandler(recorder eventrecord.EventRecorderLogger, diskService DiskService) *ResizingHandler {
 	return &ResizingHandler{
 		diskService: diskService,
+		recorder:    recorder,
 	}
 }
 
@@ -119,6 +123,13 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	if vdSpecSize != nil && vdSpecSize.Cmp(pvcSpecSize) == common.CmpGreater {
 		snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 		if snapshotting.Status == metav1.ConditionTrue {
+			h.recorder.Event(
+				vd,
+				corev1.EventTypeNormal,
+				v1alpha2.ReasonVDResizingNotAvailable,
+				"The virtual disk cannot be selected for resizing as it is currently snapshotting.",
+			)
+
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.ResizingNotAvailable).
@@ -139,6 +150,14 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 				}
 				return reconcile.Result{}, err
 			}
+
+			h.recorder.Event(
+				vd,
+				corev1.EventTypeNormal,
+				v1alpha2.ReasonVDResizingStarted,
+				"The virtual disk resizing has started",
+			)
+
 		case metav1.ConditionFalse:
 			cb.
 				Status(metav1.ConditionFalse).
@@ -164,6 +183,13 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	// Expected disk size is NOT GREATER THAN expected pvc size: no resize needed since downsizing is not possible, and resizing to the same value makes no sense.
 	switch condition.Reason {
 	case vdcondition.InProgress.String(), vdcondition.Resized.String():
+		h.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonVDResizingCompleted,
+			"The virtual disk resizing has completed",
+		)
+
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Resized).
