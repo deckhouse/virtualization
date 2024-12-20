@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -53,9 +55,11 @@ type ObjectRefVirtualDisk struct {
 	dvcrSettings        *dvcr.Settings
 	client              client.Client
 	storageClassService *service.VirtualImageStorageClassService
+	recorder            eventrecord.EventRecorderLogger
 }
 
 func NewObjectRefVirtualDisk(
+	recorder eventrecord.EventRecorderLogger,
 	importerService Importer,
 	client client.Client,
 	diskService *service.DiskService,
@@ -138,6 +142,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -174,6 +179,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -245,7 +251,12 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 	case object.AnyTerminating(dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case dv == nil:
-		log.Info("Start import to PVC")
+		ds.recorder.Event(
+			vi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncStarted,
+			"The ObjectRef DataSource import has started",
+		)
 
 		vi.Status.Progress = "0%"
 		vi.Status.SourceUID = pointer.GetPointer(vdRef.GetUID())
@@ -283,6 +294,12 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+		ds.recorder.Event(
+			vi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncCompleted,
+			"The ObjectRef DataSource import has completed",
+		)
 
 		vi.Status.Phase = virtv2.ImageReady
 		cb.
