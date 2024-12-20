@@ -25,7 +25,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/record"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -35,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -43,7 +43,7 @@ import (
 
 const nameBlockDeviceHandler = "BlockDeviceHandler"
 
-func NewBlockDeviceHandler(cl client.Client, recorder record.EventRecorder) *BlockDeviceHandler {
+func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger) *BlockDeviceHandler {
 	return &BlockDeviceHandler{
 		client:   cl,
 		recorder: recorder,
@@ -56,7 +56,7 @@ func NewBlockDeviceHandler(cl client.Client, recorder record.EventRecorder) *Blo
 
 type BlockDeviceHandler struct {
 	client   client.Client
-	recorder record.EventRecorder
+	recorder eventrecord.EventRecorderLogger
 
 	viProtection  *service.ProtectionService
 	cviProtection *service.ProtectionService
