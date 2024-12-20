@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -28,17 +29,21 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type StorageClassReadyHandler struct {
-	service DiskService
+	service  DiskService
+	recorder eventrecord.EventRecorderLogger
 }
 
-func NewStorageClassReadyHandler(diskService DiskService) *StorageClassReadyHandler {
+func NewStorageClassReadyHandler(recorder eventrecord.EventRecorderLogger, diskService DiskService) *StorageClassReadyHandler {
 	return &StorageClassReadyHandler{
-		service: diskService,
+		service:  diskService,
+		recorder: recorder,
 	}
 }
 
@@ -94,11 +99,25 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 			Reason(vdcondition.StorageClassReady).
 			Message("")
 	case hasNoStorageClassInSpec:
+		h.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonVDStorageClassNotFound,
+			"The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification.",
+		)
+
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotFound).
 			Message("The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification.")
 	default:
+		h.recorder.Eventf(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonVDStorageClassNotFound,
+			"Storage class %q not found", *vd.Spec.PersistentVolumeClaim.StorageClass,
+		)
+
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotFound).

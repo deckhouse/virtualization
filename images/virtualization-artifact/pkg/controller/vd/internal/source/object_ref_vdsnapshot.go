@@ -33,18 +33,22 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type ObjectRefVirtualDiskSnapshot struct {
 	diskService *service.DiskService
+	recorder    eventrecord.EventRecorderLogger
 }
 
-func NewObjectRefVirtualDiskSnapshot(diskService *service.DiskService) *ObjectRefVirtualDiskSnapshot {
+func NewObjectRefVirtualDiskSnapshot(recorder eventrecord.EventRecorderLogger, diskService *service.DiskService) *ObjectRefVirtualDiskSnapshot {
 	return &ObjectRefVirtualDiskSnapshot{
 		diskService: diskService,
+		recorder:    recorder,
 	}
 }
 
@@ -75,7 +79,12 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		log.Debug("Disk provisioning finished: clean up")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceDiskProvisioningCompleted,
+			"Disk provisioning finished: clean up",
+		)
 
 		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
@@ -90,7 +99,12 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 		log.Info("Waiting for supplements to be terminated")
 		return reconcile.Result{Requeue: true}, nil
 	case pvc == nil:
-		log.Info("Start import to PVC")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"The ObjectRef DataSource import has started",
+		)
 
 		namespacedName := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID).PersistentVolumeClaim()
 
@@ -158,6 +172,13 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 		return reconcile.Result{}, nil
 	case pvc.Status.Phase == corev1.ClaimBound:
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncCompleted,
+			"The ObjectRef DataSource import has completed",
+		)
+
 		vd.Status.Phase = virtv2.DiskReady
 		cb.
 			Status(metav1.ConditionTrue).

@@ -23,10 +23,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -80,7 +82,10 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				return &handler, false
 			}
 
-			handler := NewLifeCycleHandler(nil, &sourcesMock, nil)
+			recorder := &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(_ client.Object, _, _, _ string) {},
+			}
+			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil)
 
 			ctx := logger.ToContext(context.TODO(), slog.Default())
 
@@ -179,7 +184,11 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				return &handler, false
 			}
 
-			handler := NewLifeCycleHandler(nil, &sourcesMock, nil)
+			recorder := &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(_ client.Object, _, _, _ string) {},
+			}
+
+			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil)
 
 			ctx := logger.ToContext(context.TODO(), slog.Default())
 
