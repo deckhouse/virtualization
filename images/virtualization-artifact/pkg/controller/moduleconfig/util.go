@@ -48,6 +48,7 @@ func checkNodeAddressesOverlap(nodes []corev1.Node, excludedPrefixes []netip.Pre
 			if address.Type == corev1.NodeInternalIP || address.Type == corev1.NodeExternalIP {
 				ip, err := netip.ParseAddr(address.Address)
 				if err != nil {
+					// No way to detect if invalid address is in excludedPrefixes, just ignore the error and move on.
 					continue
 				}
 
