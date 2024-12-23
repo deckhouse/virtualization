@@ -115,3 +115,9 @@ How does it work?
 
 By default, the virtual-operator adds a nodePlacement with the RequireControlPlanePreferNonWorker.
 But we set up the placement ourselves, so we replace the policy with AnyNode.
+
+#### `030-do-not-add-node-selector-for-dvp-generic-cpu-model.patch`
+
+Do not add nodeSelector for cpu model "Deckhouse-Virtualization-Platform-Generic".
+This model should be treated as host-model or host-passthrough models.
+
