@@ -30,6 +30,24 @@ tasks:
       - |
         gofumpt -extra -w {{.CLI_ARGS}} {{.paths | default "cmd/ pkg/"}}
 
+  dev:gogenerate:
+    desc: |-
+      Run go generate for all packages.
+    cmds:
+      - |
+        go generate ./...
+
+  dev:addlicense:
+    desc: |-
+      Add Flant CE license to files sh,go,py. Default directory is root of project, custom directory path can be passed like: "task dev:addlicense -- <somedir>"
+    cmds:
+      - |
+        {{if .CLI_ARGS}}
+          go run ../../tools/addlicense/{main,variables,msg,utils}.go -directory {{ .CLI_ARGS }}
+        {{else}}
+          go run ../../tools/addlicense/{main,variables,msg,utils}.go -directory ./
+        {{end}}
+
   test:unit:
     desc: "Run go unit tests"
     cmds:

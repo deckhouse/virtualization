@@ -15,8 +15,15 @@ tasks:
     cmds:
       - go install github.com/onsi/ginkgo/v2/ginkgo@v2.14.0
 
+  moq:
+    cmds:
+      # Use 0.4.0 to not install Go 1.23 during installation.
+      # TODO Update version after migrating to Go 1.23 in the root go.mod.
+      - go install github.com/matryer/moq@v0.4.0
+
   default:
     cmds:
       - task: mod
       - task: ginkgo
       - task: golangci-lint
+      - task: moq
