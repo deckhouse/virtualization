@@ -59,12 +59,24 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 	}
 
+	vm, err := h.snapshotter.GetVirtualMachine(ctx, vmSnapshot.Spec.VirtualMachineName, vmSnapshot.Namespace)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+		return reconcile.Result{}, err
+	}
+
 	if vmSnapshot.DeletionTimestamp != nil {
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseTerminating
 		cb.
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown).
 			Message("")
+
+		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+			return reconcile.Result{}, err
+		}
 
 		return reconcile.Result{}, nil
 	}
@@ -73,13 +85,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	case "":
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
 	case virtv2.VirtualMachineSnapshotPhaseFailed:
-		vmSnapshotCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
-
+		readyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineSnapshotReadyType, vmSnapshot.Status.Conditions)
 		cb.
-			Status(metav1.ConditionFalse).
-			Reason(conditions.CommonReason(vmSnapshotCondition.Reason)).
-			Message(vmSnapshotCondition.Message)
-
+			Status(readyCondition.Status).
+			Reason(conditions.CommonReason(readyCondition.Reason)).
+			Message(readyCondition.Message)
 		return reconcile.Result{}, nil
 	case virtv2.VirtualMachineSnapshotPhaseReady:
 		// Ensure vd snapshots aren't lost.
@@ -116,12 +126,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 			Reason(vmscondition.VirtualMachineSnapshotReady).
 			Message("")
 		return reconcile.Result{}, nil
-	}
-
-	vm, err := h.snapshotter.GetVirtualMachine(ctx, vmSnapshot.Spec.VirtualMachineName, vmSnapshot.Namespace)
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
-		return reconcile.Result{}, err
 	}
 
 	virtualMachineReadyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineReadyType, vmSnapshot.Status.Conditions)
@@ -163,26 +167,40 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
+	needToFreeze := h.needToFreeze(vm)
+
+	isAwaitingConsistency := needToFreeze && !h.snapshotter.CanFreeze(vm) && vmSnapshot.Spec.RequiredConsistency
+	if isAwaitingConsistency {
+		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmscondition.PotentiallyInconsistent).
+			Message(fmt.Sprintf(
+				"The snapshotting of virtual machine %q might result in an inconsistent snapshot: "+
+					"waiting for the virtual machine to be %s",
+				vm.Name, virtv2.MachineStopped,
+			))
+		return reconcile.Result{}, nil
+	}
+
+	if vmSnapshot.Status.Phase == virtv2.VirtualMachineSnapshotPhasePending {
+		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseInProgress
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmscondition.FileSystemFreezing).
+			Message("The snapshotting process has started.")
+		return reconcile.Result{Requeue: true}, nil
+	}
+
+	var hasFrozen bool
+
 	// 3. Ensure the virtual machine is consistent for snapshotting.
-	hasFrozen, err := h.freezeVirtualMachineIfCan(ctx, vm)
-	switch {
-	case err == nil:
-	case errors.Is(err, ErrPotentiallyInconsistent):
-		if vmSnapshot.Spec.RequiredConsistency {
-			vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vmscondition.PotentiallyInconsistent).
-				Message(fmt.Sprintf(
-					"The snapshotting of virtual machine %q might result in an inconsistent snapshot: "+
-						"waiting for the virtual machine to be %s",
-					vm.Name, virtv2.MachineStopped,
-				))
-			return reconcile.Result{}, nil
+	if needToFreeze {
+		hasFrozen, err = h.freezeVirtualMachine(ctx, vm)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+			return reconcile.Result{}, err
 		}
-	default:
-		setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
-		return reconcile.Result{}, err
 	}
 
 	if hasFrozen {
@@ -242,12 +260,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	if vm.Status.Phase == virtv2.MachineStopped || h.snapshotter.IsFrozen(vm) {
-		vmSnapshot.Status.Consistent = ptr.To(true)
+	vmSnapshot.Status.Consistent = ptr.To(true)
+	if !h.areVirtualDiskSnapshotsConsistent(vdSnapshots) {
+		vmSnapshot.Status.Consistent = nil
 	}
 
 	// 8. Unfreeze VirtualMachine if can.
-	unfrozen, err := h.unfreezeVirtualMachineIfCan(ctx, vm)
+	unfrozen, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
 		return reconcile.Result{}, err
@@ -382,39 +401,47 @@ func (h LifeCycleHandler) countReadyVirtualDiskSnapshots(vdSnapshots []*virtv2.V
 	return readyCount
 }
 
-var ErrPotentiallyInconsistent = errors.New("potentially inconsistent")
+func (h LifeCycleHandler) areVirtualDiskSnapshotsConsistent(vdSnapshots []*virtv2.VirtualDiskSnapshot) bool {
+	for _, vdSnapshot := range vdSnapshots {
+		if vdSnapshot.Status.Consistent == nil || !*vdSnapshot.Status.Consistent {
+			return false
+		}
+	}
 
-func (h LifeCycleHandler) freezeVirtualMachineIfCan(ctx context.Context, vm *virtv2.VirtualMachine) (bool, error) {
-	switch vm.Status.Phase {
-	case virtv2.MachineStopped:
-		return false, nil
-	case virtv2.MachineRunning:
-	default:
-		return false, errors.New("cannot freeze not Running virtual machine")
+	return true
+}
+
+func (h LifeCycleHandler) needToFreeze(vm *virtv2.VirtualMachine) bool {
+	if vm.Status.Phase == virtv2.MachineStopped {
+		return false
 	}
 
 	if h.snapshotter.IsFrozen(vm) {
-		return false, nil
+		return false
 	}
 
-	if !h.snapshotter.CanFreeze(vm) {
-		return false, ErrPotentiallyInconsistent
+	return true
+}
+
+func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, vm *virtv2.VirtualMachine) (bool, error) {
+	if vm.Status.Phase != virtv2.MachineRunning {
+		return false, errors.New("cannot freeze not Running virtual machine")
 	}
 
 	err := h.snapshotter.Freeze(ctx, vm.Name, vm.Namespace)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("freeze the virtual machine %q: %w", vm.Name, err)
 	}
 
 	return true, nil
 }
 
-func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vm *virtv2.VirtualMachine) (bool, error) {
-	if vm.Status.Phase != virtv2.MachineRunning || !h.snapshotter.IsFrozen(vm) {
+func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot, vm *virtv2.VirtualMachine) (bool, error) {
+	if vm == nil || vm.Status.Phase != virtv2.MachineRunning || !h.snapshotter.IsFrozen(vm) {
 		return false, nil
 	}
 
-	canUnfreeze, err := h.snapshotter.CanUnfreeze(ctx, "", vm)
+	canUnfreeze, err := h.snapshotter.CanUnfreezeWithVirtualMachineSnapshot(ctx, vmSnapshot.Name, vm)
 	if err != nil {
 		return false, err
 	}
@@ -425,7 +452,7 @@ func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vm *v
 
 	err = h.snapshotter.Unfreeze(ctx, vm.Name, vm.Namespace)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("unfreeze the virtual machine %q: %w", vm.Name, err)
 	}
 
 	return true, nil

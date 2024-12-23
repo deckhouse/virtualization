@@ -53,24 +53,24 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualD
 			return reconcile.Result{}, err
 		}
 
-		vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
-		if err != nil {
-			return reconcile.Result{}, err
+		var vm *virtv2.VirtualMachine
+		if vd != nil {
+			vm, err = getVirtualMachine(ctx, vd, h.snapshotter)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
-
-		var requeue bool
 
 		if vs != nil {
 			err = h.snapshotter.DeleteVolumeSnapshot(ctx, vs)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			requeue = true
 		}
 
 		if vm != nil {
 			var canUnfreeze bool
-			canUnfreeze, err = h.snapshotter.CanUnfreeze(ctx, vdSnapshot.Name, vm)
+			canUnfreeze, err = h.snapshotter.CanUnfreezeWithVirtualDiskSnapshot(ctx, vdSnapshot.Name, vm)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -83,11 +83,8 @@ func (h DeletionHandler) Handle(ctx context.Context, vdSnapshot *virtv2.VirtualD
 			}
 		}
 
-		if requeue {
-			return reconcile.Result{Requeue: true}, nil
-		}
-
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualDiskSnapshot")
+
 		controllerutil.RemoveFinalizer(vdSnapshot, virtv2.FinalizerVDSnapshotCleanup)
 		return reconcile.Result{}, nil
 	}
