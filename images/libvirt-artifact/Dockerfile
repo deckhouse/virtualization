@@ -88,15 +88,26 @@ RUN echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/b
     mdevctl \
     util-linux dmsetup pm-utils \
     libfuse3-devel libnuma libslirp-devel libtirpc-devel \
-    libyajl-devel && \
-    /usr/bin/pip3 install black && \
+    libyajl-devel && \ 
     apt-get clean && \
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin && \
+        rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED && \
+        rpm -qa | sort > /packages.txt && \
+        mkdir -p /usr/libexec/ccache-wrappers && \
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc && \
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang && \
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
 
-RUN grep -qw ^rpm /etc/group || groupadd rpm && \
+RUN /usr/bin/pip3 install black && \
+    grep -qw ^rpm /etc/group || groupadd rpm && \
     id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
 
 USER builder
+ENV CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers" \
+    MAKE="/usr/bin/make" \
+    NINJA="/usr/bin/ninja" \
+    PYTHON="/usr/bin/python3"
+    
 WORKDIR /home/builder
 RUN git clone http://git.altlinux.org/gears/l/libvirt.git
 RUN cd libvirt && git checkout ${LIBVIRT_VERSION}
@@ -106,12 +117,15 @@ RUN apt-get source /home/builder/RPM/SRPMS/libvirt-${LIBVIRT_VERSION}.src.rpm
 
 COPY ./libvirt.spec /home/builder/RPM/SPECS/libvirt.spec
 
+RUN grep -n 'wireshark/plugins' /home/builder/RPM/SPECS/libvirt.spec
 # RUN rpm -ba /home/builder/RPM/SPECS/libvirt.spec
 
 RUN trap "echo Build log ; cat /home/builder/RPM/BUILD//home/builder/RPM/BUILD/libvirt-${LIBVIRT_VERSION}/x86_64-alt-linux/meson-logs/testlog.txt" EXIT ; rpm -ba /home/builder/RPM/SPECS/libvirt.spec
 
+RUN ls -la /home/builder/RPM/RPMS/x86_64/
 
-
+# apt-get clean && \
+    # rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/
 # meson setup build \
 #     -Dprefix=$HOME/libvirt_build/usr \
 #     -Dlocalstatedir=$HOME/libvirt_build/var \
@@ -121,7 +135,7 @@ RUN trap "echo Build log ; cat /home/builder/RPM/BUILD//home/builder/RPM/BUILD/l
 #     -Ddriver_libvirtd=enabled
 
 # CFLAGS="-Wframe-larger-than=8192" meson setup build --prefix=$HOME/libvirt_build -Dsystem=true -Ddriver_qemu=enabled -Ddriver_openvz=disabled --wipe
-# ninja -C build
+# ninja -j6 -C build
 
 # /tmp/.private/builder/libvirt-buildroot
 
