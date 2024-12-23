@@ -77,7 +77,7 @@ tasks:
         SUMMARY="
         ### :dvp: **DVP $DATE Nightly e2e Tests**
 
-        **Branch:** \`$GITHUB_REF\`
+        **Branch:** \`$GITHUB_REF_NAME\`
         **Status: $RESULT_STATUS**
 
         - ${PASSED:-0} Passed
