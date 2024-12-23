@@ -87,6 +87,8 @@ function install_buildenv() {
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+
+    # /usr/bin/pip3 install black
 }
 
 install_buildenv

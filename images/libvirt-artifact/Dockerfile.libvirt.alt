@@ -1,0 +1,107 @@
+FROM --platform=$BUILDPLATFORM alt:p11
+# FROM --platform=linux/amd64 alt:p11
+
+RUN apt-get update && apt-get install --yes su \
+    gear rpm dmidecode \
+    rpm-build \
+    rpm-build-systemd \
+    rpm-build-python3 \
+    gcc-c++ \
+    git \
+    gettext \
+    bash-completion \
+    clang \
+    ccache \
+    make cmake \
+    meson \
+    ninja-build \
+    libudev-devel \
+    libpciaccess-devel \
+    libyajl-devel \
+    sanlock-devel \
+    libpcap-devel \
+    libnl-devel \
+    libselinux-devel \
+    iproute \
+    iptables \
+    iptables-nft \
+    iptables-ipv6 \
+    openvswitch \
+    ebtables \
+    libsasl2-devel \
+    pkgconfig \
+    libssh-devel \
+    libssh2-devel \
+    polkit kmod\
+    qemu-img \
+    lvm2 \
+    libparted-devel \
+    parted \
+    libdevmapper-devel \
+    ceph-devel \
+    open-iscsi \
+    libiscsi-devel \
+    libglusterfs-devel \
+    libnuma-devel \
+    libcap-ng-devel \
+    libcurl-devel \
+    libaudit-devel \
+    libfuse-devel \
+    libnbd-devel \
+    libblkid-devel \
+    libgcrypt-devel \
+    libgnutls-devel \
+    libp11-kit-devel \
+    libreadline-devel \
+    libtasn1-devel \
+    libattr-devel \
+    libbsd-devel \
+    libsystemd-devel \
+    libuuid-devel \
+    libjson-c-devel \
+    systemtap-sdt-devel \
+    attr \
+    libacl-devel \
+    glib2-devel \
+    glibc-utils \
+    libgio-devel \
+    libxml2-devel \
+    xml-utils \
+    xsltproc \
+    python3 python3-devel \
+    python3-module-pytest \
+    python3-module-docutils \
+    python3-tools \
+    python3-module-pip \
+    polkit \
+    libtirpc-devel \
+    libsasl2-devel \
+    wireshark-devel \
+    zlib-devel \
+    mdevctl && \
+    /usr/bin/pip3 install black
+
+RUN groupadd rpm || true && \
+    useradd builder --shell /bin/bash --create-home --group rpm
+
+USER builder
+WORKDIR /home/builder
+RUN git clone http://git.altlinux.org/gears/l/libvirt.git
+RUN cd libvirt && git checkout 10.10.0-alt1
+
+RUN cd libvirt && gear-rpm -bs --verbose
+RUN apt-get source /home/builder/RPM/SRPMS/libvirt-10.10.0-alt1.src.rpm
+
+RUN echo "rpm -ba /home/builder/RPM/SPECS/libvirt.spec" > /home/builder/build.sh
+RUN chmod +x /home/builder/build.sh
+USER root
+
+# su - builder /bin/bash -c 'git clone http://git.altlinux.org/gears/l/libvirt.git'
+
+# RUN su - builder /bin/bash -c 'cd libvirt ; gear-rpm -bs --verbose'
+# RUN su - builder /bin/bash -c 'apt-get source /home/builder/RPM/SRPMS/libvirt-10.10.0-alt1.src.rpm'
+
+# RUN su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/libvirt.spec 2>&1'
+
+# apt-cache showpkg libssh2-devel
+# apt-cache showpkg libssh-devel
