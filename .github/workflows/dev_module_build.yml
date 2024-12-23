@@ -211,6 +211,7 @@ jobs:
           task virtualization-controller:test:unit
 
   dev_setup_build:
+    # runs-on: [self-hosted, regular, selectel]
     runs-on: ubuntu-latest
     name: Build and Push images
     needs: set_vars

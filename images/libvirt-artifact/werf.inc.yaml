@@ -4,6 +4,16 @@
 image: {{ $.ImageName }}
 # final: false
 fromImage: base-alt-p11
+git:
+- add: /images/{{ $.ImageName }}
+  to: /home/builder/RPM/SPECS
+  owner: builder
+  group: builder
+  includePaths:
+  - libvirt.spec
+  stageDependencies:
+    beforeSetup:
+      - libvirt.spec
 shell:
   beforeInstall:
   - | 
@@ -90,15 +100,25 @@ shell:
     util-linux dmsetup pm-utils \
     libfuse3-devel libnuma libslirp-devel libtirpc-devel && \
     /usr/bin/pip3 install black
+  - |
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  - |
+    grep -qw ^rpm /etc/group || groupadd rpm
+    id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
 
   install:
   - |
-    grep -qw ^rpm /etc/group || groupadd rpm
-    useradd builder --shell /bin/bash --create-home --group rpm
     echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" > /etc/apt/sources.list.d/src.list
     apt-get update
   - |
+    mkdir -p /home/builder/RPM/{SPECS,SRPMS} && chown builder:builder -R /home/builder/RPM
+    
     su - builder -s /bin/bash -c 'git clone http://git.altlinux.org/gears/l/libvirt.git'
+    
     su - builder -s /bin/bash -c 'cd libvirt ; git checkout {{ $versionLibvirt }}-alt1; gear-rpm -bs --verbose'
+    
     su - builder -s /bin/bash -c 'apt-get source /home/builder/RPM/SRPMS/libvirt-{{ $versionLibvirt }}-alt1.src.rpm'
+  setup:
+  - |
     su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/libvirt.spec 2>&1'

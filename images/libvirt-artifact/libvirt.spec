@@ -1381,6 +1381,8 @@ fi
 %_libdir/wireshark/plugins/%name.so
 %endif
 
+%{_libdir}/wireshark/plugins/4.4/epan/libvirt.so
+
 %if_with lxc
 %if_with login_shell
 %files login-shell
