@@ -84,7 +84,7 @@ func NewController(
 		internal.NewSnapshottingHandler(disk),
 		internal.NewResizingHandler(recorder, disk),
 		internal.NewDeletionHandler(sources),
-		internal.NewAttacheeHandler(recorder, mgr.GetClient()),
+		internal.NewAttacheeHandler(mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
 		internal.NewInUseHandler(mgr.GetClient()),
 	)
