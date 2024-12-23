@@ -1,0 +1,117 @@
+FROM alt:p11
+
+# FROM alt:p11@sha256:39f03d3bca1a92dc36835c28c2ba2f22ec15257e950b3930e0a3f034466e8dfb
+
+# ENV LIBVIRT_VERSION=10.2.0-alt1
+ENV LIBVIRT_VERSION=10.10.0-alt1 \
+    QEMU_VERSION=9.1.2-alt1 \
+    GIT_REPO=https://git.altlinux.org/gears/q/qemu.git \
+    GIT_FOLDER=qemu
+
+# Update package lists and install main dependencies
+RUN echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" > /etc/apt/sources.list.d/src.list && \
+    apt-get update && \
+    apt-get install -y \
+    pkgconfig \
+    pkg-config \
+    gear rpm dmidecode \
+    rpm-build \
+    rpm-build-systemd \
+    rpm-build-python3 \
+    gcc-c++ \
+    git \
+    gettext \
+    bash-completion \
+    clang \
+    ccache \
+    make cmake \
+    meson \
+    ninja-build \
+    glibc-devel-static \
+    zlib-devel-static \
+    glib2-devel-static \
+    libpcre2-devel-static \
+    libattr-devel-static \
+    libdw-devel-static \
+    libatomic-devel-static \
+    glib2-devel \
+    libdw-devel \
+    makeinfo \
+    perl-devel \
+    python3 python3-dev \
+    python3-module-pytest \
+    python3-module-docutils \
+    python3-tools \
+    python3-module-pip \
+    python3-module-sphinx \
+    python3-module-sphinx_rtd_theme \
+    pkgconfig \
+    libssh-devel \
+    libssh2-devel \
+    libcap-ng-devel \
+    libxfs-devel \
+    zlib-devel \
+    libcurl-devel \
+    libpci-devel \
+    glibc-kernheaders \
+    ipxe-roms-qemu \
+    seavgabios \
+    seabios \
+    libfdt-devel \
+    qboot \
+    libpixman-devel \
+    libkeyutils-devel \
+    flex \
+    libuuid-devel \
+    libpam0-devel \
+    libtasn1-devel \
+    libslirp-devel \
+    libdrm-devel \
+    libxdp-devel libSDL2-devel libSDL2_image-devel \
+    libncursesw-devel libalsa-devel libpulseaudio-devel \
+    pipewire-libs pipewire-jack-libs-devel \
+    libsoundio-devel libcapstone-devel libsasl2-devel \
+    libjpeg-devel libpng-devel libxkbcommon-devel xkeyboard-config-devel \
+    glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel\
+    libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel \
+    libspice-server-devel spice-protocol ceph-devel \
+    libnfs-devel libzstd-devel libseccomp-devel \
+    libgcrypt-devel libgnutls-devel libnettle-devel \
+    libudev-devel libmultipath-devel libblkio-devel libpmem-devel \
+    libdaxctl-devel libfuse3-devel rdma-core-devel libnuma-devel \
+    bzlib-devel liblzo2-devel libsnappy-devel \
+    libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel \
+    libvitastor-devel libiscsi-devel glusterfs-coreutils \
+    libaio-devel libselinux-devel libqpl-devel libssh-devel \
+    qemu-kvm-core shadow-utils sysvinit-utils libglusterfs11-api-devel hasher-provides-dev-kvm \
+    filesystem \
+    && apt-get clean && \
+        rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin && \
+        rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED && \
+        rpm -qa | sort > /packages.txt && \
+        mkdir -p /usr/libexec/ccache-wrappers && \
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc && \
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang && \
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+
+
+RUN /usr/bin/pip3 install black
+
+RUN grep -qw ^rpm /etc/group || groupadd rpm && \
+    id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
+
+USER builder
+ENV CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers" \
+    MAKE="/usr/bin/make" \
+    NINJA="/usr/bin/ninja" \
+    PYTHON="/usr/bin/python3"
+
+WORKDIR /home/builder
+RUN git clone ${GIT_REPO}
+RUN cd ${GIT_FOLDER} && \
+    git checkout ${QEMU_VERSION} && \
+    gear-rpm -bs --verbose
+
+RUN apt-get source /home/builder/RPM/SRPMS/${GIT_FOLDER}-${QEMU_VERSION}.src.rpm
+
+RUN rpm -ba /home/builder/RPM/SPECS/${GIT_FOLDER}.spec

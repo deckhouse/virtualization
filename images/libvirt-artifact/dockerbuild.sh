@@ -18,6 +18,7 @@ docker image ls | grep libvirt
 
 echo "Run container"
 echo "docker run --name libvirt --rm -it --platform=linux/amd64 virt:libvirt-artifact bash"
+echo "docker build -t virt:qemu -f Dockerfile.qemu --platform="linux/amd64" --load ."
 
 
 # echo "%{_libdir}/wireshark/plugins/4.4/epan/libvirt.so" > libvirt.spec
