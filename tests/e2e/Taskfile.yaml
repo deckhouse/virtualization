@@ -62,10 +62,13 @@ tasks:
           -v | tee /dev/stderr | grep --color=never -E 'FAIL!|SUCCESS!')
         if [[ $RESULT == SUCCESS!* ]]; then
           RESULT_STATUS=":white_check_mark: SUCCESS!"
+          EXIT_CODE=0
         elif [[ $RESULT == FAIL!* ]]; then
           RESULT_STATUS=":x: FAIL!"
+          EXIT_CODE=1
         else
           RESULT_STATUS=":question: UNKNOWN"
+          EXIT_CODE=1
         fi
         DATE=$(date +"%Y-%m-%d")
 
@@ -88,6 +91,7 @@ tasks:
         [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
         "
         curl -XPOST -H 'Content-Type: application/json' -d "{\"text\": \"${SUMMARY}\"}" $LOOP_WEBHOOK_URL
+        exit $EXIT_CODE
 
   run:
     desc: "Run e2e tests"
