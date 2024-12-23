@@ -52,7 +52,7 @@ func SetupController(
 	vmopSrv := service.NewVMOperationService(mgr.GetClient(), virtClient)
 
 	handlers := []Handler{
-		internal.NewLifecycleHandler(vmopSrv),
+		internal.NewLifecycleHandler(recorder, vmopSrv),
 		internal.NewOperationHandler(recorder, vmopSrv),
 		internal.NewDeletionHandler(client),
 	}

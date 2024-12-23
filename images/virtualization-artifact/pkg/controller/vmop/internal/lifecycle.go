@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -27,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -36,12 +38,14 @@ const lifecycleHandlerName = "LifecycleHandler"
 
 // LifecycleHandler calculates status of the VirtualMachineOperation resource.
 type LifecycleHandler struct {
-	vmopSrv service.VMOperationService
+	vmopSrv  service.VMOperationService
+	recorder eventrecord.EventRecorderLogger
 }
 
-func NewLifecycleHandler(vmopSrv service.VMOperationService) *LifecycleHandler {
+func NewLifecycleHandler(recorder eventrecord.EventRecorderLogger, vmopSrv service.VMOperationService) *LifecycleHandler {
 	return &LifecycleHandler{
-		vmopSrv: vmopSrv,
+		vmopSrv:  vmopSrv,
+		recorder: recorder,
 	}
 }
 
@@ -70,6 +74,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 
 	// Initialize new VMOP resource: set label with vm name, set phase to Pending and all conditions to Unknown.
 	if changed.Status.Phase == "" {
+		h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPStarted, "VMOP started")
 		changed.Status.Phase = virtv2.VMOPPhasePending
 		// Add all conditions in unknown state.
 		conditions.SetCondition(
@@ -97,6 +102,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 		return reconcile.Result{}, fmt.Errorf("get VirtualMachine for VMOP: %w", err)
 	}
 	if vm == nil {
+		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, "VirtualMachine not found")
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
 		conditions.SetCondition(
 			completedCond.
@@ -122,6 +128,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	}
 	if found {
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
+		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, "Other VirtualMachineOperations are in progress")
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonOtherOperationsAreInProgress).
@@ -134,11 +141,14 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	// Fail if VirtualMachineOperation is not applicable for run policy.
 	if !h.vmopSrv.IsApplicableForRunPolicy(changed, vm.Spec.RunPolicy) {
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
+
+		failMsg := fmt.Sprintf("Operation type %s is not applicable for VirtualMachine with runPolicy %s", changed.Spec.Type, vm.Spec.RunPolicy)
+		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, failMsg)
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonNotApplicableForRunPolicy).
 				Status(metav1.ConditionFalse).
-				Message(fmt.Sprintf("Operation type %s is not applicable for VirtualMachine with runPolicy %s", changed.Spec.Type, vm.Spec.RunPolicy)),
+				Message(failMsg),
 			&changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
@@ -146,11 +156,14 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 	// Fail if VirtualMachineOperation is not applicable for VM phase.
 	if !h.vmopSrv.IsApplicableForVMPhase(changed, vm.Status.Phase) {
 		changed.Status.Phase = virtv2.VMOPPhaseFailed
+
+		failMsg := fmt.Sprintf("Operation type %s is not applicable for VirtualMachine in phase %s", changed.Spec.Type, vm.Status.Phase)
+		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, failMsg)
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonNotApplicableForVMPhase).
 				Status(metav1.ConditionFalse).
-				Message(fmt.Sprintf("Operation type %s is not applicable for VirtualMachine in phase %s", changed.Spec.Type, vm.Status.Phase)),
+				Message(failMsg),
 			&changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
@@ -176,6 +189,7 @@ func (h LifecycleHandler) checkOperationComplete(ctx context.Context, changed *v
 
 	if isComplete {
 		changed.Status.Phase = virtv2.VMOPPhaseCompleted
+		h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, "VMOP succeded")
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonOperationCompleted).
