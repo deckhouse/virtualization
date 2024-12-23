@@ -86,12 +86,6 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Cluster virtual image provisioning finished: clean up")
-		ds.recorder.Event(
-			cvi,
-			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceDiskProvisioningCompleted,
-			"Disk provisioning finished: clean up",
-		)
 
 		cb.Status(metav1.ConditionTrue).
 			Reason(cvicondition.Ready).
