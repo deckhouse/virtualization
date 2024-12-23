@@ -1,5 +1,5 @@
 diff --git a/pkg/virt-controller/services/nodeselectorrenderer.go b/pkg/virt-controller/services/nodeselectorrenderer.go
-index 390f359d2a..2be8b22a40 100644
+index 390f359d2a..609e41abb2 100644
 --- a/pkg/virt-controller/services/nodeselectorrenderer.go
 +++ b/pkg/virt-controller/services/nodeselectorrenderer.go
 @@ -23,6 +23,9 @@ type NodeSelectorRenderer struct {
@@ -17,7 +17,7 @@ index 390f359d2a..2be8b22a40 100644
  		maps.Copy(nsr.podNodeSelectors, hypervNodeSelectors(nsr.vmiFeatures))
  	}
 -	if nsr.cpuModelLabel != "" && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostModel) && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostPassthrough) {
-+	if nsr.cpuModelLabel != "" && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostModel) && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostPassthrough) && nsr.cpuModelLabel != DeckhouseVirtualizationPlatformGenericModel {
++	if nsr.cpuModelLabel != "" && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostModel) && nsr.cpuModelLabel != cpuModelLabel(v1.CPUModeHostPassthrough) && nsr.cpuModelLabel != cpuModelLabel(DeckhouseVirtualizationPlatformGenericModel) {
  		nsr.enableSelectorLabel(nsr.cpuModelLabel)
  	}
  	for _, cpuFeatureLabel := range nsr.cpuFeatureLabels {
