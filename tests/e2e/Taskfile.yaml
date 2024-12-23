@@ -59,8 +59,7 @@ tasks:
           --skip-file ipam_test.go \
           --skip-file disks_test.go \
           --no-color \
-          -v | grep --color=never \|)
-
+          -v | tee /dev/stderr | grep --color=never -E 'FAIL!|SUCCESS!')
         if [[ $RESULT == SUCCESS!* ]]; then
           RESULT_STATUS=":white_check_mark: SUCCESS!"
         elif [[ $RESULT == FAIL!* ]]; then
@@ -78,7 +77,7 @@ tasks:
         SUMMARY="
         ### :dvp: **DVP $DATE Nightly e2e Tests**
 
-        **Branch:** \`$GITHUB_REF\`
+        **Branch:** \`$GITHUB_REF_NAME\`
         **Status: $RESULT_STATUS**
 
         - ${PASSED:-0} Passed

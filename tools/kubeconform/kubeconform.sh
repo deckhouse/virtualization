@@ -109,6 +109,7 @@ if [[ $exitCode -ne 0 ]]; then
 fi
 
 cat ${HELM_RENDER} | __kubeconform -verbose -strict \
+   -kubernetes-version 1.30.0 \
    -schema-location default \
    -schema-location 'schemas/{{ .ResourceKind }}{{ .KindSuffix }}.json' \
    -output json - > kubeconform-report.json

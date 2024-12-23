@@ -72,8 +72,9 @@ const (
 	ReasonConfigurationApplied    Reason = "ConfigurationApplied"
 	ReasonConfigurationNotApplied Reason = "ConfigurationNotApplied"
 
-	ReasonRestartAwaitingChangesExist Reason = "RestartAwaitingChangesExist"
-	ReasonRestartNoNeed               Reason = "NoNeedRestart"
+	ReasonRestartAwaitingChangesExist        Reason = "RestartAwaitingChangesExist"
+	ReasonRestartAwaitingVMClassChangesExist Reason = "RestartAwaitingVMClassChangesExist"
+	ReasonRestartNoNeed                      Reason = "NoNeedRestart"
 
 	ReasonPodStarted    Reason = "PodStarted"
 	ReasonPodNotFound   Reason = "PodNotFound"

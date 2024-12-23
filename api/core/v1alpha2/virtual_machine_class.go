@@ -208,7 +208,7 @@ type VirtualMachineClassStatus struct {
 	// +kubebuilder:example={"maxAllocatableResources: {\"cpu\": 1, \"memory\": \"10Gi\"}"}
 	MaxAllocatableResources corev1.ResourceList `json:"maxAllocatableResources,omitempty"`
 	// The latest detailed observations of the VirtualMachineClass resource.
-	Conditions              []metav1.Condition  `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// The generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }

@@ -42,11 +42,38 @@ var specComparators = []SpecFieldsComparator{
 	compareProvisioning,
 }
 
-func CompareSpecs(prev, next *v1alpha2.VirtualMachineSpec) SpecChanges {
+type VmClassSpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineClassSpec) []FieldChange
+
+var vmclassSpecComparators = []VmClassSpecFieldsComparator{
+	compareVmClassNodeSelector,
+	compareVmClassTolerations,
+}
+
+func CompareSpecs(prev, next *v1alpha2.VirtualMachineSpec, prevClass, nextClass *v1alpha2.VirtualMachineClassSpec) SpecChanges {
+	specChanges := CompareVMSpecs(prev, next)
+	specClassChanges := CompareClassSpecs(prevClass, nextClass)
+	specChanges.Add(specClassChanges.GetAll()...)
+	return specChanges
+}
+
+func CompareVMSpecs(prev, next *v1alpha2.VirtualMachineSpec) SpecChanges {
 	specChanges := SpecChanges{}
 
 	for _, comparator := range specComparators {
 		changes := comparator(prev, next)
+		if HasChanges(changes) {
+			specChanges.Add(changes...)
+		}
+	}
+
+	return specChanges
+}
+
+func CompareClassSpecs(prevClass, nextClass *v1alpha2.VirtualMachineClassSpec) SpecChanges {
+	var specChanges SpecChanges
+
+	for _, comparator := range vmclassSpecComparators {
+		changes := comparator(prevClass, nextClass)
 		if HasChanges(changes) {
 			specChanges.Add(changes...)
 		}
