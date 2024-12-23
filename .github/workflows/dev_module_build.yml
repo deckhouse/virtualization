@@ -32,6 +32,9 @@ on:
         type: number
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - chore/ci/build-libvirt
   push:
     branches:
       - main
@@ -230,8 +233,8 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Remove unwanted software
-        uses: ./.github/actions/remove-unwanted-software
+      # - name: Remove unwanted software
+      #   uses: ./.github/actions/remove-unwanted-software
 
       - uses: deckhouse/modules-actions/setup@v1
 

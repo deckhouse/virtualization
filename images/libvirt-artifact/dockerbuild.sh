@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Copyright 2024 Flant JSC
+
 if $(docker buildx ls | grep -q multibuilder); then
   echo "multibuilder exists"
 else

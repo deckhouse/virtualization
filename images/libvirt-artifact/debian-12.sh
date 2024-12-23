@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Copyright 2024 Flant JSC
+
 function install_buildenv() {
     export DEBIAN_FRONTEND=noninteractive
     apt-get update

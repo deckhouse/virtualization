@@ -60,6 +60,7 @@ RUN apt-get update && apt-get install --yes su \
     libuuid-devel \
     libjson-c-devel \
     systemtap-sdt-devel \
+    systemd-container \
     attr \
     libacl-devel \
     glib2-devel \
@@ -77,8 +78,11 @@ RUN apt-get update && apt-get install --yes su \
     libtirpc-devel \
     libsasl2-devel \
     wireshark-devel \
+    tshark \
     zlib-devel \
-    mdevctl && \
+    mdevctl \
+    util-linux dmsetup pm-utils \
+    libfuse3-devel libnuma libslirp-devel libtirpc-devel && \
     /usr/bin/pip3 install black
 
 RUN groupadd rpm || true && \
@@ -95,6 +99,20 @@ RUN apt-get source /home/builder/RPM/SRPMS/libvirt-10.10.0-alt1.src.rpm
 RUN echo "rpm -ba /home/builder/RPM/SPECS/libvirt.spec" > /home/builder/build.sh
 RUN chmod +x /home/builder/build.sh
 USER root
+
+
+# meson setup build \
+#     -Dprefix=$HOME/libvirt_build/usr \
+#     -Dlocalstatedir=$HOME/libvirt_build/var \
+#     -Dsbindir=$HOME/libvirt_build/usr/sbin \
+#     -Dsystem=enabled \
+#     -Ddriver_qemu=enabled \
+#     -Ddriver_libvirtd=enabled
+
+# CFLAGS="-Wframe-larger-than=8192" meson setup build --prefix=$HOME/libvirt_build -Dsystem=true -Ddriver_qemu=enabled -Ddriver_openvz=disabled --wipe
+# ninja -C build
+
+# /tmp/.private/builder/libvirt-buildroot
 
 # su - builder /bin/bash -c 'git clone http://git.altlinux.org/gears/l/libvirt.git'
 
