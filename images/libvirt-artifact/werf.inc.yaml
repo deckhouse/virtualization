@@ -5,10 +5,10 @@ image: {{ $.ImageName }}
 final: false
 from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
 shell:
-  beforeInstall:
-  - |
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update
+  beforeInstall: \
+  - | \
+    export DEBIAN_FRONTEND=noninteractive \
+    apt-get update \
     apt-get install -y eatmydata && \
     eatmydata apt-get dist-upgrade -y && \
     eatmydata apt-get install --no-install-recommends -y \
@@ -90,69 +90,209 @@ shell:
                       ibglib2.0-dev libgnutls28-dev libxml2-dev libyajl-dev \
                       libxslt1-dev libpolkit-gobject-1-dev libsystemd-dev \
                       libpciaccess-dev autopoint pkg-config \
-                      python3-dev python3-config python3-setuptools
+                      python3-dev python3-config python3-setuptools \
 
-    eatmydata apt-get autoremove -y
-    eatmydata apt-get autoclean -y
-    sed -Ei 's,^# (en_US\.UTF-8 .*)$,\1,' /etc/locale.gen
-    dpkg-reconfigure locales
-    rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
-    dpkg-query --showformat '${Package}_${Version}_${Architecture}\n' --show > /packages.txt
-    
-    echo "Setup ccache wrapper"
-    mkdir -p /usr/libexec/ccache-wrappers
-    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
-    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
-    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+    eatmydata apt-get autoremove -y \
+    eatmydata apt-get autoclean -y \
+    sed -Ei 's,^# (en_US\.UTF-8 .*)$,\1,' /etc/locale.gen \
+    dpkg-reconfigure locales \
+    rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED \
+    dpkg-query --showformat '${Package}_${Version}_${Architecture}\n' --show > / \packages.txt
+     \
+    echo "Setup ccache wrapper" \
+    mkdir -p /usr/libexec/ccache-wrappers \
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc \
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang \
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc \
 
-    echo "Setup environment variables"
-    export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
-    export LANG="en_US.UTF-8"
-    export MAKE="/usr/bin/make"
-    export NINJA="/usr/bin/ninja"
-    export PYTHON="/usr/bin/python3"
+    echo "Setup environment variables" \
+    export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers" \
+    export LANG="en_US.UTF-8" \
+    export MAKE="/usr/bin/make" \
+    export NINJA="/usr/bin/ninja" \
+    export PYTHON="/usr/bin/python3" \
 
-  install:
-  - |
-    git clone --depth 1 --branch v${{ $version }} https://github.com/libvirt/libvirt.git
-    cd libvirt
-    echo "Show libvirt folder files"
-    ls -la
-  - |
-    ./autogen.sh
-    ./configure --prefix=/usr --localstatedir=/var
-    make
-  - |
-    echo "Show virtqemud file"
-    which virtqemud
+  install: \
+  - | \
+    git clone --depth 1 --branch v${{ $version }} https://github.com/libvirt/ \libvirt.git
+    cd libvirt \
+    echo "Show libvirt folder files" \
+    ls -la \
+  - | \
+    ./autogen.sh \
+    ./configure --prefix=/usr --localstatedir=/var \
+    make \
+  - | \
+    echo "Show virtqemud file" \
+    which virtqemud \
 
 
-  # - |
-  #   echo "Setup environment variables"
-  #   export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
-  #   export LANG="en_US.UTF-8"
-  #   export MAKE="/usr/bin/make"
-  #   export NINJA="/usr/bin/ninja"
-  #   export PYTHON="/usr/bin/python3"
-  # - |
-  #   echo "Setup build: meson setup build"
+  # - | \
+  #   echo "Setup environment variables" \
+  #   export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers" \
+  #   export LANG="en_US.UTF-8" \
+  #   export MAKE="/usr/bin/make" \
+  #   export NINJA="/usr/bin/ninja" \
+  #   export PYTHON="/usr/bin/python3" \
+  # - | \
+  #   echo "Setup build: meson setup build" \
   #   meson setup build \
         # -Dprefix=/usr \
         # -Dlocalstatedir=/var \
         # -Dsbindir=/usr/sbin \
         # -Dsystem=true \
         # -Ddriver_qemu=true \
-        # -Ddriver_libvirtd=true
+        # -Ddriver_libvirtd=true \
 
-  #   echo "Build ninja -C build"
-  #   ninja -C build
-    
-  #   echo "List dir files"
-  #   ls -la $(pwd)/checkout/build
+  #   echo "Build ninja -C build" \
+  #   ninja -C build \
+     \
+  #   echo "List dir files" \
+  #   ls -la $(pwd)/checkout/build \
 
-  #   # mkdir -p build
+  #   # mkdir -p build \
 
 
-  #   # echo "Setup build: meson setup build -Dsystem=true -Ddriver_qemu=enabled"
-  #   # meson setup build -Dsystem=true -Ddriver_qemu=enabled --optimization=0
-  #   # meson setup build -Dsystem=true -Ddriver_qemu=enabled
+  #   # echo "Setup build: meson setup build -Dsystem=true -Ddriver_qemu=enabled" \
+  #   # meson setup build -Dsystem=true -Ddriver_qemu=enabled --optimization=0 \
+  #   # meson setup build -Dsystem=true -Ddriver_qemu=enabled \
+# -------
+# Alt linux
+# groupadd rpm 
+# useradd builder --shell /bin/bash --create-home --group rpm
+# 
+# echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" >> /etc/apt/sources.list.d/src.list
+# apt-get update
+# su - builder -c 'apt-get source libvirt'
+# ----
+# apt-get update && apt-get install --yes \
+#     bc \
+#     su \
+#     git \
+#     rpm-build \
+#     rpm-build-python3 \
+#     gcc-c++ \
+#     acpica \
+#     ccache \
+#     nasm \
+#     python3-dev \
+#     python3-modules-sqlite3 \
+#     python3-module-virt-firmware \
+#     perl-JSON \
+#     perl-IPC-Cmd \
+#     libuuid-devel \
+#     xorriso \
+#     zlib-devel \
+#
+# git clone http://git.altlinux.org/gears/l/libvirt.git
+
+# apt-get install --yes \
+#     meson \
+#     ninja-build \
+#     python3 \
+#     python3-doc \
+#     python3-test \
+
+# cat >> /etc/sudoers.d/builder<<EOF
+# builder ALL=(ALL) NOPASSWD:ALL
+# EOF
+
+# git archive --prefix=libvirt-10.10.0/ HEAD | xz --best > /home/builder/RPM/SOURCES/libvirt-10.10.0.tar
+
+# su - builder
+# git clone http://git.altlinux.org/gears/l/libvirt.git
+# cd libvirt
+# git checkout libvirt-10.2.0-alt1
+# gear-rpm -bs --nodeps --verbose
+# gear-rpm -bs --verbose
+# apt-get source /home/builder/RPM/SRPMS/libvirt-10.2.0-alt1.src.rpm
+# cd ~
+
+# apt-get update && apt-get install --yes \
+sudo apt-get install --yes \
+  gear rpm libjson-c-devel zlib-devel dmidecode \
+  rpm-build \
+  rpm-build-python3 \
+  gcc-c++ \
+  git \
+  bash-completion \
+  clang \
+  ccache \
+  make cmake \
+  meson \
+  ninja-build \
+  libudev-devel \
+  libpciaccess-devel \
+  libyajl-devel \
+  sanlock-devel \
+  libpcap-devel \
+  libnl-devel \
+  libselinux-devel \
+  iproute \
+  iptables \
+  iptables-nft \
+  iptables-ipv6 \
+  openvswitch \
+  ebtables \
+  libsasl2-devel \
+  pkgconfig \
+  libssh \
+  libssh2 \
+  libssh-devel \
+  libssh2-devel \
+  polkit \
+  qemu-img \
+  lvm2 \
+  libparted-devel \
+  parted \
+  libdevmapper-devel \
+  ceph-devel \
+  open-iscsi \
+  libiscsi-devel \
+  libglusterfs-devel \
+  libnuma-devel \
+  libcap-ng-devel \
+  libcurl-devel \
+  libaudit-devel \
+  libfuse-devel \
+  libnbd-devel \
+  libblkid-devel \
+  libgcrypt-devel \
+  libgnutls-devel \
+  libp11-kit-devel \
+  libreadline-devel \
+  libtasn1-devel \
+  libattr-devel \
+  libbsd-devel \
+  libsystemd-devel \
+  systemtap-sdt-devel \
+  attr \
+  libacl-devel \
+  glib2-devel \
+  glibc-utils \
+  libgio-devel \
+  libxml2-devel \
+  xml-utils \
+  xsltproc \
+  python3 python3-devel \
+  python3-module-pytest \
+  python3-module-docutils \
+  python3-module-pip \
+  libtirpc-devel \
+  libsasl2-devel \
+  wireshark-devel \
+  mdevctl
+
+# libkvm libbsd
+
+rpm -ba /home/builder/RPM/SPECS/libvirt.spec
+trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/libvirt.spec
+
+
+trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/libvirt.spec 2>&1
+
+
+
+# /home/builder/RPM/SRPMS/libvirt-10.10.0-alt1.src.rpm
+
+# ccache -C
