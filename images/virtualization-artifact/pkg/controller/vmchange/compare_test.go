@@ -356,7 +356,7 @@ enableParavirtualization: true
 			currentSpec := loadVMSpec(t, tt.currentSpec)
 			desiredSpec := loadVMSpec(t, tt.desiredSpec)
 
-			changes = CompareSpecs(currentSpec, desiredSpec)
+			changes = CompareVMSpecs(currentSpec, desiredSpec)
 
 			defer func() {
 				if t.Failed() {

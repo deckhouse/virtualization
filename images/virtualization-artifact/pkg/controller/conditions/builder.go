@@ -39,6 +39,10 @@ func SetCondition(c Conder, conditions *[]metav1.Condition) {
 	meta.SetStatusCondition(conditions, c.Condition())
 }
 
+func RemoveCondition(conditionType Stringer, conditions *[]metav1.Condition) {
+	meta.RemoveStatusCondition(conditions, conditionType.String())
+}
+
 func GetCondition(condType Stringer, conditions []metav1.Condition) (metav1.Condition, bool) {
 	for _, condition := range conditions {
 		if condition.Type == condType.String() {
