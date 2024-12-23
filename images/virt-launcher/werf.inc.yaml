@@ -1,6 +1,7 @@
 ---
 image: {{ $.ImageName }}
 fromImage: base-alt-p11
+fromCacheVersion: "02"
 import:
 # Before install stage.
 #   Add edk2-ovmf package
@@ -9,7 +10,7 @@ import:
   to: /
   before: install
   includePaths:
-  - edk2-ovmf-20231115-alt1.noarch.rpm
+  - edk2-ovmf-20241117-1.el9.noarch.rpm
 
 # After install stage.
 #  Add libxcrypto library.
@@ -110,38 +111,39 @@ shell:
     seabios \
     libffi8 \
     swtpm-tools \
-    libvirt-client==10.2.0-alt1 \
-    libvirt-daemon-driver-qemu==10.2.0-alt1 \
-    qemu-kvm-core==9.0.2-alt2
+    libvirt-client==10.7.0-alt1 \
+    libvirt-daemon-driver-qemu==10.7.0-alt1 \
+    qemu-kvm-core==9.1.2-alt1
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
   # Upgrade edk2-ovmf package to custom build and remove its package.
   - |
-    rpm -Uv /edk2-ovmf-20231115-alt1.noarch.rpm
-    rm /edk2-ovmf-20231115-alt1.noarch.rpm
+    rpm -Uv --force /edk2-ovmf-20241117-1.el9.noarch.rpm
+    rm /edk2-ovmf-20241117-1.el9.noarch.rpm
   # Restructure firware files in /usr/share/OVMF to mimic structure
   # in edk2-ovmf package from the original kubevirt.
-  - |
-    cd /usr/share/OVMF
-    rm MICROVM.fd
-    rm OVMF.inteltdx.secboot.fd
-    rm OVMF_CODE.fd
-    rm OVMF_CODE.secboot.fd
-    mv OVMF_CODE_4M.fd OVMF_CODE.cc.fd
-    rm OVMF_CODE_4M.qcow2
-    mv OVMF_CODE_4M.secboot.fd OVMF_CODE.secboot.fd
-    rm OVMF_CODE_4M.secboot.qcow2
-    rm OVMF_VARS.fd
-    rm OVMF_VARS.ms.fd
-    rm OVMF_VARS.secboot.fd
-    mv OVMF_VARS_4M.fd OVMF_VARS.fd
-    rm OVMF_VARS_4M.ms.fd
-    rm OVMF_VARS_4M.ms.qcow2
-    rm OVMF_VARS_4M.qcow2
-    mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
-    rm OVMF_VARS_4M.secboot.qcow2
-    ls -la
+  # mv OVMF_CODE_4M.fd OVMF_CODE.fd
+  # ln -s OVMF_CODE.fd OVMF_CODE.cc.fd
+#  - |
+#    cd /usr/share/OVMF
+#    rm -f  MICROVM.fd
+#    rm -f OVMF_CODE.fd
+#    rm -f OVMF_CODE.secboot.fd
+#    mv OVMF_CODE_4M.fd OVMF_CODE.cc.fd
+#    rm -f OVMF_CODE_4M.qcow2
+#    mv OVMF_CODE_4M.secboot.fd OVMF_CODE.secboot.fd
+#    rm -f OVMF_CODE_4M.secboot.qcow2
+#    rm -f OVMF_VARS.fd
+#    rm -f OVMF_VARS.ms.fd
+#    rm -f OVMF_VARS.secboot.fd
+#    mv OVMF_VARS_4M.fd OVMF_VARS.fd
+#    rm -f OVMF_VARS_4M.ms.fd
+#    rm -f OVMF_VARS_4M.ms.qcow2
+#    rm -f OVMF_VARS_4M.qcow2
+#    mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
+#    rm -f OVMF_VARS_4M.secboot.qcow2
+#    ls -la
   setup:
   # Replace virt-launcher-monitor with the wrapper.
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
@@ -227,10 +229,11 @@ shell:
   - gcc -shared -fPIC -DPIC -Wall -o liboverride.so override.c -ldl
   - strip liboverride.so
 ---
-# Note: edk2-ovmf==20231115 requires p11 AltLinux to build.
+# Note: edk2-ovmf==20240811-alt2 requires p11 AltLinux to build.
 image: {{ $.ImageName }}-edk2-builder
 final: false
 from: {{ $.Images.BASE_ALT_P11 }}
+fromCacheVersion: "06"
 git:
 - add: /images/{{ $.ImageName }}/edk2
   to: /edk2
@@ -264,7 +267,8 @@ shell:
     dosfstools \
     mtools \
     qemu-img \
-    zlib-devel
+    zlib-devel \
+    wget
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
@@ -273,19 +277,25 @@ shell:
   - useradd builder --shell /bin/bash --create-home --group rpm
 
   # Download and unpack SRPM.
-  - echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/src.list
-  - apt-get update
-  - su - builder -c 'apt-get source edk2-ovmf'
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  #  - echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/src.list
+  #  - apt-get update
+  #  - su - builder -c 'apt-get source edk2-ovmf'
+  #  - apt-get clean
+  #  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  #
+  # Download and unpack SRC RPM
+  #- su - builder -c 'apt-get source https://mirror.stream.centos.org/9-stream/AppStream/source/tree/Packages/edk2-20241117-1.el9.src.rpm'
 
   # Add DVP logo into SOURCES.
-  - cp /edk2/Logo.bmp /home/builder/RPM/SOURCES/
+  # - cp /edk2/Logo.bmp /home/builder/RPM/SOURCES/
 
+  - mkdir -p /home/builder/RPM/RPMS/noarch
+  - cd /home/builder/RPM/RPMS/noarch
+  - wget https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/edk2-ovmf-20241117-1.el9.noarch.rpm
   # Build RPMs. edk2 package prints a huge log with about 770k lines,
   # we can keep only last 1k lines, it should be enough to get error
   # context and troubleshoot it locally.
-  - |
-    echo "Build RPMs from:" /home/builder/*.rpm
-    echo "Note: time consuming operation, be patient ..."
-    su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/edk2.spec > /tmp/build.log 2>&1'
+#  - |
+#    echo "Build RPMs from:" /home/builder/*.rpm
+#    echo "Note: time consuming operation, be patient ..."
+#    su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/edk2.spec > /tmp/build.log 2>&1'
