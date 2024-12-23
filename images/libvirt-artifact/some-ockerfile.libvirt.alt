@@ -85,7 +85,8 @@ RUN apt-get update && apt-get install --yes su \
     libfuse3-devel libnuma libslirp-devel libtirpc-devel && \
     /usr/bin/pip3 install black
 
-RUN groupadd rpm || true && \
+# RUN groupadd rpm || true && \
+RUN grep -qw ^rpm /etc/group || groupadd rpm && \
     useradd builder --shell /bin/bash --create-home --group rpm
 
 USER builder
