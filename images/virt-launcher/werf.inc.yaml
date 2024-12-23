@@ -111,9 +111,9 @@ shell:
     seabios \
     libffi8 \
     swtpm-tools \
-    libvirt-client==10.10.0-alt1 \
-    libvirt-daemon-driver-qemu==10.10.0-alt1 \
-    qemu-kvm-core==9.1.2-alt1
+    libvirt-client \
+    libvirt-daemon-driver-qemu \
+    qemu-kvm-core
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 #  install:
