@@ -121,4 +121,6 @@ shell:
     su - builder -s /bin/bash -c 'apt-get source /home/builder/RPM/SRPMS/libvirt-{{ $versionLibvirt }}-alt1.src.rpm'
   setup:
   - |
+    ll /home/builder/RPM/
+    ll /home/builder/RPM/SPECS
     su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/libvirt.spec 2>&1'

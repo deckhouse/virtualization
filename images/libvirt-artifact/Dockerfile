@@ -1,7 +1,12 @@
-FROM --platform=$BUILDPLATFORM alt:p11
-# FROM --platform=linux/amd64 alt:p11
+FROM alt:p11
 
-RUN apt-get update && apt-get install --yes su \
+# FROM alt:p11@sha256:39f03d3bca1a92dc36835c28c2ba2f22ec15257e950b3930e0a3f034466e8dfb
+
+# ENV LIBVIRT_VERSION=10.2.0-alt1
+ENV LIBVIRT_VERSION=10.10.0-alt1
+
+RUN echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" > /etc/apt/sources.list.d/src.list && \
+    apt-get update && apt-get install --yes su \
     gear rpm dmidecode \
     rpm-build \
     rpm-build-systemd \
@@ -82,24 +87,29 @@ RUN apt-get update && apt-get install --yes su \
     zlib-devel \
     mdevctl \
     util-linux dmsetup pm-utils \
-    libfuse3-devel libnuma libslirp-devel libtirpc-devel && \
-    /usr/bin/pip3 install black
+    libfuse3-devel libnuma libslirp-devel libtirpc-devel \
+    libyajl-devel && \
+    /usr/bin/pip3 install black && \
+    apt-get clean && \
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
-# RUN groupadd rpm || true && \
 RUN grep -qw ^rpm /etc/group || groupadd rpm && \
-    useradd builder --shell /bin/bash --create-home --group rpm
+    id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
 
 USER builder
 WORKDIR /home/builder
 RUN git clone http://git.altlinux.org/gears/l/libvirt.git
-RUN cd libvirt && git checkout 10.10.0-alt1
+RUN cd libvirt && git checkout ${LIBVIRT_VERSION}
 
 RUN cd libvirt && gear-rpm -bs --verbose
-RUN apt-get source /home/builder/RPM/SRPMS/libvirt-10.10.0-alt1.src.rpm
+RUN apt-get source /home/builder/RPM/SRPMS/libvirt-${LIBVIRT_VERSION}.src.rpm
 
-RUN echo "rpm -ba /home/builder/RPM/SPECS/libvirt.spec" > /home/builder/build.sh
-RUN chmod +x /home/builder/build.sh
-USER root
+COPY ./libvirt.spec /home/builder/RPM/SPECS/libvirt.spec
+
+# RUN rpm -ba /home/builder/RPM/SPECS/libvirt.spec
+
+RUN trap "echo Build log ; cat /home/builder/RPM/BUILD//home/builder/RPM/BUILD/libvirt-${LIBVIRT_VERSION}/x86_64-alt-linux/meson-logs/testlog.txt" EXIT ; rpm -ba /home/builder/RPM/SPECS/libvirt.spec
+
 
 
 # meson setup build \
