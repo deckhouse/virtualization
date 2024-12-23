@@ -24,20 +24,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type AttacheeHandler struct {
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
+	client client.Client
 }
 
-func NewAttacheeHandler(recorder eventrecord.EventRecorderLogger, client client.Client) *AttacheeHandler {
+func NewAttacheeHandler(client client.Client) *AttacheeHandler {
 	return &AttacheeHandler{
-		client:   client,
-		recorder: recorder,
+		client: client,
 	}
 }
 

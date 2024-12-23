@@ -109,12 +109,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		ds.recorder.Event(
-			vd,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceDiskProvisioningCompleted,
-			"Disk provisioning finished: clean up",
-		)
+		log.Debug("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
