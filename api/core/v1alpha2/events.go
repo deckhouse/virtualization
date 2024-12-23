@@ -55,21 +55,33 @@ const (
 	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
 	ReasonVMClassInUse = "VirtualMachineClassInUse"
 
-	ReasonVDStorageClassWasDeleted          = "VirtualDiskStorageClassWasDeleted"
-	ReasonVDStorageClassNotFound            = "VirtualDiskStorageClassNotFound"
-	ReasonVDSpecChanged                     = "VirtualDiskSpecChanged"
+	// ReasonVDStorageClassWasDeleted is event reason that VDStorageClass was deleted.
+	ReasonVDStorageClassWasDeleted = "VirtualDiskStorageClassWasDeleted"
+	// ReasonVDStorageClassNotFound is event reason that VDStorageClass not found.
+	ReasonVDStorageClassNotFound = "VirtualDiskStorageClassNotFound"
+	// ReasonVDSpecChanged is event reason that VDStorageClass is chanded.
+	ReasonVDSpecChanged = "VirtualDiskSpecChanged"
+	// ReasonVDContainerRegistrySecretNotFound is event reason that VDContainerRegistrySecret not found.
 	ReasonVDContainerRegistrySecretNotFound = "VirtualDiskContainerRegistrySecretNotFound"
 
-	ReasonVDResizingStarted      = "VirtualDiskResizingStarted"
-	ReasonVDResizingCompleted    = "VirtualDiskResizingCompleted"
-	ReasonVDResizingFailed       = "VirtualDiskResizingFailed"
+	// ReasonVDResizingStarted is event reason that VD Resizing is started.
+	ReasonVDResizingStarted = "VirtualDiskResizingStarted"
+	// ReasonVDResizingCompleted is event reason that VD Resizing is completed.
+	ReasonVDResizingCompleted = "VirtualDiskResizingCompleted"
+	// ReasonVDResizingFailed is event reason that VD Resizing is failed.
+	ReasonVDResizingFailed = "VirtualDiskResizingFailed"
+	// ReasonVDResizingNotAvailable is event reason that VD Resizing is not available.
 	ReasonVDResizingNotAvailable = "VirtualDiskResizingNotAvailable"
 
-	ReasonDataSourceSyncStarted    = "DataSourceImportStarted"
+	// ReasonDataSourceSyncStarted is event reason that DataSource sync is started.
+	ReasonDataSourceSyncStarted = "DataSourceImportStarted"
+	// ReasonDataSourceSyncInProgress is event reason that DataSource sync is in progress.
 	ReasonDataSourceSyncInProgress = "DataSourceImportInProgress"
-	ReasonDataSourceSyncCompleted  = "DataSourceImportCompleted"
-	ReasonDataSourceSyncFailed     = "DataSourceImportFailed"
+	// ReasonDataSourceSyncCompleted is event reason that DataSource sync is completed.
+	ReasonDataSourceSyncCompleted = "DataSourceImportCompleted"
+	// ReasonDataSourceSyncFailed is event reason that DataSource sync is failed.
+	ReasonDataSourceSyncFailed = "DataSourceImportFailed"
 
-	ReasonDataSourceDiskProvisioningCompleted = "DataSourceImportDiskProvisioningCompleted"
-	ReasonDataSourceDiskProvisioningFailed    = "DataSourceImportDiskProvisioningFailed"
+	// ReasonDataSourceDiskProvisioningFailed is event reason that DataSource disk provisioning is failed.
+	ReasonDataSourceDiskProvisioningFailed = "DataSourceImportDiskProvisioningFailed"
 )
