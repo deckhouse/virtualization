@@ -90,12 +90,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 
 	switch {
 	case isDiskProvisioningFinished(condition):
-		ds.recorder.Event(
-			cvi,
-			corev1.EventTypeNormal,
-			virtv2.ReasonDataSourceDiskProvisioningCompleted,
-			"Image provisioning finished: clean up",
-		)
+		log.Info("Cluster virtual image provisioning finished: clean up")
 
 		cb.
 			Status(metav1.ConditionTrue).
