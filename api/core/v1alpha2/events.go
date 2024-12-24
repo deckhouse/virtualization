@@ -54,4 +54,13 @@ const (
 
 	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
 	ReasonVMClassInUse = "VirtualMachineClassInUse"
+
+	// ReasonVMClassSizingPoliciesWasChanged is event reason that VMClass sizing policies was changed.
+	ReasonVMClassSizingPoliciesWasChanged = "SizingPoliciesWasChanged"
+
+	// ReasonVMClassAvailableNodesListEmpty is event reason that VMClass has no available nodes.
+	ReasonVMClassAvailableNodesListEmpty = "AvailableNodesListEmpty"
+
+	// ReasonVMClassAvailableNodesWasUpdated is event reason that VMClass available nodes list was updated.
+	ReasonVMClassAvailableNodesWasUpdated = "AvailableNodesWasUpdated"
 )

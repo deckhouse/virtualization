@@ -23,6 +23,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/validators"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -36,10 +37,11 @@ type Validator struct {
 	log        *log.Logger
 }
 
-func NewValidator(client client.Client, log *log.Logger) *Validator {
+func NewValidator(client client.Client, log *log.Logger, recorder eventrecord.EventRecorderLogger) *Validator {
 	return &Validator{
 		validators: []VirtualMachineClassValidator{
 			validators.NewSizingPoliciesValidator(client),
+			validators.NewPolicyChangesValidator(recorder),
 		},
 		log: log.With("webhook", "validation"),
 	}
