@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 fromImage: base-alt-p11
-fromCacheVersion: "2024-11-24.5"
+fromCacheVersion: "2024-11-24.6"
 import:
 # Before install stage.
 #   Add edk2-ovmf package
@@ -130,7 +130,7 @@ shell:
     rm MICROVM.fd
     rm OVMF_CODE.fd
     rm OVMF_CODE.secboot.fd
-    mv OVMF_CODE_4M.fd OVMF_CODE.cc.fd
+    mv OVMF_CODE_4M.fd OVMF_CODE.fd
     rm OVMF_CODE_4M.qcow2
     mv OVMF_CODE_4M.secboot.fd OVMF_CODE.secboot.fd
     rm OVMF_CODE_4M.secboot.qcow2
