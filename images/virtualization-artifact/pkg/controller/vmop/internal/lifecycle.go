@@ -189,7 +189,7 @@ func (h LifecycleHandler) checkOperationComplete(ctx context.Context, changed *v
 
 	if isComplete {
 		changed.Status.Phase = virtv2.VMOPPhaseCompleted
-		h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, "VMOP succeded")
+		h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, "VMOP succeeded")
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonOperationCompleted).
