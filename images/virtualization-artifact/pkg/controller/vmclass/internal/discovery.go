@@ -31,17 +31,22 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmclasscondition"
 )
 
 const nameDiscoveryHandler = "DiscoveryHandler"
 
-func NewDiscoveryHandler() *DiscoveryHandler {
-	return &DiscoveryHandler{}
+func NewDiscoveryHandler(recorder eventrecord.EventRecorderLogger) *DiscoveryHandler {
+	return &DiscoveryHandler{
+		recorder: recorder,
+	}
 }
 
-type DiscoveryHandler struct{}
+type DiscoveryHandler struct {
+	recorder eventrecord.EventRecorderLogger
+}
 
 func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineClassState) (reconcile.Result, error) {
 	if s.VirtualMachineClass().IsEmpty() {
@@ -120,6 +125,28 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	sort.Strings(featuresEnabled)
 	sort.Strings(featuresNotEnabled)
 
+	addedNodes, removedNodes := nodeNamesDiff(current.Status.AvailableNodes, availableNodeNames)
+	if len(addedNodes) > 0 || len(removedNodes) > 0 {
+		if len(availableNodes) > 0 {
+			h.recorder.Eventf(
+				changed,
+				corev1.EventTypeNormal,
+				virtv2.ReasonVMClassAvailableNodesWasUpdated,
+				"List of available nodes was updated, added nodes: %q, removed nodes: %q",
+				addedNodes,
+				removedNodes,
+			)
+		} else {
+			h.recorder.Eventf(
+				changed,
+				corev1.EventTypeWarning,
+				virtv2.ReasonVMClassAvailableNodesListEmpty,
+				"List of available nodes was updated, now it's empty, removed nodes: %q",
+				removedNodes,
+			)
+		}
+	}
+
 	changed.Status.AvailableNodes = availableNodeNames
 	changed.Status.MaxAllocatableResources = h.maxAllocatableResources(availableNodes)
 	changed.Status.CpuFeatures = virtv2.CpuFeatures{
@@ -174,4 +201,31 @@ func (h *DiscoveryHandler) maxAllocatableResources(nodes []corev1.Node) corev1.R
 		}
 	}
 	return resourceList
+}
+
+func nodeNamesDiff(prev, current []string) (added, removed []string) {
+	prevMap := make(map[string]struct{})
+	currentMap := make(map[string]struct{})
+
+	for _, n := range prev {
+		prevMap[n] = struct{}{}
+	}
+
+	for _, n := range current {
+		currentMap[n] = struct{}{}
+	}
+
+	for _, n := range prev {
+		if _, ok := currentMap[n]; !ok {
+			removed = append(removed, n)
+		}
+	}
+
+	for _, n := range current {
+		if _, ok := prevMap[n]; !ok {
+			added = append(added, n)
+		}
+	}
+
+	return added, removed
 }

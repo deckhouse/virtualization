@@ -22,7 +22,6 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -30,12 +29,13 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const nameDeletionHandler = "DeletionHandler"
 
-func NewDeletionHandler(client client.Client, recorder record.EventRecorder, logger *log.Logger) *DeletionHandler {
+func NewDeletionHandler(client client.Client, recorder eventrecord.EventRecorderLogger, logger *log.Logger) *DeletionHandler {
 	return &DeletionHandler{
 		client:   client,
 		recorder: recorder,
@@ -45,7 +45,7 @@ func NewDeletionHandler(client client.Client, recorder record.EventRecorder, log
 
 type DeletionHandler struct {
 	client   client.Client
-	recorder record.EventRecorder
+	recorder eventrecord.EventRecorderLogger
 	logger   *log.Logger
 }
 
@@ -64,7 +64,6 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 	}
 	if len(vms) > 0 {
 		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it. %s...", object.NamespacedName(&vms[0]))
-		h.logger.Info(msg)
 		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonVMClassInUse, msg)
 		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 	}
