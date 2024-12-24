@@ -31,7 +31,7 @@ const (
 	// ReasonVMRestarted is event reason that VM is about to restart.
 	ReasonVMRestarted = "Restarted"
 
-	// ReasonVMEvicted is event reason that VM is about to restart.
+	// ReasonVMEvicted is event reason that VM is about to evict.
 	ReasonVMEvicted = "Evicted"
 
 	// ReasonVMMigrated is event reason that VM is about to migrate.
