@@ -101,8 +101,8 @@ var _ Snapshotter = &SnapshotterMock{}
 //			CanFreezeFunc: func(vm *virtv2.VirtualMachine) bool {
 //				panic("mock out the CanFreeze method")
 //			},
-//			CanUnfreezeFunc: func(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
-//				panic("mock out the CanUnfreeze method")
+//			CanUnfreezeWithVirtualMachineSnapshotFunc: func(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
+//				panic("mock out the CanUnfreezeWithVirtualMachineSnapshot method")
 //			},
 //			CreateVirtualDiskSnapshotFunc: func(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error) {
 //				panic("mock out the CreateVirtualDiskSnapshot method")
@@ -141,8 +141,8 @@ type SnapshotterMock struct {
 	// CanFreezeFunc mocks the CanFreeze method.
 	CanFreezeFunc func(vm *virtv2.VirtualMachine) bool
 
-	// CanUnfreezeFunc mocks the CanUnfreeze method.
-	CanUnfreezeFunc func(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
+	// CanUnfreezeWithVirtualMachineSnapshotFunc mocks the CanUnfreezeWithVirtualMachineSnapshot method.
+	CanUnfreezeWithVirtualMachineSnapshotFunc func(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
 
 	// CreateVirtualDiskSnapshotFunc mocks the CreateVirtualDiskSnapshot method.
 	CreateVirtualDiskSnapshotFunc func(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) (*virtv2.VirtualDiskSnapshot, error)
@@ -178,12 +178,12 @@ type SnapshotterMock struct {
 			// VM is the vm argument value.
 			VM *virtv2.VirtualMachine
 		}
-		// CanUnfreeze holds details about calls to the CanUnfreeze method.
-		CanUnfreeze []struct {
+		// CanUnfreezeWithVirtualMachineSnapshot holds details about calls to the CanUnfreezeWithVirtualMachineSnapshot method.
+		CanUnfreezeWithVirtualMachineSnapshot []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// VdSnapshotName is the vdSnapshotName argument value.
-			VdSnapshotName string
+			// VmSnapshotName is the vmSnapshotName argument value.
+			VmSnapshotName string
 			// VM is the vm argument value.
 			VM *virtv2.VirtualMachine
 		}
@@ -263,17 +263,17 @@ type SnapshotterMock struct {
 			Namespace string
 		}
 	}
-	lockCanFreeze                 sync.RWMutex
-	lockCanUnfreeze               sync.RWMutex
-	lockCreateVirtualDiskSnapshot sync.RWMutex
-	lockFreeze                    sync.RWMutex
-	lockGetPersistentVolumeClaim  sync.RWMutex
-	lockGetSecret                 sync.RWMutex
-	lockGetVirtualDisk            sync.RWMutex
-	lockGetVirtualDiskSnapshot    sync.RWMutex
-	lockGetVirtualMachine         sync.RWMutex
-	lockIsFrozen                  sync.RWMutex
-	lockUnfreeze                  sync.RWMutex
+	lockCanFreeze                             sync.RWMutex
+	lockCanUnfreezeWithVirtualMachineSnapshot sync.RWMutex
+	lockCreateVirtualDiskSnapshot             sync.RWMutex
+	lockFreeze                                sync.RWMutex
+	lockGetPersistentVolumeClaim              sync.RWMutex
+	lockGetSecret                             sync.RWMutex
+	lockGetVirtualDisk                        sync.RWMutex
+	lockGetVirtualDiskSnapshot                sync.RWMutex
+	lockGetVirtualMachine                     sync.RWMutex
+	lockIsFrozen                              sync.RWMutex
+	lockUnfreeze                              sync.RWMutex
 }
 
 // CanFreeze calls CanFreezeFunc.
@@ -308,43 +308,43 @@ func (mock *SnapshotterMock) CanFreezeCalls() []struct {
 	return calls
 }
 
-// CanUnfreeze calls CanUnfreezeFunc.
-func (mock *SnapshotterMock) CanUnfreeze(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
-	if mock.CanUnfreezeFunc == nil {
-		panic("SnapshotterMock.CanUnfreezeFunc: method is nil but Snapshotter.CanUnfreeze was just called")
+// CanUnfreezeWithVirtualMachineSnapshot calls CanUnfreezeWithVirtualMachineSnapshotFunc.
+func (mock *SnapshotterMock) CanUnfreezeWithVirtualMachineSnapshot(ctx context.Context, vmSnapshotName string, vm *virtv2.VirtualMachine) (bool, error) {
+	if mock.CanUnfreezeWithVirtualMachineSnapshotFunc == nil {
+		panic("SnapshotterMock.CanUnfreezeWithVirtualMachineSnapshotFunc: method is nil but Snapshotter.CanUnfreezeWithVirtualMachineSnapshot was just called")
 	}
 	callInfo := struct {
 		Ctx            context.Context
-		VdSnapshotName string
+		VmSnapshotName string
 		VM             *virtv2.VirtualMachine
 	}{
 		Ctx:            ctx,
-		VdSnapshotName: vdSnapshotName,
+		VmSnapshotName: vmSnapshotName,
 		VM:             vm,
 	}
-	mock.lockCanUnfreeze.Lock()
-	mock.calls.CanUnfreeze = append(mock.calls.CanUnfreeze, callInfo)
-	mock.lockCanUnfreeze.Unlock()
-	return mock.CanUnfreezeFunc(ctx, vdSnapshotName, vm)
+	mock.lockCanUnfreezeWithVirtualMachineSnapshot.Lock()
+	mock.calls.CanUnfreezeWithVirtualMachineSnapshot = append(mock.calls.CanUnfreezeWithVirtualMachineSnapshot, callInfo)
+	mock.lockCanUnfreezeWithVirtualMachineSnapshot.Unlock()
+	return mock.CanUnfreezeWithVirtualMachineSnapshotFunc(ctx, vmSnapshotName, vm)
 }
 
-// CanUnfreezeCalls gets all the calls that were made to CanUnfreeze.
+// CanUnfreezeWithVirtualMachineSnapshotCalls gets all the calls that were made to CanUnfreezeWithVirtualMachineSnapshot.
 // Check the length with:
 //
-//	len(mockedSnapshotter.CanUnfreezeCalls())
-func (mock *SnapshotterMock) CanUnfreezeCalls() []struct {
+//	len(mockedSnapshotter.CanUnfreezeWithVirtualMachineSnapshotCalls())
+func (mock *SnapshotterMock) CanUnfreezeWithVirtualMachineSnapshotCalls() []struct {
 	Ctx            context.Context
-	VdSnapshotName string
+	VmSnapshotName string
 	VM             *virtv2.VirtualMachine
 } {
 	var calls []struct {
 		Ctx            context.Context
-		VdSnapshotName string
+		VmSnapshotName string
 		VM             *virtv2.VirtualMachine
 	}
-	mock.lockCanUnfreeze.RLock()
-	calls = mock.calls.CanUnfreeze
-	mock.lockCanUnfreeze.RUnlock()
+	mock.lockCanUnfreezeWithVirtualMachineSnapshot.RLock()
+	calls = mock.calls.CanUnfreezeWithVirtualMachineSnapshot
+	mock.lockCanUnfreezeWithVirtualMachineSnapshot.RUnlock()
 	return calls
 }
 
