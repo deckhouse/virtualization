@@ -20,8 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
+	"text/tabwriter"
 
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/spf13/cobra"
 )
 
@@ -29,138 +30,175 @@ var (
 	NamespaceFlag     string
 	AllImagesFlag     bool
 	AllNamespacesFlag bool
-	ImageRepoDir      = "/var/lib/registry/docker/registry/v2/repositories"
+	RepoDir           = "/var/lib/registry/docker/registry/v2/repositories"
 )
 
 var LsCmd = &cobra.Command{
 	Use:   "ls",
-	Short: "List of virtual images",
+	Short: "A list of `VirtualImages` or `ClusterVirtualImages`",
 	Args:  cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 }
 
 var lsViCmd = &cobra.Command{
 	Use:   "vi [imageName]",
-	Short: "Get virtual image or list of images",
+	Short: "Get a `VirtualImage` or a list of `VirtualImages`",
 	Args: cobra.MatchAll(
 		cobra.MaximumNArgs(1),
 		cobra.OnlyValidArgs,
 	),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 && !AllImagesFlag && !AllNamespacesFlag {
-			return cmd.Help()
+		imgsDir := fmt.Sprintf("%s/vi", RepoDir)
+		err := ListImage(virtv2.VirtualImageKind, imgsDir, cmd, args)
+		if err != nil {
+			return err
 		}
 
-		if len(args) != 0 && AllImagesFlag {
-			return errors.New("flag `all` cannot be used with `imageName`")
-		}
-
-		if len(args) != 0 {
-			image := args[0]
-			info, err := os.Stat(fmt.Sprintf("%s/vi/%s/%s", ImageRepoDir, NamespaceFlag, image))
-			if errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("virtual image %q not found in %q namespace", image, NamespaceFlag)
-			}
-			if err != nil {
-				return fmt.Errorf("cannot get virtual image %q in %q namespace: %w", image, NamespaceFlag, err)
-			}
-			fmt.Println(info.Name())
-			return nil
-		}
-
-		if AllImagesFlag {
-			images, err := ListVirtualImages(NamespaceFlag)
-			if err != nil {
-				return err
-			}
-			fmt.Println(strings.Join(images, "\n"))
-			return nil
-		}
-
-		if AllNamespacesFlag {
-			namespacesPath := fmt.Sprintf("%s/vi", ImageRepoDir)
-			namespaces, err := os.ReadDir(namespacesPath)
-			if err != nil {
-				return fmt.Errorf("cannot get list of all images in all namespaces: %w", err)
-			}
-			for _, ns := range namespaces {
-				images, err := ListVirtualImages(ns.Name())
-				if err != nil {
-					return err
-				}
-				fmt.Println(strings.Join(images, "\n"))
-			}
-			return nil
-		}
-
-		return cmd.Help()
+		return nil
 	},
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
 var lsCviCmd = &cobra.Command{
 	Use:   "cvi [imageName]",
-	Short: "Get cluster virtual image or list of images",
+	Short: "Get a `ClusterVirtualImage` or a list of `ClusterVirtualImages`",
 	Args: cobra.MatchAll(
 		cobra.MaximumNArgs(1),
 		cobra.OnlyValidArgs,
 	),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) == 0 && !AllImagesFlag {
-			return cmd.Help()
+		imgsDir := fmt.Sprintf("%s/cvi", RepoDir)
+		err := ListImage(virtv2.ClusterVirtualImageKind, imgsDir, cmd, args)
+		if err != nil {
+			return err
 		}
 
-		if len(args) != 0 && AllImagesFlag {
-			return errors.New("flag `all` cannot be used with `imageName`")
-		}
-
-		if len(args) != 0 {
-			image := args[0]
-			info, err := os.Stat(fmt.Sprintf("%s/cvi/%s", ImageRepoDir, image))
-			if errors.Is(err, os.ErrNotExist) {
-				return fmt.Errorf("cluster virtual image %q not found", image)
-			}
-			if err != nil {
-				return fmt.Errorf("cannot get cluster virtual image %q: %w", image, err)
-			}
-			fmt.Println(info.Name())
-			return nil
-		}
-
-		if AllImagesFlag {
-			cviPath := fmt.Sprintf("%s/cvi", ImageRepoDir)
-			files, err := os.ReadDir(cviPath)
-			if err != nil {
-				return fmt.Errorf("cannot get list of all images: %w", err)
-			}
-			images := make([]string, 0, len(files))
-			for _, f := range files {
-				images = append(images, f.Name())
-			}
-			fmt.Println(strings.Join(images, "\n"))
-			return nil
-		}
-
-		return cmd.Help()
+		return nil
 	},
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
-func ListVirtualImages(namespace string) ([]string, error) {
-	nsPath := fmt.Sprintf("%s/vi/%s", ImageRepoDir, namespace)
-	files, err := os.ReadDir(nsPath)
+func ListImage(imgType, imgsDir string, cmd *cobra.Command, args []string) error {
+	if len(args) != 0 && (AllImagesFlag || AllNamespacesFlag) {
+		return errors.New("flags `all|all-namespaces` cannot be used with `imageName`")
+	}
+
+	if len(args) != 0 {
+		var (
+			fileInfo os.FileInfo
+			err      error
+		)
+		imgName := args[0]
+		switch imgType {
+		case virtv2.VirtualImageKind:
+			path := fmt.Sprintf("%s/%s/%s", imgsDir, NamespaceFlag, imgName)
+			fileInfo, err = os.Stat(path)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("the `%s` %q is not found in %q namespace", imgType, imgName, NamespaceFlag)
+				}
+				return fmt.Errorf("cannot get the `%s` %q in the %q namespace: %w", imgType, imgName, NamespaceFlag, err)
+			}
+		case virtv2.ClusterVirtualImageKind:
+			path := fmt.Sprintf("%s/%s", imgsDir, imgName)
+			fileInfo, err = os.Stat(path)
+			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return fmt.Errorf("the `%s` %q is not found", imgType, imgName)
+				}
+				return fmt.Errorf("cannot get the `%s` %q: %w", imgType, imgName, err)
+			}
+		default:
+			return fmt.Errorf("unknown image type: %s", imgType)
+		}
+		w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
+		fmt.Fprintln(w, "Name\t")
+		fmt.Fprintf(w, "%s\t\n", fileInfo.Name())
+		w.Flush()
+		return nil
+	}
+
+	if AllImagesFlag {
+		switch imgType {
+		case virtv2.VirtualImageKind:
+			imgs, err := listAllVirtualImages(imgsDir, NamespaceFlag)
+			if err != nil {
+				return err
+			}
+			w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
+			fmt.Fprintln(w, "Name\t")
+			for _, img := range imgs {
+				fmt.Fprintf(w, "%s\t\n", img.Name)
+			}
+			w.Flush()
+		case virtv2.ClusterVirtualImageKind:
+			imgs, err := os.ReadDir(imgsDir)
+			if err != nil {
+				return fmt.Errorf("cannot get the list of all `ClusterVirtualImages`: %w", err)
+			}
+			w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
+			fmt.Fprintln(w, "Name\t")
+			for _, img := range imgs {
+				fmt.Fprintf(w, "%s\t\n", img.Name())
+			}
+			w.Flush()
+		default:
+			return fmt.Errorf("unknown image type: %s", imgType)
+		}
+		return nil
+	}
+
+	if imgType == virtv2.VirtualImageKind && AllNamespacesFlag {
+		namespaces, err := os.ReadDir(imgsDir)
+		if err != nil {
+			return fmt.Errorf("cannot get the list of all namespaces: %w", err)
+		}
+		w := tabwriter.NewWriter(os.Stdout, 1, 1, 1, ' ', 0)
+		fmt.Fprintln(w, "Namespace\tName\t")
+		for _, ns := range namespaces {
+			imgs, err := listAllVirtualImages(imgsDir, ns.Name())
+			if err != nil {
+				return err
+			}
+			for _, img := range imgs {
+				fmt.Fprintf(w, "%s\t%s\t\n", img.Namespace, img.Name)
+			}
+		}
+		w.Flush()
+		return nil
+	}
+
+	return cmd.Help()
+}
+
+type VirtualImage struct {
+	Name      string
+	Namespace string
+}
+
+func listAllVirtualImages(imgsDir, namespace string) ([]VirtualImage, error) {
+	nsPath := fmt.Sprintf("%s/%s", imgsDir, namespace)
+	imgs, err := os.ReadDir(nsPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get list of all images in %q namespace: %w", namespace, err)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("the namespace %q is not found", namespace)
+		}
+		return nil, fmt.Errorf("cannot get the list of all `VirtualImages` in %q namespace: %w", namespace, err)
 	}
-	images := make([]string, 0, len(files))
-	for _, f := range files {
-		images = append(images, fmt.Sprintf("%s/%s", namespace, f.Name()))
+	imgNames := make([]VirtualImage, len(imgs))
+	for i, img := range imgs {
+		imgNames[i] = VirtualImage{Name: img.Name(), Namespace: namespace}
 	}
-	return images, nil
+	return imgNames, nil
 }
 
 func init() {
 	LsCmd.AddCommand(lsCviCmd, lsViCmd)
-	lsViCmd.Flags().StringVarP(&NamespaceFlag, "namespace", "n", "default", "namespace of virtual images")
-	lsViCmd.Flags().BoolVar(&AllImagesFlag, "all", false, "list of all virtual images")
-	lsViCmd.Flags().BoolVar(&AllNamespacesFlag, "all-namespaces", false, "list of all virtual images in all namespaces")
+	lsViCmd.Flags().StringVarP(&NamespaceFlag, "namespace", "n", "default", "a namespace of VirtualImages")
+	lsViCmd.Flags().BoolVar(&AllImagesFlag, "all", false, "a list of all VirtualImages")
+	lsViCmd.Flags().BoolVar(&AllNamespacesFlag, "all-namespaces", false, "a list of all VirtualImages in all namespaces")
 	lsViCmd.MarkFlagsMutuallyExclusive("all", "all-namespaces")
-	lsCviCmd.Flags().BoolVar(&AllImagesFlag, "all", false, "list of all cluster virtual images")
+	lsViCmd.MarkFlagsMutuallyExclusive("namespace", "all-namespaces")
+	lsCviCmd.Flags().BoolVar(&AllImagesFlag, "all", false, "a list of all ClusterVirtualImages")
 }
