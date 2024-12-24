@@ -31,6 +31,12 @@ const (
 	// ReasonVMRestarted is event reason that VM is about to restart.
 	ReasonVMRestarted = "Restarted"
 
+	// ReasonVMEvicted is event reason that VM is about to restart.
+	ReasonVMEvicted = "Evicted"
+
+	// ReasonVMMigrated is event reason that VM is about to migrate.
+	ReasonVMMigrated = "Migrated"
+
 	// ReasonVMLastAppliedSpecIsInvalid is event reason that JSON in last-applied-spec annotation is invalid.
 	ReasonVMLastAppliedSpecIsInvalid = "LastAppliedSpecIsInvalid"
 
