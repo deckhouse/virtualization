@@ -79,7 +79,7 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
-		return fmt.Errorf("find the internal virtual machine instance: %w", err)
+		return fmt.Errorf("find the virtual machine instance: %w", err)
 	}
 
 	if runPolicy == virtv2.AlwaysOnUnlessStoppedManually {
