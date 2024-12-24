@@ -34,18 +34,18 @@ var GcCmd = &cobra.Command{
 
 var gcRunCmd = &cobra.Command{
 	Use:   "run",
-	Short: "run `garbage-collect` deletes cache data and layers not referenced by any manifests",
+	Short: "`garbage-collect` deletes cache data and layers not referenced by any manifests",
 	Args:  cobra.OnlyValidArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		err := Confirm()
-		if errors.Is(err, promptui.ErrAbort) {
-			return nil
-		}
+		confirm, err := Confirm()
 		if err != nil {
 			return fmt.Errorf("confirm is failed: %w", err)
 		}
+		if !confirm {
+			return nil
+		}
 
-		vdCachePath := fmt.Sprintf("%s/vd", ImageRepoDir)
+		vdCachePath := fmt.Sprintf("%s/vd", RepoDir)
 		err = os.RemoveAll(vdCachePath)
 		if err != nil {
 			return fmt.Errorf("cache data cannot be deleted: %w", err)
@@ -61,9 +61,11 @@ var gcRunCmd = &cobra.Command{
 		fmt.Println(string(stdout))
 		return nil
 	},
+	SilenceUsage:  true,
+	SilenceErrors: true,
 }
 
-func Confirm() error {
+func Confirm() (bool, error) {
 	prompt := promptui.Prompt{
 		Label:     "Confirm",
 		IsConfirm: true,
@@ -71,10 +73,13 @@ func Confirm() error {
 
 	_, err := prompt.Run()
 	if err != nil {
-		return err
+		if errors.Is(err, promptui.ErrAbort) {
+			return false, nil
+		}
+		return false, err
 	}
 
-	return nil
+	return true, nil
 }
 
 func init() {

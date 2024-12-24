@@ -22,6 +22,7 @@ require (
 )
 
 require (
+	github.com/deckhouse/virtualization/api v0.0.0-20241220154636-ce1f73499998
 	github.com/manifoldco/promptui v0.9.0
 	github.com/spf13/cobra v1.8.1
 )
@@ -92,6 +93,7 @@ require (
 	github.com/ovirt/go-ovirt-client v0.9.0 // indirect
 	github.com/ovirt/go-ovirt-client-log-klog v1.0.0 // indirect
 	github.com/ovirt/go-ovirt-client-log/v2 v2.2.0 // indirect
+	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/prometheus/common v0.51.1 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
@@ -118,7 +120,7 @@ require (
 	google.golang.org/genproto/googleapis/api v0.0.0-20240318140521-94a12d6c2237 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
 	google.golang.org/grpc v1.64.1 // indirect
-	google.golang.org/protobuf v1.33.0 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
@@ -129,6 +131,7 @@ require (
 	k8s.io/client-go v8.0.0+incompatible // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
+	kubevirt.io/api v1.0.0 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
 	libguestfs.org/libnbd v1.11.5 // indirect
 	sigs.k8s.io/controller-runtime v0.18.4 // indirect

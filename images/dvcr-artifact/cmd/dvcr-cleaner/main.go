@@ -27,7 +27,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "dvcr-cleaner",
-	Short: "CLI tool for exploring and deleting virtual images",
+	Short: "`dvcr-cleaner` is used for exploring and removing `VirtualImages` and `ClusterVirtualImages` from registry.",
 }
 
 func init() {
