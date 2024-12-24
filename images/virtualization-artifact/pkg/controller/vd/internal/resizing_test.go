@@ -25,9 +25,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -88,6 +90,10 @@ var _ = Describe("Resizing handler Run", func() {
 		}
 	})
 
+	recorder := &eventrecord.EventRecorderLoggerMock{
+		EventFunc: func(_ client.Object, _, _, _ string) {},
+	}
+
 	It("Resizing is in progress", func() {
 		vd.Spec.PersistentVolumeClaim.Size = nil
 		diskService.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
@@ -100,7 +106,7 @@ var _ = Describe("Resizing handler Run", func() {
 			return pvc, nil
 		}
 
-		h := NewResizingHandler(diskService)
+		h := NewResizingHandler(recorder, diskService)
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
@@ -112,7 +118,7 @@ var _ = Describe("Resizing handler Run", func() {
 	It("Resize is not requested (vd.spec.size == nil)", func() {
 		vd.Spec.PersistentVolumeClaim.Size = nil
 
-		h := NewResizingHandler(diskService)
+		h := NewResizingHandler(recorder, diskService)
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
@@ -124,7 +130,7 @@ var _ = Describe("Resizing handler Run", func() {
 	It("Resize is not requested (vd.spec.size < pvc.spec.size)", func() {
 		vd.Spec.PersistentVolumeClaim.Size.Sub(resource.MustParse("1G"))
 
-		h := NewResizingHandler(diskService)
+		h := NewResizingHandler(recorder, diskService)
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
@@ -134,7 +140,7 @@ var _ = Describe("Resizing handler Run", func() {
 	})
 
 	It("Resize is not requested (vd.spec.size == pvc.spec.size)", func() {
-		h := NewResizingHandler(diskService)
+		h := NewResizingHandler(recorder, diskService)
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
@@ -146,7 +152,7 @@ var _ = Describe("Resizing handler Run", func() {
 	It("Resize has started (vd.spec.size > pvc.spec.size)", func() {
 		vd.Spec.PersistentVolumeClaim.Size.Add(size)
 
-		h := NewResizingHandler(diskService)
+		h := NewResizingHandler(recorder, diskService)
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
@@ -162,7 +168,7 @@ var _ = Describe("Resizing handler Run", func() {
 			Reason: vdcondition.InProgress.String(),
 		})
 
-		h := NewResizingHandler(diskService)
+		h := NewResizingHandler(recorder, diskService)
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())

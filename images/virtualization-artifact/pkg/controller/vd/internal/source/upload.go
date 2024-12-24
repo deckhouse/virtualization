@@ -40,7 +40,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -53,10 +55,12 @@ type UploadDataSource struct {
 	diskService         *service.DiskService
 	dvcrSettings        *dvcr.Settings
 	storageClassService *service.VirtualDiskStorageClassService
+	recorder            eventrecord.EventRecorderLogger
 	client              client.Client
 }
 
 func NewUploadDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService *service.StatService,
 	uploaderService *service.UploaderService,
 	diskService *service.DiskService,
@@ -71,6 +75,7 @@ func NewUploadDataSource(
 		dvcrSettings:        dvcrSettings,
 		storageClassService: storageClassService,
 		client:              client,
+		recorder:            recorder,
 	}
 }
 
@@ -136,7 +141,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	case object.AnyTerminating(pod, svc, ing, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil || svc == nil || ing == nil:
-		log.Info("Start import to DVCR")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"The Upload DataSource import to DVCR has started",
+		)
 
 		vd.Status.Progress = "0%"
 
@@ -154,6 +164,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
+			ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &vd.Status.Phase, err, vd.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
@@ -215,7 +226,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			return reconcile.Result{}, err
 		}
 	case dv == nil:
-		log.Info("Start import to PVC")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"The Upload DataSource import to PVC has started",
+		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -223,6 +239,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdcondition.ProvisioningFailed).
@@ -276,6 +293,13 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncCompleted,
+			"The Upload DataSource import has completed",
+		)
 
 		vd.Status.Phase = virtv2.DiskReady
 		cb.

@@ -41,7 +41,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -55,9 +57,11 @@ type RegistryDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	client              client.Client
 	storageClassService *service.VirtualDiskStorageClassService
+	recorder            eventrecord.EventRecorderLogger
 }
 
 func NewRegistryDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService *service.StatService,
 	importerService *service.ImporterService,
 	diskService *service.DiskService,
@@ -72,6 +76,7 @@ func NewRegistryDataSource(
 		dvcrSettings:        dvcrSettings,
 		client:              client,
 		storageClassService: storageClassService,
+		recorder:            recorder,
 	}
 }
 
@@ -129,7 +134,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 	case object.AnyTerminating(pod, dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case pod == nil:
-		log.Info("Start import to DVCR")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"The Registry DataSource import to DVCR has started",
+		)
 
 		vd.Status.Progress = "0%"
 
@@ -147,6 +157,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
+			ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &vd.Status.Phase, err, vd.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
@@ -161,7 +172,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		return reconcile.Result{Requeue: true}, nil
 	case !podutil.IsPodComplete(pod):
-		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
+		ds.recorder.Eventf(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase,
+		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -181,7 +197,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 			return reconcile.Result{}, err
 		}
 	case dv == nil:
-		log.Info("Start import to PVC")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"The Registry DataSource import to PVC has started",
+		)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -189,6 +210,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(vd, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vdcondition.ProvisioningFailed).
@@ -247,6 +269,13 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncCompleted,
+			"The Registry DataSource import has completed",
+		)
 
 		vd.Status.Phase = virtv2.DiskReady
 		cb.
