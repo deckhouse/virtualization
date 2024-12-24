@@ -185,6 +185,41 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on VirtualMachineIpAddress: %w", err)
 	}
 
+	// Subscribe on VirtualMachineMACAddress.
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineMACAddress{}),
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			vmmac, ok := obj.(*virtv2.VirtualMachineMACAddress)
+			if !ok {
+				return nil
+			}
+			name := vmmac.Status.VirtualMachine
+			if name == "" {
+				return nil
+			}
+			return []reconcile.Request{
+				{
+					NamespacedName: types.NamespacedName{
+						Name:      name,
+						Namespace: vmmac.GetNamespace(),
+					},
+				},
+			}
+		}),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldVmmac := e.ObjectOld.(*virtv2.VirtualMachineMACAddress)
+				newVmmac := e.ObjectNew.(*virtv2.VirtualMachineMACAddress)
+				return oldVmmac.Status.Phase != newVmmac.Status.Phase ||
+					oldVmmac.Status.VirtualMachine != newVmmac.Status.VirtualMachine
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineMACAddress: %w", err)
+	}
+
 	// Subscribe on VirtualImage.
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{}),

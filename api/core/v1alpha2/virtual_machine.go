@@ -69,6 +69,9 @@ type VirtualMachineSpec struct {
 	// If not explicitly specified, by default a `virtualMachineIPAddress` resource is created for the VM with a name similar to the VM resource (`.metadata.name`).
 	VirtualMachineIPAddress string `json:"virtualMachineIPAddressName,omitempty"`
 
+	// TODO dlopatin add in crd
+	VirtualMachineMACAddress string `json:"virtualMachineMACAddressName,omitempty"`
+
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
 
 	Affinity *VMAffinity `json:"affinity,omitempty"`
@@ -244,8 +247,13 @@ type VirtualMachineStatus struct {
 	Node string `json:"nodeName"`
 	// Name of `virtualMachineIPAddressName` holding the ip address of the VirtualMachine.
 	VirtualMachineIPAddress string `json:"virtualMachineIPAddressName"`
+	// Name of `virtualMachineMACAddressName` holding the MAC address of the VirtualMachine.
+	VirtualMachineMACAddress string `json:"virtualMachineMACAddressName"`
 	// IP address of VM.
 	IPAddress string `json:"ipAddress"`
+	// TODO dlopatin
+	// MAC address of VM.
+	MACAddress string `json:"macAddress"`
 	// The list of attached block device attachments.
 	BlockDeviceRefs []BlockDeviceStatusRef                   `json:"blockDeviceRefs,omitempty"`
 	GuestOSInfo     virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo,omitempty"`

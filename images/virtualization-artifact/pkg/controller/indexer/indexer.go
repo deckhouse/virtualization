@@ -35,7 +35,8 @@ const (
 	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
 	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
 
-	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef.Name"
+	IndexFieldVMIPLeaseByVMIP   = "spec.virtualMachineIPAddressRef.Name"
+	IndexFieldVMMACLeaseByVMMAC = "spec.virtualMachineMACAddressRef.Name"
 
 	IndexFieldVDByVDSnapshot = "spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 
@@ -62,6 +63,7 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVMByVI,
 		IndexVMByCVI,
 		IndexVMIPLeaseByVMIP,
+		IndexVMMACLeaseByVMMAC,
 		IndexVDByVDSnapshot,
 		IndexVMSnapshotByVM,
 		IndexVMSnapshotByVDSnapshot,
@@ -129,5 +131,15 @@ func IndexVMIPLeaseByVMIP(ctx context.Context, mgr manager.Manager) error {
 			return nil
 		}
 		return []string{lease.Spec.VirtualMachineIPAddressRef.Name}
+	})
+}
+
+func IndexVMMACLeaseByVMMAC(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachineMACAddressLease{}, IndexFieldVMMACLeaseByVMMAC, func(object client.Object) []string {
+		lease, ok := object.(*virtv2.VirtualMachineMACAddressLease)
+		if !ok || lease == nil {
+			return nil
+		}
+		return []string{lease.Spec.VirtualMachineMACAddressRef.Name}
 	})
 }
