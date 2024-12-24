@@ -119,6 +119,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
+			ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
