@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -44,9 +46,11 @@ type UploadDataSource struct {
 	uploaderService     Uploader
 	dvcrSettings        *dvcr.Settings
 	controllerNamespace string
+	recorder            eventrecord.EventRecorderLogger
 }
 
 func NewUploadDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService Stat,
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
@@ -57,6 +61,7 @@ func NewUploadDataSource(
 		uploaderService:     uploaderService,
 		dvcrSettings:        dvcrSettings,
 		controllerNamespace: controllerNamespace,
+		recorder:            recorder,
 	}
 }
 
@@ -115,6 +120,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
+			ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
@@ -137,6 +143,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
@@ -146,6 +153,13 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 				return reconcile.Result{}, err
 			}
 		}
+
+		ds.recorder.Event(
+			cvi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncCompleted,
+			"The Upload DataSource import has completed",
+		)
 
 		cb.
 			Status(metav1.ConditionTrue).
@@ -174,6 +188,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).

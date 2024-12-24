@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -45,13 +47,15 @@ type ObjectRefVirtualImageOnPvc struct {
 	importerService Importer
 	statService     Stat
 	dvcrSettings    *dvcr.Settings
+	recorder        eventrecord.EventRecorderLogger
 }
 
-func NewObjectRefVirtualImageOnPvc(importerService Importer, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualImageOnPvc {
+func NewObjectRefVirtualImageOnPvc(recorder eventrecord.EventRecorderLogger, importerService Importer, dvcrSettings *dvcr.Settings, statService Stat) *ObjectRefVirtualImageOnPvc {
 	return &ObjectRefVirtualImageOnPvc{
 		importerService: importerService,
 		statService:     statService,
 		dvcrSettings:    dvcrSettings,
+		recorder:        recorder,
 	}
 }
 
@@ -98,6 +102,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
+			ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
@@ -120,6 +125,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
@@ -156,6 +162,7 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
