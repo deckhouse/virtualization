@@ -146,6 +146,7 @@ func (b *KVVM) SetRunPolicy(runPolicy virtv2.RunPolicy) error {
 
 func (b *KVVM) SetNodeSelector(vmNodeSelector, classNodeSelector map[string]string) {
 	if len(vmNodeSelector) == 0 && len(classNodeSelector) == 0 {
+		b.Resource.Spec.Template.Spec.NodeSelector = nil
 		return
 	}
 	selector := make(map[string]string, len(vmNodeSelector)+len(classNodeSelector))
