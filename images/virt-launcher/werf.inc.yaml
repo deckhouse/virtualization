@@ -126,10 +126,11 @@ shell:
   - |
     cd /usr/share/OVMF
     rm MICROVM.fd
-    rm OVMF.inteltdx.secboot.fd
+#    rm OVMF.inteltdx.secboot.fd
     rm OVMF_CODE.fd
     rm OVMF_CODE.secboot.fd
-    mv OVMF_CODE_4M.fd OVMF_CODE.cc.fd
+    mv OVMF_CODE_4M.fd OVMF_CODE.fd
+    ln -s OVMF_CODE.fd OVMF_CODE.cc.fd
     rm OVMF_CODE_4M.qcow2
     mv OVMF_CODE_4M.secboot.fd OVMF_CODE.secboot.fd
     rm OVMF_CODE_4M.secboot.qcow2
