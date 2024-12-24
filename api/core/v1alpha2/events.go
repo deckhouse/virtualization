@@ -81,6 +81,8 @@ const (
 	ReasonDataSourceSyncCompleted = "DataSourceImportCompleted"
 	// ReasonDataSourceSyncFailed is event reason that DataSource sync is failed.
 	ReasonDataSourceSyncFailed = "DataSourceImportFailed"
+	// ReasonDataSourceQuotaExceeded is event reason that DataSource sync is failed because quota exceed.
+	ReasonDataSourceQuotaExceeded = "DataSourceQuotaExceed"
 
 	// ReasonDataSourceDiskProvisioningFailed is event reason that DataSource disk provisioning is failed.
 	ReasonDataSourceDiskProvisioningFailed = "DataSourceImportDiskProvisioningFailed"
