@@ -123,13 +123,14 @@ shell:
     rm /edk2-ovmf-20231115-alt1.noarch.rpm
   # Restructure firware files in /usr/share/OVMF to mimic structure
   # in edk2-ovmf package from the original kubevirt.
+  # mv OVMF_CODE_4M.fd OVMF_CODE.fd
+  # ln -s OVMF_CODE.fd OVMF_CODE.cc.fd
   - |
     cd /usr/share/OVMF
     rm MICROVM.fd
     rm OVMF_CODE.fd
     rm OVMF_CODE.secboot.fd
-    mv OVMF_CODE_4M.fd OVMF_CODE.fd
-    ln -s OVMF_CODE.fd OVMF_CODE.cc.fd
+    mv OVMF_CODE_4M.fd OVMF_CODE.cc.fd
     rm OVMF_CODE_4M.qcow2
     mv OVMF_CODE_4M.secboot.fd OVMF_CODE.secboot.fd
     rm OVMF_CODE_4M.secboot.qcow2
