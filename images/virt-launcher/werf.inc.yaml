@@ -123,8 +123,6 @@ shell:
     rpm -Uv /edk2-ovmf-20241117-1.el9.noarch.rpm
     rm /edk2-ovmf-20241117-1.el9.noarch.rpm
 
-  - |
-    unlink
   # Restructure firware files in /usr/share/OVMF to mimic structure
   # in edk2-ovmf package from the original kubevirt.
   # mv OVMF_CODE_4M.fd OVMF_CODE.fd
