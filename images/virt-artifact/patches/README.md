@@ -115,3 +115,9 @@ How does it work?
 
 By default, the virtual-operator adds a nodePlacement with the RequireControlPlanePreferNonWorker.
 But we set up the placement ourselves, so we replace the policy with AnyNode.
+
+#### `029-hide-target-pod-during-migration-via-cilium-label.patch`
+
+During the VM migration process, two pods with the same address are created and packets are randomly delivered to them. 
+To force delivery of packages to only one VM pod, the special label `network.deckhouse.io/hidden-pod` for target pod were added.
+When the migration completes, the label is removed and the target pod becomes accessible via network.
