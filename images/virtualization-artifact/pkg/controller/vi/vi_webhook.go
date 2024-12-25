@@ -18,8 +18,10 @@ package vi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,8 +44,15 @@ func NewValidator(logger *log.Logger) *Validator {
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
-	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+	vi, ok := obj.(*virtv2.VirtualImage)
+	if !ok {
+		return nil, fmt.Errorf("expected a new VirtualImage but got a %T", obj)
+	}
+
+	if strings.Contains(vi.ObjectMeta.Name, ".") {
+		return nil, errors.New("virtual image name cannot contain '.'")
+	}
+
 	return nil, nil
 }
 
@@ -60,6 +69,8 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 
 	v.logger.Info("Validating VirtualImage")
 
+	var warnings admission.Warnings
+
 	if oldVI.Generation == newVI.Generation {
 		return nil, nil
 	}
@@ -75,7 +86,11 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		}
 	}
 
-	return nil, nil
+	if strings.Contains(newVI.ObjectMeta.Name, ".") {
+		warnings = append(warnings, "virtual image name contain '.', it may be cause of problems in future, please recreate resource.")
+	}
+
+	return warnings, nil
 }
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
