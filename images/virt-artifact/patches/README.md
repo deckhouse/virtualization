@@ -126,3 +126,11 @@ Kubevirt uses flags to detect firmware combinations in converter.
 EFIConfiguration, so we can't set needed files directly. 
 But there is combination for SEV: OVFM_CODE.cc.fd + OVMF_VARS.fd that works for Linux, because OVFM_CODE.cc.fd is actually a symlink to OVFM_CODE.fd. 
 So, we set true for the second flag to force OVFM_CODE.cc.fd + OVMF_VARS.fd for non-Windows virtual machines._
+
+#### `030-hide-target-pod-during-migration-via-cilium-label.patch`
+
+During the VM migration process, two pods with the same address are created and packets are randomly delivered to them. 
+To force delivery of packages to only one VM pod, the special label `network.deckhouse.io/hidden-pod` for target pod were added.
+When the migration completes, the label is removed and the target pod becomes accessible via network.
+
+d8-cni-cilium ensures that once the label is removed from the target pod, only the target pod remains accessible over the network (while the source pod does not).
