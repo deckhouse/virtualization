@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 fromImage: base-alt-p11
-fromCacheVersion: "03"
+fromCacheVersion: "04"
 import:
 # Before install stage.
 #   Add edk2-ovmf package
@@ -235,7 +235,7 @@ shell:
 image: {{ $.ImageName }}-edk2-builder
 final: false
 from: {{ $.Images.BASE_ALT_P11 }}
-fromCacheVersion: "06"
+fromCacheVersion: "07"
 git:
 - add: /images/{{ $.ImageName }}/edk2
   to: /edk2
