@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 fromImage: base-alt-p11
-fromCacheVersion: "02"
+fromCacheVersion: "03"
 import:
 # Before install stage.
 #   Add edk2-ovmf package
