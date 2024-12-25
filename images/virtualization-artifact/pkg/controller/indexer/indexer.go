@@ -35,7 +35,8 @@ const (
 	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
 	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
 
-	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef.Name"
+	IndexFieldVMIPLeaseByVMIP   = "spec.virtualMachineIPAddressRef.Name"
+	IndexFieldVMMACLeaseByVMMAC = "spec.virtualMachineMACAddressRef.Name"
 
 	IndexFieldVDByVDSnapshot = "spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 
@@ -47,7 +48,8 @@ const (
 
 	IndexFieldVMRestoreByVMSnapshot = "spec.virtualMachineSnapshotName"
 
-	IndexFieldVMIPByVM      = "status.virtualMachine"
+	IndexFieldVMIPByVM      = "status.virtualMachine,Kind=VirtualMachineIPAddress"
+	IndexFieldVMMACByVM     = "status.virtualMachine,Kind=VirtualMachineMACAddress"
 	IndexFieldVMIPByAddress = "spec.staticIP|status.address"
 
 	IndexFieldVMBDAByVM = "spec.virtualMachineName"
@@ -62,11 +64,13 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVMByVI,
 		IndexVMByCVI,
 		IndexVMIPLeaseByVMIP,
+		IndexVMMACLeaseByVMMAC,
 		IndexVDByVDSnapshot,
 		IndexVMSnapshotByVM,
 		IndexVMSnapshotByVDSnapshot,
 		IndexVMRestoreByVMSnapshot,
 		IndexVMIPByVM,
+		IndexVMMACByVM,
 		IndexVDByStorageClass,
 		IndexVIByStorageClass,
 		IndexVMIPByAddress,
@@ -120,14 +124,4 @@ func getBlockDeviceNamesByKind(obj client.Object, kind virtv2.BlockDeviceKind) [
 		res = append(res, bdr.Name)
 	}
 	return res
-}
-
-func IndexVMIPLeaseByVMIP(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachineIPAddressLease{}, IndexFieldVMIPLeaseByVMIP, func(object client.Object) []string {
-		lease, ok := object.(*virtv2.VirtualMachineIPAddressLease)
-		if !ok || lease == nil {
-			return nil
-		}
-		return []string{lease.Spec.VirtualMachineIPAddressRef.Name}
-	})
 }

@@ -62,3 +62,8 @@ func NewVirtualDiskUsedByVirtualMachineError(name string) error {
 		vdName: name,
 	}
 }
+
+var (
+	ErrMACAddressAlreadyExist = errors.New("the MAC address is already allocated")
+	ErrMACAddressOutOfRange   = errors.New("the MAC address is out of range")
+)
