@@ -115,3 +115,7 @@ How does it work?
 
 By default, the virtual-operator adds a nodePlacement with the RequireControlPlanePreferNonWorker.
 But we set up the placement ourselves, so we replace the policy with AnyNode.
+
+#### `029-hotplug-container-disk.patch`
+
+Hotplug container-disk volumes.
