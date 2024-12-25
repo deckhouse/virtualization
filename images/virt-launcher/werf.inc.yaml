@@ -294,7 +294,7 @@ shell:
   - mkdir -p /home/builder/RPM/RPMS/noarch
   - cd /home/builder/RPM/RPMS/noarch
   - wget https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/edk2-ovmf-20241117-1.el9.noarch.rpm
-  - https://yum.oracle.com/repo/OracleLinux/OL9/appstream/x86_64/getPackage/edk2-ovmf-20231122-6.0.1.el9.noarch.rpm
+  - wget https://yum.oracle.com/repo/OracleLinux/OL9/appstream/x86_64/getPackage/edk2-ovmf-20231122-6.0.1.el9.noarch.rpm
   # Build RPMs. edk2 package prints a huge log with about 770k lines,
   # we can keep only last 1k lines, it should be enough to get error
   # context and troubleshoot it locally.
