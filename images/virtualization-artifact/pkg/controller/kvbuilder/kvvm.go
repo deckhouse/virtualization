@@ -108,8 +108,25 @@ func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 		cpu.Model = virtv1.CPUModeHostPassthrough
 	case virtv2.CPUTypeModel:
 		cpu.Model = class.Spec.CPU.Model
-	case virtv2.CPUTypeFeatures, virtv2.CPUTypeDiscovery:
+	case virtv2.CPUTypeDiscovery:
 		cpu.Model = "Deckhouse-Virtualization-Platform-Generic"
+		features := make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
+		for i, feature := range class.Status.CpuFeatures.Enabled {
+			policy := "require"
+			if feature == "invtsc" {
+				policy = "optional"
+			}
+			features[i] = virtv1.CPUFeature{
+				Name:   feature,
+				Policy: policy,
+			}
+		}
+		cpu.Features = features
+	case virtv2.CPUTypeFeatures:
+		cpu.Model = class.Spec.CPU.Model
+		if cpu.Model == "" {
+			cpu.Model = "Deckhouse-Virtualization-Platform-Generic"
+		}
 		features := make([]virtv1.CPUFeature, len(class.Status.CpuFeatures.Enabled))
 		for i, feature := range class.Status.CpuFeatures.Enabled {
 			policy := "require"
