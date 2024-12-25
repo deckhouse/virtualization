@@ -1,0 +1,6 @@
+<!-- Empty model for generic CPU. DVP will add features explicitly. -->
+<cpus>
+  <model name='Deckhouse-Virtualization-Platform-Generic'>
+    <decode host='on' guest='on'/>
+  </model>
+</cpus>

@@ -176,10 +176,9 @@ spec:
                       rule:
                         "self.type == 'Model' ? has(self.model) && !has(self.features)
                         && !has(self.discovery) : true"
-                    - message: Features requires features and cannot have model or discovery
+                    - message: Features requires features and should not have discovery
                       rule:
-                        "self.type == 'Features' ? has(self.features) && !has(self.model)
-                        && !has(self.discovery): true"
+                        "self.type == 'Features' ? has(self.features) && !has(self.discovery): true"
                 nodeSelector:
                   description:
                     NodeSelector defines selects the nodes that are targeted
