@@ -30,6 +30,10 @@ spec:
         - jsonPath: .status.capacity
           name: Capacity
           type: string
+        - jsonPath: .status.conditions[?(@.type=='InUse')].status
+          name: InUse
+          priority: 1
+          type: string
         - jsonPath: .status.progress
           name: Progress
           priority: 1
