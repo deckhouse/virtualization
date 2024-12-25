@@ -72,7 +72,7 @@ jobs:
         working-directory: ./tests/e2e/
         run: |
           task run:ci -v
-          
+
       - name: Send results to Loop
         working-directory: ./tests/e2e/
         if: always()
