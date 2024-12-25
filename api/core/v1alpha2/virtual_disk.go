@@ -36,6 +36,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Phase",type=string,JSONPath=`.status.phase`
 // +kubebuilder:printcolumn:name="Capacity",type=string,JSONPath=`.status.capacity`
+// +kubebuilder:printcolumn:name="InUse",type=string,JSONPath=`.status.conditions[?(@.type=='InUse')].status`,priority=1
 // +kubebuilder:printcolumn:name="Progress",type=string,JSONPath=`.status.progress`,priority=1
 // +kubebuilder:printcolumn:name="StorageClass",type=string,JSONPath=`.spec.persistentVolumeClaim.storageClassName`,priority=1
 // +kubebuilder:printcolumn:name="TargetPVC",type=string,JSONPath=`.status.target.persistentVolumeClaimName`,priority=1
