@@ -63,6 +63,7 @@ func NewUploadDataSource(
 	storageClassService *service.VirtualImageStorageClassService,
 ) *UploadDataSource {
 	return &UploadDataSource{
+		recorder:            recorder,
 		statService:         statService,
 		uploaderService:     uploaderService,
 		dvcrSettings:        dvcrSettings,

@@ -70,6 +70,7 @@ func NewObjectRefVirtualDisk(
 	return &ObjectRefVirtualDisk{
 		importerService:     importerService,
 		client:              client,
+		recorder:            recorder,
 		diskService:         diskService,
 		statService:         statService,
 		dvcrSettings:        dvcrSettings,

@@ -78,6 +78,7 @@ func NewObjectRefDataSource(
 		client:              client,
 		diskService:         diskService,
 		storageClassService: storageClassService,
+		recorder:            recorder,
 		viObjectRefOnPvc:    NewObjectRefDataVirtualImageOnPVC(recorder, statService, importerService, dvcrSettings, client, diskService, storageClassService),
 		vdSyncer:            NewObjectRefVirtualDisk(recorder, importerService, client, diskService, dvcrSettings, statService, storageClassService),
 	}
