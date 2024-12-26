@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/tidwall/gjson"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/deckhouse/kube-api-rewriter/pkg/labels"
 	logutil "github.com/deckhouse/kube-api-rewriter/pkg/log"
@@ -186,10 +187,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	resp, err := h.TargetClient.Do(req)
 	if err != nil {
 		logger.Error("Error passing request to the target", logutil.SlogErr(err))
-		http.Error(w, "Error passing request to the target", http.StatusInternalServerError)
+		http.Error(w, k8serrors.NewInternalError(err).Error(), http.StatusInternalServerError)
 		metrics.TargetResponseError()
-		// TODO return apimachinery NewInternalError
-		// https://github.com/kubernetes/apimachinery/blob/master/pkg/api/errors/errors.go
 		return
 	}
 
