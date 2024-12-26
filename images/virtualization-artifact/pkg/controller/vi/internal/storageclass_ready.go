@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -28,21 +29,24 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type StorageClassReadyHandler struct {
-	service DiskService
+	service  DiskService
+	recorder eventrecord.EventRecorderLogger
 }
 
 func (h StorageClassReadyHandler) Name() string {
 	return "StorageClassReadyHandler"
 }
 
-func NewStorageClassReadyHandler(diskService DiskService) *StorageClassReadyHandler {
+func NewStorageClassReadyHandler(recorder eventrecord.EventRecorderLogger, diskService DiskService) *StorageClassReadyHandler {
 	return &StorageClassReadyHandler{
-		service: diskService,
+		service:  diskService,
+		recorder: recorder,
 	}
 }
 
@@ -97,11 +101,23 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 			Reason(vicondition.StorageClassReady).
 			Message("")
 	case hasNoStorageClassInSpec:
+		h.recorder.Event(
+			vi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVDStorageClassNotFound,
+			"The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification.",
+		)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.StorageClassNotFound).
 			Message("The default storage class was not found in cluster. Please specify the storage class name in the virtual image or virtualization module config specification.")
 	default:
+		h.recorder.Eventf(
+			vi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVDStorageClassNotFound,
+			"Storage class %q not found", *vi.Spec.PersistentVolumeClaim.StorageClass,
+		)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.StorageClassNotFound).
