@@ -172,12 +172,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		return reconcile.Result{Requeue: true}, nil
 	case !podutil.IsPodComplete(pod):
-		ds.recorder.Eventf(
-			vd,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncStarted,
-			"Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase,
-		)
+		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
 
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
