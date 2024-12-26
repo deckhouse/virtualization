@@ -73,6 +73,7 @@ func NewRegistryDataSource(
 		client:              client,
 		diskService:         diskService,
 		storageClassService: storageClassService,
+		recorder:            recorder,
 	}
 }
 
