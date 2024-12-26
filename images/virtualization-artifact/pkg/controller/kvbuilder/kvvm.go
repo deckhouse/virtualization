@@ -434,7 +434,7 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) error {
 	switch osType {
 	case virtv2.Windows:
 		// Need for `029-use-OFVM_CODE-for-linux.patch`
-		b.AddAnnotation(annotations.AnnOsType, string(virtv2.Windows))
+		b.SetKVVMIAnnotation(annotations.AnnOsType, string(virtv2.Windows))
 
 		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
 			Type: "q35",
