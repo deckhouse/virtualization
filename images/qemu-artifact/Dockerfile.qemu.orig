@@ -1,17 +1,11 @@
 FROM alt:p11
 
-# FROM alt:p11@sha256:39f03d3bca1a92dc36835c28c2ba2f22ec15257e950b3930e0a3f034466e8dfb
-
-# ENV LIBVIRT_VERSION=10.2.0-alt1
 ENV LIBVIRT_VERSION=10.10.0-alt1 \
-    QEMU_VERSION=9.1.2-alt1 \
-    GIT_REPO=https://git.altlinux.org/gears/q/qemu.git \
+    QEMU_VERSION=v9.1.2 \
+    GIT_REPO=https://github.com/qemu/qemu.git \
     GIT_FOLDER=qemu
 
-# Update package lists and install main dependencies
-RUN echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" > /etc/apt/sources.list.d/src.list && \
-    apt-get update && \
-    apt-get install -y \
+RUN apt-get update && apt-get install -y su sudo \
     pkgconfig \
     pkg-config \
     gear rpm dmidecode \
@@ -107,13 +101,11 @@ ENV CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers" \
     PYTHON="/usr/bin/python3"
 
 WORKDIR /home/builder
+RUN mkdir -p qemubuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 RUN git clone ${GIT_REPO}
 RUN cd ${GIT_FOLDER} && \
     git checkout ${QEMU_VERSION} && \
-    gear-rpm -bs --verbose
-
-RUN apt-get source /home/builder/RPM/SRPMS/${GIT_FOLDER}-${QEMU_VERSION}.src.rpm
-
-RUN PATH=/usr/lib/ccache:/usr/lib64/ccache:$PATH
-
-RUN rpm -ba /home/builder/RPM/SPECS/${GIT_FOLDER}.spec
+    ./configure --prefix=~/qemubuild/BUILD --target-list=x86_64-softmmu \
+    make && \
+    make install -j$(grep -c processor /proc/cpuinfo)
+USER root
