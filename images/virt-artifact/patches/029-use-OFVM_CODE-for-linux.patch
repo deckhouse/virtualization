@@ -1,0 +1,29 @@
+diff --git a/pkg/virt-launcher/virtwrap/manager.go b/pkg/virt-launcher/virtwrap/manager.go
+index 2513ad62a8..19f8aa7e83 100644
+--- a/pkg/virt-launcher/virtwrap/manager.go
++++ b/pkg/virt-launcher/virtwrap/manager.go
+@@ -966,9 +966,24 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
+ 
+ 	var efiConf *converter.EFIConfiguration
+ 	if vmi.IsBootloaderEFI() {
++		const ann = "virtualization.deckhouse.io/os-type"
++		const windows = "Windows"
++
+ 		secureBoot := vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot == nil || *vmi.Spec.Domain.Firmware.Bootloader.EFI.SecureBoot
+ 		sev := kutil.IsSEVVMI(vmi)
+ 
++		if !sev {
++			if a := vmi.GetAnnotations()[ann]; a != windows {
++				/*
++				 Kubevirt always uses OVFM_CODE.secboot.fd.
++				 Even if the security boot is turned off.
++				 It is believed that this firmware works correctly with OVFM_VERS, but on altlinux we see problems, the virtual machine with efi and cpu >=12 does not start.
++				 OVFM_CODE.fd is not exist, but the OVFM_CODE.cc.fd is always symlink to OVFM_CODE.fd
++				 That's why we set the sev to true for always virtual machines with linux.
++				*/
++				sev = true
++			}
++		}
+ 		if !l.efiEnvironment.Bootable(secureBoot, sev) {
+ 			log.Log.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)
+ 			return nil, fmt.Errorf("EFI OVMF roms missing for booting in EFI mode with SecureBoot=%v, SEV=%v", secureBoot, sev)

@@ -115,3 +115,11 @@ How does it work?
 
 By default, the virtual-operator adds a nodePlacement with the RequireControlPlanePreferNonWorker.
 But we set up the placement ourselves, so we replace the policy with AnyNode.
+
+#### `029-use-OFVM_CODE-for-linux.patch`
+
+Kubevirt always uses OVFM_CODE.secboot.fd.
+Even if the security boot is turned off.
+It is believed that this firmware works correctly with OVFM_VERS, but on altlinux we see problems, the virtual machine with efi and cpu >=12 does not start.
+OVFM_CODE.fd is not exist, but the OVFM_CODE.cc.fd is always symlink to OVFM_CODE.fd
+That's why we set the sev to true for always virtual machines with linux.
