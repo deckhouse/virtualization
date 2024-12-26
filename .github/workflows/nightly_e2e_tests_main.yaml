@@ -77,7 +77,6 @@ jobs:
         working-directory: ./tests/e2e/
         if: always()
         run: |
-          echo $SUMMARY
           if [ -z "$SUMMARY" ]; then
             SUMMARY="
             ### :dvp: **DVP $DATE Nightly e2e Tests**
@@ -88,6 +87,7 @@ jobs:
             [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
             "
           fi
+          echo $SUMMARY
           curl -XPOST -H 'Content-Type: application/json' -d "{\"text\": \"${SUMMARY}\"}" $LOOP_WEBHOOK_URL
         env:
           LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}
