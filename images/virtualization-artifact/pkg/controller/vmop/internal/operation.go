@@ -180,8 +180,18 @@ func (h OperationHandler) recordEventForVM(ctx context.Context, s state.VMOperat
 			"Restart initiated with VirtualMachineOperation",
 		)
 	case virtv2.VMOPTypeEvict:
-		// TODO
+		h.recorder.WithLogging(log).Event(
+			vm,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVMEvicted,
+			"Evict initiated with VirtualMachineOperation",
+		)
 	case virtv2.VMOPTypeMigrate:
-		// TODO
+		h.recorder.WithLogging(log).Event(
+			vm,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVMMigrated,
+			"Migrate initiated with VirtualMachineOperation",
+		)
 	}
 }

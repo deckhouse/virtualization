@@ -31,6 +31,12 @@ const (
 	// ReasonVMRestarted is event reason that VM is about to restart.
 	ReasonVMRestarted = "Restarted"
 
+	// ReasonVMEvicted is event reason that VM is about to evict.
+	ReasonVMEvicted = "Evicted"
+
+	// ReasonVMMigrated is event reason that VM is about to migrate.
+	ReasonVMMigrated = "Migrated"
+
 	// ReasonVMLastAppliedSpecIsInvalid is event reason that JSON in last-applied-spec annotation is invalid.
 	ReasonVMLastAppliedSpecIsInvalid = "LastAppliedSpecIsInvalid"
 
@@ -51,6 +57,9 @@ const (
 
 	// ReasonVMOPSucceeded is event reason that the operation is successfully completed
 	ReasonVMOPSucceeded = "VirtualMachineOperationSucceeded"
+
+	// ReasonVMOPStarted is event reason that the operation is started
+	ReasonVMOPStarted = "VirtualMachineOperationStarted"
 
 	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
 	ReasonVMClassInUse = "VirtualMachineClassInUse"
