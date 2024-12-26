@@ -68,8 +68,26 @@ jobs:
           go mod download
 
       - name: Run E2E
+        id: e2e-tests
         working-directory: ./tests/e2e/
         run: |
           task run:ci -v
+
+      - name: Send results to Loop
+        working-directory: ./tests/e2e/
+        if: always()
+        run: |
+          if [ -z "$SUMMARY" ]; then
+            SUMMARY="
+            ### :dvp: **DVP $DATE Nightly e2e Tests**
+
+            **Branch:** \`$GITHUB_REF_NAME\`
+            **Status: :question: UNKNOWN**
+
+            [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
+            "
+          fi
+          echo $SUMMARY
+          curl -XPOST -H 'Content-Type: application/json' -d "{\"text\": \"${SUMMARY}\"}" $LOOP_WEBHOOK_URL
         env:
           LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}

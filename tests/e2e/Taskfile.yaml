@@ -90,7 +90,9 @@ tasks:
 
         [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
         "
-        curl -XPOST -H 'Content-Type: application/json' -d "{\"text\": \"${SUMMARY}\"}" $LOOP_WEBHOOK_URL
+        echo "SUMMARY<<EOF" >> $GITHUB_ENV
+        echo "$SUMMARY" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
         exit $EXIT_CODE
 
   run:
