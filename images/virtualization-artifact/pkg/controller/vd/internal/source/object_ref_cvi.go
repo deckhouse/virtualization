@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -36,7 +37,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -46,9 +49,11 @@ type ObjectRefClusterVirtualImage struct {
 	diskService         *service.DiskService
 	storageClassService *service.VirtualDiskStorageClassService
 	client              client.Client
+	recorder            eventrecord.EventRecorderLogger
 }
 
 func NewObjectRefClusterVirtualImage(
+	recorder eventrecord.EventRecorderLogger,
 	statService *service.StatService,
 	diskService *service.DiskService,
 	storageClassService *service.VirtualDiskStorageClassService,
@@ -59,6 +64,7 @@ func NewObjectRefClusterVirtualImage(
 		diskService:         diskService,
 		storageClassService: storageClassService,
 		client:              client,
+		recorder:            recorder,
 	}
 }
 
@@ -118,7 +124,12 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 	case object.AnyTerminating(dv, pvc):
 		log.Info("Waiting for supplements to be terminated")
 	case dv == nil:
-		log.Info("Start import to PVC")
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncStarted,
+			"The ObjectRef DataSource import to PVC has started",
+		)
 
 		vd.Status.Progress = "0%"
 		vd.Status.SourceUID = pointer.GetPointer(cvi.GetUID())
@@ -170,6 +181,12 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 		return reconcile.Result{Requeue: true}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
+		ds.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonDataSourceSyncCompleted,
+			"The ObjectRef DataSource import has completed",
+		)
 
 		vd.Status.Phase = virtv2.DiskReady
 		cb.

@@ -90,11 +90,6 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 	case isDiskProvisioningFinished(cb.Condition()):
 		log.Info("Virtual image provisioning finished: clean up")
 
-		cb.
-			Status(metav1.ConditionTrue).
-			Reason(vicondition.Ready).
-			Message("")
-
 		vi.Status.Phase = virtv2.ImageReady
 
 		err = ds.importerService.Unprotect(ctx, pod)

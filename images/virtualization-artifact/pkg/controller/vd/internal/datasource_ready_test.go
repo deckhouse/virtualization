@@ -22,9 +22,11 @@ import (
 
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -41,6 +43,9 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 			return blank, true
 		},
 	}
+	recorder := &eventrecord.EventRecorderLoggerMock{
+		EventFunc: func(_ client.Object, _, _, _ string) {},
+	}
 
 	t.Run("VirtualDisk with DeletionTimestamp", func(t *testing.T) {
 		vd := virtv2.VirtualDisk{
@@ -49,7 +54,7 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 			},
 		}
 
-		handler := NewDatasourceReadyHandler(nil, nil)
+		handler := NewDatasourceReadyHandler(recorder, nil, nil)
 		_, err := handler.Handle(ctx, &vd)
 		require.NoError(t, err)
 
@@ -62,7 +67,7 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 	t.Run("VirtualDisk with Blank DataSource", func(t *testing.T) {
 		vd := virtv2.VirtualDisk{}
 
-		handler := NewDatasourceReadyHandler(blank, nil)
+		handler := NewDatasourceReadyHandler(recorder, blank, nil)
 		_, err := handler.Handle(ctx, &vd)
 		require.NoError(t, err)
 
@@ -81,7 +86,7 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 			},
 		}
 
-		handler := NewDatasourceReadyHandler(nil, sources)
+		handler := NewDatasourceReadyHandler(recorder, nil, sources)
 		_, err := handler.Handle(ctx, &vd)
 		require.NoError(t, err)
 
