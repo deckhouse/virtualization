@@ -1,27 +1,27 @@
 ---
 {{- $versionLibvirt := "10.10.0" }}
+{{- $gitRepoUrl := "https://github.com/libvirt/libvirt.git" }}
+{{- $gitRepoName := "libvirt" }}
 
 image: {{ $.ImageName }}
 # final: false
 fromImage: base-alt-p11
 git:
-- add: /images/{{ $.ImageName }}
-  to: /home/builder/RPM/SPECS
-  owner: builder
-  group: builder
+- add: /images/{{ $.ImageName }}/
+  to: /
+  # owner: builder
+  # group: builder
   includePaths:
-  - libvirt.spec
+  - install-libvirt.sh
   stageDependencies:
     beforeSetup:
-      - libvirt.spec
+      - install-libvirt.sh
 shell:
   beforeInstall:
   - | 
-    apt-get update && apt-get install --yes su \
-    gear rpm dmidecode \
-    rpm-build \
-    rpm-build-systemd \
-    rpm-build-python3 \
+    apt-get update && apt-get install --yes \
+    su sudo \
+    dmidecode \
     gcc-c++ \
     git \
     gettext \
@@ -98,29 +98,50 @@ shell:
     zlib-devel \
     mdevctl \
     util-linux dmsetup pm-utils \
-    libfuse3-devel libnuma libslirp-devel libtirpc-devel && \
-    /usr/bin/pip3 install black
-  - |
+    libfuse3-devel libnuma libslirp-devel libtirpc-devel \
+    libyajl-devel libselinux-devel
+
     apt-get clean
     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-  - |
+
+    rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
+    rpm -qa | sort > /packages.txt
+    mkdir -p /usr/libexec/ccache-wrappers
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+  
+    pip3 install black
     grep -qw ^rpm /etc/group || groupadd rpm
     id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
 
   install:
   - |
-    echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/x86_64 classic" > /etc/apt/sources.list.d/src.list
-    apt-get update
+    su - builder -s /bin/bash <<'EOFBASH'
+    echo "export CCACHE_WRAPPERSDIR=/usr/libexec/ccache-wrappers" >> .bashrc
+    echo "export MAKE=/usr/bin/make" >> .bashrc
+    echo "export NINJA="/usr/bin/ninja" >> .bashrc
+    echo "export PYTHON="/usr/bin/python3" >> .bashrc
+    EOFBASH
   - |
-    mkdir -p /home/builder/RPM/{SPECS,SRPMS} && chown builder:builder -R /home/builder/RPM
+    su - builder -s /bin/bash <<'EOFBASH'
     
-    su - builder -s /bin/bash -c 'git clone http://git.altlinux.org/gears/l/libvirt.git'
+    git clone --depth=1 --branch v{{ $versionLibvirt }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionLibvirt }}
     
-    su - builder -s /bin/bash -c 'cd libvirt ; git checkout {{ $versionLibvirt }}-alt1; gear-rpm -bs --verbose'
+    cd {{ $gitRepoName }}-{{ $versionLibvirt }}
     
-    su - builder -s /bin/bash -c 'apt-get source /home/builder/RPM/SRPMS/libvirt-{{ $versionLibvirt }}-alt1.src.rpm'
+    CFLAGS="-Wframe-larger-than=8192" meson setup build \
+    -Dsystem=true \
+    -Ddriver_qemu=enabled \
+    -Ddocs=disabled \
+    -Ddriver_libvirtd=enabled && \
+    ninja -C build -j$(nproc)
+    EOFBASH
+
   setup:
   - |
-    ll /home/builder/RPM/
-    ll /home/builder/RPM/SPECS
-    su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/libvirt.spec 2>&1'
+    mkdir -p /BINS
+    ls -la
+    /install-libvirt.sh
+    ls -lah /BINS
+    ls -lah /BINS/usr
