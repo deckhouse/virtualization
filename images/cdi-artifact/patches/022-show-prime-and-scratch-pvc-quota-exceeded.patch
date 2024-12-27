@@ -1,0 +1,244 @@
+diff --git a/pkg/controller/datavolume/controller-base.go b/pkg/controller/datavolume/controller-base.go
+index acd09cb94..b26d6efb6 100644
+--- a/pkg/controller/datavolume/controller-base.go
++++ b/pkg/controller/datavolume/controller-base.go
+@@ -55,6 +55,7 @@ import (
+ 	cloneMetrics "kubevirt.io/containerized-data-importer/pkg/monitoring/metrics/cdi-cloner"
+ 	metrics "kubevirt.io/containerized-data-importer/pkg/monitoring/metrics/cdi-controller"
+ 	importMetrics "kubevirt.io/containerized-data-importer/pkg/monitoring/metrics/cdi-importer"
++	datavolume_patched "kubevirt.io/containerized-data-importer/pkg/patchesv"
+ 	"kubevirt.io/containerized-data-importer/pkg/token"
+ 	"kubevirt.io/containerized-data-importer/pkg/util"
+ )
+@@ -1035,6 +1036,24 @@ func (r *ReconcilerBase) updateConditions(dataVolume *cdiv1.DataVolume, pvc *cor
+ 	dataVolume.Status.Conditions = updateBoundCondition(dataVolume.Status.Conditions, pvc, message, reason)
+ 	dataVolume.Status.Conditions = UpdateReadyCondition(dataVolume.Status.Conditions, readyStatus, message, reason)
+ 	dataVolume.Status.Conditions = updateRunningCondition(dataVolume.Status.Conditions, anno)
++	pvcPrimeCreatedCondition := FindConditionByType(datavolume_patched.DataVolumePrimeConditionCreated, dataVolume.Status.Conditions)
++	if pvcPrimeCreatedCondition == nil {
++		dataVolume.Status.Conditions = append(dataVolume.Status.Conditions, cdiv1.DataVolumeCondition{
++			Type:    datavolume_patched.DataVolumePrimeConditionCreated,
++			Status:  corev1.ConditionFalse,
++			Reason:  "NotCreated",
++			Message: "",
++		})
++	}
++	pvcScratchCreatedCondition := FindConditionByType(datavolume_patched.DataVolumeScratchConditionCreated, dataVolume.Status.Conditions)
++	if pvcScratchCreatedCondition == nil {
++		dataVolume.Status.Conditions = append(dataVolume.Status.Conditions, cdiv1.DataVolumeCondition{
++			Type:    datavolume_patched.DataVolumeScratchConditionCreated,
++			Status:  corev1.ConditionFalse,
++			Reason:  "NotCreated",
++			Message: "",
++		})
++	}
+ }
+ 
+ func (r *ReconcilerBase) emitConditionEvent(dataVolume *cdiv1.DataVolume, originalCond []cdiv1.DataVolumeCondition) {
+diff --git a/pkg/controller/import-controller.go b/pkg/controller/import-controller.go
+index 49f1ff898..4f7cfd2c6 100644
+--- a/pkg/controller/import-controller.go
++++ b/pkg/controller/import-controller.go
+@@ -34,6 +34,7 @@ import (
+ 	"kubevirt.io/containerized-data-importer/pkg/common"
+ 	cc "kubevirt.io/containerized-data-importer/pkg/controller/common"
+ 	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
++	datavolume_patched "kubevirt.io/containerized-data-importer/pkg/patchesv"
+ 	"kubevirt.io/containerized-data-importer/pkg/util"
+ 	"kubevirt.io/containerized-data-importer/pkg/util/naming"
+ 	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
+@@ -753,8 +754,16 @@ func (r *ImportReconciler) createScratchPvcForPod(pvc *corev1.PersistentVolumeCl
+ 		// Scratch PVC doesn't exist yet, create it. Determine which storage class to use.
+ 		_, err = createScratchPersistentVolumeClaim(r.client, pvc, pod, scratchPVCName, storageClassName, r.installerLabels, r.recorder)
+ 		if err != nil {
++			reason := "ErrCreating"
++			if strings.Contains(err.Error(), "exceeded quota") {
++				reason = "ErrExceededQuota"
++			}
++			datavolume_patched.UpdateDVScratchCondition(r.client, pvc, corev1.ConditionFalse, fmt.Sprintf("Err creating scratch pvc: %q", err.Error()), reason)
+ 			return err
+ 		}
++
++		datavolume_patched.UpdateDVScratchCondition(r.client, pvc, corev1.ConditionTrue, "", "ScratchConditionCreated")
++
+ 		anno[cc.AnnBoundCondition] = "false"
+ 		anno[cc.AnnBoundConditionMessage] = "Creating scratch space"
+ 		anno[cc.AnnBoundConditionReason] = creatingScratch
+diff --git a/pkg/controller/populators/populator-base.go b/pkg/controller/populators/populator-base.go
+index 6c6fd8f8a..4043ff5eb 100644
+--- a/pkg/controller/populators/populator-base.go
++++ b/pkg/controller/populators/populator-base.go
+@@ -18,7 +18,9 @@ package populators
+ 
+ import (
+ 	"context"
++	"fmt"
+ 	"reflect"
++	"strings"
+ 
+ 	"github.com/go-logr/logr"
+ 
+@@ -40,6 +42,7 @@ import (
+ 	"kubevirt.io/containerized-data-importer/pkg/common"
+ 	cc "kubevirt.io/containerized-data-importer/pkg/controller/common"
+ 	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
++	datavolume_patched "kubevirt.io/containerized-data-importer/pkg/patchesv"
+ 	"kubevirt.io/containerized-data-importer/pkg/util"
+ )
+ 
+@@ -182,6 +185,11 @@ func (r *ReconcilerBase) createPVCPrime(pvc *corev1.PersistentVolumeClaim, sourc
+ 		annotations[cc.AnnPodRetainAfterCompletion] = pvc.Annotations[cc.AnnPodRetainAfterCompletion]
+ 	}
+ 
++	dvUid, ok := pvc.Annotations[cc.AnnCreatedForDataVolume]
++	if ok {
++		annotations[datavolume_patched.AnnPrimeForDataVolume] = dvUid
++	}
++
+ 	// Assemble PVC' spec
+ 	pvcPrime := &corev1.PersistentVolumeClaim{
+ 		ObjectMeta: metav1.ObjectMeta{
+@@ -213,9 +221,17 @@ func (r *ReconcilerBase) createPVCPrime(pvc *corev1.PersistentVolumeClaim, sourc
+ 	}
+ 
+ 	if err := r.client.Create(context.TODO(), pvcPrime); err != nil {
++		reason := "ErrCreating"
++		if strings.Contains(err.Error(), "exceeded quota") {
++			reason = "ErrExceededQuota"
++		}
++		datavolume_patched.UpdateDVPrimeCondition(r.client, pvc, corev1.ConditionFalse, fmt.Sprintf("Err creating prime pvc: %q", err.Error()), reason)
+ 		return nil, err
+ 	}
+ 	r.recorder.Eventf(pvc, corev1.EventTypeNormal, createdPVCPrimeSuccessfully, messageCreatedPVCPrimeSuccessfully)
++
++	datavolume_patched.UpdateDVPrimeCondition(r.client, pvc, corev1.ConditionTrue, "", "PrimeConditionCreated")
++
+ 	return pvcPrime, nil
+ }
+ 
+diff --git a/pkg/controller/upload-controller.go b/pkg/controller/upload-controller.go
+index 4c153257a..9c586ebda 100644
+--- a/pkg/controller/upload-controller.go
++++ b/pkg/controller/upload-controller.go
+@@ -51,6 +51,7 @@ import (
+ 	cc "kubevirt.io/containerized-data-importer/pkg/controller/common"
+ 	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
+ 	"kubevirt.io/containerized-data-importer/pkg/operator"
++	datavolume_patched "kubevirt.io/containerized-data-importer/pkg/patchesv"
+ 	"kubevirt.io/containerized-data-importer/pkg/util"
+ 	"kubevirt.io/containerized-data-importer/pkg/util/cert/fetcher"
+ 	"kubevirt.io/containerized-data-importer/pkg/util/cert/generator"
+@@ -473,8 +474,14 @@ func (r *UploadReconciler) getOrCreateScratchPvc(pvc *corev1.PersistentVolumeCla
+ 		// Scratch PVC doesn't exist yet, create it.
+ 		scratchPvc, err = createScratchPersistentVolumeClaim(r.client, pvc, pod, name, storageClassName, map[string]string{}, r.recorder)
+ 		if err != nil {
++			reason := "ErrCreating"
++			if strings.Contains(err.Error(), "exceeded quota") {
++				reason = "ErrExceededQuota"
++			}
++			datavolume_patched.UpdateDVScratchCondition(r.client, pvc, corev1.ConditionFalse, fmt.Sprintf("Err creating scratch pvc: %q", err.Error()), reason)
+ 			return nil, err
+ 		}
++		datavolume_patched.UpdateDVPrimeCondition(r.client, pvc, corev1.ConditionTrue, "", "PrimeConditionCreated")
+ 	} else {
+ 		if !metav1.IsControlledBy(scratchPvc, pod) {
+ 			return nil, errors.Errorf("%s scratch PVC not controlled by pod %s", scratchPvc.Name, pod.Name)
+diff --git a/pkg/patchesv/patched_condition_type.go b/pkg/patchesv/patched_condition_type.go
+new file mode 100644
+index 000000000..ec614eb93
+--- /dev/null
++++ b/pkg/patchesv/patched_condition_type.go
+@@ -0,0 +1,93 @@
++package datavolume_patched
++
++import (
++	"context"
++
++	corev1 "k8s.io/api/core/v1"
++	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
++	"kubevirt.io/containerized-data-importer/pkg/controller/common"
++	"sigs.k8s.io/controller-runtime/pkg/client"
++)
++
++const (
++	DataVolumePrimeConditionCreated   cdiv1.DataVolumeConditionType = "PrimePVCCreated"
++	DataVolumeScratchConditionCreated cdiv1.DataVolumeConditionType = "ScratchPVCCreated"
++
++	AnnPrimeForDataVolume = common.AnnAPIGroup + "/primeForDataVolume"
++)
++
++func FindConditionByType(conditionType cdiv1.DataVolumeConditionType, conditions []cdiv1.DataVolumeCondition) *cdiv1.DataVolumeCondition {
++	for i, condition := range conditions {
++		if condition.Type == conditionType {
++			return &conditions[i]
++		}
++	}
++	return nil
++}
++
++func updateCondition(conditions []cdiv1.DataVolumeCondition, conditionType cdiv1.DataVolumeConditionType, status corev1.ConditionStatus, message, reason string) []cdiv1.DataVolumeCondition {
++	condition := FindConditionByType(conditionType, conditions)
++	if condition == nil {
++		conditions = append(conditions, cdiv1.DataVolumeCondition{
++			Type: conditionType,
++		})
++		condition = FindConditionByType(conditionType, conditions)
++	}
++	if condition.Status != status {
++		condition.LastTransitionTime = metav1.Now()
++		condition.Message = message
++		condition.Reason = reason
++		condition.LastHeartbeatTime = condition.LastTransitionTime
++	} else if condition.Message != message || condition.Reason != reason {
++		condition.Message = message
++		condition.Reason = reason
++		condition.LastHeartbeatTime = metav1.Now()
++	}
++	condition.Status = status
++	return conditions
++}
++
++func getDVByPVC(clientObject client.Client, pvc *corev1.PersistentVolumeClaim, ann string) *cdiv1.DataVolume {
++	uid, ok := pvc.Annotations[ann]
++	if !ok {
++		return nil
++	}
++
++	var dvList cdiv1.DataVolumeList
++
++	err := clientObject.List(context.TODO(), &dvList, client.InNamespace(pvc.Namespace))
++	if err != nil {
++		return nil
++	}
++
++	if len(dvList.Items) > 0 {
++		for _, dv := range dvList.Items {
++			if string(dv.UID) == uid {
++				return &dv
++			}
++		}
++	}
++
++	return nil
++}
++
++func UpdateDVPrimeCondition(clientObject client.Client, pvc *corev1.PersistentVolumeClaim, status corev1.ConditionStatus, message, reason string) {
++	dv := getDVByPVC(clientObject, pvc, common.AnnCreatedForDataVolume)
++	if dv == nil {
++		return
++	}
++
++	dv.Status.Conditions = updateCondition(dv.Status.Conditions, DataVolumePrimeConditionCreated, status, message, reason)
++	_ = clientObject.Status().Update(context.TODO(), dv)
++}
++
++func UpdateDVScratchCondition(clientObject client.Client, pvc *corev1.PersistentVolumeClaim, status corev1.ConditionStatus, message, reason string) {
++	dv := getDVByPVC(clientObject, pvc, AnnPrimeForDataVolume)
++	if dv == nil {
++		return
++	}
++
++	dv.Status.Conditions = updateCondition(dv.Status.Conditions, DataVolumeScratchConditionCreated, status, message, reason)
++	_ = clientObject.Status().Update(context.TODO(), dv)
++}
