@@ -68,6 +68,8 @@ const (
 	// LastPropagatedVMLabelsAnnotation is a marshalled map of previously applied virtual machine labels.
 	LastPropagatedVMLabelsAnnotation = AnnAPIGroup + "/last-propagated-vm-labels"
 
+	AnnOsType = AnnAPIGroupV + "/os-type"
+
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 
