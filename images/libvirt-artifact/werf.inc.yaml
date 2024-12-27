@@ -4,13 +4,11 @@
 {{- $gitRepoName := "libvirt" }}
 
 image: {{ $.ImageName }}
-# final: false
+final: false
 fromImage: base-alt-p11
 git:
 - add: /images/{{ $.ImageName }}/
   to: /
-  # owner: builder
-  # group: builder
   includePaths:
   - install-libvirt.sh
   stageDependencies:
