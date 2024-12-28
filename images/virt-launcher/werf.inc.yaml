@@ -10,6 +10,7 @@ import:
   before: install
   includePaths:
   - edk2-ovmf-20231115-alt1.noarch.rpm
+  - edk2-ovmf-20240811-alt2.noarch.rpm
 
 # Add bins from libvirt and qemu artifacts.
 - image: tmp-merged
@@ -17,6 +18,7 @@ import:
   to: /
   before: install
 
+{{/*
 # - image: libvirt-artifact
 #   add: /BINS
 #   to: /
@@ -25,6 +27,7 @@ import:
 #   add: /BINS
 #   to: /
 #   before: install
+*/}}
 
 # After install stage.
 #  Add libxcrypto library.
@@ -121,11 +124,14 @@ shell:
     apt-get update && apt-get install --yes \
     acl \
     pcre \
+    procps \
     ethtool \
     nftables \
     xorriso \
     passt \
+    ipxe-roms-qemu \
     seabios \
+    seavgabios \
     libffi8 \
     swtpm-tools \
     libcrypt libcrypto3
@@ -137,8 +143,12 @@ shell:
   install:
   # Upgrade edk2-ovmf package to custom build and remove its package.
   - |
+    ls -la
     rpm -Uv /edk2-ovmf-20231115-alt1.noarch.rpm
     rm /edk2-ovmf-20231115-alt1.noarch.rpm
+    # rpm -Uv /edk2-ovmf-20240811-alt2.noarch.rpm
+    # rm /edk2-ovmf-20240811-alt2.noarch.rpm
+    
   # Restructure firware files in /usr/share/OVMF to mimic structure
   # in edk2-ovmf package from the original kubevirt.
   - |
@@ -156,10 +166,10 @@ shell:
     rm OVMF_VARS.secboot.fd
     mv OVMF_VARS_4M.fd OVMF_VARS.fd
     rm OVMF_VARS_4M.ms.fd
-    rm OVMF_VARS_4M.ms.qcow2
-    rm OVMF_VARS_4M.qcow2
+    rm OVMF_VARS_4M.ms.qcow2 || true
+    rm OVMF_VARS_4M.qcow2 || true
     mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
-    rm OVMF_VARS_4M.secboot.qcow2
+    rm OVMF_VARS_4M.secboot.qcow2 || true
     ls -la
   setup:
   # Replace virt-launcher-monitor with the wrapper.
@@ -195,9 +205,21 @@ import:
 shell:
   install:
   - |
+    apt-get update && apt-get install -y \
+    tree
+    
+    echo "/libvirt-bins"
+    tree /libvirt-bins
+    
+    echo "/qemu-bins"
+    tree /qemu-bins
+    
+    echo "==========="
     cp -rf /libvirt-bins /BINS
     cp -rf /qemu-bins /BINS
+    
     ls -lah /BINS
+    tree /BINS
 ---
 image: {{ $.ImageName }}-lib-builder
 final: false
