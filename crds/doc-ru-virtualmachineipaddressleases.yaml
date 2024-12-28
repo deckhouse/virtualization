@@ -4,30 +4,30 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            Ресурс, определяющий факт выданной аренды для `VirtualMachineIPAddress`.
+            Ресурс, определяющий факт выданной аренды для ресурса VirtualMachineIPAddress.
           properties:
             spec:
               description: |
-                Параметры конфигурации `VirtualMachineIPAddressLease`.
+                Параметры конфигурации ресурса VirtualMachineIPAddressLease.
               properties:
                 virtualMachineIPAddressRef:
                   description: |
-                    Ссылка на существующие `VirtualMachineIPAddress`.
+                    Ссылка на существующие ресурсы VirtualMachineIPAddress.
                   properties:
                     name:
                       description: |
-                        Имя ссылающегося `VirtualMachineIPAddress`.
+                        Имя ссылающегося ресурса VirtualMachineIPAddress.
                     namespace:
                       description: |
-                        Пространство имен ссылающегося `VirtualMachineIPAddress`.
+                        Пространство имён ссылающегося ресурса VirtualMachineIPAddress.
             status:
               properties:
                 conditions:
                   description: |
-                    Последнее подтвержденное состояние данного ресурса.
+                    Последнее подтверждённое состояние данного ресурса.
                   items:
                     description: |
-                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
+                      Подробные сведения об одном аспекте текущего состояния данного API-ресурса.
                     properties:
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.
@@ -35,8 +35,8 @@ spec:
                         description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
                       observedGeneration:
                         description: |
-                          observedGeneration представляет собой .metadata.generation, на основе которого было установлено условие.
-                          Например, если .metadata.generation в настоящее время имеет значение 12, а .status.conditions[x].observedgeneration имеет значение 9, то условие устарело.
+                          `.metadata.generation`, на основе которого было установлено условие.
+                          Например, если `.metadata.generation` в настоящее время имеет значение `12`, а `.status.conditions[x].observedgeneration` имеет значение `9`, то условие устарело.
                       reason:
                         description: Краткая причина последнего перехода состояния.
                       status:
@@ -46,10 +46,10 @@ spec:
                         description: Тип условия.
                 phase:
                   description: |
-                    Представляет текущее состояние ресурса `VirtualMachineIPAddressLease`.
+                    Представляет текущее состояние ресурса VirtualMachineIPAddressLease.
 
-                    * Bound - ресурс `VirtualMachineIPAddressLease` привязан к ресурсу `VirtualMachineIPAddress`.
-                    * Released - ресурс `VirtualMachineIPAddressLease` доступен для связки с новым ресурсом `VirtualMachineIPAddress`.
+                    * `Bound` - ресурс VirtualMachineIPAddressLease привязан к ресурсу VirtualMachineIPAddress;
+                    * `Released` - ресурс VirtualMachineIPAddressLease доступен для связки с новым ресурсом VirtualMachineIPAddress.
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.

@@ -29,7 +29,7 @@ const (
 	VirtualMachineClassResource = "virtualmachineclasses"
 )
 
-// VirtualMachineClass resource describes a cpu requirements, node placement and sizing policy for VM resources.
+// VirtualMachineClass resource describes CPU requirements, node placement, and sizing policy for VM resources.
 // A resource cannot be deleted as long as it is used in one of the VMs.
 //
 // +kubebuilder:object:root=true
@@ -37,7 +37,7 @@ const (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={virtualization},scope=Cluster,shortName={vmc,vmcs,vmclass,vmclasses},singular=virtualmachineclass
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineClass phase."
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of creation resource."
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -49,30 +49,30 @@ type VirtualMachineClass struct {
 	Status VirtualMachineClassStatus `json:"status,omitempty"`
 }
 
-// VirtualMachineClassList contains a list of VirtualMachineClass
+// VirtualMachineClassList contains a list of VirtualMachineClasses.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineClassList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	// Items provides a list of VirtualMachineClasses
+	// Items provides a list of VirtualMachineClasses.
 	Items []VirtualMachineClass `json:"items"`
 }
 
 type VirtualMachineClassSpec struct {
 	NodeSelector NodeSelector `json:"nodeSelector,omitempty"`
-	// Tolerations are the same as `spec.tolerations` in the [Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
-	// These tolerations will be merged with tolerations specified in VirtualMachine resource. VirtualMachine tolerations have higher priority.
+	// Tolerations are the same as `spec.tolerations` for [pods](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
+	// These tolerations will be merged with the tolerations specified in the VirtualMachine resource. VirtualMachine tolerations have a higher priority.
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// +kubebuilder:validation:Required
 	CPU            CPU            `json:"cpu"`
 	SizingPolicies []SizingPolicy `json:"sizingPolicies,omitempty"`
 }
 
-// NodeSelector defines selects the nodes that are targeted to VM scheduling.
+// NodeSelector defines the nodes targeted for VM scheduling.
 type NodeSelector struct {
 	// A map of {key,value} pairs.
-	// A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value".
+	// A single {key,value} pair in the matchLabels map is equivalent to an element of matchExpressions whose key field is "key", operator is "In", and the value array contains only "value".
 	// The requirements are ANDed.
 	MatchLabels map[string]string `json:"matchLabels,omitempty"`
 	// A list of node selector requirements by node's labels.
@@ -88,27 +88,27 @@ type NodeSelector struct {
 type CPU struct {
 	// +kubebuilder:validation:Required
 	Type CPUType `json:"type"`
-	// The name of CPU model. More information about models [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
+	// CPU model name. For more information about CPU models and topology, refer to the [libvirt docs](https://libvirt.org/formatdomain.html#cpu-model-and-topology).
 	//
 	// +kubebuilder:validation:MinLength=1
 	// +kubebuilder:example=IvyBridge
 	Model string `json:"model,omitempty"`
-	// A list of CPU instructions (features) required when type=Features.
-	// More information about features [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
+	// List of CPU instructions (features) required when type=Features.
+	// For more information about CPU features, refer to the [libvirt docs](https://libvirt.org/formatdomain.html#cpu-model-and-topology).
 	//
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:example={mmx, vmx, sse2}
 	Features []string `json:"features,omitempty"`
-	// Create CPU model based on an intersection CPU features for selected nodes.
+	// Create a CPU model based on intersecting CPU features for selected nodes.
 	Discovery CpuDiscovery `json:"discovery,omitempty"`
 }
 
 type CpuDiscovery struct {
-	// A selection of nodes on the basis of which a universal CPU model will be created.
+	// A selection of nodes to be used as the basis for creating a universal CPU model.
 	NodeSelector metav1.LabelSelector `json:"nodeSelector,omitempty"`
 }
 
-// SizingPolicy define policy for allocating computational resources to VMs.
+// SizingPolicy defines a policy for allocating computational resources to VMs.
 // It is represented as a list.
 // The cores.min - cores.max ranges for different elements of the list must not overlap.
 type SizingPolicy struct {
@@ -128,7 +128,7 @@ type CoreFractionValue int
 
 type SizingPolicyMemory struct {
 	MemoryMinMax `json:",inline"`
-	// Memory size discretization step. I.e. min=2Gi, max=4Gi, step=1Gi allows to set virtual machine memory size to 2Gi, 3Gi, or 4Gi.
+	// Memory size discretization step. For example, the combination of `min=2Gi, `max=4Gi` and `step=1Gi` allows to set the virtual machine memory size to 2Gi, 3Gi, or 4Gi.
 	//
 	// +kubebuilder:example="512Mi"
 	Step resource.Quantity `json:"step,omitempty"`
@@ -155,35 +155,35 @@ type MemoryMinMax struct {
 // +kubebuilder:validation:XValidation:rule="self.max > self.min",message="The maximum must be greater than the minimum"
 // +kubebuilder:validation:XValidation:rule="has(self.step) ? self.max > self.step : true",message="The maximum must be greater than the step"
 type SizingPolicyCores struct {
-	// Minimum cpu core count.
+	// Minimum number of CPU cores.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:example=1
 	Min int `json:"min"`
-	// Maximum cpu core count.
+	// Maximum number of CPU cores.
 	//
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Maximum=1024
 	// +kubebuilder:example=10
 	Max int `json:"max"`
-	// Cpu cores count discretization step. I.e. min=2, max=10, step=4 allows to set virtual machine cpu cores to 2, 6, or 10.
+	// Discretization step for the CPU core number. For example, the combination of `min=2`, `max=10`, and `step=4` allows to set the number of virtual machine CPU cores to 2, 6, or 10.
 	//
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:example=1
 	Step int `json:"step,omitempty"`
 }
 
-// CPUType defines cpu type, the following options are supported:
-// * `Host` - a virtual CPU is used that is as close as possible to the platform node's CPU in terms of instruction set.
-// This provides high performance and functionality, as well as compatibility with live migration for nodes with similar processor types.
+// CPUType defines the CPU type, the following options are supported:
+// * `Host`: Uses a virtual CPU with an instruction set closely matching the platform node's CPU.
+// This provides high performance and functionality, as well as compatibility with "live" migration for nodes with similar processor types.
 // For example, VM migration between nodes with Intel and AMD processors will not work.
-// This is also true for different generations of processors, as their instruction set is different.
-// * `HostPassthrough` - uses the physical CPU of the platform node directly without any modifications.
-// When using this class, the guest VM can only be transferred to a target node that has a CPU that exactly matches the CPU of the source node.
-// * `Discovery` - create a CPU model based on an intersecton CPU features for selected nodes.
-// * `Model` - CPU model name. A CPU model is a named and previously defined set of supported CPU instructions.
-// * `Features` - the required set of supported instructions for the CPU.
+// This is also true for different CPU generations, as their instruction set is different.
+// * `HostPassthrough`: Uses the platform node's physical CPU directly, without any modifications.
+// When using this class, the guest VM can only be transferred to a target node with a CPU exactly matching the source node's CPU.
+// * `Discovery`: Create a virtual CPU based on instruction sets of physical CPUs for a selected set of nodes.
+// * `Model`: CPU model. A CPU model is a named and previously defined set of supported CPU instructions.
+// * `Features`: A required set of supported instructions for the CPU.
 //
 // +kubebuilder:validation:Enum={Host,HostPassthrough,Discovery,Model,Features}
 type CPUType string
@@ -199,38 +199,38 @@ const (
 type VirtualMachineClassStatus struct {
 	Phase       VirtualMachineClassPhase `json:"phase"`
 	CpuFeatures CpuFeatures              `json:"cpuFeatures,omitempty"`
-	// A list of nodes that support this CPU model.
-	// It is not displayed for the types: `Host`, `HostPassthrough`
+	// List of nodes that support this CPU model.
+	// It is not displayed for the following types: `Host`, `HostPassthrough`.
 	//
 	// +kubebuilder:example={node-1, node-2}
 	AvailableNodes []string `json:"availableNodes,omitempty"`
-	// The maximum amount of free CPU and Memory resources observed among all available nodes.
+	// Maximum amount of free CPU and memory resources observed among all available nodes.
 	// +kubebuilder:example={"maxAllocatableResources: {\"cpu\": 1, \"memory\": \"10Gi\"}"}
 	MaxAllocatableResources corev1.ResourceList `json:"maxAllocatableResources,omitempty"`
 	// The latest detailed observations of the VirtualMachineClass resource.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// The generation last processed by the controller.
+	// Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // CpuFeatures
-// Information on CPU features for this model.
-// Shown only for types `Features` or `Discovery`.
+// Information on CPU features supported by this model.
+// Shown only for `Features` or `Discovery` types.
 type CpuFeatures struct {
-	//  A list of CPU features for this model.
+	//  List of CPU features for this model.
 	//
 	// +kubebuilder:example={mmx, vmx, sse2}
 	Enabled []string `json:"enabled,omitempty"`
-	// A list of unused processor features additionally available for a given group of nodes.
+	// List of unused processor features additionally available for a given group of nodes.
 	//
 	// +kubebuilder:example={ssse3, vme}
 	NotEnabledCommon []string `json:"notEnabledCommon,omitempty"`
 }
 
-// VirtualMachineClassPhase defines current status of resource:
-// * Pending - resource is not ready, waits until suitable nodes supporting the required CPU model become available.
-// * Ready - the resource is ready and available for use.
-// * Terminating - the resource is terminating.
+// VirtualMachineClassPhase defines the current resource status:
+// * `Pending`: The resource is not ready and waits until the suitable nodes supporting the required CPU model are available.
+// * `Ready`: The resource is ready and available for use.
+// * `Terminating`: The resource is terminating.
 //
 // +kubebuilder:validation:Enum={Pending,Ready,Terminating}
 type VirtualMachineClassPhase string
