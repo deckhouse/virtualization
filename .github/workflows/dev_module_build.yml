@@ -32,6 +32,9 @@ on:
         type: number
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - chore/ci/build-libvirt
   push:
     branches:
       - main
@@ -208,7 +211,8 @@ jobs:
           task virtualization-controller:test:unit
 
   dev_setup_build:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, regular, selectel]
+    # runs-on: ubuntu-latest
     name: Build and Push images
     needs: set_vars
     env:
@@ -230,8 +234,8 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Remove unwanted software
-        uses: ./.github/actions/remove-unwanted-software
+      # - name: Remove unwanted software
+      #   uses: ./.github/actions/remove-unwanted-software
 
       - uses: deckhouse/modules-actions/setup@v1
 
