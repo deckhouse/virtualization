@@ -4,7 +4,7 @@
 {{- $gitRepoName := "qemu" }}
 
 image: {{ $.ImageName }}
-# final: false
+final: false
 fromImage: base-alt-p11
 shell:
   beforeInstall:
