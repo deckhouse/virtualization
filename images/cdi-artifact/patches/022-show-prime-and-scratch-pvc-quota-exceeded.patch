@@ -36,7 +36,7 @@ index acd09cb94..b26d6efb6 100644
  
  func (r *ReconcilerBase) emitConditionEvent(dataVolume *cdiv1.DataVolume, originalCond []cdiv1.DataVolumeCondition) {
 diff --git a/pkg/controller/import-controller.go b/pkg/controller/import-controller.go
-index 49f1ff898..4f7cfd2c6 100644
+index 49f1ff898..8c5664fed 100644
 --- a/pkg/controller/import-controller.go
 +++ b/pkg/controller/import-controller.go
 @@ -34,6 +34,7 @@ import (
@@ -47,7 +47,7 @@ index 49f1ff898..4f7cfd2c6 100644
  	"kubevirt.io/containerized-data-importer/pkg/util"
  	"kubevirt.io/containerized-data-importer/pkg/util/naming"
  	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
-@@ -753,8 +754,16 @@ func (r *ImportReconciler) createScratchPvcForPod(pvc *corev1.PersistentVolumeCl
+@@ -753,12 +754,21 @@ func (r *ImportReconciler) createScratchPvcForPod(pvc *corev1.PersistentVolumeCl
  		// Scratch PVC doesn't exist yet, create it. Determine which storage class to use.
  		_, err = createScratchPersistentVolumeClaim(r.client, pvc, pod, scratchPVCName, storageClassName, r.installerLabels, r.recorder)
  		if err != nil {
@@ -59,13 +59,39 @@ index 49f1ff898..4f7cfd2c6 100644
  			return err
  		}
 +
-+		datavolume_patched.UpdateDVScratchCondition(r.client, pvc, corev1.ConditionTrue, "", "ScratchConditionCreated")
++		datavolume_patched.UpdateDVScratchCondition(r.client, pvc, corev1.ConditionTrue, "", "ScratchPVCCreated")
 +
  		anno[cc.AnnBoundCondition] = "false"
  		anno[cc.AnnBoundConditionMessage] = "Creating scratch space"
  		anno[cc.AnnBoundConditionReason] = creatingScratch
+ 	} else {
++		datavolume_patched.UpdateDVScratchCondition(r.client, pvc, corev1.ConditionTrue, "", "ScratchPVCCreated")
+ 		if scratchPvc.DeletionTimestamp != nil {
+ 			// Delete the pod since we are in a deadlock situation now. The scratch PVC from the previous import is not gone
+ 			// yet but terminating, and the new pod is still being created and the scratch PVC now has a finalizer on it.
+diff --git a/pkg/controller/populators/forklift-populator.go b/pkg/controller/populators/forklift-populator.go
+index 9565ebb93..09d7e9135 100644
+--- a/pkg/controller/populators/forklift-populator.go
++++ b/pkg/controller/populators/forklift-populator.go
+@@ -27,6 +27,7 @@ import (
+ 	featuregates "kubevirt.io/containerized-data-importer/pkg/feature-gates"
+ 	openstackMetric "kubevirt.io/containerized-data-importer/pkg/monitoring/metrics/openstack-populator"
+ 	ovirtMetric "kubevirt.io/containerized-data-importer/pkg/monitoring/metrics/ovirt-populator"
++	datavolume_patched "kubevirt.io/containerized-data-importer/pkg/patchesv"
+ )
+ 
+ const (
+@@ -257,6 +258,8 @@ func (r *ForkliftPopulatorReconciler) reconcileCommon(pvc *corev1.PersistentVolu
+ 			r.recorder.Eventf(pvc, corev1.EventTypeWarning, errCreatingPVCPrime, err.Error())
+ 			return nil, err
+ 		}
++	} else {
++		datavolume_patched.UpdateDVPrimeCondition(r.client, pvc, corev1.ConditionTrue, "", "PrimePVCCreated")
+ 	}
+ 
+ 	return nil, nil
 diff --git a/pkg/controller/populators/populator-base.go b/pkg/controller/populators/populator-base.go
-index 6c6fd8f8a..4043ff5eb 100644
+index 6c6fd8f8a..56037bccd 100644
 --- a/pkg/controller/populators/populator-base.go
 +++ b/pkg/controller/populators/populator-base.go
 @@ -18,7 +18,9 @@ package populators
@@ -111,13 +137,22 @@ index 6c6fd8f8a..4043ff5eb 100644
  	}
  	r.recorder.Eventf(pvc, corev1.EventTypeNormal, createdPVCPrimeSuccessfully, messageCreatedPVCPrimeSuccessfully)
 +
-+	datavolume_patched.UpdateDVPrimeCondition(r.client, pvc, corev1.ConditionTrue, "", "PrimeConditionCreated")
++	datavolume_patched.UpdateDVPrimeCondition(r.client, pvc, corev1.ConditionTrue, "", "PrimePVCCreated")
 +
  	return pvcPrime, nil
  }
  
+@@ -342,6 +358,8 @@ func (r *ReconcilerBase) reconcileCommon(pvc *corev1.PersistentVolumeClaim, popu
+ 			r.recorder.Eventf(pvc, corev1.EventTypeWarning, errCreatingPVCPrime, err.Error())
+ 			return nil, err
+ 		}
++	} else {
++		datavolume_patched.UpdateDVPrimeCondition(r.client, pvc, corev1.ConditionTrue, "", "PrimePVCCreated")
+ 	}
+ 
+ 	return nil, nil
 diff --git a/pkg/controller/upload-controller.go b/pkg/controller/upload-controller.go
-index 4c153257a..9c586ebda 100644
+index 4c153257a..c3b9d38ee 100644
 --- a/pkg/controller/upload-controller.go
 +++ b/pkg/controller/upload-controller.go
 @@ -51,6 +51,7 @@ import (
@@ -139,7 +174,7 @@ index 4c153257a..9c586ebda 100644
 +			datavolume_patched.UpdateDVScratchCondition(r.client, pvc, corev1.ConditionFalse, fmt.Sprintf("Err creating scratch pvc: %q", err.Error()), reason)
  			return nil, err
  		}
-+		datavolume_patched.UpdateDVPrimeCondition(r.client, pvc, corev1.ConditionTrue, "", "PrimeConditionCreated")
++		datavolume_patched.UpdateDVScratchCondition(r.client, pvc, corev1.ConditionTrue, "", "ScratchPVCCreated")
  	} else {
  		if !metav1.IsControlledBy(scratchPvc, pod) {
  			return nil, errors.Errorf("%s scratch PVC not controlled by pod %s", scratchPvc.Name, pod.Name)
