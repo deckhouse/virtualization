@@ -421,6 +421,8 @@ const (
 	DVBoundConditionType     string = "Bound"
 	DVRunningConditionType   string = "Running"
 	DVReadyConditionType     string = "Ready"
+	DVPrimePVCCreatedType    string = "PrimePVCCreated"
+	DVScratchPVCCreatedType  string = "ScratchPVCCreated"
 	DVErrExceededQuotaReason string = "ErrExceededQuota"
 )
 
@@ -444,6 +446,16 @@ func checkIfQuotaExceeded(dv *cdiv1.DataVolume) (bool, string) {
 		return false, ""
 	}
 
+	primeCreatedCondition, ok := getDVCondition(dv, DVPrimePVCCreatedType)
+	if !ok {
+		return false, ""
+	}
+
+	scratchCreatedCondition, ok := getDVCondition(dv, DVScratchPVCCreatedType)
+	if !ok {
+		return false, ""
+	}
+
 	if boundCondition.Reason == DVErrExceededQuotaReason {
 		return true, service.CapitalizeFirstLetter(boundCondition.Message)
 	}
@@ -454,6 +466,14 @@ func checkIfQuotaExceeded(dv *cdiv1.DataVolume) (bool, string) {
 
 	if runningCondition.Reason == DVErrExceededQuotaReason {
 		return true, service.CapitalizeFirstLetter(runningCondition.Message)
+	}
+
+	if primeCreatedCondition.Reason == DVErrExceededQuotaReason {
+		return true, service.CapitalizeFirstLetter(primeCreatedCondition.Message)
+	}
+
+	if scratchCreatedCondition.Reason == DVErrExceededQuotaReason {
+		return true, service.CapitalizeFirstLetter(scratchCreatedCondition.Message)
 	}
 
 	return false, ""
