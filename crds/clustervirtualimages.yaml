@@ -52,11 +52,11 @@ spec:
       schema:
         openAPIV3Schema:
           description: |-
-            Describes a virtual disk image that can be used as a data source for new `VirtualDisks` or an installation image (iso) to be mounted in `Virtuals` directly. This resource type is available for all namespaces in the cluster.
+            Describes a virtual disk image that can be used as a data source for new `VirtualDisks` or an installation image (iso) to be mounted in `VirtualMachines` directly. This resource type is available for all namespaces in the cluster.
 
             > This resource cannot be modified once it has been created.
 
-            A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registry (DVCR).
+            A container image is created under the hood of this resource and stored in a dedicated Deckhouse Virtualization Container Registry (DVCR).
           properties:
             apiVersion:
               description: |-
@@ -70,7 +70,7 @@ spec:
                 Kind is a string value representing the REST resource this object represents.
                 Servers may infer this from the endpoint the client submits requests to.
                 Cannot be updated.
-                In CamelCase.
+                Must be written in CamelCase.
                 More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
               type: string
             metadata:
@@ -78,23 +78,22 @@ spec:
             spec:
               properties:
                 dataSource:
-                  description: An origin of the image.
+                  description: Type of a source the image is created from.
                   properties:
                     containerImage:
                       description:
-                        Use an image stored in external container registry.
-                        Only TLS enabled registries are supported. Use caBundle field
-                        to provide custom CA chain if needed.
+                        Using an image stored in an external container registry.
+                        Only registries with enabled TLS protocol are supported.
+                        To provide a custom Certificate Authority (CA) chain, use the `caBundle` field.
                       properties:
                         caBundle:
                           description:
-                            The CA chain in base64 format to verify the container
-                            registry.
+                            CA chain in Base64 format to verify connection to the container registry.
                           example: YWFhCg==
                           format: byte
                           type: string
                         image:
-                          description: The container registry address of an image.
+                          description: Path to the image in the container registry.
                           example: registry.example.com/images/slackware:15
                           pattern: ^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$
                           type: string
@@ -102,11 +101,10 @@ spec:
                           properties:
                             name:
                               description:
-                                A name of the secret containing registry
-                                credentials.
+                                Name of the secret keeping container registry credentials.
                               type: string
                             namespace:
-                              description: A namespace where imagePullSecret is located.
+                              description: Namespace where `imagePullSecret` is located.
                               type: string
                           type: object
                       required:
@@ -114,23 +112,22 @@ spec:
                       type: object
                     http:
                       description: |-
-                        Fill the image with data from some external url. Supported schemas are:
+                        Creating an image from a file located at a specified URL. The following schemas are supported:
 
-                        * http
-                        * https
+                        * HTTP
+                        * HTTPS
 
-                        For https schema there is an option to skip TLS verification.
+                        For HTTPS schema, there is an option to skip the TLS verification.
                       properties:
                         caBundle:
-                          description: The CA chain in base64 format to verify the url.
+                          description: CA chain in Base64 format to verify the TLS certificate of a server where the file is stored.
                           example: YWFhCg==
                           format: byte
                           type: string
                         checksum:
                           description:
-                            A checksum of the file, provided by the url,
-                            to verify if it was downloaded correctly or wasn't changed.
-                            The file should match all specified checksums.
+                            Checksum to verify integrity and consistency of the downloaded file.
+                            The file must match all specified checksums.
                           properties:
                             md5:
                               example: f3b59bed9f91e32fac1210184fcff6f5
@@ -147,13 +144,14 @@ spec:
                           type: object
                         url:
                           description: |-
-                            The http url with an image. The following formats are supported:
+                            URL of the file for creating an image. The following file formats are supported:
                             * qcow2
                             * vmdk
                             * vdi
                             * iso
                             * raw
-                            these formats can also be compressed with the following formats:
+
+                            The file can be compressed into an archive in one of the following formats:
                             * gz
                             * xz
                           example: https://mirror.example.com/images/slackware-15.qcow.gz
@@ -164,13 +162,13 @@ spec:
                       type: object
                     objectRef:
                       description:
-                        Use an existing `VirtualImage`, `ClusterVirtualImage`
-                        or `VirtualDisk` to create an image.
+                        Using an existing VirtualImage, ClusterVirtualImage,
+                        or VirtualDisk resource to create an image.
                       properties:
                         kind:
                           description:
-                            A kind of existing `VirtualImage`, `ClusterVirtualImage`
-                            or `VirtualDisk`.
+                            Link to an existing VirtualImage, ClusterVirtualImage,
+                            or VirtualDisk resource.
                           enum:
                             - ClusterVirtualImage
                             - VirtualImage
@@ -178,12 +176,12 @@ spec:
                           type: string
                         name:
                           description:
-                            A name of existing `VirtualImage`, `ClusterVirtualImage`
-                            or `VirtualDisk`.
+                            Name of an existing VirtualImage, ClusterVirtualImage,
+                            or VirtualDisk resource.
                           type: string
                         namespace:
                           description:
-                            A namespace where `VirtualImage` or `VirtualDisk`
+                            Namespace where a VirtualImage or VirtualDisk resource
                             is located.
                           type: string
                       required:
@@ -191,7 +189,7 @@ spec:
                         - name
                       type: object
                       x-kubernetes-validations:
-                        - message: The namespace is required for VirtualDisk and VirtualImage
+                        - message: The namespace is required for VirtualDisk and VirtualImage.
                           rule:
                             "self.kind == 'VirtualImage' || self.kind == 'VirtualDisk'
                             ? has(self.__namespace__) && size(self.__namespace__) > 0
@@ -203,12 +201,12 @@ spec:
                             : true"
                     type:
                       description: |-
-                        The type of an origin of the image. Options are:
+                        The following image sources are available for creating an image:
 
-                        * `HTTP` — create an image from a file published on http/https service at a given url
-                        * `ContainerImage` — create the image from image stored in container registry.
-                        * `ObjectRef` — fill the disk from another existing resource.
-                        * `Upload` — fill the image with data, uploaded by user via the special interface.
+                        * `HTTP`: From a file published on an HTTP/HTTPS server.
+                        * `ContainerImage`: From another image stored in a container registry.
+                        * `ObjectRef`: From an existing resource.
+                        * `Upload`: Uploading the image manually.
                       enum:
                         - HTTP
                         - ContainerImage
@@ -219,17 +217,17 @@ spec:
                     - type
                   type: object
                   x-kubernetes-validations:
-                    - message: HTTP requires http and cannot have ContainerImage or ObjectRef
+                    - message: HTTP requires http and cannot have ContainerImage or ObjectRef.
                       rule:
                         "self.type == 'HTTP' ? has(self.http) && !has(self.containerImage)
                         && !has(self.objectRef) : true"
                     - message:
                         ContainerImage requires containerImage and cannot have
-                        HTTP or ObjectRef
+                        HTTP or ObjectRef.
                       rule:
                         "self.type == 'ContainerImage' ? has(self.containerImage)
                         && !has(self.http) && !has(self.objectRef) : true"
-                    - message: ObjectRef requires objectRef and cannot have HTTP or ContainerImage
+                    - message: ObjectRef requires objectRef and cannot have HTTP or ContainerImage.
                       rule:
                         "self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http)
                         && !has(self.containerImage) : true"
@@ -240,58 +238,51 @@ spec:
               properties:
                 cdrom:
                   description:
-                    Whether the image is a format that is supposed to be
-                    mounted as a cdrom, such as iso and so on.
+                    Defines whether the image is in a format that needs to be
+                    mounted as a CD-ROM drive, such as iso and so on.
                   type: boolean
                 conditions:
                   description:
-                    The latest available observations of an object's current
-                    state.
+                    Last confirmed status of the resource.
                   items:
                     description:
-                      Condition contains details for one aspect of the current
-                      state of this API Resource.
+                      Details of a single aspect of the current
+                      status for this API resource.
                     properties:
                       lastTransitionTime:
                         description: |-
-                          lastTransitionTime is the last time the condition transitioned from one status to another.
-                          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          Last time the condition transitioned from one status to another.
                         format: date-time
                         type: string
                       message:
                         description: |-
-                          message is a human readable message indicating details about the transition.
-                          This may be an empty string.
+                          Human-readable message with details about the last transition.
                         maxLength: 32768
                         type: string
                       observedGeneration:
                         description: |-
-                          observedGeneration represents the .metadata.generation that the condition was set based upon.
-                          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                          with respect to the current state of the instance.
+                          `.metadata.generation` the condition was based upon.
+                          For instance, if `.metadata.generation` is currently `12` but `.status.conditions[x].observedGeneration` is `9`, the condition is considered outdated.
                         format: int64
                         minimum: 0
                         type: integer
                       reason:
                         description: |-
-                          reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                          Producers of specific condition types may define expected values and meanings for this field,
-                          and whether the values are considered a guaranteed API.
-                          The value should be a CamelCase string.
-                          This field may not be empty.
+                          Brief reason for the condition's last transition.
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                         type: string
                       status:
-                        description: status of the condition, one of True, False, Unknown.
+                        description: |-
+                          Condition status. Possible values: `True`, `False`, or `Unknown`.
                         enum:
                           - "True"
                           - "False"
                           - Unknown
                         type: string
                       type:
-                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        description: Condition type.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -342,18 +333,18 @@ spec:
                       type: string
                   type: object
                 observedGeneration:
-                  description: The generation last processed by the controller.
+                  description: Resource generation last processed by the controller.
                   format: int64
                   type: integer
                 phase:
                   description: |-
-                    Current status of `ClusterVirtualImage` resource:
-                    * Pending - The resource has been created and is on a waiting queue.
-                    * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
-                    * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
-                    * Ready - The resource is created and ready to use.
-                    * Failed - There was a problem when creating a resource.
-                    * Terminating - The process of resource deletion is in progress.
+                    Current status of the ClusterVirtualImage resource:
+                    * `Pending`: The resource has been created and is on a waiting queue.
+                    * `Provisioning`: The resource is being created: copying, downloading, or building of the image is in progress.
+                    * `WaitForUserUpload`: Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
+                    * `Ready`: The resource has been created and is ready to use.
+                    * `Failed`: There was an error when creating the resource.
+                    * `Terminating`: The resource is being deleted.
                   enum:
                     - Pending
                     - Provisioning
@@ -364,18 +355,18 @@ spec:
                   type: string
                 progress:
                   description:
-                    Progress of copying an image from source to DVCR. Appears
+                    Progress of copying the image from the source to DVCR. Appears
                     only during the `Provisioning' phase.
                   type: string
                 size:
-                  description: Discovered sizes of the image.
+                  description: Discovered image size data.
                   properties:
                     stored:
-                      description: Image size in human-readable format.
+                      description: Image size in DVCR or PersistentVolumeClaim (PVC) in human-readable format.
                       example: 199M
                       type: string
                     storedBytes:
-                      description: Image size in bytes.
+                      description: Image size in DVCR or PVC in bytes.
                       example: 199001234
                       type: string
                     unpacked:
@@ -389,8 +380,8 @@ spec:
                   type: object
                 sourceUID:
                   description:
-                    The UID of the source (`VirtualImage`, `ClusterVirtualImage`
-                    or `VirtualDisk`) used when creating the cluster virtual image.
+                    UID of the source (VirtualImage, ClusterVirtualImage,
+                    or VirtualDisk) used when creating the cluster virtual image.
                   type: string
                 target:
                   properties:
@@ -400,7 +391,7 @@ spec:
                       type: string
                   type: object
                 uploadCommand:
-                  description: Deprecated. Use imageUploadURLs instead.
+                  description: Deprecated. Use `imageUploadURLs` instead.
                   type: string
               type: object
           required:

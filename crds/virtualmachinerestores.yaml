@@ -35,8 +35,7 @@ spec:
       schema:
         openAPIV3Schema:
           description:
-            VirtualMachineRestore provides a resource that allows to restore
-            a snapshot of the virtual machine and all its resources.
+            Provides a resource for restoring virtual machines from snapshots.
           properties:
             apiVersion:
               description: |-
@@ -50,7 +49,7 @@ spec:
                 Kind is a string value representing the REST resource this object represents.
                 Servers may infer this from the endpoint the client submits requests to.
                 Cannot be updated.
-                In CamelCase.
+                Must be written in CamelCase.
                 More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
               type: string
             metadata:
@@ -58,26 +57,25 @@ spec:
             spec:
               properties:
                 nameReplacements:
-                  description: Redefining the virtual machine resource names.
+                  description: Renaming conventions for virtual machine resources.
                   items:
                     description:
-                      NameReplacement represents rule to redefine the virtual
-                      machine resource names.
+                      Represents a rule for redefining the virtual machine resource names.
                     properties:
                       from:
-                        description: The selector to choose resources for name replacement.
+                        description: Selector to choose resources for renaming.
                         properties:
                           kind:
-                            description: The kind of resource to rename.
+                            description: Kind of a resource to rename.
                             type: string
                           name:
-                            description: The current name of resource to rename.
+                            description: Name of a resource to rename.
                             type: string
                         required:
                           - name
                         type: object
                       to:
-                        description: The new resource name.
+                        description: New resource name.
                         type: string
                     required:
                       - from
@@ -86,8 +84,7 @@ spec:
                   type: array
                 virtualMachineSnapshotName:
                   description:
-                    The name of virtual machine snapshot to restore the virtual
-                    machine.
+                    Snapshot name to restore a virtual machine.
                   minLength: 1
                   type: string
               required:
@@ -96,52 +93,46 @@ spec:
             status:
               properties:
                 conditions:
-                  description: Contains details of the current state of this API Resource.
+                  description: Last confirmed status of the resource.
                   items:
                     description:
-                      Condition contains details for one aspect of the current
-                      state of this API Resource.
+                      Details of a single aspect of the current
+                      state for this API resource.
                     properties:
                       lastTransitionTime:
                         description: |-
-                          lastTransitionTime is the last time the condition transitioned from one status to another.
-                          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          Last time the condition transitioned from one status to another.
                         format: date-time
                         type: string
                       message:
                         description: |-
-                          message is a human readable message indicating details about the transition.
-                          This may be an empty string.
+                          Human-readable message with details about the last transition.
                         maxLength: 32768
                         type: string
                       observedGeneration:
                         description: |-
-                          observedGeneration represents the .metadata.generation that the condition was set based upon.
-                          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                          with respect to the current state of the instance.
+                          `.metadata.generation` the condition was based upon.
+                          For instance, if `.metadata.generation` is currently `12` but `.status.conditions[x].observedGeneration` is `9`, the condition is considered outdated.
                         format: int64
                         minimum: 0
                         type: integer
                       reason:
                         description: |-
-                          reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                          Producers of specific condition types may define expected values and meanings for this field,
-                          and whether the values are considered a guaranteed API.
-                          The value should be a CamelCase string.
-                          This field may not be empty.
+                          Brief reason for the condition's last transition.
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                         type: string
                       status:
-                        description: status of the condition, one of True, False, Unknown.
+                        description: |-
+                          Condition status. Possible values: `True`, `False`, or `Unknown`.
                         enum:
                           - "True"
                           - "False"
                           - Unknown
                         type: string
                       type:
-                        description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                        description: Condition type.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -154,17 +145,18 @@ spec:
                     type: object
                   type: array
                 observedGeneration:
-                  description: The generation last processed by the controller.
+                  description: Resource generation last processed by the controller.
                   format: int64
                   type: integer
                 phase:
                   description: |-
-                    VirtualMachineRestorePhase defines current status of resource:
-                    * Pending - the resource has been created and is on a waiting queue.
-                    * InProgress - the process of creating the virtual machine from the snapshot is currently underway.
-                    * Ready - the virtual machine creation from the snapshot has successfully completed.
-                    * Failed - an error occurred during the virtual machine creation process.
-                    * Terminating - the resource is in the process of being deleted.
+                    Current status of the VirtualMachineRestore resource:
+
+                    * `Pending`: The resource has been created and is on a waiting queue.
+                    * `InProgress`: A virtual machine is being restored from a snapshot.
+                    * `Ready`: A virtual machine has been successfully restored from a snapshot.
+                    * `Failed`: An error occurred when restoring a virtual machine from a snapshot.
+                    * `Terminating`: The resource is being deleted.
                   enum:
                     - Pending
                     - InProgress
