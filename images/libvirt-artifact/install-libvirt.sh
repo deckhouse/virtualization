@@ -538,6 +538,14 @@ po/ro/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ro/LC_MESSAGES
 /home/builder/libvirt-10.10.0/build/libvirt-qemu.pc to /usr/lib64/pkgconfig
 /home/builder/libvirt-10.10.0/build/libvirt-lxc.pc to /usr/lib64/pkgconfig
 /home/builder/libvirt-10.10.0/build/libvirt-admin.pc to /usr/lib64/pkgconfig
+symlink pointing to /usr/local/lib64/libvirt.so.0.10010.0 to /usr/lib64/libvirt.so.0
+symlink pointing to /usr/local/lib64/libvirt.so.0 to /usr/lib64/libvirt.so
+symlink pointing to /usr/local/lib64/libvirt-qemu.so.0.10010.0 to /usr/lib64/libvirt-qemu.so.0
+symlink pointing to /usr/local/lib64/libvirt-qemu.so.0 to /usr/lib64/libvirt-qemu.so
+symlink pointing to /usr/local/lib64/libvirt-lxc.so.0.10010.0 to /usr/lib64/libvirt-lxc.so.0
+symlink pointing to /usr/local/lib64/libvirt-lxc.so.0 to /usr/lib64/libvirt-lxc.so
+symlink pointing to /usr/local/lib64/libvirt-admin.so.0.10010.0 to /usr/lib64/libvirt-admin.so.0
+symlink pointing to /usr/local/lib64/libvirt-admin.so.0 to /usr/lib64/libvirt-admin.so
 EOF
 )
 
