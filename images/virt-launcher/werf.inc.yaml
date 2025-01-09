@@ -13,37 +13,39 @@ import:
 
 # Add bins from libvirt and qemu artifacts.
 
-- image: libvirt-artifact
-  add: /BINS
-  to: /
-  before: install
-# Qemu to folders
-- image: qemu-artifact
-  add: /BINS/bin
-  to: /usr/bin
-  before: install
-- image: qemu-artifact
-  add: /BINS/share
-  to: /usr/share
-  before: install
-- image: qemu-artifact
-  add: /BINS/libexec
-  to: /usr/lib/libexec
-  before: install
-- image: qemu-artifact
-  add: /BINS/include
-  to: /usr/local/include
-  before: install
-- image: qemu-artifact
-  add: /BINS/var
-  to: /var
-  before: install
-
 {{/*
-# - image: tmp-merged
+# - image: libvirt-artifact
 #   add: /BINS
-#   to: /BINS
+#   to: /
 #   before: install
+
+# # Qemu to folders
+# - image: qemu-artifact
+#   add: /BINS/bin
+#   to: /usr/bin
+#   before: install
+# - image: qemu-artifact
+#   add: /BINS/share
+#   to: /usr/share
+#   before: install
+# - image: qemu-artifact
+#   add: /BINS/libexec
+#   to: /usr/lib/libexec
+#   before: install
+# - image: qemu-artifact
+#   add: /BINS/include
+#   to: /usr/local/include
+#   before: install
+# - image: qemu-artifact
+#   add: /BINS/var
+#   to: /var
+#   before: install
+*/}}
+
+- image: tmp-merged
+  add: /VBINS
+  to: /BINS
+  before: install
 
 # - image: libvirt-artifact
 #   add: /BINS
@@ -53,7 +55,6 @@ import:
 #   add: /BINS
 #   to: /
 #   before: install
-*/}}
 
 # After install stage.
 #  Add libxcrypto library.
@@ -210,9 +211,10 @@ shell:
     rm -f OVMF_VARS_4M.secboot.qcow2
     ls -la
   - |
-    # cd /
-    # cp -a /BINS/. /
-    # rm -rf /BINS
+    echo "--copy bins--"
+    cp -a -u -v /BINS/usr/* /usr
+    cp -a -u -v /BINS/etc/* /etc
+    rm -rf /BINS/
   # Create symlinc for libvirt
   - |
     SYMLINC_LIST=$(cat <<'EOF'
@@ -238,7 +240,7 @@ shell:
     echo "List files /usr/local/lib64/"
     ls -lah /usr/local/lib64/
     echo "------qemu-------------"
-    ls -lah /usr/bin
+    ls -lah /usr/bin/
   setup:
   # Replace virt-launcher-monitor with the wrapper.
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
@@ -257,38 +259,46 @@ shell:
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-launcher/BUILD.bazel
 #docker:
 #  ENTRYPOINT: ["/usr/bin/virt-launcher"]
+---
+image: tmp-merged
+final: false
+fromImage: base-alt-p11
+import:
+- image: libvirt-artifact
+  add: /BINS
+  to: /libvirt-bins
+  before: install
+- image: qemu-artifact
+  add: /BINS
+  to: /qemu-bins
+  before: install
+shell:
+  install:
+  - |
+    apt-get update && apt-get install -y \
+    tree
+    mkdir -p /VBINS
+
+    # echo "/libvirt-bins"
+    # tree /libvirt-bins
+
+    # echo "/qemu-bins"
+    # tree /qemu-bins
+
+    echo "=====copy bins to folders======"
+    cp -a /libvirt-bins/. /VBINS/
+
+    cp -a /qemu-bins/bin/. /VBINS/usr/bin/
+    cp -a /qemu-bins/share/. /VBINS/usr/share/
+    cp -a /qemu-bins/libexec/. /VBINS/usr/lib/libexec/
+    cp -a /qemu-bins/include/. /VBINS/usr/local/include/
+    rm -rf /VBINS/var/run
+    # cp -a /qemu-bins/var/. /VBINS/var/
+
+    ls -lah /VBINS
+    tree -L 2 /VBINS
+
 {{/*
-# ---
-# image: tmp-merged
-# final: false
-# fromImage: base-alt-p11
-# import:
-# - image: libvirt-artifact
-#   add: /BINS
-#   to: /libvirt-bins
-#   before: install
-# - image: qemu-artifact
-#   add: /BINS
-#   to: /qemu-bins
-#   before: install
-# shell:
-#   install:
-#   - |
-#     apt-get update && apt-get install -y \
-#     tree
-
-#     echo "/libvirt-bins"
-#     tree /libvirt-bins
-
-#     echo "/qemu-bins"
-#     tree /qemu-bins
-
-#     echo "==========="
-#     cp -a /libvirt-bins/. /BINS
-#     cp -a /qemu-bins/. /BINS/
-
-#     ls -lah /BINS
-#     tree /BINS
 */}}
 ---
 image: {{ $.ImageName }}-lib-builder
