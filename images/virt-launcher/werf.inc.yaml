@@ -12,12 +12,39 @@ import:
   - edk2-ovmf-20240811-alt2.noarch.rpm
 
 # Add bins from libvirt and qemu artifacts.
-- image: tmp-merged
+
+- image: libvirt-artifact
   add: /BINS
   to: /
   before: install
+# Qemu to folders
+- image: qemu-artifact
+  add: /BINS/bin
+  to: /usr/bin
+  before: install
+- image: qemu-artifact
+  add: /BINS/share
+  to: /usr/share
+  before: install
+- image: qemu-artifact
+  add: /BINS/libexec
+  to: /usr/lib/libexec
+  before: install
+- image: qemu-artifact
+  add: /BINS/include
+  to: /usr/local/include
+  before: install
+- image: qemu-artifact
+  add: /BINS/var
+  to: /var
+  before: install
 
 {{/*
+# - image: tmp-merged
+#   add: /BINS
+#   to: /BINS
+#   before: install
+
 # - image: libvirt-artifact
 #   add: /BINS
 #   to: /
@@ -137,7 +164,14 @@ shell:
     libjson-c5 libtirpc libbsd libiscsi libglusterfs11 libnuma \
     libcap-ng libcurl libaudit libfuse libnbd libblkid libgcrypt20 \
     libgnutls libp11-kit libreadline8 libtasn1 libattr libbsd libsystemd \
-    libuuid libssh libssh2
+    libuuid libssh libssh2 \
+    libcapstone libpixman libpng16 libjpeg libepoxy libusb \
+    libsnappy liblzo2 libSDL2 libpmem libdaxctl libfdt libqpl1 \
+    libslirp libvdeplug3 libxdp libbpf libdw libgbm libgtk+3 \
+    libcairo libgdk-pixbuf libvte3 libX11 libSDL2_image \
+    libspice-server libvirglrenderer libcacard libusbredir libalsa \
+    libpulseaudio pipewire-jack-libs pipewire-libs libaio liburing \
+    libblkio libglusterfs11-api libnfs librbd1 librados2
 
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
@@ -175,7 +209,11 @@ shell:
     mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
     rm -f OVMF_VARS_4M.secboot.qcow2
     ls -la
-  # Create symlinc
+  - |
+    # cd /
+    # cp -a /BINS/. /
+    # rm -rf /BINS
+  # Create symlinc for libvirt
   - |
     SYMLINC_LIST=$(cat <<'EOF'
     /usr/local/lib64/libvirt.so.0.10010.0 /lib64/libvirt.so.0
@@ -196,9 +234,11 @@ shell:
     done <<< "$SYMLINC_LIST"
     cd /
   - |
-    echo "----------------"
+    echo "------libvirt----------"
     echo "List files /usr/local/lib64/"
     ls -lah /usr/local/lib64/
+    echo "------qemu-------------"
+    ls -lah /usr/bin
   setup:
   # Replace virt-launcher-monitor with the wrapper.
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
@@ -217,37 +257,39 @@ shell:
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-launcher/BUILD.bazel
 #docker:
 #  ENTRYPOINT: ["/usr/bin/virt-launcher"]
----
-image: tmp-merged
-final: false
-fromImage: base-alt-p11
-import:
-- image: libvirt-artifact
-  add: /BINS
-  to: /libvirt-bins
-  before: install
-- image: qemu-artifact
-  add: /BINS
-  to: /qemu-bins
-  before: install
-shell:
-  install:
-  - |
-    apt-get update && apt-get install -y \
-    tree
+{{/*
+# ---
+# image: tmp-merged
+# final: false
+# fromImage: base-alt-p11
+# import:
+# - image: libvirt-artifact
+#   add: /BINS
+#   to: /libvirt-bins
+#   before: install
+# - image: qemu-artifact
+#   add: /BINS
+#   to: /qemu-bins
+#   before: install
+# shell:
+#   install:
+#   - |
+#     apt-get update && apt-get install -y \
+#     tree
 
-    echo "/libvirt-bins"
-    tree /libvirt-bins
+#     echo "/libvirt-bins"
+#     tree /libvirt-bins
 
-    echo "/qemu-bins"
-    tree /qemu-bins
+#     echo "/qemu-bins"
+#     tree /qemu-bins
 
-    echo "==========="
-    cp -rf /libvirt-bins /BINS
-    cp -rf /qemu-bins /BINS
+#     echo "==========="
+#     cp -a /libvirt-bins/. /BINS
+#     cp -a /qemu-bins/. /BINS/
 
-    ls -lah /BINS
-    tree /BINS
+#     ls -lah /BINS
+#     tree /BINS
+*/}}
 ---
 image: {{ $.ImageName }}-lib-builder
 final: false
