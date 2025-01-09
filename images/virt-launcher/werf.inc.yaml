@@ -133,12 +133,21 @@ shell:
     seavgabios \
     libffi8 \
     swtpm-tools \
-    libcrypt libcrypto3
+    libcrypt libcrypto3 \
+    libjson-c5 libtirpc libbsd libiscsi libglusterfs11 libnuma \
+    libcap-ng libcurl libaudit libfuse libnbd libblkid libgcrypt20 \
+    libgnutls libp11-kit libreadline8 libtasn1 libattr libbsd libsystemd \
+    libuuid libssh libssh2
+
+  - apt-get clean
+  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
+
     # libvirt-client==10.7.0-alt1 \
     # libvirt-daemon-driver-qemu==10.7.0-alt1 \
     # qemu-kvm-core==9.1.2-alt2
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  # - apt-get clean
+  # - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
   # Upgrade edk2-ovmf package to custom build and remove its package.
   - |

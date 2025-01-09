@@ -96,7 +96,7 @@ shell:
     zlib-devel \
     mdevctl \
     util-linux dmsetup pm-utils \
-    libfuse3-devel libnuma libslirp-devel libtirpc-devel \
+    libfuse3-devel libnuma libslirp-devel \
     libyajl-devel libselinux-devel
 
     apt-get clean
