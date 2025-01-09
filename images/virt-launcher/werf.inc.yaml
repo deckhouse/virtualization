@@ -166,6 +166,30 @@ shell:
     mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
     rm -f OVMF_VARS_4M.secboot.qcow2
     ls -la
+  # Create symlinc
+  - |
+    SYMLINC_LIST=$(cat <<'EOF'
+    /usr/local/lib64/libvirt.so.0.10010.0 /lib64/libvirt.so.0
+    /usr/local/lib64/libvirt.so.0 /lib64/libvirt.so
+    /usr/local/lib64/libvirt-qemu.so.0.10010.0 /lib64/libvirt-qemu.so.0
+    /usr/local/lib64/libvirt-qemu.so.0 /lib64/libvirt-qemu.so
+    /usr/local/lib64/libvirt-lxc.so.0.10010.0 /lib64/libvirt-lxc.so.0
+    /usr/local/lib64/libvirt-lxc.so.0 /lib64/libvirt-lxc.so
+    /usr/local/lib64/libvirt-admin.so.0.10010.0 /lib64/libvirt-admin.so.0
+    /usr/local/lib64/libvirt-admin.so.0 /lib64/libvirt-admin.so
+    EOF
+    )
+    while IFS= read -r LINE; do
+      echo "Create symlinc for $LINE"
+      TARGET=$(echo $LINE | awk -F' to ' '{print $1}')
+      SYMLINK=$(echo $LINE | awk -F' to ' '{print $2}')
+      ln -s $TARGET $SYMLINK
+    done <<< "$SYMLINC_LIST"
+    cd /
+  - |
+    echo "----------------"
+    echo "List files /usr/local/lib64/"
+    ls -lah /usr/local/lib64/
   setup:
   # Replace virt-launcher-monitor with the wrapper.
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig

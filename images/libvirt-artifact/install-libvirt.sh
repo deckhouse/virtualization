@@ -582,29 +582,29 @@ copy_file() {
 }
 
 # Function to create symlink
-create_symlink() {
-    local target="$1"
-    local link_name="$2"
+# create_symlink() {
+#     local target="$1"
+#     local link_name="$2"
 
-    # Compute the full target path
-    if [[ "$target" == /* ]]; then
-        TARGET_PATH="$target"
-    else
-        TARGET_PATH="$BUILD_BASE/$target"
-    fi
+#     # Compute the full target path
+#     if [[ "$target" == /* ]]; then
+#         TARGET_PATH="$target"
+#     else
+#         TARGET_PATH="$BUILD_BASE/$target"
+#     fi
 
-    # Ensure the target exists
-    if [ ! -e "$TARGET_PATH" ]; then
-        echo "Error: Target file for symlink not found: $TARGET_PATH"
-        return
-    fi
+#     # Ensure the target exists
+#     if [ ! -e "$TARGET_PATH" ]; then
+#         echo "Error: Target file for symlink not found: $TARGET_PATH"
+#         return
+#     fi
 
-    LINK_DIR=$(dirname "$DEST_BASE$link_name")
-    mkdir -p "$LINK_DIR"
+#     LINK_DIR=$(dirname "$DEST_BASE$link_name")
+#     mkdir -p "$LINK_DIR"
 
-    ln -sf "$TARGET_PATH" "$DEST_BASE$link_name"
-    echo "Created symlink: $DEST_BASE$link_name -> $TARGET_PATH"
-}
+#     ln -sf "$TARGET_PATH" "$DEST_BASE$link_name"
+#     echo "Created symlink: $DEST_BASE$link_name -> $TARGET_PATH"
+# }
 
 # Read the list and process each line
 while IFS= read -r LINE; do
@@ -612,24 +612,33 @@ while IFS= read -r LINE; do
     [[ -z "$LINE" ]] && continue
     [[ "$LINE" =~ ^\# ]] && continue
 
-    if [[ "$LINE" == symlink\ pointing\ to* ]]; then
-        # Handle symlink creation
-        REST=${LINE#symlink pointing to }
-        if [[ "$REST" =~ ^(.+?)\ to\ (.+)$ ]]; then
-            TARGET="${BASH_REMATCH[1]}"
-            LINK_NAME="${BASH_REMATCH[2]}"
-            create_symlink "$TARGET" "$LINK_NAME"
-        else
-            echo "Invalid symlink line: $LINE"
-        fi
+    # Handle file copying
+    if [[ "$LINE" =~ ^(.+?)\ to\ (.+)$ ]]; then
+        SOURCE_FILE="${BASH_REMATCH[1]}"
+        DEST_DIR="${BASH_REMATCH[2]}"
+        copy_file "$SOURCE_FILE" "$DEST_DIR"
     else
-        # Handle file copying
-        if [[ "$LINE" =~ ^(.+?)\ to\ (.+)$ ]]; then
-            SOURCE_FILE="${BASH_REMATCH[1]}"
-            DEST_DIR="${BASH_REMATCH[2]}"
-            copy_file "$SOURCE_FILE" "$DEST_DIR"
-        else
-            echo "Invalid line: $LINE"
-        fi
+        echo "Invalid line: $LINE"
     fi
+
+    # if [[ "$LINE" == symlink\ pointing\ to* ]]; then
+    #     # Handle symlink creation
+    #     REST=${LINE#symlink pointing to }
+    #     if [[ "$REST" =~ ^(.+?)\ to\ (.+)$ ]]; then
+    #         TARGET="${BASH_REMATCH[1]}"
+    #         LINK_NAME="${BASH_REMATCH[2]}"
+    #         create_symlink "$TARGET" "$LINK_NAME"
+    #     else
+    #         echo "Invalid symlink line: $LINE"
+    #     fi
+    # else
+    #     # Handle file copying
+    #     if [[ "$LINE" =~ ^(.+?)\ to\ (.+)$ ]]; then
+    #         SOURCE_FILE="${BASH_REMATCH[1]}"
+    #         DEST_DIR="${BASH_REMATCH[2]}"
+    #         copy_file "$SOURCE_FILE" "$DEST_DIR"
+    #     else
+    #         echo "Invalid line: $LINE"
+    #     fi
+    # fi
 done <<< "$FILE_LIST"
