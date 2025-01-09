@@ -149,7 +149,7 @@ spec:
             - __name__
           targetLabel: __name__
         - action: replace
-          regex: kubevirt_vmi_memory_domain_bytes_total
+          regex: kubevirt_vmi_memory_domain_bytes
           replacement: d8_virtualization_virtualmachine_memory_size_bytes
           sourceLabels:
             - __name__
@@ -182,8 +182,8 @@ spec:
           targetLabel: __name__
         # other vm metrics -------------------------------------------------------------------------
         - action: replace
-          regex: kubevirt_vmi_outdated_(.*)
-          replacement: d8_internal_virtualization_kubevirt_vmi_outdated_${1}
+          regex: kubevirt_vmi_(number_of_outdated|info|node_cpu_affinity|last_api_connection_timestamp_seconds)
+          replacement: d8_internal_virtualization_kubevirt_${1}
           sourceLabels:
             - __name__
           targetLabel: __name__
