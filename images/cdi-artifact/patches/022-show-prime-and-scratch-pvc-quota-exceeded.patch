@@ -1,5 +1,5 @@
 diff --git a/pkg/controller/datavolume/controller-base.go b/pkg/controller/datavolume/controller-base.go
-index acd09cb94..b26d6efb6 100644
+index acd09cb94..0751de9c3 100644
 --- a/pkg/controller/datavolume/controller-base.go
 +++ b/pkg/controller/datavolume/controller-base.go
 @@ -55,6 +55,7 @@ import (
@@ -10,7 +10,7 @@ index acd09cb94..b26d6efb6 100644
  	"kubevirt.io/containerized-data-importer/pkg/token"
  	"kubevirt.io/containerized-data-importer/pkg/util"
  )
-@@ -1035,6 +1036,24 @@ func (r *ReconcilerBase) updateConditions(dataVolume *cdiv1.DataVolume, pvc *cor
+@@ -1035,6 +1036,31 @@ func (r *ReconcilerBase) updateConditions(dataVolume *cdiv1.DataVolume, pvc *cor
  	dataVolume.Status.Conditions = updateBoundCondition(dataVolume.Status.Conditions, pvc, message, reason)
  	dataVolume.Status.Conditions = UpdateReadyCondition(dataVolume.Status.Conditions, readyStatus, message, reason)
  	dataVolume.Status.Conditions = updateRunningCondition(dataVolume.Status.Conditions, anno)
@@ -31,6 +31,13 @@ index acd09cb94..b26d6efb6 100644
 +			Reason:  "NotCreated",
 +			Message: "",
 +		})
++	}
++
++	runningCondition := FindConditionByType(cdiv1.DataVolumeRunning, dataVolume.Status.Conditions)
++
++	if runningCondition != nil && runningCondition.Status == corev1.ConditionTrue {
++		datavolume_patched.UpdateCondition(dataVolume.Status.Conditions, datavolume_patched.DataVolumePrimeConditionCreated, corev1.ConditionTrue, "", "PrimePVCCreated")
++		datavolume_patched.UpdateCondition(dataVolume.Status.Conditions, datavolume_patched.DataVolumeScratchConditionCreated, corev1.ConditionTrue, "", "ScratchPVCCreated")
 +	}
  }
  
@@ -180,7 +187,7 @@ index 4c153257a..c3b9d38ee 100644
  			return nil, errors.Errorf("%s scratch PVC not controlled by pod %s", scratchPvc.Name, pod.Name)
 diff --git a/pkg/patchesv/patched_condition_type.go b/pkg/patchesv/patched_condition_type.go
 new file mode 100644
-index 000000000..ec614eb93
+index 000000000..58642e568
 --- /dev/null
 +++ b/pkg/patchesv/patched_condition_type.go
 @@ -0,0 +1,93 @@
@@ -212,7 +219,7 @@ index 000000000..ec614eb93
 +	return nil
 +}
 +
-+func updateCondition(conditions []cdiv1.DataVolumeCondition, conditionType cdiv1.DataVolumeConditionType, status corev1.ConditionStatus, message, reason string) []cdiv1.DataVolumeCondition {
++func UpdateCondition(conditions []cdiv1.DataVolumeCondition, conditionType cdiv1.DataVolumeConditionType, status corev1.ConditionStatus, message, reason string) []cdiv1.DataVolumeCondition {
 +	condition := FindConditionByType(conditionType, conditions)
 +	if condition == nil {
 +		conditions = append(conditions, cdiv1.DataVolumeCondition{
@@ -264,7 +271,7 @@ index 000000000..ec614eb93
 +		return
 +	}
 +
-+	dv.Status.Conditions = updateCondition(dv.Status.Conditions, DataVolumePrimeConditionCreated, status, message, reason)
++	dv.Status.Conditions = UpdateCondition(dv.Status.Conditions, DataVolumePrimeConditionCreated, status, message, reason)
 +	_ = clientObject.Status().Update(context.TODO(), dv)
 +}
 +
@@ -274,6 +281,6 @@ index 000000000..ec614eb93
 +		return
 +	}
 +
-+	dv.Status.Conditions = updateCondition(dv.Status.Conditions, DataVolumeScratchConditionCreated, status, message, reason)
++	dv.Status.Conditions = UpdateCondition(dv.Status.Conditions, DataVolumeScratchConditionCreated, status, message, reason)
 +	_ = clientObject.Status().Update(context.TODO(), dv)
 +}
