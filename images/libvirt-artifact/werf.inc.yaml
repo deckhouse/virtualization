@@ -95,7 +95,7 @@ shell:
     tshark \
     zlib-devel \
     mdevctl \
-    util-linux dmsetup pm-utils \
+    util-linux dmsetup pm-utils libclocale \
     libfuse3-devel libnuma libslirp-devel \
     libyajl-devel libselinux-devel
 
