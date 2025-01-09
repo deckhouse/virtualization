@@ -120,12 +120,15 @@ shell:
       cat images_digests.json
 ---
 image: python-dependencies
-from: python:3.9-slim
+from: {{ .Images.BASE_ALT_P11 }}
 fromCacheVersion: "2024-11-07.1"
 git:
   - add: /lib/python/requirements.txt
     to: /requirements.txt
 shell:
+  beforeInstall:
+    - apt-get update
+    - apt-get install -y python3 python3-module-pip-run
   setup:
     - pip3 install -r /requirements.txt -t /dist
 ---
