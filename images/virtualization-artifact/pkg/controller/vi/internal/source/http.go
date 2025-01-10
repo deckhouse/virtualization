@@ -216,7 +216,10 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		return reconcile.Result{}, err
 	}
 
-	quotaExceeded, quotaExceededMessage := checkIfQuotaExceeded(dv)
+	var quotaNotExceededCondition *metav1.Condition
+	if dv != nil {
+		quotaNotExceededCondition = getDVNotExceededCondition(dv.Status.Conditions)
+	}
 
 	switch {
 	case isDiskProvisioningFinished(condition):
@@ -344,11 +347,11 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 			Message("DVCR Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
-	case quotaExceeded:
+	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == metav1.ConditionFalse:
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.QuotaExceeded).
-			Message(quotaExceededMessage)
+			Message(quotaNotExceededCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
 		vi.Status.Phase = virtv2.ImageProvisioning
