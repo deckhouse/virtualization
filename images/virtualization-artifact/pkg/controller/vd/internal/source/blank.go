@@ -84,7 +84,10 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 		return reconcile.Result{}, err
 	}
 
-	quotaExceeded, quotaExceededMessage := checkIfQuotaExceeded(dv)
+	var quotaNotExceededCondition *metav1.Condition
+	if dv != nil {
+		quotaNotExceededCondition = getDVNotExceededCondition(dv.Status.Conditions)
+	}
 
 	switch {
 	case isDiskProvisioningFinished(condition):
@@ -141,11 +144,11 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
-	case quotaExceeded:
+	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == metav1.ConditionFalse:
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.QuotaExceeded).
-			Message(quotaExceededMessage)
+			Message(quotaNotExceededCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning

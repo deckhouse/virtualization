@@ -418,73 +418,29 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.Di
 }
 
 const (
-	DVBoundConditionType     string = "Bound"
-	DVRunningConditionType   string = "Running"
-	DVReadyConditionType     string = "Ready"
-	DVPrimePVCCreatedType    string = "PrimePVCCreated"
-	DVScratchPVCCreatedType  string = "ScratchPVCCreated"
-	DVErrExceededQuotaReason string = "ErrExceededQuota"
+	DVQoutaNotExceededConditionType string = "QuotaNotExceeded"
 )
 
-func checkIfQuotaExceeded(dv *cdiv1.DataVolume) (bool, string) {
-	if dv == nil {
-		return false, ""
-	}
-
-	boundCondition, ok := getDVCondition(dv, DVBoundConditionType)
-	if !ok {
-		return false, ""
-	}
-
-	readyDVCondition, ok := getDVCondition(dv, DVReadyConditionType)
-	if !ok {
-		return false, ""
-	}
-
-	runningCondition, ok := getDVCondition(dv, DVRunningConditionType)
-	if !ok {
-		return false, ""
-	}
-
-	primeCreatedCondition, ok := getDVCondition(dv, DVPrimePVCCreatedType)
-	if !ok {
-		return false, ""
-	}
-
-	scratchCreatedCondition, ok := getDVCondition(dv, DVScratchPVCCreatedType)
-	if !ok {
-		return false, ""
-	}
-
-	if boundCondition.Reason == DVErrExceededQuotaReason {
-		return true, service.CapitalizeFirstLetter(boundCondition.Message)
-	}
-
-	if readyDVCondition.Reason == DVErrExceededQuotaReason {
-		return true, service.CapitalizeFirstLetter(readyDVCondition.Message)
-	}
-
-	if runningCondition.Reason == DVErrExceededQuotaReason {
-		return true, service.CapitalizeFirstLetter(runningCondition.Message)
-	}
-
-	if primeCreatedCondition.Reason == DVErrExceededQuotaReason {
-		return true, service.CapitalizeFirstLetter(primeCreatedCondition.Message)
-	}
-
-	if scratchCreatedCondition.Reason == DVErrExceededQuotaReason {
-		return true, service.CapitalizeFirstLetter(scratchCreatedCondition.Message)
-	}
-
-	return false, ""
-}
-
-func getDVCondition(dv *cdiv1.DataVolume, conditionType string) (*cdiv1.DataVolumeCondition, bool) {
-	for _, cond := range dv.Status.Conditions {
-		if string(cond.Type) == conditionType {
-			return &cond, true
+func getDVNotExceededCondition(conditions []cdiv1.DataVolumeCondition) *metav1.Condition {
+	for _, condition := range conditions {
+		if string(condition.Type) == DVQoutaNotExceededConditionType {
+			returned := &metav1.Condition{
+				Type:               DVQoutaNotExceededConditionType,
+				Reason:             condition.Reason,
+				Message:            condition.Message,
+				LastTransitionTime: condition.LastTransitionTime,
+			}
+			switch condition.Status {
+			case corev1.ConditionTrue:
+				returned.Status = metav1.ConditionTrue
+			case corev1.ConditionFalse:
+				returned.Status = metav1.ConditionFalse
+			case corev1.ConditionUnknown:
+				returned.Status = metav1.ConditionUnknown
+			}
+			return returned
 		}
 	}
 
-	return nil, false
+	return nil
 }
