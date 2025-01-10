@@ -555,58 +555,12 @@ $SRC_BASE/tools/virt-qemu-qmp-proxy to /usr/bin
 $SRC_BUILD/tools/bash-completion/virsh to /usr/share/bash-completion/completions
 $SRC_BUILD/tools/bash-completion/virt-admin to /usr/share/bash-completion/completions
 $SRC_BUILD/tools/ssh-proxy/30-libvirt-ssh-proxy.conf to /etc/ssh/ssh_config.d
-$SRC_BASE/examples/c/admin/client_close.c to /usr/share/doc/libvirt/examples/c/admin
-$SRC_BASE/examples/c/admin/client_info.c to /usr/share/doc/libvirt/examples/c/admin
-$SRC_BASE/examples/c/admin/client_limits.c to /usr/share/doc/libvirt/examples/c/admin
-$SRC_BASE/examples/c/admin/list_clients.c to /usr/share/doc/libvirt/examples/c/admin
-$SRC_BASE/examples/c/admin/list_servers.c to /usr/share/doc/libvirt/examples/c/admin
-$SRC_BASE/examples/c/admin/logging.c to /usr/share/doc/libvirt/examples/c/admin
-$SRC_BASE/examples/c/admin/threadpool_params.c to /usr/share/doc/libvirt/examples/c/admin
-$SRC_BASE/examples/c/domain/dommigrate.c to /usr/share/doc/libvirt/examples/c/domain
-$SRC_BASE/examples/c/domain/domtop.c to /usr/share/doc/libvirt/examples/c/domain
-$SRC_BASE/examples/c/domain/info1.c to /usr/share/doc/libvirt/examples/c/domain
-$SRC_BASE/examples/c/domain/rename.c to /usr/share/doc/libvirt/examples/c/domain
-$SRC_BASE/examples/c/domain/suspend.c to /usr/share/doc/libvirt/examples/c/domain
-$SRC_BASE/examples/c/misc/event-test.c to /usr/share/doc/libvirt/examples/c/misc
-$SRC_BASE/examples/c/misc/hellolibvirt.c to /usr/share/doc/libvirt/examples/c/misc
-$SRC_BASE/examples/c/misc/openauth.c to /usr/share/doc/libvirt/examples/c/misc
-$SRC_BASE/examples/polkit/libvirt-acl.rules to /usr/share/doc/libvirt/examples/polkit
-$SRC_BASE/examples/sh/virt-lxc-convert to /usr/share/doc/libvirt/examples/sh
-$SRC_BASE/examples/systemtap/amd-sev-es-vmsa.stp to /usr/share/doc/libvirt/examples/systemtap
-$SRC_BASE/examples/systemtap/events.stp to /usr/share/doc/libvirt/examples/systemtap
-$SRC_BASE/examples/systemtap/lock-debug.stp to /usr/share/doc/libvirt/examples/systemtap
-$SRC_BASE/examples/systemtap/qemu-monitor.stp to /usr/share/doc/libvirt/examples/systemtap
-$SRC_BASE/examples/systemtap/rpc-monitor.stp to /usr/share/doc/libvirt/examples/systemtap
-$SRC_BASE/examples/xml/storage/pool-dir.xml to /usr/share/doc/libvirt/examples/xml/storage
-$SRC_BASE/examples/xml/storage/pool-fs.xml to /usr/share/doc/libvirt/examples/xml/storage
-$SRC_BASE/examples/xml/storage/pool-logical.xml to /usr/share/doc/libvirt/examples/xml/storage
-$SRC_BASE/examples/xml/storage/pool-netfs.xml to /usr/share/doc/libvirt/examples/xml/storage
-$SRC_BASE/examples/xml/storage/vol-cow.xml to /usr/share/doc/libvirt/examples/xml/storage
-$SRC_BASE/examples/xml/storage/vol-qcow.xml to /usr/share/doc/libvirt/examples/xml/storage
-$SRC_BASE/examples/xml/storage/vol-qcow2.xml to /usr/share/doc/libvirt/examples/xml/storage
-$SRC_BASE/examples/xml/storage/vol-raw.xml to /usr/share/doc/libvirt/examples/xml/storage
-$SRC_BASE/examples/xml/storage/vol-sparse.xml to /usr/share/doc/libvirt/examples/xml/storage
-$SRC_BASE/examples/xml/storage/vol-vmdk.xml to /usr/share/doc/libvirt/examples/xml/storage
-$SRC_BASE/examples/xml/test/testdev.xml to /usr/share/doc/libvirt/examples/xml/test
-$SRC_BASE/examples/xml/test/testnodeinline.xml to /usr/share/doc/libvirt/examples/xml/test
-$SRC_BASE/examples/xml/test/testdomfc4.xml to /usr/share/doc/libvirt/examples/xml/test
-$SRC_BASE/examples/xml/test/testdomfv0.xml to /usr/share/doc/libvirt/examples/xml/test
-$SRC_BASE/examples/xml/test/testnode.xml to /usr/share/doc/libvirt/examples/xml/test
-$SRC_BASE/examples/xml/test/testnetdef.xml to /usr/share/doc/libvirt/examples/xml/test
-$SRC_BASE/examples/xml/test/testvol.xml to /usr/share/doc/libvirt/examples/xml/test
-$SRC_BASE/examples/xml/test/testnetpriv.xml to /usr/share/doc/libvirt/examples/xml/test
-$SRC_BASE/examples/xml/test/testpool.xml to /usr/share/doc/libvirt/examples/xml/test
 $SRC_BUILD/libvirt.pc to /usr/lib64/pkgconfig
 $SRC_BUILD/libvirt-qemu.pc to /usr/lib64/pkgconfig
 $SRC_BUILD/libvirt-lxc.pc to /usr/lib64/pkgconfig
 $SRC_BUILD/libvirt-admin.pc to /usr/lib64/pkgconfig
 EOF
 )
-
-# Base directories for source and build files
-# SRC_BASE="$SRC_BUILD"    # Actual source code path
-# SRC_BUILD="build"                                 # Actual source build path
-# DEST_BASE="/BINS"                                 # Base path for installation
 
 # Function to copy files
 copy_file() {
