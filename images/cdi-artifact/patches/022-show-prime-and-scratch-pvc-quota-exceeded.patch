@@ -125,10 +125,10 @@ index 4c153257a..aaf4f8198 100644
  	} else {
 diff --git a/pkg/patcheddatavolume/patched_datavolume.go b/pkg/patcheddatavolume/patched_datavolume.go
 new file mode 100644
-index 000000000..3f0b5e605
+index 000000000..19573973a
 --- /dev/null
 +++ b/pkg/patcheddatavolume/patched_datavolume.go
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,101 @@
 +package patcheddatavolume
 +
 +import (
@@ -192,11 +192,9 @@ index 000000000..3f0b5e605
 +		return nil
 +	}
 +
-+	if len(dvList.Items) > 0 {
-+		for _, dv := range dvList.Items {
-+			if string(dv.UID) == uid {
-+				return &dv
-+			}
++	for _, dv := range dvList.Items {
++		if string(dv.UID) == uid {
++			return &dv
 +		}
 +	}
 +
