@@ -4,13 +4,15 @@ fromImage: base-alt-p11
 import:
 # Before install stage.
 #   Add edk2-ovmf package
-- image: {{ $.ImageName }}-edk2-builder
-  add: /home/builder/RPM/RPMS/noarch
-  to: /
-  before: install
-  includePaths:
-  - edk2-ovmf-20240811-alt2.noarch.rpm
-
+{{/*
+# - image: {{ $.ImageName }}-edk2-builder
+#   add: /home/builder/RPM/RPMS/noarch
+#   to: /
+#   before: install
+#   includePaths:
+#   - edk2-ovmf-20231115-alt1.noarch.rpm
+#   - edk2-ovmf-20240811-alt2.noarch.rpm
+*/}}
 # Add bins from libvirt and qemu artifacts.
 - image: tmp-merged
   add: /VBINS
@@ -96,7 +98,6 @@ git:
 shell:
   beforeInstall:
   # Install main packages.
-
   - |
     apt-get update && apt-get install --yes \
     acl \
@@ -126,40 +127,39 @@ shell:
 
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-
-
-    # libvirt-client==10.7.0-alt1 \
-    # libvirt-daemon-driver-qemu==10.7.0-alt1 \
-    # qemu-kvm-core==9.1.2-alt2
-  # - apt-get clean
-  # - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
   # Upgrade edk2-ovmf package to custom build and remove its package.
   - |
-    rpm -Uv /edk2-ovmf-20240811-alt2.noarch.rpm
-    rm /edk2-ovmf-20240811-alt2.noarch.rpm
+    # Temp disable
+    # ls -la
+    # rpm -Uv /edk2-ovmf-20231115-alt1.noarch.rpm
+    # rm /edk2-ovmf-20231115-alt1.noarch.rpm
+    # =======
+    # rpm -Uv /edk2-ovmf-20240811-alt2.noarch.rpm
+    # rm /edk2-ovmf-20240811-alt2.noarch.rpm
+
   # Restructure firware files in /usr/share/OVMF to mimic structure
   # in edk2-ovmf package from the original kubevirt.
   - |
-    cd /usr/share/OVMF
-    rm MICROVM.fd
-    rm OVMF.inteltdx.secboot.fd
-    rm OVMF_CODE.fd
-    rm OVMF_CODE.secboot.fd
-    mv OVMF_CODE_4M.fd OVMF_CODE.cc.fd
-    rm OVMF_CODE_4M.qcow2
-    mv OVMF_CODE_4M.secboot.fd OVMF_CODE.secboot.fd
-    rm OVMF_CODE_4M.secboot.qcow2
-    rm OVMF_VARS.fd
-    rm OVMF_VARS.ms.fd
-    rm OVMF_VARS.secboot.fd
-    mv OVMF_VARS_4M.fd OVMF_VARS.fd
-    rm OVMF_VARS_4M.ms.fd
-    rm -f OVMF_VARS_4M.ms.qcow2
-    rm -f OVMF_VARS_4M.qcow2
-    mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
-    rm -f OVMF_VARS_4M.secboot.qcow2
-    ls -la
+#    cd /usr/share/OVMF
+#    rm MICROVM.fd
+#    rm OVMF.inteltdx.secboot.fd
+#    rm OVMF_CODE.fd
+#    rm OVMF_CODE.secboot.fd
+#    mv OVMF_CODE_4M.fd OVMF_CODE.cc.fd
+#    rm OVMF_CODE_4M.qcow2
+#    mv OVMF_CODE_4M.secboot.fd OVMF_CODE.secboot.fd
+#    rm OVMF_CODE_4M.secboot.qcow2
+#    rm OVMF_VARS.fd
+#    rm OVMF_VARS.ms.fd
+#    rm OVMF_VARS.secboot.fd
+#    mv OVMF_VARS_4M.fd OVMF_VARS.fd
+#    rm OVMF_VARS_4M.ms.fd
+#    rm -f OVMF_VARS_4M.ms.qcow2
+#    rm -f OVMF_VARS_4M.qcow2
+#    mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
+#    rm -f OVMF_VARS_4M.secboot.qcow2
+#    ls -la
   # Installation libvirt and qemu
   - |
     echo "Install libvirt and qemu binaries"

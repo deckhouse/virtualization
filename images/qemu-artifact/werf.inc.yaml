@@ -114,15 +114,31 @@ shell:
     ./configure --prefix=/BINS \
       --target-list="x86_64-softmmu i386-softmmu" \
       --enable-kvm \
-      --enable-curses \
+      --enable-tcg \
       --enable-vnc \
-      --enable-gtk \
-      --enable-system \
-      --enable-tools \
+      --enable-virtfs \
+      --enable-spice \
+      --enable-usb-redir \
+      --enable-libnfs \
+      --enable-curl \
+      --enable-debug \
+      --enable-opengl \
       --disable-docs \
+      --disable-cocoa \
+      --disable-cloop \
+      --disable-dmg \
+      --disable-glusterfs \
+      --disable-guest-agent \
+      --disable-guest-agent-msi \
+      --disable-parallels \
+      --disable-xen \
+      --disable-xen-pci-passthrough
+
       make -j$(nproc)
 
       make install -j$(nproc)
+
+      # --disable-debug-tcg \
   setup:
   - |
-    ls -lah  /BINS
+    ls -lah /BINS
