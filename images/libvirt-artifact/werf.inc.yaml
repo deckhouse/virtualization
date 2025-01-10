@@ -12,7 +12,7 @@ git:
   includePaths:
   - install-libvirt.sh
   stageDependencies:
-    beforeSetup:
+    setup:
       - install-libvirt.sh
 shell:
   beforeInstall:
