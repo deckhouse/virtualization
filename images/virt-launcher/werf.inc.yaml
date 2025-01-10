@@ -12,49 +12,10 @@ import:
   - edk2-ovmf-20240811-alt2.noarch.rpm
 
 # Add bins from libvirt and qemu artifacts.
-
-{{/*
-# - image: libvirt-artifact
-#   add: /BINS
-#   to: /
-#   before: install
-
-# # Qemu to folders
-# - image: qemu-artifact
-#   add: /BINS/bin
-#   to: /usr/bin
-#   before: install
-# - image: qemu-artifact
-#   add: /BINS/share
-#   to: /usr/share
-#   before: install
-# - image: qemu-artifact
-#   add: /BINS/libexec
-#   to: /usr/lib/libexec
-#   before: install
-# - image: qemu-artifact
-#   add: /BINS/include
-#   to: /usr/local/include
-#   before: install
-# - image: qemu-artifact
-#   add: /BINS/var
-#   to: /var
-#   before: install
-*/}}
-
 - image: tmp-merged
   add: /VBINS
   to: /BINS
   before: install
-
-# - image: libvirt-artifact
-#   add: /BINS
-#   to: /
-#   before: install
-# - image: qemu-artifact
-#   add: /BINS
-#   to: /
-#   before: install
 
 # After install stage.
 #  Add libxcrypto library.
@@ -64,17 +25,6 @@ import:
   after: install
   includePaths:
   - libcrypt.so.2.0.0
-
-{{/*
-# #   Add OpenSSL libraries.
-# - image: {{ $.ImageName }}-openssl-builder
-#   add: /usr/local/lib64/
-#   to: /lib64
-#   after: install
-#   includePaths:
-#   - libcrypto.so.3
-#   - libssl.so.3
-*/}}
 
 #   Add liboverride library.
 - image: {{ $.ImageName }}-liboverride-builder
@@ -210,8 +160,9 @@ shell:
     mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
     rm -f OVMF_VARS_4M.secboot.qcow2
     ls -la
+  # Installation libvirt and qemu
   - |
-    echo "--copy bins--"
+    echo "Install libvirt and qemu binaries"
     cp -a -u -v /BINS/usr/* /usr
     cp -a -u -v /BINS/etc/* /etc
     rm -rf /BINS/
@@ -235,12 +186,7 @@ shell:
       ln -s $TARGET $SYMLINK
     done <<< "$SYMLINC_LIST"
     cd /
-  - |
-    echo "------libvirt----------"
-    echo "List files /usr/local/lib64/"
-    ls -lah /usr/local/lib64/
-    echo "------qemu-------------"
-    ls -lah /usr/bin/
+
   setup:
   # Replace virt-launcher-monitor with the wrapper.
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
@@ -279,27 +225,16 @@ shell:
     tree
     mkdir -p /VBINS
 
-    # echo "/libvirt-bins"
-    # tree /libvirt-bins
-
-    # echo "/qemu-bins"
-    # tree /qemu-bins
-
-    echo "=====copy bins to folders======"
+    echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
 
+    echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/bin/. /VBINS/usr/bin/
     cp -a /qemu-bins/share/. /VBINS/usr/share/
     cp -a /qemu-bins/libexec/. /VBINS/usr/lib/libexec/
     cp -a /qemu-bins/include/. /VBINS/usr/local/include/
     rm -rf /VBINS/var/run
-    # cp -a /qemu-bins/var/. /VBINS/var/
 
-    ls -lah /VBINS
-    tree -L 2 /VBINS
-
-{{/*
-*/}}
 ---
 image: {{ $.ImageName }}-lib-builder
 final: false
@@ -336,22 +271,6 @@ shell:
   - ./configure --disable-obsolete-api
   - make && make install
 
-{{/*
-# ---
-# image: {{ $.ImageName }}-openssl-builder
-# final: false
-# fromImage: {{ $.ImageName }}-lib-builder
-# shell:
-#   beforeInstall:
-#   # Download OpenSSL sources.
-#   - git clone --branch openssl-3.3.1 {{ $.SOURCE_REPO }}/openssl/openssl.git /tmp/openssl
-#   install:
-#   # Build libcrypto.so.3 and libssl.so.3.
-#   - cd /tmp/openssl
-#   - ./config no-docs
-#   - make && make install
-#
-*/}}
 ---
 image: {{ $.ImageName }}-liboverride-builder
 final: false
