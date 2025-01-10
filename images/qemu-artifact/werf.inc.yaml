@@ -1,5 +1,5 @@
 ---
-{{- $versionQemu := "9.1.2" }}
+{{- $versionQemu := "9.2.0" }}
 {{- $gitRepoUrl := "https://github.com/qemu/qemu.git" }}
 {{- $gitRepoName := "qemu" }}
 
@@ -102,27 +102,15 @@ shell:
     id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
 
   install:
-  - |
-    su - builder -s /bin/bash <<'EOFBASH'
-    echo "export CCACHE_WRAPPERSDIR=/usr/libexec/ccache-wrappers" >> .bashrc
-    echo "export MAKE=/usr/bin/make" >> .bashrc
-    echo "export NINJA="/usr/bin/ninja" >> .bashrc
-    echo "export PYTHON="/usr/bin/python3" >> .bashrc
-    EOFBASH
-  
-  - |
-    # su - builder -s /bin/bash <<'EOFBASH'
-    
-    echo "export MAKE=/usr/bin/make" >> .bashrc
-    echo "export NINJA="/usr/bin/ninja" >> .bashrc
-    echo "export PYTHON="/usr/bin/python3" >> .bashrc
-    source ~/.bashrc
+  - |    
+    export MAKE="/usr/bin/make"
+    export NINJA="/usr/bin/ninja"
+    export PYTHON="/usr/bin/python3"
 
     git clone --depth=1 --branch v{{ $versionQemu }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionQemu }}
     
     cd {{ $gitRepoName }}-{{ $versionQemu }}
     
-    # ./configure --prefix=/home/builder/BINS \
     ./configure --prefix=/BINS \
       --target-list="x86_64-softmmu i386-softmmu" \
       --enable-kvm \
@@ -135,8 +123,6 @@ shell:
       make -j$(nproc)
 
       make install -j$(nproc)
-    # EOFBASH
   setup:
   - |
-    # ls -lah  /home/builder/BINS
     ls -lah  /BINS
