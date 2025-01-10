@@ -12,7 +12,7 @@ git:
   includePaths:
   - install-libvirt.sh
   stageDependencies:
-    setup:
+    beforeSetup:
       - install-libvirt.sh
 shell:
   beforeInstall:
@@ -115,31 +115,29 @@ shell:
 
   install:
   - |
-    su - builder -s /bin/bash <<'EOFBASH'
-    echo "export CCACHE_WRAPPERSDIR=/usr/libexec/ccache-wrappers" >> .bashrc
-    echo "export MAKE=/usr/bin/make" >> .bashrc
-    echo "export NINJA="/usr/bin/ninja" >> .bashrc
-    echo "export PYTHON="/usr/bin/python3" >> .bashrc
-    EOFBASH
-  - |
-    su - builder -s /bin/bash <<'EOFBASH'
-    
+    export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
+    export MAKE="/usr/bin/make"
+    export NINJA="/usr/bin/ninja"
+    export PYTHON="/usr/bin/python3"
+
     git clone --depth=1 --branch v{{ $versionLibvirt }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionLibvirt }}
-    
+
     cd {{ $gitRepoName }}-{{ $versionLibvirt }}
-    
+
     CFLAGS="-Wframe-larger-than=8192" meson setup build \
     -Dsystem=true \
     -Ddriver_qemu=enabled \
     -Ddocs=disabled \
-    -Ddriver_libvirtd=enabled && \
+    -Ddriver_libvirtd=enabled
+
     ninja -C build -j$(nproc)
-    EOFBASH
 
   setup:
   - |
-    mkdir -p /BINS
-    ls -la
-    /install-libvirt.sh
-    ls -lah /BINS
-    ls -lah /BINS/usr
+    echo "/{{ $gitRepoName }}-{{ $versionLibvirt }}"
+
+    ls -lah /{{ $gitRepoName }}-{{ $versionLibvirt }}
+    
+    /install-libvirt.sh -s /{{ $gitRepoName }}-{{ $versionLibvirt }} \
+                        -d /BINS \
+                        -b build
