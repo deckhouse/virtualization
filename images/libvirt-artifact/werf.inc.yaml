@@ -125,10 +125,25 @@ shell:
     cd {{ $gitRepoName }}-{{ $versionLibvirt }}
 
     CFLAGS="-Wframe-larger-than=8192" meson setup build \
+    -Dinit_script=systemd \
     -Dsystem=true \
     -Ddriver_qemu=enabled \
+    -Ddriver_libvirtd=enabled \
     -Ddocs=disabled \
-    -Ddriver_libvirtd=enabled
+    -Ddriver_ch=disabled \
+    -Ddriver_lxc=disabled \
+    -Ddriver_openvz=disabled \
+    -Ddriver_test=disabled \
+    -Ddriver_vbox=disabled \
+    -Dvbox_xpcomc_dir=disabled \
+    -Ddriver_vmware=disabled \
+    -Ddriver_vz=disabled \
+    -Dwireshark_dissector=disabled \
+    -Dwireshark_plugindir=disabled \
+    -Dstorage_gluster=disabled \
+    -Dstorage_zfs=disabled \
+    -Dstorage_vstorage=disabled \
+    -Dstorage_rbd=disabled
 
     ninja -C build -j$(nproc)
 
