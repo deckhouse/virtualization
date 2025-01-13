@@ -246,6 +246,6 @@ kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persiste
 
 kubectl get pvc dvcr -n d8-virtualization
 #Output
-NAME STATUS STATUS VOLUME CAPACITY ACCESS MODES STORAGECLASS AGE
-dvcr Bound pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b 57617188Ki RWO linstor-thick-data-r1 7d
+NAME STATUS VOLUME                                    CAPACITY    ACCESS MODES   STORAGECLASS           AGE
+dvcr Bound  pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b  57617188Ki  RWO            linstor-thick-data-r1  7d
 ```
