@@ -91,3 +91,9 @@ Add annotation to manage provisioner tolerations to avoid unschedulable error.
 When cloning from PVC to PVC, it's necessary to select a cloning strategy. By default, the cloning strategy `snapshot` is selected.
 However, `replicated.csi.storage.deckhouse.io` and `local.csi.storage.deckhouse.io` can create snapshots only when using LVM Thin.
 To avoid errors, for LVM Thick, it's necessary to use `copy` cloning strategy (`csi-clone` is also unavailable since the CSI itself creates a snapshot when using `csi-clone`).
+
+#### `022-add-datavolume-quouta-not-exceeded-condition.patch`
+
+A new condition, QuotaNotExceeded, has been added to the DataVolume resource to indicate that the project's quotas have not been exceeded.
+
+This patch includes an architectural assumption where the condition of the DataVolume resource is modified by an external controller. In the future, CDI usage is planned to be discontinued, making this assumption non-disruptive.
