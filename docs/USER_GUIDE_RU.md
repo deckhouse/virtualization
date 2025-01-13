@@ -102,14 +102,14 @@ EOF
 
 ```bash
 d8 k  get vi,vd,vm
-NAME                                                 PHASE   CDROM   PROGRESS   AGE
-virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
-
-NAME                                                 PHASE   CAPACITY   AGE
-virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
-
-NAME                                                 PHASE     NODE           IPADDRESS     AGE
-virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+# NAME                                                 PHASE   CDROM   PROGRESS   AGE
+# virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+#
+# NAME                                                 PHASE   CAPACITY   AGE
+# virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+#
+# NAME                                                 PHASE     NODE           IPADDRESS     AGE
+# virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
 ```
 
 5. Подключитесь с помощью консоли к виртуальной машине (для выхода из консоли необходимо нажать `Ctrl+]`):
@@ -360,6 +360,7 @@ curl https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm 
 
 ```bash
 d8 k get vi some-image
+
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # some-image   Ready   false   100%       1m
 ```
@@ -470,6 +471,7 @@ EOF
 
 ```bash
 d8 k get vd blank-disk
+
 # NAME       PHASE   CAPACITY   AGE
 # blank-disk   Ready   100Mi      1m2s
 ```
@@ -680,9 +682,8 @@ d8 k get vm linux-vm
 d8 v console linux-vm
 
 # Successfully connected to linux-vm console. The escape sequence is ^]
-
-linux-vm login: cloud
-Password: cloud
+# linux-vm login: cloud
+# Password: cloud
 ```
 
 Нажмите `Ctrl+]` для завершения работы с серийной консолью.
@@ -741,7 +742,7 @@ d8 k get vmop
 Аналогичное действие можно выполнить с использованием утилиты `d8`:
 
 ```bash
-d8 v restart  linux-vm
+d8 v restart linux-vm
 ```
 
 Перечень возможных операций приведен в таблице ниже:
@@ -783,6 +784,7 @@ d8 k edit vm linux-vm
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+
 # 1
 ```
 
@@ -790,6 +792,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 
 ```bash
 d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+
 # virtualmachine.virtualization.deckhouse.io/linux-vm patched
 ```
 
@@ -797,6 +800,7 @@ d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+
 # 1
 ```
 
@@ -838,6 +842,7 @@ d8 v restart linux-vm
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+
 # 2
 ```
 
@@ -1237,6 +1242,7 @@ EOF
 
 ```bash
 d8 k get vm
+
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
 # linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
@@ -1263,6 +1269,7 @@ EOF
 
 ```bash
 d8 k get vm -w
+
 # NAME                                  PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
@@ -1286,6 +1293,7 @@ d8 v evict <vm-name>
 
 ```bash
 d8 k get vmipl
+
 # NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
@@ -1296,6 +1304,7 @@ d8 k get vmipl
 
 ```bash
 d8 k get vmipl
+
 # NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
@@ -1304,6 +1313,7 @@ d8 k get vmipl
 
 ```bash
 k get vmip
+
 # NAME             ADDRESS       STATUS     VM         AGE
 # linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
@@ -1357,6 +1367,7 @@ spec:
 
 ```bash
 d8 k get vm linux-vm -o jsonpath="{.status.virtualMachineIPAddressName}"
+
 # linux-vm-7prpx
 ```
 
@@ -1414,6 +1425,7 @@ spec:
 
 ```bash
 d8 k get volumesnapshotclasses
+
 # NAME                     DRIVER                                DELETIONPOLICY   AGE
 # csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
 # sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
@@ -1438,6 +1450,7 @@ EOF
 
 ```bash
 d k get vdsnapshot
+
 # NAME                   PHASE     CONSISTENT   AGE
 # linux-vm-root-snapshot Ready     true         3m2s
 ```
@@ -1500,6 +1513,7 @@ spec:
 
 ```bash
 d8 k get volumesnapshotclasses
+
 # NAME                     DRIVER                                DELETIONPOLICY   AGE
 # csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
 # sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d

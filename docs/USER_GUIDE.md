@@ -102,14 +102,15 @@ Useful links:
 
 ```bash
 d8 k get vi,vd,vm
-NAME                                                 PHASE   CDROM   PROGRESS   AGE
-virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
 
-NAME                                                 PHASE   CAPACITY   AGE
-virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
-
-NAME                                                 PHASE     NODE           IPADDRESS     AGE
-virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+# NAME                                                 PHASE   CDROM   PROGRESS   AGE
+# virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+#
+# NAME                                                 PHASE   CAPACITY   AGE
+# virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+#
+# NAME                                                 PHASE     NODE           IPADDRESS     AGE
+# virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
 ```
 
 5. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
@@ -353,6 +354,7 @@ After the upload is complete, the image should be created and enter the `Ready` 
 
 ```bash
 d8 k get vi some-image
+
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # some-image   Ready   false   100%       1m
 ```
@@ -465,6 +467,7 @@ Check the status of the disk after creation with the command:
 
 ```bash
 d8 k get vd blank-disk
+
 # NAME       PHASE   CAPACITY   AGE
 # blank-disk   Ready   100Mi      1m2s
 ```
@@ -675,9 +678,9 @@ An example of connecting to a virtual machine using a serial console:
 d8 v console linux-vm
 
 # Successfully connected to linux-vm console. The escape sequence is ^]
-
-linux-vm login: cloud
-Password: cloud
+#
+# linux-vm login: cloud
+# Password: cloud
 ```
 
 Press `Ctrl+]` to finalize the serial console.
@@ -777,6 +780,7 @@ Suppose we want to change the number of processor cores. The virtual machine is 
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+
 # 1
 ```
 
@@ -784,6 +788,7 @@ Apply the following patch to the virtual machine to change the number of cores f
 
 ```bash
 d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+
 # virtualmachine.virtualization.deckhouse.io/linux-vm patched
 ```
 
@@ -791,6 +796,7 @@ Configuration changes have been made but not yet applied to the virtual machine.
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+
 # 1
 ```
 
@@ -832,6 +838,7 @@ Execute the command to verify:
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+
 # 2
 ```
 
@@ -1092,6 +1099,7 @@ Preliminary, put the following labels on the previously created vm:
 
 ```bash
 d8 k label vm linux-vm app=nginx
+
 # virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 ```
 
@@ -1231,6 +1239,7 @@ Before starting the migration, view the current status of the virtual machine::
 
 ```bash
 d8 k get vm
+
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
 # linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
@@ -1257,6 +1266,7 @@ Immediately after creating the `vmip` resource, run the command:
 
 ```bash
 d8 k get vm -w
+
 # NAME                                   PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
@@ -1280,6 +1290,7 @@ To see a list of IP address leases (`vmipl`), use the command:
 
 ```bash
 d8 k get vmipl
+
 # NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
@@ -1290,6 +1301,7 @@ To see a list of `vmip`, use the command:
 
 ```bash
 d8 k get vmipl
+
 # NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
@@ -1298,6 +1310,7 @@ By default, an ip address is automatically assigned to a virtual machine from th
 
 ```bash
 k get vmip
+
 # NAME              ADDRESS       STATUS     VM          AGE
 # linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
@@ -1351,6 +1364,7 @@ Obtain the `vmip` resource name for the specified virtual machine:
 
 ```bash
 d8 k get vm linux-vm -o jsonpath="{.status.virtualMachineIPAddressName}"
+
 # linux-vm-7prpx
 ```
 
@@ -1408,6 +1422,7 @@ To get a list of supported `VolumeSnapshotClasses` resources, run the command:
 
 ```bash
 d8 k get volumesnapshotclasses
+
 # NAME                     DRIVER                                DELETIONPOLICY   AGE
 # csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
 # sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
@@ -1432,6 +1447,7 @@ To view a list of disk snapshots, run the following command:
 
 ```bash
 d k get vdsnapshot
+
 # NAME                     PHASE     CONSISTENT   AGE
 # linux-vm-root-1728027905   Ready                  3m2s
 ```
@@ -1491,6 +1507,7 @@ To get a list of supported `VolumeSnapshotClasses` resources, run the command:
 
 ```bash
 d8 k get volumesnapshotclasses
+
 # NAME                     DRIVER                                DELETIONPOLICY   AGE
 # csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
 # sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
