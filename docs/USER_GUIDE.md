@@ -6,7 +6,7 @@ weight: 50
 
 ## Introduction
 
-This guide is intended for [users](./README.md#role-model) of Deckhouse Virtualization Platform and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
+This guide is intended for users of Deckhouse Virtualization Platform and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
 
 ## Quick start on creating a VM
 
@@ -101,7 +101,7 @@ Useful links:
 4. Verify with the command that the image and disk have been created and the virtual machine is running. Resources are not created instantly, so you will need to wait a while before they are ready.
 
 ```bash
-kubectl get vi,vd,vm
+d8 k get vi,vd,vm
 NAME                                                 PHASE   CDROM   PROGRESS   AGE
 virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
 
@@ -259,7 +259,6 @@ d8 k get vi ubuntu-22.04-pvc
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-images).
 
-
 ### Creating an image from Container Registry
 
 An image stored in Container Registry has a certain format. Let's look at an example:
@@ -413,7 +412,7 @@ Attention: It is impossible to create disks from iso-images!
 To find out the available storage options on the platform, run the following command:
 
 ```bash
-kubectl get storageclass
+d8 k get storageclass
 
 # NAME                          PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
 # i-linstor-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
@@ -559,7 +558,7 @@ d8 k get vd linux-vm-root
 Let's apply the changes:
 
 ```bash
-kubectl patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
 ```
 
 Let's check the size after the change:
@@ -743,10 +742,10 @@ A list of possible operations is given in the table below:
 
 | d8             | vmop type | Action                         |
 | -------------- | --------- | ------------------------------ | ------- |
-| `d8 v stop`    | `stop`    | Stop VM                        | Stop VM |
-| `d8 v start`   | `start`   | Start the VM                   |
-| `d8 v restart` | `restart` | Restart the VM                 |         |
-| `d8 v migrate` | `migrate` | Migrate the VM to another host |
+| `d8 v stop`    | `Stop`    | Stop VM                        | Stop VM |
+| `d8 v start`   | `Start`   | Start the VM                   |
+| `d8 v restart` | `Restart` | Restart the VM                 |         |
+| `d8 v evict`   | `Evict`   | Migrate the VM to another host |
 
 ### Change virtual machine configuration
 
@@ -762,13 +761,15 @@ If the virtual machine is in a shutdown state (`.status.phase: Stopped`), the ch
 
 If the virtual machine is running (`.status.phase: Running`), the way the changes are applied depends on the type of change:
 
-| Configuration block                     | How changes are applied |
-| --------------------------------------- | ----------------------- |
-| `.metadata.labels`                      | Applies immediately     |
-| `.metadata.annotations`                 | Applies immediately     |
-| `.spec.runPolicy`                       | Applies immediately     |
-| `.spec.disruptions.restartApprovalMode` | Applies immediately     |
-| `.spec.*`                               | Only after VM restart   |
+| Configuration block                     | How changes are applied                            |
+| --------------------------------------- | -------------------------------------------------- |
+| `.metadata.labels`                      | Applies immediately                                |
+| `.metadata.annotations`                 | Applies immediately                                |
+| `.spec.runPolicy`                       | Applies immediately                                |
+| `.spec.disruptions.restartApprovalMode` | Applies immediately                                |
+| `.spec.affinity`                        | EE: Applies immediately, CE: Only after VM restart |
+| `.spec.nodeSelector`                    | EE: Applies immediately, CE: Only after VM restart |
+| `.spec.*`                               | Only after VM restart                              |
 
 Let's consider an example of changing the configuration of a virtual machine:
 
@@ -923,6 +924,10 @@ The following approaches can be used to manage the placement of virtual machines
 - Preferred binding (`Affinity`)
 - Avoid co-location (`AntiAffinity`)
 
+{{< alert level="info" >}}
+Virtual machine placement parameters can be changed in real time (available in Enterprise edition only). However, if the new placement parameters do not match the current placement parameters, the virtual machine will be moved to hosts that meet the new requirements.
+{{< /alert >}}
+
 #### Simple label binding (nodeSelector)
 
 A `nodeSelector` is the simplest way to control the placement of virtual machines using a set of labels. It allows you to specify on which nodes virtual machines can run by selecting nodes with the desired labels.
@@ -1026,9 +1031,9 @@ Changing the composition and order of devices in the `.spec.blockDeviceRefs` blo
 
 Dynamic block devices can be connected and disconnected from a virtual machine that is in a running state without having to reboot it.
 
-The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect dynamic block devices. Currently, only `VirtualDisk` is supported for connection as a dynamic block device.
+The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect dynamic block devices. Currently, images and disks are supported for connection as a dynamic block device.
 
-Create the following resource that will connect an empty blank-disk disk to the linux-vm virtual machine:
+As an example, create the following share that connects an empty blank-disk disk to a linux-vm virtual machine:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -1088,6 +1093,22 @@ Preliminary, put the following labels on the previously created vm:
 ```bash
 d8 k label vm linux-vm app=nginx
 # virtualmachine.virtualization.deckhouse.io/linux-vm labeled
+```
+
+Attaching images is done by analogy. To do this, specify `VirtualImage` or `ClusterVirtualImage` and the image name as `kind`:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineBlockDeviceAttachment
+metadata:
+  name: attach-ubuntu-iso
+spec:
+  blockDeviceRef:
+    kind: VirtualImage # или ClusterVirtualImage
+    name: ubuntu-iso
+  virtualMachineName: linux-vm
+EOF
 ```
 
 #### Publish virtual machine services using a service with the NodePort type
@@ -1202,39 +1223,40 @@ Migration can be performed automatically when:
 - Updating the “firmware” of a virtual machine.
 - Rebalancing the load on the cluster nodes.
 - Transferring nodes to maintenance mode for work.
+- When you change [VM placement settings](#placement-of-vms-by-nodes) (available in Enterprise edition only).
 
 Virtual machine migration can also be performed at the user's request. Let's take an example:
 
 Before starting the migration, view the current status of the virtual machine::
 
 ```bash
-kubectl get vm
+d8 k get vm
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
 # linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
 
 We can see that it is currently running on the `virtlab-pt-1` node.
 
-To migrate a virtual machine from one node to another, taking into account the requirements for virtual machine placement, the `VirtualMachineOperations` (`vmop`) resource with the migrate type is used.
+To migrate a virtual machine from one node to another, taking into account the requirements for virtual machine placement, the `VirtualMachineOperations` (`vmop`) resource with the `Evict` type is used.
 
 ```yaml
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: migrate-linux-vm-$(date +%s)
+  name: evict-linux-vm-$(date +%s)
 spec:
   # virtual machine name
   virtualMachineName: linux-vm
-  # operation to migrate
-  type: Migrate
+  # operation to evict
+  type: Evict
 EOF
 ```
 
 Immediately after creating the `vmip` resource, run the command:
 
 ```bash
-kubectl get vm -w
+d8 k get vm -w
 # NAME                                   PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
@@ -1245,7 +1267,7 @@ kubectl get vm -w
 You can also use the command to perform the migration:
 
 ```bash
-d8 v migrate <vm-name>
+d8 v evict <vm-name>
 ```
 
 ## IP addresses of virtual machines
@@ -1424,7 +1446,7 @@ After creation, `VirtualDiskSnapshot` can be in the following states (phases):
 
 A full description of the `VirtualDiskSnapshot` resource configuration parameters for machines can be found at [link](cr.html#virtualdisksnapshot)
 
-### Recovering snapshots from disks
+### Recovering disks from snapshots
 
 In order to restore a disk from a previously created disk snapshot, you must specify a corresponding object as `dataSource`:
 
@@ -1507,7 +1529,7 @@ spec:
 EOF
 ```
 
-### Restore snapshots from virtual machines
+### Restore virtual machines from snapshots
 
 The `VirtualMachineRestore` resource is used to restore virtual machines from snapshots.
 

@@ -98,6 +98,10 @@ Deckhouse Virtualization Platform uses five update channels designed for use in 
 | Stable         | Stable update channel for clusters where active work is finished and mostly operational. Functionality updates to this update channel do not reach this update channel until two weeks after they appear in the release.                                           |
 | Rock Solid     | The most stable update channel. Suitable for clusters that need a higher level of stability. Feature updates do not reach this channel until one month after they are released.                                                                                    |
 
+{{< alert level="warning" >}}
+Attention: Changing the virtual machine “firmware” during a platform version upgrade may result in virtual machines migrating to the new “firmware”.
+{{< /alert >}}
+
 Deckhouse Virtualization Platform components can be updated automatically, or with manual confirmation as updates are released in the update channels.
 
 For information on the versions available on the update channels, visit this site at https://releases.deckhouse.io/.

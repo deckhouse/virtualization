@@ -5,7 +5,7 @@ weight: 40
 
 ## Introduction
 
-This guide is intended for [administrators](./README.md#role-model) of Deckhouse Virtualization Platform and describes how to create and modify cluster resources.
+This guide is intended for administrators of Deckhouse Virtualization Platform and describes how to create and modify cluster resources.
 
 The administrator also has rights to manage project resources, which are described in the [“User Guide”](./USER_GUIDE.md) document.
 
@@ -200,10 +200,36 @@ d8 k get cvi some-image
 
 The `VirtualMachineClass` resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions and configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, `VirtualMachineClass` provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
 
+The structure of the `VirtualMachineClass` resource is as follows:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: <vmclass-name>
+spec:
+  # The block describes the virtual processor parameters for virtual machines.
+  # This block cannot be changed after the resource has been created.
+  cpu: ...
+  # Describes the rules for node placement of virtual machines.
+  # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
+  nodeSelector: ...
+  # Describes the sizing policy for configuring virtual machine resources.
+  # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
+  sizingPolicies: ...
+```
+
+{{< alert level="warning" >}}
+Warning. Since changing the `.spec.nodeSelector` parameter affects all virtual machines using this `VirtualMachineClass`, the following should be considered:
+
+For Enterprise-edition: this may cause virtual machines to be migrated to new destination nodes if the current nodes do not meet placement requirements.
+For Community edition: this may cause virtual machines to restart according to the automatic change application policy set in the `.spec.disruptions.restartApprovalMode` parameter.
+{{< /alert >}}
+
 The virtualization platform provides 3 predefined `VirtualMachineClass` resources:
 
 ```bash
-kubectl get virtualmachineclass
+d8 k get virtualmachineclass
 NAME               PHASE   AGE
 host               Ready   6d1h
 host-passthrough   Ready   6d1h
@@ -226,7 +252,7 @@ spec:
   ...
 ```
 
-{{< alert level="warning" >}}
+{{< alert level="info" >}}
 Warning. It is recommended to create at least one `VirtualMachineClass` resource in the cluster with the Discovery type immediately after all nodes are configured and added to the cluster. This will allow the virtual machines to utilize a generic CPU with the highest possible CPU performance given the CPUs on the cluster nodes, allowing the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
 {{< /alert >}}
 
@@ -398,7 +424,7 @@ spec:
 - to create a vCPU of a specific CPU with a pre-defined instruction set, we use `type: Model`. In advance, to get a list of supported CPU names for the cluster node, run the command:
 
 ```bash
-kubectl get nodes <node-name> -o json | jq '.metadata.labels | to_entries[] | select(.key | test(“cpu-model”)) | .key | split(“/”)[1]'' -r
+d8 k get nodes <node-name> -o json | jq '.metadata.labels | to_entries[] | select(.key | test(“cpu-model”)) | .key | split(“/”)[1]'' -r
 
 # Sample output:
 #
@@ -436,33 +462,33 @@ The following is an example of migrating a selected virtual machine:
 Before starting the migration, see the current status of the virtual machine:
 
 ```bash
-kubectl get vm
+d8 k get vm
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
 # linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
 
 We can see that it is currently running on the `virtlab-pt-1` node.
 
-To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the `VirtualMachineOperations` (`vmop`) resource with the migrate type is used.
+To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the `VirtualMachineOperations` (`vmop`) resource with the `Evict` type is used.
 
 ```yaml
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: migrate-linux-vm-$(date +%s)
+  name: evict-linux-vm-$(date +%s)
 spec:
   # virtual machine name
   virtualMachineName: linux-vm
   # operation for migration
-  type: Migrate
+  type: Evict
 EOF
 ```
 
 Immediately after creating the `vmop` resource, run the command:
 
 ```bash
-kubectl get vm -w
+d8 k get vm -w
 # NAME                                   PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
@@ -477,7 +503,7 @@ When performing work on nodes with running virtual machines, there is a risk of 
 To do this, run the following command:
 
 ```bash
-kubectl drain <nodename> --ignore-daemonsets --delete-emptydir-dat
+d8 k drain <nodename> --ignore-daemonsets --delete-emptydir-dat
 ```
 
 where `<nodename>` is the node on which the work is to be performed and which should be freed from all resources (including system resources).
@@ -485,13 +511,13 @@ where `<nodename>` is the node on which the work is to be performed and which sh
 If there is a need to push only virtual machines off the node, run the following command:
 
 ```bash
-kubectl drain <nodename> --pod-selector vm.kubevirt.internal.virtualization.deckhouse.io/name --delete-emptydir-data
+d8 k drain <nodename> --pod-selector vm.kubevirt.internal.virtualization.deckhouse.io/name --delete-emptydir-data
 ```
 
-After running the `kubectl drain` conmade, the node will go into maintenance mode and no virtual machines will be able to start on it. To take it out of maintenance mode, run the following command:
+After running the `d8 k drain` command, the node will go into maintenance mode and no virtual machines will be able to start on it. To take it out of maintenance mode, run the following command:
 
 ```bash
-kubectl uncordon <nodename>
+d8 k uncordon <nodename>
 ```
 
 ![](./images/drain.png)
@@ -523,7 +549,7 @@ For storing disks (`VirtualDisk`) and images (`VirtualImage`) with the `Persiste
 The list of storage supported by the platform can be listed by executing the command to view storage classes (`StorageClass`)
 
 ```bash
-kubectl get storageclass
+d8 k get storageclass
 ```
 
 Example of command execution:

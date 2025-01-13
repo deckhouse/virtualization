@@ -6,7 +6,7 @@ weight: 50
 
 ## Введение
 
-Данное руководство предназначено для [пользователей](./README_RU.md#ролевая-модель) Deckhouse Virtualization Platform и описывает порядок создания и изменения ресурсов, которые доступны для создания в проектах и пространствах имен кластера.
+Данное руководство предназначено для пользователей Deckhouse Virtualization Platform и описывает порядок создания и изменения ресурсов, которые доступны для создания в проектах и пространствах имен кластера.
 
 ## Быстрый старт по созданию ВМ
 
@@ -101,7 +101,7 @@ EOF
 4. Проверьте с помощью команды, что образ и диск созданы, а виртуальная машина - запущена. Ресурсы создаются не мгновенно, поэтому прежде чем они придут в готовое состояние потребуется подождать какое-то время.
 
 ```bash
-kubectl get vi,vd,vm
+d8 k  get vi,vd,vm
 NAME                                                 PHASE   CDROM   PROGRESS   AGE
 virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
 
@@ -417,7 +417,7 @@ EOF
 Чтобы узнать доступные варианты хранилищ на платформе, выполните следующую команду:
 
 ```bash
-kubectl get storageclass
+d8 k  get storageclass
 
 # NAME                          PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
 # i-linstor-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
@@ -428,7 +428,6 @@ kubectl get storageclass
 # linstor-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
 # nfs-4-1-wffc                  nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
 ```
-
 
 С полным описанием параметров конфигурации дисков можно ознакомиться по [ссылке](cr.html#virtualdisk).
 
@@ -564,7 +563,7 @@ d8 k get vd linux-vm-root
 Применим изменения:
 
 ```bash
-kubectl patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
 ```
 
 Проверим размер после изменения:
@@ -749,10 +748,10 @@ d8 v restart  linux-vm
 
 | d8             | vmop type | Действие                      |
 | -------------- | --------- | ----------------------------- |
-| `d8 v stop`    | `stop`    | Остановить ВМ                 |
-| `d8 v start`   | `start`   | Запустить ВМ                  |
-| `d8 v restart` | `restart` | Перезапустить ВМ              |
-| `d8 v migrate` | `migrate` | Мигрировать ВМ на другой узел |
+| `d8 v stop`    | `Stop`    | Остановить ВМ                 |
+| `d8 v start`   | `Start`   | Запустить ВМ                  |
+| `d8 v restart` | `Restart` | Перезапустить ВМ              |
+| `d8 v  evict`  | `Evict`   | Мигрировать ВМ на другой узел |
 
 ### Изменение конфигурации виртуальной машины
 
@@ -768,13 +767,15 @@ d8 k edit vm linux-vm
 
 Если виртуальная машина работает (`.status.phase: Running`), то способ применения изменений зависит от их типа:
 
-| Блок конфигурации                       | Как применяется         |
-| --------------------------------------- | ----------------------- |
-| `.metadata.labels`                      | Сразу                   |
-| `.metadata.annotations`                 | Сразу                   |
-| `.spec.runPolicy`                       | Сразу                   |
-| `.spec.disruptions.restartApprovalMode` | Сразу                   |
-| `.spec.*`                               | Требуется перезапуск ВМ |
+| Блок конфигурации                       | Как применяется                        |
+| --------------------------------------- | -------------------------------------- |
+| `.metadata.labels`                      | Сразу                                  |
+| `.metadata.annotations`                 | Сразу                                  |
+| `.spec.runPolicy`                       | Сразу                                  |
+| `.spec.disruptions.restartApprovalMode` | Сразу                                  |
+| `.spec.affinity`                        | EE: Сразу, CE: Требуется перезапуск ВМ |
+| `.spec.nodeSelector`                    | EE: Сразу, CE: Требуется перезапуск ВМ |
+| `.spec.*`                               | Требуется перезапуск ВМ                |
 
 Рассмотрим пример изменения конфигурации виртуальной машины:
 
@@ -929,6 +930,10 @@ spec:
 - Предпочтительное связывание (`Affinity`)
 - Избежание совместного размещения (`AntiAffinity`)
 
+{{< alert level="info" >}}
+Параметры размещения виртуальных машин можно изменить в реальном времени (доступно только в Enterprise-редакции). Однако, если новые параметры размещения не совпадают с текущими, виртуальная машина будет перемещена на узлы, соответствующие новым требованиям.
+{{< /alert >}}
+
 #### Простое связывание по меткам (nodeSelector)
 
 `nodeSelector` — это простейший способ контролировать размещение виртуальных машин, используя набор меток. Он позволяет задать, на каких узлах могут запускаться виртуальные машины, выбирая узлы с необходимыми метками.
@@ -1032,9 +1037,9 @@ spec:
 
 Динамические блочные устройства можно подключать и отключать от виртуальной машины, находящейся в запущенном состоянии, без необходимости её перезагрузки.
 
-Для подключения динамических блочных устройств используется ресурс `VirtualMachineBlockDeviceAttachment` (`vmbda`). На данный момент для подключения в качестве динамического блочного устройства поддерживается только `VirtualDisk`.
+Для подключения динамических блочных устройств используется ресурс `VirtualMachineBlockDeviceAttachment` (`vmbda`). На данный момент для подключения в качестве динамического блочного устройства поддерживаются образы и диски.
 
-Создайте следующий ресурс, который подключит пустой диск blank-disk к виртуальной машине linux-vm:
+В качестве примера, создайте следующий ресурс, который подключит пустой диск blank-disk к виртуальной машине linux-vm:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -1083,6 +1088,22 @@ d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 
 ```bash
 d8 k delete vmbda attach-blank-disk
+```
+
+Подключение образов, осуществляется по аналогии. Для этого в качестве `kind` указать VirtualImage или ClusterVirtualImage и имя образа:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineBlockDeviceAttachment
+metadata:
+  name: attach-ubuntu-iso
+spec:
+  blockDeviceRef:
+    kind: VirtualImage # или ClusterVirtualImage
+    name: ubuntu-iso
+  virtualMachineName: linux-vm
+EOF
 ```
 
 ### Публикация виртуальных машин с использованием сервисов
@@ -1208,39 +1229,40 @@ EOF
 - Обновлении "прошивки" виртуальной машины.
 - Перебалансировке нагрузки на узлах кластера.
 - Переводе узлов в режим обслуживания для проведения работ.
+- При изменении [параметров размещения ВМ](#размещение-вм-по-узлам) (доступно только в Enterprise-редакции).
 
 Также миграция виртуальной машины может быть выполнена по требованию пользователя. Рассмотрим на примере:
 
 Перед запуском миграции посмотрите текущий статус виртуальной машины:
 
 ```bash
-kubectl get vm
+d8 k get vm
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
 # linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
 
 Мы видим что на данный момент она запущена на узле `virtlab-pt-1`.
 
-Для осуществления миграции виртуальной машины с одного узла на другой, с учетом требований к размещению виртуальной машины используется ресурс `VirtualMachineOperations` (`vmop`) с типом migrate.
+Для осуществления миграции виртуальной машины с одного узла на другой, с учетом требований к размещению виртуальной машины используется ресурс `VirtualMachineOperations` (`vmop`) с типом `Evict`.
 
 ```yaml
 d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: migrate-linux-vm-$(date +%s)
+  name: evict-linux-vm-$(date +%s)
 spec:
   # имя виртуальной машины
   virtualMachineName: linux-vm
   # операция для миграции
-  type: Migrate
+  type: Evict
 EOF
 ```
 
 Сразу после создания ресурса `vmip`, выполните команду:
 
 ```bash
-kubectl get vm -w
+d8 k get vm -w
 # NAME                                  PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
@@ -1251,7 +1273,7 @@ kubectl get vm -w
 Также для выполнения миграции можно использовать команду:
 
 ```bash
-d8 v migrate <vm-name>
+d8 v evict <vm-name>
 ```
 
 ## IP-адреса виртуальных машин
@@ -1430,7 +1452,7 @@ d k get vdsnapshot
 
 С полным описанием параметров конфигурации ресурса `VirtualDiskSnapshot` машин можно ознакомиться по [ссылке](cr.html#virtualdisksnapshot)
 
-### Восстановление снимков из дисков
+### Восстановление дисков из снимков
 
 Для того чтобы восстановить диск из ранее созданного снимка диска, необходимо в качестве `dataSource` указать соотвествующий объект:
 
@@ -1516,7 +1538,7 @@ spec:
 EOF
 ```
 
-### Восстановление снимков из виртуальных машин
+### Восстановление виртуальных машин из снимков
 
 Для восстановления виртуальных машин из снимков используется ресурс `VirtualMachineRestore`.
 

@@ -13,7 +13,8 @@ properties:
     description: |
       List of CIDRs used to allocate static IP addresses for Virtual Machines.
 
-      It is important to note that the subnet for virtual machines should not be the same as the subnet used for pods and the subnet used for services. Address conflicts can lead to unpredictable behavior and networking problems.
+      Warning! It is important to note that the subnet for virtual machines should not be the same as the subnet used for pods, services and nodes. Address conflicts can lead to unpredictable behavior and networking problems.
+      It is prohibited to delete subnets from which IP addresses have already been assigned to virtual machines.
     x-examples:
       - ["10.10.10.0/24", "10.10.20.0/24"]
     items:
