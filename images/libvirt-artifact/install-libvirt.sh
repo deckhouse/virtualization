@@ -26,6 +26,14 @@ usage() {
 EOF
     exit 0
 }
+convert_version() {
+    local version="$1"
+
+    # Split the version string into major, minor, and patch parts
+    IFS='.' read -r major minor patch <<< "$version"
+    # Construct the compact version by combining major and zero-padded minor
+    printf "%d%03d\n" "$major" "$minor"
+}
 
 parse_args() {
     while [[ $# -gt 0 ]]; do
@@ -57,6 +65,15 @@ parse_args() {
                 usage
             fi
             ;;
+        -v|--libvirt-ver)
+            if [[ -n "$2" && "$2" != "-"* ]]; then
+                LIBVIRT_VERSION="$2"
+                shift 2
+            else
+                echo "Error: Option '$1' requires a non-empty argument."
+                usage
+            fi
+            ;;
         -h|--help)
             usage
             ;;
@@ -72,58 +89,65 @@ parse_args() {
     else
         SRC_BUILD="$SRC_BASE"
     fi
+
+    if [ -z $LIBVIRT_VERSION ]; then
+        LIBVIRT_VERSION="10.10.0"
+    fi
 }
 
 parse_args $@
+
+# 10.10.0 -> 10010, 10.0.5 -> 10005
+lib_version=$(convert_version $LIBVIRT_VERSION)
 
 # List of files and destinations
 FILE_LIST=$(cat <<EOF
 $SRC_BUILD/src/libvirt_probes.stp to /usr/share/systemtap/tapset
 $SRC_BUILD/src/access/org.libvirt.api.policy to /usr/share/polkit-1/actions
 $SRC_BUILD/src/qemu/libvirt_qemu_probes.stp to /usr/share/systemtap/tapset
-$SRC_BUILD/src/libvirt.so.0.10010.0 to /usr/local/lib64
-$SRC_BUILD/src/libvirt-qemu.so.0.10010.0 to /usr/local/lib64
-$SRC_BUILD/src/libvirt-lxc.so.0.10010.0 to /usr/local/lib64
-$SRC_BUILD/src/libvirt-admin.so.0.10010.0 to /usr/local/lib64
+$SRC_BUILD/src/libvirt.so.0.${lib_version}.0 to /usr/local/lib64
+$SRC_BUILD/src/libvirt-qemu.so.0.${lib_version}.0 to /usr/local/lib64
+$SRC_BUILD/src/libvirt-lxc.so.0.${lib_version}.0 to /usr/local/lib64
+$SRC_BUILD/src/libvirt-admin.so.0.${lib_version}.0 to /usr/local/lib64
 $SRC_BUILD/src/libvirt_driver_interface.so to /usr/lib64/libvirt/connection-driver
-$SRC_BUILD/src/lockd.so to /usr/lib64/libvirt/lock-driver
-$SRC_BUILD/src/sanlock.so to /usr/lib64/libvirt/lock-driver
-$SRC_BUILD/src/libvirt_driver_network.so to /usr/lib64/libvirt/connection-driver
-$SRC_BUILD/src/libvirt_driver_nodedev.so to /usr/lib64/libvirt/connection-driver
-$SRC_BUILD/src/libvirt_driver_nwfilter.so to /usr/lib64/libvirt/connection-driver
-$SRC_BUILD/src/libvirt_driver_secret.so to /usr/lib64/libvirt/connection-driver
-$SRC_BUILD/src/libvirt_driver_storage.so to /usr/lib64/libvirt/connection-driver
-$SRC_BUILD/src/libvirt_storage_backend_fs.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_backend_disk.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_backend_gluster.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_backend_iscsi.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_backend_iscsi-direct.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_backend_logical.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_backend_mpath.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_backend_rbd.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_backend_scsi.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_backend_vstorage.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_backend_zfs.so to /usr/lib64/libvirt/storage-backend
-$SRC_BUILD/src/libvirt_storage_file_fs.so to /usr/lib64/libvirt/storage-file
-$SRC_BUILD/src/libvirt_storage_file_gluster.so to /usr/lib64/libvirt/storage-file
-$SRC_BUILD/src/libvirt_driver_lxc.so to /usr/lib64/libvirt/connection-driver
-$SRC_BUILD/src/libvirt_driver_ch.so to /usr/lib64/libvirt/connection-driver
+# $SRC_BUILD/src/lockd.so to /usr/lib64/libvirt/lock-driver
+# $SRC_BUILD/src/sanlock.so to /usr/lib64/libvirt/lock-driver
+# $SRC_BUILD/src/libvirt_driver_network.so to /usr/lib64/libvirt/connection-driver
+# $SRC_BUILD/src/libvirt_driver_nodedev.so to /usr/lib64/libvirt/connection-driver
+# $SRC_BUILD/src/libvirt_driver_nwfilter.so to /usr/lib64/libvirt/connection-driver
+# $SRC_BUILD/src/libvirt_driver_secret.so to /usr/lib64/libvirt/connection-driver
+# $SRC_BUILD/src/libvirt_driver_storage.so to /usr/lib64/libvirt/connection-driver
+# $SRC_BUILD/src/libvirt_storage_backend_fs.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_backend_disk.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_backend_gluster.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_backend_iscsi.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_backend_iscsi-direct.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_backend_logical.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_backend_mpath.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_backend_rbd.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_backend_scsi.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_backend_vstorage.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_backend_zfs.so to /usr/lib64/libvirt/storage-backend
+# $SRC_BUILD/src/libvirt_storage_file_fs.so to /usr/lib64/libvirt/storage-file
+# $SRC_BUILD/src/libvirt_storage_file_gluster.so to /usr/lib64/libvirt/storage-file
+# $SRC_BUILD/src/libvirt_driver_lxc.so to /usr/lib64/libvirt/connection-driver
+# $SRC_BUILD/src/libvirt_driver_ch.so to /usr/lib64/libvirt/connection-driver
 $SRC_BUILD/src/libvirt_driver_qemu.so to /usr/lib64/libvirt/connection-driver
-$SRC_BUILD/src/libvirt_driver_vbox.so to /usr/lib64/libvirt/connection-driver
-$SRC_BUILD/src/libvirtd to /usr/sbin
-$SRC_BUILD/src/virtproxyd to /usr/sbin
-$SRC_BUILD/src/virtinterfaced to /usr/sbin
-$SRC_BUILD/src/virtlockd to /usr/sbin
+# $SRC_BUILD/src/libvirt_driver_vbox.so to /usr/lib64/libvirt/connection-driver
+# $SRC_BUILD/src/libvirtd to /usr/sbin
+# $SRC_BUILD/src/virtproxyd to /usr/sbin
+# $SRC_BUILD/src/virtinterfaced to /usr/sbin
+# $SRC_BUILD/src/virtlockd to /usr/sbin
 $SRC_BUILD/src/virtlogd to /usr/sbin
-$SRC_BUILD/src/virtnetworkd to /usr/sbin
-$SRC_BUILD/src/virtnodedevd to /usr/sbin
-$SRC_BUILD/src/virtnwfilterd to /usr/sbin
-$SRC_BUILD/src/virtsecretd to /usr/sbin
-$SRC_BUILD/src/virtstoraged to /usr/sbin
-$SRC_BUILD/src/virtlxcd to /usr/sbin
-$SRC_BUILD/src/virtchd to /usr/sbin
+# $SRC_BUILD/src/virtnetworkd to /usr/sbin
+# $SRC_BUILD/src/virtnodedevd to /usr/sbin
+# $SRC_BUILD/src/virtnwfilterd to /usr/sbin
+# $SRC_BUILD/src/virtsecretd to /usr/sbin
+# $SRC_BUILD/src/virtstoraged to /usr/sbin
+# $SRC_BUILD/src/virtlxcd to /usr/sbin
+# $SRC_BUILD/src/virtchd to /usr/sbin
 $SRC_BUILD/src/virtqemud to /usr/sbin
-$SRC_BUILD/src/virtvboxd to /usr/sbin
+# $SRC_BUILD/src/virtvboxd to /usr/sbin
 $SRC_BUILD/src/libvirt_iohelper to /usr/libexec
 $SRC_BUILD/src/virt-ssh-helper to /usr/bin
 $SRC_BUILD/src/libvirt_sanlock_helper to /usr/libexec
@@ -131,125 +155,125 @@ $SRC_BUILD/src/libvirt_leaseshelper to /usr/libexec
 $SRC_BUILD/src/libvirt_parthelper to /usr/libexec
 $SRC_BUILD/src/libvirt_lxc to /usr/libexec
 $SRC_BUILD/src/virt-qemu-run to /usr/bin
-$SRC_BUILD/src/test_libvirt_lockd.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_libvirt_sanlock.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtlockd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_libvirt_lockd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_libvirt_sanlock.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtlockd.aug to /usr/share/augeas/lenses/tests
 $SRC_BUILD/src/test_virtlogd.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_libvirtd_network.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_libvirtd_lxc.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_libvirtd_network.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_libvirtd_lxc.aug to /usr/share/augeas/lenses/tests
 $SRC_BUILD/src/test_libvirtd_qemu.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_libvirtd.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtproxyd.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtinterfaced.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtnetworkd.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtnodedevd.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtnwfilterd.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtsecretd.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtstoraged.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtlxcd.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtchd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_libvirtd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtproxyd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtinterfaced.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtnetworkd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtnodedevd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtnwfilterd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtsecretd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtstoraged.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtlxcd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtchd.aug to /usr/share/augeas/lenses/tests
 $SRC_BUILD/src/test_virtqemud.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtvboxd.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtvboxd.aug to /usr/share/augeas/lenses/tests
 $SRC_BUILD/src/libvirt_functions.stp to /usr/share/systemtap/tapset
 $SRC_BUILD/tools/virt-host-validate to /usr/bin
-$SRC_BUILD/tools/virt-login-shell to /usr/bin
-$SRC_BUILD/tools/virt-login-shell-helper to /usr/libexec
+# $SRC_BUILD/tools/virt-login-shell to /usr/bin
+# $SRC_BUILD/tools/virt-login-shell-helper to /usr/libexec
 $SRC_BUILD/tools/virsh to /usr/bin
 $SRC_BUILD/tools/virt-admin to /usr/bin
 $SRC_BUILD/tools/virt-pki-validate to /usr/bin
 $SRC_BUILD/tools/virt-pki-query-dn to /usr/bin
 $SRC_BUILD/tools/nss/libnss_libvirt.so.2 to /usr/lib64
 $SRC_BUILD/tools/nss/libnss_libvirt_guest.so.2 to /usr/lib64
-$SRC_BUILD/tools/wireshark/src/libvirt.so to /usr/lib64/wireshark/plugins/4.4/epan
-$SRC_BUILD/tools/ssh-proxy/libvirt-ssh-proxy to /usr/libexec
-$SRC_BASE/po/as/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/as/LC_MESSAGES
-$SRC_BASE/po/bg/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bg/LC_MESSAGES
-$SRC_BASE/po/bn_IN/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bn_IN/LC_MESSAGES
-$SRC_BASE/po/bs/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bs/LC_MESSAGES
-$SRC_BASE/po/ca/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ca/LC_MESSAGES
-$SRC_BASE/po/cs/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/cs/LC_MESSAGES
-$SRC_BASE/po/da/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/da/LC_MESSAGES
-$SRC_BASE/po/de/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/de/LC_MESSAGES
-$SRC_BASE/po/el/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/el/LC_MESSAGES
+# $SRC_BUILD/tools/wireshark/src/libvirt.so to /usr/lib64/wireshark/plugins/4.4/epan
+# $SRC_BUILD/tools/ssh-proxy/libvirt-ssh-proxy to /usr/libexec
+# $SRC_BASE/po/as/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/as/LC_MESSAGES
+# $SRC_BASE/po/bg/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bg/LC_MESSAGES
+# $SRC_BASE/po/bn_IN/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bn_IN/LC_MESSAGES
+# $SRC_BASE/po/bs/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bs/LC_MESSAGES
+# $SRC_BASE/po/ca/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ca/LC_MESSAGES
+# $SRC_BASE/po/cs/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/cs/LC_MESSAGES
+# $SRC_BASE/po/da/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/da/LC_MESSAGES
+# $SRC_BASE/po/de/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/de/LC_MESSAGES
+# $SRC_BASE/po/el/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/el/LC_MESSAGES
 $SRC_BASE/po/en_GB/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/en_GB/LC_MESSAGES
-$SRC_BASE/po/es/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/es/LC_MESSAGES
-$SRC_BASE/po/fi/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/fi/LC_MESSAGES
-$SRC_BASE/po/fr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/fr/LC_MESSAGES
-$SRC_BASE/po/gu/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/gu/LC_MESSAGES
-$SRC_BASE/po/hi/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/hi/LC_MESSAGES
-$SRC_BASE/po/hu/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/hu/LC_MESSAGES
-$SRC_BASE/po/id/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/id/LC_MESSAGES
-$SRC_BASE/po/it/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/it/LC_MESSAGES
-$SRC_BASE/po/ja/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ja/LC_MESSAGES
-$SRC_BASE/po/ka/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ka/LC_MESSAGES
-$SRC_BASE/po/kn/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/kn/LC_MESSAGES
-$SRC_BASE/po/ko/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ko/LC_MESSAGES
-$SRC_BASE/po/mk/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/mk/LC_MESSAGES
-$SRC_BASE/po/ml/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ml/LC_MESSAGES
-$SRC_BASE/po/mr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/mr/LC_MESSAGES
-$SRC_BASE/po/ms/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ms/LC_MESSAGES
-$SRC_BASE/po/nb/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/nb/LC_MESSAGES
-$SRC_BASE/po/nl/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/nl/LC_MESSAGES
-$SRC_BASE/po/or/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/or/LC_MESSAGES
-$SRC_BASE/po/pa/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pa/LC_MESSAGES
-$SRC_BASE/po/pl/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pl/LC_MESSAGES
-$SRC_BASE/po/pt/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pt/LC_MESSAGES
-$SRC_BASE/po/pt_BR/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pt_BR/LC_MESSAGES
+# $SRC_BASE/po/es/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/es/LC_MESSAGES
+# $SRC_BASE/po/fi/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/fi/LC_MESSAGES
+# $SRC_BASE/po/fr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/fr/LC_MESSAGES
+# $SRC_BASE/po/gu/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/gu/LC_MESSAGES
+# $SRC_BASE/po/hi/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/hi/LC_MESSAGES
+# $SRC_BASE/po/hu/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/hu/LC_MESSAGES
+# $SRC_BASE/po/id/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/id/LC_MESSAGES
+# $SRC_BASE/po/it/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/it/LC_MESSAGES
+# $SRC_BASE/po/ja/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ja/LC_MESSAGES
+# $SRC_BASE/po/ka/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ka/LC_MESSAGES
+# $SRC_BASE/po/kn/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/kn/LC_MESSAGES
+# $SRC_BASE/po/ko/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ko/LC_MESSAGES
+# $SRC_BASE/po/mk/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/mk/LC_MESSAGES
+# $SRC_BASE/po/ml/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ml/LC_MESSAGES
+# $SRC_BASE/po/mr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/mr/LC_MESSAGES
+# $SRC_BASE/po/ms/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ms/LC_MESSAGES
+# $SRC_BASE/po/nb/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/nb/LC_MESSAGES
+# $SRC_BASE/po/nl/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/nl/LC_MESSAGES
+# $SRC_BASE/po/or/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/or/LC_MESSAGES
+# $SRC_BASE/po/pa/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pa/LC_MESSAGES
+# $SRC_BASE/po/pl/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pl/LC_MESSAGES
+# $SRC_BASE/po/pt/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pt/LC_MESSAGES
+# $SRC_BASE/po/pt_BR/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pt_BR/LC_MESSAGES
 $SRC_BASE/po/ru/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ru/LC_MESSAGES
-$SRC_BASE/po/si/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/si/LC_MESSAGES
-$SRC_BASE/po/sr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/sr/LC_MESSAGES
-$SRC_BASE/po/sr@latin/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/sr@latin/LC_MESSAGES
-$SRC_BASE/po/sv/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/sv/LC_MESSAGES
-$SRC_BASE/po/ta/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ta/LC_MESSAGES
-$SRC_BASE/po/te/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/te/LC_MESSAGES
-$SRC_BASE/po/tr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/tr/LC_MESSAGES
-$SRC_BASE/po/uk/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/uk/LC_MESSAGES
-$SRC_BASE/po/vi/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/vi/LC_MESSAGES
-$SRC_BASE/po/zh_CN/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/zh_CN/LC_MESSAGES
-$SRC_BASE/po/zh_TW/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/zh_TW/LC_MESSAGES
-$SRC_BASE/po/hr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/hr/LC_MESSAGES
-$SRC_BASE/po/ro/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ro/LC_MESSAGES
-$SRC_BASE/include/libvirt/libvirt-admin.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-domain-checkpoint.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-domain.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-domain-snapshot.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-event.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-host.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-interface.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-lxc.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-network.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-nodedev.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-nwfilter.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-qemu.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-secret.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-storage.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/libvirt-stream.h to /usr/include/libvirt
-$SRC_BASE/include/libvirt/virterror.h to /usr/include/libvirt
-$SRC_BUILD/include/libvirt/libvirt-common.h to /usr/include/libvirt
-$SRC_BASE/src/cpu_map/arm_a64fx.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_cortex-a53.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_cortex-a57.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_cortex-a72.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_Falkor.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_FT-2000plus.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_features.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_Kunpeng-920.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_Neoverse-N1.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_Neoverse-N2.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_Neoverse-V1.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_Tengyun-S2500.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_ThunderX299xx.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/arm_vendors.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/po/si/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/si/LC_MESSAGES
+# $SRC_BASE/po/sr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/sr/LC_MESSAGES
+# $SRC_BASE/po/sr@latin/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/sr@latin/LC_MESSAGES
+# $SRC_BASE/po/sv/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/sv/LC_MESSAGES
+# $SRC_BASE/po/ta/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ta/LC_MESSAGES
+# $SRC_BASE/po/te/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/te/LC_MESSAGES
+# $SRC_BASE/po/tr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/tr/LC_MESSAGES
+# $SRC_BASE/po/uk/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/uk/LC_MESSAGES
+# $SRC_BASE/po/vi/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/vi/LC_MESSAGES
+# $SRC_BASE/po/zh_CN/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/zh_CN/LC_MESSAGES
+# $SRC_BASE/po/zh_TW/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/zh_TW/LC_MESSAGES
+# $SRC_BASE/po/hr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/hr/LC_MESSAGES
+# $SRC_BASE/po/ro/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ro/LC_MESSAGES
+# $SRC_BASE/include/libvirt/libvirt-admin.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-domain-checkpoint.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-domain.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-domain-snapshot.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-event.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-host.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-interface.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-lxc.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-network.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-nodedev.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-nwfilter.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-qemu.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-secret.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-storage.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/libvirt-stream.h to /usr/include/libvirt
+# $SRC_BASE/include/libvirt/virterror.h to /usr/include/libvirt
+# $SRC_BUILD/include/libvirt/libvirt-common.h to /usr/include/libvirt
+# $SRC_BASE/src/cpu_map/arm_a64fx.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_cortex-a53.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_cortex-a57.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_cortex-a72.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_Falkor.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_FT-2000plus.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_features.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_Kunpeng-920.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_Neoverse-N1.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_Neoverse-N2.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_Neoverse-V1.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_Tengyun-S2500.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_ThunderX299xx.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/arm_vendors.xml to /usr/share/libvirt/cpu_map
 $SRC_BASE/src/cpu_map/index.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/ppc64_POWER6.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/ppc64_POWER7.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/ppc64_POWER8.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/ppc64_POWER9.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/ppc64_POWER10.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/ppc64_POWERPC_e5500.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/ppc64_POWERPC_e6500.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/cpu_map/ppc64_vendors.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/ppc64_POWER6.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/ppc64_POWER7.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/ppc64_POWER8.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/ppc64_POWER9.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/ppc64_POWER10.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/ppc64_POWERPC_e5500.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/ppc64_POWERPC_e6500.xml to /usr/share/libvirt/cpu_map
+# $SRC_BASE/src/cpu_map/ppc64_vendors.xml to /usr/share/libvirt/cpu_map
 $SRC_BASE/src/cpu_map/x86_486.xml to /usr/share/libvirt/cpu_map
 $SRC_BASE/src/cpu_map/x86_athlon.xml to /usr/share/libvirt/cpu_map
 $SRC_BASE/src/cpu_map/x86_Broadwell-IBRS.xml to /usr/share/libvirt/cpu_map
@@ -379,200 +403,193 @@ $SRC_BASE/src/cpu_map/x86_Westmere-IBRS.xml to /usr/share/libvirt/cpu_map
 $SRC_BASE/src/cpu_map/x86_Westmere-v1.xml to /usr/share/libvirt/cpu_map
 $SRC_BASE/src/cpu_map/x86_Westmere-v2.xml to /usr/share/libvirt/cpu_map
 $SRC_BASE/src/cpu_map/x86_Westmere.xml to /usr/share/libvirt/cpu_map
-$SRC_BASE/src/conf/schemas/basictypes.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/capability.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/cpu.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/cputypes.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/domainbackup.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/domaincaps.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/domaincheckpoint.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/domaincommon.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/domain.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/domainoverrides.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/domainsnapshot.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/inactiveDomain.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/interface.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/networkcommon.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/networkport.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/network.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/nodedev.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/nwfilterbinding.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/nwfilter_params.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/nwfilter.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/privatedata.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/secret.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/storagecommon.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/storagepoolcaps.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/storagepool.rng to /usr/share/libvirt/schemas
-$SRC_BASE/src/conf/schemas/storagevol.rng to /usr/share/libvirt/schemas
-$SRC_BUILD/src/remote/libvirtd.qemu.logrotate to /etc/logrotate.d
-$SRC_BUILD/src/remote/libvirtd.lxc.logrotate to /etc/logrotate.d
-$SRC_BUILD/src/remote/libvirtd.libxl.logrotate to /etc/logrotate.d
-$SRC_BUILD/src/remote/libvirtd.logrotate to /etc/logrotate.d
-$SRC_BASE/src/remote/libvirtd.sysctl to /usr/lib/sysctl.d
-$SRC_BASE/src/remote/libvirtd.policy to /usr/share/polkit-1/actions
-$SRC_BASE/src/remote/libvirtd.rules to /usr/share/polkit-1/rules.d
-$SRC_BASE/src/remote/libvirtd.sasl to /etc/sasl2
-$SRC_BUILD/src/network/default.xml to /etc/libvirt/qemu/networks
-$SRC_BASE/src/network/libvirt.zone to /usr/lib/firewalld/zones
-$SRC_BASE/src/network/libvirt-routed.zone to /usr/lib/firewalld/zones
-$SRC_BASE/src/network/libvirt-to-host.policy to /usr/lib/firewalld/policies
-$SRC_BASE/src/network/libvirt-routed-out.policy to /usr/lib/firewalld/policies
-$SRC_BASE/src/network/libvirt-routed-in.policy to /usr/lib/firewalld/policies
-$SRC_BASE/src/nwfilter/xml/allow-arp.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/allow-dhcp-server.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/allow-dhcp.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/allow-dhcpv6-server.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/allow-dhcpv6.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/allow-incoming-ipv4.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/allow-incoming-ipv6.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/allow-ipv4.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/allow-ipv6.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/clean-traffic-gateway.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/clean-traffic.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-arp-ip-spoofing.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-arp-mac-spoofing.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-arp-spoofing.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-ip-multicast.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-ip-spoofing.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-ipv6-multicast.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-ipv6-spoofing.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-mac-broadcast.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-mac-spoofing.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-other-l2-traffic.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/no-other-rarp-traffic.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/qemu-announce-self-rarp.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/nwfilter/xml/qemu-announce-self.xml to /etc/libvirt/nwfilter
-$SRC_BASE/src/qemu/libvirt-qemu.sysusers.conf to /usr/lib/sysusers.d
-$SRC_BASE/src/qemu/postcopy-migration.sysctl to /usr/lib/sysctl.d
-$SRC_BASE/src/test/test-screenshot.png to /usr/share/libvirt
+# $SRC_BASE/src/conf/schemas/basictypes.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/capability.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/cpu.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/cputypes.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/domainbackup.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/domaincaps.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/domaincheckpoint.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/domaincommon.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/domain.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/domainoverrides.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/domainsnapshot.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/inactiveDomain.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/interface.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/networkcommon.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/networkport.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/network.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/nodedev.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/nwfilterbinding.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/nwfilter_params.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/nwfilter.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/privatedata.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/secret.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/storagecommon.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/storagepoolcaps.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/storagepool.rng to /usr/share/libvirt/schemas
+# $SRC_BASE/src/conf/schemas/storagevol.rng to /usr/share/libvirt/schemas
+# $SRC_BUILD/src/remote/libvirtd.qemu.logrotate to /etc/logrotate.d
+# $SRC_BUILD/src/remote/libvirtd.lxc.logrotate to /etc/logrotate.d
+# $SRC_BUILD/src/remote/libvirtd.libxl.logrotate to /etc/logrotate.d
+# $SRC_BUILD/src/remote/libvirtd.logrotate to /etc/logrotate.d
+# $SRC_BASE/src/remote/libvirtd.sysctl to /usr/lib/sysctl.d
+# $SRC_BASE/src/remote/libvirtd.policy to /usr/share/polkit-1/actions
+# $SRC_BASE/src/remote/libvirtd.rules to /usr/share/polkit-1/rules.d
+# $SRC_BASE/src/remote/libvirtd.sasl to /etc/sasl2
+# $SRC_BUILD/src/network/default.xml to /etc/libvirt/qemu/networks
+# $SRC_BASE/src/network/libvirt.zone to /usr/lib/firewalld/zones
+# $SRC_BASE/src/network/libvirt-routed.zone to /usr/lib/firewalld/zones
+# $SRC_BASE/src/network/libvirt-to-host.policy to /usr/lib/firewalld/policies
+# $SRC_BASE/src/network/libvirt-routed-out.policy to /usr/lib/firewalld/policies
+# $SRC_BASE/src/network/libvirt-routed-in.policy to /usr/lib/firewalld/policies
+# $SRC_BASE/src/nwfilter/xml/allow-arp.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/allow-dhcp-server.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/allow-dhcp.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/allow-dhcpv6-server.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/allow-dhcpv6.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/allow-incoming-ipv4.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/allow-incoming-ipv6.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/allow-ipv4.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/allow-ipv6.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/clean-traffic-gateway.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/clean-traffic.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-arp-ip-spoofing.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-arp-mac-spoofing.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-arp-spoofing.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-ip-multicast.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-ip-spoofing.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-ipv6-multicast.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-ipv6-spoofing.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-mac-broadcast.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-mac-spoofing.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-other-l2-traffic.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/no-other-rarp-traffic.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/qemu-announce-self-rarp.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/nwfilter/xml/qemu-announce-self.xml to /etc/libvirt/nwfilter
+# $SRC_BASE/src/qemu/libvirt-qemu.sysusers.conf to /usr/lib/sysusers.d
+# $SRC_BASE/src/qemu/postcopy-migration.sysctl to /usr/lib/sysctl.d
+# $SRC_BASE/src/test/test-screenshot.png to /usr/share/libvirt
 $SRC_BASE/src/admin/libvirt-admin.conf to /etc/libvirt
-$SRC_BUILD/src/locking/qemu-lockd.conf to /etc/libvirt
-$SRC_BUILD/src/locking/qemu-sanlock.conf to /etc/libvirt
-$SRC_BASE/src/locking/virtlockd.conf to /etc/libvirt
+# $SRC_BUILD/src/locking/qemu-lockd.conf to /etc/libvirt
+# $SRC_BUILD/src/locking/qemu-sanlock.conf to /etc/libvirt
+# $SRC_BASE/src/locking/virtlockd.conf to /etc/libvirt
 $SRC_BASE/src/logging/virtlogd.conf to /etc/libvirt
-$SRC_BUILD/src/network/network.conf to /etc/libvirt
-$SRC_BASE/src/lxc/lxc.conf to /etc/libvirt
+# $SRC_BUILD/src/network/network.conf to /etc/libvirt
+# $SRC_BASE/src/lxc/lxc.conf to /etc/libvirt
 $SRC_BUILD/src/qemu/qemu.conf to /etc/libvirt
 $SRC_BASE/src/libvirt.conf to /etc/libvirt
-$SRC_BASE/src/locking/libvirt_lockd.aug to /usr/share/augeas/lenses
-$SRC_BASE/src/locking/libvirt_sanlock.aug to /usr/share/augeas/lenses
-$SRC_BASE/src/locking/virtlockd.aug to /usr/share/augeas/lenses
+# $SRC_BASE/src/locking/libvirt_lockd.aug to /usr/share/augeas/lenses
+# $SRC_BASE/src/locking/libvirt_sanlock.aug to /usr/share/augeas/lenses
+# $SRC_BASE/src/locking/virtlockd.aug to /usr/share/augeas/lenses
 $SRC_BASE/src/logging/virtlogd.aug to /usr/share/augeas/lenses
-$SRC_BASE/src/network/libvirtd_network.aug to /usr/share/augeas/lenses
-$SRC_BASE/src/lxc/libvirtd_lxc.aug to /usr/share/augeas/lenses
+# $SRC_BASE/src/network/libvirtd_network.aug to /usr/share/augeas/lenses
+# $SRC_BASE/src/lxc/libvirtd_lxc.aug to /usr/share/augeas/lenses
 $SRC_BASE/src/qemu/libvirtd_qemu.aug to /usr/share/augeas/lenses
 $SRC_BUILD/src/libvirtd.conf to /etc/libvirt
 $SRC_BUILD/src/libvirtd.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtproxyd.conf to /etc/libvirt
-$SRC_BUILD/src/virtproxyd.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtinterfaced.conf to /etc/libvirt
-$SRC_BUILD/src/virtinterfaced.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtnetworkd.conf to /etc/libvirt
-$SRC_BUILD/src/virtnetworkd.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtnodedevd.conf to /etc/libvirt
-$SRC_BUILD/src/virtnodedevd.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtnwfilterd.conf to /etc/libvirt
-$SRC_BUILD/src/virtnwfilterd.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtsecretd.conf to /etc/libvirt
-$SRC_BUILD/src/virtsecretd.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtstoraged.conf to /etc/libvirt
-$SRC_BUILD/src/virtstoraged.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtlxcd.conf to /etc/libvirt
-$SRC_BUILD/src/virtlxcd.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtchd.conf to /etc/libvirt
-$SRC_BUILD/src/virtchd.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtproxyd.conf to /etc/libvirt
+# $SRC_BUILD/src/virtproxyd.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtinterfaced.conf to /etc/libvirt
+# $SRC_BUILD/src/virtinterfaced.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtnetworkd.conf to /etc/libvirt
+# $SRC_BUILD/src/virtnetworkd.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtnodedevd.conf to /etc/libvirt
+# $SRC_BUILD/src/virtnodedevd.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtnwfilterd.conf to /etc/libvirt
+# $SRC_BUILD/src/virtnwfilterd.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtsecretd.conf to /etc/libvirt
+# $SRC_BUILD/src/virtsecretd.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtstoraged.conf to /etc/libvirt
+# $SRC_BUILD/src/virtstoraged.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtlxcd.conf to /etc/libvirt
+# $SRC_BUILD/src/virtlxcd.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtchd.conf to /etc/libvirt
+# $SRC_BUILD/src/virtchd.aug to /usr/share/augeas/lenses
 $SRC_BUILD/src/virtqemud.conf to /etc/libvirt
 $SRC_BUILD/src/virtqemud.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtvboxd.conf to /etc/libvirt
-$SRC_BUILD/src/virtvboxd.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtvboxd.conf to /etc/libvirt
+# $SRC_BUILD/src/virtvboxd.aug to /usr/share/augeas/lenses
 $SRC_BASE/src/remote/virt-guest-shutdown.target to /usr/lib/systemd/system
-$SRC_BUILD/src/libvirtd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/libvirtd.service to /usr/lib/systemd/system
 $SRC_BUILD/src/libvirtd.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/libvirtd-ro.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/libvirtd-admin.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/libvirtd-tcp.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/libvirtd-tls.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtproxyd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtproxyd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtproxyd-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtproxyd-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtproxyd-tcp.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtproxyd-tls.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtinterfaced.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtinterfaced.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtinterfaced-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtinterfaced-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtlockd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtlockd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtlockd-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtlogd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtlogd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtlogd-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnetworkd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnetworkd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnetworkd-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnetworkd-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnodedevd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnodedevd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnodedevd-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnodedevd-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnwfilterd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnwfilterd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnwfilterd-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtnwfilterd-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtsecretd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtsecretd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtsecretd-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtsecretd-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtstoraged.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtstoraged.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtstoraged-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtstoraged-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtlxcd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtlxcd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtlxcd-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtlxcd-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtchd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtchd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtchd-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtchd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtproxyd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtproxyd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtproxyd-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtproxyd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtproxyd-tcp.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtproxyd-tls.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtinterfaced.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtinterfaced.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtinterfaced-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtinterfaced-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtlockd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtlockd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtlockd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtlogd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtlogd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtlogd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnetworkd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnetworkd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnetworkd-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnetworkd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnodedevd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnodedevd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnodedevd-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnodedevd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnwfilterd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnwfilterd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnwfilterd-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtnwfilterd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtsecretd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtsecretd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtsecretd-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtsecretd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtstoraged.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtstoraged.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtstoraged-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtstoraged-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtlxcd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtlxcd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtlxcd-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtlxcd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtchd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtchd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtchd-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtchd-admin.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtqemud.service to /usr/lib/systemd/system
 $SRC_BUILD/src/virtqemud.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtqemud-ro.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtqemud-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtvboxd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/virtvboxd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtvboxd-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtvboxd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtvboxd.service to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtvboxd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtvboxd-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtvboxd-admin.socket to /usr/lib/systemd/system
 $SRC_BASE/tools/virt-login-shell.conf to /etc/libvirt
 $SRC_BUILD/tools/virt-xml-validate to /usr/bin
-$SRC_BUILD/tools/virt-sanlock-cleanup to /usr/sbin
+# $SRC_BUILD/tools/virt-sanlock-cleanup to /usr/sbin
 $SRC_BASE/tools/virt-qemu-sev-validate to /usr/bin
 $SRC_BUILD/tools/libvirt-guests.sh to /usr/libexec
-$SRC_BUILD/tools/libvirt-guests.service to /usr/lib/systemd/system
-$SRC_BASE/tools/virt-qemu-qmp-proxy to /usr/bin
+# $SRC_BUILD/tools/libvirt-guests.service to /usr/lib/systemd/system
+# $SRC_BASE/tools/virt-qemu-qmp-proxy to /usr/bin
 $SRC_BUILD/tools/bash-completion/virsh to /usr/share/bash-completion/completions
 $SRC_BUILD/tools/bash-completion/virt-admin to /usr/share/bash-completion/completions
-$SRC_BUILD/tools/ssh-proxy/30-libvirt-ssh-proxy.conf to /etc/ssh/ssh_config.d
-$SRC_BUILD/libvirt.pc to /usr/lib64/pkgconfig
-$SRC_BUILD/libvirt-qemu.pc to /usr/lib64/pkgconfig
-$SRC_BUILD/libvirt-lxc.pc to /usr/lib64/pkgconfig
-$SRC_BUILD/libvirt-admin.pc to /usr/lib64/pkgconfig
+# $SRC_BUILD/tools/ssh-proxy/30-libvirt-ssh-proxy.conf to /etc/ssh/ssh_config.d
+# $SRC_BUILD/libvirt.pc to /usr/lib64/pkgconfig
+# $SRC_BUILD/libvirt-qemu.pc to /usr/lib64/pkgconfig
+# $SRC_BUILD/libvirt-lxc.pc to /usr/lib64/pkgconfig
+# $SRC_BUILD/libvirt-admin.pc to /usr/lib64/pkgconfig
 EOF
 )
 
 # Function to copy files
 copy_file() {
-    local source_file="$1"
+    local SOURCE_PATH="$1"
     local dest_dir="$2"
-
-    # Compute the full source path
-    if [[ "$source_file" == /* ]]; then
-        SOURCE_PATH="$source_file"
-    else
-        SOURCE_PATH="$SRC_BASE/$source_file"
-    fi
 
     # Ensure the source file exists
     if [ ! -e "$SOURCE_PATH" ]; then
