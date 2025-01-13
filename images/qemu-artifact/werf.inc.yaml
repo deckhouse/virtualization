@@ -112,7 +112,7 @@ shell:
     cd {{ $gitRepoName }}-{{ $versionQemu }}
     
     ./configure --prefix=/BINS \
-      --target-list="x86_64-softmmu i386-softmmu" \
+      --target-list="x86_64-softmmu" \
       --enable-kvm \
       --enable-tcg \
       --enable-vnc \

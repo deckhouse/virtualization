@@ -232,7 +232,7 @@ shell:
     cp -a /qemu-bins/bin/. /VBINS/usr/bin/
     cp -a /qemu-bins/share/. /VBINS/usr/share/
     cp -a /qemu-bins/libexec/. /VBINS/usr/lib/libexec/
-    cp -a /qemu-bins/include/. /VBINS/usr/local/include/
+    # cp -a /qemu-bins/include/. /VBINS/usr/local/include/
     rm -rf /VBINS/var/run
 
 ---
