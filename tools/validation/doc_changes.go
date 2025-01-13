@@ -74,7 +74,7 @@ func RunDocChangesValidation(info *DiffInfo) (exitCode int) {
 }
 
 var possibleDocRootsRe = regexp.MustCompile(`docs/|docs/documentation`)
-var docsDirAllowedFileRe = regexp.MustCompile(`docs/(CONFIGURATION|CR|FAQ|README|ADMIN_GUIDE|USER_GUIDE|CHARACTERISTICS_DESCRIPTION)(_RU)?.md`)
+var docsDirAllowedFileRe = regexp.MustCompile(`docs/(CONFIGURATION|CR|FAQ|README|ADMIN_GUIDE|USER_GUIDE|CHARACTERISTICS_DESCRIPTION|INSTALL)(_RU)?.md`)
 var docsDirFileRe = regexp.MustCompile(`docs/[^/]+.md`)
 
 func checkDocFile(fName string, diffInfo *DiffInfo) (msg Message) {
