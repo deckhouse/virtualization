@@ -211,9 +211,11 @@ spec:
   # The block describes the virtual processor parameters for virtual machines.
   # This block cannot be changed after the resource has been created.
   cpu: ...
+
   # (optional) Describes the rules for node placement of virtual machines.
   # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
   nodeSelector: ...
+
   # (optional) Describes the sizing policy for configuring virtual machine resources.
   # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
   sizingPolicies: ...
