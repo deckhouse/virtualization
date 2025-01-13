@@ -118,8 +118,11 @@ But we set up the placement ourselves, so we replace the policy with AnyNode.
 
 #### `029-use-OFVM_CODE-for-linux.patch`
 
-Kubevirt always uses OVFM_CODE.secboot.fd.
-Even if the security boot is turned off.
-It is believed that this firmware works correctly with OVFM_VERS, but on altlinux we see problems, the virtual machine with efi and cpu >=12 does not start.
-OVFM_CODE.fd is not exist, but the OVFM_CODE.cc.fd is always symlink to OVFM_CODE.fd
-That's why we set the sev to true for always virtual machines with linux.
+Kubevirt uses OVFM_CODE.secboot.fd in 2 combinations: OVFM_CODE.secboot.fd + OVFM_VARS.secboot.fd when secboot is enabled and OVFM_CODE.secboot.fd + OVFM_VARS.fd when secboot is disabled.
+It works fine with original CentOS based virt-launcher in both secboot modes.
+We use ALTLinux based virt-launcher, and it fails to start Linux VM with more than 12 CPUs in secboot disabled mode.
+
+Kubevirt uses flags to detect firmware combinations in converter.
+EFIConfiguration, so we can't set needed files directly. 
+But there is combination for SEV: OVFM_CODE.cc.fd + OVMF_VARS.fd that works for Linux, because OVFM_CODE.cc.fd is actually a symlink to OVFM_CODE.fd. 
+So, we set true for the second flag to force OVFM_CODE.cc.fd + OVMF_VARS.fd for non-Windows virtual machines._
