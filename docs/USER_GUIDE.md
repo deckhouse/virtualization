@@ -1105,7 +1105,7 @@ metadata:
   name: attach-ubuntu-iso
 spec:
   blockDeviceRef:
-    kind: VirtualImage # или ClusterVirtualImage
+    kind: VirtualImage # or ClusterVirtualImage
     name: ubuntu-iso
   virtualMachineName: linux-vm
 EOF
