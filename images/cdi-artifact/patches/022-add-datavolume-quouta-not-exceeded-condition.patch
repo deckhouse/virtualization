@@ -125,7 +125,7 @@ index 4c153257a..aaf4f8198 100644
  	} else {
 diff --git a/pkg/patcheddatavolume/patched_datavolume.go b/pkg/patcheddatavolume/patched_datavolume.go
 new file mode 100644
-index 000000000..19573973a
+index 000000000..7b00253e5
 --- /dev/null
 +++ b/pkg/patcheddatavolume/patched_datavolume.go
 @@ -0,0 +1,101 @@
@@ -163,7 +163,7 @@ index 000000000..19573973a
 +		conditions = append(conditions, cdiv1.DataVolumeCondition{
 +			Type: conditionType,
 +		})
-+		condition = FindConditionByType(conditionType, conditions)
++		condition = &conditions[len(conditions)-1]
 +	}
 +	if condition.Status != status {
 +		condition.LastTransitionTime = metav1.Now()
