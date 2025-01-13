@@ -211,10 +211,10 @@ spec:
   # The block describes the virtual processor parameters for virtual machines.
   # This block cannot be changed after the resource has been created.
   cpu: ...
-  # Describes the rules for node placement of virtual machines.
+  # (optional) Describes the rules for node placement of virtual machines.
   # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
   nodeSelector: ...
-  # Describes the sizing policy for configuring virtual machine resources.
+  # (optional) Describes the sizing policy for configuring virtual machine resources.
   # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
   sizingPolicies: ...
 ```
@@ -253,7 +253,7 @@ spec:
 ```
 
 {{< alert level="info" >}}
-Warning. It is recommended to create at least one `VirtualMachineClass` resource in the cluster with the Discovery type immediately after all nodes are configured and added to the cluster. This will allow the virtual machines to utilize a generic CPU with the highest possible CPU performance given the CPUs on the cluster nodes, allowing the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
+It is recommended to create at least one `VirtualMachineClass` resource in the cluster with the Discovery type immediately after all nodes are configured and added to the cluster. This will allow the virtual machines to utilize a generic CPU with the highest possible CPU performance given the CPUs on the cluster nodes, allowing the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
 {{< /alert >}}
 
 Platform administrators can create the required classes of virtual machines according to their needs, but it is recommended to create the minimum required. Consider the following example:
