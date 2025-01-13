@@ -229,6 +229,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 
 		return reconcile.Result{Requeue: true}, nil
 	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == metav1.ConditionFalse:
+		vi.Status.Phase = virtv2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.QuotaExceeded).
