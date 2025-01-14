@@ -38,7 +38,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -100,7 +99,7 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 
 	var quotaNotExceededCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
-		quotaNotExceededCondition = getDVNotExceededCondition(dv.Status.Conditions)
+		quotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 	}
 
 	switch {
@@ -127,7 +126,7 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncStarted,
+			virtv2.ReasonDataSourceSyncStarted,
 			"The ObjectRef DataSource import to PVC has started",
 		)
 
@@ -196,7 +195,7 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncCompleted,
+			virtv2.ReasonDataSourceSyncCompleted,
 			"The ObjectRef DataSource import has completed",
 		)
 

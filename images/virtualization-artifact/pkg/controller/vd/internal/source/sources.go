@@ -334,11 +334,9 @@ func setPhaseConditionFromProvisioningError(
 
 			_, err = cleaner.CleanUp(ctx, supgen)
 			if err != nil {
-				if err != nil {
-					err = errors.Join(provisioningErr, err)
-					setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
-					return err
-				}
+				err = errors.Join(provisioningErr, err)
+				setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
+				return err
 			}
 
 			cb.
@@ -418,15 +416,5 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.Di
 }
 
 const (
-	DVQoutaNotExceededConditionType string = "QuotaNotExceeded"
+	DVQoutaNotExceededConditionType cdiv1.DataVolumeConditionType = "QuotaNotExceeded"
 )
-
-func getDVNotExceededCondition(conditions []cdiv1.DataVolumeCondition) *cdiv1.DataVolumeCondition {
-	for _, condition := range conditions {
-		if string(condition.Type) == DVQoutaNotExceededConditionType {
-			return &condition
-		}
-	}
-
-	return nil
-}
