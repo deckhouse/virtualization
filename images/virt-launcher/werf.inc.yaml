@@ -147,7 +147,7 @@ shell:
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
   - chmod +x /usr/bin/virt-launcher-monitor
-  # Configure liboverride globally.
+  # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
   - cp /etc/ld.so.preload.in /etc/ld.so.preload
   # Create qemu group and user.
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home

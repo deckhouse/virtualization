@@ -134,3 +134,9 @@ To force delivery of packages to only one VM pod, the special label `network.dec
 When the migration completes, the label is removed and the target pod becomes accessible via network.
 
 d8-cni-cilium ensures that once the label is removed from the target pod, only the target pod remains accessible over the network (while the source pod does not).
+
+#### `031-prevent-adding-node-selector-for-dvp-generic-cpu-model.patch`
+
+- Do not add cpu-model nodeSelector for "kvm64" model. This selector prevents starting VMs as node-labeler ignores to labeling nodes with "kvm64" model.
+
+- Overwrite calculated model on migration, put back "kvm64" for Discovery and Features vmclass types.
