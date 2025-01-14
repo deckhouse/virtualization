@@ -6,6 +6,14 @@
 image: {{ $.ImageName }}
 final: false
 fromImage: base-alt-p11
+git:
+- add: /images/{{ $.ImageName }}/
+  to: /
+  includePaths:
+  - install-qemu.sh
+  stageDependencies:
+    setup:
+      - install-qemu.sh
 shell:
   beforeInstall:
   - | 
@@ -111,7 +119,7 @@ shell:
     
     cd {{ $gitRepoName }}-{{ $versionQemu }}
     
-    ./configure --prefix=/BINS \
+    ./configure \
       --target-list="x86_64-softmmu" \
       --enable-kvm \
       --enable-tcg \
@@ -141,4 +149,9 @@ shell:
       # --disable-debug-tcg \
   setup:
   - |
+    echo "/{{ $gitRepoName }}-{{ $versionQemu }}"
+
+    /install-qemu.sh -s /{{ $gitRepoName }}-{{ $versionQemu }} \
+                        -d /BINS \
+                        -b build
     ls -lah /BINS

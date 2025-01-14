@@ -152,7 +152,7 @@ shell:
   - |
     echo "/{{ $gitRepoName }}-{{ $versionLibvirt }}"
 
-    ls -lah /{{ $gitRepoName }}-{{ $versionLibvirt }}
+    # ls -lah /{{ $gitRepoName }}-{{ $versionLibvirt }}
     
     /install-libvirt.sh -s /{{ $gitRepoName }}-{{ $versionLibvirt }} \
                         -d /BINS \
