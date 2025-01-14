@@ -151,39 +151,39 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 
 	cb := conditions.NewConditionBuilder(vdcondition.InUseType)
 	switch {
-	case allowUseForVM && inUseCondition.Status == metav1.ConditionUnknown:
-		if inUseCondition.Reason != vdcondition.AllowedForVirtualMachineUsage.String() {
+	case allowUseForVM && inUseCondition.Status != metav1.ConditionTrue:
+		if inUseCondition.Reason != vdcondition.AttachedToVirtualMachine.String() {
 			cb.
 				Generation(vd.Generation).
 				Status(metav1.ConditionTrue).
-				Reason(vdcondition.AllowedForVirtualMachineUsage).
+				Reason(vdcondition.AttachedToVirtualMachine).
 				Message("")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 			return reconcile.Result{}, nil
 		}
-	case allowUseForImage && inUseCondition.Status == metav1.ConditionUnknown:
-		if inUseCondition.Reason != vdcondition.AllowedForImageUsage.String() {
+	case allowUseForImage && inUseCondition.Status != metav1.ConditionTrue:
+		if inUseCondition.Reason != vdcondition.UsedForImageCreation.String() {
 			cb.
 				Generation(vd.Generation).
 				Status(metav1.ConditionTrue).
-				Reason(vdcondition.AllowedForImageUsage).
+				Reason(vdcondition.UsedForImageCreation).
 				Message("")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 			return reconcile.Result{}, nil
 		}
 	default:
-		setUnknown := false
+		setNotInUse := false
 
-		if inUseCondition.Reason == vdcondition.AllowedForVirtualMachineUsage.String() && !allowUseForVM {
-			setUnknown = true
+		if inUseCondition.Reason == vdcondition.AttachedToVirtualMachine.String() && !allowUseForVM {
+			setNotInUse = true
 		}
 
-		if inUseCondition.Reason == vdcondition.AllowedForImageUsage.String() && !allowUseForImage {
-			setUnknown = true
+		if inUseCondition.Reason == vdcondition.UsedForImageCreation.String() && !allowUseForImage {
+			setNotInUse = true
 		}
 
-		if setUnknown {
-			cb.Generation(vd.Generation).Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown).Message("")
+		if setNotInUse {
+			cb.Generation(vd.Generation).Status(metav1.ConditionFalse).Reason(vdcondition.NotInUse).Message("")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 			return reconcile.Result{Requeue: true}, nil
 		}
