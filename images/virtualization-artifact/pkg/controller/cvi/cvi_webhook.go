@@ -80,7 +80,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	}
 
 	if strings.Contains(newCVI.ObjectMeta.Name, ".") {
-		warnings = append(warnings, "cluster virtual image name contain '.', it may be cause of problems in future, please recreate resource.")
+		warnings = append(warnings, "ClusterVirtualImage name is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another image with valid name to avoid problems with future updates.")
 	}
 
 	return warnings, nil
