@@ -117,14 +117,15 @@ index 4c153257a..e21e40312 100644
  	} else {
 diff --git a/pkg/patcheddatavolume/patched_datavolume.go b/pkg/patcheddatavolume/patched_datavolume.go
 new file mode 100644
-index 000000000..28ce3c406
+index 000000000..d931db11d
 --- /dev/null
 +++ b/pkg/patcheddatavolume/patched_datavolume.go
-@@ -0,0 +1,120 @@
+@@ -0,0 +1,126 @@
 +package patcheddatavolume
 +
 +import (
 +	"context"
++	"errors"
 +	"fmt"
 +
 +	corev1 "k8s.io/api/core/v1"
@@ -160,10 +161,10 @@ index 000000000..28ce3c406
 +	case readyCondition != nil && readyCondition.Reason == common.ErrExceededQuota:
 +		conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), QuotaExceededReason)
 +	case boundCondition != nil && boundCondition.Reason == common.ErrExceededQuota:
-+		conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), QuotaExceededReason)
++		conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", boundCondition.Message), QuotaExceededReason)
 +	case runningCondition != nil:
 +		if runningCondition.Reason == common.ErrExceededQuota {
-+			conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), QuotaExceededReason)
++			conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", runningCondition.Message), QuotaExceededReason)
 +		} else if runningCondition.Status == corev1.ConditionTrue {
 +			conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionTrue, "", QuotaNotExceededReason)
 +		}
@@ -173,6 +174,11 @@ index 000000000..28ce3c406
 +}
 +
 +func UpdateDVQuotaNotExceededConditionByPVC(clientObject client.Client, pvc *corev1.PersistentVolumeClaim, status corev1.ConditionStatus, message, reason string) error {
++	fmt.Println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
++	fmt.Println("Error from UpdateDVQuotaNotExceededConditionByPVC")
++	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
++	return errors.New("errrrrrrr")
++
 +	dv := getDVByPVC(clientObject, pvc, common.AnnCreatedForDataVolume)
 +	if dv == nil {
 +		return nil
