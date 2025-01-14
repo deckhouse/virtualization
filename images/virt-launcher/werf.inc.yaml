@@ -107,6 +107,7 @@ shell:
     acl \
     pcre \
     procps \
+    seavgabios seabios \
     ethtool \
     nftables \
     xorriso \
@@ -119,15 +120,16 @@ shell:
     libcap-ng libcurl libaudit libfuse libnbd libblkid libgcrypt20 \
     libgnutls libp11-kit libreadline8 libtasn1 libattr libbsd libsystemd \
     libuuid libssh libssh2 \
+    libspice-server \
     libcapstone libpixman libpng16 libjpeg libepoxy libusb \
     libsnappy liblzo2 libSDL2 libpmem libdaxctl libfdt libqpl1 \
     libslirp libvdeplug3 libxdp libbpf libdw libgbm libgtk+3 \
     libcairo libgdk-pixbuf libvte3 libX11 libSDL2_image \
     libvirglrenderer libcacard libusbredir libalsa \
-    libpulseaudio pipewire-jack-libs pipewire-libs libaio liburing \
+    libpulseaudio pipewire-libs libaio liburing \
     libblkio libglusterfs11-api libnfs librbd1 librados2
 
-    # libspice-server
+    # libspice-server pipewire-jack-libs
     # seavgabios \
     # seabios \
     # libvirt-client==10.2.0-alt1 \

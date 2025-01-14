@@ -92,6 +92,7 @@ parse_args $@
 FILE_LIST=$(cat <<EOF
 $SRC_BUILD/trace/trace-events-all to /usr/local/share/qemu
 $SRC_BUILD/qemu-system-x86_64 to /usr/local/bin
+$SRC_BUILD/qga/qemu-ga to /usr/local/bin
 $SRC_BUILD/qemu-keymap to /usr/local/bin
 $SRC_BUILD/qemu-img to /usr/local/bin
 $SRC_BUILD/qemu-io to /usr/local/bin
@@ -113,10 +114,10 @@ $SRC_BUILD/pc-bios/edk2-i386-secure-code.fd to /usr/local/share/qemu
 $SRC_BUILD/pc-bios/edk2-i386-vars.fd to /usr/local/share/qemu
 $SRC_BUILD/pc-bios/edk2-x86_64-code.fd to /usr/local/share/qemu
 $SRC_BUILD/pc-bios/edk2-x86_64-secure-code.fd to /usr/local/share/qemu
-$SRC_BUILD/pc-bios/edk2-loongarch64-code.fd to /usr/local/share/qemu
-$SRC_BUILD/pc-bios/edk2-loongarch64-vars.fd to /usr/local/share/qemu
-$SRC_BUILD/pc-bios/keymaps/ar to /usr/local/share/qemu/keymaps
-$SRC_BUILD/pc-bios/keymaps/bepo to /usr/local/share/qemu/keymaps
+# $SRC_BUILD/pc-bios/edk2-loongarch64-code.fd to /usr/local/share/qemu
+# $SRC_BUILD/pc-bios/edk2-loongarch64-vars.fd to /usr/local/share/qemu
+# $SRC_BUILD/pc-bios/keymaps/ar to /usr/local/share/qemu/keymaps
+# $SRC_BUILD/pc-bios/keymaps/bepo to /usr/local/share/qemu/keymaps
 # $SRC_BUILD/pc-bios/keymaps/cz to /usr/local/share/qemu/keymaps
 # $SRC_BUILD/pc-bios/keymaps/da to /usr/local/share/qemu/keymaps
 # $SRC_BUILD/pc-bios/keymaps/de to /usr/local/share/qemu/keymaps
@@ -218,8 +219,8 @@ $SRC_BASE/pc-bios/qemu_vga.ndrv to /usr/local/share/qemu
 $SRC_BASE/pc-bios/edk2-licenses.txt to /usr/local/share/qemu
 $SRC_BASE/pc-bios/hppa-firmware.img to /usr/local/share/qemu
 $SRC_BASE/pc-bios/hppa-firmware64.img to /usr/local/share/qemu
-$SRC_BASE/pc-bios/opensbi-riscv32-generic-fw_dynamic.bin to /usr/local/share/qemu
-$SRC_BASE/pc-bios/opensbi-riscv64-generic-fw_dynamic.bin to /usr/local/share/qemu
+# $SRC_BASE/pc-bios/opensbi-riscv32-generic-fw_dynamic.bin to /usr/local/share/qemu
+# $SRC_BASE/pc-bios/opensbi-riscv64-generic-fw_dynamic.bin to /usr/local/share/qemu
 $SRC_BASE/pc-bios/npcm7xx_bootrom.bin to /usr/local/share/qemu
 $SRC_BASE/pc-bios/vof.bin to /usr/local/share/qemu
 $SRC_BASE/pc-bios/vof-nvram.bin to /usr/local/share/qemu
@@ -229,13 +230,13 @@ $SRC_BASE/pc-bios/petalogix-s3adsp1800.dtb to /usr/local/share/qemu
 $SRC_BASE/pc-bios/petalogix-ml605.dtb to /usr/local/share/qemu
 $SRC_BUILD/pc-bios/descriptors/50-edk2-i386-secure.json to /usr/local/share/qemu/firmware
 $SRC_BUILD/pc-bios/descriptors/50-edk2-x86_64-secure.json to /usr/local/share/qemu/firmware
-$SRC_BUILD/pc-bios/descriptors/60-edk2-aarch64.json to /usr/local/share/qemu/firmware
-$SRC_BUILD/pc-bios/descriptors/60-edk2-arm.json to /usr/local/share/qemu/firmware
+# $SRC_BUILD/pc-bios/descriptors/60-edk2-aarch64.json to /usr/local/share/qemu/firmware
+# $SRC_BUILD/pc-bios/descriptors/60-edk2-arm.json to /usr/local/share/qemu/firmware
 $SRC_BUILD/pc-bios/descriptors/60-edk2-i386.json to /usr/local/share/qemu/firmware
 $SRC_BUILD/pc-bios/descriptors/60-edk2-x86_64.json to /usr/local/share/qemu/firmware
-$SRC_BUILD/pc-bios/descriptors/60-edk2-loongarch64.json to /usr/local/share/qemu/firmware
-$SRC_BASE/pc-bios/keymaps/sl to /usr/local/share/qemu/keymaps
-$SRC_BASE/pc-bios/keymaps/sv to /usr/local/share/qemu/keymaps
+# $SRC_BUILD/pc-bios/descriptors/60-edk2-loongarch64.json to /usr/local/share/qemu/firmware
+# $SRC_BASE/pc-bios/keymaps/sl to /usr/local/share/qemu/keymaps
+# $SRC_BASE/pc-bios/keymaps/sv to /usr/local/share/qemu/keymaps
 EOF
 )
 

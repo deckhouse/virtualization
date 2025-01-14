@@ -19,7 +19,7 @@ shell:
   - | 
     apt-get update && apt-get install -y \
     gcc gcc-c++ \
-    git \
+    git curl \
     bash-completion \
     clang \
     ccache \
@@ -43,14 +43,14 @@ shell:
     git clone --depth=1 --branch {{ $gitRepoName }}-{{ $versionEdk2 }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionEdk2 }}
     
     git clone https://github.com/tianocore/edk2-platforms.git
-    git clone https://github.com/tianocore/edk2-staging.git
+    # git clone https://github.com/tianocore/edk2-staging.git
 
     cd {{ $gitRepoName }}-{{ $versionEdk2 }}
     git submodule update --init --recursive
 
     # Set env edk
     export EDK_TOOLS_PATH=$(pwd)/BaseTools
-    export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms:/edk2-staging
+    export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
 
     echo "Building BaseTools..."
     ln /usr/bin/python3 /usr/bin/python
@@ -58,9 +58,14 @@ shell:
     
     # Set up the build environment
     echo "Setting up the build environment..."
-    . edksetup.sh BaseTools
+    source ./edksetup.sh BaseTools
 
-    mkdir -p /FIRMWARE
+    # mkdir -p /FIRMWARE
+  setup:
+  - |
+    /build.sh
+
+    ls -lah /FIRMWARE
 {{/*
 
     # #==========
