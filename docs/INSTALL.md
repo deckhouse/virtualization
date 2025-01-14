@@ -80,6 +80,11 @@ You can track the readiness of the module using the following command:
 
 ```bash
 d8 k get modules virtualization
+```
+
+Example output:
+
+```txt
 # NAME             WEIGHT   STATE     SOURCE     STAGE   STATUS
 # virtualization   900      Enabled   Embedded           Ready
 ```
@@ -104,4 +109,4 @@ Attention: Changing the virtual machine “firmware” during a platform version
 
 Deckhouse Virtualization Platform components can be updated automatically, or with manual confirmation as updates are released in the update channels.
 
-For information on the versions available on the update channels, visit this site at https://releases.deckhouse.io/.
+For information on the versions available on the update channels, visit the site at https://releases.deckhouse.io/.

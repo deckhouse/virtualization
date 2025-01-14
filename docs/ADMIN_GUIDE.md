@@ -63,7 +63,11 @@ Check the result of the `ClusterVirtualImage` creation:
 d8 k get clustervirtualimage ubuntu-22.04
 # or shorter
 d8 k get cvi ubuntu-22.04
+```
 
+Example output:
+
+```txt
 # NAME           PHASE   CDROM   PROGRESS   AGE
 # ubuntu-22.04   Ready   false   100%       23h
 ```
@@ -83,7 +87,11 @@ You can trace the image creation process by adding the `-w` key to the previous 
 
 ```bash
 d8 k get cvi ubuntu-22.04 -w
+```
 
+Example output:
+
+```txt
 # NAME           PHASE          CDROM   PROGRESS   AGE
 # ubuntu-22.04   Provisioning   false              4s
 # ubuntu-22.04   Provisioning   false   0.0%       4s
@@ -169,7 +177,11 @@ There are two options available for uploading from a cluster node and from an ar
 
 ```bash
 d8 k get cvi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
+```
 
+Example output:
+
+```txt
 # {
 #   "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
 #   "inCluster":"http://10.222.165.239/upload"
@@ -192,6 +204,11 @@ After the upload is complete, the image should be created and enter the `Ready` 
 
 ```bash
 d8 k get cvi some-image
+```
+
+Example output:
+
+```txt
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # some-image   Ready   false   100%       1m
 ```
@@ -232,6 +249,11 @@ The virtualization platform provides 3 predefined `VirtualMachineClass` resource
 
 ```bash
 d8 k get virtualmachineclass
+```
+
+Example output:
+
+```txt
 NAME               PHASE   AGE
 host               Ready   6d1h
 host-passthrough   Ready   6d1h
@@ -465,6 +487,11 @@ Before starting the migration, see the current status of the virtual machine:
 
 ```bash
 d8 k get vm
+```
+
+Example output:
+
+```txt
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
 # linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
@@ -491,6 +518,11 @@ Immediately after creating the `vmop` resource, run the command:
 
 ```bash
 d8 k get vm -w
+```
+
+Example output:
+
+```txt
 # NAME                                   PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m

@@ -14,125 +14,133 @@ Example of creating a virtual machine with Ubuntu 22.04.
 
 1. Create a virtual machine image from an external source:
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: ubuntu
-spec:
-  storage: ContainerRegistry
-  dataSource:
-    type: HTTP
-    http:
-      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
-EOF
-```
-
-2. Create a virtual machine disk from the image created in the previous step (Caution: Make sure that the default StorageClass is present on the system before creating it):
-
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
-metadata:
-  name: linux-disk
-spec:
-  dataSource:
-    type: ObjectRef
-    objectRef:
-      kind: VirtualImage
+    ```yaml
+    d8 k apply -f - <<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualImage
+    metadata:
       name: ubuntu
-EOF
-```
+    spec:
+      storage: ContainerRegistry
+      dataSource:
+        type: HTTP
+        http:
+          url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+    EOF
+    ```
 
-3. Creating a virtual machine
+1. Create a virtual machine disk from the image created in the previous step (Caution: Make sure that the default StorageClass is present on the system before creating it):
 
-The example uses the cloud-init script to create a cloud user with the cloud password generated as follows:
-
-```bash
-mkpasswd --method=SHA-512 --rounds=4096
-```
-
-You can change the user name and password in this section:
-
-```yaml
-users:
-  - name: cloud
-    passwd: $6$rounds=4096$G5VKZ1CVH5Ltj4wo$g.O5RgxYz64ScD5Ach5jeHS.Nm/SRys1JayngA269wjs/LrEJJAZXCIkc1010PZqhuOaQlANDVpIoeabvKK4j1
-```
-
-Create a virtual machine from the following specification:
-
-```yaml
-d8 k apply -f - <<"EOF"
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachine
-metadata:
-  name: linux-vm
-spec:
-  virtualMachineClassName: host
-  cpu:
-    cores: 1
-  memory:
-    size: 1Gi
-  provisioning:
-    type: UserData
-    userData: |
-      #cloud-config
-      ssh_pwauth: True
-      users:
-      - name: cloud
-        passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
-        shell: /bin/bash
-        sudo: ALL=(ALL) NOPASSWD:ALL
-        lock_passwd: False
-  blockDeviceRefs:
-    - kind: VirtualDisk
+    ```yaml
+    d8 k apply -f - <<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualDisk
+    metadata:
       name: linux-disk
-EOF
-```
+    spec:
+      dataSource:
+        type: ObjectRef
+        objectRef:
+          kind: VirtualImage
+          name: ubuntu
+    EOF
+    ```
 
-Useful links:
+1. Creating a virtual machine:
 
-- [cloud-init documentation](https://cloudinit.readthedocs.io/)
-- [Resource Parameters](cr.html)
+    The example uses the cloud-init script to create a cloud user with the cloud password generated as follows:
+    
+    ```bash
+    mkpasswd --method=SHA-512 --rounds=4096
+    ```
+    
+    You can change the user name and password in this section:
+    
+    ```yaml
+    users:
+      - name: cloud
+        passwd: $6$rounds=4096$G5VKZ1CVH5Ltj4wo$g.O5RgxYz64ScD5Ach5jeHS.Nm/SRys1JayngA269wjs/LrEJJAZXCIkc1010PZqhuOaQlANDVpIoeabvKK4j1
+    ```
+    
+    Create a virtual machine from the following specification:
+    
+    ```yaml
+    d8 k apply -f - <<"EOF"
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualMachine
+    metadata:
+      name: linux-vm
+    spec:
+      virtualMachineClassName: host
+      cpu:
+        cores: 1
+      memory:
+        size: 1Gi
+      provisioning:
+        type: UserData
+        userData: |
+          #cloud-config
+          ssh_pwauth: True
+          users:
+          - name: cloud
+            passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
+            shell: /bin/bash
+            sudo: ALL=(ALL) NOPASSWD:ALL
+            lock_passwd: False
+      blockDeviceRefs:
+        - kind: VirtualDisk
+          name: linux-disk
+    EOF
+    ```
+    
+    Useful links:
+    
+    - [cloud-init documentation](https://cloudinit.readthedocs.io/)
+    - [Resource Parameters](cr.html)
 
-4. Verify with the command that the image and disk have been created and the virtual machine is running. Resources are not created instantly, so you will need to wait a while before they are ready.
+1. Verify with the command that the image and disk have been created and the virtual machine is running. Resources are not created instantly, so you will need to wait a while before they are ready.
 
-```bash
-d8 k get vi,vd,vm
+    ```bash
+    d8 k get vi,vd,vm
+    ```
+   
+    Example output:
 
-# NAME                                                 PHASE   CDROM   PROGRESS   AGE
-# virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
-#
-# NAME                                                 PHASE   CAPACITY   AGE
-# virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
-#
-# NAME                                                 PHASE     NODE           IPADDRESS     AGE
-# virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
-```
+    ```txt
+    # NAME                                                 PHASE   CDROM   PROGRESS   AGE
+    # virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+    #
+    # NAME                                                 PHASE   CAPACITY   AGE
+    # virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+    #
+    # NAME                                                 PHASE     NODE           IPADDRESS     AGE
+    # virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+    ```
 
-5. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
+1. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
+    
+    ```bash
+    d8 v console linux-vm
+    ```
 
-```bash
-d8 v console linux-vm
+   Example output:
 
-# Successfully connected to linux-vm console. The escape sequence is ^]
-#
-# linux-vm login: cloud
-# Password: cloud
-# ...
-# cloud@linux-vm:~$
-```
+    ```txt    
+    # Successfully connected to linux-vm console. The escape sequence is ^]
+    #
+    # linux-vm login: cloud
+    # Password: cloud
+    # ...
+    # cloud@linux-vm:~$
+    ```
 
-6. Use the following commands to delete previously created resources:
+1. Use the following commands to delete previously created resources:
 
-```bash
-d8 k delete vm linux-vm
-d8 k delete vd linux-disk
-d8 k delete vi ubuntu
-```
+    ```bash
+    d8 k delete vm linux-vm
+    d8 k delete vd linux-disk
+    d8 k delete vi ubuntu
+    ```
 
 ## Images
 
@@ -191,7 +199,11 @@ Check the result of the `VirtualImage` creation:
 d8 k get virtualimage ubuntu-22.04
 # or a shorter version
 d8 k get vi ubuntu-22.04
+```
 
+Example output:
+
+```txt
 # NAME           PHASE   CDROM   PROGRESS   AGE
 # ubuntu-22.04   Ready   false   100%       23h
 ```
@@ -211,7 +223,11 @@ You can trace the image creation process by adding the `-w` key to the previous 
 
 ```bash
 d8 k get vi ubuntu-22.04 -w
+```
 
+Example output:
+
+```txt
 # NAME           PHASE          CDROM   PROGRESS   AGE
 # ubuntu-22.04   Provisioning   false              4s
 # ubuntu-22.04   Provisioning   false   0.0%       4s
@@ -253,7 +269,11 @@ Check the result of the `VirtualImage` creation:
 
 ```bash
 d8 k get vi ubuntu-22.04-pvc
+```
 
+Example output:
+
+```txt
 # NAME              PHASE   CDROM   PROGRESS   AGE
 # ubuntu-22.04-pvc  Ready   false   100%       23h
 ```
@@ -331,7 +351,11 @@ There are two options available for uploading from a cluster node and from an ar
 
 ```bash
 d8 k get vi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
+```
 
+Example output:
+
+```txt
 # {
 #   "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
 #   "inCluster":"http://10.222.165.239/upload"
@@ -354,7 +378,11 @@ After the upload is complete, the image should be created and enter the `Ready` 
 
 ```bash
 d8 k get vi some-image
+```
 
+Example output:
+
+```txt
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # some-image   Ready   false   100%       1m
 ```
@@ -415,7 +443,11 @@ To find out the available storage options on the platform, run the following com
 
 ```bash
 d8 k get storageclass
+```
 
+Example output:
+
+```txt
 # NAME                          PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
 # i-linstor-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
 # i-linstor-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
@@ -467,7 +499,11 @@ Check the status of the disk after creation with the command:
 
 ```bash
 d8 k get vd blank-disk
+```
 
+Example output:
+
+```txt
 # NAME       PHASE   CAPACITY   AGE
 # blank-disk   Ready   100Mi      1m2s
 ```
@@ -482,7 +518,11 @@ Using the example of the previously created image `VirtualImage`, let's consider
 
 ```bash
 d8 k get vi ubuntu-22.04 -o wide
+```
 
+Example output:
+
+```txt
 # NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
 # ubuntu-22.04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22.04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
@@ -539,7 +579,11 @@ Check the status of the disks after creation:
 
 ```bash
 d8 k get vd
+```
 
+Example output:
+
+```txt
 # NAME           PHASE   CAPACITY   AGE
 # linux-vm-root    Ready   10Gi       7m52s
 # linux-vm-root-2  Ready   2590Mi     7m15s
@@ -553,7 +597,11 @@ Check the size before the change:
 
 ```bash
 d8 k get vd linux-vm-root
+```
 
+Example output:
+
+```txt
 # NAME          PHASE   CAPACITY   AGE
 # linux-vm-root   Ready   10Gi       10m
 ```
@@ -568,7 +616,11 @@ Let's check the size after the change:
 
 ```bash
 d8 k get vd linux-vm-root
+```
 
+Example output:
+
+```txt
 # NAME          PHASE   CAPACITY   AGE
 # linux-vm-root   Ready   11Gi       12m
 ```
@@ -657,7 +709,11 @@ Check the state of the virtual machine after creation:
 
 ```bash
 d8 k get vm linux-vm
+```
 
+Example output:
+
+```txt
 # NAME        PHASE     NODE           IPADDRESS     AGE
 # linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
 ```
@@ -676,7 +732,11 @@ An example of connecting to a virtual machine using a serial console:
 
 ```bash
 d8 v console linux-vm
+```
 
+Example output:
+
+```txt
 # Successfully connected to linux-vm console. The escape sequence is ^]
 #
 # linux-vm login: cloud
@@ -780,7 +840,11 @@ Suppose we want to change the number of processor cores. The virtual machine is 
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+```
 
+Example output:
+
+```txt
 # 1
 ```
 
@@ -788,7 +852,11 @@ Apply the following patch to the virtual machine to change the number of cores f
 
 ```bash
 d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+```
 
+Example output:
+
+```txt
 # virtualmachine.virtualization.deckhouse.io/linux-vm patched
 ```
 
@@ -796,7 +864,11 @@ Configuration changes have been made but not yet applied to the virtual machine.
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+```
 
+Example output:
+
+```txt
 # 1
 ```
 
@@ -804,7 +876,11 @@ A restart of the virtual machine is required to apply this change. Run the follo
 
 ```bash
 d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
+```
 
+Example output:
+
+```txt
 # [
 #   {
 #     "currentValue": 1,
@@ -819,7 +895,11 @@ Run the command:
 
 ```bash
 d8 k get vm linux-vm -o wide
+```
 
+Example output:
+
+```txt
 # NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
 # linux-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
 ```
@@ -838,7 +918,11 @@ Execute the command to verify:
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+```
 
+Example output:
+
+```txt
 # 2
 ```
 
@@ -1079,7 +1163,11 @@ Check the state of your resource::
 
 ```bash
 d8 k get vmbda attach-blank-disk
+```
 
+Example output:
+
+```txt
 # NAME              PHASE      VIRTUAL MACHINE NAME   AGE
 # attach-blank-disk   Attached   linux-vm              3m7s
 ```
@@ -1088,7 +1176,11 @@ Connect to the virtual machine and make sure the disk is connected:
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
+```
 
+Example output:
+
+```txt
 # NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
 # sda       8:0    0   10G  0 disk <--- statically mounted linux-vm-root disk
 # |-sda1    8:1    0  9.9G  0 part /
@@ -1112,7 +1204,11 @@ Preliminary, put the following labels on the previously created vm:
 
 ```bash
 d8 k label vm linux-vm app=nginx
+```
 
+Example output:
+
+```txt
 # virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 ```
 
@@ -1252,7 +1348,11 @@ Before starting the migration, view the current status of the virtual machine::
 
 ```bash
 d8 k get vm
+```
 
+Example output:
+
+```txt
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
 # linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
@@ -1279,7 +1379,11 @@ Immediately after creating the `vmip` resource, run the command:
 
 ```bash
 d8 k get vm -w
+```
 
+Example output:
+
+```txt
 # NAME                                   PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
@@ -1303,7 +1407,11 @@ To see a list of IP address leases (`vmipl`), use the command:
 
 ```bash
 d8 k get vmipl
+```
 
+Example output:
+
+```txt
 # NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
@@ -1314,7 +1422,11 @@ To see a list of `vmip`, use the command:
 
 ```bash
 d8 k get vmipl
+```
 
+Example output:
+
+```txt
 # NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
@@ -1323,7 +1435,11 @@ By default, an ip address is automatically assigned to a virtual machine from th
 
 ```bash
 k get vmip
+```
 
+Example output:
+
+```txt
 # NAME              ADDRESS       STATUS     VM          AGE
 # linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
@@ -1435,7 +1551,11 @@ To get a list of supported `VolumeSnapshotClasses` resources, run the command:
 
 ```bash
 d8 k get volumesnapshotclasses
+```
 
+Example output:
+
+```txt
 # NAME                     DRIVER                                DELETIONPOLICY   AGE
 # csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
 # sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
@@ -1460,7 +1580,11 @@ To view a list of disk snapshots, run the following command:
 
 ```bash
 d k get vdsnapshot
+```
 
+Example output:
+
+```txt
 # NAME                     PHASE     CONSISTENT   AGE
 # linux-vm-root-1728027905   Ready                  3m2s
 ```
@@ -1520,7 +1644,11 @@ To get a list of supported `VolumeSnapshotClasses` resources, run the command:
 
 ```bash
 d8 k get volumesnapshotclasses
+```
 
+Example output:
+
+```txt
 # NAME                     DRIVER                                DELETIONPOLICY   AGE
 # csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
 # sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
