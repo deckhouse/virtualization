@@ -13,11 +13,6 @@ rules:
     resources:
       - internalvirtualizationdatavolumes
     verbs:
-      - create
-      - update
-      - patch
-      - delete
-      - deletecollection
       - get
       - list
       - watch
@@ -28,11 +23,6 @@ rules:
       - internalvirtualizationvirtualmachineinstances
       - internalvirtualizationvirtualmachines
     verbs:
-      - create
-      - update
-      - patch
-      - delete
-      - deletecollection
       - get
       - list
       - watch
@@ -42,11 +32,6 @@ rules:
       - persistentvolumeclaims
       - pods
     verbs:
-      - create
-      - update
-      - patch
-      - delete
-      - deletecollection
       - get
       - list
       - watch
@@ -55,11 +40,6 @@ rules:
     resources:
       - controllerrevisions
     verbs:
-      - create
-      - update
-      - patch
-      - delete
-      - deletecollection
       - get
       - list
       - watch
@@ -68,11 +48,6 @@ rules:
     resources:
       - poddisruptionbudgets
     verbs:
-      - create
-      - update
-      - patch
-      - delete
-      - deletecollection
       - get
       - list
       - watch
@@ -81,11 +56,6 @@ rules:
     resources:
       - volumesnapshots
     verbs:
-      - create
-      - update
-      - patch
-      - delete
-      - deletecollection
       - get
       - list
       - watch
