@@ -122,6 +122,10 @@ shell:
     ./configure \
       --target-list="x86_64-softmmu" \
       --enable-kvm \
+      --enable-guest-agent \
+      --enable-hv-balloon \
+      --enable-malloc-trim \
+      --enable-numa \
       --enable-tcg \
       --enable-vnc \
       --enable-virtfs \
@@ -136,13 +140,11 @@ shell:
       --disable-cloop \
       --disable-dmg \
       --disable-glusterfs \
-      --disable-guest-agent \
       --disable-guest-agent-msi \
+      --disable-jack \
       --disable-parallels \
       --disable-xen \
-      --disable-xen-pci-passthrough
-
-      make -j$(nproc)
+      --disable-xen-pci-passthrough make -j$(nproc)
 
       make install -j$(nproc)
 

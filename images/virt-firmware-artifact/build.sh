@@ -1,5 +1,3 @@
-#!/bin/bash
-
 #!/usr/bin/env bash
 
 # Copyright 2024 Flant JSC
@@ -18,106 +16,122 @@
 
 set -e
 
-# Source edksetup.sh
 versionEdk2=stable202411
 gitRepoName=edk2
+FIRMWARE=/FIRMWARE
 
-export EDK_TOOLS_PATH="/${gitRepoName}-${versionEdk2}/BaseTools"
-export PACKAGES_PATH="/${gitRepoName}-${versionEdk2}/BaseTools:/edk2-platforms:/edk2-staging"
+cd /${gitRepoName}-${versionEdk2}
 
-cd "/${gitRepoName}-${versionEdk2}"
-. edksetup.sh
+mkdir -p ${FIRMWARE}
 
-# Ensure the Build directory is clean
-rm -rf Build/*
+download_DBXUpdate() {
+    local dst_dir=$1
 
-# Build OVMF firmware
-build_ovmf() {
-    local target=$1
-    local out_code=$2
-    local out_vars=$3
-    local dsc_file=$4
-    local build_dir=$5
-    local build_opts=$6
+    if [ -z $dst_dir ];then dst_dir="$FIRMWARE"; fi
 
-    build -a X64 -t GCC5 -p $dsc_file -b RELEASE $build_opts
-    cp $build_dir/RELEASE_GCC5/FV/$(basename $out_code) /FIRMWARE/$(basename $out_code)
-    if [[ -n "$out_vars" ]]; then
-        cp $build_dir/RELEASE_GCC5/FV/$(basename $out_vars) /FIRMWARE/$(basename $out_vars)
-    fi
-    rm -rf Build/*
+    DBXDATE="20230509"
+    UEFI_BIN_URL_BASE="https://uefi.org/sites/default/files/resources"
+    # curl -L $UEFI_BIN_URL_BASE/x86_DBXUpdate$DBXDATE.bin -o $dst_dir/DBXUpdate-$DBXDATE.x86.bin
+    curl -L $UEFI_BIN_URL_BASE/x64_DBXUpdate_$DBXDATE.bin -o $dst_dir/DBXUpdate-$DBXDATE.x64.bin
 }
 
-# Build Standard OVMF
-build_ovmf "Standard OVMF" \
-    "/FIRMWARE/OVMF_CODE.fd" \
-    "/FIRMWARE/OVMF_VARS.fd" \
-    "OvmfPkg/OvmfPkgX64.dsc" \
-    "Build/OvmfX64" \
-    ""
+# compiler
+CC_FLAGS="-t GCC5"
+CC_FLAGS="${CC_FLAGS} -b RELEASE"
 
-# Build Secure Boot OVMF
-build_ovmf "Secure Boot OVMF" \
-    "/FIRMWARE/OVMF_CODE.secboot.fd" \
-    "/FIRMWARE/OVMF_VARS.secboot.fd" \
-    "OvmfPkg/OvmfPkgX64.dsc" \
-    "Build/OvmfX64" \
-    "-D SECURE_BOOT_ENABLE"
+CC_FLAGS="${CC_FLAGS} --cmd-len=65536"
+CC_FLAGS="${CC_FLAGS} -D NETWORK_IP6_ENABLE=TRUE"
+CC_FLAGS="${CC_FLAGS} -D NETWORK_HTTP_BOOT_ENABLE=TRUE -D NETWORK_ALLOW_HTTP_CONNECTIONS=TRUE"
+CC_FLAGS="${CC_FLAGS} -D TPM2_ENABLE=TRUE -D TPM2_CONFIG_ENABLE=TRUE"
+CC_FLAGS="${CC_FLAGS} -D TPM1_ENABLE=FALSE"
+CC_FLAGS="${CC_FLAGS} -D CAVIUM_ERRATUM_27456=TRUE"
 
-# Build Confidential Computing OVMF
-build_ovmf "Confidential Computing OVMF" \
-    "/FIRMWARE/OVMF_CODE.cc.fd" \
-    "" \
-    "OvmfPkg/OvmfQemuCc.dsc" \
-    "Build/OvmfQemuCc" \
-    ""
+# ovmf features
+OVMF_2M_FLAGS="${CC_FLAGS} -D FD_SIZE_2MB=TRUE -D NETWORK_TLS_ENABLE=FALSE -D NETWORK_ISCSI_ENABLE=FALSE"
+OVMF_4M_FLAGS="${CC_FLAGS} -D FD_SIZE_4MB=TRUE -D NETWORK_TLS_ENABLE=TRUE -D NETWORK_ISCSI_ENABLE=TRUE"
 
-# Build AMD SEV OVMF
-build_ovmf "AMD SEV OVMF" \
-    "/FIRMWARE/OVMF.amdsev.fd" \
-    "" \
-    "OvmfPkg/OvmfPkgX64.dsc" \
-    "Build/OvmfX64" \
-    "-D AMD_SEV=TRUE"
+# secure boot features
+OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SECURE_BOOT_ENABLE=TRUE"
+OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SMM_REQUIRE=TRUE"
+OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FALSE"
 
-# Build Intel TDX OVMF
-build_ovmf "Intel TDX OVMF" \
-    "/FIRMWARE/OVMF.inteltdx.fd" \
-    "" \
-    "OvmfPkg/OvmfQemuTdx.dsc" \
-    "Build/OvmfQemuTdx" \
-    ""
+unset MAKEFLAGS
 
-# Build Intel TDX Secure Boot OVMF
-build_ovmf "Intel TDX Secure Boot OVMF" \
-    "/FIRMWARE/OVMF.inteltdx.secboot.fd" \
-    "" \
-    "OvmfPkg/OvmfQemuTdx.dsc" \
-    "Build/OvmfQemuTdx" \
-    "-D SECURE_BOOT_ENABLE"
+. edksetup.sh
 
-# Build UEFI Shell
-build -a X64 -t GCC5 -p ShellPkg/ShellPkg.dsc -b RELEASE
-cp Build/Shell/RELEASE_GCC5/X64/Shell.efi /FIRMWARE/Shell.efi
-rm -rf Build/*
+build_iso() {
+  dir="$1"
+  UEFI_SHELL_BINARY=${dir}/Shell.efi
+  ENROLLER_BINARY=${dir}/EnrollDefaultKeys.efi
+  UEFI_SHELL_IMAGE=uefi_shell.img
+  ISO_IMAGE=${dir}/UefiShell.iso
 
-# Create UEFI Shell ISO
-mkdir -p /iso/efi/boot
-cp /FIRMWARE/Shell.efi /iso/efi/boot/bootx64.efi
-genisoimage -o /FIRMWARE/UefiShell.iso -efi-boot-part --efi-boot-image -no-emul-boot /iso
-rm -rf /iso
+  UEFI_SHELL_BINARY_BNAME=$(basename -- "$UEFI_SHELL_BINARY")
+  UEFI_SHELL_SIZE=$(stat --format=%%s -- "$UEFI_SHELL_BINARY")
+  ENROLLER_SIZE=$(stat --format=%%s -- "$ENROLLER_BINARY")
 
-# Build EnrollDefaultKeys.efi from edk2-apps
-cd /edk2-apps
-. ../edk2/edksetup.sh
+  # add 1MB then 10 percent for metadata
+  UEFI_SHELL_IMAGE_KB=$((
+    (UEFI_SHELL_SIZE + ENROLLER_SIZE + 1 * 1024 * 1024) * 11 / 10 / 1024
+  ))
 
-# Build EnrollDefaultKeys.efi
-build -a X64 -t GCC5 -p SecMainPkg/SecMainPkg.dsc -m SecureBootEnrollDefaultKeys/EnrollDefaultKeys.inf -b RELEASE
-cp Build/SecMainPkg/RELEASE_GCC5/X64/EnrollDefaultKeys.efi /FIRMWARE/EnrollDefaultKeys.efi
-rm -rf Build/*
+  # create non-partitioned FAT image
+  rm -f -- "$UEFI_SHELL_IMAGE"
+  mkdosfs -C "$UEFI_SHELL_IMAGE" -n UEFI_SHELL -- "$UEFI_SHELL_IMAGE_KB"
 
-# Build DBXUpdate binary
-cd /openssl req -new -x509 -newkey rsa:2048 -subj "/CN=Test DBX Update/" -keyout dbxupdate_key.pem -out dbxupdate_cert.pem -nodes -days 365
-sbattach --remove /FIRMWARE/EnrollDefaultKeys.efi
-sbattach --attach dbxupdate_cert.pem /FIRMWARE/EnrollDefaultKeys.efi
-cp /FIRMWARE/EnrollDefaultKeys.efi /FIRMWARE/DBXUpdate-20230509.x64.bin
+  # copy the shell binary into the FAT image
+  export MTOOLS_SKIP_CHECK=1
+  mmd   -i "$UEFI_SHELL_IMAGE"                       ::efi
+  mmd   -i "$UEFI_SHELL_IMAGE"                       ::efi/boot
+  mcopy -i "$UEFI_SHELL_IMAGE"  "$UEFI_SHELL_BINARY" ::efi/boot/bootx64.efi
+  mcopy -i "$UEFI_SHELL_IMAGE"  "$ENROLLER_BINARY"   ::
+  mdir  -i "$UEFI_SHELL_IMAGE"  -/                   ::
+
+  # build ISO with FAT image file as El Torito EFI boot image
+  xorrisofs -input-charset ASCII -J -rational-rock \
+    -e "$UEFI_SHELL_IMAGE" -no-emul-boot \
+    -o "$ISO_IMAGE" "$UEFI_SHELL_IMAGE"
+}
+
+# Build with neither SB nor SMM; include UEFI shell.
+# mkdir -p OVMF
+
+build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
+cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
+cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
+# Build 4MB with neither SB nor SMM; include UEFI shell.
+build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
+cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE_4M.fd
+cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS_4M.fd
+# Build with SB and SMM; exclude UEFI shell.
+build ${OVMF_2M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
+cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.secboot.fd
+# Build 4MB with SB and SMM; exclude UEFI shell.
+build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
+cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE_4M.secboot.fd
+# Build AmdSev and IntelTdx variants
+touch OvmfPkg/AmdSev/Grub/grub.efi   # dummy
+build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc
+cp -p Build/AmdSev/*/FV/OVMF.fd $FIRMWARE/OVMF.amdsev.fd
+build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc
+cp -p Build/IntelTdx/*/FV/OVMF.fd $FIRMWARE/OVMF.inteltdx.fd
+
+# build shell
+build ${OVMF_2M_FLAGS} -a X64 -p ShellPkg/ShellPkg.dsc
+build ${OVMF_2M_FLAGS} -a IA32 -p ShellPkg/ShellPkg.dsc
+
+# build ovmf (x64) shell iso with EnrollDefaultKeys
+#cp Build/Ovmf3264/*/X64/Shell.efi $FIRMWARE/
+cp -p Build/Shell/*/X64/ShellPkg/Application/Shell/Shell/OUTPUT/Shell.efi $FIRMWARE/
+cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+
+build_iso $FIRMWARE
+download_DBXUpdate
+
+cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
+cp -p $FIRMWARE/OVMF_VARS_4M.fd $FIRMWARE/OVMF_VARS_4M.secboot.fd
+cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd
+
+# build microvm
+build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/Microvm/MicrovmX64.dsc
+cp -p Build/MicrovmX64/*/FV/MICROVM.fd $FIRMWARE
