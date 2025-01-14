@@ -61,9 +61,6 @@ const (
 	// ReasonVMOPStarted is event reason that the operation is started
 	ReasonVMOPStarted = "VirtualMachineOperationStarted"
 
-	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
-	ReasonVMClassInUse = "VirtualMachineClassInUse"
-
 	// ReasonVDStorageClassWasDeleted is event reason that VDStorageClass was deleted.
 	ReasonVDStorageClassWasDeleted = "VirtualDiskStorageClassWasDeleted"
 	// ReasonVDStorageClassNotFound is event reason that VDStorageClass not found.

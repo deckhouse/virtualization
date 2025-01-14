@@ -21,16 +21,18 @@ import (
 	"fmt"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmclasscondition"
 )
 
 const nameDeletionHandler = "DeletionHandler"
@@ -58,15 +60,28 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 		controllerutil.AddFinalizer(changed, virtv2.FinalizerVMCleanup)
 		return reconcile.Result{}, nil
 	}
+	cb := conditions.NewConditionBuilder(vmclasscondition.TypeInUse).Generation(changed.Generation)
+	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
 	vms, err := s.VirtualMachines(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if len(vms) > 0 {
-		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it. %s...", object.NamespacedName(&vms[0]))
-		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonVMClassInUse, msg)
+		var vmNamespacedNames []string
+		for i := range vms {
+			vmNamespacedNames = append(vmNamespacedNames, object.NamespacedName(&vms[i]).String())
+		}
+		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it. %q", vmNamespacedNames)
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vmclasscondition.ReasonVMClassInUse).
+			Message(msg)
 		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 	}
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(vmclasscondition.ReasonVMClassFree).
+		Message("")
 	h.logger.Info("Deletion observed: remove cleanup finalizer from VirtualMachineClass")
 	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMCleanup)
 	return reconcile.Result{}, nil

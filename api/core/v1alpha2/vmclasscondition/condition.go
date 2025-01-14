@@ -25,6 +25,7 @@ func (t Type) String() string {
 const (
 	TypeReady      Type = "Ready"
 	TypeDiscovered Type = "Discovered"
+	TypeInUse      Type = "InUse"
 )
 
 type Reason string
@@ -44,4 +45,9 @@ const (
 	ReasonDiscoverySucceeded Reason = "DiscoverySucceeded"
 	ReasonDiscoverySkip      Reason = "DiscoverySkip"
 	ReasonDiscoveryFailed    Reason = "DiscoveryFailed"
+
+	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
+	ReasonVMClassInUse Reason = "VirtualMachineClassInUse"
+	// ReasonVMClassFree is event reason that VMClass not used by virtual machine.
+	ReasonVMClassFree Reason = "VirtualMachineClassFree"
 )
