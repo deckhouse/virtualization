@@ -227,7 +227,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		return reconcile.Result{}, err
 	}
 
-	var quotaNotExceededCondition *metav1.Condition
+	var quotaNotExceededCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
 		quotaNotExceededCondition = getDVNotExceededCondition(dv.Status.Conditions)
 	}
@@ -287,7 +287,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
-	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == metav1.ConditionFalse:
+	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == corev1.ConditionFalse:
 		vi.Status.Phase = virtv2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
