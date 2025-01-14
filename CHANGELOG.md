@@ -1,4 +1,8 @@
 # Changelog
+## [0.14.1] https://github.com/deckhouse/virtualization/compare/v0.14.0...v0.14.1
+
+### fix
+**vdsnapshot,vmsnapshot** unfreeze virtual machines by @Isteb4k in ([#592](https://github.com/deckhouse/virtualization/pull/592))
 
 ## [0.14.0](https://github.com/deckhouse/virtualization/compare/v0.13.1...v0.14.0) (2024-10-14)
 
