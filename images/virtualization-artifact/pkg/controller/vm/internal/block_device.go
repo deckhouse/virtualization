@@ -189,7 +189,7 @@ func (h *BlockDeviceHandler) areVirtualDisksAllowedToUse(vds map[string]*virtv2.
 		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 		if inUseCondition.Status != metav1.ConditionTrue ||
 			inUseCondition.Reason != vdcondition.AllowedForVirtualMachineUsage.String() ||
-			inUseCondition.ObservedGeneration != vd.Status.ObservedGeneration {
+			inUseCondition.ObservedGeneration != vd.Generation {
 			return false
 		}
 	}
