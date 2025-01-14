@@ -19,7 +19,7 @@ index acd09cb94..2fb859150 100644
  
  func (r *ReconcilerBase) emitConditionEvent(dataVolume *cdiv1.DataVolume, originalCond []cdiv1.DataVolumeCondition) {
 diff --git a/pkg/controller/import-controller.go b/pkg/controller/import-controller.go
-index 49f1ff898..4ce5c085e 100644
+index 49f1ff898..972f8ab5f 100644
 --- a/pkg/controller/import-controller.go
 +++ b/pkg/controller/import-controller.go
 @@ -34,6 +34,7 @@ import (
@@ -30,18 +30,21 @@ index 49f1ff898..4ce5c085e 100644
  	"kubevirt.io/containerized-data-importer/pkg/util"
  	"kubevirt.io/containerized-data-importer/pkg/util/naming"
  	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
-@@ -753,6 +754,9 @@ func (r *ImportReconciler) createScratchPvcForPod(pvc *corev1.PersistentVolumeCl
+@@ -753,6 +754,12 @@ func (r *ImportReconciler) createScratchPvcForPod(pvc *corev1.PersistentVolumeCl
  		// Scratch PVC doesn't exist yet, create it. Determine which storage class to use.
  		_, err = createScratchPersistentVolumeClaim(r.client, pvc, pod, scratchPVCName, storageClassName, r.installerLabels, r.recorder)
  		if err != nil {
 +			if strings.Contains(err.Error(), "exceeded quota") {
-+				patchedDV.UpdateDVQuotaNotExceededConditionByPVC(r.client, pvc, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", err.Error()), patchedDV.QuotaExceededReason)
++				innerErr := patchedDV.UpdateDVQuotaNotExceededConditionByPVC(r.client, pvc, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", err.Error()), patchedDV.QuotaExceededReason)
++				if innerErr != nil {
++					return innerErr
++				}
 +			}
  			return err
  		}
  		anno[cc.AnnBoundCondition] = "false"
 diff --git a/pkg/controller/populators/populator-base.go b/pkg/controller/populators/populator-base.go
-index 6c6fd8f8a..9df58c3fd 100644
+index 6c6fd8f8a..8fcda592c 100644
 --- a/pkg/controller/populators/populator-base.go
 +++ b/pkg/controller/populators/populator-base.go
 @@ -18,7 +18,9 @@ package populators
@@ -74,18 +77,21 @@ index 6c6fd8f8a..9df58c3fd 100644
  	// Assemble PVC' spec
  	pvcPrime := &corev1.PersistentVolumeClaim{
  		ObjectMeta: metav1.ObjectMeta{
-@@ -213,6 +221,9 @@ func (r *ReconcilerBase) createPVCPrime(pvc *corev1.PersistentVolumeClaim, sourc
+@@ -213,6 +221,12 @@ func (r *ReconcilerBase) createPVCPrime(pvc *corev1.PersistentVolumeClaim, sourc
  	}
  
  	if err := r.client.Create(context.TODO(), pvcPrime); err != nil {
 +		if strings.Contains(err.Error(), "exceeded quota") {
-+			patchedDV.UpdateDVQuotaNotExceededConditionByPVC(r.client, pvc, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", err.Error()), patchedDV.QuotaExceededReason)
++			innerErr := patchedDV.UpdateDVQuotaNotExceededConditionByPVC(r.client, pvc, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", err.Error()), patchedDV.QuotaExceededReason)
++			if innerErr != nil {
++				return nil, innerErr
++			}
 +		}
  		return nil, err
  	}
  	r.recorder.Eventf(pvc, corev1.EventTypeNormal, createdPVCPrimeSuccessfully, messageCreatedPVCPrimeSuccessfully)
 diff --git a/pkg/controller/upload-controller.go b/pkg/controller/upload-controller.go
-index 4c153257a..aaf4f8198 100644
+index 4c153257a..e21e40312 100644
 --- a/pkg/controller/upload-controller.go
 +++ b/pkg/controller/upload-controller.go
 @@ -51,6 +51,7 @@ import (
@@ -96,19 +102,22 @@ index 4c153257a..aaf4f8198 100644
  	"kubevirt.io/containerized-data-importer/pkg/util"
  	"kubevirt.io/containerized-data-importer/pkg/util/cert/fetcher"
  	"kubevirt.io/containerized-data-importer/pkg/util/cert/generator"
-@@ -473,6 +474,9 @@ func (r *UploadReconciler) getOrCreateScratchPvc(pvc *corev1.PersistentVolumeCla
+@@ -473,6 +474,12 @@ func (r *UploadReconciler) getOrCreateScratchPvc(pvc *corev1.PersistentVolumeCla
  		// Scratch PVC doesn't exist yet, create it.
  		scratchPvc, err = createScratchPersistentVolumeClaim(r.client, pvc, pod, name, storageClassName, map[string]string{}, r.recorder)
  		if err != nil {
 +			if strings.Contains(err.Error(), "exceeded quota") {
-+				patchedDV.UpdateDVQuotaNotExceededConditionByPVC(r.client, pvc, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", err.Error()), patchedDV.QuotaExceededReason)
++				innerErr := patchedDV.UpdateDVQuotaNotExceededConditionByPVC(r.client, pvc, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", err.Error()), patchedDV.QuotaExceededReason)
++				if innerErr != nil {
++					return nil, innerErr
++				}
 +			}
  			return nil, err
  		}
  	} else {
 diff --git a/pkg/patcheddatavolume/patched_datavolume.go b/pkg/patcheddatavolume/patched_datavolume.go
 new file mode 100644
-index 000000000..54b62b4cb
+index 000000000..28ce3c406
 --- /dev/null
 +++ b/pkg/patcheddatavolume/patched_datavolume.go
 @@ -0,0 +1,120 @@
@@ -163,14 +172,14 @@ index 000000000..54b62b4cb
 +	return conditions
 +}
 +
-+func UpdateDVQuotaNotExceededConditionByPVC(clientObject client.Client, pvc *corev1.PersistentVolumeClaim, status corev1.ConditionStatus, message, reason string) {
++func UpdateDVQuotaNotExceededConditionByPVC(clientObject client.Client, pvc *corev1.PersistentVolumeClaim, status corev1.ConditionStatus, message, reason string) error {
 +	dv := getDVByPVC(clientObject, pvc, common.AnnCreatedForDataVolume)
 +	if dv == nil {
-+		return
++		return nil
 +	}
 +
 +	dv.Status.Conditions = updateCondition(dv.Status.Conditions, QoutaNotExceededConditionType, status, message, reason)
-+	_ = clientObject.Status().Update(context.TODO(), dv)
++	return clientObject.Status().Update(context.TODO(), dv)
 +}
 +
 +func CreateDVQuotaIsNotExceededConditionIfNotExists(conditions *[]cdiv1.DataVolumeCondition) {
