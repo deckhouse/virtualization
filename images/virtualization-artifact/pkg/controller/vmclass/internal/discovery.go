@@ -125,7 +125,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	sort.Strings(featuresEnabled)
 	sort.Strings(featuresNotEnabled)
 
-	addedNodes, removedNodes := nodeNamesDiff(current.Status.AvailableNodes, availableNodeNames)
+	addedNodes, removedNodes := NodeNamesDiff(current.Status.AvailableNodes, availableNodeNames)
 	if len(addedNodes) > 0 || len(removedNodes) > 0 {
 		if len(availableNodes) > 0 {
 			h.recorder.Eventf(
@@ -203,7 +203,9 @@ func (h *DiscoveryHandler) maxAllocatableResources(nodes []corev1.Node) corev1.R
 	return resourceList
 }
 
-func nodeNamesDiff(prev, current []string) (added, removed []string) {
+func NodeNamesDiff(prev, current []string) (added, removed []string) {
+	added = make([]string, 0)
+	removed = make([]string, 0)
 	prevMap := make(map[string]struct{})
 	currentMap := make(map[string]struct{})
 
