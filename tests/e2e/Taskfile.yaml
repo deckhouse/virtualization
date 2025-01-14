@@ -55,17 +55,17 @@ tasks:
     cmds:
       - |
         RESULT=$(ginkgo \
-          --skip-file vm_test.go \
-          --skip-file ipam_test.go \
-          --skip-file disks_test.go \
           --no-color \
           -v | tee /dev/stderr | grep --color=never -E 'FAIL!|SUCCESS!')
         if [[ $RESULT == SUCCESS!* ]]; then
           RESULT_STATUS=":white_check_mark: SUCCESS!"
+          EXIT_CODE=0
         elif [[ $RESULT == FAIL!* ]]; then
           RESULT_STATUS=":x: FAIL!"
+          EXIT_CODE=1
         else
           RESULT_STATUS=":question: UNKNOWN"
+          EXIT_CODE=1
         fi
         DATE=$(date +"%Y-%m-%d")
 
@@ -87,7 +87,10 @@ tasks:
 
         [:link: GitHub Actions Output]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)
         "
-        curl -XPOST -H 'Content-Type: application/json' -d "{\"text\": \"${SUMMARY}\"}" $LOOP_WEBHOOK_URL
+        echo "SUMMARY<<EOF" >> $GITHUB_ENV
+        echo "$SUMMARY" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+        exit $EXIT_CODE
 
   run:
     desc: "Run e2e tests"
@@ -101,9 +104,4 @@ tasks:
         ginkgo -v \
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}"
-          {{ else -}}
-          --skip-file vm_test.go \
-          --skip-file vm_label_annotation_test.go \
-          --skip-file ipam_test.go \
-          --skip-file disks_test.go
           {{end}}

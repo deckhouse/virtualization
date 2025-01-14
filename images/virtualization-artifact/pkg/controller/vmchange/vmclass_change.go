@@ -40,7 +40,7 @@ func compareVmClassNodeSelector(current, desired *v1alpha2.VirtualMachineClassSp
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(current.NodeSelector, desired.NodeSelector),
-		ActionRestart,
+		placementAction,
 	)
 }
 
@@ -53,6 +53,6 @@ func compareVmClassTolerations(current, desired *v1alpha2.VirtualMachineClassSpe
 		currentValue,
 		desiredValue,
 		reflect.DeepEqual(current.Tolerations, desired.Tolerations),
-		ActionRestart,
+		placementAction,
 	)
 }

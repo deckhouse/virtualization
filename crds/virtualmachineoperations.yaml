@@ -97,6 +97,8 @@ spec:
                 - virtualMachineName
               type: object
               x-kubernetes-validations:
+                - message: .spec is immutable
+                  rule: self == oldSelf
                 - message: The `Start` operation cannot be performed forcibly.
                   rule: "self.type == 'Start' ? !has(self.force) || !self.force : true"
                 - message: The `Migrate` operation cannot be performed forcibly.

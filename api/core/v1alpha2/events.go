@@ -31,6 +31,12 @@ const (
 	// ReasonVMRestarted is event reason that VM is about to restart.
 	ReasonVMRestarted = "Restarted"
 
+	// ReasonVMEvicted is event reason that VM is about to evict.
+	ReasonVMEvicted = "Evicted"
+
+	// ReasonVMMigrated is event reason that VM is about to migrate.
+	ReasonVMMigrated = "Migrated"
+
 	// ReasonVMLastAppliedSpecIsInvalid is event reason that JSON in last-applied-spec annotation is invalid.
 	ReasonVMLastAppliedSpecIsInvalid = "LastAppliedSpecIsInvalid"
 
@@ -52,6 +58,41 @@ const (
 	// ReasonVMOPSucceeded is event reason that the operation is successfully completed
 	ReasonVMOPSucceeded = "VirtualMachineOperationSucceeded"
 
+	// ReasonVMOPStarted is event reason that the operation is started
+	ReasonVMOPStarted = "VirtualMachineOperationStarted"
+
 	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
 	ReasonVMClassInUse = "VirtualMachineClassInUse"
+
+	// ReasonVDStorageClassWasDeleted is event reason that VDStorageClass was deleted.
+	ReasonVDStorageClassWasDeleted = "VirtualDiskStorageClassWasDeleted"
+	// ReasonVDStorageClassNotFound is event reason that VDStorageClass not found.
+	ReasonVDStorageClassNotFound = "VirtualDiskStorageClassNotFound"
+	// ReasonVDSpecChanged is event reason that VDStorageClass is chanded.
+	ReasonVDSpecChanged = "VirtualDiskSpecChanged"
+	// ReasonVDContainerRegistrySecretNotFound is event reason that VDContainerRegistrySecret not found.
+	ReasonVDContainerRegistrySecretNotFound = "VirtualDiskContainerRegistrySecretNotFound"
+
+	// ReasonVDResizingStarted is event reason that VD Resizing is started.
+	ReasonVDResizingStarted = "VirtualDiskResizingStarted"
+	// ReasonVDResizingCompleted is event reason that VD Resizing is completed.
+	ReasonVDResizingCompleted = "VirtualDiskResizingCompleted"
+	// ReasonVDResizingFailed is event reason that VD Resizing is failed.
+	ReasonVDResizingFailed = "VirtualDiskResizingFailed"
+	// ReasonVDResizingNotAvailable is event reason that VD Resizing is not available.
+	ReasonVDResizingNotAvailable = "VirtualDiskResizingNotAvailable"
+
+	// ReasonDataSourceSyncStarted is event reason that DataSource sync is started.
+	ReasonDataSourceSyncStarted = "DataSourceImportStarted"
+	// ReasonDataSourceSyncInProgress is event reason that DataSource sync is in progress.
+	ReasonDataSourceSyncInProgress = "DataSourceImportInProgress"
+	// ReasonDataSourceSyncCompleted is event reason that DataSource sync is completed.
+	ReasonDataSourceSyncCompleted = "DataSourceImportCompleted"
+	// ReasonDataSourceSyncFailed is event reason that DataSource sync is failed.
+	ReasonDataSourceSyncFailed = "DataSourceImportFailed"
+	// ReasonDataSourceQuotaExceeded is event reason that DataSource sync is failed because quota exceed.
+	ReasonDataSourceQuotaExceeded = "DataSourceQuotaExceed"
+
+	// ReasonDataSourceDiskProvisioningFailed is event reason that DataSource disk provisioning is failed.
+	ReasonDataSourceDiskProvisioningFailed = "DataSourceImportDiskProvisioningFailed"
 )

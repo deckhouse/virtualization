@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -48,12 +50,14 @@ type ObjectRefDataSource struct {
 	dvcrSettings        *dvcr.Settings
 	client              client.Client
 	controllerNamespace string
+	recorder            eventrecord.EventRecorderLogger
 
 	viOnPvcSyncer *ObjectRefVirtualImageOnPvc
 	vdSyncer      *ObjectRefVirtualDisk
 }
 
 func NewObjectRefDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService Stat,
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
@@ -66,9 +70,10 @@ func NewObjectRefDataSource(
 		dvcrSettings:        dvcrSettings,
 		client:              client,
 		controllerNamespace: controllerNamespace,
+		recorder:            recorder,
 
-		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(importerService, dvcrSettings, statService),
-		vdSyncer:      NewObjectRefVirtualDisk(importerService, client, controllerNamespace, dvcrSettings, statService),
+		viOnPvcSyncer: NewObjectRefVirtualImageOnPvc(recorder, importerService, dvcrSettings, statService),
+		vdSyncer:      NewObjectRefVirtualDisk(recorder, importerService, client, controllerNamespace, dvcrSettings, statService),
 	}
 }
 
@@ -142,6 +147,12 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 
 		log.Info("Cleaning up...")
 	case pod == nil:
+		ds.recorder.Event(
+			cvi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncStarted,
+			"The ObjectRef DataSource import has started",
+		)
 		var dvcrDataSource controller.DVCRDataSource
 		dvcrDataSource, err = controller.NewDVCRDataSourcesForCVMI(ctx, cvi.Spec.DataSource, ds.client)
 		if err != nil {
@@ -159,6 +170,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
+			ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &cvi.Status.Phase, err, cvi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &cvi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
@@ -181,6 +193,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).
@@ -232,6 +245,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 					Message(service.CapitalizeFirstLetter(err.Error() + "."))
 				return reconcile.Result{}, nil
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(cvi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(cvicondition.ProvisioningFailed).

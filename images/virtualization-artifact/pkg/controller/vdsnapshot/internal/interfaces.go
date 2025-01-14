@@ -35,7 +35,7 @@ type LifeCycleSnapshotter interface {
 	Freeze(ctx context.Context, name, namespace string) error
 	IsFrozen(vm *virtv2.VirtualMachine) bool
 	CanFreeze(vm *virtv2.VirtualMachine) bool
-	CanUnfreeze(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
+	CanUnfreezeWithVirtualDiskSnapshot(ctx context.Context, vdSnapshotName string, vm *virtv2.VirtualMachine) (bool, error)
 	Unfreeze(ctx context.Context, name, namespace string) error
 	CreateVolumeSnapshot(ctx context.Context, vs *vsv1.VolumeSnapshot) (*vsv1.VolumeSnapshot, error)
 	GetPersistentVolumeClaim(ctx context.Context, name, namespace string) (*corev1.PersistentVolumeClaim, error)

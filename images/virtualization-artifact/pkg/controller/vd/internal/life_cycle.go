@@ -20,34 +20,36 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type LifeCycleHandler struct {
-	client  client.Client
-	blank   source.Handler
-	sources Sources
+	client   client.Client
+	blank    source.Handler
+	sources  Sources
+	recorder eventrecord.EventRecorderLogger
 }
 
-func NewLifeCycleHandler(blank source.Handler, sources Sources, client client.Client) *LifeCycleHandler {
+func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, blank source.Handler, sources Sources, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
-		client:  client,
-		blank:   blank,
-		sources: sources,
+		client:   client,
+		blank:    blank,
+		sources:  sources,
+		recorder: recorder,
 	}
 }
 
 func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler("lifecycle"))
-
 	readyCondition, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if !ok {
 		readyCondition = metav1.Condition{
@@ -81,7 +83,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost.String() && h.sources.Changed(ctx, vd) {
-		log.Info("Spec changes are detected: restart import process")
+		h.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonVDStorageClassWasDeleted,
+			"Spec changes are detected: restart import process",
+		)
 
 		vd.Status = virtv2.VirtualDiskStatus{
 			Phase:              virtv2.DiskPending,
@@ -114,7 +121,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue && vd.Status.StorageClassName != "" {
-		log.Info("Storage class was deleted while population")
+		h.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonVDStorageClassWasDeleted,
+			"Storage class was deleted while population",
+		)
 
 		vd.Status = virtv2.VirtualDiskStatus{
 			Phase:              virtv2.DiskPending,

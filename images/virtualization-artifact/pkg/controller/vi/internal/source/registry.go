@@ -39,6 +39,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
@@ -53,9 +54,11 @@ type RegistryDataSource struct {
 	client              client.Client
 	diskService         *service.DiskService
 	storageClassService *service.VirtualImageStorageClassService
+	recorder            eventrecord.EventRecorderLogger
 }
 
 func NewRegistryDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService Stat,
 	importerService Importer,
 	dvcrSettings *dvcr.Settings,
@@ -70,6 +73,7 @@ func NewRegistryDataSource(
 		client:              client,
 		diskService:         diskService,
 		storageClassService: storageClassService,
+		recorder:            recorder,
 	}
 }
 
@@ -137,6 +141,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
+			ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
@@ -179,6 +184,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -302,6 +308,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtual
 		case err == nil:
 			// OK.
 		case common.ErrQuotaExceeded(err):
+			ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceQuotaExceeded, "DataSource quota exceed")
 			return setQuotaExceededPhaseCondition(cb, &vi.Status.Phase, err, vi.CreationTimestamp), nil
 		default:
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, fmt.Errorf("unexpected error: %w", err))
@@ -324,6 +331,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtual
 
 			switch {
 			case errors.Is(err, service.ErrProvisioningFailed):
+				ds.recorder.Event(vi, corev1.EventTypeWarning, virtv2.ReasonDataSourceDiskProvisioningFailed, "Disk provisioning failed")
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningFailed).
@@ -333,6 +341,13 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtual
 				return reconcile.Result{}, err
 			}
 		}
+
+		ds.recorder.Event(
+			vi,
+			corev1.EventTypeNormal,
+			virtv2.ReasonDataSourceSyncCompleted,
+			"The Registry DataSource import has completed",
+		)
 
 		cb.
 			Status(metav1.ConditionTrue).

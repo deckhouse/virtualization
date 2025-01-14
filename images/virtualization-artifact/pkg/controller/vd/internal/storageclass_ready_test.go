@@ -25,9 +25,11 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -35,7 +37,10 @@ import (
 var _ = Describe("StorageClassHandler Run", func() {
 	DescribeTable("Check StorageClass handler",
 		func(args handlerTestArgs) {
-			handler := NewStorageClassReadyHandler(newDiskServiceMock(args.StorageClassExistedInCluster, args.StorageClassInExistedPVC))
+			recorder := &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(_ client.Object, _, _, _ string) {},
+			}
+			handler := NewStorageClassReadyHandler(recorder, newDiskServiceMock(args.StorageClassExistedInCluster, args.StorageClassInExistedPVC))
 			_, err := handler.Handle(context.TODO(), args.VirtualDisk)
 
 			Expect(err).To(BeNil())
