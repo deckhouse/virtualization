@@ -112,8 +112,6 @@ shell:
     xorriso \
     passt \
     ipxe-roms-qemu \
-    seabios \
-    seavgabios \
     libffi8 \
     swtpm-tools \
     libcrypt libcrypto3 \
@@ -125,10 +123,16 @@ shell:
     libsnappy liblzo2 libSDL2 libpmem libdaxctl libfdt libqpl1 \
     libslirp libvdeplug3 libxdp libbpf libdw libgbm libgtk+3 \
     libcairo libgdk-pixbuf libvte3 libX11 libSDL2_image \
-    libspice-server libvirglrenderer libcacard libusbredir libalsa \
+    libvirglrenderer libcacard libusbredir libalsa \
     libpulseaudio pipewire-jack-libs pipewire-libs libaio liburing \
     libblkio libglusterfs11-api libnfs librbd1 librados2
 
+    # libspice-server
+    # seavgabios \
+    # seabios \
+    # libvirt-client==10.2.0-alt1 \
+    # libvirt-daemon-driver-qemu==10.2.0-alt1 \
+    # qemu-kvm-core==9.0.2-alt2
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
@@ -172,8 +176,6 @@ shell:
     cp -a -u -v /BINS/etc/* /etc
     rm -rf /BINS/
 
-    cd /usr/share/OVMF
-    ln -s /usr/share/OVMF/OVMF_CODE.cc.fd ../edk2/ovmf/OVMF_CODE.cc.fd
   # Create symlinc for libvirt
   - |
     convert_version() {
@@ -244,13 +246,17 @@ shell:
     tree
     mkdir -p /VBINS
 
+    echo "====/qemu-bins===="
+    tree -L 2 /qemu-bins
+
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
 
     echo "=====Copy qemu binaries to temp folder======"
-    cp -a /qemu-bins/bin/. /VBINS/usr/bin/
-    cp -a /qemu-bins/share/. /VBINS/usr/share/
-    cp -a /qemu-bins/libexec/. /VBINS/usr/lib/libexec/
+    cp -a /qemu-bins/. /VBINS/
+    # cp -a /qemu-bins/bin/. /VBINS/usr/bin/
+    # cp -a /qemu-bins/share/. /VBINS/usr/share/
+    # cp -a /qemu-bins/libexec/. /VBINS/usr/lib/libexec/
     # cp -a /qemu-bins/include/. /VBINS/usr/local/include/
     rm -rf /VBINS/var/run
 

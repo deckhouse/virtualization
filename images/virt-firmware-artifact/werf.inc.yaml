@@ -123,9 +123,9 @@ shell:
     # cp -v Build/OvmfX64/RELEASE_GCC5/FV/OVMF.fd /FIRMWARE/
 
     # echo "Build completed successfully. Firmware is located in the FIRMWARE directory."
-*/}}
-  setup:
-  - |
-    /build.sh
+  # setup:
+  # - |
+  #   /build.sh
 
-    ls -lah /FIRMWARE
+  #   ls -lah /FIRMWARE
+*/}}

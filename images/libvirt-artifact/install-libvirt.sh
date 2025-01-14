@@ -65,9 +65,9 @@ parse_args() {
                 usage
             fi
             ;;
-        -v|--libvirt-ver)
+        -v|--version-num)
             if [[ -n "$2" && "$2" != "-"* ]]; then
-                LIBVIRT_VERSION="$2"
+                VERSION_NUM="$2"
                 shift 2
             else
                 echo "Error: Option '$1' requires a non-empty argument."
@@ -90,15 +90,15 @@ parse_args() {
         SRC_BUILD="$SRC_BASE"
     fi
 
-    if [ -z $LIBVIRT_VERSION ]; then
-        LIBVIRT_VERSION="10.10.0"
+    if [ -z $VERSION_NUM ]; then
+        VERSION_NUM="10.10.0"
     fi
 }
 
 parse_args $@
 
 # 10.10.0 -> 10010, 10.0.5 -> 10005
-lib_version=$(convert_version $LIBVIRT_VERSION)
+lib_version=$(convert_version $VERSION_NUM)
 
 # List of files and destinations
 FILE_LIST=$(cat <<EOF
@@ -233,24 +233,24 @@ $SRC_BASE/po/ru/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ru/LC_MESSAGES
 # $SRC_BASE/po/zh_TW/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/zh_TW/LC_MESSAGES
 # $SRC_BASE/po/hr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/hr/LC_MESSAGES
 # $SRC_BASE/po/ro/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ro/LC_MESSAGES
-# $SRC_BASE/include/libvirt/libvirt-admin.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-domain-checkpoint.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-domain.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-domain-snapshot.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-event.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-host.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-interface.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-admin.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-domain-checkpoint.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-domain.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-domain-snapshot.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-event.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-host.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-interface.h to /usr/include/libvirt
 # $SRC_BASE/include/libvirt/libvirt-lxc.h to /usr/include/libvirt
 # $SRC_BASE/include/libvirt/libvirt-network.h to /usr/include/libvirt
 # $SRC_BASE/include/libvirt/libvirt-nodedev.h to /usr/include/libvirt
 # $SRC_BASE/include/libvirt/libvirt-nwfilter.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-qemu.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-qemu.h to /usr/include/libvirt
 # $SRC_BASE/include/libvirt/libvirt-secret.h to /usr/include/libvirt
 # $SRC_BASE/include/libvirt/libvirt-storage.h to /usr/include/libvirt
 # $SRC_BASE/include/libvirt/libvirt-stream.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/virterror.h to /usr/include/libvirt
-# $SRC_BUILD/include/libvirt/libvirt-common.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/virterror.h to /usr/include/libvirt
+$SRC_BUILD/include/libvirt/libvirt-common.h to /usr/include/libvirt
 # $SRC_BASE/src/cpu_map/arm_a64fx.xml to /usr/share/libvirt/cpu_map
 # $SRC_BASE/src/cpu_map/arm_cortex-a53.xml to /usr/share/libvirt/cpu_map
 # $SRC_BASE/src/cpu_map/arm_cortex-a57.xml to /usr/share/libvirt/cpu_map
@@ -586,7 +586,6 @@ $SRC_BUILD/tools/bash-completion/virt-admin to /usr/share/bash-completion/comple
 EOF
 )
 
-# Function to copy files
 copy_file() {
     local SOURCE_PATH="$1"
     local dest_dir="$2"
