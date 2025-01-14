@@ -179,7 +179,7 @@ index 10dbb92269..1ccc9e9fa7 100644
    - subresources.kubevirt.io
    resources:
 diff --git a/pkg/container-disk/container-disk.go b/pkg/container-disk/container-disk.go
-index 3251d04787..69454ed499 100644
+index 3251d04787..34affe841a 100644
 --- a/pkg/container-disk/container-disk.go
 +++ b/pkg/container-disk/container-disk.go
 @@ -47,8 +47,10 @@ var containerDiskOwner = "qemu"
@@ -228,7 +228,34 @@ index 3251d04787..69454ed499 100644
  // NewKernelBootSocketPathGetter get the socket pat of the kernel-boot containerDisk. For testing a baseDir
  // can be provided which can for instance point to /tmp.
  func NewKernelBootSocketPathGetter(baseDir string) KernelBootSocketPathGetter {
-@@ -398,6 +421,10 @@ func getContainerDiskSocketBasePath(baseDir, podUID string) string {
+@@ -394,10 +417,37 @@ func CreateEphemeralImages(
+ 	return nil
+ }
+ 
++func CreateEphemeralImagesForHotplug(
++	vmi *v1.VirtualMachineInstance,
++	diskCreator ephemeraldisk.EphemeralDiskCreatorInterface,
++	disksInfo map[string]*DiskInfo,
++) error {
++	for i, volume := range vmi.Spec.Volumes {
++		if volume.VolumeSource.ContainerDisk != nil && volume.VolumeSource.ContainerDisk.Hotpluggable {
++			info, _ := disksInfo[volume.Name]
++			if info == nil {
++				return fmt.Errorf("no disk info provided for volume %s", volume.Name)
++			}
++
++			if backingFile, err := GetDiskTargetPartFromLauncherView(i); err != nil {
++				return err
++			} else if err := diskCreator.CreateBackedImageForVolume(volume, backingFile, info.Format); err != nil {
++				return err
++			}
++		}
++	}
++
++	return nil
++}
++
+ func getContainerDiskSocketBasePath(baseDir, podUID string) string {
  	return fmt.Sprintf("%s/pods/%s/volumes/kubernetes.io~empty-dir/container-disks", baseDir, podUID)
  }
  
@@ -574,10 +601,10 @@ index fa4e86ee17..ebe718f90d 100644
  			pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 diff --git a/pkg/virt-handler/container-disk/hotplug.go b/pkg/virt-handler/container-disk/hotplug.go
 new file mode 100644
-index 0000000000..eb0bb831fe
+index 0000000000..f0d3a0607c
 --- /dev/null
 +++ b/pkg/virt-handler/container-disk/hotplug.go
-@@ -0,0 +1,487 @@
+@@ -0,0 +1,481 @@
 +package container_disk
 +
 +import (
@@ -731,8 +758,6 @@ index 0000000000..eb0bb831fe
 +			return nil, err
 +		}
 +
-+		// XXX: backward compatibility for old unresolved paths, can be removed in July 2023
-+		// After a one-time convert and persist, old records are safe too.
 +		if !record.UsesSafePaths {
 +			record.UsesSafePaths = true
 +			for i, entry := range record.MountTargetEntries {
@@ -868,11 +893,7 @@ index 0000000000..eb0bb831fe
 +					return nil, fmt.Errorf("failed to bindmount containerDisk %v. err: %w", volume.Name, err)
 +				}
 +			}
-+			// qemu-img: Could not open '/var/run/kubevirt/hotplug-disks/alpine.img': Could not open '/var/run/kubevirt/hotplug-disks/alpine.img': Permission denied
-+			//  containerdisk.GetHotplugContainerDiskTargetPathFromLauncherView(volume.Name),
-+			// qemu-img: Could not open 'root: /var/lib/kubelet/pods/06b70b2f-7041-45e6-a333-9b9f009e72ef/volumes/kubernetes.io~empty-dir/hotplug-disks, relative: /alpine.im
-+			// qemu-img: Could not open '/var/lib/kubelet/pods/06b70b2f-7041-45e6-a333-9b9f009e72ef/volumes/kubernetes.io~empty-dir/hotplug-disks/alpine.img': Could not open '/var/lib/kubelet/pods/06b70b2f-7041-45e6-a333-9b9f009e72ef/volumes/kubernetes.io~empty-dir/hotplug-disks/alpine.img': No such file or directory
-+			// unsafepath.UnsafeAbsolute(target.Raw(
++
 +			imageInfo, err := isolation.GetImageInfo(
 +				containerdisk.GetHotplugContainerDiskTargetPathFromLauncherView(volume.Name),
 +				vmiRes,
@@ -1391,7 +1412,7 @@ index 24352cf6e9..f1de8d1149 100644
  			return err
  		}
 diff --git a/pkg/virt-launcher/virtwrap/converter/converter.go b/pkg/virt-launcher/virtwrap/converter/converter.go
-index 3318c1c466..1286ef4a06 100644
+index 3318c1c466..2f5a0f1215 100644
 --- a/pkg/virt-launcher/virtwrap/converter/converter.go
 +++ b/pkg/virt-launcher/virtwrap/converter/converter.go
 @@ -649,6 +649,9 @@ func Convert_v1_Hotplug_Volume_To_api_Disk(source *v1.Volume, disk *api.Disk, c
@@ -1415,7 +1436,7 @@ index 3318c1c466..1286ef4a06 100644
  func Convert_v1_PersistentVolumeClaim_To_api_Disk(name string, disk *api.Disk, c *ConverterContext) error {
  	if c.IsBlockPVC[name] {
  		return Convert_v1_BlockVolumeSource_To_api_Disk(name, disk, c.VolumesDiscardIgnore)
-@@ -768,6 +775,34 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
+@@ -768,6 +775,35 @@ func Convert_v1_Hotplug_BlockVolumeSource_To_api_Disk(volumeName string, disk *a
  	return nil
  }
  
@@ -1423,8 +1444,13 @@ index 3318c1c466..1286ef4a06 100644
 +	if disk.Type == "lun" {
 +		return fmt.Errorf(deviceTypeNotCompatibleFmt, disk.Alias.GetName())
 +	}
++	info := c.DisksInfo[volumeName]
++	if info == nil {
++		return fmt.Errorf("no disk info provided for volume %s", volumeName)
++	}
++
 +	disk.Type = "file"
-+	disk.Driver.Type = "qcow2"
++	disk.Driver.Type = info.Format
 +	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
 +	disk.ReadOnly = &api.ReadOnly{}
 +	if !contains(c.VolumesDiscardIgnore, volumeName) {
@@ -1436,13 +1462,9 @@ index 3318c1c466..1286ef4a06 100644
 +		Source: &api.DiskSource{},
 +	}
 +
-+	if info := c.DisksInfo[volumeName]; info != nil {
-+		disk.BackingStore.Format.Type = info.Format
-+		disk.BackingStore.Source.File = info.BackingFile
-+	} else {
-+		return fmt.Errorf("no disk info provided for volume %s", volumeName)
-+	}
-+	disk.BackingStore.Type = "file"
++	//disk.BackingStore.Format.Type = info.Format
++	//disk.BackingStore.Source.File = info.BackingFile
++	//disk.BackingStore.Type = "file"
 +
 +	return nil
 +}
