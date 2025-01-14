@@ -117,7 +117,7 @@ index 4c153257a..e21e40312 100644
  	} else {
 diff --git a/pkg/patcheddatavolume/patched_datavolume.go b/pkg/patcheddatavolume/patched_datavolume.go
 new file mode 100644
-index 000000000..28ce3c406
+index 000000000..7f5112e87
 --- /dev/null
 +++ b/pkg/patcheddatavolume/patched_datavolume.go
 @@ -0,0 +1,120 @@
@@ -160,10 +160,10 @@ index 000000000..28ce3c406
 +	case readyCondition != nil && readyCondition.Reason == common.ErrExceededQuota:
 +		conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), QuotaExceededReason)
 +	case boundCondition != nil && boundCondition.Reason == common.ErrExceededQuota:
-+		conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), QuotaExceededReason)
++		conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", boundCondition.Message), QuotaExceededReason)
 +	case runningCondition != nil:
 +		if runningCondition.Reason == common.ErrExceededQuota {
-+			conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), QuotaExceededReason)
++			conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", runningCondition.Message), QuotaExceededReason)
 +		} else if runningCondition.Status == corev1.ConditionTrue {
 +			conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionTrue, "", QuotaNotExceededReason)
 +		}
