@@ -36,6 +36,14 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
+type reasonString struct {
+	value string
+}
+
+func (rs reasonString) String() string {
+	return rs.value
+}
+
 type InUseHandler struct {
 	client client.Client
 }
@@ -151,6 +159,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 				Reason(vdcondition.AllowedForVirtualMachineUsage).
 				Message("")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
+			return reconcile.Result{}, nil
 		}
 	case allowUseForImage && inUseCondition.Status == metav1.ConditionUnknown:
 		if inUseCondition.Reason != vdcondition.AllowedForImageUsage.String() {
@@ -160,6 +169,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 				Reason(vdcondition.AllowedForImageUsage).
 				Message("")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
+			return reconcile.Result{}, nil
 		}
 	default:
 		setUnknown := false
@@ -179,6 +189,11 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		}
 	}
 
+	cb.Generation(vd.Generation).
+		Status(inUseCondition.Status).
+		Message(inUseCondition.Message).
+		Reason(reasonString{inUseCondition.Reason})
+	conditions.SetCondition(cb, &vd.Status.Conditions)
 	return reconcile.Result{}, nil
 }
 

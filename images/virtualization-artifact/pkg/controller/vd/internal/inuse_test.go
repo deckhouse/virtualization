@@ -73,6 +73,37 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
 		})
+
+		It("must set condition generation equal resource generation", func() {
+			vd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vd",
+					Namespace: "default",
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:               vdcondition.InUseType.String(),
+							Reason:             conditions.ReasonUnknown.String(),
+							Status:             metav1.ConditionUnknown,
+							ObservedGeneration: 2,
+						},
+					},
+				},
+			}
+			vd.Generation = 3
+
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
+			handler = NewInUseHandler(k8sClient)
+
+			result, err := handler.Handle(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
+
+			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.ObservedGeneration).To(Equal(vd.Generation))
+		})
 	})
 
 	Context("when VirtualDisk is used by running VirtualMachine", func() {
