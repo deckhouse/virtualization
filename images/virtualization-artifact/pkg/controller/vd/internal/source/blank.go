@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -84,7 +85,7 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 		return reconcile.Result{}, err
 	}
 
-	var quotaNotExceededCondition *metav1.Condition
+	var quotaNotExceededCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
 		quotaNotExceededCondition = getDVNotExceededCondition(dv.Status.Conditions)
 	}
@@ -144,7 +145,7 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
-	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == metav1.ConditionFalse:
+	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == corev1.ConditionFalse:
 		vd.Status.Phase = virtv2.DiskPending
 		cb.
 			Status(metav1.ConditionFalse).

@@ -421,24 +421,10 @@ const (
 	DVQoutaNotExceededConditionType string = "QuotaNotExceeded"
 )
 
-func getDVNotExceededCondition(conditions []cdiv1.DataVolumeCondition) *metav1.Condition {
+func getDVNotExceededCondition(conditions []cdiv1.DataVolumeCondition) *cdiv1.DataVolumeCondition {
 	for _, condition := range conditions {
 		if string(condition.Type) == DVQoutaNotExceededConditionType {
-			returned := &metav1.Condition{
-				Type:               DVQoutaNotExceededConditionType,
-				Reason:             condition.Reason,
-				Message:            condition.Message,
-				LastTransitionTime: condition.LastTransitionTime,
-			}
-			switch condition.Status {
-			case corev1.ConditionTrue:
-				returned.Status = metav1.ConditionTrue
-			case corev1.ConditionFalse:
-				returned.Status = metav1.ConditionFalse
-			case corev1.ConditionUnknown:
-				returned.Status = metav1.ConditionUnknown
-			}
-			return returned
+			return &condition
 		}
 	}
 

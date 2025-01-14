@@ -114,7 +114,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, err
 	}
 
-	var quotaNotExceededCondition *metav1.Condition
+	var quotaNotExceededCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
 		quotaNotExceededCondition = getDVNotExceededCondition(dv.Status.Conditions)
 	}
@@ -289,7 +289,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
-	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == metav1.ConditionFalse:
+	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == corev1.ConditionFalse:
 		vd.Status.Phase = virtv2.DiskPending
 		cb.
 			Status(metav1.ConditionFalse).
