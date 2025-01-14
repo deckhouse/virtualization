@@ -49,7 +49,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	}
 
 	if strings.Contains(cvi.ObjectMeta.Name, ".") {
-		return nil, errors.New("cluster virtual image name cannot contain '.'")
+		return nil, errors.New("ClusterVirtualImage name is invalid: '.' is forbidden, allowed name symbols are [0-9a-zA-Z-]")
 	}
 
 	return nil, nil
