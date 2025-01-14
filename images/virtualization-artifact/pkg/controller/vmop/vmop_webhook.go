@@ -52,24 +52,9 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 }
 
 func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldVmop, ok := oldObj.(*v1alpha2.VirtualMachineOperation)
-	if !ok {
-		return nil, fmt.Errorf("expected an old VirtualMachineOperation but got a %T", oldObj)
-	}
-	newVmop, ok := newObj.(*v1alpha2.VirtualMachineOperation)
-	if !ok {
-		return nil, fmt.Errorf("expected a new VirtualMachineOperation but got a %T", newObj)
-	}
-
-	v.log.Info("Validate VMOP updating", "name", oldVmop.GetName())
-
-	if oldVmop.Generation == newVmop.Generation {
-		return nil, nil
-	}
-
-	// spec changes are not allowed.
-	err := fmt.Errorf("recreate VirtualMachineOperation/%s to apply changes: .spec modification is not allowed after creation", oldVmop.GetName())
-	return nil, err
+	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
+	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+	return nil, nil
 }
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {

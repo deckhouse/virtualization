@@ -42,6 +42,7 @@ type VirtualMachineOperation struct {
 	Status VirtualMachineOperationStatus `json:"status,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="self == oldSelf",message=".spec is immutable"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Start' ? !has(self.force) || !self.force : true",message="The `Start` operation cannot be performed forcibly."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? !has(self.force) || !self.force : true",message="The `Migrate` operation cannot be performed forcibly."
 type VirtualMachineOperationSpec struct {
