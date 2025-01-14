@@ -166,7 +166,7 @@ type KubectlCMD struct {
 func (k KubectlCMD) Apply(opts ApplyOptions) *executor.CMDResult {
 	cmd := fmt.Sprintf("%s apply", k.cmd)
 	cmd = k.applyOptions(cmd, opts)
-	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), LongTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
 }
