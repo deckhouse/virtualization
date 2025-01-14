@@ -229,7 +229,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 
 	var quotaNotExceededCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
-		quotaNotExceededCondition = getDVNotExceededCondition(dv.Status.Conditions)
+		quotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 	}
 
 	switch {

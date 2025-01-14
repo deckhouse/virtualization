@@ -212,7 +212,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 
 	var quotaNotExceededCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
-		quotaNotExceededCondition = getDVNotExceededCondition(dv.Status.Conditions)
+		quotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 	}
 
 	switch {

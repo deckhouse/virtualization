@@ -281,15 +281,5 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virt
 }
 
 const (
-	DVQoutaNotExceededConditionType string = "QuotaNotExceeded"
+	DVQoutaNotExceededConditionType cdiv1.DataVolumeConditionType = "QuotaNotExceeded"
 )
-
-func getDVNotExceededCondition(conditions []cdiv1.DataVolumeCondition) *cdiv1.DataVolumeCondition {
-	for _, condition := range conditions {
-		if string(condition.Type) == DVQoutaNotExceededConditionType {
-			return &condition
-		}
-	}
-
-	return nil
-}
