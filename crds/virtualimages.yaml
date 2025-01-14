@@ -166,21 +166,22 @@ spec:
                     objectRef:
                       description:
                         Use an existing VirtualImage, ClusterVirtualImage,
-                        or VirtualDisk resource to create an image.
+                        VirtualDisk or VirtualDiskSnapshot resource to create an image.
                       properties:
                         kind:
                           description:
                             Kind of an existing VirtualImage, ClusterVirtualImage,
-                            or VirtualDisk resource.
+                            VirtualDisk or VirtualDiskSnapshot resource.
                           enum:
                             - ClusterVirtualImage
                             - VirtualImage
                             - VirtualDisk
+                            - VirtualDiskSnapshot
                           type: string
                         name:
                           description:
                             Name of an existing VirtualImage, ClusterVirtualImage,
-                            or VirtualDisk resource.
+                            VirtualDisk or VirtualDiskSnapshot resource.
                           type: string
                       required:
                         - kind
@@ -399,7 +400,8 @@ spec:
                 sourceUID:
                   description:
                     UID of the source (VirtualImage, ClusterVirtualImage,
-                    or VirtualDisk) used when creating the virtual image.
+                    VirtualDisk or VirtualDiskSnapshot) used when creating the virtual
+                    image.
                   type: string
                 storageClassName:
                   description:

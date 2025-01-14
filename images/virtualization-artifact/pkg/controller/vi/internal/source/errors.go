@@ -78,3 +78,17 @@ func NewVirtualDiskNotAllowedForUseError(name string) error {
 		name: name,
 	}
 }
+
+type VirtualDiskSnapshotNotReadyError struct {
+	name string
+}
+
+func (e VirtualDiskSnapshotNotReadyError) Error() string {
+	return fmt.Sprintf("VirtualDiskSnapshot %s not ready", e.name)
+}
+
+func NewVirtualDiskSnapshotNotReadyError(name string) error {
+	return VirtualDiskSnapshotNotReadyError{
+		name: name,
+	}
+}

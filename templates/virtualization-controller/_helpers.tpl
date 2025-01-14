@@ -20,6 +20,8 @@
   value: {{ include "helm_lib_module_image" (list . "dvcrImporter") }}
 - name: UPLOADER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "dvcrUploader") }}
+- name: BOUNDER_IMAGE
+  value: {{ include "helm_lib_module_image" (list . "bounder") }}
 - name: DVCR_AUTH_SECRET
   value: dvcr-dockercfg-rw
 - name: DVCR_CERTS_SECRET

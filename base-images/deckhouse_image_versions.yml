@@ -2,3 +2,4 @@
 REGISTRY_PATH: "registry.deckhouse.io/base_images/"
 
 BASE_SCRATCH: "scratch@sha256:b054705fcc9f2205777d80a558d920c0b4209efdc3163c22b5bfcb5dda1db5fc"
+BASE_ALT_DEV: "dev-alt:p10@sha256:76e6e163fa982f03468166203488b569e6d9fc10855d6a259c662706436cdcad"

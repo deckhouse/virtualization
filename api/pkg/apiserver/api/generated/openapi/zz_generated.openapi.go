@@ -2865,12 +2865,12 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageObjectRef(ref common.Re
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Use an existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource to create an image.",
+				Description: "Use an existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource to create an image.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Kind of an existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource.",
+							Description: "Kind of an existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -2878,7 +2878,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageObjectRef(ref common.Re
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Name of an existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource.",
+							Description: "Name of an existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource.",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -3012,7 +3012,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualImageStatus(ref common.Refer
 					},
 					"sourceUID": {
 						SchemaProps: spec.SchemaProps{
-							Description: "UID of the source (VirtualImage, ClusterVirtualImage, or VirtualDisk) used when creating the virtual image.",
+							Description: "UID of the source (VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot) used when creating the virtual image.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

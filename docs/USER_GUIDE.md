@@ -412,6 +412,28 @@ spec:
 EOF
 ```
 
+### Creating an image from a disk snapshot
+
+It is possible to create an image from [snapshot](#snapshots). This requires that the disk snapshot is in the ready phase.
+
+Example of creating an image from a disk snapshot:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: linux-vm-root
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: ObjectRef
+    objectRef:
+      kind: VirtualDiskSnapshot
+      name: linux-vm-root-snapshot
+EOF
+```
+
 ## Disks
 
 Disks in virtual machines are necessary for writing and storing data, ensuring that applications and operating systems can fully function. Under the hood of these disks is the storage provided by the platform (PVC).

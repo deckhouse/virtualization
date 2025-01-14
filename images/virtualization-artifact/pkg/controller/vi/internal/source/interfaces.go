@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/bounder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -43,6 +44,16 @@ type Importer interface {
 	Protect(ctx context.Context, pod *corev1.Pod) error
 	Unprotect(ctx context.Context, pod *corev1.Pod) error
 	GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings
+}
+
+type Bounder interface {
+	Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvc *corev1.PersistentVolumeClaim, opts ...service.Option) error
+	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
+	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
+	Protect(ctx context.Context, pod *corev1.Pod) error
+	Unprotect(ctx context.Context, pod *corev1.Pod) error
+	GetPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvc *corev1.PersistentVolumeClaim) *bounder.PodSettings
 }
 
 type Uploader interface {
