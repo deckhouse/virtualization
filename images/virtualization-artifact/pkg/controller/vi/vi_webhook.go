@@ -42,8 +42,19 @@ func NewValidator(logger *log.Logger) *Validator {
 }
 
 func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: create operation not implemented")
-	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
+	vi, ok := obj.(*virtv2.VirtualImage)
+	if !ok {
+		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
+	}
+
+	if vi.Spec.Storage == virtv2.StorageKubernetes {
+		warnings := admission.Warnings{
+			fmt.Sprintf("Using the `%s` storage type is deprecated. It is recommended to use `%s` instead.",
+				virtv2.StorageKubernetes, virtv2.StoragePersistentVolumeClaim),
+		}
+		return warnings, nil
+	}
+
 	return nil, nil
 }
 
