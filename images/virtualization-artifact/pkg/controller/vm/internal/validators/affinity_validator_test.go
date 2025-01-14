@@ -54,7 +54,7 @@ var _ = Describe("AffinityValidator", func() {
 		It("Should return error", func() {
 			warnings, err := validator.Validate(vm)
 			Expect(warnings).Should(BeEmpty())
-			Expect(err).ShouldNot(BeNil())
+			Expect(err).Should(HaveOccurred())
 		})
 	})
 
