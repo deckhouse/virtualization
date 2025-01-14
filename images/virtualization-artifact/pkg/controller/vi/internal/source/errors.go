@@ -70,7 +70,7 @@ type VirtualDiskNotAllowedForUseError struct {
 }
 
 func (e VirtualDiskNotAllowedForUseError) Error() string {
-	return fmt.Sprintf("use of VirtualDisk %s is not allowed, it may be connected to a running VirtualMachine", e.name)
+	return fmt.Sprintf("the VirtualDisk %s attached to VirtualMachine", e.name)
 }
 
 func NewVirtualDiskNotAllowedForUseError(name string) error {

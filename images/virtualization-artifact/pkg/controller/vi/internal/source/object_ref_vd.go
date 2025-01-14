@@ -396,7 +396,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 	inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 	if inUseCondition.Status == metav1.ConditionTrue &&
 		inUseCondition.Reason == vdcondition.UsedForImageCreation.String() &&
-		inUseCondition.ObservedGeneration == vd.Status.ObservedGeneration {
+		inUseCondition.ObservedGeneration == vd.Generation {
 		return nil
 	}
 

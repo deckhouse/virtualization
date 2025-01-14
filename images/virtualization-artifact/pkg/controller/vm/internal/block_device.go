@@ -172,7 +172,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	if !h.areVirtualDisksAllowedToUse(vds) {
 		mgr.Update(cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDevicesNotReady).
-			Message("Virtual disks are not allowed to be used in the virtual machine, check where else they are used.").Condition())
+			Message("Virtual disks cannot be used because they are being used for creating an image.").Condition())
 		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{}, nil
 	}

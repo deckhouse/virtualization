@@ -65,7 +65,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		inUseCondition = cb.Condition()
 	}
 
-	allowUseForVM, allowUseForImage := false, false
+	usedByVM, usedByImage := false, false
 
 	var vms virtv2.VirtualMachineList
 	err := h.client.List(ctx, &vms, &client.ListOptions{
@@ -78,9 +78,9 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 	for _, vm := range vms.Items {
 		if h.isVDAttachedToVM(vd.GetName(), vm) {
 			if vm.Status.Phase != virtv2.MachineStopped {
-				allowUseForVM = isVMCanStart(vm.Status.Conditions)
+				usedByVM = isVMCanStart(vm.Status.Conditions)
 
-				if allowUseForVM {
+				if usedByVM {
 					break
 				}
 			} else {
@@ -90,7 +90,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 				}
 
 				if kvvm != nil && kvvm.Status.StateChangeRequests != nil {
-					allowUseForVM = true
+					usedByVM = true
 					break
 				}
 
@@ -105,7 +105,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 
 				for _, pod := range podList.Items {
 					if pod.Status.Phase == corev1.PodRunning {
-						allowUseForVM = true
+						usedByVM = true
 						break
 					}
 				}
@@ -129,7 +129,7 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 			vi.Spec.DataSource.ObjectRef != nil &&
 			vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind &&
 			vi.Spec.DataSource.ObjectRef.Name == vd.Name {
-			allowUseForImage = true
+			usedByImage = true
 			break
 		}
 	}
@@ -145,46 +145,43 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 			cvi.Spec.DataSource.ObjectRef != nil &&
 			cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind &&
 			cvi.Spec.DataSource.ObjectRef.Name == vd.Name {
-			allowUseForImage = true
+			usedByImage = true
 		}
 	}
 
 	cb := conditions.NewConditionBuilder(vdcondition.InUseType)
 	switch {
-	case allowUseForVM && inUseCondition.Status != metav1.ConditionTrue:
-		if inUseCondition.Reason != vdcondition.AttachedToVirtualMachine.String() {
-			cb.
-				Generation(vd.Generation).
-				Status(metav1.ConditionTrue).
-				Reason(vdcondition.AttachedToVirtualMachine).
-				Message("")
-			conditions.SetCondition(cb, &vd.Status.Conditions)
-			return reconcile.Result{}, nil
-		}
-	case allowUseForImage && inUseCondition.Status != metav1.ConditionTrue:
-		if inUseCondition.Reason != vdcondition.UsedForImageCreation.String() {
-			cb.
-				Generation(vd.Generation).
-				Status(metav1.ConditionTrue).
-				Reason(vdcondition.UsedForImageCreation).
-				Message("")
-			conditions.SetCondition(cb, &vd.Status.Conditions)
-			return reconcile.Result{}, nil
-		}
+	case usedByVM && inUseCondition.Status != metav1.ConditionTrue:
+		cb.
+			Generation(vd.Generation).
+			Status(metav1.ConditionTrue).
+			Reason(vdcondition.AttachedToVirtualMachine).
+			Message("")
+		conditions.SetCondition(cb, &vd.Status.Conditions)
+		return reconcile.Result{}, nil
+	case usedByImage && inUseCondition.Status != metav1.ConditionTrue:
+		cb.
+			Generation(vd.Generation).
+			Status(metav1.ConditionTrue).
+			Reason(vdcondition.UsedForImageCreation).
+			Message("")
+		conditions.SetCondition(cb, &vd.Status.Conditions)
+		return reconcile.Result{}, nil
 	default:
 		setNotInUse := false
 
-		if inUseCondition.Reason == vdcondition.AttachedToVirtualMachine.String() && !allowUseForVM {
+		if inUseCondition.Reason == vdcondition.AttachedToVirtualMachine.String() && !usedByVM {
 			setNotInUse = true
 		}
 
-		if inUseCondition.Reason == vdcondition.UsedForImageCreation.String() && !allowUseForImage {
+		if inUseCondition.Reason == vdcondition.UsedForImageCreation.String() && !usedByImage {
 			setNotInUse = true
 		}
 
 		if setNotInUse {
 			cb.Generation(vd.Generation).Status(metav1.ConditionFalse).Reason(vdcondition.NotInUse).Message("")
 			conditions.SetCondition(cb, &vd.Status.Conditions)
+			// TODO redesign the handler's operation to change the logic for updating the Reason on the fly without intermediate switching to False and remove the requeue.
 			return reconcile.Result{Requeue: true}, nil
 		}
 	}
