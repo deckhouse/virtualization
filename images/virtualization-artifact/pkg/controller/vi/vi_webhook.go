@@ -18,8 +18,10 @@ package vi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -47,6 +49,10 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
 	}
 
+	if strings.Contains(vi.ObjectMeta.Name, ".") {
+		return nil, errors.New("virtual image name cannot contain '.'")
+	}
+
 	if vi.Spec.Storage == virtv2.StorageKubernetes {
 		warnings := admission.Warnings{
 			fmt.Sprintf("Using the `%s` storage type is deprecated. It is recommended to use `%s` instead.",
@@ -71,6 +77,8 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 
 	v.logger.Info("Validating VirtualImage")
 
+	var warnings admission.Warnings
+
 	if oldVI.Generation == newVI.Generation {
 		return nil, nil
 	}
@@ -86,7 +94,11 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		}
 	}
 
-	return nil, nil
+	if strings.Contains(newVI.ObjectMeta.Name, ".") {
+		warnings = append(warnings, "virtual image name contain '.', it may be cause of problems in future, please recreate resource.")
+	}
+
+	return warnings, nil
 }
 
 func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
