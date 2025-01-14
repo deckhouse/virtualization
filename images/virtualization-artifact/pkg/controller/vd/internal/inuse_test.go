@@ -152,7 +152,7 @@ var _ = Describe("InUseHandler", func() {
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(vdcondition.AllowedForVirtualMachineUsage.String()))
+			Expect(cond.Reason).To(Equal(vdcondition.AttachedToVirtualMachine.String()))
 		})
 	})
 
@@ -248,7 +248,7 @@ var _ = Describe("InUseHandler", func() {
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(vdcondition.AllowedForImageUsage.String()))
+			Expect(cond.Reason).To(Equal(vdcondition.UsedForImageCreation.String()))
 		})
 	})
 
@@ -295,7 +295,7 @@ var _ = Describe("InUseHandler", func() {
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(vdcondition.AllowedForImageUsage.String()))
+			Expect(cond.Reason).To(Equal(vdcondition.UsedForImageCreation.String()))
 		})
 	})
 
@@ -356,7 +356,7 @@ var _ = Describe("InUseHandler", func() {
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(vdcondition.AllowedForVirtualMachineUsage.String()))
+			Expect(cond.Reason).To(Equal(vdcondition.AttachedToVirtualMachine.String()))
 		})
 	})
 
@@ -403,7 +403,7 @@ var _ = Describe("InUseHandler", func() {
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(vdcondition.AllowedForVirtualMachineUsage.String()))
+			Expect(cond.Reason).To(Equal(vdcondition.AttachedToVirtualMachine.String()))
 		})
 	})
 
@@ -455,12 +455,12 @@ var _ = Describe("InUseHandler", func() {
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
-			Expect(cond.Reason).To(Equal(vdcondition.AllowedForImageUsage.String()))
+			Expect(cond.Reason).To(Equal(vdcondition.UsedForImageCreation.String()))
 		})
 	})
 
 	Context("when VirtualDisk is not in use after image creation", func() {
-		It("must set status Unknown and reason Unknown", func() {
+		It("must set status False and reason NotInUse", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -470,7 +470,7 @@ var _ = Describe("InUseHandler", func() {
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),
-							Reason: vdcondition.AllowedForImageUsage.String(),
+							Reason: vdcondition.UsedForImageCreation.String(),
 							Status: metav1.ConditionTrue,
 						},
 					},
@@ -486,12 +486,13 @@ var _ = Describe("InUseHandler", func() {
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vdcondition.NotInUse.String()))
 		})
 	})
 
 	Context("when VirtualDisk is not in use after VM deletion", func() {
-		It("must set status Unknown and reason Unknown", func() {
+		It("must set status False and reason NotInUse", func() {
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -501,7 +502,7 @@ var _ = Describe("InUseHandler", func() {
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),
-							Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+							Reason: vdcondition.AttachedToVirtualMachine.String(),
 							Status: metav1.ConditionTrue,
 						},
 					},
@@ -517,7 +518,8 @@ var _ = Describe("InUseHandler", func() {
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vdcondition.NotInUse.String()))
 		})
 	})
 })

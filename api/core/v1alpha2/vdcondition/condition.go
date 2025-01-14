@@ -127,8 +127,10 @@ const (
 	// StorageClassNotFound indicates that the storage class is not ready
 	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 
-	// AllowedForImageUsage indicates that the VirtualDisk is permitted for use in a process of an image creation.
-	AllowedForImageUsage InUseReason = "AllowedForImageUsage"
-	// AllowedForVirtualMachineUsage indicates that the VirtualDisk is permitted for use by a running VirtualMachine.
-	AllowedForVirtualMachineUsage InUseReason = "AllowedForVirtualMachineUsage"
+	// UsedForImageCreation indicates that the VirtualDisk is used for create image.
+	UsedForImageCreation InUseReason = "UsedForImageCreation"
+	// AttachedToVirtualMachine indicates that the VirtualDisk is attached to VirtualMachine.
+	AttachedToVirtualMachine InUseReason = "AttachedToVirtualMachine"
+	// NotInUse indicates that VirtualDisk free for use.
+	NotInUse InUseReason = "NotInUse"
 )
