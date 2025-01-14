@@ -117,15 +117,14 @@ index 4c153257a..e21e40312 100644
  	} else {
 diff --git a/pkg/patcheddatavolume/patched_datavolume.go b/pkg/patcheddatavolume/patched_datavolume.go
 new file mode 100644
-index 000000000..d931db11d
+index 000000000..7f5112e87
 --- /dev/null
 +++ b/pkg/patcheddatavolume/patched_datavolume.go
-@@ -0,0 +1,126 @@
+@@ -0,0 +1,120 @@
 +package patcheddatavolume
 +
 +import (
 +	"context"
-+	"errors"
 +	"fmt"
 +
 +	corev1 "k8s.io/api/core/v1"
@@ -174,11 +173,6 @@ index 000000000..d931db11d
 +}
 +
 +func UpdateDVQuotaNotExceededConditionByPVC(clientObject client.Client, pvc *corev1.PersistentVolumeClaim, status corev1.ConditionStatus, message, reason string) error {
-+	fmt.Println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-+	fmt.Println("Error from UpdateDVQuotaNotExceededConditionByPVC")
-+	fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-+	return errors.New("errrrrrrr")
-+
 +	dv := getDVByPVC(clientObject, pvc, common.AnnCreatedForDataVolume)
 +	if dv == nil {
 +		return nil
