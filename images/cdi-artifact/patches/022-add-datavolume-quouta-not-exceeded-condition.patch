@@ -1,5 +1,5 @@
 diff --git a/pkg/controller/datavolume/controller-base.go b/pkg/controller/datavolume/controller-base.go
-index acd09cb94..b856d5e38 100644
+index acd09cb94..2fb859150 100644
 --- a/pkg/controller/datavolume/controller-base.go
 +++ b/pkg/controller/datavolume/controller-base.go
 @@ -55,6 +55,7 @@ import (
@@ -10,28 +10,11 @@ index acd09cb94..b856d5e38 100644
  	"kubevirt.io/containerized-data-importer/pkg/token"
  	"kubevirt.io/containerized-data-importer/pkg/util"
  )
-@@ -1035,6 +1036,24 @@ func (r *ReconcilerBase) updateConditions(dataVolume *cdiv1.DataVolume, pvc *cor
+@@ -1035,6 +1036,7 @@ func (r *ReconcilerBase) updateConditions(dataVolume *cdiv1.DataVolume, pvc *cor
  	dataVolume.Status.Conditions = updateBoundCondition(dataVolume.Status.Conditions, pvc, message, reason)
  	dataVolume.Status.Conditions = UpdateReadyCondition(dataVolume.Status.Conditions, readyStatus, message, reason)
  	dataVolume.Status.Conditions = updateRunningCondition(dataVolume.Status.Conditions, anno)
-+	patchedDV.CreateDVQuotaIsNotExceededConditionIfNotExists(&dataVolume.Status.Conditions)
-+
-+	readyCondition := FindConditionByType(cdiv1.DataVolumeReady, dataVolume.Status.Conditions)
-+	boundCondition := FindConditionByType(cdiv1.DataVolumeBound, dataVolume.Status.Conditions)
-+	runningCondition := FindConditionByType(cdiv1.DataVolumeRunning, dataVolume.Status.Conditions)
-+
-+	switch {
-+	case readyCondition != nil && readyCondition.Reason == cc.ErrExceededQuota:
-+		dataVolume.Status.Conditions = patchedDV.UpdateDVQuotaNotExceededCondition(dataVolume.Status.Conditions, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), patchedDV.QuotaExceededReason)
-+	case boundCondition != nil && boundCondition.Reason == cc.ErrExceededQuota:
-+		dataVolume.Status.Conditions = patchedDV.UpdateDVQuotaNotExceededCondition(dataVolume.Status.Conditions, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), patchedDV.QuotaExceededReason)
-+	case runningCondition != nil:
-+		if runningCondition.Reason == cc.ErrExceededQuota {
-+			dataVolume.Status.Conditions = patchedDV.UpdateDVQuotaNotExceededCondition(dataVolume.Status.Conditions, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), patchedDV.QuotaExceededReason)
-+		} else if runningCondition.Status == corev1.ConditionTrue {
-+			dataVolume.Status.Conditions = patchedDV.UpdateDVQuotaNotExceededCondition(dataVolume.Status.Conditions, corev1.ConditionTrue, "", patchedDV.QuotaNotExceededReason)
-+		}
-+	}
++	dataVolume.Status.Conditions = patchedDV.UpdateDVQuotaNotExceededCondition(dataVolume.Status.Conditions)
  }
  
  func (r *ReconcilerBase) emitConditionEvent(dataVolume *cdiv1.DataVolume, originalCond []cdiv1.DataVolumeCondition) {
@@ -125,14 +108,15 @@ index 4c153257a..aaf4f8198 100644
  	} else {
 diff --git a/pkg/patcheddatavolume/patched_datavolume.go b/pkg/patcheddatavolume/patched_datavolume.go
 new file mode 100644
-index 000000000..7b00253e5
+index 000000000..54b62b4cb
 --- /dev/null
 +++ b/pkg/patcheddatavolume/patched_datavolume.go
-@@ -0,0 +1,101 @@
+@@ -0,0 +1,120 @@
 +package patcheddatavolume
 +
 +import (
 +	"context"
++	"fmt"
 +
 +	corev1 "k8s.io/api/core/v1"
 +	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -155,6 +139,54 @@ index 000000000..7b00253e5
 +		}
 +	}
 +	return nil
++}
++
++func UpdateDVQuotaNotExceededCondition(conditions []cdiv1.DataVolumeCondition) []cdiv1.DataVolumeCondition {
++	CreateDVQuotaIsNotExceededConditionIfNotExists(&conditions)
++	readyCondition := FindConditionByType(cdiv1.DataVolumeReady, conditions)
++	boundCondition := FindConditionByType(cdiv1.DataVolumeBound, conditions)
++	runningCondition := FindConditionByType(cdiv1.DataVolumeRunning, conditions)
++
++	switch {
++	case readyCondition != nil && readyCondition.Reason == common.ErrExceededQuota:
++		conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), QuotaExceededReason)
++	case boundCondition != nil && boundCondition.Reason == common.ErrExceededQuota:
++		conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), QuotaExceededReason)
++	case runningCondition != nil:
++		if runningCondition.Reason == common.ErrExceededQuota {
++			conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionFalse, fmt.Sprintf("Exceeded quota: %q", readyCondition.Message), QuotaExceededReason)
++		} else if runningCondition.Status == corev1.ConditionTrue {
++			conditions = updateCondition(conditions, QoutaNotExceededConditionType, corev1.ConditionTrue, "", QuotaNotExceededReason)
++		}
++	}
++
++	return conditions
++}
++
++func UpdateDVQuotaNotExceededConditionByPVC(clientObject client.Client, pvc *corev1.PersistentVolumeClaim, status corev1.ConditionStatus, message, reason string) {
++	dv := getDVByPVC(clientObject, pvc, common.AnnCreatedForDataVolume)
++	if dv == nil {
++		return
++	}
++
++	dv.Status.Conditions = updateCondition(dv.Status.Conditions, QoutaNotExceededConditionType, status, message, reason)
++	_ = clientObject.Status().Update(context.TODO(), dv)
++}
++
++func CreateDVQuotaIsNotExceededConditionIfNotExists(conditions *[]cdiv1.DataVolumeCondition) {
++	if conditions == nil {
++		return
++	}
++
++	condition := FindConditionByType(QoutaNotExceededConditionType, *conditions)
++	if condition == nil {
++		*conditions = append(*conditions, cdiv1.DataVolumeCondition{
++			Type:    QoutaNotExceededConditionType,
++			Status:  corev1.ConditionTrue,
++			Reason:  QuotaNotExceededReason,
++			Message: "",
++		})
++	}
 +}
 +
 +func updateCondition(conditions []cdiv1.DataVolumeCondition, conditionType cdiv1.DataVolumeConditionType, status corev1.ConditionStatus, message, reason string) []cdiv1.DataVolumeCondition {
@@ -199,34 +231,4 @@ index 000000000..7b00253e5
 +	}
 +
 +	return nil
-+}
-+
-+func UpdateDVQuotaNotExceededCondition(conditions []cdiv1.DataVolumeCondition, status corev1.ConditionStatus, message, reason string) []cdiv1.DataVolumeCondition {
-+	return updateCondition(conditions, QoutaNotExceededConditionType, status, message, reason)
-+}
-+
-+func UpdateDVQuotaNotExceededConditionByPVC(clientObject client.Client, pvc *corev1.PersistentVolumeClaim, status corev1.ConditionStatus, message, reason string) {
-+	dv := getDVByPVC(clientObject, pvc, common.AnnCreatedForDataVolume)
-+	if dv == nil {
-+		return
-+	}
-+
-+	dv.Status.Conditions = updateCondition(dv.Status.Conditions, QoutaNotExceededConditionType, status, message, reason)
-+	_ = clientObject.Status().Update(context.TODO(), dv)
-+}
-+
-+func CreateDVQuotaIsNotExceededConditionIfNotExists(conditions *[]cdiv1.DataVolumeCondition) {
-+	if conditions == nil {
-+		return
-+	}
-+
-+	condition := FindConditionByType(QoutaNotExceededConditionType, *conditions)
-+	if condition == nil {
-+		*conditions = append(*conditions, cdiv1.DataVolumeCondition{
-+			Type:    QoutaNotExceededConditionType,
-+			Status:  corev1.ConditionTrue,
-+			Reason:  QuotaNotExceededReason,
-+			Message: "",
-+		})
-+	}
 +}
