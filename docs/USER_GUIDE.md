@@ -1022,23 +1022,36 @@ In this example, the virtual machine being created will not be placed on the sam
 
 Block devices can be divided into two types based on how they are connected: static and dynamic (hotplug).
 
+Block devices and their features are shown in the table below:
+
+| Block device type     | Comment                                                   |
+| --------------------- | --------------------------------------------------------- |
+| `VirtualImage`        | connected in read-only mode, or as a cdrom for iso images |
+| `ClusterVirtualImage` | connected in read-only mode, or as a cdrom for iso images |
+| `VirtualDisk`         | connects in read/write mode                               |
+
 #### Static block devices
 
-Static block devices are specified in the virtual machine specification in the `.spec.blockDeviceRefs` block. This block is a list that can include the following block devices:
-
-- `VirtualImage`.
-- `ClusterVirtualImage`
-- `VirtualDisk`.
-
-The order of the devices in this list determines the sequence in which they are loaded. Thus, if a disk or image is listed first, the boot loader will try to boot from it first. If it fails, the system will move to the next device in the list and try to boot from it. And so on until the first boot loader is detected.
+Static block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list. The order of the devices in this list determines the sequence in which they are loaded. Thus, if a disk or image is specified first, the loader will first try to boot from it. If it fails, the system will go to the next device in the list and try to boot from it. And so on until the first boot loader is detected.
 
 Changing the composition and order of devices in the `.spec.blockDeviceRefs` block is possible only with a reboot of the virtual machine.
+
+VirtualMachine configuration fragment with statically connected disk and project image:
+
+```yaml
+spec:
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: <virtual-disk-name>
+    - kind: VirtualImage
+      name: <virtual-image-name>
+```
 
 #### Dynamic Block Devices
 
 Dynamic block devices can be connected and disconnected from a virtual machine that is in a running state without having to reboot it.
 
-The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect dynamic block devices. Currently, images and disks are supported for connection as a dynamic block device.
+The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect dynamic block devices.
 
 As an example, create the following share that connects an empty blank-disk disk to a linux-vm virtual machine:
 
