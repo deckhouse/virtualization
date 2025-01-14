@@ -179,7 +179,7 @@ d8 k get cvi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
 # }
 ```
 
-В качестве примера загрузите образ Cirros
+В качестве примера загрузите образ Cirros:
 
 ```bash
 curl -L http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img -o cirros.img

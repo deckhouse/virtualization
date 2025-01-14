@@ -14,124 +14,131 @@ weight: 50
 
 1. Создайте образ виртуальной машины из внешнего источника:
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: ubuntu
-spec:
-  storage: ContainerRegistry
-  dataSource:
-    type: HTTP
-    http:
-      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
-EOF
-```
-
-2. Создайте диск виртуальной машины из образа, созданного на предыдущем шаге (Внимание: перед созданием убедитесь, что в системе присутствует StorageClass по умолчанию):
-
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
-metadata:
-  name: linux-disk
-spec:
-  dataSource:
-    type: ObjectRef
-    objectRef:
-      kind: VirtualImage
+    ```yaml
+    d8 k apply -f - <<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualImage
+    metadata:
       name: ubuntu
-EOF
-```
+    spec:
+      storage: ContainerRegistry
+      dataSource:
+        type: HTTP
+        http:
+          url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+    EOF
+    ```
 
-3. Создание виртуальной машины
+1. Создайте диск виртуальной машины из образа, созданного на предыдущем шаге (Внимание: перед созданием убедитесь, что в системе присутствует StorageClass по умолчанию):
 
-В примере используется cloud-init-сценарий для создания пользователя cloud с паролем cloud, сгенерированный следующим образом:
-
-```bash
-mkpasswd --method=SHA-512 --rounds=4096
-```
-
-изменить имя пользователя и пароль можно в этой секции:
-
-```yaml
-users:
-  - name: cloud
-    passwd: $6$rounds=4096$G5VKZ1CVH5Ltj4wo$g.O5RgxYz64ScD5Ach5jeHS.Nm/SRys1JayngA269wjs/LrEJJAZXCIkc1010PZqhuOaQlANDVpIoeabvKK4j1
-```
-
-Создайте виртуальную машину из следующей спецификации:
-
-```yaml
-d8 k apply -f - <<"EOF"
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachine
-metadata:
-  name: linux-vm
-spec:
-  virtualMachineClassName: host
-  cpu:
-    cores: 1
-  memory:
-    size: 1Gi
-  provisioning:
-    type: UserData
-    userData: |
-      #cloud-config
-      ssh_pwauth: True
-      users:
-      - name: cloud
-        passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
-        shell: /bin/bash
-        sudo: ALL=(ALL) NOPASSWD:ALL
-        lock_passwd: False
-  blockDeviceRefs:
-    - kind: VirtualDisk
+    ```yaml
+    d8 k apply -f - <<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualDisk
+    metadata:
       name: linux-disk
-EOF
-```
+    spec:
+      dataSource:
+        type: ObjectRef
+        objectRef:
+          kind: VirtualImage
+          name: ubuntu
+    EOF
+    ```
 
-Полезные ссылки:
+1. Создайте виртуальную машину:
 
-- [Документация по cloud-init](https://cloudinit.readthedocs.io/)
-- [Параметры ресурсов](cr.html)
+    В примере используется cloud-init-сценарий для создания пользователя cloud с паролем cloud, сгенерированный следующим образом:
+    
+    ```bash
+    mkpasswd --method=SHA-512 --rounds=4096
+    ```
+    
+    Изменить имя пользователя и пароль можно в этой секции:
+    
+    ```yaml
+    users:
+      - name: cloud
+        passwd: $6$rounds=4096$G5VKZ1CVH5Ltj4wo$g.O5RgxYz64ScD5Ach5jeHS.Nm/SRys1JayngA269wjs/LrEJJAZXCIkc1010PZqhuOaQlANDVpIoeabvKK4j1
+    ```
+    
+    Создайте виртуальную машину из следующей спецификации:
+    
+    ```yaml
+    d8 k apply -f - <<"EOF"
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualMachine
+    metadata:
+      name: linux-vm
+    spec:
+      virtualMachineClassName: host
+      cpu:
+        cores: 1
+      memory:
+        size: 1Gi
+      provisioning:
+        type: UserData
+        userData: |
+          #cloud-config
+          ssh_pwauth: True
+          users:
+          - name: cloud
+            passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
+            shell: /bin/bash
+            sudo: ALL=(ALL) NOPASSWD:ALL
+            lock_passwd: False
+      blockDeviceRefs:
+        - kind: VirtualDisk
+          name: linux-disk
+    EOF
+    ```
+    
+    Полезные ссылки:
+    
+    - [Документация по cloud-init](https://cloudinit.readthedocs.io/).
+    - [Параметры ресурсов](cr.html).
 
-4. Проверьте с помощью команды, что образ и диск созданы, а виртуальная машина - запущена. Ресурсы создаются не мгновенно, поэтому прежде чем они придут в готовое состояние потребуется подождать какое-то время.
+1. Проверьте с помощью команды, что образ и диск созданы, а виртуальная машина - запущена. Ресурсы создаются не мгновенно, поэтому прежде чем они придут в готовое состояние потребуется подождать какое-то время.
 
-```bash
-d8 k  get vi,vd,vm
-# NAME                                                 PHASE   CDROM   PROGRESS   AGE
-# virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
-#
-# NAME                                                 PHASE   CAPACITY   AGE
-# virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
-#
-# NAME                                                 PHASE     NODE           IPADDRESS     AGE
-# virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
-```
+    ```bash
+    d8 k  get vi,vd,vm
+    ```
+    Пример вывода:
+    
+    ```txt
+    # NAME                                                 PHASE   CDROM   PROGRESS   AGE
+    # virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+    #
+    # NAME                                                 PHASE   CAPACITY   AGE
+    # virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+    #
+    # NAME                                                 PHASE     NODE           IPADDRESS     AGE
+    # virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+    ```
 
-5. Подключитесь с помощью консоли к виртуальной машине (для выхода из консоли необходимо нажать `Ctrl+]`):
+1. Подключитесь с помощью консоли к виртуальной машине (для выхода из консоли необходимо нажать `Ctrl+]`):
 
-```bash
-d8 v console linux-vm
+    ```bash
+    d8 v console linux-vm
+    ```
+    Пример вывода:
+    
+    ```txt
+    # Successfully connected to linux-vm console. The escape sequence is ^]
+    #
+    # linux-vm login: cloud
+    # Password: cloud
+    # ...
+    # cloud@linux-vm:~$
+    ```
 
-# Successfully connected to linux-vm console. The escape sequence is ^]
-#
-# linux-vm login: cloud
-# Password: cloud
-# ...
-# cloud@linux-vm:~$
-```
+1. Для удаления созданных ранее ресурсов используйте следующие команды:
 
-6. Для удаления созданных ранее ресурсов используйте следующие команды:
-
-```bash
-d8 k delete vm linux-vm
-d8 k delete vd linux-disk
-d8 k delete vi ubuntu
-```
+    ```bash
+    d8 k delete vm linux-vm
+    d8 k delete vd linux-disk
+    d8 k delete vi ubuntu
+    ```
 
 ## Образы
 
@@ -150,54 +157,60 @@ d8 k delete vi ubuntu
 
 Примеры ресурсов для получения образов виртуальной машины:
 
-- **Ubuntu**: https://cloud-images.ubuntu.com
-- **Alt Linux**: https://ftp.altlinux.ru/pub/distributions/ALTLinux/platform/images/cloud/x86_64
-- **Astra Linux**: https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit
+- **Ubuntu**: https://cloud-images.ubuntu.com.
+- **Alt Linux**: https://ftp.altlinux.ru/pub/distributions/ALTLinux/platform/images/cloud/x86_64.
+- **Astra Linux**: https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit.
 
-После создания ресурса, тип и размер образа определяются автоматически, и эта информация отражается в статусе ресурса.
+После создания ресурса, тип и размер образа определяются автоматически и эта информация отражается в статусе ресурса.
 
 Образы могут быть загружены из различных источников, таких как HTTP-серверы, где расположены файлы образов, или контейнерные реестры. Также доступна возможность загрузки образов напрямую из командной строки с использованием утилиты curl.
 
 Образы могут быть созданы из других образов и дисков виртуальных машин.
 
-Проектный образ поддерживаются два варианта хранения:
+Проектный образ поддерживает два варианта хранения:
 
 - `ContainerRegistry` - тип по умолчанию, при котором образ хранится в `DVCR`.
 - `PersistentVolumeClaim` - тип, при котором в качестве хранилища для образа используется `PVC`. Этот вариант предпочтителен, если используется хранилище с поддержкой быстрого клонирования `PVC`, что позволяет быстрее создавать диски из образов.
 
-С полным описанием параметров конфигурации ресурса `VirtualImage` можно ознакомиться по [ссылке](cr.html#virtualimage).
+С полным описанием параметров конфигурации ресурса `VirtualImage` можно ознакомиться [в документации к ресурсу](cr.html#virtualimage).
 
 ### Создание образа с HTTP-сервера
 
-Рассмотрим вариант создания образа с вариантом хранения в DVCR. Выполните следующую команду для создания `VirtualImage`:
+Рассмотрим вариант создания образа с вариантом хранения в DVCR.
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: ubuntu-22.04
-spec:
-  # Сохраним образ в DVCR
-  storage: ContainerRegistry
-  # Источник для создания образа.
-  dataSource:
-    type: HTTP
-    http:
-      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
-EOF
-```
+1. Выполните следующую команду для создания `VirtualImage`:
 
-Проверить результат создания `VirtualImage`:
+    ```yaml
+    d8 k apply -f - <<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualImage
+    metadata:
+      name: ubuntu-22.04
+    spec:
+      # Сохраним образ в DVCR.
+      storage: ContainerRegistry
+      # Источник для создания образа.
+      dataSource:
+        type: HTTP
+        http:
+          url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+    EOF
+    ```
 
-```bash
-d8 k get virtualimage ubuntu-22.04
-# или более короткий вариант
-d8 k get vi ubuntu-22.04
+1. Проверьте результат создания `VirtualImage`:
 
-# NAME           PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22.04   Ready   false   100%       23h
-```
+    ```bash
+    d8 k get virtualimage ubuntu-22.04
+    # или более короткий вариант
+    d8 k get vi ubuntu-22.04
+    ```
+   
+    Пример вывода:
+
+    ```txt    
+    # NAME           PHASE   CDROM   PROGRESS   AGE
+    # ubuntu-22.04   Ready   false   100%       23h
+    ```
 
 После создания ресурс `VirtualImage` может находиться в следующих состояниях (фазах):
 
@@ -206,15 +219,19 @@ d8 k get vi ubuntu-22.04
 - `Provisioning` - идет процесс создания образа.
 - `Ready` - образ создан и готов для использования.
 - `Failed` - произошла ошибка в процессе создания образа.
-- `Terminating` - идет процесс удаления Образа. Образа может "зависнуть" в данном состоянии если он еще подключен к виртуальной машине.
+- `Terminating` - идет процесс удаления Образа. Образ может «зависнуть» в данном состоянии, если он еще подключен к виртуальной машине.
 
-До тех пор пока образ не перешёл в фазу `Ready` содержимое всего блока `.spec` допускается изменять. При изменении процесс создании диска запустится заново. После перехода в фазу `Ready` содержимое блока `.spec` менять нельзя!
+До тех пор пока образ не перешёл в фазу `Ready`, содержимое всего блока `.spec` допускается изменять. При изменении процесс создании диска запустится заново. После перехода в фазу `Ready` содержимое блока `.spec` менять нельзя!
 
 Отследить процесс создания образа можно путем добавления ключа `-w` к предыдущей команде:
 
 ```bash
 d8 k get vi ubuntu-22.04 -w
+```
 
+Пример вывода:
+    
+```txt
 # NAME           PHASE          CDROM   PROGRESS   AGE
 # ubuntu-22.04   Provisioning   false              4s
 # ubuntu-22.04   Provisioning   false   0.0%       4s
@@ -253,11 +270,15 @@ spec:
 EOF
 ```
 
-Проверить результат создания `VirtualImage`:
+Проверьте результат создания `VirtualImage`:
 
 ```bash
 d8 k get vi ubuntu-22.04-pvc
+```
 
+Пример вывода:
+
+```txt
 # NAME              PHASE   CDROM   PROGRESS   AGE
 # ubuntu-22.04-pvc  Ready   false   100%       23h
 ```
@@ -266,55 +287,55 @@ d8 k get vi ubuntu-22.04-pvc
 
 ### Создание образа из Container Registry
 
-Образ, хранящийся в Container Registry имеет определенный формат. Рассмотрим на примере:
+Образ, хранящийся в Container Registry, имеет определенный формат. Рассмотрим на примере:
 
-Для начала загрузите образ локально:
+1. Загрузите образ локально:
 
-```bash
-curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
-```
+    ```bash
+    curl -L https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img -o ubuntu2204.img
+    ```
 
-Далее создайте `Dockerfile` со следующим содержимым:
+1. Создайте `Dockerfile` со следующим содержимым:
 
-```Dockerfile
-FROM scratch
-COPY ubuntu2204.img /disk/ubuntu2204.img
-```
+    ```Dockerfile
+    FROM scratch
+    COPY ubuntu2204.img /disk/ubuntu2204.img
+    ```
 
-Соберите образ и загрузите его в container registry. В качестве container registry в примере ниже использован docker.io. для выполнения вам необходимо иметь учетную запись сервиса и настроенное окружение.
+1. Соберите образ и загрузите его в container registry. В качестве container registry в примере ниже использован docker.io. Для выполнения необходимо иметь учетную запись сервиса и настроенное окружение.
 
-```bash
-docker build -t docker.io/<username>/ubuntu2204:latest
-```
+    ```bash
+    docker build -t docker.io/<username>/ubuntu2204:latest
+    ```
 
-где `username` — имя пользователя, указанное при регистрации в docker.io.
+    где `username` — имя пользователя, указанное при регистрации в docker.io.
 
-Загрузите созданной образ в container registry:
+1. Загрузите созданный образ в container registry:
 
-```bash
-docker push docker.io/<username>/ubuntu2204:latest
-```
+    ```bash
+    docker push docker.io/<username>/ubuntu2204:latest
+    ```
 
-Чтобы использовать этот образ, создайте в качестве примера ресурс:
+1. Чтобы использовать этот образ, создайте в качестве примера ресурс:
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: ubuntu-2204
-spec:
-  storage: ContainerRegistry
-  dataSource:
-    type: ContainerImage
-    containerImage:
-      image: docker.io/<username>/ubuntu2204:latest
-EOF
-```
+    ```yaml
+    d8 k apply -f - <<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualImage
+    metadata:
+      name: ubuntu-2204
+    spec:
+      storage: ContainerRegistry
+      dataSource:
+        type: ContainerImage
+        containerImage:
+          image: docker.io/<username>/ubuntu2204:latest
+    EOF
+    ```
 
 ### Загрузка образа из командной строки
 
-Чтобы загрузить образ из командной строки, предварительно создайте следующий ресурс, как представлено ниже на примере `VirtualImage`:
+Чтобы загрузить образ из командной строки, предварительно создайте ресурс, как представлено ниже на примере `VirtualImage`:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -337,7 +358,11 @@ EOF
 
 ```bash
 d8 k get vi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
+```
 
+Пример вывода:
+
+```txt
 # {
 #   "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
 #   "inCluster":"http://10.222.165.239/upload"
@@ -360,7 +385,11 @@ curl https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm 
 
 ```bash
 d8 k get vi some-image
+```
 
+Пример вывода:
+
+```txt
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # some-image   Ready   false   100%       1m
 ```
@@ -392,9 +421,9 @@ EOF
 
 ## Диски
 
-Диски в виртуальных машинах необходимы для записи и хранения данных, обеспечивая полноценное функционирование приложений и операционных систем. Под "капотом" этих дисков используется хранилище, предоставляемое платформой.
+Диски в виртуальных машинах необходимы для записи и хранения данных, они обеспечивают полноценное функционирование приложений и операционных систем. Хранилище для этих дисков предоставляет платформа.
 
-В зависимости от свойств хранилища поведение дисков при создании и виртуальных машин в процессе эксплуатации может отличаться:
+В зависимости от свойств хранилища, поведение дисков при создании и виртуальных машин в процессе эксплуатации может отличаться:
 
 Свойство VolumeBindingMode:
 
@@ -413,13 +442,17 @@ EOF
 
 При создании диска контроллер самостоятельно определит наиболее оптимальные параметры поддерживаемые хранилищем.
 
-Внимание: Создать диски из iso-образов - нельзя!
+> Внимание: Создать диски из iso-образов - нельзя!
 
 Чтобы узнать доступные варианты хранилищ на платформе, выполните следующую команду:
 
 ```bash
 d8 k  get storageclass
+```
 
+Пример вывода:
+
+```txt
 # NAME                          PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
 # i-linstor-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
 # i-linstor-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
@@ -430,7 +463,7 @@ d8 k  get storageclass
 # nfs-4-1-wffc                  nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
 ```
 
-С полным описанием параметров конфигурации дисков можно ознакомиться по [ссылке](cr.html#virtualdisk).
+С полным описанием параметров конфигурации дисков можно ознакомиться [в документации ресурса](cr.html#virtualdisk).
 
 ### Создание пустого диска
 
@@ -461,17 +494,21 @@ EOF
 - `WaitForFirstConsumer` - диск ожидает создания виртуальной машины, которая будет его использовать.
 - `Ready` - диск создан и готов для использования.
 - `Failed` - произошла ошибка в процессе создания.
-- `Terminating` - идет процесс удаления диска. Диск может "зависнуть" в данном состоянии если он еще подключен к виртуальной машине.
+- `Terminating` - идет процесс удаления диска. Диск может «зависнуть» в данном состоянии, если он еще подключен к виртуальной машине.
 
 До тех пор пока диск не перешёл в фазу `Ready` содержимое всего блока `.spec` допускается изменять. При изменении процесс создании диска запустится заново.
 
 Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./ADMIN_GUIDE_RU.md#настройки-классов-хранения-для-дисков).
 
-Проверьте состояние диска после создание командой:
+Проверьте состояние диска после создания командой:
 
 ```bash
 d8 k get vd blank-disk
+```
 
+Пример вывода:
+
+```txt
 # NAME       PHASE   CAPACITY   AGE
 # blank-disk   Ready   100Mi      1m2s
 ```
@@ -486,7 +523,11 @@ d8 k get vd blank-disk
 
 ```bash
 d8 k get cvi ubuntu-22.04 -o wide
+```
 
+Пример вывода:
+
+```txt
 # NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
 # ubuntu-22.04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22.04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
@@ -543,7 +584,11 @@ EOF
 
 ```bash
 d8 k get vd
+```
 
+Пример вывода:
+
+```txt
 # NAME           PHASE   CAPACITY   AGE
 # linux-vm-root    Ready   10Gi       7m52s
 # linux-vm-root-2  Ready   2590Mi     7m15s
@@ -553,33 +598,41 @@ d8 k get vd
 
 Размер дисков можно увеличивать, даже если они уже подключены к работающей виртуальной машине. Для этого отредактируйте поле `spec.persistentVolumeClaim.size`:
 
-Проверим размер до изменения:
+Проверьте размер до изменения:
 
 ```bash
 d8 k get vd linux-vm-root
+```
 
+Пример вывода:
+
+```txt
 # NAME          PHASE   CAPACITY   AGE
 # linux-vm-root   Ready   10Gi       10m
 ```
 
-Применим изменения:
+Примените изменения:
 
 ```bash
 d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
 ```
 
-Проверим размер после изменения:
+Проверьте размер после изменения:
 
 ```bash
 d8 k get vd linux-vm-root
+```
 
+Пример вывода:
+
+```txt
 # NAME          PHASE   CAPACITY   AGE
 # linux-vm-root   Ready   11Gi       12m
 ```
 
 ## Виртуальные машины
 
-Для создания виртуальной машины используется ресурс `VirtualMachine`, его параметры позволяют сконфигурировать:
+Для создания виртуальной машины используется ресурс `VirtualMachine`. Его параметры позволяют сконфигурировать:
 
 - [класс виртуальной машины](ADMIN_GUIDE_RU.md#классы-виртуальных-машин)
 - ресурсы, требуемые для работы виртуальной машины (процессор, память, диски и образы);
@@ -589,7 +642,7 @@ d8 k get vd linux-vm-root
 - сценарии начальной конфигурации (cloud-init);
 - перечень блочных устройств.
 
-С полным описанием параметров конфигурации виртуальных машин можно ознакомиться по [ссылке](cr.html#virtualmachine)
+С полным описанием параметров конфигурации виртуальных машин можно ознакомиться по [в документации конфигурации](cr.html#virtualmachine).
 
 ### Создание виртуальной машины
 
@@ -661,7 +714,11 @@ EOF
 
 ```bash
 d8 k get vm linux-vm
+```
 
+Пример вывода:
+
+```txt
 # NAME        PHASE     NODE           IPADDRESS     AGE
 # linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
 ```
@@ -673,14 +730,18 @@ d8 k get vm linux-vm
 Для подключения к виртуальной машине доступны следующие способы:
 
 - протокол удаленного управления (например SSH), который должен быть предварительно настроен на виртуальной машине.
-- серийная консоль (serial console)
-- протокол VNC
+- серийная консоль (serial console).
+- протокол VNC.
 
 Пример подключения к виртуальной машине с использованием серийной консоли:
 
 ```bash
 d8 v console linux-vm
+```
 
+Пример вывода:
+
+```txt
 # Successfully connected to linux-vm console. The escape sequence is ^]
 # linux-vm login: cloud
 # Password: cloud
@@ -694,7 +755,7 @@ d8 v console linux-vm
 d8 v vnc linux-vm
 ```
 
-Пример команды для подключения по SSH.
+Пример команды для подключения по SSH:
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh
@@ -702,7 +763,7 @@ d8 v ssh cloud@linux-vm --local-ssh
 
 ### Политика запуска и управление состоянием виртуальной машины
 
-Политика запуска виртуальной машины предназначена для автоматизированного управления состоянием виртуальной машины. Определяется она в виде параметра `.spec.runPolicy` в спецификации виртуальной машины. Поддерживается следующие политики:
+Политика запуска виртуальной машины предназначена для автоматизированного управления состоянием виртуальной машины. Определяется она в виде параметра `.spec.runPolicy` в спецификации виртуальной машины. Поддерживаются следующие политики:
 
 - `AlwaysOnUnlessStoppedManually` - (по умолчанию) после создания ВМ всегда находится в запущенном состоянии. В случае сбоев работа ВМ восстанавливается автоматически. Остановка ВМ возможно только путем вызова команды `d8 v stop` или создания соответствующей операции.
 - `AlwaysOn` - после создания ВМ всегда находится в работающем состоянии, даже в случае ее выключения средствами ОС. В случае сбоев работа ВМ восстанавливается автоматически.
@@ -711,10 +772,10 @@ d8 v ssh cloud@linux-vm --local-ssh
 
 Состоянием виртуальной машины можно управлять с помощью следующих методов:
 
-Создание ресурса `VirtualMachineOperation` (`vmop`).
-Использование утилиты `d8` с соответствующей подкомандой.
+- Создание ресурса `VirtualMachineOperation` (`vmop`).
+- Использование утилиты `d8` с соответствующей подкомандой.
 
-Ресурс `VirtualMachineOperation` декларативно определяет императивное действие, которое должно быть выполнено на виртуальной машине. Это действие применяется к виртуальной машине сразу после её создания соответствующего `vmop`. Действие применяется к виртуальной машине один раз.
+Ресурс `VirtualMachineOperation` декларативно определяет императивное действие, которое должно быть выполнено на виртуальной машине. Это действие применяется к виртуальной машине сразу после создания соответствующего `vmop`. Действие применяется к виртуальной машине один раз.
 
 Пример операции для выполнения перезагрузки виртуальной машины с именем `linux-vm`:
 
@@ -756,7 +817,7 @@ d8 v restart linux-vm
 
 ### Изменение конфигурации виртуальной машины
 
-Конфигурацию виртуальной машины можно изменять в любое время после создания ресурса `VirtualMachine`. Однако, то, как эти изменения будут применены, зависит от текущей фазы виртуальной машины и характера внесённых изменений.
+Конфигурацию виртуальной машины можно изменять в любое время после создания ресурса `VirtualMachine`. Однако то, как эти изменения будут применены, зависит от текущей фазы виртуальной машины и характера внесённых изменений.
 
 Изменения в конфигурацию виртуальной машины можно внести с использованием следующей команды:
 
@@ -784,7 +845,11 @@ d8 k edit vm linux-vm
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+```
 
+Пример вывода:
+
+```txt
 # 1
 ```
 
@@ -792,7 +857,11 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 
 ```bash
 d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+```
 
+Пример вывода:
+
+```txt
 # virtualmachine.virtualization.deckhouse.io/linux-vm patched
 ```
 
@@ -800,7 +869,11 @@ d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+```
 
+Пример вывода:
+
+```txt
 # 1
 ```
 
@@ -808,7 +881,11 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 
 ```bash
 d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
+```
 
+Пример вывода:
+
+```txt
 # [
 #   {
 #     "currentValue": 1,
@@ -823,14 +900,18 @@ d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
 
 ```bash
 d8 k get vm linux-vm -o wide
+```
 
+Пример вывода:
+
+```txt
 # NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
 # linux-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
 ```
 
 В колонке `NEED RESTART` мы видим значение `True`, а это значит что для применения изменений требуется перезагрузка.
 
-Выполним перезагрузку виртуальной машины:
+Выполните перезагрузку виртуальной машины:
 
 ```bash
 d8 v restart linux-vm
@@ -842,11 +923,15 @@ d8 v restart linux-vm
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+```
 
+Пример вывода:
+
+```txt
 # 2
 ```
 
-Порядок применения изменений виртуальной машины через "ручной" рестарт является поведением по умолчанию. Если есть необходимость применять внесенные изменения сразу и автоматически, для этого нужно изменит политику применения изменений:
+Порядок применения изменений виртуальной машины через «ручной» рестарт является поведением по умолчанию. Если есть необходимость применять внесенные изменения сразу и автоматически, для этого нужно изменить политику применения изменений:
 
 ```yaml
 spec:
@@ -860,7 +945,7 @@ spec:
 
 В качестве сценариев начальной инициализации поддерживаются:
 
-- [CloudInit](https://cloudinit.readthedocs.io)
+- [CloudInit](https://cloudinit.readthedocs.io).
 - [Sysprep](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/sysprep--system-preparation--overview).
 
 Сценарий CloudInit можно встраивать непосредственно в спецификацию виртуальной машины, но этот сценарий ограничен максимальной длиной в 2048 байт:
@@ -875,7 +960,7 @@ spec:
       ...
 ```
 
-При более длинных сценариях и/или наличия приватных данных, сценарий начальной инициализации виртуальной машины может быть создан в Secret'е. Пример Secret'а со сценарием CloudInit приведен ниже:
+При более длинных сценариях и/или наличия приватных данных, сценарий начальной инициализации виртуальной машины может быть создан в ресурсе Secret. Пример ресурса Secret со сценарием CloudInit приведен ниже:
 
 ```yaml
 apiVersion: v1
@@ -887,7 +972,7 @@ data:
 type: provisioning.virtualization.deckhouse.io/cloud-init
 ```
 
-фрагмент конфигурации виртуальной машины с при использовании скрипта начальной инициализации CloudInit хранящегося в Secret'е:
+фрагмент конфигурации виртуальной машины с при использовании скрипта начальной инициализации CloudInit хранящегося в ресурсе Secret:
 
 ```yaml
 spec:
@@ -900,9 +985,9 @@ spec:
 
 Примечание: Значение поля `.data.userData` должно быть закодировано в формате Base64.
 
-Для конфигурирования виртуальных машин под управлением ОС Windows с использованием Sysprep, поддерживается только вариант с Secret.
+Для конфигурирования виртуальных машин под управлением ОС Windows с использованием Sysprep, поддерживается только вариант с ресурсом Secret.
 
-Пример Secret с сценарием Sysprep приведен ниже:
+Пример ресурса Secret с сценарием Sysprep приведен ниже:
 
 ```yaml
 apiVersion: v1
@@ -916,7 +1001,7 @@ type: provisioning.virtualization.deckhouse.io/sysprep
 
 Примечание: Значение поля `.data.unattend.xml` должно быть закодировано в формате Base64.
 
-фрагмент конфигурации виртуальной машины с использованием скрипта начальной инициализации Sysprep в Secret'е:
+фрагмент конфигурации виртуальной машины с использованием скрипта начальной инициализации Sysprep в ресурсе Secret:
 
 ```yaml
 spec:
@@ -931,9 +1016,9 @@ spec:
 
 Для управления размещением виртуальных машин по узлам можно использовать следующие подходы:
 
-- Простое связывание по меткам (`nodeSelector`)
-- Предпочтительное связывание (`Affinity`)
-- Избежание совместного размещения (`AntiAffinity`)
+- Простое связывание по меткам (`nodeSelector`).
+- Предпочтительное связывание (`Affinity`).
+- Избежание совместного размещения (`AntiAffinity`).
 
 {{< alert level="info" >}}
 Параметры размещения виртуальных машин можно изменить в реальном времени (доступно только в Enterprise-редакции). Однако, если новые параметры размещения не совпадают с текущими, виртуальная машина будет перемещена на узлы, соответствующие новым требованиям.
@@ -955,9 +1040,9 @@ spec:
 
 #### Предпочтительное связывание (Affinity)
 
-`Affinity` предоставляет более гибкие и мощные инструменты по сравнению с `nodeSelector`. Он позволяет задавать "предпочтения" и "обязательности" для размещения виртуальных машин. `Affinity` поддерживает два вида: `nodeAffinity` и `virtualMachineAndPodAffinity`.
+`Affinity` предоставляет более гибкие и мощные инструменты по сравнению с `nodeSelector`. Он позволяет задавать «предпочтения» и «обязательности» для размещения виртуальных машин. `Affinity` поддерживает два вида: `nodeAffinity` и `virtualMachineAndPodAffinity`.
 
-`nodeAffinity` позволяет определять, на каких узлах может быть запущена виртуальная машина, с помощью выражений меток, и может быть мягким (preferred) или жестким (required).
+`nodeAffinity` позволяет определять на каких узлах может быть запущена виртуальная машина с помощью выражений меток и может быть мягким (preferred) или жестким (required).
 
 Пример использования nodeAffinity:
 
@@ -1022,11 +1107,11 @@ spec:
 
 В данном примере создаваемая виртуальная машина не будет размещена на одном узле с виртуальной машиной с меткой server: database.
 
-### Статически и динамически блочные устройства
+### Статические и динамические блочные устройства
 
 Блочные устройства можно разделить на два типа по способу их подключения: статические и динамические (hotplug).
 
-Блочные устройств и их особенности представлены в таблице:
+Блочные устройства и их особенности представлены в таблице:
 
 | Тип блочного устройства | Комментарий                                                     |
 | ----------------------- | --------------------------------------------------------------- |
@@ -1058,7 +1143,7 @@ spec:
 
 Для подключения динамических блочных устройств используется ресурс `VirtualMachineBlockDeviceAttachment` (`vmbda`).
 
-Создайте следующий ресурс, который подключит пустой диск blank-disk к виртуальной машине linux-vm:
+Создайте ресурс, который подключит пустой диск blank-disk к виртуальной машине linux-vm:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -1084,8 +1169,11 @@ EOF
 
 ```bash
 d8 k get vmbda attach-blank-disk
+```
 
-# NAME              PHASE      VIRTUAL MACHINE NAME   AGE
+Пример вывода:
+
+```txt# NAME              PHASE      VIRTUAL MACHINE NAME   AGE
 # attach-blank-disk   Attached   linux-vm              3m7s
 ```
 
@@ -1093,7 +1181,11 @@ d8 k get vmbda attach-blank-disk
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
+```
 
+Пример вывода:
+
+```txt
 # NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
 # sda       8:0    0   10G  0 disk <--- статично подключенный диск linux-vm-root
 # |-sda1    8:1    0  9.9G  0 part /
@@ -1133,6 +1225,11 @@ EOF
 
 ```bash
 d8 k label vm linux-vm app=nginx
+```
+
+Пример вывода:
+
+```txt
 # virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 ```
 
@@ -1151,7 +1248,7 @@ metadata:
 spec:
   type: NodePort
   selector:
-    # лейбл по которому сервис определяет на какую виртуальную машину направлять трафик
+    # Лейбл по которому сервис определяет на какую виртуальную машину направлять трафик.
     app: nginx
   ports:
     - protocol: TCP
@@ -1178,7 +1275,7 @@ metadata:
 spec:
   type: LoadBalancer
   selector:
-    # лейбл по которому сервис определяет на какую виртуальную машину направлять трафик
+    # Лейбл по которому сервис определяет на какую виртуальную машину направлять трафик
     app: nginx
   ports:
     - protocol: TCP
@@ -1245,18 +1342,22 @@ EOF
 
 Миграция может осуществляться автоматически при:
 
-- Обновлении "прошивки" виртуальной машины.
+- Обновлении «прошивки» виртуальной машины.
 - Перебалансировке нагрузки на узлах кластера.
 - Переводе узлов в режим обслуживания для проведения работ.
 - При изменении [параметров размещения ВМ](#размещение-вм-по-узлам) (доступно только в Enterprise-редакции).
 
-Также миграция виртуальной машины может быть выполнена по требованию пользователя. Рассмотрим на примере:
+Также миграция виртуальной машины может быть выполнена по требованию пользователя.
 
-Перед запуском миграции посмотрите текущий статус виртуальной машины:
+Рассмотрим пример. Перед запуском миграции посмотрите текущий статус виртуальной машины:
 
 ```bash
 d8 k get vm
+```
 
+Пример вывода:
+
+```txt
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
 # linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
@@ -1272,9 +1373,9 @@ kind: VirtualMachineOperation
 metadata:
   name: evict-linux-vm-$(date +%s)
 spec:
-  # имя виртуальной машины
+  # Имя виртуальной машины.
   virtualMachineName: linux-vm
-  # операция для миграции
+  # Операция для миграции.
   type: Evict
 EOF
 ```
@@ -1283,7 +1384,11 @@ EOF
 
 ```bash
 d8 k get vm -w
+```
 
+Пример вывода:
+
+```txt
 # NAME                                  PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
@@ -1301,38 +1406,50 @@ d8 v evict <vm-name>
 
 Блок `.spec.settings.virtualMachineCIDRs` в конфигурации модуля virtualization задает список подсетей для назначения ip-адресов виртуальным машинам (общий пул ip-адресов). Все адреса в этих подсетях доступны для использования, за исключением первого (адрес сети) и последнего (широковещательный адрес).
 
-Ресурс `VirtualMachineIPAddressLease` (`vmipl`): Кластерный ресурс, который управляет арендой IP-адресов из общего пула, указанного в `virtualMachineCIDRs`.
+Ресурс `VirtualMachineIPAddressLease` (`vmipl`): кластерный ресурс, который управляет арендой IP-адресов из общего пула, указанного в `virtualMachineCIDRs`.
 
 Чтобы посмотреть список аренд IP-адресов (`vmipl`), используйте команду:
 
 ```bash
 d8 k get vmipl
+```
 
+Пример вывода:
+
+```txt
 # NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
-Ресурс `VirtualMachineIPAddress` (`vmip`): Проектный/неймспейсный ресурс, который отвечает за резервирование арендованных IP-адресов и их привязку к виртуальным машинам. IP-адреса могут выделяться автоматически или по явному запросу.
+Ресурс `VirtualMachineIPAddress` (`vmip`): проектный/неймспейсный ресурс, который отвечает за резервирование арендованных IP-адресов и их привязку к виртуальным машинам. IP-адреса могут выделяться автоматически или по явному запросу.
 
 Чтобы посмотреть список `vmip`, используйте команду:
 
 ```bash
 d8 k get vmipl
+```
 
+Пример вывода:
+
+```txt
 # NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
-По умолчанию ip-адрес виртуальной машине назначается автоматически из подсетей, определенных в модуле и закрепляется за ней до её удаления. Проверить назначенный ip-адрес можно с помощью команды:
+По умолчанию IP-адрес виртуальной машине назначается автоматически из подсетей, определенных в модуле и закрепляется за ней до её удаления. Проверить назначенный IP-адрес можно с помощью команды:
 
 ```bash
 k get vmip
+```
 
+Пример вывода:
+
+```txt
 # NAME             ADDRESS       STATUS     VM         AGE
 # linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
 
-Алгоритм автоматического присвоения ip-адреса виртуальной машине выглядит следующим образом:
+Алгоритм автоматического присвоения IP-адреса виртуальной машине выглядит следующим образом:
 
 - Пользователь создает виртуальную машину с именем `<vmname>`.
 - Контроллер модуля автоматически создает ресурс `vmip` с именем `<vmname>-<hash>`, чтобы запросить IP-адрес и связать его с виртуальной машиной.
@@ -1343,37 +1460,33 @@ IP-адрес виртуальной машине назначается авт�
 
 С полным описанием параметров конфигурации ресурсов `vmip` и `vmipl` машин можно ознакомиться по ссылкам:
 
-- [`VirtualMachineIPAddress`](cr.html#virtualmachineipaddress)
-- [`VirtualMachineIPAddressLease`](cr.html#virtualmachineipaddresslease)
+- [`VirtualMachineIPAddress`](cr.html#virtualmachineipaddress).
+- [`VirtualMachineIPAddressLease`](cr.html#virtualmachineipaddresslease).
 
 ### Как запросить требуемый ip-адрес?
 
-Задача: запросить конкретный ip-адрес из подсетей `virtualMachineCIDRs`.
+1. Создайте ресурс `vmip`:
 
-Создайте ресурс `vmip`:
+    ```yaml
+    d8 k apply -f - <<EOF
+    apiVersion: virtualization.deckhouse.io/v1alpha2
+    kind: VirtualMachineIPAddress
+    metadata:
+      name: linux-vm-custom-ip
+    spec:
+      staticIP: 10.66.20.77
+      type: Static
+    EOF
+    ```
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineIPAddress
-metadata:
-  name: linux-vm-custom-ip
-spec:
-  staticIP: 10.66.20.77
-  type: Static
-EOF
-```
+1. Создайте новую или измените существующую виртуальную машину и в спецификации укажите требуемый ресурс `vmip` явно:
 
-Создайте новую или измените существующую виртуальную машину и в спецификации укажите требуемый ресурс `vmip` явно:
-
-```yaml
-spec:
-  virtualMachineIPAdressName: linux-vm-custom-ip
-```
+    ```yaml
+    spec:
+      virtualMachineIPAdressName: linux-vm-custom-ip
+    ```
 
 ### Как сохранить присвоенный виртуальной машине ip-адрес?
-
-Задача: сохранить выданный виртуальной машине ip-адрес для его повторного использования после удаления виртуальной машины.
 
 Чтобы автоматически выданный ip-адрес виртуальной машины не удалился вместе с самой виртуальной машиной выполните следующие действия.
 
@@ -1381,7 +1494,11 @@ spec:
 
 ```bash
 d8 k get vm linux-vm -o jsonpath="{.status.virtualMachineIPAddressName}"
+```
 
+Пример вывода:
+
+```txt
 # linux-vm-7prpx
 ```
 
@@ -1424,9 +1541,9 @@ EOF
 
 - виртуальный диск не подключен ни к одной виртуальной машине;
 - виртуальный диск подключен к виртуальной машине, которая выключена;
-- виртуальный диск подключен к запущенной виртуальной машине, в ОС виртуальной машины установлен агент (`qemu-guest-agent`), операция по "заморозке" файловой системы прошла успешено.
+- виртуальный диск подключен к запущенной виртуальной машине, в ОС виртуальной машины установлен агент (`qemu-guest-agent`), операция по «заморозке» файловой системы прошла успешно.
 
-Если целостность и консистентность неважна снимок можно выполнить на работающей виртуальной машине и без "заморозки" файловой системы, для этого в спецификации ресурса `VirtualDiskSnapshot` добавить:
+Если целостность и консистентность неважна, снимок можно выполнить на работающей виртуальной машине и без «заморозки» файловой системы, для этого в спецификации ресурса `VirtualDiskSnapshot` добавить:
 
 ```yaml
 spec:
@@ -1439,7 +1556,11 @@ spec:
 
 ```bash
 d8 k get volumesnapshotclasses
+```
 
+Пример вывода:
+
+```txt
 # NAME                     DRIVER                                DELETIONPOLICY   AGE
 # csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
 # sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
@@ -1460,11 +1581,15 @@ spec:
 EOF
 ```
 
-Для просмотра списка снимков дисков, выполните следующую конмаду:
+Для просмотра списка снимков дисков, выполните следующую команду:
 
 ```bash
 d k get vdsnapshot
+```
 
+Пример вывода:
+
+```txt
 # NAME                   PHASE     CONSISTENT   AGE
 # linux-vm-root-snapshot Ready     true         3m2s
 ```
@@ -1477,11 +1602,11 @@ d k get vdsnapshot
 - `Failed` — произошла ошибка во время процесса создания снимка виртуального диска.
 - `Terminating` — ресурс находится в процессе удаления.
 
-С полным описанием параметров конфигурации ресурса `VirtualDiskSnapshot` машин можно ознакомиться по [ссылке](cr.html#virtualdisksnapshot)
+С полным описанием параметров конфигурации ресурса `VirtualDiskSnapshot` машин можно ознакомиться [в документации ресурса](cr.html#virtualdisksnapshot).
 
 ### Восстановление дисков из снимков
 
-Для того чтобы восстановить диск из ранее созданного снимка диска, необходимо в качестве `dataSource` указать соотвествующий объект:
+Для того чтобы восстановить диск из ранее созданного снимка диска, необходимо в качестве `dataSource` указать соответствующий объект:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -1514,7 +1639,7 @@ EOF
 - виртуальная машина выключена;
 - в операционной системе виртуальной машины установлен агент (qemu-guest-agent), и операция по "заморозке" файловой системы прошла успешно.
 
-Если целостность и консистентность неважны, снимок можно создать на работающей виртуальной машине и без "заморозки" файловой системы. Для этого в спецификации ресурса `VirtualMachineSnapshot` укажите:
+Если целостность и консистентность неважны, снимок можно создать на работающей виртуальной машине и без «заморозки» файловой системы. Для этого в спецификации ресурса `VirtualMachineSnapshot` укажите:
 
 ```yaml
 spec:
@@ -1527,7 +1652,11 @@ spec:
 
 ```bash
 d8 k get volumesnapshotclasses
+```
 
+Пример вывода:
+
+```txt
 # NAME                     DRIVER                                DELETIONPOLICY   AGE
 # csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
 # sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
