@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -43,12 +44,13 @@ func NewController(
 	virtClient kubeclient.Client,
 ) error {
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVMSnapshotProtection)
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	snapshotter := service.NewSnapshotService(virtClient, mgr.GetClient(), protection)
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
 		internal.NewVirtualMachineReadyHandler(snapshotter),
-		internal.NewLifeCycleHandler(snapshotter, restorer.NewSecretRestorer(mgr.GetClient())),
+		internal.NewLifeCycleHandler(recorder, snapshotter, restorer.NewSecretRestorer(mgr.GetClient())),
 	)
 
 	vmSnapshotController, err := controller.New(ControllerName, mgr, controller.Options{

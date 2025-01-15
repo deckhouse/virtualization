@@ -29,6 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -38,12 +39,14 @@ import (
 )
 
 type LifeCycleHandler struct {
+	recorder    eventrecord.EventRecorderLogger
 	snapshotter Snapshotter
 	storer      Storer
 }
 
-func NewLifeCycleHandler(snapshotter Snapshotter, storer Storer) *LifeCycleHandler {
+func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, snapshotter Snapshotter, storer Storer) *LifeCycleHandler {
 	return &LifeCycleHandler{
+		recorder:    recorder,
 		snapshotter: snapshotter,
 		storer:      storer,
 	}
@@ -61,7 +64,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 
 	vm, err := h.snapshotter.GetVirtualMachine(ctx, vmSnapshot.Spec.VirtualMachineName, vmSnapshot.Namespace)
 	if err != nil {
-		setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+		setPhaseConditionToFailed(h, cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
@@ -74,7 +77,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 
 		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm)
 		if err != nil {
-			setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+			setPhaseConditionToFailed(h, cb, vmSnapshot, err)
 			return reconcile.Result{}, err
 		}
 
@@ -97,7 +100,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		for _, vdSnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
 			vdSnapshot, err := h.snapshotter.GetVirtualDiskSnapshot(ctx, vdSnapshotName, vmSnapshot.Namespace)
 			if err != nil {
-				setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+				setPhaseConditionToFailed(h, cb, vmSnapshot, err)
 				return reconcile.Result{}, err
 			}
 
@@ -113,14 +116,19 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 			vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
 			cb.Status(metav1.ConditionFalse).Reason(vmscondition.VirtualDiskSnapshotLost)
 			if len(lostVDSnapshots) == 1 {
-				cb.Message(fmt.Sprintf("The underlieng virtual disk snapshot (%s) is lost.", lostVDSnapshots[0]))
+				msg := fmt.Sprintf("The underlieng virtual disk snapshot (%s) is lost.", lostVDSnapshots[0])
+				h.recorder.Event(vmSnapshot, corev1.EventTypeWarning, virtv2.ReasonVMSnapshottingFailed, msg)
+				cb.Message(msg)
 			} else {
-				cb.Message(fmt.Sprintf("The underlieng virtual disk snapshots (%s) are lost.", strings.Join(lostVDSnapshots, ", ")))
+				msg := fmt.Sprintf("The underlieng virtual disk snapshots (%s) are lost.", strings.Join(lostVDSnapshots, ", "))
+				h.recorder.Event(vmSnapshot, corev1.EventTypeWarning, virtv2.ReasonVMSnapshottingFailed, msg)
+				cb.Message(msg)
 			}
 			return reconcile.Result{}, nil
 		}
 
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseReady
+		h.recorder.Event(vmSnapshot, corev1.EventTypeNormal, virtv2.ReasonVMSnapshottingCompleted, "Virtual machine snapshotting process is completed")
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vmscondition.VirtualMachineSnapshotReady).
@@ -131,10 +139,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	virtualMachineReadyCondition, _ := conditions.GetCondition(vmscondition.VirtualMachineReadyType, vmSnapshot.Status.Conditions)
 	if vm == nil || virtualMachineReadyCondition.Status != metav1.ConditionTrue {
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
+		msg := fmt.Sprintf("Waiting for the virtual machine %q to be ready for snapshotting.", vmSnapshot.Spec.VirtualMachineName)
+		h.recorder.Event(vmSnapshot, corev1.EventTypeWarning, virtv2.ReasonVMSnapshottingPending, msg)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.WaitingForTheVirtualMachine).
-			Message(fmt.Sprintf("Waiting for the virtual machine %q to be ready for snapshotting.", vmSnapshot.Spec.VirtualMachineName))
+			Message(msg)
 		return reconcile.Result{}, nil
 	}
 
@@ -144,26 +154,29 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	case err == nil:
 	case errors.Is(err, ErrBlockDevicesNotReady), errors.Is(err, ErrVirtualDiskNotReady), errors.Is(err, ErrVirtualDiskResizing):
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
+		msg := service.CapitalizeFirstLetter(err.Error() + ".")
+		h.recorder.Event(vmSnapshot, corev1.EventTypeWarning, virtv2.ReasonVMSnapshottingPending, msg)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.BlockDevicesNotReady).
-			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+			Message(msg)
 		return reconcile.Result{}, nil
 	default:
-		setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+		setPhaseConditionToFailed(h, cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
 	// 2. Ensure there are no RestartAwaitingChanges.
 	if len(vm.Status.RestartAwaitingChanges) > 0 {
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
+		msg := fmt.Sprintf(
+			"Waiting for the restart and approval of changes to virtual machine %q before taking the snapshot.",
+			vm.Name,
+		)
+		h.recorder.Event(vmSnapshot, corev1.EventTypeNormal, virtv2.ReasonVMSnapshottingPending, msg)
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(vmscondition.RestartAwaitingChanges).Message(
-			fmt.Sprintf(
-				"Waiting for the restart and approval of changes to virtual machine %q before taking the snapshot.",
-				vm.Name,
-			))
+			Reason(vmscondition.RestartAwaitingChanges).Message(msg)
 		return reconcile.Result{}, nil
 	}
 
@@ -172,14 +185,16 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	isAwaitingConsistency := needToFreeze && !h.snapshotter.CanFreeze(vm) && vmSnapshot.Spec.RequiredConsistency
 	if isAwaitingConsistency {
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhasePending
+		msg := fmt.Sprintf(
+			"The snapshotting of virtual machine %q might result in an inconsistent snapshot: "+
+				"waiting for the virtual machine to be %s",
+			vm.Name, virtv2.MachineStopped,
+		)
+		h.recorder.Event(vmSnapshot, corev1.EventTypeNormal, virtv2.ReasonVMSnapshottingPending, msg)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.PotentiallyInconsistent).
-			Message(fmt.Sprintf(
-				"The snapshotting of virtual machine %q might result in an inconsistent snapshot: "+
-					"waiting for the virtual machine to be %s",
-				vm.Name, virtv2.MachineStopped,
-			))
+			Message(msg)
 		return reconcile.Result{}, nil
 	}
 
@@ -198,24 +213,26 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	if needToFreeze {
 		hasFrozen, err = h.freezeVirtualMachine(ctx, vm)
 		if err != nil {
-			setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+			setPhaseConditionToFailed(h, cb, vmSnapshot, err)
 			return reconcile.Result{}, err
 		}
 	}
 
 	if hasFrozen {
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseInProgress
+		msg := fmt.Sprintf("The virtual machine %q is in the process of being frozen for taking a snapshot.", vm.Name)
+		h.recorder.Event(vmSnapshot, corev1.EventTypeNormal, virtv2.ReasonVMSnapshottingInProgress, msg)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.FileSystemFreezing).
-			Message(fmt.Sprintf("The virtual machine %q is in the process of being frozen for taking a snapshot.", vm.Name))
+			Message(msg)
 		return reconcile.Result{}, nil
 	}
 
 	// 4. Create secret.
 	err = h.ensureSecret(ctx, vm, vmSnapshot)
 	if err != nil {
-		setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+		setPhaseConditionToFailed(h, cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
@@ -229,6 +246,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	case errors.Is(err, ErrVolumeSnapshotClassNotFound), errors.Is(err, ErrCannotTakeSnapshot):
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
 		msg := service.CapitalizeFirstLetter(err.Error())
+		h.recorder.Event(vmSnapshot, corev1.EventTypeWarning, virtv2.ReasonVMSnapshottingFailed, msg)
 		if !strings.HasSuffix(msg, ".") {
 			msg += "."
 		}
@@ -238,7 +256,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 			Message(msg)
 		return reconcile.Result{}, nil
 	default:
-		setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+		setPhaseConditionToFailed(h, cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
@@ -249,14 +267,16 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		log.Debug("Waiting for the virtual disk snapshots to be taken for the block devices of the virtual machine")
 
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseInProgress
+		msg := fmt.Sprintf(
+			"Waiting for the virtual disk snapshots to be taken for "+
+				"the block devices of the virtual machine %q (%d/%d).",
+			vm.Name, readyCount, len(vdSnapshots),
+		)
+		h.recorder.Event(vmSnapshot, corev1.EventTypeNormal, virtv2.ReasonVMSnapshottingInProgress, msg)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.Snapshotting).
-			Message(fmt.Sprintf(
-				"Waiting for the virtual disk snapshots to be taken for "+
-					"the block devices of the virtual machine %q (%d/%d).",
-				vm.Name, readyCount, len(vdSnapshots),
-			))
+			Message(msg)
 		return reconcile.Result{}, nil
 	}
 
@@ -268,7 +288,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	// 8. Unfreeze VirtualMachine if can.
 	unfrozen, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm)
 	if err != nil {
-		setPhaseConditionToFailed(cb, &vmSnapshot.Status.Phase, err)
+		setPhaseConditionToFailed(h, cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
@@ -276,6 +296,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	log.Debug("The virtual disk snapshots are taken: the virtual machine snapshot is Ready now", "unfrozen", unfrozen)
 
 	vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseReady
+	h.recorder.Event(vmSnapshot, corev1.EventTypeNormal, virtv2.ReasonVMSnapshottingCompleted, "Virtual machine snapshotting process is completed")
 	cb.
 		Status(metav1.ConditionTrue).
 		Reason(vmscondition.VirtualMachineReady).
@@ -284,8 +305,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	return reconcile.Result{}, nil
 }
 
-func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.VirtualMachineSnapshotPhase, err error) {
-	*phase = virtv2.VirtualMachineSnapshotPhaseFailed
+func setPhaseConditionToFailed(h LifeCycleHandler, cb *conditions.ConditionBuilder, vmSnapshot *virtv2.VirtualMachineSnapshot, err error) {
+	vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
+	h.recorder.Event(vmSnapshot, corev1.EventTypeWarning, virtv2.ReasonVMSnapshottingFailed, err.Error())
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vmscondition.VirtualMachineSnapshotFailed).
@@ -510,6 +532,7 @@ func (h LifeCycleHandler) ensureSecret(ctx context.Context, vm *virtv2.VirtualMa
 	}
 
 	if secret == nil {
+		h.recorder.Event(vmSnapshot, corev1.EventTypeNormal, virtv2.ReasonVMSnapshottingStarted, "Virtual machine snapshotting process is started")
 		secret, err = h.storer.Store(ctx, vm, vmSnapshot)
 		if err != nil {
 			return err
