@@ -51,7 +51,7 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdcondition.InUseType.String(),
-						Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+						Reason: vdcondition.AttachedToVirtualMachine.String(),
 						Status: metav1.ConditionTrue,
 					},
 				},
@@ -63,7 +63,7 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 				Conditions: []metav1.Condition{
 					{
 						Type:   vdcondition.InUseType.String(),
-						Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+						Reason: vdcondition.AttachedToVirtualMachine.String(),
 						Status: metav1.ConditionTrue,
 					},
 				},
@@ -112,7 +112,7 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 						},
 						{
 							Type:   vdcondition.InUseType.String(),
-							Reason: vdcondition.AllowedForImageUsage.String(),
+							Reason: vdcondition.UsedForImageCreation.String(),
 							Status: metav1.ConditionTrue,
 						},
 					},
@@ -186,7 +186,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 					},
 					{
 						Type:   vdcondition.InUseType.String(),
-						Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+						Reason: vdcondition.AttachedToVirtualMachine.String(),
 						Status: metav1.ConditionTrue,
 					},
 				},
@@ -205,7 +205,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 					},
 					{
 						Type:   vdcondition.InUseType.String(),
-						Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+						Reason: vdcondition.AttachedToVirtualMachine.String(),
 						Status: metav1.ConditionTrue,
 					},
 				},
@@ -308,7 +308,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 				},
 				{
 					Type:   vdcondition.InUseType.String(),
-					Reason: vdcondition.AllowedForVirtualMachineUsage.String(),
+					Reason: vdcondition.AttachedToVirtualMachine.String(),
 					Status: metav1.ConditionTrue,
 				},
 			}
