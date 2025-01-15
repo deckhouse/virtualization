@@ -95,7 +95,7 @@ Only following file names are allowed in the module '/docs/' directory:
     README.md
     ADMIN_GUIDE.md
     USER_GUIDE.md
-		CHARACTERISTICS_DESCRIPTION.md
+    CHARACTERISTICS_DESCRIPTION.md
 (also their Russian versions ended with '_RU.md')`,
 		)
 	}
