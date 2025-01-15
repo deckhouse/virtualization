@@ -104,7 +104,12 @@ Deckhouse Virtualization Platform uses five update channels designed for use in 
 | Rock Solid     | The most stable update channel. Suitable for clusters that need a higher level of stability. Feature updates do not reach this channel until one month after they are released.                                                                                    |
 
 {{< alert level="warning" >}}
-Attention: Changing the virtual machine “firmware” during a platform version upgrade may result in virtual machines migrating to the new “firmware”.
+In platform upgrades, the components can be divided into two categories:
+
+- Virtualization resource management components (control plane)
+- Virtualization resource management components ("firmware").
+
+Updating the control plane components does not affect the operation of virtual machines that are already running. However, changes to the "firmware" during a platform upgrade may require virtual machines to be migrated to the new "firmware" version.
 {{< /alert >}}
 
 Deckhouse Virtualization Platform components can be updated automatically, or with manual confirmation as updates are released in the update channels.
