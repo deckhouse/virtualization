@@ -224,25 +224,3 @@ webhooks:
         {{ .Values.virtualization.internal.controller.cert.ca }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
-  - name: "moduleconfig.virtualization-controller.validate.d8-virtualization"
-    rules:
-      - apiGroups: ["deckhouse.io"]
-        apiVersions: ["v1alpha1"]
-        operations: ["UPDATE"]
-        resources: ["moduleconfigs"]
-        scope: "Cluster"
-    clientConfig:
-      service:
-        namespace: d8-{{ .Chart.Name }}
-        name: virtualization-controller
-        path: /validate-deckhouse-io-v1alpha1-moduleconfig
-        port: 443
-      caBundle: |
-        {{ .Values.virtualization.internal.controller.cert.ca }}
-    admissionReviewVersions: ["v1"]
-    sideEffects: None
-    {{- if semverCompare ">=1.27.0" .Values.global.clusterConfiguration.kubernetesVersion }}
-    matchConditions:
-      - name: 'match-virtualization'
-        expression: 'request.name == "virtualization"'
-    {{- end }}
