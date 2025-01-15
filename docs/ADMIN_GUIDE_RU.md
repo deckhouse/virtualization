@@ -474,14 +474,14 @@ d8 k get vm
 
 Мы видим что на данный момент она запущена на узле `virtlab-pt-1`.
 
-Для осуществления миграции виртуальной машины с одного узла на другой, с учетом требований к размещению виртуальной машины используется ресурс `VirtualMachineOperation` (`vmop`) с типом `Evict`.
+Для осуществления миграции виртуальной машины с одного узла на другой, с учетом требований к размещению виртуальной машины используется ресурс `VirtualMachineOperations` (`vmop`) с типом `Evict`.
 
 ```yaml
-d8 k apply -f - <<EOF
+d8 k create -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: evict-linux-vm-$(date +%s)
+  generateName: evict-linux-vm-
 spec:
   # имя виртуальной машины
   virtualMachineName: linux-vm

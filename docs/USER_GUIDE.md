@@ -14,133 +14,133 @@ Example of creating a virtual machine with Ubuntu 22.04.
 
 1. Create a virtual machine image from an external source:
 
-    ```yaml
-    d8 k apply -f - <<EOF
-    apiVersion: virtualization.deckhouse.io/v1alpha2
-    kind: VirtualImage
-    metadata:
-      name: ubuntu
-    spec:
-      storage: ContainerRegistry
-      dataSource:
-        type: HTTP
-        http:
-          url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
-    EOF
-    ```
+   ```yaml
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualImage
+   metadata:
+     name: ubuntu
+   spec:
+     storage: ContainerRegistry
+     dataSource:
+       type: HTTP
+       http:
+         url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+   EOF
+   ```
 
 1. Create a virtual machine disk from the image created in the previous step (Caution: Make sure that the default StorageClass is present on the system before creating it):
 
-    ```yaml
-    d8 k apply -f - <<EOF
-    apiVersion: virtualization.deckhouse.io/v1alpha2
-    kind: VirtualDisk
-    metadata:
-      name: linux-disk
-    spec:
-      dataSource:
-        type: ObjectRef
-        objectRef:
-          kind: VirtualImage
-          name: ubuntu
-    EOF
-    ```
+   ```yaml
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualDisk
+   metadata:
+     name: linux-disk
+   spec:
+     dataSource:
+       type: ObjectRef
+       objectRef:
+         kind: VirtualImage
+         name: ubuntu
+   EOF
+   ```
 
 1. Creating a virtual machine:
 
-    The example uses the cloud-init script to create a cloud user with the cloud password generated as follows:
-    
-    ```bash
-    mkpasswd --method=SHA-512 --rounds=4096
-    ```
-    
-    You can change the user name and password in this section:
-    
-    ```yaml
-    users:
-      - name: cloud
-        passwd: $6$rounds=4096$G5VKZ1CVH5Ltj4wo$g.O5RgxYz64ScD5Ach5jeHS.Nm/SRys1JayngA269wjs/LrEJJAZXCIkc1010PZqhuOaQlANDVpIoeabvKK4j1
-    ```
-    
-    Create a virtual machine from the following specification:
-    
-    ```yaml
-    d8 k apply -f - <<"EOF"
-    apiVersion: virtualization.deckhouse.io/v1alpha2
-    kind: VirtualMachine
-    metadata:
-      name: linux-vm
-    spec:
-      virtualMachineClassName: host
-      cpu:
-        cores: 1
-      memory:
-        size: 1Gi
-      provisioning:
-        type: UserData
-        userData: |
-          #cloud-config
-          ssh_pwauth: True
-          users:
-          - name: cloud
-            passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
-            shell: /bin/bash
-            sudo: ALL=(ALL) NOPASSWD:ALL
-            lock_passwd: False
-      blockDeviceRefs:
-        - kind: VirtualDisk
-          name: linux-disk
-    EOF
-    ```
-    
-    Useful links:
-    
-    - [cloud-init documentation](https://cloudinit.readthedocs.io/)
-    - [Resource Parameters](cr.html)
+   The example uses the cloud-init script to create a cloud user with the cloud password generated as follows:
+
+   ```bash
+   mkpasswd --method=SHA-512 --rounds=4096
+   ```
+
+   You can change the user name and password in this section:
+
+   ```yaml
+   users:
+     - name: cloud
+       passwd: $6$rounds=4096$G5VKZ1CVH5Ltj4wo$g.O5RgxYz64ScD5Ach5jeHS.Nm/SRys1JayngA269wjs/LrEJJAZXCIkc1010PZqhuOaQlANDVpIoeabvKK4j1
+   ```
+
+   Create a virtual machine from the following specification:
+
+   ```yaml
+   d8 k apply -f - <<"EOF"
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualMachine
+   metadata:
+     name: linux-vm
+   spec:
+     virtualMachineClassName: host
+     cpu:
+       cores: 1
+     memory:
+       size: 1Gi
+     provisioning:
+       type: UserData
+       userData: |
+         #cloud-config
+         ssh_pwauth: True
+         users:
+         - name: cloud
+           passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
+           shell: /bin/bash
+           sudo: ALL=(ALL) NOPASSWD:ALL
+           lock_passwd: False
+     blockDeviceRefs:
+       - kind: VirtualDisk
+         name: linux-disk
+   EOF
+   ```
+
+   Useful links:
+
+   - [cloud-init documentation](https://cloudinit.readthedocs.io/)
+   - [Resource Parameters](cr.html)
 
 1. Verify with the command that the image and disk have been created and the virtual machine is running. Resources are not created instantly, so you will need to wait a while before they are ready.
 
-    ```bash
-    d8 k get vi,vd,vm
-    ```
-   
-    Example output:
-
-    ```txt
-    # NAME                                                 PHASE   CDROM   PROGRESS   AGE
-    # virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
-    #
-    # NAME                                                 PHASE   CAPACITY   AGE
-    # virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
-    #
-    # NAME                                                 PHASE     NODE           IPADDRESS     AGE
-    # virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
-    ```
-
-1. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
-    
-    ```bash
-    d8 v console linux-vm
-    ```
+   ```bash
+   d8 k get vi,vd,vm
+   ```
 
    Example output:
 
-    ```txt    
-    # Successfully connected to linux-vm console. The escape sequence is ^]
-    #
-    # linux-vm login: cloud
-    # Password: cloud
-    # ...
-    # cloud@linux-vm:~$
-    ```
+   ```txt
+   # NAME                                                 PHASE   CDROM   PROGRESS   AGE
+   # virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+   #
+   # NAME                                                 PHASE   CAPACITY   AGE
+   # virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+   #
+   # NAME                                                 PHASE     NODE           IPADDRESS     AGE
+   # virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+   ```
+
+1. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
+
+   ```bash
+   d8 v console linux-vm
+   ```
+
+   Example output:
+
+   ```txt
+   # Successfully connected to linux-vm console. The escape sequence is ^]
+   #
+   # linux-vm login: cloud
+   # Password: cloud
+   # ...
+   # cloud@linux-vm:~$
+   ```
 
 1. Use the following commands to delete previously created resources:
 
-    ```bash
-    d8 k delete vm linux-vm
-    d8 k delete vd linux-disk
-    d8 k delete vi ubuntu
-    ```
+   ```bash
+   d8 k delete vm linux-vm
+   d8 k delete vd linux-disk
+   d8 k delete vi ubuntu
+   ```
 
 ## Images
 
@@ -776,11 +776,11 @@ The `VirtualMachineOperation` resource declaratively defines an imperative actio
 Example operation to perform a reboot of a virtual machine named `linux-vm`:
 
 ```yaml
-d8 k apply -f - <<EOF
+d8 k create -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: restart-linux-vm-$(date +%s)
+  generateName: restart-linux-vm-
 spec:
   virtualMachineName: linux-vm
   type: Restart
@@ -1362,11 +1362,11 @@ We can see that it is currently running on the `virtlab-pt-1` node.
 To migrate a virtual machine from one node to another, taking into account the requirements for virtual machine placement, the `VirtualMachineOperations` (`vmop`) resource with the `Evict` type is used.
 
 ```yaml
-d8 k apply -f - <<EOF
+d8 k create -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: evict-linux-vm-$(date +%s)
+  generateName: evict-linux-vm-
 spec:
   # virtual machine name
   virtualMachineName: linux-vm

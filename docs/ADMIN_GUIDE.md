@@ -501,11 +501,11 @@ We can see that it is currently running on the `virtlab-pt-1` node.
 To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the `VirtualMachineOperation` (`vmop`) resource with the `Evict` type is used.
 
 ```yaml
-d8 k apply -f - <<EOF
+d8 k create -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: evict-linux-vm-$(date +%s)
+  generateName: evict-linux-vm-
 spec:
   # virtual machine name
   virtualMachineName: linux-vm
