@@ -64,14 +64,14 @@ class ModuleConfigValidateHook(Hook):
             ]
         }
 
-    def check_overlaps_cidrs(networks: list[IPv4Network]) -> None:
+    def check_overlaps_cidrs(self, networks: list[IPv4Network]) -> None:
         """Check for overlapping CIDRs in a list of networks."""
         for i, net1 in enumerate(networks):
             for net2 in networks[i + 1:]:
                 if net1.overlaps(net2):
                     raise ValueError(f"Overlapping CIDRs {net1} and {net2}")
 
-    def check_node_addresses_overlap(networks: list[IPv4Network], node_addresses: list[IPv4Address]) -> None:
+    def check_node_addresses_overlap(self, networks: list[IPv4Network], node_addresses: list[IPv4Address]) -> None:
         """Check if node addresses overlap with any subnet."""
         for addr in node_addresses:
             for net in networks:
