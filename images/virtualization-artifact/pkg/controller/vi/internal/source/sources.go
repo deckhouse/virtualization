@@ -279,3 +279,7 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virt
 	cb.Message(fmt.Sprintf("Quota exceeded: %s; Retry in %d minute.", err, retryPeriod))
 	return reconcile.Result{RequeueAfter: retryPeriod * time.Minute}
 }
+
+const (
+	DVQoutaNotExceededConditionType cdiv1.DataVolumeConditionType = "QuotaNotExceeded"
+)
