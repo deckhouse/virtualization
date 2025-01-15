@@ -498,7 +498,7 @@ Example output:
 
 We can see that it is currently running on the `virtlab-pt-1` node.
 
-To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the `VirtualMachineOperations` (`vmop`) resource with the `Evict` type is used.
+To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the `VirtualMachineOperation` (`vmop`) resource with the `Evict` type is used.
 
 ```yaml
 d8 k apply -f - <<EOF
