@@ -1,0 +1,61 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/aggregate-to-virtualization-as: superadmin
+    rbac.deckhouse.io/kind: use
+  name: d8:use:capability:virtualization:manage_internals
+rules:
+  - apiGroups:
+      - cdi.internal.virtualization.deckhouse.io
+    resources:
+      - internalvirtualizationdatavolumes
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - internal.virtualization.deckhouse.io
+    resources:
+      - internalvirtualizationvirtualmachineinstancemigrations
+      - internalvirtualizationvirtualmachineinstances
+      - internalvirtualizationvirtualmachines
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - persistentvolumeclaims
+      - pods
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apps
+    resources:
+      - controllerrevisions
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - policy
+    resources:
+      - poddisruptionbudgets
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - snapshot.storage.k8s.io
+    resources:
+      - volumesnapshots
+    verbs:
+      - get
+      - list
+      - watch

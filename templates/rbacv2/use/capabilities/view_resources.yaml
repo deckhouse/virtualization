@@ -1,0 +1,65 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    heritage: deckhouse
+    module: virtualization
+    rbac.deckhouse.io/aggregate-to-virtualization-as: viewer
+    rbac.deckhouse.io/kind: use
+  name: d8:use:capability:virtualization:view_resources
+rules:
+  - apiGroups:
+      - virtualization.deckhouse.io
+    resources:
+      - virtualdisks
+      - virtualdisksnapshots
+      - virtualimages
+      - virtualmachineblockdeviceattachments
+      - virtualmachineipaddresses
+      - virtualmachineoperations
+      - virtualmachinerestores
+      - virtualmachines
+      - virtualmachinesnapshots
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - services
+      - services/status
+      - limitranges
+      - resourcequotas
+      - resourcequotas/status
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+      - events.k8s.io
+    resources:
+      - events
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - discovery.k8s.io
+    resources:
+      - endpointslices
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - networkpolicies
+      - ingresses
+      - ingresses/status
+    verbs:
+      - get
+      - list
+      - watch
