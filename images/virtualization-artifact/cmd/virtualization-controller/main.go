@@ -40,6 +40,8 @@ import (
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
@@ -166,6 +168,7 @@ func main() {
 		cdiv1beta1.AddToScheme,
 		virtv1.AddToScheme,
 		vsv1.AddToScheme,
+		mcapi.AddToScheme,
 	} {
 		err = f(scheme)
 		if err != nil {
@@ -301,6 +304,11 @@ func main() {
 		os.Exit(1)
 	}
 	if err = vmop.SetupGC(mgr, vmopLogger, gcSettings.VMOP); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	if err = mc.SetupWebhookWithManager(mgr); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
