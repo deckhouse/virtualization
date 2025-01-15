@@ -16,8 +16,18 @@ limitations under the License.
 
 package internal
 
-import "k8s.io/client-go/tools/record"
+import (
+	"context"
 
-//go:generate moq -rm -out mock.go . EventRecorder
+	"k8s.io/client-go/tools/record"
+
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+//go:generate moq -rm -out mock.go . EventRecorder IBlockDeviceService
 
 type EventRecorder = record.EventRecorder
+
+type IBlockDeviceService interface {
+	CountBlockDevicesAttachedToVm(ctx context.Context, vm *virtv2.VirtualMachine) (int, error)
+}

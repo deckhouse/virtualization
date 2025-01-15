@@ -43,10 +43,11 @@ import (
 
 const nameBlockDeviceHandler = "BlockDeviceHandler"
 
-func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger) *BlockDeviceHandler {
+func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger, blockDeviceService IBlockDeviceService) *BlockDeviceHandler {
 	return &BlockDeviceHandler{
 		client:   cl,
 		recorder: recorder,
+		service:  blockDeviceService,
 
 		viProtection:  service.NewProtectionService(cl, virtv2.FinalizerVIProtection),
 		cviProtection: service.NewProtectionService(cl, virtv2.FinalizerCVIProtection),
@@ -57,6 +58,7 @@ func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderL
 type BlockDeviceHandler struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
+	service  IBlockDeviceService
 
 	viProtection  *service.ProtectionService
 	cviProtection *service.ProtectionService
@@ -93,6 +95,20 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	if err = h.setFinalizersOnBlockDevices(ctx, changed, bdState); err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to add block devices finalizers: %w", err)
+	}
+
+	// Get number of connected block devices
+	// If it greater limit then set condition to false
+	blockDeviceAttachedCount, err := h.service.CountBlockDevicesAttachedToVm(ctx, changed)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonBlockDeviceCapacityReached).
+			Message(fmt.Sprintf("Can not attach %d block devices (%d is maximum) to `VirtualMachine` %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, changed.Name))
 	}
 
 	// Get hot plugged BlockDeviceRefs from vmbdas.

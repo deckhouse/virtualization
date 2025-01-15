@@ -17,6 +17,7 @@ limitations under the License.
 package internal
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 
@@ -41,10 +42,17 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 	var vdFoo *virtv2.VirtualDisk
 	var vdBar *virtv2.VirtualDisk
 
+	blockDevicesConnectedCount := 3
+
+	blockDeviceHandlerMock := &IBlockDeviceServiceMock{}
+	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
+		return blockDevicesConnectedCount, nil
+	}
+
 	BeforeEach(func() {
 		h = NewBlockDeviceHandler(nil, &eventrecord.EventRecorderLoggerMock{
 			EventFunc: func(_ client.Object, _, _, _ string) {},
-		})
+		}, blockDeviceHandlerMock)
 		vdFoo = &virtv2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "vd-foo"},
 			Status: virtv2.VirtualDiskStatus{
@@ -152,6 +160,13 @@ var _ = Describe("BlockDeviceHandler", func() {
 	var vdFoo *virtv2.VirtualDisk
 	var vdBar *virtv2.VirtualDisk
 
+	blockDevicesConnectedCount := 3
+
+	blockDeviceHandlerMock := &IBlockDeviceServiceMock{}
+	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
+		return blockDevicesConnectedCount, nil
+	}
+
 	getBlockDevicesState := func(vi *virtv2.VirtualImage, cvi *virtv2.ClusterVirtualImage, vdFoo, vdBar *virtv2.VirtualDisk) BlockDevicesState {
 		return BlockDevicesState{
 			VIByName:  map[string]*virtv2.VirtualImage{vi.Name: vi},
@@ -164,7 +179,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 		logger = slog.Default()
 		h = NewBlockDeviceHandler(nil, &eventrecord.EventRecorderLoggerMock{
 			EventFunc: func(_ client.Object, _, _, _ string) {},
-		})
+		}, blockDeviceHandlerMock)
 		vi = &virtv2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{Name: "vi-01"},
 			Status:     virtv2.VirtualImageStatus{Phase: virtv2.ImageReady},
