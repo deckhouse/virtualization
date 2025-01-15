@@ -42,7 +42,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -114,6 +113,11 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, err
 	}
 
+	var quotaNotExceededCondition *cdiv1.DataVolumeCondition
+	if dv != nil {
+		quotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
+	}
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
@@ -144,7 +148,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncStarted,
+			virtv2.ReasonDataSourceSyncStarted,
 			"The Upload DataSource import to DVCR has started",
 		)
 
@@ -229,7 +233,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncStarted,
+			virtv2.ReasonDataSourceSyncStarted,
 			"The Upload DataSource import to PVC has started",
 		)
 
@@ -284,6 +288,13 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
+	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == corev1.ConditionFalse:
+		vd.Status.Phase = virtv2.DiskPending
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.QuotaExceeded).
+			Message(quotaNotExceededCondition.Message)
+		return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning
 		cb.
@@ -297,7 +308,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncCompleted,
+			virtv2.ReasonDataSourceSyncCompleted,
 			"The Upload DataSource import has completed",
 		)
 

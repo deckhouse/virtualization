@@ -38,7 +38,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -98,6 +97,11 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 		return reconcile.Result{}, err
 	}
 
+	var quotaNotExceededCondition *cdiv1.DataVolumeCondition
+	if dv != nil {
+		quotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
+	}
+
 	switch {
 	case isDiskProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
@@ -122,7 +126,7 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncStarted,
+			virtv2.ReasonDataSourceSyncStarted,
 			"The ObjectRef DataSource import to PVC has started",
 		)
 
@@ -172,6 +176,13 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
+	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == corev1.ConditionFalse:
+		vd.Status.Phase = virtv2.DiskPending
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.QuotaExceeded).
+			Message(quotaNotExceededCondition.Message)
+		return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning
 		cb.
@@ -184,7 +195,7 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 		ds.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonDataSourceSyncCompleted,
+			virtv2.ReasonDataSourceSyncCompleted,
 			"The ObjectRef DataSource import has completed",
 		)
 
