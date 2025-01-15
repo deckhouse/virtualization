@@ -183,12 +183,28 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 							return fmt.Errorf("restart VM on guest-reset: %w", err)
 						}
 					default:
-						h.recordStopEventf(ctx, s.VirtualMachine().Current(),
-							"Stop initiated from inside the guest VM",
-						)
-						err = h.client.Delete(ctx, kvvmi)
-						if err != nil && !k8serrors.IsNotFound(err) {
-							return fmt.Errorf("delete Succeeded KVVMI: %w", err)
+						vmPod, err := s.Pod(ctx)
+						if err != nil {
+							return fmt.Errorf("get virtual machine pod: %w", err)
+						}
+
+						if vmPod != nil && !vmPod.GetObjectMeta().GetDeletionTimestamp().IsZero() {
+							h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
+								"Restart initiated by controller for %s runPolicy after the deletion of pod VM.",
+								runPolicy,
+							)
+							err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
+							if err != nil {
+								return fmt.Errorf("automatic restart of failed VM: %w", err)
+							}
+						} else {
+							h.recordStopEventf(ctx, s.VirtualMachine().Current(),
+								"Stop initiated from inside the guest VM",
+							)
+							err = h.client.Delete(ctx, kvvmi)
+							if err != nil && !k8serrors.IsNotFound(err) {
+								return fmt.Errorf("delete Succeeded KVVMI: %w", err)
+							}
 						}
 					}
 				}
