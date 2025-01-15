@@ -42,11 +42,9 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 	var vdFoo *virtv2.VirtualDisk
 	var vdBar *virtv2.VirtualDisk
 
-	blockDevicesConnectedCount := 3
-
 	blockDeviceHandlerMock := &IBlockDeviceServiceMock{}
 	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
-		return blockDevicesConnectedCount, nil
+		return 1, nil
 	}
 
 	BeforeEach(func() {
@@ -160,11 +158,9 @@ var _ = Describe("BlockDeviceHandler", func() {
 	var vdFoo *virtv2.VirtualDisk
 	var vdBar *virtv2.VirtualDisk
 
-	blockDevicesConnectedCount := 3
-
 	blockDeviceHandlerMock := &IBlockDeviceServiceMock{}
 	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
-		return blockDevicesConnectedCount, nil
+		return 1, nil
 	}
 
 	getBlockDevicesState := func(vi *virtv2.VirtualImage, cvi *virtv2.ClusterVirtualImage, vdFoo, vdBar *virtv2.VirtualDisk) BlockDevicesState {
