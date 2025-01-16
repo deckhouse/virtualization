@@ -21,6 +21,9 @@ gitRepoName="edk2"
 EDK2_DIR="/${gitRepoName}-${versionEdk2}"
 FIRMWARE="/FIRMWARE"
 
+DBXDATE="20230509"
+UEFI_BIN_BASE_URL="https://uefi.org/sites/default/files/resources"
+
 cp -f Logo.bmp $EDK2_DIR/MdeModulePkg/Logo/
 cd $EDK2_DIR
 
@@ -31,10 +34,8 @@ download_DBXUpdate() {
 
     if [ -z $dst_dir ];then dst_dir="$FIRMWARE"; fi
 
-    DBXDATE="20230509"
-    UEFI_BIN_URL_BASE="https://uefi.org/sites/default/files/resources"
-    # curl -L $UEFI_BIN_URL_BASE/x86_DBXUpdate$DBXDATE.bin -o $dst_dir/DBXUpdate-$DBXDATE.x86.bin
-    curl -L $UEFI_BIN_URL_BASE/x64_DBXUpdate_$DBXDATE.bin -o $dst_dir/DBXUpdate-$DBXDATE.x64.bin
+    # curl -L $UEFI_BIN_BASE_URL/x86_DBXUpdate$DBXDATE.bin -o $dst_dir/DBXUpdate-$DBXDATE.x86.bin
+    curl -L $UEFI_BIN_BASE_URL/x64_DBXUpdate_$DBXDATE.bin -o $dst_dir/DBXUpdate-$DBXDATE.x64.bin
 }
 
 echo_dbg() {
@@ -150,25 +151,27 @@ build_iso $FIRMWARE
 download_DBXUpdate
 
 enroll() {
-  virt-fw-vars --input   OVMF/OVMF_VARS.fd \
-              --output  OVMF/OVMF_VARS.secboot.fd \
-              --set-dbx DBXUpdate-%DBXDATE.x64.bin \
+  virt-fw-vars --input   $FIRMWARE/OVMF_VARS.fd \
+              --output  $FIRMWARE/OVMF_VARS.secboot.fd \
+              --set-dbx DBXUpdate-$DBXDATE.x64.bin \
               --secure-boot --enroll-altlinux --distro-keys altlinux
 
-  virt-fw-vars --input   OVMF/OVMF_VARS_4M.fd \
-              --output  OVMF/OVMF_VARS_4M.secboot.fd \
-              --set-dbx DBXUpdate-%DBXDATE.x64.bin \
+  virt-fw-vars --input   $FIRMWARE/OVMF_VARS_4M.fd \
+              --output  $FIRMWARE/OVMF_VARS_4M.secboot.fd \
+              --set-dbx DBXUpdate-$DBXDATE.x64.bin \
               --secure-boot --enroll-altlinux --distro-keys altlinux
 
-  virt-fw-vars --input   OVMF/OVMF.inteltdx.fd \
-              --output  OVMF/OVMF.inteltdx.secboot.fd \
-              --set-dbx DBXUpdate-%DBXDATE.x64.bin \
+  virt-fw-vars --input   $FIRMWARE/OVMF.inteltdx.fd \
+              --output  $FIRMWARE/OVMF.inteltdx.secboot.fd \
+              --set-dbx DBXUpdate-$DBXDATE.x64.bin \
               --secure-boot --enroll-altlinux --distro-keys altlinux
 }
 
-cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
-cp -p $FIRMWARE/OVMF_VARS_4M.fd $FIRMWARE/OVMF_VARS_4M.secboot.fd
-cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd
+# cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
+# cp -p $FIRMWARE/OVMF_VARS_4M.fd $FIRMWARE/OVMF_VARS_4M.secboot.fd
+# cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd
+
+enroll
 
 # build microvm
 echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/Microvm/MicrovmX64.dsc"

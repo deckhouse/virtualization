@@ -16,6 +16,13 @@ git:
     setup:
       - build.sh
       - Logo.bmp
+- add: /images/{{ $.ImageName }}/json
+  to: /FIRMWARE
+  includePaths:
+  - '*.json'
+  stageDependencies:
+    setup:
+      - '*.json'
 shell:
   beforeInstall:
   - | 
