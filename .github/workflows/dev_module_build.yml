@@ -204,7 +204,7 @@ jobs:
 
       - name: Run test hooks
         run: |
-          task task --verbose hooks:test
+          task hooks:test
 
       - name: Run unit test virtualization-controller
         run: |

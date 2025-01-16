@@ -3,40 +3,16 @@ version: "3"
 tasks:
   test:
     cmds:
-      - task --verbose test:prepare
-      - task --verbose test:run
+      - task test:prepare
+      - task test:run
       - task test:clean
 
   test:prepare:
     cmds:
       - |
-        VENV=venv
-
-        cat /etc/os-release
-
-        # set -x
-        echo "task prep"
-        which python3
-        which pip3
-        #pip3 install virtualenv
-        
-        echo "==="
-        python3 -m venv $VENV
-        # python3 -m venv venv
-        
-        echo "--python3 -m venv $VENV--"
-        ls -la $VENV/
-        ls -la $VENV/bin/
-        
-        echo "--source $VENV/bin/activate--"
-        source $VENV/bin/activate
-        
-        echo "--ls--"
-        ls -la ../lib/python/
-        
-        echo "--pip3 -v install -r ../lib/python/requirements.txt--"
+        python3 -m venv .venv
+        source .venv/bin/activate
         pip3 -v install -r ../lib/python/requirements.txt
-        
         deactivate
 
   test:run:
