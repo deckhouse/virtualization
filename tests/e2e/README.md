@@ -74,6 +74,23 @@ For example, run only "Complex text" without cleanup on failure:
 FOCUS="Complex test" STOP_ON_FAILURE=yes task run
 ```
 
+### Reusable mode option
+
+The environment variable REUSABLE used to retain all resources created during e2e test after its completion (no cleanup).
+When a test starts, it will reuse existing virtual machines created earlier, if they exist.
+If no virtual machines were found, they will be created.
+
+For example, run test in reusable mode:
+```bash
+REUSABLE=yes task run
+```
+
+! Only the following e2e tests are supported in REUSABLE mode. All other tests will be skipped.
+- "Virtual machine configuration"
+- "Virtual machine migration"
+- "VM connectivity"
+- "Complex test"
+
 ## Run tests in CI
 ```bash
 task run:ci

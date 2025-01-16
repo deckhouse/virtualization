@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
@@ -105,6 +106,12 @@ func GetDisksMetadata(vmName string, disks *Disks) error {
 }
 
 var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators(), func() {
+	BeforeEach(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+	})
+
 	var (
 		testCaseLabel      = map[string]string{"testcase": "vm-disk-attachment"}
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "vm-disk-attachment"}

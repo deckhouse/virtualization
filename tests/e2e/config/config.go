@@ -31,12 +31,12 @@ import (
 
 var (
 	conf    *Config
-	err     error
 	git     gt.Git
 	kubectl kc.Kubectl
 )
 
 func init() {
+	var err error
 	if conf, err = GetConfig(); err != nil {
 		log.Fatal(err)
 	}

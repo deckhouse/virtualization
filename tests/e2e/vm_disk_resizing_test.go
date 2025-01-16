@@ -159,6 +159,12 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 }
 
 var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), func() {
+	BeforeEach(func() {
+		if cfg.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+	})
+
 	testCaseLabel := map[string]string{"testcase": "disk-resizing"}
 
 	Context("When resources are applied", func() {
