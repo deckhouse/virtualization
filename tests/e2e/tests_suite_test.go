@@ -19,6 +19,7 @@ package e2e
 import (
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,7 +65,11 @@ var (
 )
 
 func init() {
-	var err error
+	err := config.CheckReusableOption()
+	if err != nil {
+		log.Println("To run tests in REUSABLE mode, set REUSABLE=yes. If you don't intend to use this mode, leave the variable unset.")
+		log.Fatal(err)
+	}
 	if conf, err = config.GetConfig(); err != nil {
 		log.Fatal(err)
 	}
@@ -108,13 +113,23 @@ func init() {
 			log.Fatal(err)
 		}
 	}
-	err = Cleanup()
-	if err != nil {
-		log.Fatal(err)
+
+	if !config.IsReusable() {
+		err = Cleanup()
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		log.Printf("Run test in REUSABLE mode\n")
 	}
+
 	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})
 	if !res.WasSuccess() {
-		log.Fatalf("err: %v\n%s", res.Error(), res.StdErr())
+		if strings.Contains(res.StdErr(), "AlreadyExists") {
+			log.Printf("Namespace %q already exists: it will be reused", conf.Namespace)
+		} else {
+			log.Fatalf("err: %v\n%s", res.Error(), res.StdErr())
+		}
 	}
 }
 
@@ -122,9 +137,12 @@ func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
 	fmt.Fprintf(GinkgoWriter, "Starting test suite\n")
 	RunSpecs(t, "Tests")
-	if !(ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() {
-		Cleanup()
+
+	if (ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() || config.IsReusable() {
+		return
 	}
+
+	Cleanup()
 }
 
 func Cleanup() error {

@@ -24,6 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -67,6 +68,19 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	Context("When virtualization resources are applied", func() {
 		It("result should be succeeded", func() {
+			if config.IsReusable() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				if res.StdOut() != "" {
+					return
+				}
+			}
+
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.ComplexTest},
 				FilenameOption: kc.Kustomize,
@@ -233,15 +247,20 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
-				KustomizationDir: conf.TestData.ComplexTest,
+			resourcesToDelete := ResourcesToDelete{
 				AdditionalResources: []AdditionalResource{
 					{
 						kc.ResourceVMOP,
 						testCaseLabel,
 					},
 				},
-			})
+			}
+
+			if !config.IsReusable() {
+				resourcesToDelete.KustomizationDir = conf.TestData.ComplexTest
+			}
+
+			DeleteTestCaseResources(resourcesToDelete)
 		})
 	})
 })
