@@ -26,6 +26,16 @@ import:
   add: /FIRMWARE/
   to: /usr/share/OVMF
   before: install
+  includePaths:
+  - '*.fd'
+  - '*.bin'
+  - '*.efi'
+- image: virt-firmware-artifact
+  add: /FIRMWARE/
+  to: /usr/share/qemu/firmware
+  before: install
+  includePaths:
+  - '*.json'
 
 # After install stage.
 {{/* 
