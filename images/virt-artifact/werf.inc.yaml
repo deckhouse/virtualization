@@ -51,6 +51,7 @@ shell:
       go get github.com/onsi/gomega/matchers/support/goraph/bipartitegraph@v1.34.1
       go get github.com/cilium/ebpf/btf@v0.11.0
       go get github.com/cilium/ebpf/internal@v0.11.0
+      go get golang.org/x/net@v0.33.0
 
       go get golang.org/x/crypto@v0.31.0
 

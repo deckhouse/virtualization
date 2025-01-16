@@ -11,8 +11,8 @@ tasks:
     cmds:
       - |
         python3 -m venv .venv
-        source .venv/bin/activate 
-        pip3 install -r ../lib/python/requirements.txt
+        source .venv/bin/activate
+        pip3 -v install -r ../lib/python/requirements.txt
         deactivate
 
   test:run:
