@@ -50,6 +50,8 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
@@ -66,11 +68,14 @@ const (
 	logLevelEnv               = "LOG_LEVEL"
 	logOutputEnv              = "LOG_OUTPUT"
 
-	metricsBindAddrEnv                         = "METRICS_BIND_ADDRESS"
-	podNamespaceEnv                            = "POD_NAMESPACE"
-	pprofBindAddrEnv                           = "PPROF_BIND_ADDRESS"
-	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
-	virtualMachineIPLeasesRetentionDurationEnv = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
+	metricsBindAddrEnv                          = "METRICS_BIND_ADDRESS"
+	podNamespaceEnv                             = "POD_NAMESPACE"
+	pprofBindAddrEnv                            = "PPROF_BIND_ADDRESS"
+	virtualMachineCIDRsEnv                      = "VIRTUAL_MACHINE_CIDRS"
+	virtualMachineIPLeasesRetentionDurationEnv  = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
+	virtualMachineMACLeasesRetentionDurationEnv = "VIRTUAL_MACHINE_MAC_LEASES_RETENTION_DURATION"
+
+	virtualMachineMACAddressPrefixEnv = "VIRTUAL_MACHINE_MAC_ADDRESS_PREFIX"
 )
 
 func main() {
@@ -201,8 +206,19 @@ func main() {
 
 	virtualMachineIPLeasesRetentionDuration := os.Getenv(virtualMachineIPLeasesRetentionDurationEnv)
 	if virtualMachineIPLeasesRetentionDuration == "" {
-		log.Info("virtualMachineIPLeasesRetentionDuration not found -> set default value '10m'")
+		log.Info("virtualMachineIPLeasesRetentionDuration not found - set default value '10m'")
 		virtualMachineIPLeasesRetentionDuration = "10m"
+	}
+
+	virtualMachineMACLeasesRetentionDuration := os.Getenv(virtualMachineMACLeasesRetentionDurationEnv)
+	if virtualMachineMACLeasesRetentionDuration == "" {
+		log.Info("virtualMachineMACLeasesRetentionDuration not found - set default value 1 day")
+		virtualMachineMACLeasesRetentionDuration = "24h"
+	}
+
+	virtualMachineMACAddressPrefix := os.Getenv(virtualMachineMACAddressPrefixEnv)
+	if virtualMachineMACAddressPrefix == "" {
+		log.Info("virtualMachineMACAddressPrefixEnv not found - the MAC address prefix will be generated from the cluster UID")
 	}
 
 	// Create a new Manager to provide shared dependencies and start components
@@ -304,6 +320,18 @@ func main() {
 		os.Exit(1)
 	}
 	if err = vmop.SetupGC(mgr, vmopLogger, gcSettings.VMOP); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmmacLogger := logger.NewControllerLogger(vmmac.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, virtualMachineMACAddressPrefix); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vmmacleaseLogger := logger.NewControllerLogger(vmmaclease.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if _, err = vmmaclease.NewController(ctx, mgr, vmmacleaseLogger, virtualMachineMACLeasesRetentionDuration); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

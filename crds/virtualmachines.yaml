@@ -173,6 +173,15 @@ spec:
 
                     If not explicitly specified, by default a `virtualMachineIPAddress` resource is created for the VM with a name similar to the VM resource (`.metadata.name`).
 
+                virtualMachineMACAddressName:
+                  type: string
+                  description: |
+                    Name for the associated `virtualMachineMACAddress` resource.
+
+                    Specified when it is necessary to use a previously created MAC address of the VM.
+
+                    If not explicitly specified, by default a `virtualMachineMACAddress` resource is created for the VM with a name similar to the VM resource (`.metadata.name`).
+
                 topologySpreadConstraints:
                   description: |
                     [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) as in the pods `spec.topologySpreadConstraints` parameter in Kubernetes;
@@ -976,6 +985,14 @@ spec:
                   type: string
                   description: |
                     IP address of VM.
+                virtualMachineMACAddressName:
+                  type: string
+                  description: |
+                    Name of `virtualMachineMACAddressName` holding the MAC address of the VirtualMachine.
+                macAddress:
+                  type: string
+                  description: |
+                    MAC address of VM.
                 blockDeviceRefs:
                   type: array
                   description: |
@@ -1289,6 +1306,10 @@ spec:
         - description: The IP address of the virtual machine.
           jsonPath: .status.ipAddress
           name: IPAddress
+          type: string
+        - description: The MAC address of the virtual machine.
+          jsonPath: .status.macAddress
+          name: MACAddress
           type: string
         - description: Time of creation resource.
           jsonPath: .metadata.creationTimestamp

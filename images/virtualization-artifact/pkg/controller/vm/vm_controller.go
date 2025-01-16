@@ -27,7 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -54,7 +55,8 @@ func SetupController(
 	handlers := []Handler{
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
-		internal.NewIPAMHandler(ipam.New(), client, recorder),
+		internal.NewIPAMHandler(netmanager.NewIPAM(), client, recorder),
+		internal.NewMACAMHandler(netmanager.NewMACAM(), client, recorder),
 		internal.NewBlockDeviceHandler(client, recorder),
 		internal.NewBlockDeviceLimiterHandler(blockDeviceService),
 		internal.NewProvisioningHandler(client),
@@ -87,7 +89,7 @@ func SetupController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachine{}).
-		WithValidator(NewValidator(ipam.New(), client, blockDeviceService, log)).
+		WithValidator(NewValidator(netmanager.NewIPAM(), client, blockDeviceService, log)).
 		Complete(); err != nil {
 		return err
 	}
