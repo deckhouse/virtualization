@@ -91,19 +91,19 @@ parse_args $@
 
 FILE_LIST=$(cat <<EOF
 $SRC_BUILD/trace/trace-events-all to /usr/local/share/qemu
-$SRC_BUILD/qemu-system-x86_64 to /usr/local/bin
-$SRC_BUILD/qga/qemu-ga to /usr/local/bin
-$SRC_BUILD/qemu-keymap to /usr/local/bin
-$SRC_BUILD/qemu-img to /usr/local/bin
-$SRC_BUILD/qemu-io to /usr/local/bin
-$SRC_BUILD/qemu-nbd to /usr/local/bin
-$SRC_BUILD/storage-daemon/qemu-storage-daemon to /usr/local/bin
-$SRC_BUILD/contrib/elf2dmp/elf2dmp to /usr/local/bin
-$SRC_BUILD/qemu-edid to /usr/local/bin
+$SRC_BUILD/qemu-system-x86_64 to /usr/bin
+$SRC_BUILD/qga/qemu-ga to /usr/bin
+$SRC_BUILD/qemu-keymap to /usr/bin
+$SRC_BUILD/qemu-img to /usr/bin
+$SRC_BUILD/qemu-io to /usr/bin
+$SRC_BUILD/qemu-nbd to /usr/bin
+$SRC_BUILD/storage-daemon/qemu-storage-daemon to /usr/bin
+$SRC_BUILD/contrib/elf2dmp/elf2dmp to /usr/bin
+$SRC_BUILD/qemu-edid to /usr/bin
 $SRC_BUILD/contrib/vhost-user-gpu/vhost-user-gpu to /usr/local/libexec
 $SRC_BUILD/qemu-bridge-helper to /usr/local/libexec
-$SRC_BUILD/qemu-pr-helper to /usr/local/bin
-$SRC_BUILD/qemu-vmsr-helper to /usr/local/bin
+$SRC_BUILD/qemu-pr-helper to /usr/bin
+$SRC_BUILD/qemu-vmsr-helper to /usr/bin
 # $SRC_BUILD/pc-bios/edk2-aarch64-code.fd to /usr/local/share/qemu
 # $SRC_BUILD/pc-bios/edk2-arm-code.fd to /usr/local/share/qemu
 # $SRC_BUILD/pc-bios/edk2-arm-vars.fd to /usr/local/share/qemu

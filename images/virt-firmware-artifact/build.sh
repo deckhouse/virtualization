@@ -14,13 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+# set -e
 
-versionEdk2=stable202411
-gitRepoName=edk2
-FIRMWARE=/FIRMWARE
+versionEdk2="stable202411"
+gitRepoName="edk2"
+EDK2_DIR="/${gitRepoName}-${versionEdk2}"
+FIRMWARE="/FIRMWARE"
 
-cd /${gitRepoName}-${versionEdk2}
+cp -f Logo.bmp $EDK2_DIR/MdeModulePkg/Logo/
+cd $EDK2_DIR
 
 mkdir -p ${FIRMWARE}
 
@@ -33,6 +35,13 @@ download_DBXUpdate() {
     UEFI_BIN_URL_BASE="https://uefi.org/sites/default/files/resources"
     # curl -L $UEFI_BIN_URL_BASE/x86_DBXUpdate$DBXDATE.bin -o $dst_dir/DBXUpdate-$DBXDATE.x86.bin
     curl -L $UEFI_BIN_URL_BASE/x64_DBXUpdate_$DBXDATE.bin -o $dst_dir/DBXUpdate-$DBXDATE.x64.bin
+}
+
+echo_dbg() {
+  local str=$1
+  echo ""
+  echo "===$str==="
+  echo ""
 }
 
 # compiler
@@ -67,8 +76,8 @@ build_iso() {
   ISO_IMAGE=${dir}/UefiShell.iso
 
   UEFI_SHELL_BINARY_BNAME=$(basename -- "$UEFI_SHELL_BINARY")
-  UEFI_SHELL_SIZE=$(stat --format=%%s -- "$UEFI_SHELL_BINARY")
-  ENROLLER_SIZE=$(stat --format=%%s -- "$ENROLLER_BINARY")
+  UEFI_SHELL_SIZE=$(stat --format=%s -- "$UEFI_SHELL_BINARY")
+  ENROLLER_SIZE=$(stat --format=%s -- "$ENROLLER_BINARY")
 
   # add 1MB then 10 percent for metadata
   UEFI_SHELL_IMAGE_KB=$((
@@ -95,28 +104,40 @@ build_iso() {
 
 # Build with neither SB nor SMM; include UEFI shell.
 # mkdir -p OVMF
-
+echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
 build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
 cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
 cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
+
 # Build 4MB with neither SB nor SMM; include UEFI shell.
+echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
 build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
 cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE_4M.fd
 cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS_4M.fd
+
 # Build with SB and SMM; exclude UEFI shell.
+echo_dbg "build ${OVMF_2M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
 build ${OVMF_2M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
 cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.secboot.fd
+
 # Build 4MB with SB and SMM; exclude UEFI shell.
+echo_dbg "build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
 build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
 cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE_4M.secboot.fd
+
 # Build AmdSev and IntelTdx variants
 touch OvmfPkg/AmdSev/Grub/grub.efi   # dummy
+
+echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc"
 build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc
 cp -p Build/AmdSev/*/FV/OVMF.fd $FIRMWARE/OVMF.amdsev.fd
+
+echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc"
 build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc
 cp -p Build/IntelTdx/*/FV/OVMF.fd $FIRMWARE/OVMF.inteltdx.fd
 
 # build shell
+echo_dbg "build shell"
 build ${OVMF_2M_FLAGS} -a X64 -p ShellPkg/ShellPkg.dsc
 build ${OVMF_2M_FLAGS} -a IA32 -p ShellPkg/ShellPkg.dsc
 
@@ -128,10 +149,28 @@ cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
 build_iso $FIRMWARE
 download_DBXUpdate
 
+enroll() {
+  virt-fw-vars --input   OVMF/OVMF_VARS.fd \
+              --output  OVMF/OVMF_VARS.secboot.fd \
+              --set-dbx DBXUpdate-%DBXDATE.x64.bin \
+              --secure-boot --enroll-altlinux --distro-keys altlinux
+
+  virt-fw-vars --input   OVMF/OVMF_VARS_4M.fd \
+              --output  OVMF/OVMF_VARS_4M.secboot.fd \
+              --set-dbx DBXUpdate-%DBXDATE.x64.bin \
+              --secure-boot --enroll-altlinux --distro-keys altlinux
+
+  virt-fw-vars --input   OVMF/OVMF.inteltdx.fd \
+              --output  OVMF/OVMF.inteltdx.secboot.fd \
+              --set-dbx DBXUpdate-%DBXDATE.x64.bin \
+              --secure-boot --enroll-altlinux --distro-keys altlinux
+}
+
 cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
 cp -p $FIRMWARE/OVMF_VARS_4M.fd $FIRMWARE/OVMF_VARS_4M.secboot.fd
 cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd
 
 # build microvm
+echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/Microvm/MicrovmX64.dsc"
 build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/Microvm/MicrovmX64.dsc
 cp -p Build/MicrovmX64/*/FV/MICROVM.fd $FIRMWARE
