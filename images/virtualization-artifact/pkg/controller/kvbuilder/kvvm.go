@@ -161,8 +161,14 @@ func (b *KVVM) SetNodeSelector(vmNodeSelector, classNodeSelector map[string]stri
 }
 
 func (b *KVVM) SetTolerations(vmTolerations, classTolerations []corev1.Toleration) {
-	b.Resource.Spec.Template.Spec.Tolerations = append(b.Resource.Spec.Template.Spec.Tolerations, classTolerations...)
-	b.Resource.Spec.Template.Spec.Tolerations = append(b.Resource.Spec.Template.Spec.Tolerations, vmTolerations...)
+	tolerations := make([]corev1.Toleration, 0, len(vmTolerations)+len(classTolerations))
+	tolerations = append(tolerations, vmTolerations...)
+	tolerations = append(tolerations, classTolerations...)
+	if len(tolerations) == 0 {
+		b.Resource.Spec.Template.Spec.Tolerations = nil
+		return
+	}
+	b.Resource.Spec.Template.Spec.Tolerations = tolerations
 }
 
 func (b *KVVM) SetPriorityClassName(priorityClassName string) {
