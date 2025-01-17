@@ -129,6 +129,7 @@ shell:
     -Dsystem=true \
     -Ddriver_qemu=enabled \
     -Ddriver_libvirtd=enabled \
+    -Dpciaccess=enabled -Ddriver_remote=enabled \
     -Dcurl=enabled \
     -Ddocs=disabled \
     -Ddriver_ch=disabled \
