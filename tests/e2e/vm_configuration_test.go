@@ -38,15 +38,11 @@ const (
 	StageAfter    = "after"
 )
 
-func GetVirtualMachineConfigurationNamespace() string {
-	return conf.Namespace + "-vm-configuration"
-}
-
-func ExecSshCommand(vmName, namespace, cmd string) {
+func ExecSshCommand(vmName, cmd string) {
 	GinkgoHelper()
 	Eventually(func() error {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
-			Namespace:   namespace,
+			Namespace:   conf.Namespace,
 			Username:    conf.TestData.SshUser,
 			IdenityFile: conf.TestData.Sshkey,
 		})
@@ -57,9 +53,9 @@ func ExecSshCommand(vmName, namespace, cmd string) {
 	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
 }
 
-func ChangeCPUCoresNumber(cpuNumber int, namespace string, virtualMachines ...string) {
+func ChangeCPUCoresNumber(cpuNumber int, virtualMachines ...string) {
 	vms := strings.Join(virtualMachines, " ")
-	cmd := fmt.Sprintf("patch %s --namespace %s %s --type merge --patch '{\"spec\":{\"cpu\":{\"cores\":%d}}}'", kc.ResourceVM, namespace, vms, cpuNumber)
+	cmd := fmt.Sprintf("patch %s --namespace %s %s --type merge --patch '{\"spec\":{\"cpu\":{\"cores\":%d}}}'", kc.ResourceVM, conf.Namespace, vms, cpuNumber)
 	By("Patching virtual machine specification")
 	patchRes := kubectl.RawCommand(cmd, ShortWaitDuration)
 	Expect(patchRes.Error()).NotTo(HaveOccurred(), patchRes.StdErr())
@@ -81,11 +77,11 @@ func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, virtualM
 	}
 }
 
-func CheckCPUCoresNumberFromVirtualMachine(requiredValue, namespace string, virtualMachines ...string) {
+func CheckCPUCoresNumberFromVirtualMachine(requiredValue string, virtualMachines ...string) {
 	By("Checking the number of processor cores after changing from virtual machine")
 	for _, vm := range virtualMachines {
 		cmd := "nproc --all"
-		CheckResultSshCommand(vm, namespace, cmd, requiredValue)
+		CheckResultSshCommand(vm, cmd, requiredValue)
 	}
 }
 
@@ -94,19 +90,14 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		testCaseLabel  = map[string]string{"testcase": "vm-configuration"}
 		automaticLabel = map[string]string{"vm": "automatic-conf"}
 		manualLabel    = map[string]string{"vm": "manual-conf"}
-		namespace      = conf.Namespace
 	)
-
-	if config.IsReusable() {
-		namespace = GetVirtualMachineConfigurationNamespace()
-	}
 
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			if config.IsReusable() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: namespace,
+					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
@@ -129,7 +120,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: namespace,
+				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -139,7 +130,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		It(fmt.Sprintf("should be in %s phase", PhaseReady), func() {
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: namespace,
+				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -149,7 +140,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: namespace,
+				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -163,7 +154,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
-					Namespace: namespace,
+					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
@@ -179,7 +170,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				newCPUCores = 1 + (vmResource.Spec.CPU.Cores & 1)
 
 				CheckCPUCoresNumber(ManualMode, StageBefore, oldCpuCores, vms...)
-				ChangeCPUCoresNumber(newCPUCores, namespace, vms...)
+				ChangeCPUCoresNumber(newCPUCores, vms...)
 			})
 		})
 
@@ -187,7 +178,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			It("checks the number of processor cores in specification", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
-					Namespace: namespace,
+					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -201,7 +192,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
-					Namespace: namespace,
+					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -209,11 +200,11 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				vms := strings.Split(res.StdOut(), " ")
 				for _, vm := range vms {
 					cmd := "sudo reboot"
-					ExecSshCommand(vm, namespace, cmd)
+					ExecSshCommand(vm, cmd)
 				}
 				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    manualLabel,
-					Namespace: namespace,
+					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
@@ -223,13 +214,13 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
-					Namespace: namespace,
+					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCPUCoresNumberFromVirtualMachine(strconv.FormatInt(int64(newCPUCores), 10), namespace, vms...)
+				CheckCPUCoresNumberFromVirtualMachine(strconv.FormatInt(int64(newCPUCores), 10), vms...)
 			})
 		})
 	})
@@ -242,7 +233,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    automaticLabel,
-					Namespace: namespace,
+					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -258,7 +249,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				newCPUCores = 1 + (vmResource.Spec.CPU.Cores & 1)
 
 				CheckCPUCoresNumber(AutomaticMode, StageBefore, oldCpuCores, vms...)
-				ChangeCPUCoresNumber(newCPUCores, namespace, vms...)
+				ChangeCPUCoresNumber(newCPUCores, vms...)
 			})
 		})
 
@@ -266,7 +257,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			It("checks the number of processor cores in specification", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    automaticLabel,
-					Namespace: namespace,
+					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -280,7 +271,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
 				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 					Labels:    automaticLabel,
-					Namespace: namespace,
+					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
@@ -290,13 +281,13 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    automaticLabel,
-					Namespace: namespace,
+					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCPUCoresNumberFromVirtualMachine(strconv.FormatInt(int64(newCPUCores), 10), namespace, vms...)
+				CheckCPUCoresNumberFromVirtualMachine(strconv.FormatInt(int64(newCPUCores), 10), vms...)
 			})
 		})
 	})
