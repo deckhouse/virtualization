@@ -120,7 +120,7 @@ func init() {
 			log.Fatal(err)
 		}
 	} else {
-		log.Printf("Run test in REUSABLE mode\n")
+		log.Println("Run test in REUSABLE mode")
 	}
 
 	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})
@@ -147,7 +147,13 @@ func TestTests(t *testing.T) {
 
 func Cleanup() error {
 	res := kubectl.Delete(kc.DeleteOptions{
-		Filename:       []string{conf.Namespace},
+		Filename: []string{
+			conf.Namespace,
+			GetVirtualMachineConfigurationNamespace(),
+			GetVirtualMachineConnectivityNamespace(),
+			GetVirtualMachineMigrationNamespace(),
+			GetComplexNamespace(),
+		},
 		IgnoreNotFound: true,
 		Resource:       kc.ResourceNamespace,
 	})

@@ -31,7 +31,18 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-func MigrateVirtualMachines(label map[string]string, templatePath string, virtualMachines ...string) {
+const (
+	VirtualMachineMigrationTest = "vm-migration"
+
+	InternalApiVersion = "internal.virtualization.deckhouse.io/v1"
+	KubevirtVMIMKind   = "InternalVirtualizationVirtualMachineInstanceMigration"
+)
+
+func GetVirtualMachineMigrationNamespace() string {
+	return conf.Namespace + "-vm-migration"
+}
+
+func MigrateVirtualMachines(label map[string]string, templatePath, namespace string, virtualMachines ...string) {
 	GinkgoHelper()
 	migrationFilesPath := fmt.Sprintf("%s/migrations", templatePath)
 	for _, vm := range virtualMachines {
@@ -41,7 +52,7 @@ func MigrateVirtualMachines(label map[string]string, templatePath string, virtua
 		res := kubectl.Apply(kc.ApplyOptions{
 			Filename:       []string{migrationFilePath},
 			FilenameOption: kc.Filename,
-			Namespace:      conf.Namespace,
+			Namespace:      namespace,
 		})
 		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 	}
@@ -71,14 +82,21 @@ func CreateMigrationManifest(vmName, filePath string, labels map[string]string) 
 }
 
 var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators(), func() {
-	testCaseLabel := map[string]string{"testcase": "vm-migration"}
+	var (
+		testCaseLabel = map[string]string{"testcase": "vm-migration"}
+		namespace     = conf.Namespace
+	)
+
+	if config.IsReusable() {
+		namespace = GetVirtualMachineMigrationNamespace()
+	}
 
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			if config.IsReusable() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
@@ -101,7 +119,7 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -112,7 +130,7 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -123,7 +141,7 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
 			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -133,13 +151,13 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 		It("starts migrations", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			MigrateVirtualMachines(testCaseLabel, conf.TestData.VmMigration, vms...)
+			MigrateVirtualMachines(testCaseLabel, conf.TestData.VmMigration, namespace, vms...)
 		})
 	})
 
@@ -148,13 +166,13 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 			By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 			WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 			By("Virtual machines should be migrated")
 			WaitByLabel(kc.ResourceVM, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: namespace,
 				Timeout:   MaxWaitTimeout,
 				For:       "'jsonpath={.status.migrationState.result}=Succeeded'",
 			})
@@ -163,13 +181,13 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 		It("checks VMs external connection after migrations", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: namespace,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			CheckExternalConnection(externalHost, httpStatusOk, vms...)
+			CheckExternalConnection(externalHost, httpStatusOk, namespace, vms...)
 		})
 	})
 
