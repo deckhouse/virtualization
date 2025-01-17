@@ -66,6 +66,15 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
 	)
 
+	Context("Preparing the environment", func() {
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
+	})
+
 	Context("When virtualization resources are applied", func() {
 		It("result should be succeeded", func() {
 			if config.IsReusable() {

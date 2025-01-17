@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	cfg "github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
@@ -97,7 +99,7 @@ func GetSizeByLsblk(vmName, diskId string) (*resource.Quantity, error) {
 		IdenityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
-		return nil, fmt.Errorf(res.StdErr())
+		return nil, errors.New(res.StdErr())
 	}
 	err := json.Unmarshal(res.StdOutBytes(), &blockDevice)
 	if err != nil {
@@ -160,12 +162,21 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 
 var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), func() {
 	BeforeEach(func() {
-		if cfg.IsReusable() {
+		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
 		}
 	})
 
 	testCaseLabel := map[string]string{"testcase": "disk-resizing"}
+
+	Context("Preparing the environment", func() {
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
+	})
 
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {

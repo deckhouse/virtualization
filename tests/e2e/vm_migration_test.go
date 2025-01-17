@@ -78,6 +78,15 @@ func CreateMigrationManifest(vmName, filePath string, labels map[string]string) 
 var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration"}
 
+	Context("Preparing the environment", func() {
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
+	})
+
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			if config.IsReusable() {

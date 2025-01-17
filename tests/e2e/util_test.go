@@ -457,10 +457,6 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 	const errMessage = "cannot delete test case resources"
 
 	if resources.KustomizationDir != "" {
-		kustimizationFile := fmt.Sprintf("%s/%s", resources.KustomizationDir, "kustomization.yaml")
-		err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
-		Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\nstderr: %s", errMessage, resources.KustomizationDir, err))
-
 		res := kubectl.Delete(kc.DeleteOptions{
 			Filename:       []string{resources.KustomizationDir},
 			FilenameOption: kc.Kustomize,

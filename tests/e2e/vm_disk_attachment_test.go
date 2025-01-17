@@ -127,6 +127,13 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, nameSuffix)
 		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
 		vmbdaName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
+
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
 	})
 
 	Context("When resources are applied", func() {

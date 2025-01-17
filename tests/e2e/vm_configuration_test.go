@@ -92,6 +92,15 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		manualLabel    = map[string]string{"vm": "manual-conf"}
 	)
 
+	Context("Preparing the environment", func() {
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
+	})
+
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			if config.IsReusable() {

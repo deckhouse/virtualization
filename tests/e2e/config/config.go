@@ -17,9 +17,13 @@ limitations under the License.
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"reflect"
+	"slices"
 	"strconv"
 
 	yamlv3 "gopkg.in/yaml.v3"
@@ -221,6 +225,26 @@ func (c *Config) setEnvs() error {
 	return nil
 }
 
+func (c *Config) GetTestCases() ([]string, error) {
+	testDataValue := reflect.ValueOf(c.TestData)
+	testDataType := reflect.TypeOf(c.TestData)
+	excludedData := []string{"Sshkey", "SshUser"}
+	testCases := make([]string, 0, testDataType.NumField()-len(excludedData))
+
+	if testDataType.Kind() == reflect.Struct {
+		for i := 0; i < testDataType.NumField(); i++ {
+			field := testDataType.Field(i)
+			value := testDataValue.Field(i)
+			if !slices.Contains(excludedData, field.Name) {
+				testCases = append(testCases, fmt.Sprintf("%v", value.Interface()))
+			}
+		}
+		return testCases, nil
+	} else {
+		return nil, errors.New("`config.TestData` it is not a structure")
+	}
+}
+
 func GetNamePrefix() (string, error) {
 	if prNumber, ok := os.LookupEnv("MODULES_MODULE_TAG"); ok && prNumber != "" {
 		return prNumber, nil
@@ -228,13 +252,17 @@ func GetNamePrefix() (string, error) {
 
 	res := git.GetHeadHash()
 	if !res.WasSuccess() {
-		return "", fmt.Errorf(res.StdErr())
+		return "", errors.New(res.StdErr())
 	}
 
 	commitHash := res.StdOut()
 	commitHash = commitHash[:len(commitHash)-1]
 	commitHash = fmt.Sprintf("head-%s", commitHash)
 	return commitHash, nil
+}
+
+func (c *Config) SetNamespace(name string) {
+	c.Namespace = name
 }
 
 func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
@@ -250,7 +278,10 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 		return unmarshalErr
 	}
 
-	kustomizeFile.Namespace = namespace
+	fileDir := filepath.Dir(filePath)
+	testCaseName := filepath.Base(fileDir)
+
+	kustomizeFile.Namespace = namespace + "-" + testCaseName
 	kustomizeFile.NamePrefix = namePrefix + "-"
 	kustomizeFile.Labels[0].Pairs["id"] = namePrefix
 	updatedKustomizeFile, marshalErr := yamlv3.Marshal(&kustomizeFile)
@@ -264,6 +295,22 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 	}
 
 	return nil
+}
+
+func (k *Kustomize) GetNamespace(filePath string) (string, error) {
+	var kustomizeFile Kustomize
+
+	data, readErr := os.ReadFile(filePath)
+	if readErr != nil {
+		return "", fmt.Errorf("cannot get namespace from %s: %w", filePath, readErr)
+	}
+
+	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
+	if unmarshalErr != nil {
+		return "", fmt.Errorf("cannot get namespace from %s: %w", filePath, unmarshalErr)
+	}
+
+	return kustomizeFile.Namespace, nil
 }
 
 func (k *Kustomize) ExcludeResource(filePath, resourceName string) error {
@@ -302,7 +349,7 @@ func (k *Kustomize) ExcludeResource(filePath, resourceName string) error {
 func GetModuleConfig() (*ModuleConfig, error) {
 	res := kubectl.GetResource(kc.ResourceModuleConfig, "virtualization", kc.GetOptions{Output: "yaml"})
 	if !res.WasSuccess() {
-		return nil, fmt.Errorf(res.StdErr())
+		return nil, errors.New(res.StdErr())
 	}
 
 	var mc ModuleConfig
