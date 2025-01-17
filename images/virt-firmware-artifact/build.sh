@@ -153,25 +153,32 @@ download_DBXUpdate
 enroll() {
   virt-fw-vars --input   $FIRMWARE/OVMF_VARS.fd \
               --output  $FIRMWARE/OVMF_VARS.secboot.fd \
-              --set-dbx DBXUpdate-$DBXDATE.x64.bin \
-              --secure-boot --enroll-altlinux --distro-keys altlinux
+              --set-dbx $FIRMWARE/DBXUpdate-$DBXDATE.x64.bin \
+              --secure-boot 
+# --enroll-altlinux 
+# --distro-keys altlinux
 
   virt-fw-vars --input   $FIRMWARE/OVMF_VARS_4M.fd \
               --output  $FIRMWARE/OVMF_VARS_4M.secboot.fd \
-              --set-dbx DBXUpdate-$DBXDATE.x64.bin \
-              --secure-boot --enroll-altlinux --distro-keys altlinux
+              --set-dbx $FIRMWARE/DBXUpdate-$DBXDATE.x64.bin \
+              --secure-boot 
+# --enroll-altlinux 
+# --distro-keys altlinux
 
   virt-fw-vars --input   $FIRMWARE/OVMF.inteltdx.fd \
               --output  $FIRMWARE/OVMF.inteltdx.secboot.fd \
-              --set-dbx DBXUpdate-$DBXDATE.x64.bin \
-              --secure-boot --enroll-altlinux --distro-keys altlinux
+              --set-dbx $FIRMWARE/DBXUpdate-$DBXDATE.x64.bin \
+              --secure-boot 
+# --enroll-altlinux 
+# --distro-keys altlinux
 }
+
+enroll
 
 # cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
 # cp -p $FIRMWARE/OVMF_VARS_4M.fd $FIRMWARE/OVMF_VARS_4M.secboot.fd
 # cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd
 
-enroll
 
 # build microvm
 echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/Microvm/MicrovmX64.dsc"
