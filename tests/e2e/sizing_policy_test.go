@@ -92,6 +92,13 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		vmClassDiscovery = fmt.Sprintf("%s-discovery", namePrefix)
 		vmClassDiscoveryCopy = fmt.Sprintf("%s-discovery-copy", namePrefix)
 		newVmClassFilePath = fmt.Sprintf("%s/vmc-copy.yaml", conf.TestData.SizingPolicy)
+
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
 	})
 
 	Context("When resources are applied", func() {

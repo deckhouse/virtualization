@@ -243,7 +243,14 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 		vmAutomaticWithHotplug         = map[string]string{"vm": "automatic-with-hotplug"}
 	)
 
-	Context("Environment preparing", func() {
+	Context("Preparing the environment", func() {
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
+
 		It("prepares `Immediate` storage class and virtual disk that use it", func() {
 			sc, err := GetDefaultStorageClass()
 			Expect(err).NotTo(HaveOccurred(), "cannot get default storage class\nstderr: %s", err)
