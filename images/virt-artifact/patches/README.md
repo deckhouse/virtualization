@@ -127,13 +127,23 @@ EFIConfiguration, so we can't set needed files directly.
 But there is combination for SEV: OVFM_CODE.cc.fd + OVMF_VARS.fd that works for Linux, because OVFM_CODE.cc.fd is actually a symlink to OVFM_CODE.fd. 
 So, we set true for the second flag to force OVFM_CODE.cc.fd + OVMF_VARS.fd for non-Windows virtual machines._
 
-#### `030-hide-target-pod-during-migration-via-cilium-label.patch`
+#### `030-manage-pods-network-priotity-during-migration-using-cilium-label.patch`
 
-During the VM migration process, two pods with the same address are created and packets are randomly delivered to them. 
-To force delivery of packages to only one VM pod, the special label `network.deckhouse.io/hidden-pod` for target pod were added.
-When the migration completes, the label is removed and the target pod becomes accessible via network.
+**Problem:**  
+During the VM migration process, two pods with the same address are created and packets are randomly delivered to them.
 
-d8-cni-cilium ensures that once the label is removed from the target pod, only the target pod remains accessible over the network (while the source pod does not).
+**Solution**:  
+To force delivery of packages to only one VM pod, the special label `network.deckhouse.io/priority` were added.
+The label allows setting the priority of pod for cilium relative to other pods with the same IP address.
+Network traffic will be directed to the pod with the higher priority. Absence of the label means default network behavior:
+`low` < `no label` < `high`.
+
+**How does it work?**
+1. When migration starts, the label is removed (if present) from the source pod (the default network behavior is applied). 
+2. The target pod is immediately created with a lowered network priority.
+3. When migration completes, the target pod receives an elevated network priority (high), while the source pod has the default behavior (no label).   
+
+Thus, packets are delivered as expected: initially only to the source pod during migration, and after migration completes, only to the target pod.
 
 #### `031-prevent-adding-node-selector-for-dvp-generic-cpu-model.patch`
 

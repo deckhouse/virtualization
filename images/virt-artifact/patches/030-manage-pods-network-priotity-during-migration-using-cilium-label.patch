@@ -1,0 +1,230 @@
+diff --git a/pkg/virt-controller/watch/migration.go b/pkg/virt-controller/watch/migration.go
+index 28d6636b36..5cfea61f9c 100644
+--- a/pkg/virt-controller/watch/migration.go
++++ b/pkg/virt-controller/watch/migration.go
+@@ -115,6 +115,8 @@ type MigrationController struct {
+ 	handOffLock sync.Mutex
+ 	handOffMap  map[string]struct{}
+ 
++	nam *NetworkAccessibilityManager
++
+ 	unschedulablePendingTimeoutSeconds int64
+ 	catchAllPendingTimeoutSeconds      int64
+ }
+@@ -152,6 +154,8 @@ func NewMigrationController(templateService services.TemplateService,
+ 		statusUpdater:        status.NewMigrationStatusUpdater(clientset),
+ 		handOffMap:           make(map[string]struct{}),
+ 
++		nam: &NetworkAccessibilityManager{virtClient: clientset},
++
+ 		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
+ 		catchAllPendingTimeoutSeconds:      defaultCatchAllPendingTimeoutSeconds,
+ 	}
+@@ -713,6 +717,9 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
+ 		}
+ 	}
+ 
++	// Create the new pod with the lowest possible network priority to prevent Cilium from directing traffic to it.
++	templatePod.Labels[virtv1.NetworkPriorityLabel] = NetworkPriorityLow
++
+ 	key := controller.MigrationKey(migration)
+ 	c.podExpectations.ExpectCreations(key, 1)
+ 	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
+@@ -1247,8 +1254,45 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
+ 		return nil
+ 	}
+ 
++	sourcePod, err := c.findSourcePod(migration)
++	if err != nil {
++		log.Log.Reason(err).Error("Failed to find the source pod, please report a bug")
++	}
++
++	// Just in case, try to remove the cilium network label again if it is still present.
++	if sourcePod != nil {
++		err = c.nam.SetDefaultNetworkBehavior(sourcePod)
++		if err != nil {
++			log.Log.Reason(err).Error("Failed to set the default network behavior for the source pod, please report a bug")
++		}
++	}
++
+ 	if migrationFinalizedOnVMI := vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == migration.UID &&
+ 		vmi.Status.MigrationState.EndTimestamp != nil; migrationFinalizedOnVMI {
++		if vmi.Status.MigrationState.Completed {
++			vmiConditionManager := controller.NewVirtualMachineInstanceConditionManager()
++
++			if !vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) &&
++				!vmiConditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionTrue) {
++
++				err = c.nam.CheckDefaultNetworkBehavior(sourcePod)
++				if err != nil {
++					log.Log.Reason(err).Error("The default network check is failed, please report a bug")
++				}
++
++				// Just in case, try to remove the cilium network label again if it is still present.
++				err = c.nam.SetDefaultNetworkBehavior(sourcePod)
++				if err != nil {
++					log.Log.Reason(err).Error("Failed to set the default network behavior for the source pod, please report a bug")
++				}
++
++				err = c.nam.SetNetworkPriority(pod, NetworkPriorityHigh)
++				if err != nil {
++					log.Log.Reason(err).Error("Failed to set the highest network priority for the target pod, please report a bug")
++				}
++			}
++		}
++
+ 		return nil
+ 	}
+ 
+@@ -1273,7 +1317,7 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
+ 		}
+ 
+ 		if !targetPodExists {
+-			sourcePod, err := controller.CurrentVMIPod(vmi, c.podIndexer)
++			sourcePod, err = controller.CurrentVMIPod(vmi, c.podIndexer)
+ 			if err != nil {
+ 				log.Log.Reason(err).Error("Failed to fetch pods for namespace from cache.")
+ 				return err
+@@ -1286,6 +1330,11 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
+ 				return nil
+ 			}
+ 
++			err = c.nam.SetDefaultNetworkBehavior(sourcePod)
++			if err != nil {
++				log.Log.Reason(err).Error("Failed to set the default network behavior for the source pod, please report a bug")
++			}
++
+ 			if _, exists := migration.GetAnnotations()[virtv1.EvacuationMigrationAnnotation]; exists {
+ 				if err = descheduler.MarkEvictionInProgress(c.clientset, sourcePod); err != nil {
+ 					return err
+@@ -1370,6 +1419,114 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
+ 	return nil
+ }
+ 
++type NetworkAccessibilityManager struct {
++	virtClient kubecli.KubevirtClient
++}
++
++type NetworkPriority = string
++
++const (
++	NetworkPriorityLow NetworkPriority = "low"
++	NetworkPriorityHigh NetworkPriority = "high"
++)
++
++func (m NetworkAccessibilityManager) CheckDefaultNetworkBehavior(pod *k8sv1.Pod) error {
++	if pod == nil {
++		return errors.New("got nil pod to ensure the default network behavior")
++	}
++
++	// Ensure that the network priority label is not set; the pod follows the default network behavior.
++	if priority, ok := pod.Labels[virtv1.NetworkPriorityLabel]; ok {
++		return fmt.Errorf("the pod has non-default network behavir (network priority: %s)", priority)
++	}
++
++	return nil
++}
++
++func (m NetworkAccessibilityManager) SetDefaultNetworkBehavior(pod *k8sv1.Pod) error {
++	if pod == nil {
++		return errors.New("got nil pod to set the default network behavior")
++	}
++
++	// 1. Do nothing if the pod doesn't have the network priority label; it already follows the default network behavior.
++	cur, ok := pod.Labels[virtv1.NetworkPriorityLabel]
++	if !ok {
++		return nil
++	}
++
++	// 2. Remove the network priority label to set default behavior for the pod.
++	patchBytes, err := patch.New(
++		patch.WithTest(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel)), cur),
++		patch.WithRemove(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel))),
++	).GeneratePayload()
++	if err != nil {
++		return fmt.Errorf("generate patch to remove the network priority label %s from the pod: %w", virtv1.NetworkPriorityLabel, err)
++	}
++
++	_, err = m.virtClient.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
++	if err != nil {
++		return fmt.Errorf("apply patch to remove the network priority label %s from the pod: %w", virtv1.NetworkPriorityLabel, err)
++	}
++
++	return nil
++}
++
++func (m NetworkAccessibilityManager) SetNetworkPriority(pod *k8sv1.Pod, priority NetworkPriority) error {
++	if pod == nil {
++		return errors.New("got nil pod to set the new network priority")
++	}
++
++	// 1. Do nothing if expected priority is already set.
++	cur, ok := pod.Labels[virtv1.NetworkPriorityLabel]
++	if ok && cur == priority {
++		return nil
++	}
++
++	patchOptions := make([]patch.PatchOption, 2)
++
++	// 2. Ensure that the previous network priority remains unchanged since the last check.
++	if !ok {
++		patchOptions[0] = patch.WithTest(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel)), nil)
++	} else {
++		patchOptions[0] = patch.WithTest(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel)), cur)
++	}
++
++	// 3. Set the new network priority to the pod.
++	patchOptions[1] = patch.WithReplace(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel)), priority)
++
++	patchBytes, err := patch.New(patchOptions...).GeneratePayload()
++	if err != nil {
++		return fmt.Errorf("generate patch to set new network priority for pod %s=%s: %w", virtv1.NetworkPriorityLabel, priority, err)
++	}
++
++	_, err = m.virtClient.CoreV1().Pods(pod.Namespace).Patch(context.Background(), pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
++	if err != nil {
++		return fmt.Errorf("apply patch to set new network priority for pod %s=%s: %w", virtv1.NetworkPriorityLabel, priority, err)
++	}
++
++	return nil
++}
++
++func (c *MigrationController) findSourcePod(migration *virtv1.VirtualMachineInstanceMigration) (*k8sv1.Pod, error) {
++	if migration.Status.MigrationState == nil || migration.Status.MigrationState.SourcePod == "" {
++		return nil, nil
++	}
++
++	objs, err := c.podIndexer.ByIndex(cache.NamespaceIndex, migration.Namespace)
++	if err != nil {
++		return nil, fmt.Errorf("get pods by namespace %s: %w", migration.Namespace, err)
++	}
++
++	for _, obj := range objs {
++		pod := obj.(*k8sv1.Pod)
++		if pod.Name == migration.Status.MigrationState.SourcePod {
++			return pod, nil
++		}
++	}
++
++	return nil, nil
++}
++
+ func (c *MigrationController) setupVMIRuntimeUser(vmi *virtv1.VirtualMachineInstance) *patch.PatchSet {
+ 	patchSet := patch.New()
+ 	if !c.clusterConfig.RootEnabled() {
+diff --git a/staging/src/kubevirt.io/api/core/v1/types.go b/staging/src/kubevirt.io/api/core/v1/types.go
+index 841387d304..d342bf75d8 100644
+--- a/staging/src/kubevirt.io/api/core/v1/types.go
++++ b/staging/src/kubevirt.io/api/core/v1/types.go
+@@ -878,6 +878,11 @@ const (
+ 	// Machine Instance migration job. Needed because with CRDs we can't use field
+ 	// selectors. Used on VirtualMachineInstance.
+ 	MigrationTargetNodeNameLabel string = "kubevirt.io/migrationTargetNodeName"
++	// A special label allows setting the priority of pod for cilium relative to other pods with the same IP address.
++	// Network traffic will be directed to the pod with the higher priority.
++	// Absence of the label means default network behavior.
++	// `low` < `no label` < `high`.
++	NetworkPriorityLabel string = "network.deckhouse.io/priority"
+ 	// This annotation indicates that a migration is the result of an
+ 	// automated evacuation
+ 	EvacuationMigrationAnnotation string = "kubevirt.io/evacuationMigration"
