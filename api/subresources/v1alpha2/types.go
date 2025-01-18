@@ -18,11 +18,6 @@ package v1alpha2
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-const (
-	VirtualMachineAddVolumeKind    = "VirtualMachineAddVolume"
-	VirtualMachineRemoveVolumeKind = "VirtualMachineRemoveVolume"
-)
-
 // +genclient
 // +genclient:readonly
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

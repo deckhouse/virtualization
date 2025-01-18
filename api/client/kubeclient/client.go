@@ -35,9 +35,8 @@ import (
 )
 
 var (
-	Scheme         = runtime.NewScheme()
-	Codecs         = serializer.NewCodecFactory(Scheme)
-	ParameterCodec = runtime.NewParameterCodec(Scheme)
+	Scheme = runtime.NewScheme()
+	Codecs = serializer.NewCodecFactory(Scheme)
 )
 
 func init() {
