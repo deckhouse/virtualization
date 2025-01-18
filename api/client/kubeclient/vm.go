@@ -153,11 +153,19 @@ func (v vm) Migrate(ctx context.Context, name string, opts v1alpha2.VirtualMachi
 
 func (v vm) AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error {
 	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "addvolume")
+	opts.TypeMeta = metav1.TypeMeta{
+		Kind:       v1alpha2.VirtualMachineAddVolumeKind,
+		APIVersion: v1alpha2.SchemeGroupVersion.String(),
+	}
 	return v.doRequest(ctx, path, &opts)
 }
 
 func (v vm) RemoveVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveVolume) error {
 	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "removevolume")
+	opts.TypeMeta = metav1.TypeMeta{
+		Kind:       v1alpha2.VirtualMachineRemoveVolumeKind,
+		APIVersion: v1alpha2.SchemeGroupVersion.String(),
+	}
 	return v.doRequest(ctx, path, &opts)
 }
 

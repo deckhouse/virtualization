@@ -48,7 +48,7 @@ func NewVirtualImageWatcherr(client client.Client) *VirtualImageWatcher {
 
 func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
+		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{}),
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return false },
@@ -85,13 +85,13 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Obj
 }
 
 func (w VirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVI, ok := e.ObjectOld.(*virtv2.VirtualDisk)
+	oldVI, ok := e.ObjectOld.(*virtv2.VirtualImage)
 	if !ok {
 		slog.Default().Error(fmt.Sprintf("expected an old VirtualImage but got a %T", e.ObjectOld))
 		return false
 	}
 
-	newVI, ok := e.ObjectNew.(*virtv2.VirtualDisk)
+	newVI, ok := e.ObjectNew.(*virtv2.VirtualImage)
 	if !ok {
 		slog.Default().Error(fmt.Sprintf("expected a new VirtualImage but got a %T", e.ObjectNew))
 		return false
