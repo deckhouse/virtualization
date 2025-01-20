@@ -378,6 +378,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 
 		vi.Status.Progress = "100%"
 		vi.Status.Size = ds.statService.GetSize(pod)
+		vi.Status.CDROM = ds.statService.GetCDROM(pod)
 		vi.Status.DownloadSpeed = ds.statService.GetDownloadSpeed(vi.GetUID(), pod)
 		vi.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	default:
