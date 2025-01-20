@@ -133,6 +133,7 @@ shell:
       --enable-usb-redir \
       --enable-libnfs \
       --enable-curl \
+      --enable-tools \
       --enable-debug \
       --enable-opengl \
       --disable-docs \

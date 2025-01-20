@@ -129,6 +129,7 @@ shell:
     libffi8 \
     swtpm-tools \
     xorriso \
+    dmidecode \
     libcrypt libcrypto3 \
     libjson-c5 libtirpc libbsd libiscsi libglusterfs11 libnuma \
     libcap-ng libcurl libaudit libfuse libnbd libblkid libgcrypt20 \
