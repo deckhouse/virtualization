@@ -80,6 +80,11 @@ You can track the readiness of the module using the following command:
 
 ```bash
 d8 k get modules virtualization
+```
+
+Example output:
+
+```txt
 # NAME             WEIGHT   STATE     SOURCE     STAGE   STATUS
 # virtualization   900      Enabled   Embedded           Ready
 ```
@@ -98,6 +103,15 @@ Deckhouse Virtualization Platform uses five update channels designed for use in 
 | Stable         | Stable update channel for clusters where active work is finished and mostly operational. Functionality updates to this update channel do not reach this update channel until two weeks after they appear in the release.                                           |
 | Rock Solid     | The most stable update channel. Suitable for clusters that need a higher level of stability. Feature updates do not reach this channel until one month after they are released.                                                                                    |
 
+{{< alert level="warning" >}}
+In platform upgrades, the components can be divided into two categories:
+
+- Virtualization resource management components (control plane)
+- Virtualization resource management components ("firmware").
+
+Updating the control plane components does not affect the operation of virtual machines that are already running. However, changes to the "firmware" during a platform upgrade may require virtual machines to be migrated to the new "firmware" version.
+{{< /alert >}}
+
 Deckhouse Virtualization Platform components can be updated automatically, or with manual confirmation as updates are released in the update channels.
 
-For information on the versions available on the update channels, visit this site at https://releases.deckhouse.io/.
+For information on the versions available on the update channels, visit the site at https://releases.deckhouse.io/.
