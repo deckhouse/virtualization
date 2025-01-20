@@ -116,4 +116,13 @@ const (
 
 	// ReasonVMSnapshottingFailed is event reason that VirtualMachine snapshotting is failed.
 	ReasonVMSnapshottingFailed = "VirtualMachineSnapshottingFailed"
+
+	// ReasonVMIPVMAttached is event reason that VMIP attached to VM
+	ReasonVMIPVMAttached = "VMIPVMAttached"
+	// ReasonVMIPVMDetached is event reason that VMIP not attached to VM
+	ReasonVMIPVMDetached = "VMIPVMDetached"
+
+	ReasonVMIPLeaseBound       = "VMIPLeaseBound"
+	ReasonVMIPLeaseNotBound    = "VMIPLeaseNotBound"
+	ReasonVMIPLeaseBoundFailed = "VMIPLeaseBoundFailed"
 )
