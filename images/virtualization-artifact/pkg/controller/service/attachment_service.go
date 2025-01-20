@@ -196,24 +196,9 @@ func (s AttachmentService) UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualM
 // T1: -->VMBDA A Should be Non-Conflicted lexicographically
 // T1:    VMBDA B Phase: ""
 func (s AttachmentService) IsConflictedAttachment(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (bool, string, error) {
-	// CVI always has no conflicts. Skip
-	if vmbda.Spec.BlockDeviceRef.Kind == virtv2.ClusterVirtualImageKind {
+	// CVI and VI always has no conflicts. Skip
+	if vmbda.Spec.BlockDeviceRef.Kind == virtv2.ClusterVirtualImageKind || vmbda.Spec.BlockDeviceRef.Kind == virtv2.VirtualImageKind {
 		return false, "", nil
-	}
-	// VI has conflicts only storage on PVC. Skip for ContainerRegistry
-	if vmbda.Spec.BlockDeviceRef.Kind == virtv2.VirtualImageKind {
-		vi, err := object.FetchObject(ctx, types.NamespacedName{
-			Name:      vmbda.Spec.BlockDeviceRef.Name,
-			Namespace: vmbda.Namespace,
-		},
-			s.client, &virtv2.VirtualImage{},
-		)
-		if err != nil {
-			return false, "", err
-		}
-		if vi == nil || vi.Spec.Storage == virtv2.StorageContainerRegistry {
-			return false, "", nil
-		}
 	}
 
 	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
