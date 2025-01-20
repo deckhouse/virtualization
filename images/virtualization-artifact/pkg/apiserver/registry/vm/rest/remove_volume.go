@@ -18,12 +18,14 @@ package rest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/registry/rest"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
@@ -61,11 +63,27 @@ func (r RemoveVolumeREST) Connect(ctx context.Context, name string, opts runtime
 	if !ok {
 		return nil, fmt.Errorf("invalid options object: %#v", opts)
 	}
-	location, transport, err := RemoveVolumeRESTLocation(ctx, r.vmLister, name, removeVolumeOpts, r.kubevirt, r.proxyCertManager)
+	var (
+		removeVolumePather pather
+		hooks              []mutateRequestHook
+	)
+
+	if r.requestFromKubevirt(removeVolumeOpts) {
+		removeVolumePather = newKVVMIPather("removevolume")
+	} else {
+		removeVolumePather = newKVVMPather("removevolume")
+		h, err := r.genMutateRequestHook(removeVolumeOpts)
+		if err != nil {
+			return nil, err
+		}
+		hooks = append(hooks, h)
+	}
+
+	location, transport, err := RemoveVolumeRESTLocation(ctx, r.vmLister, name, removeVolumeOpts, r.kubevirt, r.proxyCertManager, removeVolumePather)
 	if err != nil {
 		return nil, err
 	}
-	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount)
+	handler := newThrottledUpgradeAwareProxyHandler(location, transport, false, responder, r.kubevirt.ServiceAccount, hooks...)
 	return handler, nil
 }
 
@@ -79,6 +97,25 @@ func (r RemoveVolumeREST) ConnectMethods() []string {
 	return []string{http.MethodPut}
 }
 
+func (r RemoveVolumeREST) requestFromKubevirt(opts *subresources.VirtualMachineRemoveVolume) bool {
+	return opts == nil || opts.Name == ""
+}
+
+func (r RemoveVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineRemoveVolume) (mutateRequestHook, error) {
+	unplugRequest := virtv1.RemoveVolumeOptions{
+		Name: opts.Name,
+	}
+
+	newBody, err := json.Marshal(&unplugRequest)
+	if err != nil {
+		return nil, err
+	}
+
+	return func(req *http.Request) error {
+		return rewriteBody(req, newBody)
+	}, nil
+}
+
 func RemoveVolumeRESTLocation(
 	ctx context.Context,
 	getter virtlisters.VirtualMachineLister,
@@ -86,6 +123,7 @@ func RemoveVolumeRESTLocation(
 	opts *subresources.VirtualMachineRemoveVolume,
 	kubevirt KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
+	removeVolumePather pather,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, newKVVMIPather("removevolume"), kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, opts, removeVolumePather, kubevirt, proxyCertManager)
 }

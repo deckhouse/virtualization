@@ -2072,7 +2072,7 @@ func schema_virtualization_api_core_v1alpha2_VMBDAObjectRef(ref common.Reference
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The type of the block device. Options are: * `VirtualDisk` — use `VirtualDisk` as the disk. This type is always mounted in RW mode.",
+							Description: "The type of the block device. Options are: * `VirtualDisk` — use `VirtualDisk` as the disk. This type is always mounted in RW mode. * `VirtualImage` — use `VirtualImage` as the disk. This type is always mounted in RO mode. * `ClusterVirtualImage` - use `ClusterVirtualImage` as the disk. This type is always mounted in RO mode.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -5235,7 +5235,43 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref
 							Format:      "",
 						},
 					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"volumeKind": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"pvcName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"image": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"isCdrom": {
+						SchemaProps: spec.SchemaProps{
+							Default: false,
+							Type:    []string{"boolean"},
+							Format:  "",
+						},
+					},
 				},
+				Required: []string{"name", "volumeKind", "pvcName", "image", "isCdrom"},
 			},
 		},
 	}
@@ -5402,7 +5438,15 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveVolume(
 							Format:      "",
 						},
 					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
+				Required: []string{"name"},
 			},
 		},
 	}

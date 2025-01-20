@@ -71,8 +71,12 @@ spec:
                       description: |-
                         The type of the block device. Options are:
                         * `VirtualDisk` — use `VirtualDisk` as the disk. This type is always mounted in RW mode.
+                        * `VirtualImage` — use `VirtualImage` as the disk. This type is always mounted in RO mode.
+                        * `ClusterVirtualImage` - use `ClusterVirtualImage` as the disk. This type is always mounted in RO mode.
                       enum:
                         - VirtualDisk
+                        - VirtualImage
+                        - ClusterVirtualImage
                       type: string
                     name:
                       description: The name of block device to attach.

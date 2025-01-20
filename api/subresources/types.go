@@ -16,7 +16,9 @@ limitations under the License.
 
 package subresources
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // +genclient
 // +genclient:readonly
@@ -51,6 +53,11 @@ type VirtualMachinePortForward struct {
 
 type VirtualMachineAddVolume struct {
 	metav1.TypeMeta
+	Name       string
+	VolumeKind string
+	PVCName    string
+	Image      string
+	IsCdrom    bool
 }
 
 // +genclient
@@ -59,6 +66,7 @@ type VirtualMachineAddVolume struct {
 
 type VirtualMachineRemoveVolume struct {
 	metav1.TypeMeta
+	Name string
 }
 
 // +genclient

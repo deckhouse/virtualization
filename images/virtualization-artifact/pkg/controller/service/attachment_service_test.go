@@ -75,7 +75,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 			return nil
 		}
 
-		s := NewAttachmentService(clientMock, "")
+		s := NewAttachmentService(clientMock, nil, "")
 		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
 		Expect(err).To(BeNil())
 		Expect(isConflicted).To(BeTrue())
@@ -94,7 +94,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 			return nil
 		}
 
-		s := NewAttachmentService(clientMock, "")
+		s := NewAttachmentService(clientMock, nil, "")
 		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
 		Expect(err).To(BeNil())
 		Expect(isConflicted).To(BeFalse())
@@ -113,7 +113,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 			return nil
 		}
 
-		s := NewAttachmentService(clientMock, "")
+		s := NewAttachmentService(clientMock, nil, "")
 		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
 		Expect(err).To(BeNil())
 		Expect(isConflicted).To(BeTrue())
@@ -132,7 +132,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 			return nil
 		}
 
-		s := NewAttachmentService(clientMock, "")
+		s := NewAttachmentService(clientMock, nil, "")
 		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
 		Expect(err).To(BeNil())
 		Expect(isConflicted).To(BeFalse())
@@ -150,7 +150,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 			return nil
 		}
 
-		s := NewAttachmentService(clientMock, "")
+		s := NewAttachmentService(clientMock, nil, "")
 		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
 		Expect(err).To(BeNil())
 		Expect(isConflicted).To(BeFalse())
@@ -165,7 +165,7 @@ var _ = Describe("AttachmentService method IsConflictedAttachment", func() {
 			return nil
 		}
 
-		s := NewAttachmentService(clientMock, "")
+		s := NewAttachmentService(clientMock, nil, "")
 		isConflicted, conflictWithName, err := s.IsConflictedAttachment(context.Background(), vmbdaAlpha)
 		Expect(err).To(BeNil())
 		Expect(isConflicted).To(BeFalse())
