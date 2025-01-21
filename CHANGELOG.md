@@ -1,5 +1,101 @@
 # Changelog
 
+## [0.15.0](https://github.com/deckhouse/virtualization/compare/v0.14.1...v0.15.0) (2025-01-20)
+
+### Features:
+* feat(vd): Allow change Virtual Disk spec after connect to Virtual Machine while Virtual Disk is not ready by @eofff in https://github.com/deckhouse/virtualization/pull/461
+* feat(vd): requeue for exceeded quota error by @Isteb4k in https://github.com/deckhouse/virtualization/pull/450
+* feat(vi): requeue for exceeded quota error by @Isteb4k in https://github.com/deckhouse/virtualization/pull/472
+* feat(vmop): rename type migrate to evict by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/463
+* feat(api): hide unknown conditions by @eofff in https://github.com/deckhouse/virtualization/pull/471
+* feat(vm): set limit of connected block devices by @eofff in https://github.com/deckhouse/virtualization/pull/474
+* feat(vm): notify user if the virtual machine cannot be restarted immediately by @Isteb4k in https://github.com/deckhouse/virtualization/pull/477
+* feat(vmclass): improve vmclass by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/476
+* feat(core, kubevirt): disable kubevirt exportproxy  by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/479
+* feat(api): improve crd conditions by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/487
+* feat(cvi): namespace validation for vi/vd ObjectRef by @danilrwx in https://github.com/deckhouse/virtualization/pull/504
+* feat(vi,vd): add storage class ready condition, waiting in pending while storage class not ready by @eofff in https://github.com/deckhouse/virtualization/pull/423
+* feat(cvi/vi): generate crd by @danilrwx in https://github.com/deckhouse/virtualization/pull/507
+* feat(vd): crd generation by @danilrwx in https://github.com/deckhouse/virtualization/pull/524
+* feat(vi,vd): add custom settings for SC by @LopatinDmitr in https://github.com/deckhouse/virtualization/pull/437
+* feat(controller): add configuration metrics bind address by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/516
+* feat(core): add kube-rbac-proxy to virtualization by @nevermarine in https://github.com/deckhouse/virtualization/pull/505
+* feat(vd): block resizing VirtualDisk if storage class not ready by @eofff in https://github.com/deckhouse/virtualization/pull/526
+* feat(core): add kube-rbac-proxy to kubevirt & cdi by @nevermarine in https://github.com/deckhouse/virtualization/pull/532
+* feat(api): console,vnc reconnect by @danilrwx in https://github.com/deckhouse/virtualization/pull/553
+* feat(core): add separate healthz endpoint to virt-operator by @nevermarine in https://github.com/deckhouse/virtualization/pull/570
+* feat(cdi): configure clone strategy of storage profile by @Isteb4k in https://github.com/deckhouse/virtualization/pull/563
+* feat(vd): resize condition to resizing by @danilrwx in https://github.com/deckhouse/virtualization/pull/568
+* feat(vd): set tolerations for provisioners by @Isteb4k in https://github.com/deckhouse/virtualization/pull/556
+* feat(vm):  add live migration for nodePlacement by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/518
+* feat(ci): send nightly e2e test to loop by @nevermarine in https://github.com/deckhouse/virtualization/pull/593
+* feat(core): add dvcr-cleaner to dvcr image by @hardcoretime in https://github.com/deckhouse/virtualization/pull/590
+* feat(vm): start live migration if vmclass changed (EE) by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/602
+* feat(module): add RBACv2 by @fl64 in https://github.com/deckhouse/virtualization/pull/539
+* feat(vd): add info represents quota exceed state by @eofff in https://github.com/deckhouse/virtualization/pull/586
+* feat(vi): add info represents quota exceed state by @eofff in https://github.com/deckhouse/virtualization/pull/594
+* feat: add webhook for validating module config virtualization by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/571
+* feat(core, kubevirt): add patch for hotplug container-disk by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/564
+* feat(vmbda): add hotplug virtual image by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/536
+
+### Fixes:
+* fix(cvi,vi,vd): use default http port for uploader service by @Isteb4k in https://github.com/deckhouse/virtualization/pull/447
+* fix(kube-api-rewriter): add VPA settings by @fl64 in https://github.com/deckhouse/virtualization/pull/449
+* fix(vmop): patch /metadata/labels for reconciled object by @diafour in https://github.com/deckhouse/virtualization/pull/443
+* fix(kube-api-rewriter): fix discovery and ValidatingAdmissionPolicy rewrite by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/475
+* fix(vi): hide dvcr url in pvc stored vi by @eofff in https://github.com/deckhouse/virtualization/pull/488
+* fix(api): rewrite conditions with empty reasons by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/498
+* fix(vm): fix conditions with empty status by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/502
+* fix(vm): block connect more than 16 block devices to vm on reconcile level by @eofff in https://github.com/deckhouse/virtualization/pull/495
+* fix(vm): check size policy matched condition in reconciler by @eofff in https://github.com/deckhouse/virtualization/pull/514
+* fix(vmbda): fix block device attached count condition processing by @eofff in https://github.com/deckhouse/virtualization/pull/517
+* fix(vm): create a kvvm with an optional cpu feature invtsc by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/522
+* fix(core): add kube-rbac-proxy to cdi-operator by @nevermarine in https://github.com/deckhouse/virtualization/pull/530
+* fix(vm): fix generating wrong statistic by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/414
+* fix(vmop): set uid vm label by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/537
+* fix(vm): do not attach VirtualDisk if it already attached to another VirtualMachine by @eofff in https://github.com/deckhouse/virtualization/pull/540
+* fix(vm): unsupported guest agent reason wrap by @danilrwx in https://github.com/deckhouse/virtualization/pull/541
+* fix(api): do not update condition transition time if status not changed by @eofff in https://github.com/deckhouse/virtualization/pull/544
+* fix(vmiplease): fix deletion after time of not claimed by @eofff in https://github.com/deckhouse/virtualization/pull/543
+* fix(vd): patch cdi to convert image format by @Isteb4k in https://github.com/deckhouse/virtualization/pull/494
+* fix(vi): update CEL by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/549
+* fix(vmclass, vm): proper affinity and tolerations merging by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/547
+* fix(vd): fix create vd from vi on pvc by @LopatinDmitr in https://github.com/deckhouse/virtualization/pull/552
+* fix(core): fix scheme for cdi servicemonitor by @nevermarine in https://github.com/deckhouse/virtualization/pull/554
+* fix(vm): unfreeze fs after snapshot by @danilrwx in https://github.com/deckhouse/virtualization/pull/561
+* fix(template): add missing fields to kube-rbac-proxy by @nevermarine in https://github.com/deckhouse/virtualization/pull/575
+* fix(cvi,vi): unlock pending vi/cvi from vd ref by @LopatinDmitr in https://github.com/deckhouse/virtualization/pull/416
+* fix(vm): fix pod start error check by @eofff in https://github.com/deckhouse/virtualization/pull/579
+* fix(cdi): change clone strategy fot sds provisioners by @Isteb4k in https://github.com/deckhouse/virtualization/pull/573
+* fix(kubevirt, core): inject-placement-anynode by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/595
+* fix(ci): print ginkgo output for nightly e2e tests to stderr by @nevermarine in https://github.com/deckhouse/virtualization/pull/596
+* fix(vi): nil recorder by @danilrwx in https://github.com/deckhouse/virtualization/pull/612
+* fix(kube-api-rewriter): respond with correct error by @danilrwx in https://github.com/deckhouse/virtualization/pull/611
+* fix(core, kubevirt): manage labels or annotations with virtualization.deckhouse.io by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/584
+* fix(core, kubevirt): virt-launcher with efi and cpu >= 12 not starting by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/610
+* fix(vmop): improve webhook configuration by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/621
+* fix(core): hide target pod during migration via cilium label by @Isteb4k in https://github.com/deckhouse/virtualization/pull/609
+* fix(vi): add warning for create virtual image with storage type 'Kube… by @LopatinDmitr in https://github.com/deckhouse/virtualization/pull/619
+* fix(vm): use generic model with explicit features for Discovery cpu type by @diafour in https://github.com/deckhouse/virtualization/pull/580
+* fix(vd): fix condition status updates in VirtualDisk by @LopatinDmitr in https://github.com/deckhouse/virtualization/pull/625
+* fix(hooks): fix module-config hook by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/631
+* fix(vm): fix restart VM after delete pod for run policy AlwaysOnUnles… by @LopatinDmitr in https://github.com/deckhouse/virtualization/pull/632
+* fix(vm): show real resources in brief by @fl64 in https://github.com/deckhouse/virtualization/pull/637
+* fix(vm): fix toleration dupe by @yaroslavborbat in https://github.com/deckhouse/virtualization/pull/638
+* fix(vi): fix viewing field 'CDROM' in Status VirtualImage on PVC by @LopatinDmitr in https://github.com/deckhouse/virtualization/pull/644
+* fix(vd): add owner ref for tmp pvc created in cdi by @Isteb4k in https://github.com/deckhouse/virtualization/pull/646
+
+### Documentation:
+* docs(vi,vd): add storage management class info by @fl64 in https://github.com/deckhouse/virtualization/pull/469
+* docs: move sc annotations info to dev docs by @fl64 in https://github.com/deckhouse/virtualization/pull/491
+* docs: update docs for v0.15 by @fl64 in https://github.com/deckhouse/virtualization/pull/620
+
+## [0.14.1](https://github.com/deckhouse/virtualization/compare/v0.14.0...v0.14.1)
+
+### Fixes
+* fix(vdsnapshot,vmsnapshot): unfreeze virtual machines by @Isteb4k in https://github.com/deckhouse/virtualization/pull/592
+
+
 ## [0.14.0](https://github.com/deckhouse/virtualization/compare/v0.13.1...v0.14.0) (2024-10-14)
 
 
