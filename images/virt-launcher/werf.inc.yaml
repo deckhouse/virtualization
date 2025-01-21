@@ -127,7 +127,7 @@ shell:
     nftables \
     passt \
     libffi8 \
-    swtpm-tools \
+    swtpm swtpm-tools \
     xorriso \
     dmidecode \
     libcrypt libcrypto3 \
