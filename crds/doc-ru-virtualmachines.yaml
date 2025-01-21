@@ -5,24 +5,26 @@ spec:
         openAPIV3Schema:
           description: |
             Ресурс, описывающий конфигурацию и статус виртуальной машины (ВМ).
-            Для запущенной ВМ изменение параметров может быть применено только после перезагрузки ВМ, за исключением следующих параметров (они применяются на лету):
-            - `.metadata.labels`
-            - `.metadata.annotations`
-            - `.spec.disruptions.restartApprovalMode`
-            - `.spec.disruptions.runPolicy`
+            На запущенной ВМ изменённые параметры применятся только после перезагрузки, за исключением следующих параметров, которые применяются «на лету»:
+
+            - `.metadata.labels`;
+            - `.metadata.annotations`;
+            - `.spec.disruptions.restartApprovalMode`.
+            - `.spec.runPolicy`.
           properties:
             spec:
               properties:
                 affinity:
                   description: |
-                    [По аналогии](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity), как и в параметре pods `spec.affinity` в Kubernetes.
+                    [По аналогии](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity), как и в параметре подов `spec.affinity` в Kubernetes.
 
-                    Настройка Affinity полностью аналогична приведенной выше документации, разница лишь в названиях некоторых параметров. Фактически, используются следующие аналоги:
-                    * podAffinity -> virtualMachineAndPodAffinity;
-                    * podAffinityTerm -> virtualMachineAndPodAffinityTerm.
+                    Настройка `affinity` полностью аналогична приведённой выше документации, за исключением названий некоторых параметров. Используются следующие аналоги:
+
+                    * `podAffinity` -> `virtualMachineAndPodAffinity`;
+                    * `podAffinityTerm` -> `virtualMachineAndPodAffinityTerm`.
                   properties:
                     nodeAffinity:
-                      description: Описывает правила affiniy узлов для ВМ.
+                      description: Описывает affinity-правила узлов для ВМ.
                       properties:
                         preferredDuringSchedulingIgnoredDuringExecution:
                           description: ""
@@ -95,7 +97,7 @@ spec:
                                           items:
                                             description: ""
                     virtualMachineAndPodAffinity:
-                      description: Описывает правила affiniy подов и ВМ.
+                      description: Описывает affinity-правила подов и ВМ.
                       properties:
                         preferredDuringSchedulingIgnoredDuringExecution:
                           description: ""
@@ -221,7 +223,7 @@ spec:
                               topologyKey:
                                 description: ""
                     virtualMachineAndPodAntiAffinity:
-                      description: Описывает правила anti-affiniy пода и ВМ.
+                      description: Описывает anti-affinity-правила пода и ВМ.
                       properties:
                         preferredDuringSchedulingIgnoredDuringExecution:
                           description: ""
@@ -353,74 +355,74 @@ spec:
                     Порядок загрузки определяется порядком в списке.
                   items:
                     description: |
-                      The reference to block device.
+                      Ссылка на блочное устройство.
                     properties:
                       kind:
                         description: |
-                          Поддерживаемые типы:
+                          Поддерживаемые типы устройств:
 
-                          * `ClusterVirtualImage` — использовать `ClusterVirtualImage` в качестве диска. Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
-                          * `VirtualImage` — использовать `VirtualImage` в качестве диска. Этот тип всегда монтируется в режиме для чтения (ReadOnly). Если образ является ISO-образом, он будет смонтирован как устройство CDROM.
-                          * `VirtualDisk` — используйте `VirtualDisk` в качестве диска. Этот тип всегда монтируется в режиме для чтения и записи (ReadWrite).
+                          * `ClusterVirtualImage` — использовать ClusterVirtualImage в качестве диска. Данный тип всегда монтируется в режиме для чтения (`ReadOnly`). ISO-образ будет смонтирован как устройство CD-ROM;
+                          * `VirtualImage` — использовать VirtualImage в качестве диска. Данный тип всегда монтируется в режиме для чтения (`ReadOnly`). ISO-образ будет смонтирован как устройство CD-ROM;
+                          * `VirtualDisk` — использовать VirtualDisk в качестве диска. Данный тип всегда монтируется в режиме для чтения и записи (`ReadWrite`).
                       name:
                         description: |
                           Имя ресурса заданного типа.
                 bootloader:
                   description: |
-                    Загрузчик для VM:
+                    Загрузчик для ВМ:
 
-                    * BIOS — использовать BIOS.
-                    * EFI — использовать Unified Extensible Firmware (EFI/UEFI).
-                    * EFIWithSecureBoot — использовать UEFI/EFI с поддержкой SecureBoot.
+                    * `BIOS` — использовать BIOS;
+                    * `EFI` — использовать Unified Extensible Firmware (EFI/UEFI);
+                    * `EFIWithSecureBoot` — использовать UEFI/EFI с поддержкой функции Secure Boot.
                 virtualMachineClassName:
                   description: |
-                    Имя ресурса `VirtualMachineClass`, который описывает требования к виртуальному CPU, памяти и политику размещения ресурсов.
+                    Имя ресурса VirtualMachineClass, который описывает требования к виртуальному CPU и памяти, а также политику размещения ресурсов.
                 cpu:
                   description: |
-                    Блок определяет настройки ЦП для виртуальной машины.
+                    Блок определяет настройки CPU для виртуальной машины.
                   properties:
                     coreFraction:
                       description: |
-                        Гарантированная доля времени ЦП, которая будет выделена ВМ. Указывается в процентах.
+                        Гарантированная доля времени CPU, которая будет выделена ВМ. Указывается в процентах.
                     cores:
                       description: |
                         Количество ядер.
                 disruptions:
                   description: |
-                    Описании политики применения изменений, требующих перезагрузки ВМ.
+                    Описание политики применения изменений, требующих перезагрузки ВМ.
 
-                    Изменение некоторых параметров конфигурации ВМ требуют перезагрузки ВМ для их применения. Данная политика позволяет задать поведения, как ВМ будет реагировать на такие изменения.
+                    Для применения изменений в некоторых параметрах конфигурации ВМ потребуется перезагрузка. Данная политика позволяет задать поведение, определяющее как ВМ будет реагировать на такие изменения.
                   properties:
                     restartApprovalMode:
                       description: |
                         Режим одобрения для изменений, требующих перезагрузки ВМ:
 
-                        - `Manual` — изменения не будут применены, до тех пока пользователь самостоятельно не осуществит перезагрузку ВМ.
-                        - `Автоматический` — ВМ будет перезагружена, сразу, после сохранения параметров, требующих перезагрузки ВМ.
+                        - `Manual` — изменения не будут применены до тех пор, пока пользователь самостоятельно не осуществит перезагрузку ВМ;
+                        - `Automatic` — ВМ будет перезагружена сразу после сохранения параметров, требующих перезагрузки.
                 enableParavirtualization:
                   description: |
-                    Использовать шину `virtio` для подключения виртуальных устройств ВМ. Установите значение false, чтобы отключить `virtio` для этой ВМ.
+                    Использовать шину `virtio` для подключения виртуальных устройств ВМ. Чтобы отключить `virtio` для ВМ, установите значение `False`.
 
-                    Внимание: Для использования режима паравиртуализации некоторые ОС требуют установки соответствующих драйверов.
+                    > **Внимание**: Для использования режима паравиртуализации некоторые ОС требуют установки соответствующих драйверов.
                 memory:
                   description: |
-                    Блок определяет настройки оперативной памяти для виртуальной машины.
+                    Блок настроек оперативной памяти для виртуальной машины.
                   properties:
                     size:
                       description: |
-                        Объем оперативной памяти.
+                        Объём оперативной памяти.
                 nodeSelector:
                   description: |
-                    [По аналогии](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes//), как и в параметре pods `spec.nodeSelector` в Kubernetes.
+                    [По аналогии](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes//) c параметром подов `spec.nodeSelector` в Kubernetes.
                 osType:
                   description: |
                     Параметр позволяет выбрать тип используемой ОС, для которой будет создана ВМ с оптимальным набором необходимых виртуальных устройств и параметров.
 
-                    * Windows — для ОС семейства Microsoft Windows.
-                    * Generic — для других типов ОС.
+                    * `Windows` — для ОС семейства Microsoft Windows;
+                    * `Generic` — для других типов ОС.
                 priorityClassName:
                   description: |
-                    [По аналогии](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/), как и в параметре pods `spec.priorityClassName` в Kubernetes.
+                    [По аналогии](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/) с параметром подов `spec.priorityClassName` в Kubernetes.
                 provisioning:
                   description: |
                     Блок описания сценария начальной инициализации ВМ.
@@ -429,15 +431,15 @@ spec:
                       description: |
                         Ссылка на существующий ресурс со сценарием автоматизации Windows.
 
-                        Структура ресурса для типа SysprepRef:
+                        Структура ресурса для типа `SysprepRef`:
 
-                        * `.data.autounattend.xml`
-                        * `.data.unattend.xml`
+                        * `.data.autounattend.xml`;
+                        * `.data.unattend.xml`.
                       properties:
                         kind:
                           description: |
                             Тип ресурса.
-                            Необходимо использовать секрет с типом - "provisioning.virtualization.deckhouse.io/sysprep".
+                            Используйте секрет с типом `provisioning.virtualization.deckhouse.io/sysprep`.
                         name:
                           description: |
                             Имя ресурса со сценарием автоматизации.
@@ -445,43 +447,42 @@ spec:
                       description: |
                         Поддерживаемые параметры для использования сценария инициализации:
 
-                        * UserData — использовать сценарий cloud-init в секции .spec.provisioning.UserData.
-                        * UserDataRef — использовать сценарий cloud-init, который находится в другом ресурсе.
-                        * SysprepRef — использовать сценарий автоматизации установки Windows, который находится в другом ресурсе.
+                        * `UserData` — использовать сценарий `cloud-init` в секции `.spec.provisioning.UserData`;
+                        * `UserDataRef` — использовать сценарий `cloud-init`, который находится в другом ресурсе;
+                        * `SysprepRef` — использовать сценарий автоматизации установки Windows, который находится в другом ресурсе.
                     userData:
                       description: |
-                        Текст сценария cloud-init.
+                        Текст сценария `cloud-init`.
 
-                        Дополнительная информация: https://cloudinit.readthedocs.io/en/latest/reference/examples.html
+                        [Дополнительная информация о `cloud-init` и примеры конфигурации](https://cloudinit.readthedocs.io/en/latest/reference/examples.html).
                     userDataRef:
                       description: |
-                        Ссылка на существующий ресурс со сценарием cloud-init.
+                        Ссылка на существующий ресурс со сценарием `cloud-init`.
 
-                        Структура ресурса для типа userDataRef:
+                        Структура ресурса для типа `userDataRef`:
 
-                        * `.data.userData`
+                        * `.data.userData`.
                       properties:
                         kind:
                           description: |
                             Тип ресурса.
-                            Необходимо использовать секрет с типом - "provisioning.virtualization.deckhouse.io/cloud-init".
                         name:
                           description: |
-                            Имя ресурса со сценарием cloud-init.
+                            Имя ресурса со сценарием `cloud-init`.
                 runPolicy:
                   description: |
-                    Этот параметр определяет политику запуска ВМ:
+                    Параметр определяет политику запуска ВМ:
 
-                    * `AlwaysOn` — после создания ВМ всегда находится в работающем состоянии, даже в случае ее выключения средствами ОС.
-                    * `AlwaysOff` — после создания ВМ всегда находится в выключенном состоянии.
-                    * `Manual` — после создания ВМ выключается, состояние ВМ (включение/выключение) контролируется через API-сервисы или средствами ОС.
-                    * `AlwaysOnUnlessStoppedManually` — после создания ВМ всегда находится в работающем состоянии. ВМ можно выключить средствами ОС или воспользоваться утилитой d8: `d8 v stop <vm_name>`.
+                    * `AlwaysOn` — после создания ВМ всегда находится в работающем состоянии, даже в случае отключения средствами ОС;
+                    * `AlwaysOff` — после создания ВМ всегда находится в выключенном состоянии;
+                    * `Manual` — после создания ВМ выключается. Включение и выключение ВМ контролируется через API-сервисы или средства ОС;
+                    * `AlwaysOnUnlessStoppedManually` — после создания ВМ всегда находится в работающем состоянии. ВМ можно выключить средствами ОС или воспользоваться командой для утилиты d8: `d8 v stop <vm_name>`.
                 terminationGracePeriodSeconds:
                   description: |
-                    Период ожидания после подачи сигнала (SIGTERM) о прекращении работы ВМ, по истечении которого ВМ принудительно завершается.
+                    Период ожидания после подачи сигнала о прекращении работы ВМ (`SIGTERM`), по истечении которого работа ВМ принудительно завершается.
                 tolerations:
                   description: |
-                    [По аналогии](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/), как и в параметре pods `spec.tolerations` в Kubernetes.
+                    [По аналогии](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) с параметром подов `spec.tolerations` в Kubernetes.
                   items:
                     description: ""
                     properties:
@@ -497,7 +498,7 @@ spec:
                         description: ""
                 topologySpreadConstraints:
                   description: |
-                    [По аналогии](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/), как и в параметре pods `spec.topologySpreadConstraints` в Kubernetes.
+                    [По аналогии](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) с параметром подов `spec.topologySpreadConstraints` в Kubernetes.
                   items:
                     properties:
                       labelSelector:
@@ -527,11 +528,11 @@ spec:
                         description: ""
                 virtualMachineIPAddressName:
                   description: |
-                    Имя для связанного ресурса `virtualMachineIPAddress`.
+                    Имя для связанного ресурса virtualMachineIPAddress.
 
                     Указывается при необходимости использования ранее созданного IP-адреса ВМ.
 
-                    Если не указано явно, по умолчанию для ВМ создается ресурс `virtualMachineIPAddress` с именем аналогичным ресурсу ВМ (`.metadata.name`).
+                    Если не указано явно, по умолчанию для ВМ создаётся ресурс virtualMachineIPAddress с именем, аналогичным ресурсу ВМ (`.metadata.name`).
             status:
               properties:
                 blockDeviceRefs:
@@ -554,19 +555,19 @@ spec:
                           Имя существующего ресурса.
                       size:
                         description: |
-                          Размер подключенного блочного устройства.
+                          Размер подключённого блочного устройства.
                       target:
                         description: |
-                          Название подключенного блочного устройства.
+                          Название подключённого блочного устройства.
                       virtualMachineBlockDeviceAttachmentName:
                         description: |
-                          Имя ресурса `VirtualMachineBlockDeviceAttachment`, который описывает подключение диска к виртуальной машине «на лету».
+                          Имя ресурса VirtualMachineBlockDeviceAttachment, который описывает подключение диска к виртуальной машине «на лету».
                 conditions:
                   description: |
-                    Состояния во время работы виртуальной машины.
+                    Состояние во время работы виртуальной машины.
                   items:
                     description: |
-                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
+                      Подробные сведения об одном аспекте текущего состояния данного API-ресурса.
                     properties:
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.
@@ -574,8 +575,8 @@ spec:
                         description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
                       observedGeneration:
                         description: |
-                          observedGeneration представляет собой .metadata.generation, на основе которого было установлено условие.
-                          Например, если .metadata.generation в настоящее время имеет значение 12, а .status.conditions[x].observedgeneration имеет значение 9, то условие устарело.
+                          `.metadata.generation`, на основе которого было установлено условие.
+                          Например, если `.metadata.generation` в настоящее время имеет значение `12`, а `.status.conditions[x].observedgeneration` имеет значение `9`, то условие устарело.
                       reason:
                         description: Краткая причина последнего перехода состояния.
                       status:
@@ -585,9 +586,9 @@ spec:
                         description: Тип условия.
                 guestOSInfo:
                   description: |
-                    Информация об гостевой ОС, полученная от агента (QEMU Guest Agent). Агент должен быть предварительно установлен.
+                    Информация о гостевой ОС, полученная от агента (QEMU Guest Agent). Агент должен быть предварительно установлен.
 
-                    Больше информации об агенте можно прочитать тут: https://www.qemu.org/docs/master/interop/qemu-ga.html.
+                    Подробнее об агенте: https://www.qemu.org/docs/master/interop/qemu-ga.html.
                 ipAddress:
                   description: |
                     IP-адрес ВМ.
@@ -596,67 +597,68 @@ spec:
                     Имя узла, на котором в данный момент запущена ВМ.
                 phase:
                   description: |
-                    Текущая фаза виртуальной машины:
+                    Текущее состояние виртуальной машины:
 
-                    * `Scheduling` — ВМ запланирована для размещения на узлах кластера.
-                    * `Pending` — осуществляется процесс запуска ВМ.
-                    * `Running` — ВМ запущенна.
-                    * `Degraded` — произошла ошибка в процессе запуска или работы ВМ.
-                    * `Terminating` — в настоящий момент ВМ завершает свою работу.
+                    * `Scheduling` — ВМ запланирована для размещения на узлах кластера;
+                    * `Pending` — осуществляется процесс запуска ВМ;
+                    * `Running` — ВМ запущена;
+                    * `Degraded` — в процессе запуска или работы ВМ произошла ошибка;
+                    * `Terminating` — в настоящий момент ВМ завершает свою работу;
                     * `Stopped` — ВМ остановлена.
                 restartAwaitingChanges:
                   description: |
-                    Список изменений в конфигурации, требующий перезапуска ВМ.
+                    Список изменений в конфигурации, требующих перезапуска ВМ.
                 virtualMachineIPAddressName:
                   description: |
-                    Имя `virtualMachineIPAddressName`, содержащее IP-адрес виртуальной машины.
+                    Имя virtualMachineIPAddressName, содержащее IP-адрес виртуальной машины.
                 migrationState:
                   description: |
-                    Информация о миграции Виртуальной машины.
+                    Информация о миграции виртуальной машины.
                   properties:
                     startTimestamp:
-                      description: "Время начала миграции."
+                      description: Время начала миграции.
                     endTimestamp:
-                      description: "Время окончания миграции."
+                      description: Время окончания миграции.
                     target:
                       description: ""
                       properties:
                         node:
-                          description: "Имя узла, на который в данный момент выполняется миграция виртуальной машины."
+                          description: Имя узла, на который в данный момент выполняется миграция виртуальной машины.
                         pod:
-                          description: "Имя модуля, в который в данный момент выполняется миграция виртуальной машины."
+                          description: Имя модуля, в который в данный момент выполняется миграция виртуальной машины.
                     source:
                       description: ""
                       properties:
                         node:
-                          description: "Имя узла, на котором в данный момент запущена ВМ."
+                          description: Имя узла, на котором в данный момент запущена ВМ.
                         pod:
-                          description: "Имя пода, на котором в данный момент запущена виртуальная машина."
+                          description: Имя пода, на котором в данный момент запущена виртуальная машина.
                     result:
-                      description: "Результат миграции. Succeeded, Failed."
+                      description: |
+                        Результат миграции: `Succeeded` или `Failed`.
                 stats:
-                  description: "Статистика по виртуальной машине."
+                  description: Статистика по виртуальной машине.
                   properties:
                     phasesTransitions:
-                      description: "История по фазам."
+                      description: История по фазам.
                       items:
                         properties:
                           phase:
-                            description: "Фаза виртуальной машины."
+                            description: Фаза виртуальной машины.
                           timestamp:
-                            description: "Время перехода в эту фазу."
+                            description: Время перехода в данную фазу.
                     launchTimeDuration:
-                      description: "Информация о запуске."
+                      description: Информация о запуске.
                       properties:
                         waitingForDependencies:
-                          description: "Время ожидания зависимых рессурсов. pending -> starting."
+                          description: Время ожидания зависимых ресурсов. `pending` -> `starting`.
                         virtualMachineStarting:
-                          description: "Время ожидания запуска виртуальной машины. starting -> running."
+                          description: Время ожидания запуска виртуальной машины. `starting` -> `running`.
                         guestOSAgentStarting:
-                          description: "Время ожидания запуска guestOsAgent. running -> running с guestOSAgent."
+                          description: Время ожидания запуска guestOsAgent. `running` -> `running` с guestOSAgent."
                 observedGeneration:
                   description: |
-                    Поколение ресурса, которое в последний раз обрабатывалось контроллером
+                    Поколение ресурса, которое в последний раз обрабатывалось контроллером.
                 virtualMachinePods:
                   description: |
                     Список подов виртуальной машины.
@@ -670,16 +672,16 @@ spec:
                   description: Статистика использования ресурсов.
                   properties:
                     cpu:
-                      description: Статистика использования ресурсов ЦПУ.
+                      description: Статистика использования ресурсов CPU.
                       properties:
                         coreFraction:
-                          description: Текущее значение coreFraction.
+                          description: Текущее значение `coreFraction`.
                         cores:
                           description: Текущее количество ядер виртуальной машины.
                         requestedCores:
                           description: Запрошенные ядра.
                         runtimeOverhead:
-                          description: Накладные расходы на cpu во время выполнения.
+                          description: Накладные расходы на CPU во время выполнения.
                     memory:
                       description: Статистика использования ресурсов памяти.
                       properties:

@@ -16,41 +16,41 @@ limitations under the License.
 
 package v1alpha2
 
-// Fill the image with data from some external url. Supported schemas are:
+// Fill the image with data from an external URL. The following schemas are supported:
 //
-// * http
-// * https
+// * HTTP
+// * HTTPS
 //
-// For https schema there is an option to skip TLS verification.
+// For HTTPS schema, there is an option to skip the TLS verification.
 type DataSourceHTTP struct {
-	// A checksum of the file, provided by the url, to verify if it was downloaded correctly or wasn't changed. The file should match all specified checksums.
+	// Checksum to verify integrity and consistency of the downloaded file. The file must match all specified checksums.
 	Checksum *Checksum `json:"checksum,omitempty"`
-	// The http url with an image. The following formats are supported:
+	// URL of the file for creating an image. The following file formats are supported:
 	// * qcow2
 	// * vmdk
 	// * vdi
 	// * iso
 	// * raw
-	// these formats can also be compressed with the following formats:
+	// The file can be compressed into an archive in one of the following formats:
 	// * gz
 	// * xz
 	// +kubebuilder:example:="https://mirror.example.com/images/slackware-15.qcow.gz"
 	// +kubebuilder:validation:Pattern=`^http[s]?:\/\/(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+$`
 	URL string `json:"url"`
-	// The CA chain in base64 format to verify the url.
+	// CA chain in Base64 format to verify the URL.
 	// +kubebuilder:example:="YWFhCg=="
 	CABundle []byte `json:"caBundle,omitempty"`
 }
 
 type ImagePullSecret struct {
-	// A name of the secret containing registry credentials.
+	// Name of the secret keeping container registry credentials.
 	Name string `json:"name,omitempty"`
-	// A namespace where imagePullSecret is located.
+	// Namespace where `imagePullSecret` is located.
 	Namespace string `json:"namespace,omitempty"`
 }
 
 type ImagePullSecretName struct {
-	// A name of the secret containing registry credentials which must be located in the same namespace.
+	// Name of the secret keeping container registry credentials, which must be located in the same namespace.
 	Name string `json:"name,omitempty"`
 }
 
@@ -67,12 +67,12 @@ type Checksum struct {
 	SHA256 string `json:"sha256,omitempty"`
 }
 
-// The type of an origin of the image. Options are:
+// The following image sources are available for creating an image:
 //
-// * `HTTP` — create an image from a file published on http/https service at a given url
-// * `ContainerImage` — create the image from image stored in container registry.
-// * `ObjectRef` — fill the disk from another existing resource.
-// * `Upload` — fill the image with data, uploaded by user via the special interface.
+// * `HTTP`: From a file published on an HTTP/HTTPS service at a given URL.
+// * `ContainerImage`: From another image stored in a container registry.
+// * `ObjectRef`: From an existing resource.
+// * `Upload`: From data uploaded by the user via a special interface.
 //
 // +kubebuilder:validation:Enum:={HTTP,ContainerImage,ObjectRef,Upload}
 type DataSourceType string

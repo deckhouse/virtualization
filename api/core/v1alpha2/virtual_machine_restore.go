@@ -27,7 +27,7 @@ const (
 	VirtualMachineRestoreResource = "virtualmachinerestores"
 )
 
-// VirtualMachineRestore provides a resource that allows to restore a snapshot of the virtual machine and all its resources.
+// VirtualMachineRestore provides a resource for restoring a virtual machine and all associated resources from a snapshot.
 //
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
@@ -45,7 +45,7 @@ type VirtualMachineRestore struct {
 	Status VirtualMachineRestoreStatus `json:"status,omitempty"`
 }
 
-// VirtualMachineRestoreList contains a list of `VirtualMachineRestore`
+// VirtualMachineRestoreList contains a list of VirtualMachineRestore resources.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineRestoreList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -54,44 +54,44 @@ type VirtualMachineRestoreList struct {
 }
 
 type VirtualMachineRestoreSpec struct {
-	// The name of virtual machine snapshot to restore the virtual machine.
+	// Snapshot name to restore a virtual machine from.
 	//
 	// +kubebuilder:validation:MinLength=1
 	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
-	// Redefining the virtual machine resource names.
+	// Renaming conventions for virtual machine resources.
 	NameReplacements []NameReplacement `json:"nameReplacements,omitempty"`
 }
 
 type VirtualMachineRestoreStatus struct {
 	Phase VirtualMachineRestorePhase `json:"phase"`
-	// Contains details of the current state of this API Resource.
+	// Contains details of the current API resource state.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// The generation last processed by the controller.
+	// Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-// NameReplacement represents rule to redefine the virtual machine resource names.
+// NameReplacement represents a rule for redefining the virtual machine resource names.
 type NameReplacement struct {
-	// The selector to choose resources for name replacement.
+	// Selector to choose resources for name replacement.
 	From NameReplacementFrom `json:"from"`
-	// The new resource name.
+	// New resource name.
 	To string `json:"to"`
 }
 
-// NameReplacementFrom represents the selector to choose resources for name replacement.
+// NameReplacementFrom represents a selector to choose resources for name replacement.
 type NameReplacementFrom struct {
-	// The kind of resource to rename.
+	// Kind of a resource to rename.
 	Kind string `json:"kind,omitempty"`
-	// The current name of resource to rename.
+	// Current name of a resource to rename.
 	Name string `json:"name"`
 }
 
-// VirtualMachineRestorePhase defines current status of resource:
-// * Pending - the resource has been created and is on a waiting queue.
-// * InProgress - the process of creating the virtual machine from the snapshot is currently underway.
-// * Ready - the virtual machine creation from the snapshot has successfully completed.
-// * Failed - an error occurred during the virtual machine creation process.
-// * Terminating - the resource is in the process of being deleted.
+// VirtualMachineRestorePhase defines the current status of a resource:
+// * `Pending`: The resource has been created and is on a waiting queue.
+// * `InProgress`: A virtual machine is being restored from a snapshot.
+// * `Ready`: A virtual machine has been successfully restored from a snapshot.
+// * `Failed`: An error occurred when restoring a virtual machine from a snapshot.
+// * `Terminating`: The resource is being deleted.
 //
 // +kubebuilder:validation:Enum={Pending,InProgress,Ready,Failed,Terminating}
 type VirtualMachineRestorePhase string

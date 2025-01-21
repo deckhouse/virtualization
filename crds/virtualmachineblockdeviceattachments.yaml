@@ -28,11 +28,11 @@ spec:
           jsonPath: .status.phase
           name: PHASE
           type: string
-        - description: The name of the virtual machine to which this disk is attached.
+        - description: Name of the virtual machine the disk is attached to.
           jsonPath: .status.virtualMachineName
           name: VIRTUAL MACHINE NAME
           type: string
-        - description: Time of creation resource.
+        - description: Time of resource creation.
           jsonPath: .metadata.creationTimestamp
           name: AGE
           type: date
@@ -40,7 +40,7 @@ spec:
       schema:
         openAPIV3Schema:
           description:
-            VirtualMachineBlockDeviceAttachment provides a hot plug for connecting
+            VirtualMachineBlockDeviceAttachment provides a hot plug for attaching
             a disk to a virtual machine.
           properties:
             apiVersion:
@@ -64,28 +64,28 @@ spec:
               properties:
                 blockDeviceRef:
                   description:
-                    A block device that will be connected to the VM as a
-                    hot Plug disk.
+                    Block device that will be connected to the VM as a hot-plug
+                    disk.
                   properties:
                     kind:
                       description: |-
-                        The type of the block device. Options are:
-                        * `VirtualDisk` — use `VirtualDisk` as the disk. This type is always mounted in RW mode.
-                        * `VirtualImage` — use `VirtualImage` as the disk. This type is always mounted in RO mode.
-                        * `ClusterVirtualImage` - use `ClusterVirtualImage` as the disk. This type is always mounted in RO mode.
+                        Block device type. Available options:
+                        * `VirtualDisk`: Use VirtualDisk as the disk. This type is always mounted in RW mode.
+                        * `VirtualImage`: Use VirtualImage as the disk. This type is always mounted in RO mode.
+                        * `ClusterVirtualImage`: Use ClusterVirtualImage as the disk. This type is always mounted in RO mode.
                       enum:
                         - VirtualDisk
                         - VirtualImage
                         - ClusterVirtualImage
                       type: string
                     name:
-                      description: The name of block device to attach.
+                      description: Name of the block device to attach.
                       type: string
                   type: object
                 virtualMachineName:
                   description:
-                    The name of the virtual machine to which the disk or
-                    image should be connected.
+                    Virtual machine name the disk or image should be attached
+                    to.
                   type: string
               required:
                 - blockDeviceRef
@@ -94,7 +94,7 @@ spec:
             status:
               properties:
                 conditions:
-                  description: Contains details of the current state of this API Resource.
+                  description: Contains details of the current API resource state.
                   items:
                     description:
                       Condition contains details for one aspect of the current
@@ -152,17 +152,17 @@ spec:
                     type: object
                   type: array
                 observedGeneration:
-                  description: The generation last processed by the controller
+                  description: Resource generation last processed by the controller.
                   format: int64
                   type: integer
                 phase:
                   description: |-
-                    BlockDeviceAttachmentPhase defines current status of resource:
-                    * Pending — the resource has been created and is on a waiting queue.
-                    * InProgress — the disk is in the process of being attached.
-                    * Attached — the disk is attached to virtual machine.
-                    * Failed — there was a problem with attaching the disk.
-                    * Terminating — the process of resource deletion is in progress.
+                    BlockDeviceAttachmentPhase defines the current status of the resource:
+                    * `Pending`: The resource has been created and is on a waiting queue.
+                    * `InProgress`: The disk is being attached to the VM.
+                    * `Attached`: The disk has been attached to the VM.
+                    * `Failed`: There was an error when attaching the disk.
+                    * `Terminating`: The resource is being deleted.
                   enum:
                     - Pending
                     - InProgress
@@ -171,9 +171,7 @@ spec:
                     - Terminating
                   type: string
                 virtualMachineName:
-                  description:
-                    The name of the virtual machine to which this disk is
-                    attached.
+                  description: Name of the virtual machine the disk is attached to.
                   type: string
               type: object
           required:

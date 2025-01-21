@@ -23,7 +23,7 @@ const (
 	VirtualmachineOperationResource = "virtualmachineoperations"
 )
 
-// VirtualMachineOperation resource provides the ability to declaratively manage state changes of virtual machines.
+// VirtualMachineOperation enables declarative management of virtual machine state changes.
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
@@ -31,7 +31,7 @@ const (
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="VirtualMachineOperation phase."
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="VirtualMachineOperation type."
 // +kubebuilder:printcolumn:name="VirtualMachine",type="string",JSONPath=".spec.virtualMachineName",description="VirtualMachine name."
-// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of creation resource."
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineOperation struct {
@@ -47,9 +47,9 @@ type VirtualMachineOperation struct {
 // +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? !has(self.force) || !self.force : true",message="The `Migrate` operation cannot be performed forcibly."
 type VirtualMachineOperationSpec struct {
 	Type VMOPType `json:"type"`
-	// The name of the virtual machine for which the operation is performed.
+	// Name of the virtual machine the operation is performed for.
 	VirtualMachine string `json:"virtualMachineName"`
-	// Force the execution of the operation. Applies only for Restart and Stop. In this case, the action on the virtual machine is performed immediately.
+	// Force execution of an operation. Applies only to the `Restart` and `Stop` operations. In this case, the operation on a virtual machine is performed immediately.
 	Force bool `json:"force,omitempty"`
 }
 
@@ -57,11 +57,11 @@ type VirtualMachineOperationStatus struct {
 	Phase VMOPPhase `json:"phase"`
 	// The latest detailed observations of the VirtualMachineOperation resource.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	//  The generation last processed by the controller.
+	//  Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-// VirtualMachineOperationList contains a list of VirtualMachineOperation
+// VirtualMachineOperationList contains a list of VirtualMachineOperation resources.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineOperationList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -69,12 +69,12 @@ type VirtualMachineOperationList struct {
 	Items           []VirtualMachineOperation `json:"items"`
 }
 
-// Represents the current phase of resource:
-// * Pending - the operation is queued for execution.
-// * InProgress - operation in progress.
-// * Completed - the operation was successful.
-// * Failed - the operation failed. Check conditions and events for more information.
-// * Terminating - the operation is deleted.
+// Current phase of the resource:
+// * `Pending`: The operation is queued for execution.
+// * `InProgress`: The operation is in progress.
+// * `Completed`: The operation has been completed successfully.
+// * `Failed`: The operation failed. For details, refer to the `conditions` field and events.
+// * `Terminating`: The operation is being deleted.
 // +kubebuilder:validation:Enum={Pending,InProgress,Completed,Failed,Terminating}
 type VMOPPhase string
 
@@ -86,12 +86,12 @@ const (
 	VMOPPhaseTerminating VMOPPhase = "Terminating"
 )
 
-// Type is operation over the virtualmachine:
-// * Start - start the virtualmachine.
-// * Stop - stop the virtualmachine.
-// * Restart - restart the virtualmachine.
-// * Migrate (deprecated) - migrate the virtualmachine.
-// * Evict - evict the virtualmachine.
+// Type of the operation to execute on a virtual machine:
+// * `Start`: Start the virtual machine.
+// * `Stop`: Stop the virtual machine.
+// * `Restart`: Restart the virtual machine.
+// * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
+// * `Evict`: Migrate the virtual machine to another node where it can be started.
 // +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate,Evict}
 type VMOPType string
 

@@ -28,12 +28,12 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            This resource describes the configuration and status of a virtual machine (VM).
-            For a running VM, parameter changes can only be applied after the VM is rebooted, except for the following parameters (they are applied on the fly):
-            - `.metadata.labels`.
-            - `.metadata.annotations`.
-            - `.spec.disruptions.restartApprovalMode`.
-            - `.spec.disruptions.runPolicy`.
+            Describes the configuration and status of a virtual machine (VM).
+            On a running VM, changed parameters can only be applied after rebooting, except for the following parameters that are applied on the fly:
+            - `.metadata.labels`
+            - `.metadata.annotations`
+            - `.spec.disruptions.restartApprovalMode`
+            - `.spec.runPolicy`.
           required:
             - spec
           x-kubernetes-validations:
@@ -43,7 +43,7 @@ spec:
             spec:
               x-kubernetes-validations:
                 - rule: "self.cpu.coreFraction.endsWith('%') && int(self.cpu.coreFraction.replace('%', '')) >= 1 && int(self.cpu.coreFraction.replace('%', '')) <= 100"
-                  message: "Core fraction must be between 1% and 100%"
+                  message: "Core fraction must be between 1% and 100%."
               type: object
               required:
                 - virtualMachineClassName
@@ -53,20 +53,16 @@ spec:
               properties:
                 provisioning:
                   description: |
-                    This block allows you to configure the provisioning script for the VM.
+                    Section describing a VM initial provisioning scenario.
                   type: object
                   properties:
                     type:
                       description: |
-                        This parameter defines the type of provisioning script:
+                        Supported parameters for using the provisioning scenario:
 
-                        Parameters supported for using the provisioning script:
-
-                        * UserData - use the cloud-init in the .spec.provisioning.UserData section.
-                        * UserDataRef - use a cloud-init script that resides in a different resource.
-                        * SysprepRef - Use a Windows Automation script that resides in a different resource.
-
-                        More information: https://cloudinit.readthedocs.io/en/latest/reference/examples.html
+                        * `UserData`: Use the `cloud-init` scenario in the `.spec.provisioning.UserData` section.
+                        * `UserDataRef`: Use the `cloud-init` scenario located in a different resource.
+                        * `SysprepRef`: Use the automatic Windows installation scenario located in a different resource.
                       type: string
                       enum:
                         - UserData
@@ -74,21 +70,22 @@ spec:
                         - SysprepRef
                     userData:
                       description: |
-                        Inline cloud-init userdata script.
+                        `cloud-init` scenario content.
+
+                        [More information about `cloud-init` and configuration examples](https://cloudinit.readthedocs.io/en/latest/reference/examples.html).
                       type: string
                     userDataRef:
                       description: |
-                        A reference to an existing resource with a cloud-init script.
+                        Link to an existing resource with the `cloud-init` scenario.
 
-                        Resource structure for userDataRef type:
+                        A resource structure for the `userDataRef` type:
 
                         * `.data.userData`.
                       type: object
                       properties:
                         kind:
                           description: |
-                            The kind of an existing cloud-init automation resource.
-                            Need to use a custom secret type - "provisioning.virtualization.deckhouse.io/cloud-init"
+                            Kind of the resource.
                           default: "Secret"
                           type: string
                           enum:
@@ -96,22 +93,22 @@ spec:
                         name:
                           type: string
                           description: |
-                            The name of the resource.
+                            Name of the resource with the `cloud-init` scenario.
                       required: ["name", "kind"]
                     sysprepRef:
                       description: |
-                        Reference to an existing Windows sysprep automation.
+                        Link to an existing resource with the Windows automation scenario.
 
-                        Resource structure for the SysprepRef type:
+                        A resource structure for the `SysprepRef` type:
 
-                        * `.data.autounattend.xml`.
-                        * `.data.unattend.xml`.
+                        * `.data.autounattend.xml`
+                        * `.data.unattend.xml`
                       type: object
                       properties:
                         kind:
                           description: |
-                            The kind of an existing Windows sysprep automation resource.
-                            Need to use a custom secret type - "provisioning.virtualization.deckhouse.io/sysprep"
+                            Kind of the resource.
+                            Use a secret of the following type: `provisioning.virtualization.deckhouse.io/sysprep`.
                           default: "Secret"
                           type: string
                           enum:
@@ -157,25 +154,25 @@ spec:
                     - "AlwaysOnUnlessStoppedManually"
                   default: "AlwaysOnUnlessStoppedManually"
                   description: |
-                    This parameter defines the VM startup policy
+                    Defines the VM startup policy:
 
-                    * `AlwaysOn` - after creation the VM is always in a running state, even in case of its shutdown by OS means.
-                    * `AlwaysOff` - after creation the VM is always in the off state.
-                    * `Manual` - after creation the VM is switched off, the VM state (switching on/off) is controlled via sub-resources or OS means.
-                    * `AlwaysOnUnlessStoppedManually` - after creation the VM is always in a running state. The VM can be shutdown by means of the OS or use the d8 utility: `d8 v stop <vm_name>`.
+                    * `AlwaysOn`: Once created, the VM is always in a running state, even if shut down by the OS.
+                    * `AlwaysOff`: Once created, the VM is always in a powered-off state.
+                    * `Manual`: Once created, the VM is switched off. Switching on and off is controlled via API services or the OS.
+                    * `AlwaysOnUnlessStoppedManually`: Once created, the VM is always in a running state. It can be switched off by the OS or using the following command for the d8 utility: `d8 v stop <vm_name>`.
 
                 virtualMachineIPAddressName:
                   type: string
                   description: |
-                    Name for the associated `virtualMachineIPAddress` resource.
+                    Name for the associated virtualMachineIPAddress resource.
 
-                    Specified when it is necessary to use a previously created IP address of the VM.
+                    Specified when it is necessary to use a previously created IP address of a VM.
 
-                    If not explicitly specified, by default a `virtualMachineIPAddress` resource is created for the VM with a name similar to the VM resource (`.metadata.name`).
+                    If not explicitly specified, by default a virtualMachineIPAddress resource is created with a name similar to the VM resource (`.metadata.name`).
 
                 topologySpreadConstraints:
                   description: |
-                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) as in the pods `spec.topologySpreadConstraints` parameter in Kubernetes;
+                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) as in the pod parameter `spec.topologySpreadConstraints` in Kubernetes.
 
                   items:
                     properties:
@@ -229,11 +226,11 @@ spec:
 
                 affinity:
                   description: |
-                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) as in the pods `spec.affinity` parameter in Kubernetes;
+                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/#affinity-and-anti-affinity) as in the pod parameter `spec.affinity` in Kubernetes;
 
-                    The affinity setting is completely similar to the above documentation, the only difference is in the names of some parameters. In fact, the following analogs are used:
-                    * podAffinity -> virtualMachineAndPodAffinity
-                    * podAffinityTerm -> virtualMachineAndPodAffinityTerm
+                    The `affinity` setting details are exactly matching the documentation source above. The only difference are the names of several parameters. The following alternative names are used:
+                    * `podAffinity` -> `virtualMachineAndPodAffinity`
+                    * `podAffinityTerm` -> `virtualMachineAndPodAffinityTerm`
 
                   properties:
                     nodeAffinity:
@@ -360,7 +357,7 @@ spec:
                           type: object
                           description: ""
                       type: object
-                      description: Describes node affinity scheduling rules for the VM.
+                      description: Describes node affinity scheduling rules for a VM.
                     virtualMachineAndPodAffinity:
                       description: Describes pod and VM affinity scheduling rules.
                       properties:
@@ -777,18 +774,18 @@ spec:
                   additionalProperties:
                     type: string
                   description: |
-                    [The same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes//) as in the pods `spec.nodeSelector` parameter in Kubernetes;
+                    [The same](https://kubernetes.io/docs/tasks/configure-pod-container/assign-pods-nodes//) as in the pod parameter `spec.nodeSelector` in Kubernetes.
                   type: object
 
                 priorityClassName:
                   description: |
-                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/)  as in the pods `spec.priorityClassName` parameter in Kubernetes;
+                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/pod-priority-preemption/) as in the pod parameter `spec.priorityClassName` in Kubernetes.
                   type: string
 
                 tolerations:
                   type: array
                   description: |
-                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) as in the pods `spec.tolerations` parameter in Kubernetes;
+                    [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/) as in the pod  parameter `spec.tolerations` in Kubernetes.
 
                   items:
                     type: object
@@ -816,17 +813,17 @@ spec:
                   default:
                     restartApprovalMode: Manual
                   description: |
-                    Describing the policy for applying changes that require rebooting the VM.
+                    Describes the policy for applying changes that require rebooting the VM.
 
-                    Changes to some VM configuration settings require a reboot of the VM to apply them. This policy allows you to specify the behavior of how the VM will respond to such changes.
+                    Changes to some VM configuration settings require a VM reboot to be applied. This policy lets you specify the behavior defining how the VM reacts to such changes.
                   properties:
                     restartApprovalMode:
                       type: string
                       description: |
                         Approval mode for changes that require rebooting the VM:
 
-                        * `Manual` - changes will not be applied until the user reboots the VM himself.
-                        * `Automatic` - the VM will be rebooted immediately after saving the parameters that require rebooting the VM.
+                        * `Manual`: Changes won't be applied until the user manually reboots the VM.
+                        * `Automatic`: The VM will be rebooted immediately after the parameters requiring the reboot are saved.
                       enum:
                         - Manual
                         - Automatic
@@ -836,15 +833,15 @@ spec:
                   type: integer
                   default: 60
                   description: |
-                    Grace period observed after signalling a VM to stop after which the VM is force terminated.
+                    Grace period after sending a `SIGTERM` signal to shut down a VM. Once the grace period expires, the VM is forcibly terminated.
 
                 enableParavirtualization:
                   type: boolean
                   default: true
                   description: |
-                    Use the `virtio` bus to connect virtual devices of the VM. Set to false to disable `virtio` for this VM.
+                    Use the `virtio` bus for connecting virtual devices of a VM. To disable `virtio` for a VM, set this parameter to `False`.
 
-                    Note: To use paravirtualization mode, some operating systems require the appropriate drivers to be installed.
+                    > **Note**: To use the paravirtualization mode, some operating systems require installing the corresponding drivers.
 
                 osType:
                   type: string
@@ -853,10 +850,10 @@ spec:
                     - "Generic"
                   default: "Generic"
                   description: |
-                    The parameter allows you to select the type of used OS, for which a VM with an optimal set of required virtual devices and parameters will be created.
+                    Lets you select the type of a used OS that will be used to create a VM with an optimal set of required virtual devices and parameters.
 
-                    * Windows - for Microsoft Windows family operating systems.
-                    * Generic - for other types of OS.
+                    * `Windows`: For an operating system from the Microsoft Windows family.
+                    * `Generic`: For other operating systems.
 
                 bootloader:
                   type: string
@@ -866,20 +863,21 @@ spec:
                     - "EFIWithSecureBoot"
                   default: "BIOS"
                   description: |
-                    Defines bootloader for VM.
-                    * BIOS - use legacy BIOS.
-                    * EFI - use Unified Extensible Firmware (EFI/UEFI).
-                    * EFIWithSecureBoot - use UEFI/EFI with SecureBoot support.
+                    Defines a bootloader for a VM.
+
+                    * `BIOS`: Use BIOS.
+                    * `EFI`: Use Unified Extensible Firmware (EFI/UEFI).
+                    * `EFIWithSecureBoot`: Use UEFI/EFI with the Secure Boot support.
                 virtualMachineClassName:
                   type: string
                   x-kubernetes-validations:
                     - rule: "size(self) > 0"
                       message: "The virtualMachineClassName field must not be an empty string."
                   description: |
-                    Name of the `VirtualMachineClass` resource describing the requirements for a virtual CPU, memory and the resource allocation policy and node placement policies for virtual machines.
+                    Name of the VirtualMachineClass resource describing the requirements for a virtual CPU, memory, and the resource allocation policy.
                 cpu:
                   type: object
-                  description: Specifies the CPU settings for the VM.
+                  description: Section describing the CPU settings for a VM.
                   required:
                     - cores
                   properties:
@@ -887,17 +885,17 @@ spec:
                       format: int32
                       type: integer
                       minimum: 1
-                      description: Specifies the number of cores inside the VM. The value must be greater or equal 1.
+                      description: Number of cores.
                     coreFraction:
                       type: string
                       default: "100%"
                       description: |
-                        Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
+                        Guaranteed share of CPU time that will be allocated to the VM. Specified as a percentage.
 
                 memory:
                   type: object
                   description: |
-                    Specifies the memory settings for the VM.
+                    Section specifying the RAM settings for the VM.
                   required:
                     - size
                   properties:
@@ -905,28 +903,27 @@ spec:
                       type: string
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       description: |
-                        Describes the maximum amount of memory resources allowed.
+                        RAM amount.
 
                 blockDeviceRefs:
                   type: array
                   minItems: 1
                   maxItems: 16
                   description: |
-                    List of block devices that can be mounted by disks belonging to the virtual machine.
-                    The order of booting is determined by the order in the list.
+                    List of block devices connected to the VM.
                   items:
                     type: object
                     description: |
-                      The reference to block device.
+                      Link to a block device.
                     properties:
                       kind:
                         type: string
                         description: |
-                          The type of the block device. Options are:
+                          Supported block device types:
 
-                          * `ClusterVirtualImage` — Use `ClusterVirtualImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
-                          * `VirtualImage` — Use `VirtualImage` as the disk. This type is always mounted in RO mode. If the image is an iso-image, it will be mounted as a CDROM device.
-                          * `VirtualDisk` — Use `VirtualDisk` as the disk. This type is always mounted in RW mode.
+                          * `ClusterVirtualImage`: Use ClusterVirtualImage as the disk. This type is always mounted in `ReadOnly` mode. An ISO image will be mounted as a CD-ROM device.
+                          * `VirtualImage`: Use VirtualImage as the disk. This type is always mounted in `ReadOnly` mode. An ISO image will be mounted as a CD-ROM device.
+                          * `VirtualDisk`: Use VirtualDisk as the disk. This type is always mounted in `ReadWrite` mode.
                         enum:
                           - "ClusterVirtualImage"
                           - "VirtualImage"
@@ -934,7 +931,7 @@ spec:
                       name:
                         type: string
                         description: |
-                          The name of attached resource.
+                          Name of the attached resource.
             status:
               type: object
               properties:
@@ -942,18 +939,20 @@ spec:
                   type: object
                   x-kubernetes-preserve-unknown-fields: true
                   description: |
-                    Guest OS information obtained from the QEMU Guest Agent. The agent must be pre-installed.
+                    Guest OS information obtained from the QEMU Guest Agent. The agent must installed in advance.
 
-                    More information about the agent, you can read here: https://www.qemu.org/docs/master/interop/qemu-ga.html
+                    More about the agent: https://www.qemu.org/docs/master/interop/qemu-ga.html.
                 phase:
                   type: string
                   description: |
-                    The current phase of the virtual machine:
-                    * `Pending` - The process of starting the VM is in progress.
-                    * `Running` - VM is running.
-                    * `Degraded` - An error occurred during the startup process or while the VM is running.
-                    * `Terminating` - The VM is currently in the process of shutting down.
-                    * `Stopped` - The VM is stopped.
+                    The current phase of a virtual machine:
+
+                    * `Scheduling`: The VM has been scheduled for provisioning on cluster nodes.
+                    * `Pending`: The VM startup is in progress.
+                    * `Running`: The VM is running.
+                    * `Degraded`: An error occurred during the VM startup or while it was running.
+                    * `Terminating`: The VM is currently shutting down.
+                    * `Stopped`: The VM is stopped.
                   enum:
                     - "Pending"
                     - "Running"
@@ -967,19 +966,19 @@ spec:
                 nodeName:
                   type: string
                   description: |
-                    The name of the node on which the VM is currently running.
+                    Name of the node where the VM is currently running.
                 virtualMachineIPAddressName:
                   type: string
                   description: |
-                    Name of `virtualMachineIPAddressName` holding the ip address of the VirtualMachine.
+                    Name of the VirtualMachineIPAddressName resource with an IP address of the VM.
                 ipAddress:
                   type: string
                   description: |
-                    IP address of VM.
+                    IP address of the VM.
                 blockDeviceRefs:
                   type: array
                   description: |
-                    The list of attached block device attachments.
+                    List of block devices attached to the VM.
                   items:
                     type: object
                     required: ["kind", "name", "size", "attached"]
@@ -987,14 +986,14 @@ spec:
                       attached:
                         type: boolean
                         description: |
-                          The block device is attached to the virtual machine.
+                          Block device is attached to the virtual machine.
                       hotplugged:
                         type: boolean
                         description: |
-                          Block device is attached via hot plug connection.
+                          Block device is attached via a hot-plug connection.
                       kind:
                         type: string
-                        description: The type of block device.
+                        description: Block device type.
                         enum:
                           - "ClusterVirtualImage"
                           - "VirtualImage"
@@ -1002,30 +1001,30 @@ spec:
                       name:
                         type: string
                         description: |
-                          The name of attached resource.
+                          Name of the existing resource.
                       target:
                         type: string
-                        description: The name of attached block device.
+                        description: Name of the attached block device.
                         example: sda
                       size:
                         type: string
                         description: |
-                          The size of attached block device.
+                          Size of the attached block device.
                       virtualMachineBlockDeviceAttachmentName:
                         type: string
                         description: |
-                          The name of the `VirtualMachineBlockDeviceAttachment` resource that defines hot plug disk connection to the virtual machine.
+                          Name of the VirtualMachineBlockDeviceAttachment resource that defines the hot-plug disk connection to the VM.
                 migrationState:
                   type: object
-                  description: "Migration info."
+                  description: Details on the VM migration.
                   properties:
                     startTimestamp:
-                      description: "Migration start time."
+                      description: Time when the migration starts.
                       format: date-time
                       nullable: true
                       type: string
                     endTimestamp:
-                      description: "Migration end time."
+                      description: Time when the migration ends.
                       format: date-time
                       nullable: true
                       type: string
@@ -1034,23 +1033,24 @@ spec:
                       type: object
                       properties:
                         node:
-                          description: "The name of the node on which the VM is currently migrating."
+                          description: Name of the node where the VM is currently migrating to.
                           type: string
                         pod:
-                          description: "The name of the pod where the VM is currently being migrated."
+                          description: Name of the module where the VM is currently migrating to."
                           type: string
                     source:
                       description: ""
                       type: object
                       properties:
                         node:
-                          description: "The name of the node where the VM is currently running."
+                          description: Name of the node where the VM is currently running.
                           type: string
                         pod:
-                          description: "The name of the pod on which the VM is currently running."
+                          description: Name of the pod where the VM is currently running.
                           type: string
                     result:
-                      description: "Migration result."
+                      description: |
+                        Migration result: `Succeeded` or `Failed`.
                       type: string
                       enum:
                         - ""
@@ -1058,16 +1058,16 @@ spec:
                         - "Failed"
                 stats:
                   type: object
-                  description: "VirtualMachine statistics"
+                  description: Virtual machine statistics.
                   properties:
                     phasesTransitions:
-                      description: "The history of phases."
+                      description: Phase history.
                       type: array
                       items:
                         type: object
                         properties:
                           phase:
-                            description: "The phase of the virtual machine."
+                            description: Virtual machine phase.
                             type: string
                             enum:
                               - "Pending"
@@ -1080,74 +1080,59 @@ spec:
                               - "Migrating"
                               - "Pause"
                           timestamp:
-                            description: "The time of transition to this phase."
+                            description: Time of transition to this phase.
                             format: date-time
                             nullable: true
                             type: string
                     launchTimeDuration:
-                      description: "Launch information."
+                      description: Details on the launch.
                       type: object
                       properties:
                         waitingForDependencies:
-                          description: "The waiting time for dependent resources. pending -> starting."
+                          description: Waiting time for dependent resources. `pending` -> `starting`.
                           nullable: true
                           type: string
                         virtualMachineStarting:
-                          description: "The waiting time for the virtual machine to start. starting -> running."
+                          description: Waiting time for the virtual machine to start. `starting` -> `running`.
                           nullable: true
                           type: string
                         guestOSAgentStarting:
-                          description: "The waiting time for the guestOsAgent to start. running -> running with guestOSAgent"
+                          description: Waiting time for the guestOsAgent to start. `running` -> `running` with guestOSAgent.
                           nullable: true
                           type: string
                 conditions:
-                  description: Contains details of the current state of this API Resource.
+                  description: State of the running virtual machine.
                   items:
-                    description:
-                      "Condition contains details for one aspect of the current
-                      state of this API Resource.\n---\nThis struct is intended for
-                      direct use as an array at the field path .status.conditions.  For
-                      example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                      observations of a foo's current state.\n\t    // Known .status.conditions.type
-                      are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                      +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                      \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                      patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                      \   // other fields\n\t}"
+                    description: Details of a single aspect of the current
+                      state for this API resource.
                     properties:
                       lastTransitionTime:
                         description: |-
-                          lastTransitionTime is the last time the condition transitioned from one status to another.
-                          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          Last time the condition transitioned from one status to another.
                         format: date-time
                         type: string
                       message:
                         description: |-
-                          message is a human readable message indicating details about the transition.
-                          This may be an empty string.
+                          Human-readable message with details about the last transition.
                         maxLength: 32768
                         type: string
                       observedGeneration:
                         description: |-
-                          observedGeneration represents the .metadata.generation that the condition was set based upon.
-                          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                          with respect to the current state of the instance.
+                          `.metadata.generation` the condition was based upon.
+                          For instance, if `.metadata.generation` is currently `12` but `.status.conditions[x].observedGeneration` is `9`, the condition is considered outdated.
                         format: int64
                         minimum: 0
                         type: integer
                       reason:
                         description: |-
-                          reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                          Producers of specific condition types may define expected values and meanings for this field,
-                          and whether the values are considered a guaranteed API.
-                          The value should be a CamelCase string.
-                          This field may not be empty.
+                          Brief reason for the condition's last transition.
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                         type: string
                       status:
-                        description: status of the condition, one of True, False, Unknown.
+                        description: |-
+                          Condition status. Possible values: `True`, `False`, or `Unknown`.
                         enum:
                           - "True"
                           - "False"
@@ -1155,11 +1140,7 @@ spec:
                         type: string
                       type:
                         description: |-
-                          type of condition in CamelCase or in foo.example.com/CamelCase.
-                          ---
-                          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                          useful (see .node.status.conditions), the ability to deconflict is important.
-                          The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                          Condition type.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -1173,14 +1154,14 @@ spec:
                   type: array
                 restartAwaitingChanges:
                   description: |
-                    A list of changes require restart for applying.
+                    List of configuration changes that require a VM reboot to be applied.
                   type: array
                   items:
                     type: object
                     x-kubernetes-preserve-unknown-fields: true
                 observedGeneration:
                   type: integer
-                  description: "Generating a resource that was last processed by the controller"
+                  description: Resource generation last processed by the controller.
                   format: int64
                 virtualMachinePods:
                   description: List of virtual machine pods.
@@ -1190,7 +1171,7 @@ spec:
                         description: Current working pod.
                         type: boolean
                       name:
-                        description: Name of virtual machine pod.
+                        description: Pod name.
                         type: string
                     required:
                       - active
@@ -1198,16 +1179,16 @@ spec:
                     type: object
                   type: array
                 resources:
-                  description: Resource utilization statistics.
+                  description: Statistics on used resources.
                   properties:
                     cpu:
-                      description: CPU utilization statistics. usage.
+                      description: Statistics on used CPU resources.
                       properties:
                         coreFraction:
-                          description: Current CoreFraction.
+                          description: Current value of `coreFraction`.
                           type: string
                         cores:
-                          description: The current number of cores in the virtual machine.
+                          description: Current number of the VM cores.
                           type: integer
                         requestedCores:
                           anyOf:
@@ -1220,27 +1201,27 @@ spec:
                           anyOf:
                             - type: integer
                             - type: string
-                          description: Runtime overhead.
+                          description: CPU overhead required by the runtime.
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                       required:
                         - cores
                       type: object
                     memory:
-                      description: Memory utilization statistics. resource usage.
+                      description: Statistics on used memory resources.
                       properties:
                         runtimeOverhead:
                           anyOf:
                             - type: integer
                             - type: string
-                          description: Memory runtime overhead.
+                          description: Memory overhead required by the runtime.
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         size:
                           anyOf:
                             - type: integer
                             - type: string
-                          description: Current memory size.
+                          description: Current size of the VM memory.
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                       required:
@@ -1248,11 +1229,11 @@ spec:
                       type: object
                   type: object
       additionalPrinterColumns:
-        - description: The phase of the virtual machine.
+        - description: Virtual machine phase.
           jsonPath: .status.phase
           name: Phase
           type: string
-        - description: The real number of cores of the virtual machine.
+        - description: Real number of the virtual machine cores.
           jsonPath: .status.resources.cpu.cores
           name: Cores
           priority: 1
@@ -1290,7 +1271,7 @@ spec:
           jsonPath: .status.ipAddress
           name: IPAddress
           type: string
-        - description: Time of creation resource.
+        - description: Time of resource creation.
           jsonPath: .metadata.creationTimestamp
           name: Age
           type: date

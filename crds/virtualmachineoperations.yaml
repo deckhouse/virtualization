@@ -36,7 +36,7 @@ spec:
           jsonPath: .spec.virtualMachineName
           name: VirtualMachine
           type: string
-        - description: Time of creation resource.
+        - description: Time of resource creation.
           jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
@@ -44,8 +44,8 @@ spec:
       schema:
         openAPIV3Schema:
           description:
-            VirtualMachineOperation resource provides the ability to declaratively
-            manage state changes of virtual machines.
+            VirtualMachineOperation enables declarative management of virtual
+            machine state changes.
           properties:
             apiVersion:
               description: |-
@@ -68,18 +68,18 @@ spec:
               properties:
                 force:
                   description:
-                    Force the execution of the operation. Applies only for
-                    Restart and Stop. In this case, the action on the virtual machine
-                    is performed immediately.
+                    Force execution of an operation. Applies only to the
+                    `Restart` and `Stop` operations. In this case, the operation on
+                    a virtual machine is performed immediately.
                   type: boolean
                 type:
                   description: |-
-                    Type is operation over the virtualmachine:
-                    * Start - start the virtualmachine.
-                    * Stop - stop the virtualmachine.
-                    * Restart - restart the virtualmachine.
-                    * Migrate (deprecated) - migrate the virtualmachine.
-                    * Evict - evict the virtualmachine.
+                    Type of the operation to execute on a virtual machine:
+                    * `Start`: Start the virtual machine.
+                    * `Stop`: Stop the virtual machine.
+                    * `Restart`: Restart the virtual machine.
+                    * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
+                    * `Evict`: Migrate the virtual machine to another node where it can be started.
                   enum:
                     - Restart
                     - Start
@@ -89,8 +89,8 @@ spec:
                   type: string
                 virtualMachineName:
                   description:
-                    The name of the virtual machine for which the operation
-                    is performed.
+                    Name of the virtual machine the operation is performed
+                    for.
                   type: string
               required:
                 - type
@@ -168,17 +168,17 @@ spec:
                     type: object
                   type: array
                 observedGeneration:
-                  description: " The generation last processed by the controller."
+                  description: " Resource generation last processed by the controller."
                   format: int64
                   type: integer
                 phase:
                   description: |-
-                    Represents the current phase of resource:
-                    * Pending - the operation is queued for execution.
-                    * InProgress - operation in progress.
-                    * Completed - the operation was successful.
-                    * Failed - the operation failed. Check conditions and events for more information.
-                    * Terminating - the operation is deleted.
+                    Current phase of the resource:
+                    * `Pending`: The operation is queued for execution.
+                    * `InProgress`: The operation is in progress.
+                    * `Completed`: The operation has been completed successfully.
+                    * `Failed`: The operation failed. For details, refer to the `conditions` field and events.
+                    * `Terminating`: The operation is being deleted.
                   enum:
                     - Pending
                     - InProgress

@@ -35,8 +35,8 @@ spec:
       schema:
         openAPIV3Schema:
           description:
-            VirtualMachineRestore provides a resource that allows to restore
-            a snapshot of the virtual machine and all its resources.
+            VirtualMachineRestore provides a resource for restoring a virtual
+            machine and all associated resources from a snapshot.
           properties:
             apiVersion:
               description: |-
@@ -58,26 +58,26 @@ spec:
             spec:
               properties:
                 nameReplacements:
-                  description: Redefining the virtual machine resource names.
+                  description: Renaming conventions for virtual machine resources.
                   items:
                     description:
-                      NameReplacement represents rule to redefine the virtual
-                      machine resource names.
+                      NameReplacement represents a rule for redefining the
+                      virtual machine resource names.
                     properties:
                       from:
-                        description: The selector to choose resources for name replacement.
+                        description: Selector to choose resources for name replacement.
                         properties:
                           kind:
-                            description: The kind of resource to rename.
+                            description: Kind of a resource to rename.
                             type: string
                           name:
-                            description: The current name of resource to rename.
+                            description: Current name of a resource to rename.
                             type: string
                         required:
                           - name
                         type: object
                       to:
-                        description: The new resource name.
+                        description: New resource name.
                         type: string
                     required:
                       - from
@@ -85,9 +85,7 @@ spec:
                     type: object
                   type: array
                 virtualMachineSnapshotName:
-                  description:
-                    The name of virtual machine snapshot to restore the virtual
-                    machine.
+                  description: Snapshot name to restore a virtual machine from.
                   minLength: 1
                   type: string
               required:
@@ -96,7 +94,7 @@ spec:
             status:
               properties:
                 conditions:
-                  description: Contains details of the current state of this API Resource.
+                  description: Contains details of the current API resource state.
                   items:
                     description:
                       Condition contains details for one aspect of the current
@@ -154,17 +152,17 @@ spec:
                     type: object
                   type: array
                 observedGeneration:
-                  description: The generation last processed by the controller.
+                  description: Resource generation last processed by the controller.
                   format: int64
                   type: integer
                 phase:
                   description: |-
-                    VirtualMachineRestorePhase defines current status of resource:
-                    * Pending - the resource has been created and is on a waiting queue.
-                    * InProgress - the process of creating the virtual machine from the snapshot is currently underway.
-                    * Ready - the virtual machine creation from the snapshot has successfully completed.
-                    * Failed - an error occurred during the virtual machine creation process.
-                    * Terminating - the resource is in the process of being deleted.
+                    VirtualMachineRestorePhase defines the current status of a resource:
+                    * `Pending`: The resource has been created and is on a waiting queue.
+                    * `InProgress`: A virtual machine is being restored from a snapshot.
+                    * `Ready`: A virtual machine has been successfully restored from a snapshot.
+                    * `Failed`: An error occurred when restoring a virtual machine from a snapshot.
+                    * `Terminating`: The resource is being deleted.
                   enum:
                     - Pending
                     - InProgress

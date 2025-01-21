@@ -30,7 +30,7 @@ spec:
           jsonPath: .status.phase
           name: Phase
           type: string
-        - description: Time of creation resource.
+        - description: Time of resource creation.
           jsonPath: .metadata.creationTimestamp
           name: Age
           type: date
@@ -38,7 +38,7 @@ spec:
       schema:
         openAPIV3Schema:
           description: |-
-            VirtualMachineClass resource describes a cpu requirements, node placement and sizing policy for VM resources.
+            VirtualMachineClass resource describes CPU requirements, node placement, and sizing policy for VM resources.
             A resource cannot be deleted as long as it is used in one of the VMs.
           properties:
             apiVersion:
@@ -65,13 +65,13 @@ spec:
                   properties:
                     discovery:
                       description:
-                        Create CPU model based on an intersection CPU features
+                        Create a CPU model based on intersecting CPU features
                         for selected nodes.
                       properties:
                         nodeSelector:
                           description:
-                            A selection of nodes on the basis of which a
-                            universal CPU model will be created.
+                            A selection of nodes to be used as the basis
+                            for creating a universal CPU model.
                           properties:
                             matchExpressions:
                               description:
@@ -119,8 +119,8 @@ spec:
                       type: object
                     features:
                       description: |-
-                        A list of CPU instructions (features) required when type=Features.
-                        More information about features [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
+                        List of CPU instructions (features) required when type=Features.
+                        For more information about CPU features, refer to the [libvirt docs](https://libvirt.org/formatdomain.html#cpu-model-and-topology).
                       example:
                         - mmx
                         - vmx
@@ -131,23 +131,23 @@ spec:
                       type: array
                     model:
                       description:
-                        The name of CPU model. More information about models
-                        [here](https://libvirt.org/formatdomain.html#cpu-model-and-topology)
+                        CPU model name. For more information about CPU models
+                        and topology, refer to the [libvirt docs](https://libvirt.org/formatdomain.html#cpu-model-and-topology).
                       example: IvyBridge
                       minLength: 1
                       type: string
                     type:
                       description: |-
-                        CPUType defines cpu type, the following options are supported:
-                        * `Host` - a virtual CPU is used that is as close as possible to the platform node's CPU in terms of instruction set.
-                        This provides high performance and functionality, as well as compatibility with live migration for nodes with similar processor types.
+                        CPUType defines the CPU type, the following options are supported:
+                        * `Host`: Uses a virtual CPU with an instruction set closely matching the platform node's CPU.
+                        This provides high performance and functionality, as well as compatibility with "live" migration for nodes with similar processor types.
                         For example, VM migration between nodes with Intel and AMD processors will not work.
-                        This is also true for different generations of processors, as their instruction set is different.
-                        * `HostPassthrough` - uses the physical CPU of the platform node directly without any modifications.
-                        When using this class, the guest VM can only be transferred to a target node that has a CPU that exactly matches the CPU of the source node.
-                        * `Discovery` - create a CPU model based on an intersecton CPU features for selected nodes.
-                        * `Model` - CPU model name. A CPU model is a named and previously defined set of supported CPU instructions.
-                        * `Features` - the required set of supported instructions for the CPU.
+                        This is also true for different CPU generations, as their instruction set is different.
+                        * `HostPassthrough`: Uses the platform node's physical CPU directly, without any modifications.
+                        When using this class, the guest VM can only be transferred to a target node with a CPU exactly matching the source node's CPU.
+                        * `Discovery`: Create a virtual CPU based on instruction sets of physical CPUs for a selected set of nodes.
+                        * `Model`: CPU model. A CPU model is a named and previously defined set of supported CPU instructions.
+                        * `Features`: A required set of supported instructions for the CPU.
                       enum:
                         - Host
                         - HostPassthrough
@@ -181,9 +181,7 @@ spec:
                         "self.type == 'Features' ? has(self.features) && !has(self.model)
                         && !has(self.discovery): true"
                 nodeSelector:
-                  description:
-                    NodeSelector defines selects the nodes that are targeted
-                    to VM scheduling.
+                  description: NodeSelector defines the nodes targeted for VM scheduling.
                   properties:
                     matchExpressions:
                       description: A list of node selector requirements by node's labels.
@@ -220,14 +218,14 @@ spec:
                         type: string
                       description: |-
                         A map of {key,value} pairs.
-                        A single {key,value} in the matchLabels map is equivalent to an element of matchExpressions, whose key field is "key", the operator is "In", and the values array contains only "value".
+                        A single {key,value} pair in the matchLabels map is equivalent to an element of matchExpressions whose key field is "key", operator is "In", and the value array contains only "value".
                         The requirements are ANDed.
                       type: object
                   type: object
                 sizingPolicies:
                   items:
                     description: |-
-                      SizingPolicy define policy for allocating computational resources to VMs.
+                      SizingPolicy defines a policy for allocating computational resources to VMs.
                       It is represented as a list.
                       The cores.min - cores.max ranges for different elements of the list must not overlap.
                     properties:
@@ -244,20 +242,21 @@ spec:
                           number of CPU cores.
                         properties:
                           max:
-                            description: Maximum cpu core count.
+                            description: Maximum number of CPU cores.
                             example: 10
                             maximum: 1024
                             type: integer
                           min:
-                            description: Minimum cpu core count.
+                            description: Minimum number of CPU cores.
                             example: 1
                             minimum: 1
                             type: integer
                           step:
                             description:
-                              Cpu cores count discretization step. I.e. min=2,
-                              max=10, step=4 allows to set virtual machine cpu cores
-                              to 2, 6, or 10.
+                              Discretization step for the CPU core number.
+                              For example, the combination of `min=2`, `max=10`, and
+                              `step=4` allows to set the number of virtual machine CPU
+                              cores to 2, 6, or 10.
                             example: 1
                             minimum: 1
                             type: integer
@@ -319,9 +318,10 @@ spec:
                               - type: integer
                               - type: string
                             description:
-                              Memory size discretization step. I.e. min=2Gi,
-                              max=4Gi, step=1Gi allows to set virtual machine memory
-                              size to 2Gi, 3Gi, or 4Gi.
+                              Memory size discretization step. For example,
+                              the combination of `min=2Gi, `max=4Gi` and `step=1Gi`
+                              allows to set the virtual machine memory size to 2Gi,
+                              3Gi, or 4Gi.
                             example: 512Mi
                             pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                             x-kubernetes-int-or-string: true
@@ -330,8 +330,8 @@ spec:
                   type: array
                 tolerations:
                   description: |-
-                    Tolerations are the same as `spec.tolerations` in the [Pod](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
-                    These tolerations will be merged with tolerations specified in VirtualMachine resource. VirtualMachine tolerations have higher priority.
+                    Tolerations are the same as `spec.tolerations` for [pods](https://kubernetes.io/docs/concepts/scheduling-eviction/taint-and-toleration/).
+                    These tolerations will be merged with the tolerations specified in the VirtualMachine resource. VirtualMachine tolerations have a higher priority.
                   items:
                     description: |-
                       The pod this Toleration is attached to tolerates any taint that matches
@@ -376,8 +376,8 @@ spec:
               properties:
                 availableNodes:
                   description: |-
-                    A list of nodes that support this CPU model.
-                    It is not displayed for the types: `Host`, `HostPassthrough`
+                    List of nodes that support this CPU model.
+                    It is not displayed for the following types: `Host`, `HostPassthrough`.
                   example:
                     - node-1
                     - node-2
@@ -447,11 +447,11 @@ spec:
                 cpuFeatures:
                   description: |-
                     CpuFeatures
-                    Information on CPU features for this model.
-                    Shown only for types `Features` or `Discovery`.
+                    Information on CPU features supported by this model.
+                    Shown only for `Features` or `Discovery` types.
                   properties:
                     enabled:
-                      description: " A list of CPU features for this model."
+                      description: " List of CPU features for this model."
                       example:
                         - mmx
                         - vmx
@@ -461,8 +461,8 @@ spec:
                       type: array
                     notEnabledCommon:
                       description:
-                        A list of unused processor features additionally
-                        available for a given group of nodes.
+                        List of unused processor features additionally available
+                        for a given group of nodes.
                       example:
                         - ssse3
                         - vme
@@ -478,21 +478,21 @@ spec:
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                   description:
-                    The maximum amount of free CPU and Memory resources observed
+                    Maximum amount of free CPU and memory resources observed
                     among all available nodes.
                   example:
                     - 'maxAllocatableResources: {"cpu": 1, "memory": "10Gi"}'
                   type: object
                 observedGeneration:
-                  description: The generation last processed by the controller.
+                  description: Resource generation last processed by the controller.
                   format: int64
                   type: integer
                 phase:
                   description: |-
-                    VirtualMachineClassPhase defines current status of resource:
-                    * Pending - resource is not ready, waits until suitable nodes supporting the required CPU model become available.
-                    * Ready - the resource is ready and available for use.
-                    * Terminating - the resource is terminating.
+                    VirtualMachineClassPhase defines the current resource status:
+                    * `Pending`: The resource is not ready and waits until the suitable nodes supporting the required CPU model are available.
+                    * `Ready`: The resource is ready and available for use.
+                    * `Terminating`: The resource is terminating.
                   enum:
                     - Pending
                     - Ready
