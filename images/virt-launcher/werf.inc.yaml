@@ -38,7 +38,7 @@ import:
   - '*.json'
 
 # After install stage.
-{{/* 
+{{/*
 # #  Add libxcrypto library.
 # - image: {{ $.ImageName }}-libxcrypt-builder
 #   add: /usr/local/lib/
@@ -126,23 +126,25 @@ shell:
     ethtool \
     nftables \
     passt \
-    libffi8 \
     swtpm swtpm-tools \
     xorriso \
-    dmidecode \
-    libcrypt libcrypto3 \
-    libjson-c5 libtirpc libbsd libiscsi libglusterfs11 libnuma \
-    libcap-ng libcurl libaudit libfuse libnbd libblkid libgcrypt20 \
-    libgnutls libp11-kit libreadline8 libtasn1 libattr libbsd libsystemd \
-    libuuid libssh libssh2 \
-    libspice-server \
-    libcapstone libpixman libpng16 libjpeg libepoxy libusb \
-    libsnappy liblzo2 libSDL2 libpmem libdaxctl libfdt libqpl1 \
-    libslirp libvdeplug3 libxdp libbpf libdw libgbm libgtk+3 \
-    libcairo libgdk-pixbuf libvte3 libX11 libSDL2_image \
-    libvirglrenderer libcacard libusbredir libalsa \
-    libpulseaudio pipewire-libs libaio liburing \
-    libblkio libglusterfs11-api libnfs librbd1 librados2
+    dmidecode
+{{/*
+    # libffi8 \
+    # libcrypt libcrypto3 \
+    # libjson-c5 libtirpc libbsd libiscsi libglusterfs11 libnuma \
+    # libcap-ng libcurl libaudit libfuse libnbd libblkid libgcrypt20 \
+    # libgnutls libp11-kit libreadline8 libtasn1 libattr libsystemd \
+    # libuuid libssh libssh2 \
+    # libspice-server \
+    # libcapstone libpixman libpng16 libjpeg libepoxy libusb \
+    # libsnappy liblzo2 libSDL2 libpmem libdaxctl libfdt libqpl1 \
+    # libslirp libvdeplug3 libxdp libbpf libdw libgbm libgtk+3 \
+    # libcairo libgdk-pixbuf libvte3 libX11 libSDL2_image \
+    # libvirglrenderer libcacard libusbredir libalsa \
+    # libpulseaudio pipewire-libs libaio liburing \
+    # libblkio libglusterfs11-api libnfs librbd1 librados2
+*/}}
 
 {{/*
     # xorriso \
@@ -178,6 +180,7 @@ shell:
     ln -s /usr/share/OVMF /usr/share/edk2/ovmf
     ln -s /usr/share/OVMF/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.cc.fd
 
+{{/*
     # cd /usr/share/OVMF
     # rm MICROVM.fd
     # rm OVMF.inteltdx.secboot.fd
@@ -197,12 +200,14 @@ shell:
     # mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
     # rm OVMF_VARS_4M.secboot.qcow2 || true
     # ls -la
+*/}}
 
   # Installation libvirt and qemu
   - |
     echo "Install libvirt and qemu binaries"
     cp -a -u -v /BINS/usr/* /usr
     cp -a -u -v /BINS/etc/* /etc
+    cp -a -u -v /BINS/lib64/* /lib64
     rm -rf /BINS/
 
   # Create symlinc for libvirt
@@ -242,13 +247,13 @@ shell:
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
   - chmod +x /usr/bin/virt-launcher-monitor
-  
+
   # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
   - cp /etc/ld.so.preload.in /etc/ld.so.preload
-  
+
   # Create qemu group and user.
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
-  
+
   # Create links to required for virt-launcher libs.
   # - ln -s /lib64/libcrypt.so.2.0.0 /lib64/libcrypt.so.2
   # - ln -s /lib64/libpcre.so.1.2.13 /lib64/libpcre.so.1
@@ -271,26 +276,56 @@ import:
   add: /BINS
   to: /qemu-bins
   before: install
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /
+    stageDependencies:
+      setup:
+      - '**/*'
+    includePaths:
+    - reloclibs.sh
 shell:
   install:
   - |
-    apt-get update && apt-get install -y \
-    tree
-    mkdir -p /VBINS
+    apt-get update && apt-get install -y tree \
+    glibc-utils \
+    libffi8 \
+    libssh-devel libssh2-devel \
+    libcap-ng-devel \
+    libxfs-devel zlib-devel libcurl-devel libpci-devel libgvnc-devel libfdt-devel \
+    libpixman-devel libkeyutils-devel libuuid-devel libpam0-devel libtasn1-devel libslirp-devel \
+    libdrm-devel libxdp-devel libSDL2-devel libSDL2_image-devel libncursesw-devel libalsa-devel \
+    libpulseaudio-devel pipewire-libs pipewire-jack-libs-devel libsoundio-devel \
+    libcapstone-devel libsasl2-devel libjpeg-devel libpng-devel libxkbcommon-devel xkeyboard-config-devel libgtk+3-devel \
+    libvte libvte-devel libvte3-devel libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel \
+    libspice-server-devel ceph-devel libnfs-devel libzstd-devel libseccomp-devel \
+    libgcrypt-devel libgnutls-devel libnettle-devel libudev-devel libmultipath-devel \
+    libblkio-devel libpmem-devel libdaxctl-devel libfuse3-devel rdma-core-devel libnuma-devel \
+    bzlib-devel liblzo2-devel libsnappy-devel libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel \
+    libvitastor-devel libiscsi-devel libaio-devel libselinux-devel libqpl-devel libglusterfs11-api-devel \
+    libvdeplug-devel libpciaccess-devel libyajl-devel sanlock-devel libpcap-devel libnl-devel libparted-devel libdevmapper-devel \
+    libglusterfs-devel libaudit-devel libfuse-devel libnbd-devel libblkid-devel libp11-kit-devel libreadline-devel \
+    libattr-devel libbsd-devel libsystemd-devel libjson-c-devel systemtap-sdt-devel libacl-devel glib2-devel \
+    libgio-devel libxml2-devel libtirpc-devel libclocale libLLVMSPIRVLib-devel
 
-    echo "====/qemu-bins===="
-    tree -L 2 /qemu-bins
+    apt-get clean
+
+    mkdir -p /VBINS
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
 
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
-    # cp -a /qemu-bins/bin/. /VBINS/usr/bin/
-    # cp -a /qemu-bins/share/. /VBINS/usr/share/
-    # cp -a /qemu-bins/libexec/. /VBINS/usr/lib/libexec/
-    # cp -a /qemu-bins/include/. /VBINS/usr/local/include/
+
     rm -rf /VBINS/var/run
+  setup:
+  - |
+    LIST="$(find /VBINS/usr/bin/ -type f)"
+    LIST+=" $(find /VBINS/usr/sbin/ -type f)"
+    LIST+=" /usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3"
+    # LIST+=" /usr/lib/llvm-18.1/lib64/libLLVM-18.so /usr/lib64/libLLVMSPIRVLib.so"
+    ./reloclibs.sh -i "$LIST" -o /VBINS
 
 ---
 image: {{ $.ImageName }}-lib-builder
