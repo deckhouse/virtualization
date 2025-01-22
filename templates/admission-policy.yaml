@@ -35,7 +35,7 @@ spec:
         resources: ["*"]
   validations:
     - expression: |
-        (request.userInfo.username in [
+        !(request.userInfo.username in [
           "cdi-apiserver",
           "cdi-cronjob",
           "cdi-operator",
@@ -51,6 +51,9 @@ spec:
           "virtualization-pre-delete-hook",
           "vm-route-forge"
         ])
+      message: "Operation forbidden for this user."
+    - expression: |
+        request.userInfo.username == "kubernetes-admin"
       message: "Operation forbidden for this user."
 ---
 apiVersion: {{ $apiVersion }}
