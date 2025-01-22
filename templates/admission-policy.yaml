@@ -53,7 +53,9 @@ spec:
         ])
       message: "Operation forbidden for this user."
     - expression: |
-        request.userInfo.username == "kubernetes-admin"
+        request.userInfo.username in [
+          "kubernetes-admin"
+        ]
       message: "Operation forbidden for this user."
 ---
 apiVersion: {{ $apiVersion }}
