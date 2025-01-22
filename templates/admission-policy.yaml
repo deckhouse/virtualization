@@ -52,8 +52,6 @@ spec:
           "vm-route-forge"
         ])
       message: "Operation forbidden for this user."
-    - expression: "!has(request)"
-      message: "Operation forbidden for this kekekekkekkekke"
 ---
 apiVersion: {{ $apiVersion }}
 kind: ValidatingAdmissionPolicyBinding
