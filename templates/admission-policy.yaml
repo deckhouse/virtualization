@@ -56,7 +56,7 @@ spec:
         request.userInfo.username in [
           "kubernetes-admin"
         ]
-      message: "Operation forbidden for this user."
+      message: "Operation forbidden for this kekekekkekkekke"
 ---
 apiVersion: {{ $apiVersion }}
 kind: ValidatingAdmissionPolicyBinding
