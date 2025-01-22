@@ -64,7 +64,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 
 	vm, err := h.snapshotter.GetVirtualMachine(ctx, vmSnapshot.Spec.VirtualMachineName, vmSnapshot.Namespace)
 	if err != nil {
-		setPhaseConditionToFailed(h, cb, vmSnapshot, err)
+		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
@@ -77,7 +77,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 
 		_, err = h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm)
 		if err != nil {
-			setPhaseConditionToFailed(h, cb, vmSnapshot, err)
+			h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 			return reconcile.Result{}, err
 		}
 
@@ -100,7 +100,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		for _, vdSnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
 			vdSnapshot, err := h.snapshotter.GetVirtualDiskSnapshot(ctx, vdSnapshotName, vmSnapshot.Namespace)
 			if err != nil {
-				setPhaseConditionToFailed(h, cb, vmSnapshot, err)
+				h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 				return reconcile.Result{}, err
 			}
 
@@ -187,7 +187,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 			Message(msg)
 		return reconcile.Result{}, nil
 	default:
-		setPhaseConditionToFailed(h, cb, vmSnapshot, err)
+		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
@@ -248,7 +248,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	if needToFreeze {
 		hasFrozen, err = h.freezeVirtualMachine(ctx, vm, vmSnapshot)
 		if err != nil {
-			setPhaseConditionToFailed(h, cb, vmSnapshot, err)
+			h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 			return reconcile.Result{}, err
 		}
 	}
@@ -265,7 +265,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	// 4. Create secret.
 	err = h.ensureSecret(ctx, vm, vmSnapshot)
 	if err != nil {
-		setPhaseConditionToFailed(h, cb, vmSnapshot, err)
+		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
@@ -294,7 +294,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 			Message(msg)
 		return reconcile.Result{}, nil
 	default:
-		setPhaseConditionToFailed(h, cb, vmSnapshot, err)
+		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
@@ -331,7 +331,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	// 8. Unfreeze VirtualMachine if can.
 	unfrozen, err := h.unfreezeVirtualMachineIfCan(ctx, vmSnapshot, vm)
 	if err != nil {
-		setPhaseConditionToFailed(h, cb, vmSnapshot, err)
+		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
 		return reconcile.Result{}, err
 	}
 
@@ -353,7 +353,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	return reconcile.Result{}, nil
 }
 
-func setPhaseConditionToFailed(h LifeCycleHandler, cb *conditions.ConditionBuilder, vmSnapshot *virtv2.VirtualMachineSnapshot, err error) {
+func (h LifeCycleHandler) setPhaseConditionToFailed(cb *conditions.ConditionBuilder, vmSnapshot *virtv2.VirtualMachineSnapshot, err error) {
 	vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
 	h.recorder.Event(
 		vmSnapshot,
