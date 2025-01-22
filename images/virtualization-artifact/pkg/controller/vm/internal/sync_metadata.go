@@ -23,12 +23,15 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/merger"
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -76,8 +79,8 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 		}
 
 		if metaUpdated {
-			if err = h.client.Update(ctx, kvvmi); err != nil {
-				return reconcile.Result{}, fmt.Errorf("failed to update metadata KubeVirt VMI %q: %w", kvvmi.GetName(), err)
+			if err = h.patchLabelsAndAnnotations(ctx, kvvmi, kvvmi.ObjectMeta); err != nil {
+				return reconcile.Result{}, fmt.Errorf("failed to patch metadata KubeVirt VMI %q: %w", kvvmi.GetName(), err)
 			}
 		}
 	}
@@ -100,8 +103,8 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 			}
 
 			if metaUpdated {
-				if err = h.client.Update(ctx, &pod); err != nil {
-					return reconcile.Result{}, fmt.Errorf("failed to update KubeVirt Pod %q: %w", pod.GetName(), err)
+				if err = h.patchLabelsAndAnnotations(ctx, &pod, pod.ObjectMeta); err != nil {
+					return reconcile.Result{}, fmt.Errorf("failed to patch KubeVirt Pod %q: %w", pod.GetName(), err)
 				}
 			}
 		}
@@ -118,7 +121,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 	}
 
 	if labelsChanged || annosChanged || kvvmMetaUpdated {
-		if err = h.client.Update(ctx, kvvm); err != nil {
+		if err = h.patchLabelsAndAnnotations(ctx, kvvm, kvvm.ObjectMeta); err != nil {
 			return reconcile.Result{}, fmt.Errorf("failed to update metadata KubeVirt VM %q: %w", kvvm.GetName(), err)
 		}
 	}
@@ -128,6 +131,18 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 
 func (h *SyncMetadataHandler) Name() string {
 	return nameSyncMetadataHandler
+}
+
+func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj client.Object, metadata metav1.ObjectMeta) error {
+	jp := patch.NewJsonPatch(
+		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/labels", metadata.Labels),
+		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/annotations", metadata.Annotations),
+	)
+	bytes, err := jp.Bytes()
+	if err != nil {
+		return err
+	}
+	return h.client.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
 }
 
 // PropagateVMMetadata merges labels and annotations from the input VM into destination object.
