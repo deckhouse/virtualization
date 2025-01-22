@@ -17,13 +17,10 @@ git:
 shell:
   beforeInstall:
   - | 
-    apt-get update && apt-get install -y su sudo \
+    apt-get update && apt-get install -y \
     pkgconfig \
     pkg-config \
-    gear rpm dmidecode \
-    rpm-build \
-    rpm-build-systemd \
-    rpm-build-python3 \
+    dmidecode \
     gcc-c++ \
     git \
     gettext \
@@ -122,7 +119,6 @@ shell:
     ./configure \
       --target-list="x86_64-softmmu" \
       --enable-kvm \
-      --enable-guest-agent \
       --enable-hv-balloon \
       --enable-malloc-trim \
       --enable-numa \
@@ -141,6 +137,7 @@ shell:
       --disable-cloop \
       --disable-dmg \
       --disable-glusterfs \
+      --disable-guest-agent \
       --disable-guest-agent-msi \
       --disable-jack \
       --disable-parallels \
