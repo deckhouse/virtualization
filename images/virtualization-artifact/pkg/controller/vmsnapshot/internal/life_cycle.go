@@ -138,12 +138,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		}
 
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseReady
-		h.recorder.Event(
-			vmSnapshot,
-			corev1.EventTypeNormal,
-			virtv2.ReasonVMSnapshottingCompleted,
-			"Virtual machine snapshotting process is completed.",
-		)
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vmscondition.VirtualMachineSnapshotReady).
@@ -235,6 +229,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 
 	if vmSnapshot.Status.Phase == virtv2.VirtualMachineSnapshotPhasePending {
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseInProgress
+		h.recorder.Event(
+			vmSnapshot,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVMSnapshottingStarted,
+			"Virtual machine snapshotting process is started.",
+		)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmscondition.FileSystemFreezing).
@@ -300,16 +300,16 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 
 	// 7. Wait for VirtualDiskSnapshots to be Ready.
 	readyCount := h.countReadyVirtualDiskSnapshots(vdSnapshots)
+	msg := fmt.Sprintf(
+		"Waiting for the virtual disk snapshots to be taken for "+
+			"the block devices of the virtual machine %q (%d/%d).",
+		vm.Name, readyCount, len(vdSnapshots),
+	)
 
 	if readyCount != len(vdSnapshots) {
 		log.Debug("Waiting for the virtual disk snapshots to be taken for the block devices of the virtual machine")
 
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseInProgress
-		msg := fmt.Sprintf(
-			"Waiting for the virtual disk snapshots to be taken for "+
-				"the block devices of the virtual machine %q (%d/%d).",
-			vm.Name, readyCount, len(vdSnapshots),
-		)
 		h.recorder.Event(
 			vmSnapshot,
 			corev1.EventTypeNormal,
@@ -321,6 +321,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 			Reason(vmscondition.Snapshotting).
 			Message(msg)
 		return reconcile.Result{}, nil
+	} else {
+		h.recorder.Event(
+			vmSnapshot,
+			corev1.EventTypeNormal,
+			virtv2.ReasonVMSnapshottingInProgress,
+			msg,
+		)
 	}
 
 	vmSnapshot.Status.Consistent = ptr.To(true)
@@ -511,8 +518,8 @@ func (h LifeCycleHandler) freezeVirtualMachine(ctx context.Context, vm *virtv2.V
 	h.recorder.Event(
 		vmSnapshot,
 		corev1.EventTypeNormal,
-		virtv2.ReasonVMSnapshottingInProgress,
-		fmt.Sprintf("The virtual machine %q is frozen.", vm.Name),
+		virtv2.ReasonVMSnapshottingFrozen,
+		fmt.Sprintf("The file system of the virtual machine %q is frozen.", vm.Name),
 	)
 
 	return true, nil
@@ -540,8 +547,8 @@ func (h LifeCycleHandler) unfreezeVirtualMachineIfCan(ctx context.Context, vmSna
 	h.recorder.Event(
 		vmSnapshot,
 		corev1.EventTypeNormal,
-		virtv2.ReasonVMSnapshottingInProgress,
-		fmt.Sprintf("The virtual machine %q is unfrozen.", vm.Name),
+		virtv2.ReasonVMSnapshottingThawed,
+		fmt.Sprintf("The file system of the virtual machine %q is thawed.", vm.Name),
 	)
 
 	return true, nil
@@ -599,12 +606,6 @@ func (h LifeCycleHandler) ensureSecret(ctx context.Context, vm *virtv2.VirtualMa
 	}
 
 	if secret == nil {
-		h.recorder.Event(
-			vmSnapshot,
-			corev1.EventTypeNormal,
-			virtv2.ReasonVMSnapshottingStarted,
-			"Virtual machine snapshotting process is started.",
-		)
 		secret, err = h.storer.Store(ctx, vm, vmSnapshot)
 		if err != nil {
 			return err
