@@ -27,11 +27,11 @@ The changelog toolchain consists of these files
         dispatch-slash-command.yml
 ```
 
-
 ## Actions
+
 ### Milestone changelog action
 
-The action creates or updates a changelog PR for a given *open* milesone. It is used by workflows.
+The action creates or updates a changelog PR for a given _open_ milesone. It is used by workflows.
 
 ## Workflows
 
