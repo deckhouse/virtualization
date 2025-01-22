@@ -69,6 +69,15 @@ func (p pather) Path(namespace, name string) string {
 	return fmt.Sprintf(p.template, namespace, name, p.subresource)
 }
 
+type preconditionVirtualMachine func(vm *virtv2.VirtualMachine) error
+
+func virtualMachineNeedRunning(vm *virtv2.VirtualMachine) error {
+	if vm == nil || vm.Status.Phase != virtv2.MachineRunning {
+		return fmt.Errorf("VirtualMachine is not Running")
+	}
+	return nil
+}
+
 var upgradeableMethods = []string{http.MethodGet, http.MethodPost}
 
 func streamLocation(
@@ -79,6 +88,7 @@ func streamLocation(
 	pather pather,
 	kubevirt KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
+	preConditions ...preconditionVirtualMachine,
 ) (*url.URL, *http.Transport, error) {
 	ns, _ := request.NamespaceFrom(ctx)
 	vm, err := getter.VirtualMachines(ns).Get(name)
@@ -86,8 +96,10 @@ func streamLocation(
 		return nil, nil, err
 	}
 
-	if vm.Status.Phase != virtv2.MachineRunning {
-		return nil, nil, fmt.Errorf("VirtualMachine is not Running")
+	for _, preCond := range preConditions {
+		if err = preCond(vm); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	params := url.Values{}
