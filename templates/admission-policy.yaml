@@ -53,7 +53,7 @@ spec:
         ])
       message: "Operation forbidden for this user."
     - expression: |
-        request.userInfo.username != "kekekekekke"
+        request.userInfo.username != request.userInfo.username
       message: "Operation forbidden for this kekekekkekkekke"
 ---
 apiVersion: {{ $apiVersion }}
