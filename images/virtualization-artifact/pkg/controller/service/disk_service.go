@@ -176,6 +176,10 @@ func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.Persiste
 		return fmt.Errorf("failed to fetch data volume provisioner %s: %w", podName, err)
 	}
 
+	if pod == nil {
+		return nil
+	}
+
 	scheduled, _ := conditions.GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
 	if scheduled.Status == corev1.ConditionFalse && scheduled.Reason == corev1.PodReasonUnschedulable {
 		return ErrDataVolumeProvisionerUnschedulable
