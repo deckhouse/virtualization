@@ -263,7 +263,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					},
 				}
 
-				if !config.IsReusable() {
+				if config.IsCleanUpNeeded() {
 					resourcesToDelete.KustomizationDir = conf.TestData.ComplexTest
 				}
 

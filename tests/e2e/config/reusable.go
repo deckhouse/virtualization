@@ -18,10 +18,14 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 )
 
-// ReusableEnv defines an environment variable used to retain all resources created during e2e test after its completion (no cleanup).
+// ReusableEnv defines an environment variable used to reuse resources created previously.
+// By default, it retains all resources created during the e2e test after its completion (no cleanup by default in this mode).
+// Use the `WITH_POST_CLEANUP=yes` environment variable to clean up resources created or used during the test.
+//
 // When a test starts, it will reuse existing virtual machines created earlier, if they exist.
 // If no virtual machines were found, they will be created.
 // Only the following e2e tests are supported in REUSABLE mode. All other tests will be skipped.
@@ -31,18 +35,17 @@ import (
 // - "Complex test"
 const ReusableEnv = "REUSABLE"
 
-const reusableValue = "yes"
-
 func CheckReusableOption() error {
 	env := os.Getenv(ReusableEnv)
 	switch env {
-	case reusableValue, "":
+	case "yes", "":
 		return nil
 	default:
-		return fmt.Errorf("invalid value for the REUSABLE env: %q", env)
+		log.Printf("To run tests in %s mode, set %s=yes. If you don't intend to use this mode, leave the variable unset.\n", ReusableEnv, ReusableEnv)
+		return fmt.Errorf("invalid value for the %s env: %q", ReusableEnv, env)
 	}
 }
 
 func IsReusable() bool {
-	return os.Getenv(ReusableEnv) == reusableValue
+	return os.Getenv(ReusableEnv) == "yes"
 }
