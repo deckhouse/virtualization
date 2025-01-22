@@ -22,6 +22,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
@@ -209,6 +210,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Describe("Migrations", func() {
+		skipConnectivityCheck := make(map[string]struct{})
+
 		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
 			It("starts migrations", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
@@ -219,6 +222,24 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
+
+				// TODO: remove this temporary solution after the d8-cni-cilium fix for network accessibility of migrating virtual machines is merged.
+				for _, name := range vms {
+					vmObj := virtv2.VirtualMachine{}
+					err := GetObject(kc.ResourceVM, name, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+					Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+					nodeObj := corev1.Node{}
+					err = GetObject("node", vmObj.Status.Node, &nodeObj, kc.GetOptions{})
+					Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+					_, ok := nodeObj.Labels["node-role.kubernetes.io/control-plane"]
+					if ok {
+						skipConnectivityCheck[name] = struct{}{}
+					}
+				}
+				// TODO ↥ to delete ↥.
+
 				MigrateVirtualMachines(testCaseLabel, conf.TestData.ComplexTest, vms...)
 			})
 		})
@@ -247,7 +268,15 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
-				vms := strings.Split(res.StdOut(), " ")
+				var vms []string
+				for _, vm := range strings.Split(res.StdOut(), " ") {
+					if _, skip := skipConnectivityCheck[vm]; skip {
+						continue
+					}
+
+					vms = append(vms, vm)
+				}
+
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
