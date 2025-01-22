@@ -122,7 +122,7 @@ func (h *SyncMetadataHandler) Handle(ctx context.Context, s state.VirtualMachine
 
 	if labelsChanged || annosChanged || kvvmMetaUpdated {
 		if err = h.patchLabelsAndAnnotations(ctx, kvvm, kvvm.ObjectMeta); err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to update metadata KubeVirt VM %q: %w", kvvm.GetName(), err)
+			return reconcile.Result{}, fmt.Errorf("failed to patch metadata KubeVirt VM %q: %w", kvvm.GetName(), err)
 		}
 	}
 
