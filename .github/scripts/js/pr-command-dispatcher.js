@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-const {tryParseAbortE2eCluster} = require("./e2e/slash_workflow_command");
+// const {tryParseAbortE2eCluster} = require("./e2e/slash_workflow_command");
 const {commentCommandRecognition} = require("./comments");
 const {extractCommandFromComment, reactToComment, startWorkflow} = require("./ci");
 
@@ -100,9 +100,9 @@ function dispatchPullRequestCommand({arg, core, context}){
   core.debug(`argv is ${JSON.stringify(argv)}`)
 
   // TODO rewrite to some argv parse library
-  const checks = [
-    tryParseAbortE2eCluster
-  ]
+  // const checks = [
+  //   tryParseAbortE2eCluster
+  // ]
 
   const prNumber = context.payload.issue.number;
   // Construct head commit ref using pr number.

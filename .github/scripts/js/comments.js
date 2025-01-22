@@ -13,7 +13,7 @@
  * Bot related functions.
  */
 
-const {abortFailedE2eCommand} = require('./constants');
+// const {abortFailedE2eCommand} = require('./constants');
 
 const WORKFLOW_START_MARKER = '<!-- workflow_start -->'
 module.exports.WORKFLOW_START_MARKER = WORKFLOW_START_MARKER;
