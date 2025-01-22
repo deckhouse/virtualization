@@ -66,7 +66,10 @@ var (
 func init() {
 	err := config.CheckReusableOption()
 	if err != nil {
-		log.Println("To run tests in REUSABLE mode, set REUSABLE=yes. If you don't intend to use this mode, leave the variable unset.")
+		log.Fatal(err)
+	}
+	err = config.CheckWithPostCleanUpOption()
+	if err != nil {
 		log.Fatal(err)
 	}
 	if conf, err = config.GetConfig(); err != nil {
@@ -114,9 +117,9 @@ func init() {
 	}
 
 	if !config.IsReusable() {
-		err := Cleanup()
-		if len(err) != 0 {
-			log.Fatal(err)
+		errs := Cleanup()
+		if len(errs) != 0 {
+			log.Fatal(errs)
 		}
 	} else {
 		log.Println("Run test in REUSABLE mode")
@@ -128,7 +131,7 @@ func TestTests(t *testing.T) {
 	fmt.Fprintf(GinkgoWriter, "Starting test suite\n")
 	RunSpecs(t, "Tests")
 
-	if (ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() || config.IsReusable() {
+	if (ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() || !config.IsCleanUpNeeded() {
 		return
 	}
 

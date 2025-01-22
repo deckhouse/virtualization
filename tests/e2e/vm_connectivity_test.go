@@ -306,7 +306,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 				},
 			}
 
-			if !config.IsReusable() {
+			if !config.IsCleanUpNeeded() {
 				resourcesToDelete.KustomizationDir = conf.TestData.Connectivity
 			}
 
