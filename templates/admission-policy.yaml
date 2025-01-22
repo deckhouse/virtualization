@@ -52,7 +52,7 @@ spec:
           "vm-route-forge"
         ])
       message: "Operation forbidden for this user."
-    - expression: "request.userInfo.username != '1'"
+    - expression: !has(request.userInfo.username)
       message: "Operation forbidden for this kekekekkekkekke"
 ---
 apiVersion: {{ $apiVersion }}
