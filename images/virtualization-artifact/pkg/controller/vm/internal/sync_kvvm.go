@@ -116,10 +116,12 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		if !changes.IsEmpty() {
 			allChanges.Add(changes.GetAll()...)
 		}
-		classChanges := h.detectClassSpecChanges(ctx, &class.Spec, lastClassAppliedSpec)
-		if !classChanges.IsEmpty() {
-			allChanges.Add(classChanges.GetAll()...)
-			classChanged = true
+		if class != nil {
+			classChanges := h.detectClassSpecChanges(ctx, &class.Spec, lastClassAppliedSpec)
+			if !classChanges.IsEmpty() {
+				allChanges.Add(classChanges.GetAll()...)
+				classChanged = true
+			}
 		}
 	}
 
