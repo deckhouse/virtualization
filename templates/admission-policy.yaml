@@ -35,22 +35,7 @@ spec:
         resources: ["*"]
   validations:
     - expression: |
-        !(request.userInfo.username in [
-          "cdi-apiserver",
-          "cdi-cronjob",
-          "cdi-operator",
-          "cdi-sa",
-          "cdi-uploadproxy",
-          "kubevirt-internal-virtualization-apiserver",
-          "kubevirt-internal-virtualization-controller",
-          "kubevirt-internal-virtualization-exportproxy",
-          "kubevirt-internal-virtualization-handler",
-          "kubevirt-operator",
-          "virtualization-controller",
-          "virtualization-api",
-          "virtualization-pre-delete-hook",
-          "vm-route-forge"
-        ])
+        has(request.userInfo.username)
       message: "Operation forbidden for this user."
 ---
 apiVersion: {{ $apiVersion }}
