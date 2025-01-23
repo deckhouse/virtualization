@@ -201,9 +201,9 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 
 		Context("When VMs migrations are applied", func() {
-			It("checks VMs and KubevirtVMIMs phases", func() {
-				By(fmt.Sprintf("KubevirtVMIMs should be in %s phases", PhaseSucceeded))
-				WaitPhaseByLabel(kc.ResourceKubevirtVMIM, PhaseSucceeded, kc.WaitOptions{
+			It("checks VMs and VMOPs phases", func() {
+				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -228,18 +228,17 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
-
-		Context("When test is completed", func() {
-			It("deletes test case resources", func() {
-				DeleteTestCaseResources(ResourcesToDelete{
-					KustomizationDir: conf.TestData.ComplexTest,
-					AdditionalResources: []AdditionalResource{
-						{
-							kc.ResourceKubevirtVMIM,
-							testCaseLabel,
-						},
+	})
+	Context("When test is completed", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{
+				KustomizationDir: conf.TestData.ComplexTest,
+				AdditionalResources: []AdditionalResource{
+					{
+						kc.ResourceVMOP,
+						testCaseLabel,
 					},
-				})
+				},
 			})
 		})
 	})
