@@ -109,7 +109,7 @@ $SRC_BUILD/block-rbd.so to /usr/lib64/qemu
 $SRC_BUILD/accel-qtest-x86_64.so to /usr/lib64/qemu
 $SRC_BUILD/accel-tcg-x86_64.so to /usr/lib64/qemu
 $SRC_BUILD/qemu-system-x86_64 to /usr/bin
-$SRC_BUILD/qemu-system-i386 to /usr/bin
+# $SRC_BUILD/qemu-system-i386 to /usr/bin
 $SRC_BUILD/qga/qemu-ga to /usr/bin
 $SRC_BUILD/qemu-keymap to /usr/bin
 $SRC_BUILD/qemu-img to /usr/bin
@@ -272,8 +272,9 @@ copy_file() {
     mkdir -p "$DEST_BASE$dest_dir"
 
     # Copy the file
-    install -s "$SOURCE_PATH" "$DEST_BASE$dest_dir"
-    # cp -p "$SOURCE_PATH" "$DEST_BASE$dest_dir"
+    # install -s "$SOURCE_PATH" "$DEST_BASE$dest_dir"
+    strip "$SOURCE_PATH"
+    cp -p "$SOURCE_PATH" "$DEST_BASE$dest_dir"
     echo "Copied $SOURCE_PATH to $DEST_BASE$dest_dir"
 }
 
