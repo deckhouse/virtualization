@@ -133,6 +133,8 @@ shell:
     -Dcurl=enabled \
     -Dlibssh=enabled \
     -Dlibssh2=enabled \
+    -Dnumactl=enabled \
+    -Dcapng=enabled \
     -Dfirewalld=disabled \
     -Dfirewalld_zone=disabled \
     -Ddocs=disabled \
@@ -158,6 +160,9 @@ shell:
     -Dlibiscsi=disabled
 
     ninja -C build -j$(nproc)
+
+    # -Ddriver_hyperv=disabled \
+    # -Dopenwsman=disabled \
 
   setup:
   - |
