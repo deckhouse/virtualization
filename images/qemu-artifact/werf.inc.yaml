@@ -132,6 +132,10 @@ shell:
       --enable-tools \
       --enable-debug \
       --enable-opengl \
+      --enable-cap-ng \
+      --enable-capstone \
+      --enable-coroutine-pool \
+      --disable-safe-stack \
       --disable-docs \
       --disable-cocoa \
       --disable-cloop \
