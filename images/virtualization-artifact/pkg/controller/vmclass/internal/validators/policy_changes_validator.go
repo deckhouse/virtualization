@@ -41,7 +41,7 @@ func (v *PolicyChangesValidator) ValidateCreate(_ context.Context, _ *v1alpha2.V
 
 func (v *PolicyChangesValidator) ValidateUpdate(_ context.Context, oldVMClass, newVMClass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
 	if !reflect.DeepEqual(oldVMClass.Spec.SizingPolicies, newVMClass.Spec.SizingPolicies) {
-		v.recorder.Event(newVMClass, corev1.EventTypeNormal, v1alpha2.ReasonVMClassSizingPoliciesWasChanged, "Sizing policies was changed")
+		v.recorder.Event(newVMClass, corev1.EventTypeNormal, v1alpha2.ReasonVMClassSizingPoliciesWasChanged, "Sizing policies were changed")
 	}
 
 	return nil, nil

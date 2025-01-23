@@ -28,106 +28,104 @@ type nodeNamesDiffTestParams struct {
 	removed []string
 }
 
-var _ = Describe("DiscoveryHandler Run", func() {
-	DescribeTable(
-		"NodeNamesDiffTest",
-		func(params nodeNamesDiffTestParams) {
-			calculatedAdded, calculatedRemoved := NodeNamesDiff(params.prev, params.current)
-			Expect(calculatedAdded).Should(Equal(params.added))
-			Expect(calculatedRemoved).Should(Equal(params.removed))
+var _ = DescribeTable(
+	"DiscoveryHandler NodeNamesDiff Test",
+	func(params nodeNamesDiffTestParams) {
+		calculatedAdded, calculatedRemoved := NodeNamesDiff(params.prev, params.current)
+		Expect(calculatedAdded).Should(Equal(params.added))
+		Expect(calculatedRemoved).Should(Equal(params.removed))
+	},
+	Entry(
+		"Should be no diff",
+		nodeNamesDiffTestParams{
+			prev: []string{
+				"node1",
+				"node2",
+			},
+			current: []string{
+				"node1",
+				"node2",
+			},
+			added:   []string{},
+			removed: []string{},
 		},
-		Entry(
-			"Should be no diff",
-			nodeNamesDiffTestParams{
-				prev: []string{
-					"node1",
-					"node2",
-				},
-				current: []string{
-					"node1",
-					"node2",
-				},
-				added:   []string{},
-				removed: []string{},
+	),
+	Entry(
+		"Should be added node",
+		nodeNamesDiffTestParams{
+			prev: []string{
+				"node1",
+				"node2",
 			},
-		),
-		Entry(
-			"Should be added node",
-			nodeNamesDiffTestParams{
-				prev: []string{
-					"node1",
-					"node2",
-				},
-				current: []string{
-					"node1",
-					"node2",
-					"node3",
-				},
-				added: []string{
-					"node3",
-				},
-				removed: []string{},
+			current: []string{
+				"node1",
+				"node2",
+				"node3",
 			},
-		),
-		Entry(
-			"Should be removed node",
-			nodeNamesDiffTestParams{
-				prev: []string{
-					"node1",
-					"node2",
-					"node3",
-				},
-				current: []string{
-					"node1",
-					"node2",
-				},
-				added: []string{},
-				removed: []string{
-					"node3",
-				},
+			added: []string{
+				"node3",
 			},
-		),
-		Entry(
-			"Should be added and removed node",
-			nodeNamesDiffTestParams{
-				prev: []string{
-					"node1",
-					"node2",
-				},
-				current: []string{
-					"node2",
-					"node3",
-				},
-				added: []string{
-					"node3",
-				},
-				removed: []string{
-					"node1",
-				},
+			removed: []string{},
+		},
+	),
+	Entry(
+		"Should be removed node",
+		nodeNamesDiffTestParams{
+			prev: []string{
+				"node1",
+				"node2",
+				"node3",
 			},
-		),
-		Entry(
-			"Should be multiple added and removed node",
-			nodeNamesDiffTestParams{
-				prev: []string{
-					"node3",
-					"node4",
-					"node5",
-				},
-				current: []string{
-					"node1",
-					"node2",
-					"node3",
-				},
-				added: []string{
-					"node1",
-					"node2",
-				},
-				removed: []string{
-					"node4",
-					"node5",
-				},
+			current: []string{
+				"node1",
+				"node2",
 			},
-		),
-	)
-})
+			added: []string{},
+			removed: []string{
+				"node3",
+			},
+		},
+	),
+	Entry(
+		"Should be added and removed node",
+		nodeNamesDiffTestParams{
+			prev: []string{
+				"node1",
+				"node2",
+			},
+			current: []string{
+				"node2",
+				"node3",
+			},
+			added: []string{
+				"node3",
+			},
+			removed: []string{
+				"node1",
+			},
+		},
+	),
+	Entry(
+		"Should be multiple added and removed node",
+		nodeNamesDiffTestParams{
+			prev: []string{
+				"node3",
+				"node4",
+				"node5",
+			},
+			current: []string{
+				"node1",
+				"node2",
+				"node3",
+			},
+			added: []string{
+				"node1",
+				"node2",
+			},
+			removed: []string{
+				"node4",
+				"node5",
+			},
+		},
+	),
+)

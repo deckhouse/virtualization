@@ -161,6 +161,35 @@ func (h *DiscoveryHandler) Name() string {
 	return nameDiscoveryHandler
 }
 
+func NodeNamesDiff(prev, current []string) (added, removed []string) {
+	added = make([]string, 0)
+	removed = make([]string, 0)
+	prevMap := make(map[string]struct{})
+	currentMap := make(map[string]struct{})
+
+	for _, nodeName := range prev {
+		prevMap[nodeName] = struct{}{}
+	}
+
+	for _, nodeName := range current {
+		currentMap[nodeName] = struct{}{}
+	}
+
+	for _, nodeName := range prev {
+		if _, ok := currentMap[nodeName]; !ok {
+			removed = append(removed, nodeName)
+		}
+	}
+
+	for _, nodeName := range current {
+		if _, ok := prevMap[nodeName]; !ok {
+			added = append(added, nodeName)
+		}
+	}
+
+	return added, removed
+}
+
 func (h *DiscoveryHandler) discoveryCommonFeatures(nodes []corev1.Node) []string {
 	if len(nodes) == 0 {
 		return nil
@@ -201,33 +230,4 @@ func (h *DiscoveryHandler) maxAllocatableResources(nodes []corev1.Node) corev1.R
 		}
 	}
 	return resourceList
-}
-
-func NodeNamesDiff(prev, current []string) (added, removed []string) {
-	added = make([]string, 0)
-	removed = make([]string, 0)
-	prevMap := make(map[string]struct{})
-	currentMap := make(map[string]struct{})
-
-	for _, n := range prev {
-		prevMap[n] = struct{}{}
-	}
-
-	for _, n := range current {
-		currentMap[n] = struct{}{}
-	}
-
-	for _, n := range prev {
-		if _, ok := currentMap[n]; !ok {
-			removed = append(removed, n)
-		}
-	}
-
-	for _, n := range current {
-		if _, ok := prevMap[n]; !ok {
-			added = append(added, n)
-		}
-	}
-
-	return added, removed
 }
