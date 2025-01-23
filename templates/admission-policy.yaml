@@ -35,7 +35,7 @@ spec:
         resources: ["*"]
   validations:
     - expression: |
-        !(request.userInfo.username in [
+        request.userInfo.username in [
           "cdi-apiserver",
           "cdi-cronjob",
           "cdi-operator",
@@ -50,7 +50,7 @@ spec:
           "virtualization-api",
           "virtualization-pre-delete-hook",
           "vm-route-forge"
-        ])
+        ]
       message: "Operation forbidden for this user."
 ---
 apiVersion: {{ $apiVersion }}
