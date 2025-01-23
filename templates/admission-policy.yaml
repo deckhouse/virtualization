@@ -36,20 +36,20 @@ spec:
   validations:
     - expression: |
         request.userInfo.username in [
-          "cdi-apiserver",
-          "cdi-cronjob",
-          "cdi-operator",
-          "cdi-sa",
-          "cdi-uploadproxy",
-          "kubevirt-internal-virtualization-apiserver",
-          "kubevirt-internal-virtualization-controller",
-          "kubevirt-internal-virtualization-exportproxy",
-          "kubevirt-internal-virtualization-handler",
-          "kubevirt-operator",
-          "virtualization-controller",
-          "virtualization-api",
-          "virtualization-pre-delete-hook",
-          "vm-route-forge"
+          "system:serviceaccount:d8-virtualization:cdi-apiserver",
+          "system:serviceaccount:d8-virtualization:cdi-cronjob",
+          "system:serviceaccount:d8-virtualization:cdi-operator",
+          "system:serviceaccount:d8-virtualization:cdi-sa",
+          "system:serviceaccount:d8-virtualization:cdi-uploadproxy",
+          "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-apiserver",
+          "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-controller",
+          "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-exportproxy",
+          "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-handler",
+          "system:serviceaccount:d8-virtualization:kubevirt-operator",
+          "system:serviceaccount:d8-virtualization:virtualization-controller",
+          "system:serviceaccount:d8-virtualization:virtualization-api",
+          "system:serviceaccount:d8-virtualization:virtualization-pre-delete-hook",
+          "system:serviceaccount:d8-virtualization:vm-route-forge"
         ]
       message: "Operation forbidden for this user."
 ---
