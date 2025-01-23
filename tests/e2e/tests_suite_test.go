@@ -105,6 +105,7 @@ func init() {
 		fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.ImagesCreation, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmLabelAnnotation, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml"),

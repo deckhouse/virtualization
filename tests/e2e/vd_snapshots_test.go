@@ -84,7 +84,7 @@ func CreateVirtualDiskSnapshot(vdName, snapshotName, volumeSnapshotClassName str
 	return nil
 }
 
-func createImmediateStorageClass(provisioner string, labels map[string]string) (string, error) {
+func CreateImmediateStorageClass(provisioner string, labels map[string]string) (string, error) {
 	GinkgoHelper()
 	filePath := fmt.Sprintf("%s/immediate-storage-class.yaml", conf.TestData.VdSnapshots)
 	switch provisioner {
@@ -265,7 +265,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 			}
 
 			if *sc.VolumeBindingMode != storagev1.VolumeBindingImmediate {
-				immediateStorageClassName, err = createImmediateStorageClass(sc.Provisioner, testCaseLabel)
+				immediateStorageClassName, err = CreateImmediateStorageClass(sc.Provisioner, testCaseLabel)
 				Expect(err).NotTo(HaveOccurred(), "%s", err)
 
 				virtualDiskWithoutConsumer := virtv2.VirtualDisk{}

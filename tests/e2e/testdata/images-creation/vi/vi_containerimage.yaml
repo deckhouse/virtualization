@@ -1,0 +1,27 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-containerimage
+  namespace: test-d8-virtualization
+  annotations:
+    virt.deckhouse.io/storage.pod.retainAfterCompletion: "true"
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: ContainerImage
+    containerImage:
+      image: "registry.hub.docker.com/yaroslavborbat/alpine-image:latest"
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-containerimage
+  namespace: test-d8-virtualization
+  annotations:
+    virt.deckhouse.io/storage.pod.retainAfterCompletion: "true"
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: ContainerImage
+    containerImage:
+      image: "registry.hub.docker.com/yaroslavborbat/alpine-image:latest"

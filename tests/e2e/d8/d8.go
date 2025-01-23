@@ -57,6 +57,9 @@ type D8VirtualizationConf struct {
 
 type D8Virtualization interface {
 	SshCommand(vmName, command string, opts SshOptions) *executor.CMDResult
+	StopVM(vmName string, opts SshOptions) *executor.CMDResult
+	StartVM(vmName string, opts SshOptions) *executor.CMDResult
+	RestartVM(vmName string, opts SshOptions) *executor.CMDResult
 }
 
 func NewD8Virtualization(conf D8VirtualizationConf) (*d8VirtualizationCMD, error) {
@@ -102,6 +105,51 @@ func (v d8VirtualizationCMD) SshCommand(vmName, command string, opts SshOptions)
 	if opts.Port != 0 {
 		cmd = fmt.Sprintf("%s --port=%d", cmd, opts.Port)
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return v.ExecContext(ctx, cmd)
+}
+
+func (v d8VirtualizationCMD) StartVM(vmName string, opts SshOptions) *executor.CMDResult {
+	timeout := ShortTimeout
+	if opts.Timeout != 0 {
+		timeout = opts.Timeout
+	}
+
+	cmd := fmt.Sprintf("%s start %s", v.cmd, vmName)
+	cmd = v.addNamespace(cmd, opts.Namespace)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return v.ExecContext(ctx, cmd)
+}
+
+func (v d8VirtualizationCMD) StopVM(vmName string, opts SshOptions) *executor.CMDResult {
+	timeout := ShortTimeout
+	if opts.Timeout != 0 {
+		timeout = opts.Timeout
+	}
+
+	cmd := fmt.Sprintf("%s stop %s", v.cmd, vmName)
+	cmd = v.addNamespace(cmd, opts.Namespace)
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return v.ExecContext(ctx, cmd)
+}
+
+func (v d8VirtualizationCMD) RestartVM(vmName string, opts SshOptions) *executor.CMDResult {
+	timeout := ShortTimeout
+	if opts.Timeout != 0 {
+		timeout = opts.Timeout
+	}
+
+	cmd := fmt.Sprintf("%s restart %s", v.cmd, vmName)
+	cmd = v.addNamespace(cmd, opts.Namespace)
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()

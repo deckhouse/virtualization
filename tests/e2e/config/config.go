@@ -137,6 +137,7 @@ type TestData struct {
 	Connectivity       string `yaml:"connectivity"`
 	DiskResizing       string `yaml:"diskResizing"`
 	SizingPolicy       string `yaml:"sizingPolicy"`
+	ImagesCreation     string `yaml:"imagesCreation"`
 	VmConfiguration    string `yaml:"vmConfiguration"`
 	VmLabelAnnotation  string `yaml:"vmLabelAnnotation"`
 	VmMigration        string `yaml:"vmMigration"`
