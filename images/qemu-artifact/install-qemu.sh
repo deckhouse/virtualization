@@ -92,6 +92,7 @@ parse_args $@
 FILE_LIST=$(cat <<EOF
 $SRC_BUILD/trace/trace-events-all to /usr/share/qemu
 $SRC_BUILD/qemu-system-x86_64 to /usr/bin
+$SRC_BUILD/qemu-system-i386 to /usr/bin
 $SRC_BUILD/qga/qemu-ga to /usr/bin
 $SRC_BUILD/qemu-keymap to /usr/bin
 $SRC_BUILD/qemu-img to /usr/bin

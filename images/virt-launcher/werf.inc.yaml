@@ -30,6 +30,7 @@ import:
   - '*.fd'
   - '*.bin'
   - '*.efi'
+  - '*.iso'
 - image: edk2-artifact
   add: /FIRMWARE/
   to: /usr/share/qemu/firmware
@@ -128,7 +129,8 @@ shell:
     passt \
     swtpm swtpm-tools \
     xorriso \
-    dmidecode
+    dmidecode \
+    hwclock
 {{/*
     # libffi8 \
     # libcrypt libcrypto3 \
