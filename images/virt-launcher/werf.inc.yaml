@@ -22,7 +22,7 @@ import:
   add: /VBINS
   to: /BINS
   before: install
-- image: virt-firmware-artifact
+- image: edk2-artifact
   add: /FIRMWARE/
   to: /usr/share/OVMF
   before: install
@@ -30,7 +30,7 @@ import:
   - '*.fd'
   - '*.bin'
   - '*.efi'
-- image: virt-firmware-artifact
+- image: edk2-artifact
   add: /FIRMWARE/
   to: /usr/share/qemu/firmware
   before: install
