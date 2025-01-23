@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -87,9 +88,15 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 		return reconcile.Result{}, err
 	}
 
+	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	switch {
-	case isDiskProvisioningFinished(cb.Condition()):
+	case isDiskProvisioningFinished(condition):
 		log.Info("Virtual image provisioning finished: clean up")
+
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.Ready).
+			Message("")
 
 		vi.Status.Phase = virtv2.ImageReady
 
@@ -232,8 +239,9 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		quotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 	}
 
+	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	switch {
-	case isDiskProvisioningFinished(cb.Condition()):
+	case isDiskProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
@@ -316,10 +324,22 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 			Reason(vicondition.Ready).
 			Message("")
 
-		var imageStatus virtv2.ImageStatusSize
-		imageStatus.Stored = vdRef.Status.Capacity
-		imageStatus.Unpacked = vdRef.Status.Capacity
-		vi.Status.Size = imageStatus
+		q, err := resource.ParseQuantity(vdRef.Status.Capacity)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		intQ, ok := q.AsInt64()
+		if !ok {
+			return reconcile.Result{}, errors.New("fail to convert quantity to int64")
+		}
+
+		vi.Status.Size = virtv2.ImageStatusSize{
+			Stored:        vdRef.Status.Capacity,
+			StoredBytes:   strconv.FormatInt(intQ, 10),
+			Unpacked:      vdRef.Status.Capacity,
+			UnpackedBytes: strconv.FormatInt(intQ, 10),
+		}
 
 		vi.Status.Format = imageformat.FormatRAW
 		vi.Status.Progress = "100%"
