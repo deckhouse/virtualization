@@ -230,6 +230,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 	})
+
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
 			DeleteTestCaseResources(ResourcesToDelete{

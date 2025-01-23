@@ -30,11 +30,6 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-const (
-	InternalApiVersion = "internal.virtualization.deckhouse.io/v1"
-	KubevirtVMIMKind   = "InternalVirtualizationVirtualMachineInstanceMigration"
-)
-
 func MigrateVirtualMachines(label map[string]string, templatePath string, virtualMachines ...string) {
 	GinkgoHelper()
 	migrationFilesPath := fmt.Sprintf("%s/migrations", templatePath)
