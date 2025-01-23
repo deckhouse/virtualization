@@ -38,4 +38,5 @@ const (
 	ResourceCVI                    Resource = "clustervirtualimages.virtualization.deckhouse.io"
 	ResourceVI                     Resource = "virtualimages.virtualization.deckhouse.io"
 	ResourceVMBDA                  Resource = "virtualmachineblockdeviceattachments.virtualization.deckhouse.io"
+	ResourceVMOP                   Resource = "virtualmachineoperations.virtualization.deckhouse.io"
 )

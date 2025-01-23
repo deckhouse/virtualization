@@ -23,16 +23,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-)
-
-const (
-	InternalApiVersion = "internal.virtualization.deckhouse.io/v1"
-	KubevirtVMIMKind   = "InternalVirtualizationVirtualMachineInstanceMigration"
 )
 
 func MigrateVirtualMachines(label map[string]string, templatePath string, virtualMachines ...string) {
@@ -52,21 +47,21 @@ func MigrateVirtualMachines(label map[string]string, templatePath string, virtua
 }
 
 func CreateMigrationManifest(vmName, filePath string, labels map[string]string) error {
-	vmim := &virtv1.VirtualMachineInstanceMigration{
+	vmop := &virtv2.VirtualMachineOperation{
 		TypeMeta: v1.TypeMeta{
-			APIVersion: InternalApiVersion,
-			Kind:       KubevirtVMIMKind,
+			APIVersion: virtv2.SchemeGroupVersion.String(),
+			Kind:       virtv2.VirtualMachineOperationKind,
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Name:   vmName,
 			Labels: labels,
 		},
-		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
-			VMIName: vmName,
+		Spec: virtv2.VirtualMachineOperationSpec{
+			Type:           virtv2.VMOPTypeEvict,
+			VirtualMachine: vmName,
 		},
 	}
-
-	err := WriteYamlObject(filePath, vmim)
+	err := WriteYamlObject(filePath, vmop)
 	if err != nil {
 		return err
 	}
@@ -135,18 +130,19 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 	})
 
 	Context("When VMs migrations are applied", func() {
-		It("checks VMs and KubevirtVMIMs phases", func() {
-			By(fmt.Sprintf("KubevirtVMIMs should be in %s phases", PhaseSucceeded))
-			WaitPhaseByLabel(kc.ResourceKubevirtVMIM, PhaseSucceeded, kc.WaitOptions{
+		It("checks VMs and VMOPs phases", func() {
+			By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
+			WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
-			By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
-			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+			By("Virtual machines should be migrated")
+			WaitByLabel(kc.ResourceVM, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
+				For:       "'jsonpath={.status.migrationState.result}=Succeeded'",
 			})
 		})
 
@@ -169,7 +165,7 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 				KustomizationDir: conf.TestData.VmMigration,
 				AdditionalResources: []AdditionalResource{
 					{
-						Resource: kc.ResourceKubevirtVMIM,
+						Resource: kc.ResourceVMOP,
 						Labels:   testCaseLabel,
 					},
 				},
