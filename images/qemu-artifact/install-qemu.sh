@@ -106,8 +106,8 @@ $SRC_BUILD/audio-dbus.so to /usr/lib64/qemu
 $SRC_BUILD/block-blkio.so to /usr/lib64/qemu
 $SRC_BUILD/block-curl.so to /usr/lib64/qemu
 $SRC_BUILD/block-rbd.so to /usr/lib64/qemu
-$SRC_BUILD/accel-qtest-x86_64.so to /usr/local/lib64/qemu
-$SRC_BUILD/accel-tcg-x86_64.so to /usr/local/lib64/qemu
+$SRC_BUILD/accel-qtest-x86_64.so to /usr/lib64/qemu
+$SRC_BUILD/accel-tcg-x86_64.so to /usr/lib64/qemu
 $SRC_BUILD/qemu-system-x86_64 to /usr/bin
 $SRC_BUILD/qemu-system-i386 to /usr/bin
 $SRC_BUILD/qga/qemu-ga to /usr/bin
@@ -186,7 +186,7 @@ $SRC_BASE/ui/icons/qemu_256x256.png to /usr/share/icons/hicolor/256x256/apps
 $SRC_BASE/ui/icons/qemu_512x512.png to /usr/share/icons/hicolor/512x512/apps
 $SRC_BASE/ui/icons/qemu_32x32.bmp to /usr/share/icons/hicolor/32x32/apps
 $SRC_BASE/ui/icons/qemu.svg to /usr/share/icons/hicolor/scalable/apps
-$SRC_BASE/ui/qemu.desktop to /usr/share/applications
+# $SRC_BASE/ui/qemu.desktop to /usr/share/applications
 $SRC_BUILD/contrib/vhost-user-gpu/50-qemu-gpu.json to /usr/share/qemu/vhost-user
 $SRC_BASE/pc-bios/bios.bin to /usr/share/qemu
 $SRC_BASE/pc-bios/bios-256k.bin to /usr/share/qemu
@@ -272,7 +272,8 @@ copy_file() {
     mkdir -p "$DEST_BASE$dest_dir"
 
     # Copy the file
-    cp -p "$SOURCE_PATH" "$DEST_BASE$dest_dir"
+    install -s "$SOURCE_PATH" "$DEST_BASE$dest_dir"
+    # cp -p "$SOURCE_PATH" "$DEST_BASE$dest_dir"
     echo "Copied $SOURCE_PATH to $DEST_BASE$dest_dir"
 }
 

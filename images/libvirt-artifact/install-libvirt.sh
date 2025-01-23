@@ -600,7 +600,8 @@ copy_file() {
     mkdir -p "$DEST_BASE$dest_dir"
 
     # Copy the file
-    cp -p "$SOURCE_PATH" "$DEST_BASE$dest_dir"
+    install -s "$SOURCE_PATH" "$DEST_BASE$dest_dir"
+    # cp -p "$SOURCE_PATH" "$DEST_BASE$dest_dir"
     echo "Copied $SOURCE_PATH to $DEST_BASE$dest_dir"
 }
 
