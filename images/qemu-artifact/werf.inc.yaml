@@ -131,10 +131,10 @@ shell:
       --enable-curl \
       --enable-tools \
       --enable-debug \
-      --enable-opengl \
       --enable-cap-ng \
       --enable-capstone \
       --enable-coroutine-pool \
+      --disable-opengl \
       --disable-safe-stack \
       --disable-docs \
       --disable-cocoa \
