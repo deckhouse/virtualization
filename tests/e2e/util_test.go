@@ -257,6 +257,12 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 //	Static condition `wait --for`: `jsonpath={.status.phase}=phase`.
 func WaitPhaseByLabel(resource kc.Resource, phase string, opts kc.WaitOptions) {
 	GinkgoHelper()
+	opts.For = fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
+	WaitByLabel(resource, opts)
+}
+
+func WaitByLabel(resource kc.Resource, opts kc.WaitOptions) {
+	GinkgoHelper()
 	wg := sync.WaitGroup{}
 	mu := sync.Mutex{}
 
@@ -271,7 +277,7 @@ func WaitPhaseByLabel(resource kc.Resource, phase string, opts kc.WaitOptions) {
 	resources := strings.Split(res.StdOut(), " ")
 	waitErr := make([]string, 0, len(resources))
 	waitOpts := kc.WaitOptions{
-		For:       fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase),
+		For:       opts.For,
 		Namespace: opts.Namespace,
 		Timeout:   opts.Timeout,
 	}

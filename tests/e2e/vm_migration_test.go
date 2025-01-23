@@ -142,11 +142,12 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
-			By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
-			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+			By("Virtual machines should be migrated")
+			WaitByLabel(kc.ResourceVM, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
+				For:       "'jsonpath={.status.migrationState.result}=Succeeded'",
 			})
 		})
 
