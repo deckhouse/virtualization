@@ -91,6 +91,23 @@ parse_args $@
 
 FILE_LIST=$(cat <<EOF
 $SRC_BUILD/trace/trace-events-all to /usr/share/qemu
+$SRC_BUILD/ui-opengl.so to /usr/lib64/qemu
+$SRC_BUILD/ui-egl-headless.so to /usr/lib64/qemu
+$SRC_BUILD/ui-dbus.so to /usr/lib64/qemu
+$SRC_BUILD/hw-display-virtio-gpu.so to /usr/lib64/qemu
+$SRC_BUILD/hw-display-virtio-gpu-pci.so to /usr/lib64/qemu
+$SRC_BUILD/hw-display-virtio-vga.so to /usr/lib64/qemu
+$SRC_BUILD/hw-usb-redirect.so to /usr/lib64/qemu
+$SRC_BUILD/hw-usb-host.so to /usr/lib64/qemu
+$SRC_BUILD/hw-s390x-virtio-gpu-ccw.so to /usr/lib64/qemu
+$SRC_BUILD/audio-pa.so to /usr/lib64/qemu
+$SRC_BUILD/audio-pipewire.so to /usr/lib64/qemu
+$SRC_BUILD/audio-dbus.so to /usr/lib64/qemu
+$SRC_BUILD/block-blkio.so to /usr/lib64/qemu
+$SRC_BUILD/block-curl.so to /usr/lib64/qemu
+$SRC_BUILD/block-rbd.so to /usr/lib64/qemu
+$SRC_BUILD/accel-qtest-x86_64.so to /usr/local/lib64/qemu
+$SRC_BUILD/accel-tcg-x86_64.so to /usr/local/lib64/qemu
 $SRC_BUILD/qemu-system-x86_64 to /usr/bin
 $SRC_BUILD/qemu-system-i386 to /usr/bin
 $SRC_BUILD/qga/qemu-ga to /usr/bin
