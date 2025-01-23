@@ -18,9 +18,6 @@ package watcher
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,18 +29,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type VirtualMachinesWatcher struct {
-	log *slog.Logger
-}
+type VirtualMachinesWatcher struct{}
 
 func NewVirtualMachinesWatcher() *VirtualMachinesWatcher {
-	return &VirtualMachinesWatcher{
-		log: slog.Default().With("watcher", strings.ToLower(virtv2.VirtualMachineClassKind)),
-	}
+	return &VirtualMachinesWatcher{}
 }
 
 func (w *VirtualMachinesWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
@@ -52,7 +44,6 @@ func (w *VirtualMachinesWatcher) Watch(mgr manager.Manager, ctr controller.Contr
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
 			vm, ok := obj.(*virtv2.VirtualMachine)
 			if !ok {
-				w.log.Error(fmt.Sprintf("expected a new VirtualMachine but got a %T", obj))
 				return nil
 			}
 
@@ -62,10 +53,6 @@ func (w *VirtualMachinesWatcher) Watch(mgr manager.Manager, ctr controller.Contr
 				Name: vm.Spec.VirtualMachineClassName,
 			}, vmc)
 			if err != nil {
-				w.log.Error(
-					"error retrieving virtual machines during the search for virtual machine class belonging changed virtual machine",
-					logger.SlogErr(err),
-				)
 				return nil
 			}
 
