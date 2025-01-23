@@ -76,10 +76,12 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 			Name:      i.Settings.Name,
 			Namespace: i.Settings.Namespace,
 			Annotations: map[string]string{
-				annotations.AnnUploadURL:                      fmt.Sprintf("https://%s%s", i.Settings.Host, path),
-				"nginx.ingress.kubernetes.io/ssl-redirect":    "true",
-				"nginx.ingress.kubernetes.io/proxy-body-size": "0",
-				"nginx.ingress.kubernetes.io/rewrite-target":  uploadPath,
+				annotations.AnnUploadURL:                              fmt.Sprintf("https://%s%s", i.Settings.Host, path),
+				"nginx.ingress.kubernetes.io/ssl-redirect":            "true",
+				"nginx.ingress.kubernetes.io/proxy-body-size":         "0",
+				"nginx.ingress.kubernetes.io/proxy-request-buffering": "off",
+				"nginx.ingress.kubernetes.io/proxy-buffering":         "off",
+				"nginx.ingress.kubernetes.io/rewrite-target":          uploadPath,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				i.Settings.OwnerReference,
