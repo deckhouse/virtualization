@@ -326,6 +326,7 @@ shell:
     LIST="$(find /VBINS/usr/bin/ -type f)"
     LIST+=" $(find /VBINS/usr/sbin/ -type f)"
     LIST+=" /usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3"
+    LIST+=" /usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4"
     # LIST+=" /usr/lib/llvm-18.1/lib64/libLLVM-18.so /usr/lib64/libLLVMSPIRVLib.so"
     ./reloclibs.sh -i "$LIST" -o /VBINS
 
