@@ -18,6 +18,7 @@ shell:
   beforeInstall:
   - | 
     apt-get update && apt-get install --yes \
+    binutils \
     dmidecode \
     gcc-c++ \
     git \
@@ -114,7 +115,8 @@ shell:
 
   install:
   - |
-    export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
+    # export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
+    # export PATH="$CCACHE_WRAPPERSDIR:$PATH"
     export MAKE="/usr/bin/make"
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
@@ -165,11 +167,7 @@ shell:
     # -Dopenwsman=disabled \
 
   setup:
-  - |
-    echo "/{{ $gitRepoName }}-{{ $versionLibvirt }}"
-
-    # ls -lah /{{ $gitRepoName }}-{{ $versionLibvirt }}
-    
+  - |    
     /install-libvirt.sh -s /{{ $gitRepoName }}-{{ $versionLibvirt }} \
                         -d /BINS \
                         -b build

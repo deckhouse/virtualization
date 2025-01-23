@@ -18,6 +18,7 @@ shell:
   beforeInstall:
   - | 
     apt-get update && apt-get install -y \
+    binutils \
     pkgconfig \
     pkg-config \
     dmidecode \
@@ -107,7 +108,11 @@ shell:
     id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
 
   install:
-  - |    
+  - |
+    # export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
+    # export PATH="$CCACHE_WRAPPERSDIR:$PATH"
+    # export CCACHE_BASEDIR="$(pwd)"
+    # export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export MAKE="/usr/bin/make"
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
@@ -252,65 +257,61 @@ shell:
       --disable-xen-pci-passthrough    \
       --disable-xkbcommon              \
       --disable-zstd                   \
-      --enable-attr \
-      --enable-blkio \
-      --enable-cap-ng \
-      --enable-capstone \
-      --enable-coroutine-pool \
-      --enable-curl \
-      --enable-dbus-display \
-      --enable-debug-info \
-      --enable-fdt=system \
-      --enable-gio \
-      --enable-gnutls \
-      --enable-guest-agent \
-      --enable-iconv \
-      --enable-kvm \
-      --enable-libusb \
-      --enable-libudev \
-      --enable-linux-aio \
-      --enable-linux-io-uring \
-      --enable-lzo \
-      --enable-malloc-trim \
-      --enable-modules \
-      --enable-mpath \
-      --enable-numa \
-      --enable-opengl \
-      --enable-pa \
-      --enable-pie \
-      --enable-rbd \
-      --enable-rdma \
-      --enable-seccomp \
-      --enable-selinux \
-      --enable-slirp \
-      --enable-snappy \
-      --enable-spice-protocol \
-      --enable-system \
-      --enable-tcg \
-      --enable-tools \
-      --enable-tpm \
-      --enable-usb-redir \
-      --enable-vdi \
-      --enable-vhost-kernel \
-      --enable-vhost-net \
-      --enable-vhost-user \
-      --enable-vhost-user-blk-server \
-      --enable-vhost-vdpa \
-      --enable-vnc \
-      --enable-png \
-      --enable-vnc-sasl \
-      --enable-werror \
-      --enable-xkbcommon \
+      --enable-attr                    \
+      --enable-blkio                   \
+      --enable-cap-ng                  \
+      --enable-capstone                \
+      --enable-coroutine-pool          \
+      --enable-curl                    \
+      --enable-dbus-display            \
+      --enable-debug-info              \
+      --enable-fdt=system              \
+      --enable-gio                     \
+      --enable-gnutls                  \
+      --enable-guest-agent             \
+      --enable-iconv                   \
+      --enable-kvm                     \
+      --enable-libusb                  \
+      --enable-libudev                 \
+      --enable-linux-aio               \
+      --enable-linux-io-uring          \
+      --enable-lzo                     \
+      --enable-malloc-trim             \
+      --enable-modules                 \
+      --enable-mpath                   \
+      --enable-numa                    \
+      --enable-opengl                  \
+      --enable-pa                      \
+      --enable-pie                     \
+      --enable-rbd                     \
+      --enable-rdma                    \
+      --enable-seccomp                 \
+      --enable-selinux                 \
+      --enable-slirp                   \
+      --enable-snappy                  \
+      --enable-spice-protocol          \
+      --enable-system                  \
+      --enable-tcg                     \
+      --enable-tools                   \
+      --enable-tpm                     \
+      --enable-usb-redir               \
+      --enable-vdi                     \
+      --enable-vhost-kernel            \
+      --enable-vhost-net               \
+      --enable-vhost-user              \
+      --enable-vhost-user-blk-server   \
+      --enable-vhost-vdpa              \
+      --enable-vnc                     \
+      --enable-png                     \
+      --enable-vnc-sasl                \
+      --enable-werror                  \
+      --enable-xkbcommon               \
       --enable-zstd
 
-      make install -j$(nproc)
+      make -j$(nproc)
 
-      # --disable-debug-tcg \
-      # make all build -j$(nproc)
   setup:
   - |
-    echo "/{{ $gitRepoName }}-{{ $versionQemu }}"
-
     /install-qemu.sh -s /{{ $gitRepoName }}-{{ $versionQemu }} \
                         -d /BINS \
                         -b build
