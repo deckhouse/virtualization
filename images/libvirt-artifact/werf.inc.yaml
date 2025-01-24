@@ -128,10 +128,8 @@ shell:
     CFLAGS="-Wframe-larger-than=262144" meson setup build \
       -Dinit_script=systemd \
       -Dsystem=true \
-      -Ddriver_qemu=enabled \
-      -Ddriver_libvirtd=enabled \
+      -Dremote_default_mode=direct \
       -Dpciaccess=enabled \
-      -Ddriver_remote=enabled \
       -Dsasl=enabled \
       -Dpolkit=enabled \
       -Dlibssh=enabled \
@@ -140,6 +138,10 @@ shell:
       -Dcapng=enabled \
       -Dudev=enabled \
       -Ddriver_network=enabled \
+      -Ddriver_interface=enabled \
+      -Ddriver_libvirtd=enabled \
+      -Ddriver_qemu=enabled \
+      -Ddriver_remote=enabled \
       -Ddriver_esx=disabled -Dcurl=disabled \
       -Dfirewalld=disabled \
       -Dfirewalld_zone=disabled \
