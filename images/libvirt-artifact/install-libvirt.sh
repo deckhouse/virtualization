@@ -102,22 +102,23 @@ lib_version=$(convert_version $VERSION_NUM)
 
 # List of files and destinations
 FILE_LIST=$(cat <<EOF
-$SRC_BUILD/src/libvirt_probes.stp to /usr/share/systemtap/tapset
-$SRC_BUILD/src/access/org.libvirt.api.policy to /usr/share/polkit-1/actions
-$SRC_BUILD/src/qemu/libvirt_qemu_probes.stp to /usr/share/systemtap/tapset
+$SRC_BUILD/src/access/org.libvirt.api.policy to /usr/local/share/polkit-1/actions
+# $SRC_BUILD/src/libvirt_probes.stp to /usr/share/systemtap/tapset
+# $SRC_BUILD/src/access/org.libvirt.api.policy to /usr/share/polkit-1/actions
+# $SRC_BUILD/src/qemu/libvirt_qemu_probes.stp to /usr/share/systemtap/tapset
 $SRC_BUILD/src/libvirt.so.0.${lib_version}.0 to /usr/local/lib64
 $SRC_BUILD/src/libvirt-qemu.so.0.${lib_version}.0 to /usr/local/lib64
 $SRC_BUILD/src/libvirt-lxc.so.0.${lib_version}.0 to /usr/local/lib64
 $SRC_BUILD/src/libvirt-admin.so.0.${lib_version}.0 to /usr/local/lib64
 $SRC_BUILD/src/libvirt_driver_interface.so to /usr/lib64/libvirt/connection-driver
-# $SRC_BUILD/src/lockd.so to /usr/lib64/libvirt/lock-driver
+$SRC_BUILD/src/lockd.so to /usr/lib64/libvirt/lock-driver
 # $SRC_BUILD/src/sanlock.so to /usr/lib64/libvirt/lock-driver
-# $SRC_BUILD/src/libvirt_driver_network.so to /usr/lib64/libvirt/connection-driver
-# $SRC_BUILD/src/libvirt_driver_nodedev.so to /usr/lib64/libvirt/connection-driver
-# $SRC_BUILD/src/libvirt_driver_nwfilter.so to /usr/lib64/libvirt/connection-driver
-# $SRC_BUILD/src/libvirt_driver_secret.so to /usr/lib64/libvirt/connection-driver
-# $SRC_BUILD/src/libvirt_driver_storage.so to /usr/lib64/libvirt/connection-driver
-# $SRC_BUILD/src/libvirt_storage_backend_fs.so to /usr/lib64/libvirt/storage-backend
+$SRC_BUILD/src/libvirt_driver_network.so to /usr/lib64/libvirt/connection-driver
+$SRC_BUILD/src/libvirt_driver_nodedev.so to /usr/lib64/libvirt/connection-driver
+$SRC_BUILD/src/libvirt_driver_nwfilter.so to /usr/lib64/libvirt/connection-driver
+$SRC_BUILD/src/libvirt_driver_secret.so to /usr/lib64/libvirt/connection-driver
+$SRC_BUILD/src/libvirt_driver_storage.so to /usr/lib64/libvirt/connection-driver
+$SRC_BUILD/src/libvirt_storage_backend_fs.so to /usr/lib64/libvirt/storage-backend
 # $SRC_BUILD/src/libvirt_storage_backend_disk.so to /usr/lib64/libvirt/storage-backend
 # $SRC_BUILD/src/libvirt_storage_backend_gluster.so to /usr/lib64/libvirt/storage-backend
 # $SRC_BUILD/src/libvirt_storage_backend_iscsi.so to /usr/lib64/libvirt/storage-backend
@@ -128,32 +129,32 @@ $SRC_BUILD/src/libvirt_driver_interface.so to /usr/lib64/libvirt/connection-driv
 # $SRC_BUILD/src/libvirt_storage_backend_scsi.so to /usr/lib64/libvirt/storage-backend
 # $SRC_BUILD/src/libvirt_storage_backend_vstorage.so to /usr/lib64/libvirt/storage-backend
 # $SRC_BUILD/src/libvirt_storage_backend_zfs.so to /usr/lib64/libvirt/storage-backend
-# $SRC_BUILD/src/libvirt_storage_file_fs.so to /usr/lib64/libvirt/storage-file
+$SRC_BUILD/src/libvirt_storage_file_fs.so to /usr/lib64/libvirt/storage-file
 # $SRC_BUILD/src/libvirt_storage_file_gluster.so to /usr/lib64/libvirt/storage-file
 # $SRC_BUILD/src/libvirt_driver_lxc.so to /usr/lib64/libvirt/connection-driver
 # $SRC_BUILD/src/libvirt_driver_ch.so to /usr/lib64/libvirt/connection-driver
 $SRC_BUILD/src/libvirt_driver_qemu.so to /usr/lib64/libvirt/connection-driver
 # $SRC_BUILD/src/libvirt_driver_vbox.so to /usr/lib64/libvirt/connection-driver
 # $SRC_BUILD/src/libvirtd to /usr/sbin
-# $SRC_BUILD/src/virtproxyd to /usr/sbin
-# $SRC_BUILD/src/virtinterfaced to /usr/sbin
-# $SRC_BUILD/src/virtlockd to /usr/sbin
+$SRC_BUILD/src/virtproxyd to /usr/sbin
+$SRC_BUILD/src/virtinterfaced to /usr/sbin
+$SRC_BUILD/src/virtlockd to /usr/sbin
 $SRC_BUILD/src/virtlogd to /usr/sbin
-# $SRC_BUILD/src/virtnetworkd to /usr/sbin
-# $SRC_BUILD/src/virtnodedevd to /usr/sbin
-# $SRC_BUILD/src/virtnwfilterd to /usr/sbin
-# $SRC_BUILD/src/virtsecretd to /usr/sbin
-# $SRC_BUILD/src/virtstoraged to /usr/sbin
+$SRC_BUILD/src/virtnetworkd to /usr/sbin
+$SRC_BUILD/src/virtnodedevd to /usr/sbin
+$SRC_BUILD/src/virtnwfilterd to /usr/sbin
+$SRC_BUILD/src/virtsecretd to /usr/sbin
+$SRC_BUILD/src/virtstoraged to /usr/sbin
 # $SRC_BUILD/src/virtlxcd to /usr/sbin
 # $SRC_BUILD/src/virtchd to /usr/sbin
 $SRC_BUILD/src/virtqemud to /usr/sbin
 # $SRC_BUILD/src/virtvboxd to /usr/sbin
 $SRC_BUILD/src/libvirt_iohelper to /usr/libexec
 $SRC_BUILD/src/virt-ssh-helper to /usr/bin
-$SRC_BUILD/src/libvirt_sanlock_helper to /usr/libexec
+# $SRC_BUILD/src/libvirt_sanlock_helper to /usr/libexec
 $SRC_BUILD/src/libvirt_leaseshelper to /usr/libexec
-$SRC_BUILD/src/libvirt_parthelper to /usr/libexec
-$SRC_BUILD/src/libvirt_lxc to /usr/libexec
+# $SRC_BUILD/src/libvirt_parthelper to /usr/libexec
+# $SRC_BUILD/src/libvirt_lxc to /usr/libexec
 $SRC_BUILD/src/virt-qemu-run to /usr/bin
 # $SRC_BUILD/src/test_libvirt_lockd.aug to /usr/share/augeas/lenses/tests
 # $SRC_BUILD/src/test_libvirt_sanlock.aug to /usr/share/augeas/lenses/tests
@@ -185,7 +186,7 @@ $SRC_BUILD/tools/virt-pki-query-dn to /usr/bin
 $SRC_BUILD/tools/nss/libnss_libvirt.so.2 to /usr/lib64
 $SRC_BUILD/tools/nss/libnss_libvirt_guest.so.2 to /usr/lib64
 # $SRC_BUILD/tools/wireshark/src/libvirt.so to /usr/lib64/wireshark/plugins/4.4/epan
-# $SRC_BUILD/tools/ssh-proxy/libvirt-ssh-proxy to /usr/libexec
+$SRC_BUILD/tools/ssh-proxy/libvirt-ssh-proxy to /usr/libexec
 # $SRC_BASE/po/as/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/as/LC_MESSAGES
 # $SRC_BASE/po/bg/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bg/LC_MESSAGES
 # $SRC_BASE/po/bn_IN/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bn_IN/LC_MESSAGES
@@ -242,13 +243,13 @@ $SRC_BASE/include/libvirt/libvirt.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-host.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-interface.h to /usr/include/libvirt
 # $SRC_BASE/include/libvirt/libvirt-lxc.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-network.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-nodedev.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-nwfilter.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-network.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-nodedev.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-nwfilter.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-qemu.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-secret.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-storage.h to /usr/include/libvirt
-# $SRC_BASE/include/libvirt/libvirt-stream.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-secret.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-storage.h to /usr/include/libvirt
+$SRC_BASE/include/libvirt/libvirt-stream.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/virterror.h to /usr/include/libvirt
 $SRC_BUILD/include/libvirt/libvirt-common.h to /usr/include/libvirt
 # $SRC_BASE/src/cpu_map/arm_a64fx.xml to /usr/share/libvirt/cpu_map
