@@ -20,8 +20,12 @@ import:
 # Add bins from libvirt and qemu artifacts.
 - image: tmp-merged
   add: /VBINS
-  to: /BINS
+  to: /
   before: install
+  includePaths:
+  - usr
+  - etc
+  - lib64
 - image: edk2-artifact
   add: /FIRMWARE/
   to: /usr/share/OVMF
@@ -92,6 +96,8 @@ import:
   add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
   to: /usr/bin
   before: setup
+  includePaths:
+  - '*.sh'
 git:
   - add: /images/{{ $.ImageName }}
     to: /
@@ -204,15 +210,15 @@ shell:
     # mv OVMF_VARS_4M.secboot.fd OVMF_VARS.secboot.fd
     # rm OVMF_VARS_4M.secboot.qcow2 || true
     # ls -la
-*/}}
 
   # Installation libvirt and qemu
-  - |
-    echo "Install libvirt and qemu binaries"
-    cp -a -u -v /BINS/usr/* /usr
-    cp -a -u -v /BINS/etc/* /etc
-    cp -a -u -v /BINS/lib64/* /lib64
-    rm -rf /BINS/
+  # - |
+  #   echo "Install libvirt and qemu binaries"
+  #   cp -a -u -v /BINS/usr/* /usr
+  #   cp -a -u -v /BINS/etc/* /etc
+  #   cp -a -u -v /BINS/lib64/* /lib64
+  #   rm -rf /BINS/
+*/}}
 
   # Create symlinc for libvirt
   - |

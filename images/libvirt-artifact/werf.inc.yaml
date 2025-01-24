@@ -173,7 +173,7 @@ shell:
       -Daudit=enabled \
       -Ddtrace=disabled \
       -Dfirewalld=disabled \
-      -Dfirewalld_zone=enabled \
+      -Dfirewalld_zone=disabled \
       -Dwireshark_dissector=disabled \
       -Dlibssh=enabled -Dlibssh2=enabled \
       -Dpm_utils=disabled \
