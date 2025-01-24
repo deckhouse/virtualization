@@ -18,14 +18,22 @@ import:
 */}}
 
 # Add bins from libvirt and qemu artifacts.
+{{/*
+# - image: tmp-merged
+#   add: /VBINS
+#   to: /
+#   before: install
+#   includePaths:
+#   - usr
+#   - etc
+#   - lib64
+*/}}
+
 - image: tmp-merged
   add: /VBINS
-  to: /
+  to: /BINS
   before: install
-  includePaths:
-  - usr
-  - etc
-  - lib64
+
 - image: edk2-artifact
   add: /FIRMWARE/
   to: /usr/share/OVMF
@@ -106,14 +114,6 @@ git:
       - '**/*'
     includePaths:
     - scripts
-  # Override libvirt daemon configuration.
-  - add: /images/{{ $.ImageName }}
-    to: /etc/libvirt
-    stageDependencies:
-      setup:
-      - '**/*'
-    includePaths:
-    - libvirt.conf
   # Add liboverride as a global LD_PRELOAD.
   - add: /images/{{ $.ImageName }}/liboverride
     to: /etc
@@ -138,7 +138,9 @@ shell:
     dmidecode \
     numactl \
     hwclock \
+    libffi8 \
     glibc-gconv-modules
+
 {{/*
     # libffi8 \
     # libcrypt libcrypto3 \
@@ -184,6 +186,7 @@ shell:
   # Restructure firware files in /usr/share/OVMF to mimic structure
   # in edk2-ovmf package from the original kubevirt.
 */}}
+
   - |
     # Link to dir OVMF
     mkdir -p /usr/share/edk2
@@ -211,14 +214,15 @@ shell:
     # rm OVMF_VARS_4M.secboot.qcow2 || true
     # ls -la
 
-  # Installation libvirt and qemu
-  # - |
-  #   echo "Install libvirt and qemu binaries"
-  #   cp -a -u -v /BINS/usr/* /usr
-  #   cp -a -u -v /BINS/etc/* /etc
-  #   cp -a -u -v /BINS/lib64/* /lib64
-  #   rm -rf /BINS/
 */}}
+
+  # Installation libvirt and qemu
+  - |
+    echo "Install libvirt and qemu binaries"
+    cp -a -u -v /BINS/usr/* /usr
+    cp -a -u -v /BINS/etc/* /etc
+    cp -a -u -v /BINS/lib64/* /lib64
+    rm -rf /BINS/
 
   # Create symlinc for libvirt
   - |

@@ -103,10 +103,6 @@ shell:
 
     pip3 install black
 
-  - |
-    grep -qw ^rpm /etc/group || groupadd rpm
-    id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
-
   install:
   - |
     # export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
@@ -315,4 +311,3 @@ shell:
     /install-qemu.sh -s /{{ $gitRepoName }}-{{ $versionQemu }} \
                         -d /BINS \
                         -b build
-    ls -lah /BINS
