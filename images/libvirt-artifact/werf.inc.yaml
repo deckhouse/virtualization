@@ -110,8 +110,6 @@ shell:
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
   
     pip3 install black
-    grep -qw ^rpm /etc/group || groupadd rpm
-    id -u builder &>/dev/null || useradd builder --shell /bin/bash --create-home --group rpm
 
   install:
   - |
@@ -169,6 +167,9 @@ shell:
       -Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
       -Dlibiscsi=disabled
 
+      ninja -C build -j$(nproc)
+
+{{/*
       # -Ddriver_qemu=enabled \
       # -Ddriver_openvz=disabled \
       # -Ddriver_lxc=disabled -Dlogin_shell=disabled \
@@ -230,14 +231,14 @@ shell:
       # -Ddocs=disabled \
       # -Dtests=disabled \
       # -Drpath=disabled
+*/}}
 
-    ninja -C build -j$(nproc)
-
+{{/*
     # -Dselinux=enabled -Dselinux_mount="/sys/fs/selinux" \
     # -Dtls_priority="@LIBVIRT,SYSTEM" \
     # -Duserfaultfd_sysctl=disabled \
     # -Dnumad=disabled \
-
+*/}}
   setup:
   - |    
     /install-libvirt.sh -s /{{ $gitRepoName }}-{{ $versionLibvirt }} \
