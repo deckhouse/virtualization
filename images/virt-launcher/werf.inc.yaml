@@ -130,7 +130,8 @@ shell:
     swtpm swtpm-tools \
     xorriso \
     dmidecode \
-    hwclock
+    hwclock \
+    glibc-gconv-modules
 {{/*
     # libffi8 \
     # libcrypt libcrypto3 \
