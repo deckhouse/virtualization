@@ -139,6 +139,7 @@ shell:
       -Dnumactl=enabled \
       -Dcapng=enabled \
       -Dudev=enabled \
+      -Ddriver_network=enabled \
       -Ddriver_esx=disabled -Dcurl=disabled \
       -Dfirewalld=disabled \
       -Dfirewalld_zone=disabled \

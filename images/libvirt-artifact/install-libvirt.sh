@@ -433,7 +433,7 @@ $SRC_BASE/src/cpu_map/x86_Westmere.xml to /usr/share/libvirt/cpu_map
 # $SRC_BUILD/src/remote/libvirtd.lxc.logrotate to /etc/logrotate.d
 # $SRC_BUILD/src/remote/libvirtd.libxl.logrotate to /etc/logrotate.d
 # $SRC_BUILD/src/remote/libvirtd.logrotate to /etc/logrotate.d
-# $SRC_BASE/src/remote/libvirtd.sysctl to /usr/lib/sysctl.d
+$SRC_BASE/src/remote/libvirtd.sysctl to /usr/lib/sysctl.d
 $SRC_BASE/src/remote/libvirtd.policy to /usr/share/polkit-1/actions
 # $SRC_BASE/src/remote/libvirtd.rules to /usr/share/polkit-1/rules.d
 $SRC_BASE/src/remote/libvirtd.sasl to /etc/sasl2
