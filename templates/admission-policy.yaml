@@ -34,9 +34,9 @@ spec:
           - "DELETE"
         resources: ["*"]
   validations:
-    - expression: request.userInfo.username.startsWith("system:serviceaccount:kube-system:")
-    - expression: request.userInfo.username.startsWith("system:serviceaccount:d8-system:")
     - expression: |
+        request.userInfo.username.startsWith("system:serviceaccount:kube-system:") ||
+        request.userInfo.username.startsWith("system:serviceaccount:d8-system:") ||
         request.userInfo.username in [
           "system:serviceaccount:d8-virtualization:cdi-apiserver",
           "system:serviceaccount:d8-virtualization:cdi-cronjob",
