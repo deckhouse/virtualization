@@ -79,7 +79,7 @@ Once created, the ClusterVirtualImage resource can be in one of the following st
 - `Failed`: An error occurred when creating the image.
 - `Terminating`: The image is being deleted. It may "get stuck" in this state if it is still connected to the virtual machine.
 
-As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. Once it is in the `Ready` phase, the `.spec` block contents cannot be changed!
+As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. Once it is in the `Ready` phase, the `.spec` block contents **cannot be changed**.
 
 You can trace the image creation process by adding the `-w` key to the previous command:
 
@@ -172,7 +172,7 @@ An image stored in a container registry has a certain format. Let's look at an e
 
    Once created, the resource will enter the `WaitForUserUpload` phase, which means it is ready for uploading the image.
 
-1. There are two options available for uploading: from a cluster node and from an arbitrary node outside the cluster:
+1. There are two options available for uploading — from a cluster node and from an arbitrary node outside the cluster:
 
    ```bash
    d8 k get cvi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
