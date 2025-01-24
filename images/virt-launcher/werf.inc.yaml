@@ -130,6 +130,7 @@ shell:
     swtpm swtpm-tools \
     xorriso \
     dmidecode \
+    numactl \
     hwclock \
     glibc-gconv-modules
 {{/*
