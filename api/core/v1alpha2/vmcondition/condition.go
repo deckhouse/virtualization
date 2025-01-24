@@ -101,7 +101,8 @@ const (
 	ReasonVirtualMachineClassTerminating Reason = "VirtualMachineClassTerminating"
 	ReasonVirtualMachineClassNotExists   Reason = "VirtalMachineClassNotExists"
 
-	ReasonBlockDeviceCapacityReached Reason = "BlockDeviceCapacityReached"
+	// ReasonBlockDeviceLimitExceeded indicates that the limit for attaching block devices has been exceeded
+	ReasonBlockDeviceLimitExceeded Reason = "BlockDeviceLimitExceeded"
 
 	ReasonPodTerminatingReason      Reason = "PodTerminating"
 	ReasonPodNotExistsReason        Reason = "PodNotExists"

@@ -45,9 +45,9 @@ const nameBlockDeviceHandler = "BlockDeviceHandler"
 
 func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger, blockDeviceService IBlockDeviceService) *BlockDeviceHandler {
 	return &BlockDeviceHandler{
-		client:   cl,
-		recorder: recorder,
-		service:  blockDeviceService,
+		client:             cl,
+		recorder:           recorder,
+		blockDeviceService: blockDeviceService,
 
 		viProtection:  service.NewProtectionService(cl, virtv2.FinalizerVIProtection),
 		cviProtection: service.NewProtectionService(cl, virtv2.FinalizerCVIProtection),
@@ -56,9 +56,9 @@ func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderL
 }
 
 type BlockDeviceHandler struct {
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
-	service  IBlockDeviceService
+	client             client.Client
+	recorder           eventrecord.EventRecorderLogger
+	blockDeviceService IBlockDeviceService
 
 	viProtection  *service.ProtectionService
 	cviProtection *service.ProtectionService
@@ -98,8 +98,8 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	}
 
 	// Get number of connected block devices
-	// If it greater limit then set condition to false
-	blockDeviceAttachedCount, err := h.service.CountBlockDevicesAttachedToVm(ctx, changed)
+	// If it is greater limit then set condition to false
+	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVm(ctx, changed)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -107,8 +107,9 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonBlockDeviceCapacityReached).
+			Reason(vmcondition.ReasonBlockDeviceLimitExceeded).
 			Message(fmt.Sprintf("Can not attach %d block devices (%d is maximum) to `VirtualMachine` %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, changed.Name))
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	// Get hot plugged BlockDeviceRefs from vmbdas.
