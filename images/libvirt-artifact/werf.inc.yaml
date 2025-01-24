@@ -138,6 +138,7 @@ shell:
       -Dlibssh2=enabled \
       -Dnumactl=enabled \
       -Dcapng=enabled \
+      -Dudev=enabled \
       -Ddriver_esx=disabled -Dcurl=disabled \
       -Dfirewalld=disabled \
       -Dfirewalld_zone=disabled \
@@ -154,14 +155,15 @@ shell:
       -Dvbox_xpcomc_dir=disabled \
       -Dwireshark_dissector=disabled \
       -Dwireshark_plugindir=disabled \
-      -Dstorage_gluster=disabled \
+      -Dstorage_gluster=disabled -Dglusterfs=disabled \
       -Dstorage_fs=disabled \
       -Dstorage_lvm=disabled \
       -Dstorage_zfs=disabled \
       -Dstorage_vstorage=disabled \
       -Dstorage_rbd=disabled \
       -Dstorage_mpath=disabled \
-      -Dstorage_iscsi_direct=disabled \
+      -Dstorage_iscsi=disabled \
+      -Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
       -Dlibiscsi=disabled
 
       # -Ddriver_qemu=enabled \
