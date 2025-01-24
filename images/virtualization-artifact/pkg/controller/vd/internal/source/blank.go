@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -42,6 +43,7 @@ import (
 const blankDataSource = "blank"
 
 type BlankDataSource struct {
+	recorder            eventrecord.EventRecorderLogger
 	statService         *service.StatService
 	diskService         *service.DiskService
 	storageClassService *service.VirtualDiskStorageClassService
@@ -49,6 +51,7 @@ type BlankDataSource struct {
 }
 
 func NewBlankDataSource(
+	recorder eventrecord.EventRecorderLogger,
 	statService *service.StatService,
 	diskService *service.DiskService,
 	storageClassService *service.VirtualDiskStorageClassService,
@@ -59,6 +62,7 @@ func NewBlankDataSource(
 		diskService:         diskService,
 		storageClassService: storageClassService,
 		client:              client,
+		recorder:            recorder,
 	}
 }
 
@@ -163,6 +167,7 @@ func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (rec
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).
 			Message(dvRunningCondition.Message)
+		ds.recorder.Event(vd, corev1.EventTypeWarning, vdcondition.ImagePullFailed.String(), dvRunningCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning

@@ -306,6 +306,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).
 			Message(dvRunningCondition.Message)
+		ds.recorder.Event(vd, corev1.EventTypeWarning, vdcondition.ImagePullFailed.String(), dvRunningCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning
