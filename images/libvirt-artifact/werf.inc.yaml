@@ -126,67 +126,105 @@ shell:
     cd {{ $gitRepoName }}-{{ $versionLibvirt }}
 
     CFLAGS="-Wframe-larger-than=262144" meson setup build \
+      -Dinit_script=systemd \
+      -Dsystem=true \
       -Ddriver_qemu=enabled \
-      -Ddriver_openvz=disabled \
-      -Ddriver_lxc=disabled -Dlogin_shell=disabled \
-      -Ddriver_vbox=disabled \
-      -Ddriver_libxl=disabled \
+      -Ddriver_libvirtd=enabled \
+      -Dpciaccess=enabled \
+      -Ddriver_remote=enabled \
       -Dsasl=enabled \
       -Dpolkit=enabled \
-      -Ddriver_libvirtd=enabled \
-      -Ddriver_remote=enabled \
-      -Ddriver_test=disabled \
-      -Ddriver_esx=disabled -Dcurl=disabled \
-      -Ddriver_hyperv=disabled -Dopenwsman=disabled \
-      -Ddriver_vmware=disabled \
-      -Ddriver_vz=disabled \
-      -Ddriver_bhyve=disabled \
-      -Ddriver_ch=disabled \
-      -Dremote_default_mode=direct \
-      -Ddriver_interface=enabled \
-      -Ddriver_network=enabled \
-      -Dstorage_fs=disabled \
-      -Dstorage_lvm=disabled \
-      -Dstorage_iscsi=disabled \
-      -Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
-      -Dstorage_scsi=disabled \
-      -Dstorage_disk=disabled \
-      -Dstorage_mpath=disabled \
-      -Dstorage_rbd=disabled \
-      -Dstorage_gluster=disabled -Dglusterfs=disabled \
-      -Dstorage_zfs=disabled \
-      -Dstorage_vstorage=disabled \
+      -Dlibssh=enabled \
+      -Dlibssh2=enabled \
       -Dnumactl=enabled \
       -Dcapng=enabled \
-      -Dfuse=enabled \
-      -Dnetcf=disabled \
-      -Dnls=enabled \
-      -Dapparmor=disabled \
-      -Dapparmor_profiles=disabled \
-      -Dsecdriver_apparmor=disabled \
-      -Dudev=enabled \
-      -Djson_c=enabled \
-      -Dsanlock=disabled \
-      -Dlibpcap=enabled \
-      -Dnbdkit=disabled -Dnbdkit_config_default=disabled \
-      -Dlibnl=enabled \
-      -Daudit=enabled \
-      -Ddtrace=disabled \
+      -Ddriver_esx=disabled -Dcurl=disabled \
       -Dfirewalld=disabled \
       -Dfirewalld_zone=disabled \
-      -Dwireshark_dissector=disabled \
-      -Dlibssh=enabled -Dlibssh2=enabled \
-      -Dpm_utils=disabled \
-      -Dnss=enabled \
-      -Dqemu_user="qemu" \
-      -Dqemu_group="qemu" \
-      -Dsysctl_config=enabled \
-      -Dssh_proxy=enabled \
-      -Dinit_script=systemd \
-      -Dfirewall_backend_priority="iptables,nftables" \
       -Ddocs=disabled \
-      -Dtests=disabled \
-      -Drpath=disabled
+      -Ddriver_ch=disabled \
+      -Ddriver_lxc=disabled -Dlogin_shell=disabled \
+      -Ddriver_openvz=disabled \
+      -Ddriver_test=disabled \
+      -Ddriver_vbox=disabled \
+      -Ddriver_vmware=disabled \
+      -Ddriver_hyperv=disabled -Dopenwsman=disabled \
+      -Ddriver_vz=disabled \
+      -Ddriver_bhyve=disabled \
+      -Dvbox_xpcomc_dir=disabled \
+      -Dwireshark_dissector=disabled \
+      -Dwireshark_plugindir=disabled \
+      -Dstorage_gluster=disabled \
+      -Dstorage_fs=disabled \
+      -Dstorage_lvm=disabled \
+      -Dstorage_zfs=disabled \
+      -Dstorage_vstorage=disabled \
+      -Dstorage_rbd=disabled \
+      -Dstorage_mpath=disabled \
+      -Dstorage_iscsi_direct=disabled \
+      -Dlibiscsi=disabled
+
+      # -Ddriver_qemu=enabled \
+      # -Ddriver_openvz=disabled \
+      # -Ddriver_lxc=disabled -Dlogin_shell=disabled \
+      # -Ddriver_vbox=disabled \
+      # -Ddriver_libxl=disabled \
+      # -Dsasl=enabled \
+      # -Dpolkit=enabled \
+      # -Ddriver_libvirtd=enabled \
+      # -Ddriver_remote=enabled \
+      # -Ddriver_test=disabled \
+      # -Ddriver_esx=disabled -Dcurl=disabled \
+      # -Ddriver_hyperv=disabled -Dopenwsman=disabled \
+      # -Ddriver_vmware=disabled \
+      # -Ddriver_vz=disabled \
+      # -Ddriver_bhyve=disabled \
+      # -Ddriver_ch=disabled \
+      # -Dremote_default_mode=direct \
+      # -Ddriver_interface=enabled \
+      # -Ddriver_network=enabled \
+      # -Dstorage_fs=disabled \
+      # -Dstorage_lvm=disabled \
+      # -Dstorage_iscsi=disabled \
+      # -Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
+      # -Dstorage_scsi=disabled \
+      # -Dstorage_disk=disabled \
+      # -Dstorage_mpath=disabled \
+      # -Dstorage_rbd=disabled \
+      # -Dstorage_gluster=disabled -Dglusterfs=disabled \
+      # -Dstorage_zfs=disabled \
+      # -Dstorage_vstorage=disabled \
+      # -Dnumactl=enabled \
+      # -Dcapng=enabled \
+      # -Dfuse=enabled \
+      # -Dnetcf=disabled \
+      # -Dnls=enabled \
+      # -Dapparmor=disabled \
+      # -Dapparmor_profiles=disabled \
+      # -Dsecdriver_apparmor=disabled \
+      # -Dudev=enabled \
+      # -Djson_c=enabled \
+      # -Dsanlock=disabled \
+      # -Dlibpcap=enabled \
+      # -Dnbdkit=disabled -Dnbdkit_config_default=disabled \
+      # -Dlibnl=enabled \
+      # -Daudit=enabled \
+      # -Ddtrace=disabled \
+      # -Dfirewalld=disabled \
+      # -Dfirewalld_zone=disabled \
+      # -Dwireshark_dissector=disabled \
+      # -Dlibssh=enabled -Dlibssh2=enabled \
+      # -Dpm_utils=disabled \
+      # -Dnss=enabled \
+      # -Dqemu_user="qemu" \
+      # -Dqemu_group="qemu" \
+      # -Dsysctl_config=enabled \
+      # -Dssh_proxy=enabled \
+      # -Dinit_script=systemd \
+      # -Dfirewall_backend_priority="iptables,nftables" \
+      # -Ddocs=disabled \
+      # -Dtests=disabled \
+      # -Drpath=disabled
 
     ninja -C build -j$(nproc)
 
