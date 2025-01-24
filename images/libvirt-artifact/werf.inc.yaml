@@ -157,7 +157,6 @@ shell:
       -Dstorage_zfs=disabled \
       -Dstorage_vstorage=disabled \
       -Dnumactl=enabled \
-      -Dnumad=disabled \
       -Dcapng=enabled \
       -Dfuse=enabled \
       -Dnetcf=disabled \
@@ -173,7 +172,7 @@ shell:
       -Dlibnl=enabled \
       -Daudit=enabled \
       -Ddtrace=disabled \
-      -Dfirewalld=enabled \
+      -Dfirewalld=disabled \
       -Dfirewalld_zone=enabled \
       -Dwireshark_dissector=disabled \
       -Dlibssh=enabled -Dlibssh2=enabled \
@@ -194,6 +193,7 @@ shell:
     # -Dselinux=enabled -Dselinux_mount="/sys/fs/selinux" \
     # -Dtls_priority="@LIBVIRT,SYSTEM" \
     # -Duserfaultfd_sysctl=disabled \
+    # -Dnumad=disabled \
 
   setup:
   - |    

@@ -102,9 +102,8 @@ lib_version=$(convert_version $VERSION_NUM)
 
 # List of files and destinations
 FILE_LIST=$(cat <<EOF
-$SRC_BUILD/src/access/org.libvirt.api.policy to /usr/local/share/polkit-1/actions
 # $SRC_BUILD/src/libvirt_probes.stp to /usr/share/systemtap/tapset
-# $SRC_BUILD/src/access/org.libvirt.api.policy to /usr/share/polkit-1/actions
+$SRC_BUILD/src/access/org.libvirt.api.policy to /usr/share/polkit-1/actions
 # $SRC_BUILD/src/qemu/libvirt_qemu_probes.stp to /usr/share/systemtap/tapset
 $SRC_BUILD/src/libvirt.so.0.${lib_version}.0 to /usr/local/lib64
 $SRC_BUILD/src/libvirt-qemu.so.0.${lib_version}.0 to /usr/local/lib64
@@ -435,7 +434,7 @@ $SRC_BASE/src/cpu_map/x86_Westmere.xml to /usr/share/libvirt/cpu_map
 # $SRC_BUILD/src/remote/libvirtd.libxl.logrotate to /etc/logrotate.d
 # $SRC_BUILD/src/remote/libvirtd.logrotate to /etc/logrotate.d
 # $SRC_BASE/src/remote/libvirtd.sysctl to /usr/lib/sysctl.d
-# $SRC_BASE/src/remote/libvirtd.policy to /usr/share/polkit-1/actions
+$SRC_BASE/src/remote/libvirtd.policy to /usr/share/polkit-1/actions
 # $SRC_BASE/src/remote/libvirtd.rules to /usr/share/polkit-1/rules.d
 # $SRC_BASE/src/remote/libvirtd.sasl to /etc/sasl2
 # $SRC_BUILD/src/network/default.xml to /etc/libvirt/qemu/networks
