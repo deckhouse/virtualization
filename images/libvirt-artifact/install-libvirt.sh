@@ -601,7 +601,9 @@ copy_file() {
 
     # Copy the file
     # install -s "$SOURCE_PATH" "$DEST_BASE$dest_dir"
-    strip "$SOURCE_PATH"
+    if ! [[ "$SOURCE_PATH" =~ \.(txt|log|sh|service|conf|xml) ]];then
+        strip "$SOURCE_PATH"
+    fi
     cp -p "$SOURCE_PATH" "$DEST_BASE$dest_dir"
     echo "Copied $SOURCE_PATH to $DEST_BASE$dest_dir"
 }
