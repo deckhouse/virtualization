@@ -119,10 +119,11 @@ const (
 
 	// ReasonVMIPVMAttached is event reason that VMIP attached to VM
 	ReasonVMIPVMAttached = "VMIPVMAttached"
-	// ReasonVMIPVMDetached is event reason that VMIP not attached to VM
-	ReasonVMIPVMDetached = "VMIPVMDetached"
+	// ReasonVMIPVMNotAttached is event reason that VirtualMachineIPAddress not attached to VirtualMachine.
+	ReasonVMIPVMNotAttached = "VMIPVMNotAttached"
 
-	ReasonVMIPLeaseBound       = "VMIPLeaseBound"
-	ReasonVMIPLeaseNotBound    = "VMIPLeaseNotBound"
+	// ReasonVMIPLeaseBound is the event reason indicating that a VirtualMachineIPLease is bound to a VirtualMachineIPAddress.
+	ReasonVMIPLeaseBound = "VMIPLeaseBound"
+	// ReasonVMIPLeaseBoundFailed is the event reason indicating that the binding of a VirtualMachineIPLease to a VirtualMachineIPAddress has failed.
 	ReasonVMIPLeaseBoundFailed = "VMIPLeaseBoundFailed"
 )
