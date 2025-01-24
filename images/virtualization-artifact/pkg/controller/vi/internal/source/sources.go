@@ -281,5 +281,8 @@ func setQuotaExceededPhaseCondition(cb *conditions.ConditionBuilder, phase *virt
 }
 
 const (
+	DVRunningConditionType          cdiv1.DataVolumeConditionType = "DVRunning"
 	DVQoutaNotExceededConditionType cdiv1.DataVolumeConditionType = "QuotaNotExceeded"
+
+	DVImagePullFailedReason = "ImagePullFailed"
 )

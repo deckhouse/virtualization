@@ -107,9 +107,11 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		return reconcile.Result{}, err
 	}
 
-	var quotaNotExceededCondition *cdiv1.DataVolumeCondition
+	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
+	var dvRunningCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
-		quotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
+		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
+		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
 	}
 
 	switch {
@@ -270,12 +272,20 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 			Message("PVC Provisioner not found: create the new one.")
 
 		return reconcile.Result{Requeue: true}, nil
-	case quotaNotExceededCondition != nil && quotaNotExceededCondition.Status == corev1.ConditionFalse:
+	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
 		vi.Status.Phase = virtv2.ImagePending
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.QuotaExceeded).
-			Message(quotaNotExceededCondition.Message)
+			Message(dvQuotaNotExceededCondition.Message)
+		return reconcile.Result{}, nil
+	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
+		vi.Status.Phase = virtv2.ImagePending
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.ImagePullFailed).
+			Message(dvRunningCondition.Message)
+		ds.recorder.Event(vi, corev1.EventTypeWarning, vicondition.ImagePullFailed.String(), dvRunningCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
 		vi.Status.Phase = virtv2.ImageProvisioning
