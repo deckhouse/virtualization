@@ -172,7 +172,7 @@ $SRC_BUILD/src/test_libvirtd_qemu.aug to /usr/share/augeas/lenses/tests
 # $SRC_BUILD/src/test_virtstoraged.aug to /usr/share/augeas/lenses/tests
 # $SRC_BUILD/src/test_virtlxcd.aug to /usr/share/augeas/lenses/tests
 # $SRC_BUILD/src/test_virtchd.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_virtqemud.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_virtqemud.aug to /usr/share/augeas/lenses/tests
 # $SRC_BUILD/src/test_virtvboxd.aug to /usr/share/augeas/lenses/tests
 $SRC_BUILD/src/libvirt_functions.stp to /usr/share/systemtap/tapset
 $SRC_BUILD/tools/virt-host-validate to /usr/bin
@@ -507,7 +507,7 @@ $SRC_BUILD/src/libvirtd.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtchd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtchd.aug to /usr/share/augeas/lenses
 $SRC_BUILD/src/virtqemud.conf to /etc/libvirt
-$SRC_BUILD/src/virtqemud.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/virtqemud.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtvboxd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtvboxd.aug to /usr/share/augeas/lenses
 $SRC_BASE/src/remote/virt-guest-shutdown.target to /usr/lib/systemd/system
