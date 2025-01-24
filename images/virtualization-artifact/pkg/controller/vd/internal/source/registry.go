@@ -107,12 +107,9 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 	}
 
 	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
-	if dv != nil {
-		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
-	}
-
 	var dvRunningCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
+		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
 	}
 
