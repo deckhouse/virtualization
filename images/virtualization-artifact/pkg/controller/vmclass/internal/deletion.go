@@ -78,10 +78,6 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 			Message(msg)
 		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 	}
-	cb.
-		Status(metav1.ConditionFalse).
-		Reason(vmclasscondition.ReasonVMClassFree).
-		Message("")
 	h.logger.Info("Deletion observed: remove cleanup finalizer from VirtualMachineClass")
 	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMCleanup)
 	return reconcile.Result{}, nil
