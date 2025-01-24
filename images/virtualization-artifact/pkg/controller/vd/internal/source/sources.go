@@ -416,7 +416,7 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.Di
 }
 
 const (
-	DVRunningConditionType          cdiv1.DataVolumeConditionType = "DVRunning"
+	DVRunningConditionType          cdiv1.DataVolumeConditionType = "Running"
 	DVQoutaNotExceededConditionType cdiv1.DataVolumeConditionType = "QuotaNotExceeded"
 
 	DVImagePullFailedReason = "ImagePullFailed"
