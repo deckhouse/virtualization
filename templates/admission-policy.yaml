@@ -35,6 +35,8 @@ spec:
         resources: ["*"]
   validations:
     - expression: |
+        request.userInfo.username.startsWith("system:serviceaccount:kube-system:") ||
+        request.userInfo.username.startsWith("system:serviceaccount:d8-system:") ||
         request.userInfo.username in [
           "system:serviceaccount:d8-virtualization:cdi-apiserver",
           "system:serviceaccount:d8-virtualization:cdi-cronjob",
@@ -50,7 +52,6 @@ spec:
           "system:serviceaccount:d8-virtualization:virtualization-api",
           "system:serviceaccount:d8-virtualization:virtualization-pre-delete-hook",
           "system:serviceaccount:d8-virtualization:vm-route-forge",
-          "system:serviceaccount:d8-system:deckhouse"
         ]
       message: "Operation forbidden for this user."
 ---
