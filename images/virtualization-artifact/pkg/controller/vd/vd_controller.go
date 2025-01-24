@@ -68,7 +68,7 @@ func NewController(
 	scService := service.NewVirtualDiskStorageClassService(storageClassSettings)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
-	blank := source.NewBlankDataSource(stat, disk, scService, mgr.GetClient())
+	blank := source.NewBlankDataSource(recorder, stat, disk, scService, mgr.GetClient())
 
 	sources := source.NewSources()
 	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, dvcr, scService, mgr.GetClient()))
