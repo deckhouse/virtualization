@@ -161,7 +161,7 @@ $SRC_BUILD/src/virt-qemu-run to /usr/bin
 $SRC_BUILD/src/test_virtlogd.aug to /usr/share/augeas/lenses/tests
 # $SRC_BUILD/src/test_libvirtd_network.aug to /usr/share/augeas/lenses/tests
 # $SRC_BUILD/src/test_libvirtd_lxc.aug to /usr/share/augeas/lenses/tests
-$SRC_BUILD/src/test_libvirtd_qemu.aug to /usr/share/augeas/lenses/tests
+# $SRC_BUILD/src/test_libvirtd_qemu.aug to /usr/share/augeas/lenses/tests
 # $SRC_BUILD/src/test_libvirtd.aug to /usr/share/augeas/lenses/tests
 # $SRC_BUILD/src/test_virtproxyd.aug to /usr/share/augeas/lenses/tests
 # $SRC_BUILD/src/test_virtinterfaced.aug to /usr/share/augeas/lenses/tests
@@ -436,7 +436,7 @@ $SRC_BASE/src/cpu_map/x86_Westmere.xml to /usr/share/libvirt/cpu_map
 # $SRC_BASE/src/remote/libvirtd.sysctl to /usr/lib/sysctl.d
 $SRC_BASE/src/remote/libvirtd.policy to /usr/share/polkit-1/actions
 # $SRC_BASE/src/remote/libvirtd.rules to /usr/share/polkit-1/rules.d
-# $SRC_BASE/src/remote/libvirtd.sasl to /etc/sasl2
+$SRC_BASE/src/remote/libvirtd.sasl to /etc/sasl2
 # $SRC_BUILD/src/network/default.xml to /etc/libvirt/qemu/networks
 # $SRC_BASE/src/network/libvirt.zone to /usr/lib/firewalld/zones
 # $SRC_BASE/src/network/libvirt-routed.zone to /usr/lib/firewalld/zones
@@ -482,12 +482,12 @@ $SRC_BASE/src/libvirt.conf to /etc/libvirt
 # $SRC_BASE/src/locking/libvirt_lockd.aug to /usr/share/augeas/lenses
 # $SRC_BASE/src/locking/libvirt_sanlock.aug to /usr/share/augeas/lenses
 # $SRC_BASE/src/locking/virtlockd.aug to /usr/share/augeas/lenses
-$SRC_BASE/src/logging/virtlogd.aug to /usr/share/augeas/lenses
+# $SRC_BASE/src/logging/virtlogd.aug to /usr/share/augeas/lenses
 # $SRC_BASE/src/network/libvirtd_network.aug to /usr/share/augeas/lenses
 # $SRC_BASE/src/lxc/libvirtd_lxc.aug to /usr/share/augeas/lenses
-$SRC_BASE/src/qemu/libvirtd_qemu.aug to /usr/share/augeas/lenses
+# $SRC_BASE/src/qemu/libvirtd_qemu.aug to /usr/share/augeas/lenses
 $SRC_BUILD/src/libvirtd.conf to /etc/libvirt
-$SRC_BUILD/src/libvirtd.aug to /usr/share/augeas/lenses
+# $SRC_BUILD/src/libvirtd.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtproxyd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtproxyd.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtinterfaced.conf to /etc/libvirt
@@ -512,11 +512,11 @@ $SRC_BUILD/src/virtqemud.conf to /etc/libvirt
 # $SRC_BUILD/src/virtvboxd.aug to /usr/share/augeas/lenses
 $SRC_BASE/src/remote/virt-guest-shutdown.target to /usr/lib/systemd/system
 # $SRC_BUILD/src/libvirtd.service to /usr/lib/systemd/system
-$SRC_BUILD/src/libvirtd.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/libvirtd-ro.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/libvirtd-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/libvirtd-tcp.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/libvirtd-tls.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/libvirtd.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/libvirtd-ro.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/libvirtd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/libvirtd-tcp.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/libvirtd-tls.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtproxyd.service to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtproxyd.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtproxyd-ro.socket to /usr/lib/systemd/system
