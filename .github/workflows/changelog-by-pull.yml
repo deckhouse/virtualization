@@ -45,4 +45,4 @@ jobs:
         uses: ./.github/actions/milestone-changelog
         with:
           milestone: ${{ toJSON( github.event.pull_request.milestone ) }}
-          token: ${{ secrets.CHANGELOG_ACCESS_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}

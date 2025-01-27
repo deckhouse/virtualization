@@ -93,7 +93,7 @@ jobs:
       - name: Find Open Milestones
         id: milestones
         env:
-          GITHUB_TOKEN: ${{ secrets.CHANGELOG_ACCESS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
         # https://docs.github.com/en/rest/reference/issues#milestones
         run: |
           milestones="$(gh api 'repos/${{ github.repository }}/milestones?state=open&per_page=100')"
@@ -124,4 +124,4 @@ jobs:
         uses: ./.github/actions/milestone-changelog
         with:
           milestone: ${{ toJSON( matrix.milestone ) }}
-          token: ${{ secrets.CHANGELOG_ACCESS_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}

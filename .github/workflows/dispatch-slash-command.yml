@@ -95,7 +95,7 @@ jobs:
       - name: Run workflow
         uses: actions/github-script@v6.4.1
         with:
-          github-token: ${{ secrets.CHANGELOG_ACCESS_TOKEN }}
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           script: |
             const ci = require('./.github/scripts/js/ci');
             return await ci.runSlashCommandForReleaseIssue({github, context, core});
@@ -115,7 +115,7 @@ jobs:
       - name: Run workflow
         uses: actions/github-script@v6.4.1
         with:
-          github-token: ${{ secrets.CHANGELOG_ACCESS_TOKEN }}
+          github-token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           script: |
             const ci = require('./.github/scripts/js/pr-command-dispatcher');
             return await ci.runSlashCommandForPullRequest({github, context, core});
@@ -145,7 +145,7 @@ jobs:
         if: steps.milestone.outputs.result
         uses: peter-evans/slash-command-dispatch@v2
         with:
-          token: ${{ secrets.CHANGELOG_ACCESS_TOKEN }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           commands: changelog
           dispatch-type: repository
           issue-type: pull-request
