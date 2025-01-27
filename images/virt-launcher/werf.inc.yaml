@@ -118,7 +118,7 @@ import:
   - container-disk
   - virt-freezer
   - virt-launcher
-  - virt-launcher-monitor
+  - virt-launcher-monitor-orig
   - virt-probe
   - virt-tail
 - image: virt-artifact
@@ -219,7 +219,7 @@ shell:
 
   setup:
   # Replace virt-launcher-monitor with the wrapper.
-  - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
+  # - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
   - chmod +x /usr/bin/virt-launcher-monitor
   
