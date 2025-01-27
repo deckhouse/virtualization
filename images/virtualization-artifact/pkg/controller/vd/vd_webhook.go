@@ -44,6 +44,7 @@ func NewValidator(client client.Client) *Validator {
 			validator.NewPVCSizeValidator(client),
 			validator.NewSpecChangesValidator(),
 			validator.NewISOSourceValidator(client),
+			validator.NewNameValidator(),
 		},
 	}
 }
