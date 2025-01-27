@@ -24,11 +24,18 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
 var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2ETestDecorators(), func() {
+	BeforeEach(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+	})
+
 	var (
 		testCaseLabel = map[string]string{"testcase": "affinity-toleration"}
 		vmA           = map[string]string{"vm": "vm-a"}
@@ -36,6 +43,15 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 		vmC           = map[string]string{"vm": "vm-c"}
 		vmD           = map[string]string{"vm": "vm-d"}
 	)
+
+	Context("Preparing the environment", func() {
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.AffinityToleration, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
+	})
 
 	Context("When virtualization resources are applied:", func() {
 		It("result should be succeeded", func() {

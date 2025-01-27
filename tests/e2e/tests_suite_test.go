@@ -64,7 +64,14 @@ var (
 )
 
 func init() {
-	var err error
+	err := config.CheckReusableOption()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = config.CheckWithPostCleanUpOption()
+	if err != nil {
+		log.Fatal(err)
+	}
 	if conf, err = config.GetConfig(); err != nil {
 		log.Fatal(err)
 	}
@@ -108,13 +115,14 @@ func init() {
 			log.Fatal(err)
 		}
 	}
-	err = Cleanup()
-	if err != nil {
-		log.Fatal(err)
-	}
-	res := kubectl.CreateResource(kc.ResourceNamespace, conf.Namespace, kc.CreateOptions{})
-	if !res.WasSuccess() {
-		log.Fatalf("err: %v\n%s", res.Error(), res.StdErr())
+
+	if !config.IsReusable() {
+		errs := Cleanup()
+		if len(errs) != 0 {
+			log.Fatal(errs)
+		}
+	} else {
+		log.Println("Run test in REUSABLE mode")
 	}
 }
 
@@ -122,33 +130,67 @@ func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
 	fmt.Fprintf(GinkgoWriter, "Starting test suite\n")
 	RunSpecs(t, "Tests")
-	if !(ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() {
-		Cleanup()
+
+	if (ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() || !config.IsCleanUpNeeded() {
+		return
+	}
+
+	err := Cleanup()
+	if len(err) != 0 {
+		log.Fatal(err)
 	}
 }
 
-func Cleanup() error {
+func Cleanup() []error {
+	cleanupErrs := make([]error, 0)
+	testCases, err := conf.GetTestCases()
+	if err != nil {
+		cleanupErrs = append(cleanupErrs, err)
+		return cleanupErrs
+	}
+
+	for _, tc := range testCases {
+		kustomizeFilePath := fmt.Sprintf("%s/kustomization.yaml", tc)
+		namespace, err := kustomize.GetNamespace(kustomizeFilePath)
+		if err != nil {
+			cleanupErrs = append(
+				cleanupErrs, fmt.Errorf("cannot cleanup namespace %q: %w", namespace, err),
+			)
+			continue
+		}
+		res := kubectl.Delete(kc.DeleteOptions{
+			Filename:       []string{conf.Namespace},
+			IgnoreNotFound: true,
+			Resource:       kc.ResourceNamespace,
+		})
+		if res.Error() != nil {
+			cleanupErrs = append(
+				cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
+			)
+			continue
+		}
+	}
+
 	res := kubectl.Delete(kc.DeleteOptions{
-		Filename:       []string{conf.Namespace},
 		IgnoreNotFound: true,
-		Resource:       kc.ResourceNamespace,
+		Labels:         map[string]string{"id": namePrefix},
+		Resource:       kc.ResourceCVI,
 	})
 	if res.Error() != nil {
-		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		cleanupErrs = append(
+			cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
+		)
 	}
 	res = kubectl.Delete(kc.DeleteOptions{
-		Labels:   map[string]string{"id": namePrefix},
-		Resource: kc.ResourceCVI,
+		IgnoreNotFound: true,
+		Labels:         map[string]string{"id": namePrefix},
+		Resource:       kc.ResourceVMClass,
 	})
 	if res.Error() != nil {
-		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		cleanupErrs = append(
+			cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
+		)
 	}
-	res = kubectl.Delete(kc.DeleteOptions{
-		Labels:   map[string]string{"id": namePrefix},
-		Resource: kc.ResourceVMClass,
-	})
-	if res.Error() != nil {
-		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-	}
-	return nil
+
+	return cleanupErrs
 }

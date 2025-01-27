@@ -74,6 +74,36 @@ For example, run only "Complex text" without cleanup on failure:
 FOCUS="Complex test" STOP_ON_FAILURE=yes task run
 ```
 
+### Reusable mode option
+
+The environment variable REUSABLE used to reuse resources created previously.
+By default, it retains all resources created during the e2e test after its completion (no cleanup by default in this mode).
+Use the `WITH_POST_CLEANUP=yes` environment variable to clean up resources created or used during the test.
+When a test starts, it will reuse existing virtual machines created earlier, if they exist.
+If no virtual machines were found, they will be created.
+
+For example, run test in reusable mode:
+```bash
+REUSABLE=yes task run
+```
+
+! Only the following e2e tests are supported in REUSABLE mode. All other tests will be skipped.
+- "Virtual machine configuration"
+- "Virtual machine migration"
+- "VM connectivity"
+- "Complex test"
+
+### PostCleanUp option
+
+WithPostCleanUpEnv defines an environment variable used to explicitly request the deletion of created/used resources.
+For example, this option is useful when combined with the `REUSABLE=yes` option,
+as the reusable mode does not delete created/used resources by default.
+
+For example, run test in reusable mode with the removal of all used resources after test completion:
+```bash
+REUSABLE=yes WITH_POST_CLEANUP=yes task run
+```
+
 ## Run tests in CI
 ```bash
 task run:ci

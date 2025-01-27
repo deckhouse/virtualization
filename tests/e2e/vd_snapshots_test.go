@@ -23,14 +23,16 @@ import (
 	"sync"
 	"time"
 
-	sdsrepvolv1 "github.com/deckhouse/sds-replicated-volume/api/v1alpha1"
 	snapshotvolv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	sdsrepvolv1 "github.com/deckhouse/sds-replicated-volume/api/v1alpha1"
+
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -226,6 +228,12 @@ func CheckFilesystemReadyStatus(vmName string, status v1.ConditionStatus) (strin
 }
 
 var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(), func() {
+	BeforeEach(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+	})
+
 	var (
 		immediateStorageClassName      string // require for unattached virtual disk snapshots
 		defaultVolumeSnapshotClassName string
@@ -235,7 +243,14 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 		vmAutomaticWithHotplug         = map[string]string{"vm": "automatic-with-hotplug"}
 	)
 
-	Context("Environment preparing", func() {
+	Context("Preparing the environment", func() {
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
+
 		It("prepares `Immediate` storage class and virtual disk that use it", func() {
 			sc, err := GetDefaultStorageClass()
 			Expect(err).NotTo(HaveOccurred(), "cannot get default storage class\nstderr: %s", err)

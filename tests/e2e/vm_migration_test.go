@@ -25,9 +25,15 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+)
+
+const (
+	InternalApiVersion = "internal.virtualization.deckhouse.io/v1"
+	KubevirtVMIMKind   = "InternalVirtualizationVirtualMachineInstanceMigration"
 )
 
 func MigrateVirtualMachines(label map[string]string, templatePath string, virtualMachines ...string) {
@@ -72,8 +78,30 @@ func CreateMigrationManifest(vmName, filePath string, labels map[string]string) 
 var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration"}
 
+	Context("Preparing the environment", func() {
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
+	})
+
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
+			if config.IsReusable() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				if res.StdOut() != "" {
+					return
+				}
+			}
+
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.VmMigration},
 				FilenameOption: kc.Kustomize,
@@ -161,15 +189,20 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
-				KustomizationDir: conf.TestData.VmMigration,
+			resourcesToDelete := ResourcesToDelete{
 				AdditionalResources: []AdditionalResource{
 					{
 						Resource: kc.ResourceVMOP,
 						Labels:   testCaseLabel,
 					},
 				},
-			})
+			}
+
+			if config.IsCleanUpNeeded() {
+				resourcesToDelete.KustomizationDir = conf.TestData.VmMigration
+			}
+
+			DeleteTestCaseResources(resourcesToDelete)
 		})
 	})
 })

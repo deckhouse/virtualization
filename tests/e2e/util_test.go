@@ -460,10 +460,7 @@ type ResourcesToDelete struct {
 // This function checks that all resources in test case can be deleted correctly.
 func DeleteTestCaseResources(resources ResourcesToDelete) {
 	By("Response on deletion request should be successful")
-	errMessage := "cannot delete test case resources"
-	kustimizationFile := fmt.Sprintf("%s/%s", resources.KustomizationDir, "kustomization.yaml")
-	err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
-	Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\nstderr: %s", errMessage, resources.KustomizationDir, err))
+	const errMessage = "cannot delete test case resources"
 
 	if resources.KustomizationDir != "" {
 		res := kubectl.Delete(kc.DeleteOptions{

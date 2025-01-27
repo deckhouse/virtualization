@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -67,6 +68,12 @@ func CompareVirtualMachineClassReadyStatus(vmName, expectedStatus string) {
 }
 
 var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
+	BeforeEach(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+	})
+
 	var (
 		vmNotValidSizingPolicyChanging string
 		vmNotValidSizingPolicyCreating string
@@ -85,6 +92,13 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		vmClassDiscovery = fmt.Sprintf("%s-discovery", namePrefix)
 		vmClassDiscoveryCopy = fmt.Sprintf("%s-discovery-copy", namePrefix)
 		newVmClassFilePath = fmt.Sprintf("%s/vmc-copy.yaml", conf.TestData.SizingPolicy)
+
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
 	})
 
 	Context("When resources are applied", func() {

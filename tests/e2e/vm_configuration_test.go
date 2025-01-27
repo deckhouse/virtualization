@@ -18,12 +18,14 @@ package e2e
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -51,7 +53,7 @@ func ExecSshCommand(vmName, cmd string) {
 	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
 }
 
-func ChangeCPUCoresNumber(namespace string, cpuNumber int, virtualMachines ...string) {
+func ChangeCPUCoresNumber(cpuNumber int, virtualMachines ...string) {
 	vms := strings.Join(virtualMachines, " ")
 	cmd := fmt.Sprintf("patch %s --namespace %s %s --type merge --patch '{\"spec\":{\"cpu\":{\"cores\":%d}}}'", kc.ResourceVM, conf.Namespace, vms, cpuNumber)
 	By("Patching virtual machine specification")
@@ -90,8 +92,30 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		manualLabel    = map[string]string{"vm": "manual-conf"}
 	)
 
+	Context("Preparing the environment", func() {
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml")
+			ns, err := kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			conf.SetNamespace(ns)
+		})
+	})
+
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
+			if config.IsReusable() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				if res.StdOut() != "" {
+					return
+				}
+			}
+
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.VmConfiguration},
 				FilenameOption: kc.Kustomize,
@@ -132,6 +156,9 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 	})
 
 	Describe("Manual restart approval mode", func() {
+		var oldCpuCores int
+		var newCPUCores int
+
 		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
@@ -142,8 +169,17 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCPUCoresNumber(ManualMode, StageBefore, 1, vms...)
-				ChangeCPUCoresNumber(conf.Namespace, 2, vms...)
+				Expect(vms).NotTo(BeEmpty())
+
+				vmResource := virtv2.VirtualMachine{}
+				err := GetObject(kc.ResourceVM, vms[0], &vmResource, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+
+				oldCpuCores = vmResource.Spec.CPU.Cores
+				newCPUCores = 1 + (vmResource.Spec.CPU.Cores & 1)
+
+				CheckCPUCoresNumber(ManualMode, StageBefore, oldCpuCores, vms...)
+				ChangeCPUCoresNumber(newCPUCores, vms...)
 			})
 		})
 
@@ -157,7 +193,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCPUCoresNumber(ManualMode, StageAfter, 2, vms...)
+				CheckCPUCoresNumber(ManualMode, StageAfter, newCPUCores, vms...)
 			})
 		})
 
@@ -193,12 +229,15 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCPUCoresNumberFromVirtualMachine("2", vms...)
+				CheckCPUCoresNumberFromVirtualMachine(strconv.FormatInt(int64(newCPUCores), 10), vms...)
 			})
 		})
 	})
 
 	Describe("Automatic restart approval mode", func() {
+		var oldCpuCores int
+		var newCPUCores int
+
 		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
@@ -209,8 +248,17 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCPUCoresNumber(AutomaticMode, StageBefore, 1, vms...)
-				ChangeCPUCoresNumber(conf.Namespace, 2, vms...)
+				Expect(vms).NotTo(BeEmpty())
+
+				vmResource := virtv2.VirtualMachine{}
+				err := GetObject(kc.ResourceVM, vms[0], &vmResource, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+
+				oldCpuCores = vmResource.Spec.CPU.Cores
+				newCPUCores = 1 + (vmResource.Spec.CPU.Cores & 1)
+
+				CheckCPUCoresNumber(AutomaticMode, StageBefore, oldCpuCores, vms...)
+				ChangeCPUCoresNumber(newCPUCores, vms...)
 			})
 		})
 
@@ -224,7 +272,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCPUCoresNumber(AutomaticMode, StageAfter, 2, vms...)
+				CheckCPUCoresNumber(AutomaticMode, StageAfter, newCPUCores, vms...)
 			})
 		})
 
@@ -248,16 +296,20 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCPUCoresNumberFromVirtualMachine("2", vms...)
+				CheckCPUCoresNumberFromVirtualMachine(strconv.FormatInt(int64(newCPUCores), 10), vms...)
 			})
 		})
 	})
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
-				KustomizationDir: conf.TestData.VmConfiguration,
-			})
+			var resourcesToDelete ResourcesToDelete
+
+			if config.IsCleanUpNeeded() {
+				resourcesToDelete.KustomizationDir = conf.TestData.VmConfiguration
+			}
+
+			DeleteTestCaseResources(resourcesToDelete)
 		})
 	})
 })
