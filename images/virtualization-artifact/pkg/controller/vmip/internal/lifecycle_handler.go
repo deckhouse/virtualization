@@ -78,7 +78,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 		conditionAttach.Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineNotFound).
 			Message("Virtual machine not found")
-		h.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonVMIPVMNotAttached, "Virtual machine not found")
+		h.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonVMIPtoVMNotAttached, "Virtual machine not found")
 	}
 
 	lease, err := state.VirtualMachineIPLease(ctx)
@@ -111,7 +111,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 			vmipStatus.VirtualMachine = vm.Name
 			conditionAttach.Status(metav1.ConditionTrue).
 				Reason(vmipcondition.Attached)
-			h.recorder.Eventf(vmip, corev1.EventTypeNormal, virtv2.ReasonVMIPVMAttached, "VirtualMachineIPAddress is attached to %q/%q", vm.Namespace, vm.Name)
+			h.recorder.Eventf(vmip, corev1.EventTypeNormal, virtv2.ReasonVMIPtoVMAttached, "VirtualMachineIPAddress is attached to %q/%q", vm.Namespace, vm.Name)
 		}
 
 	case util.IsBoundLease(lease, vmip):

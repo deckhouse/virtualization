@@ -117,10 +117,10 @@ const (
 	// ReasonVMSnapshottingFailed is event reason that VirtualMachine snapshotting is failed.
 	ReasonVMSnapshottingFailed = "VirtualMachineSnapshottingFailed"
 
-	// ReasonVMIPVMAttached is event reason that VMIP attached to VM
-	ReasonVMIPVMAttached = "VMIPVMAttached"
-	// ReasonVMIPVMNotAttached is event reason that VirtualMachineIPAddress not attached to VirtualMachine.
-	ReasonVMIPVMNotAttached = "VMIPVMNotAttached"
+	// ReasonVMIPtoVMAttached is event reason that VMIP attached to VM
+	ReasonVMIPtoVMAttached = "VMIPtoVMAttached"
+	// ReasonVMIPtoVMNotAttached is event reason that VirtualMachineIPAddress is not attached to VirtualMachine.
+	ReasonVMIPtoVMNotAttached = "VMIPtoVMNotAttached"
 
 	// ReasonVMIPLeaseBound is the event reason indicating that a VirtualMachineIPLease is bound to a VirtualMachineIPAddress.
 	ReasonVMIPLeaseBound = "VMIPLeaseBound"
