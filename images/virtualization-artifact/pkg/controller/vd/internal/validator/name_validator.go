@@ -34,7 +34,7 @@ func NewNameValidator() *NameValidator {
 
 func (v *NameValidator) ValidateCreate(_ context.Context, vd *virtv2.VirtualDisk) (admission.Warnings, error) {
 	if strings.Contains(vd.ObjectMeta.Name, ".") {
-		return nil, errors.New("virtual disk name cannot contain '.'")
+		return nil, errors.New("VirtualDisk name is invalid: '.' is forbidden, allowed name symbols are [0-9a-zA-Z-]")
 	}
 
 	return nil, nil
@@ -43,7 +43,7 @@ func (v *NameValidator) ValidateCreate(_ context.Context, vd *virtv2.VirtualDisk
 func (v *NameValidator) ValidateUpdate(_ context.Context, _, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
 	if strings.Contains(newVD.ObjectMeta.Name, ".") {
 		var warnings admission.Warnings
-		warnings = append(warnings, "virtual disk name contain '.', it may be cause of problems in future, please recreate resource.")
+		warnings = append(warnings, "VirtualDisk name is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another disk with valid name to avoid problems with future updates.")
 		return warnings, nil
 	}
 

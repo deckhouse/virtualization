@@ -50,7 +50,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	}
 
 	if strings.Contains(vi.ObjectMeta.Name, ".") {
-		return nil, errors.New("virtual image name cannot contain '.'")
+		return nil, errors.New("VirtualImage name is invalid: '.' is forbidden, allowed name symbols are [0-9a-zA-Z-]")
 	}
 
 	if vi.Spec.Storage == virtv2.StorageKubernetes {
@@ -95,7 +95,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	}
 
 	if strings.Contains(newVI.ObjectMeta.Name, ".") {
-		warnings = append(warnings, "virtual image name contain '.', it may be cause of problems in future, please recreate resource.")
+		warnings = append(warnings, "VirtualImage name is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another image with valid name to avoid problems with future updates.")
 	}
 
 	return warnings, nil
