@@ -1,27 +1,58 @@
 ---
+image: {{ $.ImageName }}
+fromImage: {{ $.ImageName }}-prepared
+git:
+  # Add liboverride as a global LD_PRELOAD.
+  - add: /images/{{ $.ImageName }}/liboverride
+    to: /etc
+    stageDependencies:
+      setup:
+      - 'ld.so.preload.in'
+    includePaths:
+    - ld.so.preload.in
+import:
+  - image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
+    add: /VBINS
+    to: /usr/
+    # before: install
+    after: install
+    includePaths:
+    - lib64
+  - image: {{ $.ImageName }}-liboverride-builder
+    add: /liboverride/
+    to: /liboverride
+    after: install
+    includePaths:
+    - liboverride.so
+shell:
+  setup:
+  # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
+  - mv /etc/ld.so.preload.in /etc/ld.so.preload
+---
 {{- $versionLibvirt := "10.10.0" }}
 
-# image: {{ $.ImageName }}-prepared
-image: {{ $.ImageName }}
+image: {{ $.ImageName }}-prepared
+final: false
+# image: {{ $.ImageName }}
 fromImage: base-alt-p11
 import:
 # Before install stage.
 # Add bins from libvirt and qemu artifacts.
-- image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
+- image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
   add: /VBINS
   to: /
   # before: install
   after: install
   includePaths:
   - etc
-- image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
-  add: /VBINS
-  to: /usr
-  # before: install
-  after: install
-  includePaths:
-  - lib64
-- image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
+# - image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
+#   add: /VBINS
+#   to: /usr/lib64
+#   # before: install
+#   after: install
+#   includePaths:
+#   - lib64
+- image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
   add: /VBINS
   to: /
   # before: install
@@ -51,13 +82,13 @@ import:
 # After install stage.
 #   Add liboverride library.
 {{/*
+# - image: {{ $.ImageName }}-liboverride-builder
+#   add: /liboverride/
+#   to: /liboverride
+#   after: install
+#   includePaths:
+#   - liboverride.so
 */}}
-- image: {{ $.ImageName }}-liboverride-builder
-  add: /liboverride/
-  to: /liboverride
-  after: install
-  includePaths:
-  - liboverride.so
 
 # Add kubeivrt files from virt-artifact.
 - image: virt-artifact
@@ -105,13 +136,13 @@ git:
     includePaths:
     - scripts
   # Add liboverride as a global LD_PRELOAD.
-  - add: /images/{{ $.ImageName }}/liboverride
-    to: /etc
-    stageDependencies:
-      setup:
-      - 'ld.so.preload.in'
-    includePaths:
-    - ld.so.preload.in
+  # - add: /images/{{ $.ImageName }}/liboverride
+  #   to: /etc
+  #   stageDependencies:
+  #     setup:
+  #     - 'ld.so.preload.in'
+  #   includePaths:
+  #   - ld.so.preload.in
 shell:
   beforeInstall:
   # Install main packages.
@@ -193,7 +224,7 @@ shell:
   - chmod +x /usr/bin/virt-launcher-monitor
   
   # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
-  - mv /etc/ld.so.preload.in /etc/ld.so.preload
+  # - mv /etc/ld.so.preload.in /etc/ld.so.preload
   # - cp /etc/ld.so.preload.in /etc/ld.so.preload
   
   # # Create qemu group and user.
@@ -218,7 +249,7 @@ shell:
 */}}
 
 ---
-image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
+image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
 final: false
 fromImage: base-alt-p11
 import:
