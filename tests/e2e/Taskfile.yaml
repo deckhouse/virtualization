@@ -58,7 +58,10 @@ tasks:
           --skip-file affinity_toleration_test.go \
           --no-color \
           -v | tee /dev/stderr | grep --color=never -E 'FAIL!|SUCCESS!')
-        if [[ $RESULT == SUCCESS!* ]]; then
+        if [ "${PIPESTATUS[0]}" -ne "0" ]; then
+          RESULT_STATUS=":x: FAIL!"
+          EXIT_CODE=${PIPESTATUS[0]}
+        elif [[ $RESULT == SUCCESS!* ]]; then
           RESULT_STATUS=":white_check_mark: SUCCESS!"
           EXIT_CODE=0
         elif [[ $RESULT == FAIL!* ]]; then
