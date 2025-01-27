@@ -9,13 +9,32 @@ import:
 # Add bins from libvirt and qemu artifacts.
 - image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
   add: /VBINS
-  to: /BINS
-  before: install
+  to: /
+  # before: install
+  after: install
+  includePaths:
+  - etc
+- image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
+  add: /VBINS
+  to: /usr
+  # before: install
+  after: install
+  includePaths:
+  - lib64
+- image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
+  add: /VBINS
+  to: /
+  # before: install
+  after: install
+  includePaths:
+  - usr
 
+  
 - image: edk2-artifact
   add: /FIRMWARE/
   to: /usr/share/OVMF
-  before: install
+  after: install
+  # before: install
   includePaths:
   - '*.fd'
   - '*.bin'
@@ -24,20 +43,21 @@ import:
 - image: edk2-artifact
   add: /FIRMWARE/
   to: /usr/share/qemu/firmware
-  before: install
+  after: install
+  # before: install
   includePaths:
   - '*.json'
 
 # After install stage.
 #   Add liboverride library.
 {{/*
-# - image: {{ $.ImageName }}-liboverride-builder
-#   add: /liboverride/
-#   to: /liboverride
-#   after: install
-#   includePaths:
-#   - liboverride.so
 */}}
+- image: {{ $.ImageName }}-liboverride-builder
+  add: /liboverride/
+  to: /liboverride
+  after: install
+  includePaths:
+  - liboverride.so
 
 # Add kubeivrt files from virt-artifact.
 - image: virt-artifact
@@ -85,13 +105,13 @@ git:
     includePaths:
     - scripts
   # Add liboverride as a global LD_PRELOAD.
-  # - add: /images/{{ $.ImageName }}/liboverride
-  #   to: /etc
-  #   stageDependencies:
-  #     setup:
-  #     - 'ld.so.preload.in'
-  #   includePaths:
-  #   - ld.so.preload.in
+  - add: /images/{{ $.ImageName }}/liboverride
+    to: /etc
+    stageDependencies:
+      setup:
+      - 'ld.so.preload.in'
+    includePaths:
+    - ld.so.preload.in
 shell:
   beforeInstall:
   # Install main packages.
@@ -116,18 +136,23 @@ shell:
 
   install:
   - |
+    # Create qemu group and user.
+    groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
+
+  beforeSetup:
+  - |
     # Link to dir OVMF
     mkdir -p /usr/share/edk2
     ln -s /usr/share/OVMF /usr/share/edk2/ovmf
     ln -s /usr/share/OVMF/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.cc.fd
 
-  # Installation libvirt and qemu
-  - |
-    echo "Install libvirt and qemu binaries"
-    cp -a -u -v /BINS/usr/* /usr
-    cp -a -u -v /BINS/etc/* /etc
-    cp -a -u -v /BINS/lib64/* /lib64
-    rm -rf /BINS/
+  # Installation libvirt and qemu 
+  # - |
+  #   echo "Install libvirt and qemu binaries"
+  #   cp -a -u -v /BINS/usr/* /usr
+  #   cp -a -u -v /BINS/etc/* /etc
+  #   cp -a -u -v /BINS/lib64/* /lib64
+  #   rm -rf /BINS/
 
   # Create symlinc for libvirt
   - |
@@ -166,14 +191,13 @@ shell:
   - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
   - chmod +x /usr/bin/virt-launcher-monitor
-
+  
   # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
-  - cp /etc/ld.so.preload.in /etc/ld.so.preload
-
+  - mv /etc/ld.so.preload.in /etc/ld.so.preload
   # - cp /etc/ld.so.preload.in /etc/ld.so.preload
-
-  # Create qemu group and user.
-  - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
+  
+  # # Create qemu group and user.
+  # - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
 
   - |
     # [[ ! -e /usr/bin/cp ]] && ln -s /bin/cp /usr/bin/cp
@@ -181,6 +205,7 @@ shell:
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-launcher/BUILD.bazel
 #docker:
 #  ENTRYPOINT: ["/usr/bin/virt-launcher"]
+
 {{/*
 # ---
 # image: {{ $.ImageName }}
@@ -191,6 +216,7 @@ shell:
 #   to: /
 #   before: setup
 */}}
+
 ---
 image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
 final: false
@@ -242,10 +268,10 @@ shell:
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
-
+    
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
-
+    
     rm -rf /VBINS/var/run
   setup:
   - |
@@ -295,36 +321,39 @@ shell:
   - cd /liboverride
   - gcc -shared -fPIC -DPIC -Wall -o liboverride.so override.c -ldl
   - strip liboverride.so
----
-image: {{ $.ImageName }}-test-01
-final: false
-fromImage: {{ $.ImageName }}
-import:
-- image: {{ $.ImageName }}-liboverride-builder
-  add: /liboverride/
-  to: /liboverride
-  after: install
-  includePaths:
-  - liboverride.so
-git:
-  # Add liboverride as a global LD_PRELOAD.
-  - add: /images/{{ $.ImageName }}/liboverride
-    to: /etc
-    stageDependencies:
-      setup:
-      - 'ld.so.preload.in'
-    includePaths:
-    - ld.so.preload.in
-shell:
-  setup:
-  - mv /etc/ld.so.preload.in /etc/ld.so.preload
----
-image: {{ $.ImageName }}-virtlauncher
+
+{{/*
+# ===
+# image: {{ $.ImageName }}-test-01
 # final: false
-from: {{ $.Images.BASE_SCRATCH }}
-# from: {{ $.Images.DISTROLESS_ALT_P11 }}
-import:
-- image: {{ $.ImageName }}-test-01
-  add: /
-  to: /
-  after: install
+# fromImage: {{ $.ImageName }}
+# import:
+# - image: {{ $.ImageName }}-liboverride-builder
+#   add: /liboverride/
+#   to: /liboverride
+#   after: install
+#   includePaths:
+#   - liboverride.so
+# git:
+#   # Add liboverride as a global LD_PRELOAD.
+#   - add: /images/{{ $.ImageName }}/liboverride
+#     to: /etc
+#     stageDependencies:
+#       setup:
+#       - 'ld.so.preload.in'
+#     includePaths:
+#     - ld.so.preload.in
+# shell:
+#   setup:
+#   - mv /etc/ld.so.preload.in /etc/ld.so.preload
+# ===
+# image: {{ $.ImageName }}-virtlauncher
+# # final: false
+# from: {{ $.Images.BASE_SCRATCH }}
+# # from: {{ $.Images.DISTROLESS_ALT_P11 }}
+# import:
+# - image: {{ $.ImageName }}-test-01
+#   add: /
+#   to: /
+#   after: install
+*/}}
