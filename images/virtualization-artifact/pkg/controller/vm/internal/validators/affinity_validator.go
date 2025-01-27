@@ -18,7 +18,6 @@ package validators
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -43,15 +42,10 @@ func (v *AffinityValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2
 }
 
 func (v *AffinityValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	var errs []error
-
-	errorList := k8sUtils.ValidateAffinity(vm.Spec.Affinity, k8sfield.NewPath("spec"))
-	for _, err := range errorList {
-		errs = append(errs, err)
-	}
+	errs := k8sUtils.ValidateAffinity(vm.Spec.Affinity, k8sfield.NewPath("spec"))
 
 	if len(errs) > 0 {
-		return nil, fmt.Errorf("errors while validating affinity: %w", errors.Join(errs...))
+		return nil, fmt.Errorf("errors while validating affinity: %w", errs.ToAggregate())
 	}
 
 	return nil, nil

@@ -18,7 +18,6 @@ package validators
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	k8sfield "k8s.io/apimachinery/pkg/util/validation/field"
@@ -43,18 +42,13 @@ func (v *TopologySpreadConstraintValidator) ValidateUpdate(_ context.Context, _,
 }
 
 func (v *TopologySpreadConstraintValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	var errs []error
-
-	errorList := k8sUtils.ValidateTopologySpreadConstraints(
+	errs := k8sUtils.ValidateTopologySpreadConstraints(
 		vm.Spec.TopologySpreadConstraints,
 		k8sfield.NewPath("spec").Child("topologySpreadConstraints"),
 	)
-	for _, err := range errorList {
-		errs = append(errs, err)
-	}
 
 	if len(errs) > 0 {
-		return nil, fmt.Errorf("errors while validating topology spread constraints: %w", errors.Join(errs...))
+		return nil, fmt.Errorf("errors while validating topology spread constraints: %w", errs.ToAggregate())
 	}
 
 	return nil, nil
