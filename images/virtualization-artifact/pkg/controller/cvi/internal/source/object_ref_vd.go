@@ -73,8 +73,9 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 		return reconcile.Result{}, err
 	}
 
+	condition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
 	switch {
-	case isDiskProvisioningFinished(cb.Condition()):
+	case isDiskProvisioningFinished(condition):
 		log.Info("Cluster virtual image provisioning finished: clean up")
 
 		cb.
