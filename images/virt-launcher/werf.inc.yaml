@@ -11,7 +11,7 @@ git:
     includePaths:
     - ld.so.preload.in
 import:
-  - image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
+  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
     add: /VBINS
     to: /usr/
     # before: install
@@ -26,8 +26,8 @@ import:
     - liboverride.so
 shell:
   setup:
-  # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
-  - mv /etc/ld.so.preload.in /etc/ld.so.preload
+    # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
+    - mv /etc/ld.so.preload.in /etc/ld.so.preload
 ---
 {{- $versionLibvirt := "10.10.0" }}
 
