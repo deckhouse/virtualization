@@ -7,17 +7,6 @@ fromImage: base-alt-p11
 import:
 # Before install stage.
 # Add bins from libvirt and qemu artifacts.
-{{/*
-# - image: tmp-merged
-#   add: /VBINS
-#   to: /
-#   before: install
-#   includePaths:
-#   - usr
-#   - etc
-#   - lib64
-*/}}
-
 - image: {{ $.ImageName }}-merge-eqmu-libvirt-binaries
   add: /VBINS
   to: /BINS
@@ -41,12 +30,14 @@ import:
 
 # After install stage.
 #   Add liboverride library.
-- image: {{ $.ImageName }}-liboverride-builder
-  add: /liboverride/
-  to: /liboverride
-  after: install
-  includePaths:
-  - liboverride.so
+{{/*
+# - image: {{ $.ImageName }}-liboverride-builder
+#   add: /liboverride/
+#   to: /liboverride
+#   after: install
+#   includePaths:
+#   - liboverride.so
+*/}}
 
 # Add kubeivrt files from virt-artifact.
 - image: virt-artifact
@@ -94,13 +85,13 @@ git:
     includePaths:
     - scripts
   # Add liboverride as a global LD_PRELOAD.
-  - add: /images/{{ $.ImageName }}/liboverride
-    to: /etc
-    stageDependencies:
-      setup:
-      - 'ld.so.preload.in'
-    includePaths:
-    - ld.so.preload.in
+  # - add: /images/{{ $.ImageName }}/liboverride
+  #   to: /etc
+  #   stageDependencies:
+  #     setup:
+  #     - 'ld.so.preload.in'
+  #   includePaths:
+  #   - ld.so.preload.in
 shell:
   beforeInstall:
   # Install main packages.
@@ -178,6 +169,8 @@ shell:
 
   # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
   - cp /etc/ld.so.preload.in /etc/ld.so.preload
+
+  # - cp /etc/ld.so.preload.in /etc/ld.so.preload
 
   # Create qemu group and user.
   - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
@@ -302,69 +295,36 @@ shell:
   - cd /liboverride
   - gcc -shared -fPIC -DPIC -Wall -o liboverride.so override.c -ldl
   - strip liboverride.so
-
-{{/*
-# ---
-# # Note: edk2-ovmf==20231115 requires p11 AltLinux to build.
-# image: {{ $.ImageName }}-edk2-builder
+---
+image: {{ $.ImageName }}-test-01
+final: false
+fromImage: {{ $.ImageName }}
+import:
+- image: {{ $.ImageName }}-liboverride-builder
+  add: /liboverride/
+  to: /liboverride
+  after: install
+  includePaths:
+  - liboverride.so
+git:
+  # Add liboverride as a global LD_PRELOAD.
+  - add: /images/{{ $.ImageName }}/liboverride
+    to: /etc
+    stageDependencies:
+      setup:
+      - 'ld.so.preload.in'
+    includePaths:
+    - ld.so.preload.in
+shell:
+  setup:
+  - mv /etc/ld.so.preload.in /etc/ld.so.preload
+---
+image: {{ $.ImageName }}-virtlauncher
 # final: false
-# from: {{ $.Images.BASE_ALT_P11 }}
-# git:
-# - add: /images/{{ $.ImageName }}/edk2
-#   to: /edk2
-#   excludePaths:
-#     - '*.py'
-#     - '*.md'
-#   stageDependencies:
-#     install:
-#       - '*.bmp'
-# shell:
-#   beforeInstall:
-#   # Install build dependencies. No versions required here,
-#   # because we rebuild SRPM already built by distro authors.
-#   - |
-#     apt-get update && apt-get install --yes \
-#     bc \
-#     su \
-#     git \
-#     rpm-build \
-#     rpm-build-python3 \
-#     gcc-c++ \
-#     acpica \
-#     nasm \
-#     python3-dev \
-#     python3-modules-sqlite3 \
-#     python3-module-virt-firmware \
-#     perl-JSON \
-#     perl-IPC-Cmd \
-#     libuuid-devel \
-#     xorriso \
-#     dosfstools \
-#     mtools \
-#     qemu-img \
-#     zlib-devel
-#   - apt-get clean
-#   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-
-#   install:
-#   # AltLinux requires building packages by non-root users.
-#   - useradd builder --shell /bin/bash --create-home --group rpm
-
-#   # Download and unpack SRPM.
-#   - echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/src.list
-#   - apt-get update
-#   - su - builder -c 'apt-get source edk2-ovmf'
-#   - apt-get clean
-#   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-
-#   # Add DVP logo into SOURCES.
-#   - cp /edk2/Logo.bmp /home/builder/RPM/SOURCES/
-
-#   # Build RPMs. edk2 package prints a huge log with about 770k lines,
-#   # we can keep only last 1k lines, it should be enough to get error
-#   # context and troubleshoot it locally.
-#   - |
-#     echo "Build RPMs from:" /home/builder/*.rpm
-#     echo "Note: time consuming operation, be patient ..."
-#     su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/edk2.spec > /tmp/build.log 2>&1'
-*/}}
+from: {{ $.Images.BASE_SCRATCH }}
+# from: {{ $.Images.DISTROLESS_ALT_P11 }}
+import:
+- image: {{ $.ImageName }}-test-01
+  add: /
+  to: /
+  after: install
