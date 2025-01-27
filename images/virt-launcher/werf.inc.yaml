@@ -13,8 +13,7 @@ git:
 import:
   - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
     add: /VBINS
-    to: /usr/
-    # before: install
+    to: /usr
     after: install
     includePaths:
     - lib64
@@ -28,12 +27,21 @@ shell:
   setup:
     # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
     - mv /etc/ld.so.preload.in /etc/ld.so.preload
+    - |
+      # Delete unnecessary locales
+      KEEP_LOCALES=("ru" "en_US" "en_GB")
+      EXCLUDE_PATTERN=$(printf "! -name %s " "${KEEP_LOCALES[@]}")
+      echo "Delete unnecessary locales"
+      find /usr/share/locale -mindepth 1 -maxdepth 1 -type d ${EXCLUDE_PATTERN} -exec rm -rf {} +
+
+      # delete docs
+      echo "Delete docs"
+      rm -rf /usr/share/doc/*
 ---
 {{- $versionLibvirt := "10.10.0" }}
 
 image: {{ $.ImageName }}-prepared
 final: false
-# image: {{ $.ImageName }}
 fromImage: base-alt-p11
 import:
 # Before install stage.
@@ -41,22 +49,19 @@ import:
 - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
   add: /VBINS
   to: /
-  # before: install
-  after: install
+  before: install
   includePaths:
   - etc
 - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
   add: /VBINS
   to: /
-  # before: install
-  after: install
+  before: install
   includePaths:
   - usr
 - image: edk2-artifact
   add: /FIRMWARE/
   to: /usr/share/OVMF
-  after: install
-  # before: install
+  before: install
   includePaths:
   - '*.fd'
   - '*.bin'
@@ -65,8 +70,7 @@ import:
 - image: edk2-artifact
   add: /FIRMWARE/
   to: /usr/share/qemu/firmware
-  after: install
-  # before: install
+  before: install
   includePaths:
   - '*.json'
 
@@ -139,13 +143,11 @@ shell:
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
   install:
-  - |
-    # Create qemu group and user.
-    groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
+  # Create qemu group and user.
+  - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
 
-  beforeSetup:
+  # Link to dir OVMF
   - |
-    # Link to dir OVMF
     mkdir -p /usr/share/edk2
     ln -s /usr/share/OVMF /usr/share/edk2/ovmf
     ln -s /usr/share/OVMF/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.cc.fd
@@ -184,28 +186,13 @@ shell:
 
   setup:
   # Replace virt-launcher-monitor with the wrapper.
-  # - mv /usr/bin/virt-launcher-monitor /usr/bin/virt-launcher-monitor-orig
   - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
   - chmod +x /usr/bin/virt-launcher-monitor
-  
-  # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
-  # - mv /etc/ld.so.preload.in /etc/ld.so.preload
-  # - cp /etc/ld.so.preload.in /etc/ld.so.preload
-  
-  # # Create qemu group and user.
-  # - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
 
   - |
     # [[ ! -e /usr/bin/cp ]] && ln -s /bin/cp /usr/bin/cp
   - mkdir -p /init/usr/bin && ln -s /usr/bin/container-disk /init/usr/bin/container-disk
-  - |
-    # Delete unnecessary locales
-    KEEP_DIRS=("ru" "en_US" "en_GB")
-    EXCLUDE_PATTERN=$(printf "! -name %s " "${KEEP_DIRS[@]}")
-    find /usr/share/locale -mindepth 1 -maxdepth 1 -type d ${EXCLUDE_PATTERN} -exec rm -rf {} +
-
-    # delete docs
-    rm -rf /usr/share/doc/*
+  
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-launcher/BUILD.bazel
 #docker:
 #  ENTRYPOINT: ["/usr/bin/virt-launcher"]
