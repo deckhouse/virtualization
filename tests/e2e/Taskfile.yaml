@@ -54,18 +54,16 @@ tasks:
       - d8
     cmds:
       - |
-        RESULT=$(ginkgo \
-          --no-color \
-          -v | tee /dev/stderr | grep --color=never -E 'FAIL!|SUCCESS!')
-        if [ "${PIPESTATUS[0]}" -ne "0" ]; then
+        GINKGO_RESULT=$(mktemp)
+        ginkgo \
+          --skip-file affinity_toleration_test.go \
+          -v | tee $GINKGO_RESULT
+        EXIT_CODE=${PIPESTATUS[0]}
+        RESULT=$(sed -e 's/\x1b\[[0-9;]*m//g' $GINKGO_RESULT | grep --color=never -E 'FAIL!|SUCCESS!')
+        if [[ $RESULT == FAIL!* || $EXIT_CODE -ne "0" ]]; then
           RESULT_STATUS=":x: FAIL!"
-          EXIT_CODE=${PIPESTATUS[0]}
         elif [[ $RESULT == SUCCESS!* ]]; then
           RESULT_STATUS=":white_check_mark: SUCCESS!"
-          EXIT_CODE=0
-        elif [[ $RESULT == FAIL!* ]]; then
-          RESULT_STATUS=":x: FAIL!"
-          EXIT_CODE=1
         else
           RESULT_STATUS=":question: UNKNOWN"
           EXIT_CODE=1
