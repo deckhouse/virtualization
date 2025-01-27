@@ -5,18 +5,6 @@ image: {{ $.ImageName }}
 fromImage: base-alt-p11
 import:
 # Before install stage.
-{{/*
-# #   Add edk2-ovmf package
-# - image: {{ $.ImageName }}-edk2-builder
-#   add: /home/builder/RPM/RPMS/noarch
-#   to: /
-#   before: install
-#   includePaths:
-#   - edk2-ovmf-20231115-alt1.noarch.rpm
-#   - edk2-ovmf-20240811-alt2.noarch.rpm
-
-*/}}
-
 # Add bins from libvirt and qemu artifacts.
 {{/*
 # - image: tmp-merged
@@ -304,66 +292,69 @@ shell:
   - cd /liboverride
   - gcc -shared -fPIC -DPIC -Wall -o liboverride.so override.c -ldl
   - strip liboverride.so
----
-# Note: edk2-ovmf==20231115 requires p11 AltLinux to build.
-image: {{ $.ImageName }}-edk2-builder
-final: false
-from: {{ $.Images.BASE_ALT_P11 }}
-git:
-- add: /images/{{ $.ImageName }}/edk2
-  to: /edk2
-  excludePaths:
-    - '*.py'
-    - '*.md'
-  stageDependencies:
-    install:
-      - '*.bmp'
-shell:
-  beforeInstall:
-  # Install build dependencies. No versions required here,
-  # because we rebuild SRPM already built by distro authors.
-  - |
-    apt-get update && apt-get install --yes \
-    bc \
-    su \
-    git \
-    rpm-build \
-    rpm-build-python3 \
-    gcc-c++ \
-    acpica \
-    nasm \
-    python3-dev \
-    python3-modules-sqlite3 \
-    python3-module-virt-firmware \
-    perl-JSON \
-    perl-IPC-Cmd \
-    libuuid-devel \
-    xorriso \
-    dosfstools \
-    mtools \
-    qemu-img \
-    zlib-devel
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
-  install:
-  # AltLinux requires building packages by non-root users.
-  - useradd builder --shell /bin/bash --create-home --group rpm
+{{/*
+# ---
+# # Note: edk2-ovmf==20231115 requires p11 AltLinux to build.
+# image: {{ $.ImageName }}-edk2-builder
+# final: false
+# from: {{ $.Images.BASE_ALT_P11 }}
+# git:
+# - add: /images/{{ $.ImageName }}/edk2
+#   to: /edk2
+#   excludePaths:
+#     - '*.py'
+#     - '*.md'
+#   stageDependencies:
+#     install:
+#       - '*.bmp'
+# shell:
+#   beforeInstall:
+#   # Install build dependencies. No versions required here,
+#   # because we rebuild SRPM already built by distro authors.
+#   - |
+#     apt-get update && apt-get install --yes \
+#     bc \
+#     su \
+#     git \
+#     rpm-build \
+#     rpm-build-python3 \
+#     gcc-c++ \
+#     acpica \
+#     nasm \
+#     python3-dev \
+#     python3-modules-sqlite3 \
+#     python3-module-virt-firmware \
+#     perl-JSON \
+#     perl-IPC-Cmd \
+#     libuuid-devel \
+#     xorriso \
+#     dosfstools \
+#     mtools \
+#     qemu-img \
+#     zlib-devel
+#   - apt-get clean
+#   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
-  # Download and unpack SRPM.
-  - echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/src.list
-  - apt-get update
-  - su - builder -c 'apt-get source edk2-ovmf'
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+#   install:
+#   # AltLinux requires building packages by non-root users.
+#   - useradd builder --shell /bin/bash --create-home --group rpm
 
-  # Add DVP logo into SOURCES.
-  - cp /edk2/Logo.bmp /home/builder/RPM/SOURCES/
+#   # Download and unpack SRPM.
+#   - echo "rpm-src [p11] http://ftp.altlinux.org/pub/distributions/ALTLinux p11/branch/noarch classic" >> /etc/apt/sources.list.d/src.list
+#   - apt-get update
+#   - su - builder -c 'apt-get source edk2-ovmf'
+#   - apt-get clean
+#   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
-  # Build RPMs. edk2 package prints a huge log with about 770k lines,
-  # we can keep only last 1k lines, it should be enough to get error
-  # context and troubleshoot it locally.
-  - |
-    echo "Build RPMs from:" /home/builder/*.rpm
-    echo "Note: time consuming operation, be patient ..."
-    su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/edk2.spec > /tmp/build.log 2>&1'
+#   # Add DVP logo into SOURCES.
+#   - cp /edk2/Logo.bmp /home/builder/RPM/SOURCES/
+
+#   # Build RPMs. edk2 package prints a huge log with about 770k lines,
+#   # we can keep only last 1k lines, it should be enough to get error
+#   # context and troubleshoot it locally.
+#   - |
+#     echo "Build RPMs from:" /home/builder/*.rpm
+#     echo "Note: time consuming operation, be patient ..."
+#     su - builder -c 'trap "echo Build log tail: ; tail -n 1024 /tmp/build.log" EXIT ; rpm -ba /home/builder/RPM/SPECS/edk2.spec > /tmp/build.log 2>&1'
+*/}}
