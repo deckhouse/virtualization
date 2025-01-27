@@ -4,45 +4,45 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            Описывает образ диска виртуальной машины, который может использоваться в качестве источника данных для новых `VirtualDisks` или установочный образ (iso), который быть смонтирован в `VirtualMachines` напрямую.
+            Описывает образ диска виртуальной машины, который может использоваться в качестве источника данных для новых ресурсов VirtualDisks или установочный образ (iso), который может быть смонтирован в ресурс VirtualMachines напрямую.
 
-            > Этот ресурс не может быть изменен после его создания.
+            > Этот ресурс не может быть изменён после создания.
 
-            Под капотом этого ресурса создается образ контейнера, хранящийся в специальном container registry (DVCR).
+            После появления в кластере этого ресурса создаётся образ контейнера, который хранится в специальном реестре контейнеров Deckhouse Virtualization Container Registry (DVCR).
           properties:
             spec:
               properties:
                 persistentVolumeClaim:
                   description: |
-                    Настройки для создания PVC для хранения образа с хранилищем типа 'PersistentVolumeClaim'.
+                    Настройки для создания PersistentVolumeClaim (PVC) для хранения образа с хранилищем типа 'PersistentVolumeClaim'.
                   properties:
                     storageClassName:
                       description: |
-                        Имя StorageClass, требуемого для PersistentVolumeClaim. Дополнительная информация — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1.
+                        Имя StorageClass, необходимого для PVC. Подробнее об использовании StorageClass для PVC: https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
 
-                        При создании образа с хранилищем типа 'PersistentVolumeClaim' пользователь может указать требуемый StorageClass для создания диска, либо не указывать явно и в этом случае будет использован StorageClass доступный по умолчанию.
+                        При создании образа с хранилищем типа 'PersistentVolumeClaim' пользователь может явно указать необходимый StorageClass для создания диска. Если этого не сделать, будет использован StorageClass, доступный по умолчанию.
                 dataSource:
                   description: |
                     Тип источника, из которого будет создан образ.
                   properties:
                     containerImage:
                       description: |
-                        Для использования образа, хранящегося во внешнем реестре контейнеров, необходимо убедиться, что используется реестр, работающий по протоколу TLS. При необходимости предоставьте поле caBundle для передачи цепочки сертификатов.
+                        Использование образа, который хранится во внешнем реестре контейнеров. Поддерживаются только реестры контейнеров с включённым протоколом TLS. Чтобы предоставить собственную цепочку центров сертификации, используйте поле `caBundle`.
                       properties:
                         caBundle:
                           description: |
-                            Цепочка сертификатов в формате Base64 для проверки подключения к container registry.
+                            Цепочка сертификатов в формате Base64 для проверки подключения к реестру контейнеров.
                         image:
                           description: |
-                            Путь к образу в container registry.
+                            Путь к образу в реестре контейнеров.
                         imagePullSecret:
                           properties:
                             name:
                               description: |
-                                Имя Secret'а, содержащего учетные данные для подключения к container registry.
+                                Имя секрета, содержащего учётные данные для подключения к реестру контейнеров.
                     http:
                       description: |
-                        Создать образ из файла, опубликованного по URL. Поддерживаемые схемы:
+                        Создание образа из файла, размещённого на указанном URL-адресе. Поддерживаемые схемы:
 
                         * HTTP;
                         * HTTPS.
@@ -51,10 +51,10 @@ spec:
                       properties:
                         caBundle:
                           description: |
-                            Цепочка сертификатов в формате Base64 для проверки TLS-сертификата сервера, на котором размещается образ.
+                            Цепочка сертификатов в формате Base64 для проверки TLS-сертификата сервера, на котором размещается файл.
                         checksum:
                           description: |
-                            Контрольная сумма файла для проверки правильности загрузки или отсутствия изменений. Файл должен соответствовать всем указанным контрольным суммам.
+                            Контрольная сумма файла для проверки целостности и отсутствия изменений в загруженных данных. Файл должен соответствовать всем указанным контрольным суммам.
                           properties:
                             md5:
                               description: ""
@@ -62,49 +62,49 @@ spec:
                               description: ""
                         url:
                           description: |
-                            URL с образом. Поддерживаются следующие типы образов:
+                            URL-адрес, указывающий на файл для создания образа. Допустимые форматы файла:
                             * qcow2;
                             * vmdk;
                             * vdi;
                             * iso;
                             * raw.
 
-                            Для всех представленных типов образов поддерживается сжатие образов в следующих форматах:
+                            Файл может быть сжат в архив в одном из следующих форматов:
                             * gz;
                             * xz.
                     objectRef:
                       description: |
-                        Для создания образа использовать существующий `VirtualImage`, `ClusterVirtualImage` или `VirtualDisk`.
+                        Использование существующего ресурса VirtualImage, ClusterVirtualImage или VirtualDisk для создания образа.
                       properties:
                         kind:
                           description: |
-                            Ссылка на существующий `VirtualImage`, `ClusterVirtualImage` или `VirtualDisk`.
+                            Ссылка на существующий ресурс VirtualImage, ClusterVirtualImage или VirtualDisk.
                         name:
                           description: |
-                            Имя существующего `VirtualImage`, `ClusterVirtualImage` или `VirtualDisk`.
+                            Имя существующего ресурса VirtualImage, ClusterVirtualImage или VirtualDisk.
                     type:
                       description: |
-                        Тип источника, из которого будет создан образ:
+                        Доступные типы источников для создания образа:
 
-                        * `HTTP` — создать диск из файла, опубликованного на HTTP/HTTPS-сервере.
-                        * `ContainerImage` — создать диск из образа в container registry.
-                        * `ObjectRef` — создать диск из существующего ресурса.
+                        * `HTTP` — из файла, опубликованного на HTTP/HTTPS-сервере;
+                        * `ContainerImage` — из образа в реестре контейнеров;
+                        * `ObjectRef` — из существующего ресурса;
                         * `Upload` — загрузить образ диска вручную.
                 storage:
                   description: |
-                    Тип хранилища для хранения образа:
+                    Тип хранилища для образа:
 
-                    * `ContainerRegistry` — использовать container registry (DVCR). В этом случае образы будут загружаться в контейнер, а затем в DVCR (поставляется с модулем виртуализации).
-                    * `Kubernetes` - Устарело: использование этого значения не рекомендуется и может быть удалено в будущих версиях. Используйте тип PersistentVolumeClaim.
-                    * `PersistentVolumeClaim` - использовать Persistent Volume Claim (PVC).
+                    * `ContainerRegistry` — использовать реестр контейнеров DVCR. В этом случае образы будут загружаться в контейнер, а затем в DVCR (поставляется с модулем виртуализации);
+                    * `Kubernetes` - устаревший тип хранилища. Не рекомендуется к использованию и может быть удалён в будущих версиях. Используйте тип `PersistentVolumeClaim`;
+                    * `PersistentVolumeClaim` - использовать PVC.
             status:
               properties:
                 conditions:
                   description: |
-                    Последнее подтвержденное состояние данного ресурса.
+                    Последнее подтверждённое состояние данного ресурса.
                   items:
                     description: |
-                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
+                      Подробные сведения об одном аспекте текущего состояния данного API-ресурса.
                     properties:
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.
@@ -112,8 +112,8 @@ spec:
                         description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
                       observedGeneration:
                         description: |
-                          observedGeneration представляет собой .metadata.generation, на основе которого было установлено условие.
-                          Например, если .metadata.generation в настоящее время имеет значение 12, а .status.conditions[x].observedgeneration имеет значение 9, то условие устарело.
+                          `.metadata.generation`, на основе которого было установлено условие.
+                          Например, если `.metadata.generation` в настоящее время имеет значение `12`, а `.status.conditions[x].observedgeneration` имеет значение `9`, то условие устарело.
                       reason:
                         description: Краткая причина последнего перехода состояния.
                       status:
@@ -123,7 +123,7 @@ spec:
                         description: Тип условия.
                 cdrom:
                   description: |
-                    Является ли образ форматом, который должен быть смонтирован как cdrom, например iso и т. д.
+                    Определяет, выполнен ли образ в формате, который должен быть смонтирован как устройство CD-ROM, таком как iso и др.
                 downloadSpeed:
                   description: |
                     Скорость загрузки образа из внешнего источника. Появляется только на этапе `Provisioning`.
@@ -145,30 +145,30 @@ spec:
                     Обнаруженный формат образа.
                 phase:
                   description: |
-                    Текущее состояние ресурса `VirtualImage`:
+                    Текущее состояние ресурса VirtualImage:
 
-                    * Pending — ресурс был создан и находится в очереди ожидания.
-                    * Provisioning — идет процесс создания ресурса (копирование/загрузка/создание образа).
-                    * WaitForUserUpload — ожидание загрузки образа пользователем. Путь для загрузки образа указывается в `.status.uploadCommand`.
-                    * Ready — ресурс создан и готов к использованию.
-                    * Failed — при создании ресурса возникла проблема, подробности можно увидеть в `.status.failureReason` и `.status.failureMessage`.
-                    * PVCLost — дочерний PVC ресурса отсутствует. Ресурс не может быть использован.
-                    * Terminating - Ресурс находится в процессе удаления.
+                    * `Pending` — ресурс был создан и находится в очереди ожидания;
+                    * `Provisioning` — идёт процесс создания ресурса: копирование, загрузка или создание образа;
+                    * `WaitForUserUpload` — ожидание загрузки образа пользователем. Путь для загрузки образа указывается в `.status.uploadCommand`;
+                    * `Ready` — ресурс создан и готов к использованию;
+                    * `Failed` — при создании ресурса возникла ошибка. За подробностями обратитесь к полям `.status.failureReason` и `.status.failureMessage`;
+                    * `PVCLost` — дочерний PVC ресурса отсутствует. Ресурс не может быть использован;
+                    * `Terminating` - ресурс находится в процессе удаления.
                 progress:
                   description: |
                     Ход копирования образа из источника в DVCR. Отображается только на этапе `Provisioning`.
                 size:
                   description: |
-                    Обнаруженные размеры образа.
+                    Обнаруженные данные о размере образа.
                   properties:
                     stored:
                       description: |
-                        Размер образа в DVCR в человекочитаемом формате.
+                        Размер образа в DVCR в удобочитаемом формате.
                     storedBytes:
                       description: Размер образа в DVCR в байтах.
                     unpacked:
                       description: |
-                        Размер распакованного образа в человекочитаемом формате.
+                        Размер распакованного образа в удобочитаемом формате.
                     unpackedBytes:
                       description: |
                         Размер распакованного образа в байтах.
@@ -182,21 +182,21 @@ spec:
                         Имя созданного PersistentVolumeClaim для хранилища Kubernetes.
                 uploadCommand:
                   description: |
-                    Устаревшее поле. Используйте imageUploadURLs.
+                    Устаревшее поле. Используйте `imageUploadURLs`.
                 imageUploadURLs:
                   properties:
                     external:
                       description: |
-                        Команда для загрузки изображения с использованием `Ingress` вне кластера.
+                        Команда для загрузки образа с использованием `Ingress` вне кластера.
                     inCluster:
                       description: |
-                        Команда для загрузки изображения с использованием `Service` внутри кластера.
+                        Команда для загрузки образа с использованием `Service` внутри кластера.
                 sourceUID:
                   description: |
-                    UID источника (`VirtualImage`, `ClusterVirtualImage` или `VirtualDisk`), использовавшегося при создании виртуального образа.
+                    UID источника (VirtualImage, ClusterVirtualImage или VirtualDisk), использованного при создании виртуального образа.
                 storageClassName:
                   description: |
-                    Имя StorageClass, использованного для создания DataVolume если в поле `storage` был выбран тип `Kubernetes`.
+                    Имя StorageClass, использованного для создания DataVolume, если в поле `storage` был выбран тип `Kubernetes`.
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.

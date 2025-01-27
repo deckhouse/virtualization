@@ -87,4 +87,4 @@ tasks:
       - go install -mod=readonly sigs.k8s.io/controller-tools/cmd/controller-gen@v{{ .CONTROLLER_GEN_VERSION }}
     status:
       - |
-        ls $GOPATH/bin/controller-gen
+        $GOPATH/bin/controller-gen --version | grep -q "v{{ .CONTROLLER_GEN_VERSION }}"

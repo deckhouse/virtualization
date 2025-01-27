@@ -23,15 +23,15 @@ const (
 	VirtualMachineBlockDeviceAttachmentResource = "virtualmachineblockdeviceattachments"
 )
 
-// VirtualMachineBlockDeviceAttachment provides a hot plug for connecting a disk to a virtual machine.
+// VirtualMachineBlockDeviceAttachment provides a hot plug for attaching a disk to a virtual machine.
 //
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vmbda,vmbdas},singular=virtualmachineblockdeviceattachment
 // +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="VirtualMachineBlockDeviceAttachment phase."
-// +kubebuilder:printcolumn:name="VIRTUAL MACHINE NAME",type="string",JSONPath=".status.virtualMachineName",description="The name of the virtual machine to which this disk is attached."
-// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="Time of creation resource."
+// +kubebuilder:printcolumn:name="VIRTUAL MACHINE NAME",type="string",JSONPath=".status.virtualMachineName",description="Name of the virtual machine the disk is attached to."
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="Time of resource creation."
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineBlockDeviceAttachment struct {
@@ -42,56 +42,60 @@ type VirtualMachineBlockDeviceAttachment struct {
 	Status VirtualMachineBlockDeviceAttachmentStatus `json:"status,omitempty"`
 }
 
-// VirtualMachineBlockDeviceAttachmentList contains a list of VirtualMachineBlockDeviceAttachment.
+// VirtualMachineBlockDeviceAttachmentList contains a list of VirtualMachineBlockDeviceAttachment resources.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineBlockDeviceAttachmentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	// Items provides a list of CDIs
+	// Items provides a list of CDIs.
 	Items []VirtualMachineBlockDeviceAttachment `json:"items"`
 }
 
 type VirtualMachineBlockDeviceAttachmentSpec struct {
-	// The name of the virtual machine to which the disk or image should be connected.
+	// Virtual machine name the disk or image should be attached to.
 	VirtualMachineName string         `json:"virtualMachineName"`
 	BlockDeviceRef     VMBDAObjectRef `json:"blockDeviceRef"`
 }
 
 type VirtualMachineBlockDeviceAttachmentStatus struct {
 	Phase BlockDeviceAttachmentPhase `json:"phase,omitempty"`
-	// The name of the virtual machine to which this disk is attached.
+	// Name of the virtual machine the disk is attached to.
 	VirtualMachineName string `json:"virtualMachineName,omitempty"`
-	// Contains details of the current state of this API Resource.
+	// Contains details of the current API resource state.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// The generation last processed by the controller
+	// Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-// A block device that will be connected to the VM as a hot Plug disk.
+// Block device that will be connected to the VM as a hot-plug disk.
 type VMBDAObjectRef struct {
-	// The type of the block device. Options are:
-	// * `VirtualDisk` — use `VirtualDisk` as the disk. This type is always mounted in RW mode.
+	// Block device type. Available options:
+	// * `VirtualDisk`: Use VirtualDisk as the disk. This type is always mounted in RW mode.
+	// * `VirtualImage`: Use VirtualImage as the disk. This type is always mounted in RO mode.
+	// * `ClusterVirtualImage`: Use ClusterVirtualImage as the disk. This type is always mounted in RO mode.
 	Kind VMBDAObjectRefKind `json:"kind,omitempty"`
-	// The name of block device to attach.
+	// Name of the block device to attach.
 	Name string `json:"name,omitempty"`
 }
 
-// VMBDAObjectRefKind defines the type of the block device.
+// VMBDAObjectRefKind defines the block device type.
 //
-// +kubebuilder:validation:Enum={VirtualDisk}
+// +kubebuilder:validation:Enum={VirtualDisk,VirtualImage,ClusterVirtualImage}
 type VMBDAObjectRefKind string
 
 const (
-	VMBDAObjectRefKindVirtualDisk VMBDAObjectRefKind = "VirtualDisk"
+	VMBDAObjectRefKindVirtualDisk         VMBDAObjectRefKind = "VirtualDisk"
+	VMBDAObjectRefKindVirtualImage        VMBDAObjectRefKind = "VirtualImage"
+	VMBDAObjectRefKindClusterVirtualImage VMBDAObjectRefKind = "ClusterVirtualImage"
 )
 
-// BlockDeviceAttachmentPhase defines current status of resource:
-// * Pending — the resource has been created and is on a waiting queue.
-// * InProgress — the disk is in the process of being attached.
-// * Attached — the disk is attached to virtual machine.
-// * Failed — there was a problem with attaching the disk.
-// * Terminating — the process of resource deletion is in progress.
+// BlockDeviceAttachmentPhase defines the current status of the resource:
+// * `Pending`: The resource has been created and is on a waiting queue.
+// * `InProgress`: The disk is being attached to the VM.
+// * `Attached`: The disk has been attached to the VM.
+// * `Failed`: There was an error when attaching the disk.
+// * `Terminating`: The resource is being deleted.
 //
 // +kubebuilder:validation:Enum={Pending,InProgress,Attached,Failed,Terminating}
 type BlockDeviceAttachmentPhase string

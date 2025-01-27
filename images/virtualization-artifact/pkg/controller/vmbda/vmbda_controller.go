@@ -31,6 +31,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmbda/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmbdametrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmbda"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -39,10 +40,11 @@ const ControllerName = "vmbda-controller"
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
+	virtClient kubeclient.Client,
 	lg *log.Logger,
 	ns string,
 ) (controller.Controller, error) {
-	attacher := service.NewAttachmentService(mgr.GetClient(), ns)
+	attacher := service.NewAttachmentService(mgr.GetClient(), virtClient, ns)
 	blockDeviceService := service.NewBlockDeviceService(mgr.GetClient())
 
 	reconciler := NewReconciler(
@@ -51,7 +53,7 @@ func NewController(
 		internal.NewBlockDeviceReadyHandler(attacher),
 		internal.NewVirtualMachineReadyHandler(attacher),
 		internal.NewLifeCycleHandler(attacher),
-		internal.NewDeletionHandler(),
+		internal.NewDeletionHandler(attacher, mgr.GetClient()),
 	)
 
 	vmbdaController, err := controller.New(ControllerName, mgr, controller.Options{

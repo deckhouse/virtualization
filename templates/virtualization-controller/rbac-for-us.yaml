@@ -158,6 +158,8 @@ rules:
     - virtualmachines/freeze
     - virtualmachines/unfreeze
     - virtualmachines/migrate
+    - virtualmachines/addvolume
+    - virtualmachines/removevolume
   verbs:
     - update
 - apiGroups:

@@ -8,23 +8,25 @@ spec:
           properties:
             spec:
               description: |
-                Настройки `VirtualMachineIPAddress`.
+                Настройки ресурса VirtualMachineIPAddress.
               properties:
                 type:
                   description: |
-                    Определяет режим присвоения IP-адреса. Возможные значения: "Auto" для автоматического присвоения IP-адреса
-                    или "Static" для присвоения определенного IP-адреса.
+                    Определяет режим присвоения IP-адреса. Возможные значения:
+
+                      - `Auto` – для автоматического присвоения IP-адреса;
+                      - `Static` – для присвоения определенного IP-адреса.
                 staticIP:
                   description: |
-                    Запрашиваемый статический IP-адрес, который должен быть присвоен виртуальной машине. Это поле является обязательным, только если для параметра type задано значение "Static".
+                    Запрашиваемый статический IP-адрес, который должен быть присвоен виртуальной машине. Поле является обязательным в случае, если для параметра `type` задано значение `Static`.
             status:
               properties:
                 conditions:
                   description: |
-                    Последнее подтвержденное состояние данного ресурса.
+                    Последнее подтверждённое состояние данного ресурса.
                   items:
                     description: |
-                      condition содержит подробные сведения об одном аспекте текущего состояния этого ресурса API.
+                      Подробные сведения об одном аспекте текущего состояния данного API-ресурса.
                     properties:
                       lastTransitionTime:
                         description: Время перехода условия из одного состояния в другое.
@@ -32,8 +34,8 @@ spec:
                         description: Удобочитаемое сообщение с подробной информацией о последнем переходе.
                       observedGeneration:
                         description: |
-                          observedGeneration представляет собой .metadata.generation, на основе которого было установлено условие.
-                          Например, если .metadata.generation в настоящее время имеет значение 12, а .status.conditions[x].observedgeneration имеет значение 9, то условие устарело.
+                          `.metadata.generation`, на основе которого было установлено условие.
+                          Например, если `.metadata.generation` в настоящее время имеет значение `12`, а `.status.conditions[x].observedgeneration` имеет значение `9`, то условие устарело.
                       reason:
                         description: Краткая причина последнего перехода состояния.
                       status:
@@ -46,14 +48,14 @@ spec:
                     Назначенный IP-адрес.
                 phase:
                   description: |
-                    Представляет текущее состояние ресурса `VirtualMachineIPAddress`.
+                    Представляет текущее состояние ресурса VirtualMachineIPAddress.
 
-                    * Pending - создание ресурса находится в процессе выполнения.
-                    * Bound - ресурс `VirtualMachineIPAddress` привязан к ресурсу `VirtualMachineIPAddressLease`.
-                    * Attached - ресурс `VirtualMachineIPAddress` подключен к ресурсу `VirtualMachine`.
+                    * `Pending` - выполняется создание ресурса;
+                    * `Bound` - ресурс VirtualMachineIPAddress привязан к ресурсу VirtualMachineIPAddressLease;
+                    * `Attached` - ресурс VirtualMachineIPAddress подключен к ресурсу VirtualMachine.
                 virtualMachineName:
                   description: |
-                    Имя виртуальной машины, которая в настоящее время использует этот IP-адрес.
+                    Имя виртуальной машины, которая в настоящее время использует данный IP-адрес.
                 observedGeneration:
                   description: |
                     Поколение ресурса, которое в последний раз обрабатывалось контроллером.

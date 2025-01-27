@@ -26,10 +26,11 @@ const (
 	VirtualImageResource = "virtualimages"
 )
 
-// This resource describes a virtual disk image or installation image (iso) that can be used as a data source for new `VirtualDisks` or can be mounted in `Virtuals`.
+// This resource describes a virtual disk image to use as a data source for new VirtualDisk resources or an installation image (iso) that can be mounted into the VirtualMachine resource.
+//
 // > This resource cannot be modified once it has been created.
 //
-// A container image is created under the hood of this resource, which is stored in a dedicated deckhouse virtualization container registy (DVCR) or PVC, into which the data from the source is filled.
+// With this resource in the cluster, a container image is created and stored in a dedicated Deckhouse Virtualization Container Registry (DVCR) or PVC, with the data filled in from the source.
 // +genclient
 // +kubebuilder:object:root=true
 // +kubebuilder:metadata:labels={heritage=deckhouse,module=virtualization}
@@ -56,13 +57,13 @@ type VirtualImage struct {
 }
 
 // VirtualImageList provides the needed parameters
-// to do request a list of VirtualImages from the system.
+// for requesting a list of VirtualImages from the system.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualImageList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	// Items provides a list of CDIs
+	// Items provides a list of CDIs.
 	Items []VirtualImage `json:"items"`
 }
 
@@ -76,35 +77,35 @@ type VirtualImageSpec struct {
 type VirtualImageStatus struct {
 	// Image download speed from an external source. Appears only during the `Provisioning` phase.
 	DownloadSpeed *StatusSpeed `json:"downloadSpeed,omitempty"`
-	// Discovered sizes of the image.
+	// Discovered image size data.
 	Size ImageStatusSize `json:"size,omitempty"`
-	// Discovered format of the image.
+	// Discovered image format.
 	Format string `json:"format,omitempty"`
-	// Whether the image is a format that is supposed to be mounted as a cdrom, such as iso and so on.
+	// Whether the image is in a format that needs to be mounted as a CD-ROM drive, such as iso and so on.
 	CDROM bool `json:"cdrom,omitempty"`
-	// Current status of `ClusterVirtualImage` resource:
-	// * Pending - The resource has been created and is on a waiting queue.
-	// * Provisioning - The process of resource creation (copying/downloading/building the image) is in progress.
-	// * WaitForUserUpload - Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
-	// * Ready - The resource is created and ready to use.
-	// * Failed - There was a problem when creating a resource.
-	// * Terminating - The process of resource deletion is in progress.
-	// * PVCLost - The child PVC of the resource is missing. The resource cannot be used.
+	// Current status of the ClusterVirtualImage resource:
+	// * `Pending`: The resource has been created and is on a waiting queue.
+	// * `Provisioning`: The resource is being created: copying, downloading, or building the image.
+	// * `WaitForUserUpload`: Waiting for the user to upload the image. The endpoint to upload the image is specified in `.status.uploadCommand`.
+	// * `Ready`: The resource has been created and is ready to use.
+	// * `Failed`: There was an error when creating the resource.
+	// * `Terminating`: The resource is being deleted.
+	// * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
 	// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating,PVCLost}
 	Phase ImagePhase `json:"phase,omitempty"`
-	// Progress of copying an image from source to DVCR.
+	// Progress of copying an image from a source to DVCR.
 	Progress string `json:"progress,omitempty"`
-	// Deprecated. Use imageUploadURLs instead.
+	// Deprecated. Use `imageUploadURLs` instead.
 	UploadCommand   string                   `json:"uploadCommand,omitempty"`
 	ImageUploadURLs *ImageUploadURLs         `json:"imageUploadURLs,omitempty"`
 	Target          VirtualImageStatusTarget `json:"target,omitempty"`
-	// The UID of the source (`VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`) used when creating the virtual image.
+	// UID of the source (VirtualImage, ClusterVirtualImage, or VirtualDisk) used when creating the virtual image.
 	SourceUID *types.UID `json:"sourceUID,omitempty"`
 	// The latest available observations of an object's current state.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// The generation last processed by the controller.
+	// Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-	// The name of the StorageClass used by the PersistentVolumeClaim if `Kubernetes` storage type used.
+	// Name of the StorageClass used by the PersistentVolumeClaim if `Kubernetes` storage type is used.
 	StorageClassName string `json:"storageClassName,omitempty"`
 }
 
@@ -112,13 +113,13 @@ type VirtualImageStatusTarget struct {
 	// Created image in DVCR.
 	// +kubebuilder:example:="dvcr.<dvcr-namespace>.svc/vi/<image-namespace>/<image-name>:latest"
 	RegistryURL string `json:"registryURL,omitempty"`
-	// Created PersistentVolumeClaim name for PersistentVolumeClaim storage.
+	// Created PersistentVolumeClaim name for the PersistentVolumeClaim storage.
 	PersistentVolumeClaim string `json:"persistentVolumeClaimName,omitempty"`
 }
 
-// +kubebuilder:validation:XValidation:rule="self.type == 'HTTP' ? has(self.http) && !has(self.containerImage) && !has(self.objectRef) : true",message="HTTP requires http and cannot have ContainerImage or ObjectRef"
-// +kubebuilder:validation:XValidation:rule="self.type == 'ContainerImage' ? has(self.containerImage) && !has(self.http) && !has(self.objectRef) : true",message="ContainerImage requires containerImage and cannot have HTTP or ObjectRef"
-// +kubebuilder:validation:XValidation:rule="self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http) && !has(self.containerImage) : true",message="ObjectRef requires objectRef and cannot have HTTP or ContainerImage"
+// +kubebuilder:validation:XValidation:rule="self.type == 'HTTP' ? has(self.http) && !has(self.containerImage) && !has(self.objectRef) : true",message="HTTP requires http and cannot have ContainerImage or ObjectRef."
+// +kubebuilder:validation:XValidation:rule="self.type == 'ContainerImage' ? has(self.containerImage) && !has(self.http) && !has(self.objectRef) : true",message="ContainerImage requires containerImage and cannot have HTTP or ObjectRef."
+// +kubebuilder:validation:XValidation:rule="self.type == 'ObjectRef' ? has(self.objectRef) && !has(self.http) && !has(self.containerImage) : true",message="ObjectRef requires objectRef and cannot have HTTP or ContainerImage."
 type VirtualImageDataSource struct {
 	Type           DataSourceType              `json:"type,omitempty"`
 	HTTP           *DataSourceHTTP             `json:"http,omitempty"`
@@ -126,23 +127,23 @@ type VirtualImageDataSource struct {
 	ObjectRef      *VirtualImageObjectRef      `json:"objectRef,omitempty"`
 }
 
-// Use an image stored in external container registry. Only TLS enabled registries are supported. Use caBundle field to provide custom CA chain if needed.
+// Use an image stored in an external container registry. Only registries with enabled TLS protocol are supported. To provide a custom Certificate Authority (CA) chain, use the `caBundle` field.
 type VirtualImageContainerImage struct {
-	// The container registry address of an image.
+	// Path to the image in the container registry.
 	// +kubebuilder:example:="registry.example.com/images/slackware:15"
 	// +kubebuilder:validation:Pattern:=`^(?P<name>(?:(?P<domain>(?:(?:localhost|[\w-]+(?:\.[\w-]+)+)(?::\d+)?)|[\w]+:\d+)/)?(?P<image>[a-z0-9_.-]+(?:/[a-z0-9_.-]+)*))(?::(?P<tag>[\w][\w.-]{0,127}))?(?:@(?P<digest>[A-Za-z][A-Za-z0-9]*(?:[+.-_][A-Za-z][A-Za-z0-9]*)*:[0-9a-fA-F]{32,}))?$`
 	Image           string              `json:"image"`
 	ImagePullSecret ImagePullSecretName `json:"imagePullSecret,omitempty"`
-	// The CA chain in base64 format to verify the container registry.
+	// CA chain in Base64 format to verify the container registry.
 	// +kubebuilder:example:="YWFhCg=="
 	CABundle []byte `json:"caBundle,omitempty"`
 }
 
-// Use an existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk` to create an image.
+// Use an existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource to create an image.
 type VirtualImageObjectRef struct {
-	// A kind of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.
+	// Kind of an existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource.
 	Kind VirtualImageObjectRefKind `json:"kind"`
-	// A name of existing `VirtualImage`, `ClusterVirtualImage` or `VirtualDisk`.
+	// Name of an existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource.
 	Name string `json:"name"`
 }
 
@@ -155,11 +156,11 @@ const (
 	VirtualImageObjectRefKindVirtualDisk         VirtualImageObjectRefKind = "VirtualDisk"
 )
 
-// Storage type to store the image for current virtualization setup.
+// Storage type to keep the image for the current virtualization setup.
 //
-// * `ContainerRegistry` — use a dedicated deckhouse virtualization container registry (DVCR). In this case, images will be downloaded and injected to a container, then pushed to a DVCR (shipped with the virtualization module).
-// * `PersistentVolumeClaim` - use a Persistent Volume Claim (PVC).
-// * `Kubernetes` - Deprecated: Use of this value is discouraged and may be removed in future versions. Use PersistentVolumeClaim instead.
+// * `ContainerRegistry`: Use the DVCR container registry. In this case, images are downloaded to a container and then to DVCR (shipped with the virtualization module).
+// * `PersistentVolumeClaim`: Use a PVC.
+// * `Kubernetes`: A deprecated storage type. Not recommended for use and may be removed in future versions. Use `PersistentVolumeClaim` instead.
 // +kubebuilder:validation:Enum:={ContainerRegistry,Kubernetes,PersistentVolumeClaim}
 type StorageType string
 
@@ -171,10 +172,10 @@ const (
 	StorageKubernetes StorageType = "Kubernetes"
 )
 
-// Settings for creating PVCs to store the image with storage type 'PersistentVolumeClaim'.
+// Settings for creating PVCs to store an image with the storage type `PersistentVolumeClaim`.
 type VirtualImagePersistentVolumeClaim struct {
-	// The name of the StorageClass required by the claim. More info — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1
+	// Name of the StorageClass required by the claim. For details on using StorageClass for PVC, refer to — https://kubernetes.io/docs/concepts/storage/persistent-volumes#class-1.
 	//
-	// When creating image with storage type 'PersistentVolumeClaim', the user can specify the required StorageClass to create the image, or not explicitly, in which case the default StorageClass will be used.
+	// When creating an image with the `PersistentVolumeClaim` storage type, the user can specify the required StorageClass. If not specified, the default StorageClass will be used.
 	StorageClass *string `json:"storageClassName,omitempty"`
 }

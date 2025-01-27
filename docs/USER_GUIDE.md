@@ -6,7 +6,7 @@ weight: 50
 
 ## Introduction
 
-This guide is intended for [users](./README.md#role-model) of Deckhouse Virtualization Platform and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
+This guide is intended for users of Deckhouse Virtualization Platform and describes how to create and modify resources that are available for creation in projects and cluster namespaces.
 
 ## Quick start on creating a VM
 
@@ -14,124 +14,133 @@ Example of creating a virtual machine with Ubuntu 22.04.
 
 1. Create a virtual machine image from an external source:
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualImage
-metadata:
-  name: ubuntu
-spec:
-  storage: ContainerRegistry
-  dataSource:
-    type: HTTP
-    http:
-      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
-EOF
-```
+   ```yaml
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualImage
+   metadata:
+     name: ubuntu
+   spec:
+     storage: ContainerRegistry
+     dataSource:
+       type: HTTP
+       http:
+         url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+   EOF
+   ```
 
-2. Create a virtual machine disk from the image created in the previous step (Caution: Make sure that the default StorageClass is present on the system before creating it):
+1. Create a virtual machine disk from the image created in the previous step (Caution: Make sure that the default StorageClass is present on the system before creating it):
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualDisk
-metadata:
-  name: linux-disk
-spec:
-  dataSource:
-    type: ObjectRef
-    objectRef:
-      kind: VirtualImage
-      name: ubuntu
-EOF
-```
+   ```yaml
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualDisk
+   metadata:
+     name: linux-disk
+   spec:
+     dataSource:
+       type: ObjectRef
+       objectRef:
+         kind: VirtualImage
+         name: ubuntu
+   EOF
+   ```
 
-3. Creating a virtual machine
+1. Creating a virtual machine:
 
-The example uses the cloud-init script to create a cloud user with the cloud password generated as follows:
+   The example uses the cloud-init script to create a cloud user with the cloud password generated as follows:
 
-```bash
-mkpasswd --method=SHA-512 --rounds=4096
-```
+   ```bash
+   mkpasswd --method=SHA-512 --rounds=4096
+   ```
 
-You can change the user name and password in this section:
+   You can change the user name and password in this section:
 
-```yaml
-users:
-  - name: cloud
-    passwd: $6$rounds=4096$G5VKZ1CVH5Ltj4wo$g.O5RgxYz64ScD5Ach5jeHS.Nm/SRys1JayngA269wjs/LrEJJAZXCIkc1010PZqhuOaQlANDVpIoeabvKK4j1
-```
+   ```yaml
+   users:
+     - name: cloud
+       passwd: $6$rounds=4096$G5VKZ1CVH5Ltj4wo$g.O5RgxYz64ScD5Ach5jeHS.Nm/SRys1JayngA269wjs/LrEJJAZXCIkc1010PZqhuOaQlANDVpIoeabvKK4j1
+   ```
 
-Create a virtual machine from the following specification:
+   Create a virtual machine from the following specification:
 
-```yaml
-d8 k apply -f - <<"EOF"
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachine
-metadata:
-  name: linux-vm
-spec:
-  virtualMachineClassName: host
-  cpu:
-    cores: 1
-  memory:
-    size: 1Gi
-  provisioning:
-    type: UserData
-    userData: |
-      #cloud-config
-      ssh_pwauth: True
-      users:
-      - name: cloud
-        passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
-        shell: /bin/bash
-        sudo: ALL=(ALL) NOPASSWD:ALL
-        lock_passwd: False
-  blockDeviceRefs:
-    - kind: VirtualDisk
-      name: linux-disk
-EOF
-```
+   ```yaml
+   d8 k apply -f - <<"EOF"
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: VirtualMachine
+   metadata:
+     name: linux-vm
+   spec:
+     virtualMachineClassName: host
+     cpu:
+       cores: 1
+     memory:
+       size: 1Gi
+     provisioning:
+       type: UserData
+       userData: |
+         #cloud-config
+         ssh_pwauth: True
+         users:
+         - name: cloud
+           passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
+           shell: /bin/bash
+           sudo: ALL=(ALL) NOPASSWD:ALL
+           lock_passwd: False
+     blockDeviceRefs:
+       - kind: VirtualDisk
+         name: linux-disk
+   EOF
+   ```
 
-Useful links:
+   Useful links:
 
-- [cloud-init documentation](https://cloudinit.readthedocs.io/)
-- [Resource Parameters](cr.html)
+   - [cloud-init documentation](https://cloudinit.readthedocs.io/)
+   - [Resource Parameters](cr.html)
 
-4. Verify with the command that the image and disk have been created and the virtual machine is running. Resources are not created instantly, so you will need to wait a while before they are ready.
+1. Verify with the command that the image and disk have been created and the virtual machine is running. Resources are not created instantly, so you will need to wait a while before they are ready.
 
-```bash
-kubectl get vi,vd,vm
-NAME                                                 PHASE   CDROM   PROGRESS   AGE
-virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+   ```bash
+   d8 k get vi,vd,vm
+   ```
 
-NAME                                                 PHASE   CAPACITY   AGE
-virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+   Example output:
 
-NAME                                                 PHASE     NODE           IPADDRESS     AGE
-virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
-```
+   ```txt
+   # NAME                                                 PHASE   CDROM   PROGRESS   AGE
+   # virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+   #
+   # NAME                                                 PHASE   CAPACITY   AGE
+   # virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+   #
+   # NAME                                                 PHASE     NODE           IPADDRESS     AGE
+   # virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+   ```
 
-5. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
+1. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
 
-```bash
-d8 v console linux-vm
+   ```bash
+   d8 v console linux-vm
+   ```
 
-# Successfully connected to linux-vm console. The escape sequence is ^]
-#
-# linux-vm login: cloud
-# Password: cloud
-# ...
-# cloud@linux-vm:~$
-```
+   Example output:
 
-6. Use the following commands to delete previously created resources:
+   ```txt
+   # Successfully connected to linux-vm console. The escape sequence is ^]
+   #
+   # linux-vm login: cloud
+   # Password: cloud
+   # ...
+   # cloud@linux-vm:~$
+   ```
 
-```bash
-d8 k delete vm linux-vm
-d8 k delete vd linux-disk
-d8 k delete vi ubuntu
-```
+1. Use the following commands to delete previously created resources:
+
+   ```bash
+   d8 k delete vm linux-vm
+   d8 k delete vd linux-disk
+   d8 k delete vi ubuntu
+   ```
 
 ## Images
 
@@ -190,7 +199,11 @@ Check the result of the `VirtualImage` creation:
 d8 k get virtualimage ubuntu-22.04
 # or a shorter version
 d8 k get vi ubuntu-22.04
+```
 
+Example output:
+
+```txt
 # NAME           PHASE   CDROM   PROGRESS   AGE
 # ubuntu-22.04   Ready   false   100%       23h
 ```
@@ -210,7 +223,11 @@ You can trace the image creation process by adding the `-w` key to the previous 
 
 ```bash
 d8 k get vi ubuntu-22.04 -w
+```
 
+Example output:
+
+```txt
 # NAME           PHASE          CDROM   PROGRESS   AGE
 # ubuntu-22.04   Provisioning   false              4s
 # ubuntu-22.04   Provisioning   false   0.0%       4s
@@ -252,13 +269,16 @@ Check the result of the `VirtualImage` creation:
 
 ```bash
 d8 k get vi ubuntu-22.04-pvc
+```
 
+Example output:
+
+```txt
 # NAME              PHASE   CDROM   PROGRESS   AGE
 # ubuntu-22.04-pvc  Ready   false   100%       23h
 ```
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-images).
-
 
 ### Creating an image from Container Registry
 
@@ -331,7 +351,11 @@ There are two options available for uploading from a cluster node and from an ar
 
 ```bash
 d8 k get vi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
+```
 
+Example output:
+
+```txt
 # {
 #   "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
 #   "inCluster":"http://10.222.165.239/upload"
@@ -354,6 +378,11 @@ After the upload is complete, the image should be created and enter the `Ready` 
 
 ```bash
 d8 k get vi some-image
+```
+
+Example output:
+
+```txt
 # NAME         PHASE   CDROM   PROGRESS   AGE
 # some-image   Ready   false   100%       1m
 ```
@@ -413,8 +442,12 @@ Attention: It is impossible to create disks from iso-images!
 To find out the available storage options on the platform, run the following command:
 
 ```bash
-kubectl get storageclass
+d8 k get storageclass
+```
 
+Example output:
+
+```txt
 # NAME                          PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
 # i-linstor-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
 # i-linstor-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
@@ -466,6 +499,11 @@ Check the status of the disk after creation with the command:
 
 ```bash
 d8 k get vd blank-disk
+```
+
+Example output:
+
+```txt
 # NAME       PHASE   CAPACITY   AGE
 # blank-disk   Ready   100Mi      1m2s
 ```
@@ -480,7 +518,11 @@ Using the example of the previously created image `VirtualImage`, let's consider
 
 ```bash
 d8 k get vi ubuntu-22.04 -o wide
+```
 
+Example output:
+
+```txt
 # NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
 # ubuntu-22.04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22.04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
@@ -537,7 +579,11 @@ Check the status of the disks after creation:
 
 ```bash
 d8 k get vd
+```
 
+Example output:
+
+```txt
 # NAME           PHASE   CAPACITY   AGE
 # linux-vm-root    Ready   10Gi       7m52s
 # linux-vm-root-2  Ready   2590Mi     7m15s
@@ -551,7 +597,11 @@ Check the size before the change:
 
 ```bash
 d8 k get vd linux-vm-root
+```
 
+Example output:
+
+```txt
 # NAME          PHASE   CAPACITY   AGE
 # linux-vm-root   Ready   10Gi       10m
 ```
@@ -559,14 +609,18 @@ d8 k get vd linux-vm-root
 Let's apply the changes:
 
 ```bash
-kubectl patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
+d8 k patch vd linux-vm-root --type merge -p '{"spec":{"persistentVolumeClaim":{"size":"11Gi"}}}'
 ```
 
 Let's check the size after the change:
 
 ```bash
 d8 k get vd linux-vm-root
+```
 
+Example output:
+
+```txt
 # NAME          PHASE   CAPACITY   AGE
 # linux-vm-root   Ready   11Gi       12m
 ```
@@ -655,7 +709,11 @@ Check the state of the virtual machine after creation:
 
 ```bash
 d8 k get vm linux-vm
+```
 
+Example output:
+
+```txt
 # NAME        PHASE     NODE           IPADDRESS     AGE
 # linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
 ```
@@ -674,11 +732,15 @@ An example of connecting to a virtual machine using a serial console:
 
 ```bash
 d8 v console linux-vm
+```
 
+Example output:
+
+```txt
 # Successfully connected to linux-vm console. The escape sequence is ^]
-
-linux-vm login: cloud
-Password: cloud
+#
+# linux-vm login: cloud
+# Password: cloud
 ```
 
 Press `Ctrl+]` to finalize the serial console.
@@ -714,11 +776,11 @@ The `VirtualMachineOperation` resource declaratively defines an imperative actio
 Example operation to perform a reboot of a virtual machine named `linux-vm`:
 
 ```yaml
-d8 k apply -f - <<EOF
+d8 k create -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: restart-linux-vm-$(date +%s)
+  generateName: restart-linux-vm-
 spec:
   virtualMachineName: linux-vm
   type: Restart
@@ -743,10 +805,10 @@ A list of possible operations is given in the table below:
 
 | d8             | vmop type | Action                         |
 | -------------- | --------- | ------------------------------ | ------- |
-| `d8 v stop`    | `stop`    | Stop VM                        | Stop VM |
-| `d8 v start`   | `start`   | Start the VM                   |
-| `d8 v restart` | `restart` | Restart the VM                 |         |
-| `d8 v migrate` | `migrate` | Migrate the VM to another host |
+| `d8 v stop`    | `Stop`    | Stop VM                        | Stop VM |
+| `d8 v start`   | `Start`   | Start the VM                   |
+| `d8 v restart` | `Restart` | Restart the VM                 |         |
+| `d8 v evict`   | `Evict`   | Migrate the VM to another host |
 
 ### Change virtual machine configuration
 
@@ -762,13 +824,15 @@ If the virtual machine is in a shutdown state (`.status.phase: Stopped`), the ch
 
 If the virtual machine is running (`.status.phase: Running`), the way the changes are applied depends on the type of change:
 
-| Configuration block                     | How changes are applied |
-| --------------------------------------- | ----------------------- |
-| `.metadata.labels`                      | Applies immediately     |
-| `.metadata.annotations`                 | Applies immediately     |
-| `.spec.runPolicy`                       | Applies immediately     |
-| `.spec.disruptions.restartApprovalMode` | Applies immediately     |
-| `.spec.*`                               | Only after VM restart   |
+| Configuration block                     | How changes are applied                            |
+| --------------------------------------- | -------------------------------------------------- |
+| `.metadata.labels`                      | Applies immediately                                |
+| `.metadata.annotations`                 | Applies immediately                                |
+| `.spec.runPolicy`                       | Applies immediately                                |
+| `.spec.disruptions.restartApprovalMode` | Applies immediately                                |
+| `.spec.affinity`                        | EE: Applies immediately, CE: Only after VM restart |
+| `.spec.nodeSelector`                    | EE: Applies immediately, CE: Only after VM restart |
+| `.spec.*`                               | Only after VM restart                              |
 
 Let's consider an example of changing the configuration of a virtual machine:
 
@@ -776,6 +840,11 @@ Suppose we want to change the number of processor cores. The virtual machine is 
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+```
+
+Example output:
+
+```txt
 # 1
 ```
 
@@ -783,6 +852,11 @@ Apply the following patch to the virtual machine to change the number of cores f
 
 ```bash
 d8 k patch vm linux-vm --type merge -p '{"spec":{"cpu":{"cores":2}}}'
+```
+
+Example output:
+
+```txt
 # virtualmachine.virtualization.deckhouse.io/linux-vm patched
 ```
 
@@ -790,6 +864,11 @@ Configuration changes have been made but not yet applied to the virtual machine.
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+```
+
+Example output:
+
+```txt
 # 1
 ```
 
@@ -797,7 +876,11 @@ A restart of the virtual machine is required to apply this change. Run the follo
 
 ```bash
 d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
+```
 
+Example output:
+
+```txt
 # [
 #   {
 #     "currentValue": 1,
@@ -812,7 +895,11 @@ Run the command:
 
 ```bash
 d8 k get vm linux-vm -o wide
+```
 
+Example output:
+
+```txt
 # NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
 # linux-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
 ```
@@ -831,6 +918,11 @@ Execute the command to verify:
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
+```
+
+Example output:
+
+```txt
 # 2
 ```
 
@@ -923,6 +1015,10 @@ The following approaches can be used to manage the placement of virtual machines
 - Preferred binding (`Affinity`)
 - Avoid co-location (`AntiAffinity`)
 
+{{< alert level="info" >}}
+Virtual machine placement parameters can be changed in real time (available in Enterprise edition only). However, if the new placement parameters do not match the current placement parameters, the virtual machine will be moved to hosts that meet the new requirements.
+{{< /alert >}}
+
 #### Simple label binding (nodeSelector)
 
 A `nodeSelector` is the simplest way to control the placement of virtual machines using a set of labels. It allows you to specify on which nodes virtual machines can run by selecting nodes with the desired labels.
@@ -1010,25 +1106,38 @@ In this example, the virtual machine being created will not be placed on the sam
 
 Block devices can be divided into two types based on how they are connected: static and dynamic (hotplug).
 
+Block devices and their features are shown in the table below:
+
+| Block device type     | Comment                                                   |
+| --------------------- | --------------------------------------------------------- |
+| `VirtualImage`        | connected in read-only mode, or as a cdrom for iso images |
+| `ClusterVirtualImage` | connected in read-only mode, or as a cdrom for iso images |
+| `VirtualDisk`         | connects in read/write mode                               |
+
 #### Static block devices
 
-Static block devices are specified in the virtual machine specification in the `.spec.blockDeviceRefs` block. This block is a list that can include the following block devices:
-
-- `VirtualImage`.
-- `ClusterVirtualImage`
-- `VirtualDisk`.
-
-The order of the devices in this list determines the sequence in which they are loaded. Thus, if a disk or image is listed first, the boot loader will try to boot from it first. If it fails, the system will move to the next device in the list and try to boot from it. And so on until the first boot loader is detected.
+Static block devices are defined in the virtual machine specification in the `.spec.blockDeviceRefs` block as a list. The order of the devices in this list determines the sequence in which they are loaded. Thus, if a disk or image is specified first, the loader will first try to boot from it. If it fails, the system will go to the next device in the list and try to boot from it. And so on until the first boot loader is detected.
 
 Changing the composition and order of devices in the `.spec.blockDeviceRefs` block is possible only with a reboot of the virtual machine.
+
+VirtualMachine configuration fragment with statically connected disk and project image:
+
+```yaml
+spec:
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: <virtual-disk-name>
+    - kind: VirtualImage
+      name: <virtual-image-name>
+```
 
 #### Dynamic Block Devices
 
 Dynamic block devices can be connected and disconnected from a virtual machine that is in a running state without having to reboot it.
 
-The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect dynamic block devices. Currently, only `VirtualDisk` is supported for connection as a dynamic block device.
+The `VirtualMachineBlockDeviceAttachment` (`vmbda`) resource is used to connect dynamic block devices.
 
-Create the following resource that will connect an empty blank-disk disk to the linux-vm virtual machine:
+As an example, create the following share that connects an empty blank-disk disk to a linux-vm virtual machine:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -1054,7 +1163,11 @@ Check the state of your resource::
 
 ```bash
 d8 k get vmbda attach-blank-disk
+```
 
+Example output:
+
+```txt
 # NAME              PHASE      VIRTUAL MACHINE NAME   AGE
 # attach-blank-disk   Attached   linux-vm              3m7s
 ```
@@ -1063,7 +1176,11 @@ Connect to the virtual machine and make sure the disk is connected:
 
 ```bash
 d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
+```
 
+Example output:
+
+```txt
 # NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
 # sda       8:0    0   10G  0 disk <--- statically mounted linux-vm-root disk
 # |-sda1    8:1    0  9.9G  0 part /
@@ -1087,7 +1204,28 @@ Preliminary, put the following labels on the previously created vm:
 
 ```bash
 d8 k label vm linux-vm app=nginx
+```
+
+Example output:
+
+```txt
 # virtualmachine.virtualization.deckhouse.io/linux-vm labeled
+```
+
+Attaching images is done by analogy. To do this, specify `VirtualImage` or `ClusterVirtualImage` and the image name as `kind`:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineBlockDeviceAttachment
+metadata:
+  name: attach-ubuntu-iso
+spec:
+  blockDeviceRef:
+    kind: VirtualImage # or ClusterVirtualImage
+    name: ubuntu-iso
+  virtualMachineName: linux-vm
+EOF
 ```
 
 #### Publish virtual machine services using a service with the NodePort type
@@ -1202,39 +1340,50 @@ Migration can be performed automatically when:
 - Updating the “firmware” of a virtual machine.
 - Rebalancing the load on the cluster nodes.
 - Transferring nodes to maintenance mode for work.
+- When you change [VM placement settings](#placement-of-vms-by-nodes) (available in Enterprise edition only).
 
 Virtual machine migration can also be performed at the user's request. Let's take an example:
 
 Before starting the migration, view the current status of the virtual machine::
 
 ```bash
-kubectl get vm
+d8 k get vm
+```
+
+Example output:
+
+```txt
 # NAME                                   PHASE     NODE           IPADDRESS     AGE
 # linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
 
 We can see that it is currently running on the `virtlab-pt-1` node.
 
-To migrate a virtual machine from one node to another, taking into account the requirements for virtual machine placement, the `VirtualMachineOperations` (`vmop`) resource with the migrate type is used.
+To migrate a virtual machine from one node to another, taking into account the requirements for virtual machine placement, the `VirtualMachineOperations` (`vmop`) resource with the `Evict` type is used.
 
 ```yaml
-d8 k apply -f - <<EOF
+d8 k create -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineOperation
 metadata:
-  name: migrate-linux-vm-$(date +%s)
+  generateName: evict-linux-vm-
 spec:
   # virtual machine name
   virtualMachineName: linux-vm
-  # operation to migrate
-  type: Migrate
+  # operation to evict
+  type: Evict
 EOF
 ```
 
 Immediately after creating the `vmip` resource, run the command:
 
 ```bash
-kubectl get vm -w
+d8 k get vm -w
+```
+
+Example output:
+
+```txt
 # NAME                                   PHASE       NODE           IPADDRESS     AGE
 # linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
 # linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
@@ -1245,7 +1394,7 @@ kubectl get vm -w
 You can also use the command to perform the migration:
 
 ```bash
-d8 v migrate <vm-name>
+d8 v evict <vm-name>
 ```
 
 ## IP addresses of virtual machines
@@ -1258,6 +1407,11 @@ To see a list of IP address leases (`vmipl`), use the command:
 
 ```bash
 d8 k get vmipl
+```
+
+Example output:
+
+```txt
 # NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
@@ -1268,6 +1422,11 @@ To see a list of `vmip`, use the command:
 
 ```bash
 d8 k get vmipl
+```
+
+Example output:
+
+```txt
 # NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
 # ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
@@ -1276,6 +1435,11 @@ By default, an ip address is automatically assigned to a virtual machine from th
 
 ```bash
 k get vmip
+```
+
+Example output:
+
+```txt
 # NAME              ADDRESS       STATUS     VM          AGE
 # linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
@@ -1329,6 +1493,7 @@ Obtain the `vmip` resource name for the specified virtual machine:
 
 ```bash
 d8 k get vm linux-vm -o jsonpath="{.status.virtualMachineIPAddressName}"
+
 # linux-vm-7prpx
 ```
 
@@ -1386,6 +1551,11 @@ To get a list of supported `VolumeSnapshotClasses` resources, run the command:
 
 ```bash
 d8 k get volumesnapshotclasses
+```
+
+Example output:
+
+```txt
 # NAME                     DRIVER                                DELETIONPOLICY   AGE
 # csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
 # sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
@@ -1410,6 +1580,11 @@ To view a list of disk snapshots, run the following command:
 
 ```bash
 d k get vdsnapshot
+```
+
+Example output:
+
+```txt
 # NAME                     PHASE     CONSISTENT   AGE
 # linux-vm-root-1728027905   Ready                  3m2s
 ```
@@ -1424,7 +1599,7 @@ After creation, `VirtualDiskSnapshot` can be in the following states (phases):
 
 A full description of the `VirtualDiskSnapshot` resource configuration parameters for machines can be found at [link](cr.html#virtualdisksnapshot)
 
-### Recovering snapshots from disks
+### Recovering disks from snapshots
 
 In order to restore a disk from a previously created disk snapshot, you must specify a corresponding object as `dataSource`:
 
@@ -1469,6 +1644,11 @@ To get a list of supported `VolumeSnapshotClasses` resources, run the command:
 
 ```bash
 d8 k get volumesnapshotclasses
+```
+
+Example output:
+
+```txt
 # NAME                     DRIVER                                DELETIONPOLICY   AGE
 # csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
 # sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
@@ -1507,7 +1687,7 @@ spec:
 EOF
 ```
 
-### Restore snapshots from virtual machines
+### Restore virtual machines from snapshots
 
 The `VirtualMachineRestore` resource is used to restore virtual machines from snapshots.
 

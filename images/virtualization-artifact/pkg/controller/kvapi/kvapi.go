@@ -32,6 +32,7 @@ type Kubevirt interface {
 	HotplugVolumesEnabled() bool
 }
 
+// Deprecated: use virt client.
 func New(cli client.Client, kv Kubevirt) *KvApi {
 	return &KvApi{
 		Client:   cli,
@@ -39,15 +40,18 @@ func New(cli client.Client, kv Kubevirt) *KvApi {
 	}
 }
 
+// Deprecated: use virt client.
 type KvApi struct {
 	client.Client
 	kubevirt Kubevirt
 }
 
+// Deprecated: use virt client.
 func (api *KvApi) AddVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.AddVolumeOptions) error {
 	return api.addVolume(ctx, kvvm, opts)
 }
 
+// Deprecated: use virt client.
 func (api *KvApi) RemoveVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.RemoveVolumeOptions) error {
 	return api.removeVolume(ctx, kvvm, opts)
 }
@@ -187,6 +191,7 @@ func volumeNameExists(volume virtv1.Volume, volumeName string) bool {
 }
 
 func volumeSourceExists(volume virtv1.Volume, volumeName string) bool {
+	// Do not add ContainerDisk!!!
 	return (volume.DataVolume != nil && volume.DataVolume.Name == volumeName) ||
 		(volume.PersistentVolumeClaim != nil && volume.PersistentVolumeClaim.ClaimName == volumeName)
 }

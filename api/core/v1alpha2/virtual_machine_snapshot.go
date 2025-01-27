@@ -46,7 +46,7 @@ type VirtualMachineSnapshot struct {
 	Status VirtualMachineSnapshotStatus `json:"status,omitempty"`
 }
 
-// VirtualMachineSnapshotList contains a list of `VirtualMachineSnapshot`
+// VirtualMachineSnapshotList contains a list of VirtualMachineSnapshot resources.
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineSnapshotList struct {
 	metav1.TypeMeta `json:",inline"`
@@ -55,15 +55,15 @@ type VirtualMachineSnapshotList struct {
 }
 
 type VirtualMachineSnapshotSpec struct {
-	// The name of virtual machine to take snapshot.
+	// Name of the virtual machine to take a snapshot of.
 	//
 	// +kubebuilder:validation:MinLength=1
 	VirtualMachineName string `json:"virtualMachineName"`
 	// Create a snapshot of a virtual machine only if it is possible to freeze the machine through the agent.
 	//
-	// If value is true, the snapshot of the virtual machine will be taken only in the following scenarios:
-	// - the virtual machine is powered off.
-	// - the virtual machine with an agent, and the freeze operation was successful.
+	// If set to `true`, the virtual machine snapshot will be created only in the following cases:
+	// - When the virtual machine is powered off.
+	// - When the virtual machine has an agent, and the freeze operation was successful.
 	//
 	// +kubebuilder:default:=true
 	RequiredConsistency bool `json:"requiredConsistency"`
@@ -74,30 +74,30 @@ type VirtualMachineSnapshotSpec struct {
 
 type VirtualMachineSnapshotStatus struct {
 	Phase VirtualMachineSnapshotPhase `json:"phase"`
-	// The virtual machine snapshot is consistent.
+	// Whether a virtual machine snapshot is consistent.
 	Consistent *bool `json:"consistent,omitempty"`
-	// The name of underlying `Secret`, created for virtual machine snapshotting.
+	// Name of the underlying `Secret` created for virtual machine snapshotting.
 	VirtualMachineSnapshotSecretName string `json:"virtualMachineSnapshotSecretName,omitempty"`
-	// The list of `VirtualDiskSnapshot` names for the snapshots taken from the virtual disks of the associated virtual machine.
+	// List of VirtualDiskSnapshot names for the snapshots taken from the virtual disks of the associated virtual machine.
 	VirtualDiskSnapshotNames []string `json:"virtualDiskSnapshotNames,omitempty"`
 	// The latest detailed observations of the VirtualMachineSnapshot resource.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
-	// The generation last processed by the controller.
+	// Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-// VolumeSnapshotClassName defines `StorageClass` and `VolumeSnapshotClass` binding.
+// VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding.
 type VolumeSnapshotClassName struct {
-	// The `StorageClass` name associated with `VolumeSnapshotClass`.
+	// StorageClass name associated with a VolumeSnapshotClass.
 	StorageClassName string `json:"storageClassName"`
-	// The name of `VolumeSnapshotClass` to use for virtual disk snapshotting.
+	// VolumeSnapshotClass name to use for virtual disk snapshotting.
 	VolumeSnapshotClassName string `json:"volumeSnapshotClassName"`
 }
 
-// KeepIPAddress defines whether to save the IP address of the virtual machine or not:
+// KeepIPAddress defines whether to keep the IP address of a virtual machine or not:
 //
-// * Always - when creating a snapshot, the virtual machine's IP address will be converted from `Auto` to `Static` and saved.
-// * Never - when creating a snapshot, the virtual machine's IP address will not be converted.
+// * `Always`: When creating a snapshot, the virtual machine's IP address will be converted from `Auto` to `Static` and saved.
+// * `Never`: When creating a snapshot, the virtual machine's IP address will not be converted.
 //
 // +kubebuilder:validation:Enum={Always,Never}
 type KeepIPAddress string
@@ -107,13 +107,13 @@ const (
 	KeepIPAddressNever  KeepIPAddress = "Never"
 )
 
-// VirtualMachineSnapshotPhase defines current status of resource:
+// VirtualMachineSnapshotPhase defines the current status of a resource:
 //
-// * Pending - the resource has been created and is on a waiting queue.
-// * InProgress - the process of creating the snapshot is currently underway.
-// * Ready - the snapshot creation has successfully completed, and the virtual machine snapshot is now available.
-// * Failed - an error occurred during the snapshotting process.
-// * Terminating - the resource is in the process of being deleted.
+// * `Pending`: The resource has been created and is on a waiting queue.
+// * `InProgress`: A virtual machine snapshot is being created.
+// * `Ready`: A snapshot has been created successfully, and now it's available to use.
+// * `Failed`: An error occurred when creating a virtual machine snapshot.
+// * `Terminating`: The resource is being deleted.
 //
 // +kubebuilder:validation:Enum={Pending,InProgress,Ready,Failed,Terminating}
 type VirtualMachineSnapshotPhase string

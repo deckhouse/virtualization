@@ -3076,6 +3076,8 @@ spec:
                         path:
                           description: Path defines the path to disk file in the container
                           type: string
+                        hotpluggable:
+                          type: boolean
                       required:
                       - image
                       type: object

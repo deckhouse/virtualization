@@ -27,9 +27,9 @@ spec:
         openAPIV3Schema:
           type: object
           description: |
-            Provides a resource for creating snapshots of existing virtual disks, which can be used as data sources for generating new virtual disks
+            Provides a resource for creating snapshots of existing virtual disks, which can be used as data sources for generating new virtual disks.
 
-            A `VolumeSnapshot` is created under the hood of the resource.
+            When running, a VolumeSnapshot resource is created.
           required:
             - spec
           properties:
@@ -42,73 +42,57 @@ spec:
                 virtualDiskName:
                   type: string
                   description: |
-                    The name of the virtual disk to take snapshot.
+                    Virtual disk name the snapshot is created for.
                 volumeSnapshotClassName:
                   type: string
                   description: |
-                    The name of the volume snapshot class to use while snapshotting virtual disk.
+                    Volume snapshot class name to use while a virtual disk snapshot is created.
                 requiredConsistency:
                   type: boolean
                   default: true
                   description: |
                     Create a snapshot of a connected virtual machine's disk only if it is possible to freeze the machine through the agent.
 
-                    If the value is set to true, a virtual disk snapshot will be created if at least one of the following rules is met:
-                    - the virtual disk is not attached to any virtual machine.
-                    - the virtual disk is attached to a virtual machine that is powered off.
-                    - the virtual disk is attached to a virtual machine with an agent, and the freeze operation was successful.
+                    If set to `True`, a virtual disk snapshot will be created when at least one of the following conditions is met:
+                    - The virtual disk is not connected to any virtual machine.
+                    - The virtual disk is connected to a powered-off virtual machine.
+                    - The virtual disk is connected to a virtual machine with an agent, and the freeze operation was successful.
             status:
               type: object
               properties:
                 conditions:
                   description: |
-                    The latest available observations of an object's current state.
+                    Last confirmed status of the resource.
                   items:
-                    description:
-                      "Condition contains details for one aspect of the current
-                      state of this API Resource.\n---\nThis struct is intended for
-                      direct use as an array at the field path .status.conditions.  For
-                      example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                      observations of a foo's current state.\n\t    // Known .status.conditions.type
-                      are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                      +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                      \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                      patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                      \   // other fields\n\t}"
+                    description: Details of a single aspect of the current state for this API resource.
                     properties:
                       lastTransitionTime:
                         description: |-
-                          lastTransitionTime is the last time the condition transitioned from one status to another.
-                          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          Last time the condition transitioned from one status to another.
                         format: date-time
                         type: string
                       message:
                         description: |-
-                          message is a human readable message indicating details about the transition.
-                          This may be an empty string.
+                          Human-readable message with details about the last transition.
                         maxLength: 32768
                         type: string
                       observedGeneration:
                         description: |-
-                          observedGeneration represents the .metadata.generation that the condition was set based upon.
-                          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                          with respect to the current state of the instance.
+                          `.metadata.generation` the condition was based upon.
+                          For instance, if `.metadata.generation` is currently `12` but `.status.conditions[x].observedGeneration` is `9`, the condition is considered outdated.
                         format: int64
                         minimum: 0
                         type: integer
                       reason:
                         description: |-
-                          reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                          Producers of specific condition types may define expected values and meanings for this field,
-                          and whether the values are considered a guaranteed API.
-                          The value should be a CamelCase string.
-                          This field may not be empty.
+                          Brief reason for the condition's last transition.
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                         type: string
                       status:
-                        description: status of the condition, one of True, False, Unknown.
+                        description: |-
+                          Condition status. Possible values: `True`, `False`, or `Unknown`.
                         enum:
                           - "True"
                           - "False"
@@ -116,11 +100,7 @@ spec:
                         type: string
                       type:
                         description: |-
-                          type of condition in CamelCase or in foo.example.com/CamelCase.
-                          ---
-                          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                          useful (see .node.status.conditions), the ability to deconflict is important.
-                          The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                          Condition type.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -135,27 +115,27 @@ spec:
                 volumeSnapshotName:
                   type: string
                   description: |
-                    The name of the `VolumeSnapshot` created automatically by this resource.
+                    Name of the created VolumeSnapshot resource.
                 consistent:
                   type: boolean
                   description: |
-                    The virtual disk snapshot is consistent.
+                    Virtual disk snapshot is consistent.
                 phase:
                   type: string
                   description: |
-                    Current status of `VirtualDiskSnapshot` resource:
+                    Current status of the VirtualDiskSnapshot resource:
 
-                    * Pending - the resource has been created and is on a waiting queue.
-                    * InProgress - the process of creating the snapshot is currently underway.
-                    * Ready - the snapshot creation has successfully completed, and the virtual disk snapshot is now available.
-                    * Failed - an error occurred during the snapshotting process.
-                    * Terminating - the resource is in the process of being deleted.
+                    * `Pending`: The resource has been created and is on a waiting queue.
+                    * `InProgress`: The virtual disk snapshot is being created.
+                    * `Ready`: The virtual disk snapshot has been created successfully and is now available to use.
+                    * `Failed`: There was an error when creating the virtual disk snapshot.
+                    * `Terminating`: The resource is being deleted.
                   enum:
                     ["Pending", "InProgress", "Ready", "Failed", "Terminating"]
                 observedGeneration:
                   type: integer
                   description: |
-                    The generation last processed by the controller.
+                    Resource generation last processed by the controller.
       additionalPrinterColumns:
         - name: Phase
           type: string

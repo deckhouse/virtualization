@@ -162,6 +162,11 @@ func RegisterConversions(s *runtime.Scheme) error {
 }
 
 func autoConvert_v1alpha2_VirtualMachineAddVolume_To_subresources_VirtualMachineAddVolume(in *VirtualMachineAddVolume, out *subresources.VirtualMachineAddVolume, s conversion.Scope) error {
+	out.Name = in.Name
+	out.VolumeKind = in.VolumeKind
+	out.PVCName = in.PVCName
+	out.Image = in.Image
+	out.IsCdrom = in.IsCdrom
 	return nil
 }
 
@@ -171,6 +176,11 @@ func Convert_v1alpha2_VirtualMachineAddVolume_To_subresources_VirtualMachineAddV
 }
 
 func autoConvert_subresources_VirtualMachineAddVolume_To_v1alpha2_VirtualMachineAddVolume(in *subresources.VirtualMachineAddVolume, out *VirtualMachineAddVolume, s conversion.Scope) error {
+	out.Name = in.Name
+	out.VolumeKind = in.VolumeKind
+	out.PVCName = in.PVCName
+	out.Image = in.Image
+	out.IsCdrom = in.IsCdrom
 	return nil
 }
 
@@ -182,6 +192,41 @@ func Convert_subresources_VirtualMachineAddVolume_To_v1alpha2_VirtualMachineAddV
 func autoConvert_url_Values_To_v1alpha2_VirtualMachineAddVolume(in *url.Values, out *VirtualMachineAddVolume, s conversion.Scope) error {
 	// WARNING: Field TypeMeta does not have json tag, skipping.
 
+	if values, ok := map[string][]string(*in)["name"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.Name, s); err != nil {
+			return err
+		}
+	} else {
+		out.Name = ""
+	}
+	if values, ok := map[string][]string(*in)["volumeKind"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.VolumeKind, s); err != nil {
+			return err
+		}
+	} else {
+		out.VolumeKind = ""
+	}
+	if values, ok := map[string][]string(*in)["pvcName"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.PVCName, s); err != nil {
+			return err
+		}
+	} else {
+		out.PVCName = ""
+	}
+	if values, ok := map[string][]string(*in)["image"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.Image, s); err != nil {
+			return err
+		}
+	} else {
+		out.Image = ""
+	}
+	if values, ok := map[string][]string(*in)["isCdrom"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_bool(&values, &out.IsCdrom, s); err != nil {
+			return err
+		}
+	} else {
+		out.IsCdrom = false
+	}
 	return nil
 }
 
@@ -339,6 +384,7 @@ func Convert_url_Values_To_v1alpha2_VirtualMachinePortForward(in *url.Values, ou
 }
 
 func autoConvert_v1alpha2_VirtualMachineRemoveVolume_To_subresources_VirtualMachineRemoveVolume(in *VirtualMachineRemoveVolume, out *subresources.VirtualMachineRemoveVolume, s conversion.Scope) error {
+	out.Name = in.Name
 	return nil
 }
 
@@ -348,6 +394,7 @@ func Convert_v1alpha2_VirtualMachineRemoveVolume_To_subresources_VirtualMachineR
 }
 
 func autoConvert_subresources_VirtualMachineRemoveVolume_To_v1alpha2_VirtualMachineRemoveVolume(in *subresources.VirtualMachineRemoveVolume, out *VirtualMachineRemoveVolume, s conversion.Scope) error {
+	out.Name = in.Name
 	return nil
 }
 
@@ -359,6 +406,13 @@ func Convert_subresources_VirtualMachineRemoveVolume_To_v1alpha2_VirtualMachineR
 func autoConvert_url_Values_To_v1alpha2_VirtualMachineRemoveVolume(in *url.Values, out *VirtualMachineRemoveVolume, s conversion.Scope) error {
 	// WARNING: Field TypeMeta does not have json tag, skipping.
 
+	if values, ok := map[string][]string(*in)["name"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.Name, s); err != nil {
+			return err
+		}
+	} else {
+		out.Name = ""
+	}
 	return nil
 }
 

@@ -172,8 +172,9 @@ func Cleanup() []error {
 	}
 
 	res := kubectl.Delete(kc.DeleteOptions{
-		Labels:   map[string]string{"id": namePrefix},
-		Resource: kc.ResourceCVI,
+		IgnoreNotFound: true,
+		Labels:         map[string]string{"id": namePrefix},
+		Resource:       kc.ResourceCVI,
 	})
 	if res.Error() != nil {
 		cleanupErrs = append(
@@ -181,8 +182,9 @@ func Cleanup() []error {
 		)
 	}
 	res = kubectl.Delete(kc.DeleteOptions{
-		Labels:   map[string]string{"id": namePrefix},
-		Resource: kc.ResourceVMClass,
+		IgnoreNotFound: true,
+		Labels:         map[string]string{"id": namePrefix},
+		Resource:       kc.ResourceVMClass,
 	})
 	if res.Error() != nil {
 		cleanupErrs = append(

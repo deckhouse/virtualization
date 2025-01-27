@@ -65,10 +65,10 @@ spec:
                 keepIPAddress:
                   default: Always
                   description: |-
-                    KeepIPAddress defines whether to save the IP address of the virtual machine or not:
+                    KeepIPAddress defines whether to keep the IP address of a virtual machine or not:
 
-                    * Always - when creating a snapshot, the virtual machine's IP address will be converted from `Auto` to `Static` and saved.
-                    * Never - when creating a snapshot, the virtual machine's IP address will not be converted.
+                    * `Always`: When creating a snapshot, the virtual machine's IP address will be converted from `Auto` to `Static` and saved.
+                    * `Never`: When creating a snapshot, the virtual machine's IP address will not be converted.
                   enum:
                     - Always
                     - Never
@@ -78,27 +78,27 @@ spec:
                   description: |-
                     Create a snapshot of a virtual machine only if it is possible to freeze the machine through the agent.
 
-                    If value is true, the snapshot of the virtual machine will be taken only in the following scenarios:
-                    - the virtual machine is powered off.
-                    - the virtual machine with an agent, and the freeze operation was successful.
+                    If set to `true`, the virtual machine snapshot will be created only in the following cases:
+                    - When the virtual machine is powered off.
+                    - When the virtual machine has an agent, and the freeze operation was successful.
                   type: boolean
                 virtualMachineName:
-                  description: The name of virtual machine to take snapshot.
+                  description: Name of the virtual machine to take a snapshot of.
                   minLength: 1
                   type: string
                 volumeSnapshotClasses:
                   items:
                     description:
-                      VolumeSnapshotClassName defines `StorageClass` and
-                      `VolumeSnapshotClass` binding.
+                      VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass
+                      binding.
                     properties:
                       storageClassName:
-                        description: The `StorageClass` name associated with `VolumeSnapshotClass`.
+                        description: StorageClass name associated with a VolumeSnapshotClass.
                         type: string
                       volumeSnapshotClassName:
                         description:
-                          The name of `VolumeSnapshotClass` to use for virtual
-                          disk snapshotting.
+                          VolumeSnapshotClass name to use for virtual disk
+                          snapshotting.
                         type: string
                     required:
                       - storageClassName
@@ -173,21 +173,21 @@ spec:
                     type: object
                   type: array
                 consistent:
-                  description: The virtual machine snapshot is consistent.
+                  description: Whether a virtual machine snapshot is consistent.
                   type: boolean
                 observedGeneration:
-                  description: The generation last processed by the controller.
+                  description: Resource generation last processed by the controller.
                   format: int64
                   type: integer
                 phase:
                   description: |-
-                    VirtualMachineSnapshotPhase defines current status of resource:
+                    VirtualMachineSnapshotPhase defines the current status of a resource:
 
-                    * Pending - the resource has been created and is on a waiting queue.
-                    * InProgress - the process of creating the snapshot is currently underway.
-                    * Ready - the snapshot creation has successfully completed, and the virtual machine snapshot is now available.
-                    * Failed - an error occurred during the snapshotting process.
-                    * Terminating - the resource is in the process of being deleted.
+                    * `Pending`: The resource has been created and is on a waiting queue.
+                    * `InProgress`: A virtual machine snapshot is being created.
+                    * `Ready`: A snapshot has been created successfully, and now it's available to use.
+                    * `Failed`: An error occurred when creating a virtual machine snapshot.
+                    * `Terminating`: The resource is being deleted.
                   enum:
                     - Pending
                     - InProgress
@@ -197,15 +197,15 @@ spec:
                   type: string
                 virtualDiskSnapshotNames:
                   description:
-                    The list of `VirtualDiskSnapshot` names for the snapshots
-                    taken from the virtual disks of the associated virtual machine.
+                    List of VirtualDiskSnapshot names for the snapshots taken
+                    from the virtual disks of the associated virtual machine.
                   items:
                     type: string
                   type: array
                 virtualMachineSnapshotSecretName:
                   description:
-                    The name of underlying `Secret`, created for virtual
-                    machine snapshotting.
+                    Name of the underlying `Secret` created for virtual machine
+                    snapshotting.
                   type: string
               required:
                 - phase

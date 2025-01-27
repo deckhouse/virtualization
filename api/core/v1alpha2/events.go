@@ -95,4 +95,25 @@ const (
 
 	// ReasonDataSourceDiskProvisioningFailed is event reason that DataSource disk provisioning is failed.
 	ReasonDataSourceDiskProvisioningFailed = "DataSourceImportDiskProvisioningFailed"
+
+	// ReasonVMSnapshottingStarted is event reason that VirtualMachine snapshotting is started.
+	ReasonVMSnapshottingStarted = "VirtualMachineSnapshottingStarted"
+
+	// ReasonVMSnapshottingFrozen is event reason that the file system of VirtualMachine is frozen.
+	ReasonVMSnapshottingFrozen = "VirtualMachineSnapshottingFrozen"
+
+	// ReasonVMSnapshottingInProgress is event reason that VirtualMachine snapshotting is in progress.
+	ReasonVMSnapshottingInProgress = "VirtualMachineSnapshottingInProgress"
+
+	// ReasonVMSnapshottingThawed is event reason that the file system of VirtualMachine is thawed.
+	ReasonVMSnapshottingThawed = "VirtualMachineSnapshottingThawed"
+
+	// ReasonVMSnapshottingPending is event reason that VirtualMachine is not ready for snapshotting.
+	ReasonVMSnapshottingPending = "VirtualMachineSnapshottingPending"
+
+	// ReasonVMSnapshottingCompleted is event reason that VirtualMachine snapshotting is completed.
+	ReasonVMSnapshottingCompleted = "VirtualMachineSnapshottingCompleted"
+
+	// ReasonVMSnapshottingFailed is event reason that VirtualMachine snapshotting is failed.
+	ReasonVMSnapshottingFailed = "VirtualMachineSnapshottingFailed"
 )

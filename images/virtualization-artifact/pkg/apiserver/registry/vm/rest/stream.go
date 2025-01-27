@@ -17,10 +17,12 @@ limitations under the License.
 package rest
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -143,18 +145,42 @@ func streamParams(_ url.Values, opts runtime.Object) error {
 	}
 }
 
+type mutateRequestHook func(req *http.Request) error
+
 func newThrottledUpgradeAwareProxyHandler(
 	location *url.URL,
 	transport *http.Transport,
 	upgradeRequired bool,
 	responder rest.Responder,
 	sa types.NamespacedName,
+	mutateHooks ...mutateRequestHook,
 ) http.Handler {
 	var handler http.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Add(userHeader, fmt.Sprintf("system:serviceaccount:%s:%s", sa.Namespace, sa.Name))
 		r.Header.Add(groupHeader, "system:serviceaccounts")
+		for _, hook := range mutateHooks {
+			if hook != nil {
+				if err := hook(r); err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+					_, _ = w.Write([]byte(err.Error()))
+					return
+				}
+			}
+		}
 		proxyHandler := proxy.NewUpgradeAwareHandler(location, transport, false, upgradeRequired, proxy.NewErrorResponder(responder))
 		proxyHandler.ServeHTTP(w, r)
 	}
 	return handler
+}
+
+func rewriteBody(req *http.Request, newBody []byte) error {
+	if req.Body != nil {
+		err := req.Body.Close()
+		if err != nil {
+			return err
+		}
+	}
+	req.Body = io.NopCloser(bytes.NewBuffer(newBody))
+	req.ContentLength = int64(len(newBody))
+	return nil
 }

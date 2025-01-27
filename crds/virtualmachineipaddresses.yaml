@@ -23,7 +23,7 @@ spec:
       schema:
         openAPIV3Schema:
           description: |
-            The resource that defines IP address for virtual machine.
+            Defines the IP address for a virtual machine.
           properties:
             apiVersion:
               type: string
@@ -33,17 +33,19 @@ spec:
               type: object
             spec:
               description: |
-                The desired state of `VirtualMachineIPAddress`.
+                VirtualMachineIPAddress settings.
               properties:
                 type:
                   description: |
-                    Specifies the mode of IP address assignment. Possible values are "Auto" for automatic IP assignment,
-                    or "Static" for assigning a specific IP address.
+                    Specifies the IP address assigning mode. Possible values:
+
+                    - `Auto`: For assigning the IP address automatically.
+                    - `Static`: For assigning a specific IP address.
                   type: string
                   enum: ["Auto", "Static"]
                 staticIP:
                   description: |
-                    The requested static IP address that should be assigned to the virtual machine. This field is required only if type is set to 'Static'.
+                    Requested static IP address to assign to the virtual machine. This field is required only if `type` is set to 'Static'.
                   type: string
               type: object
               required:
@@ -52,53 +54,37 @@ spec:
               properties:
                 conditions:
                   description: |
-                    The latest available observations of an object's current state.
+                    Last confirmed status of the resource.
                   items:
-                    description:
-                      "Condition contains details for one aspect of the current
-                      state of this API Resource.\n---\nThis struct is intended for
-                      direct use as an array at the field path .status.conditions.  For
-                      example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                      observations of a foo's current state.\n\t    // Known .status.conditions.type
-                      are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                      +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                      \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                      patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                      \   // other fields\n\t}"
+                    description: Details of a single aspect of the current status for this API resource.
                     properties:
                       lastTransitionTime:
                         description: |-
-                          lastTransitionTime is the last time the condition transitioned from one status to another.
-                          This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                          Last time the condition transitioned from one status to another.
                         format: date-time
                         type: string
                       message:
                         description: |-
-                          message is a human readable message indicating details about the transition.
-                          This may be an empty string.
+                          Human-readable message with details about the last transition.
                         maxLength: 32768
                         type: string
                       observedGeneration:
                         description: |-
-                          observedGeneration represents the .metadata.generation that the condition was set based upon.
-                          For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
-                          with respect to the current state of the instance.
+                          `.metadata.generation` the condition was based upon.
+                          For instance, if `.metadata.generation` is currently `12` but `.status.conditions[x].observedGeneration` is `9`, the condition is considered outdated.
                         format: int64
                         minimum: 0
                         type: integer
                       reason:
                         description: |-
-                          reason contains a programmatic identifier indicating the reason for the condition's last transition.
-                          Producers of specific condition types may define expected values and meanings for this field,
-                          and whether the values are considered a guaranteed API.
-                          The value should be a CamelCase string.
-                          This field may not be empty.
+                          Brief reason for the condition's last transition.
                         maxLength: 1024
                         minLength: 1
                         pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
                         type: string
                       status:
-                        description: status of the condition, one of True, False, Unknown.
+                        description: |-
+                          Condition status. Possible values: `True`, `False`, or `Unknown`.
                         enum:
                           - "True"
                           - "False"
@@ -106,11 +92,7 @@ spec:
                         type: string
                       type:
                         description: |-
-                          type of condition in CamelCase or in foo.example.com/CamelCase.
-                          ---
-                          Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                          useful (see .node.status.conditions), the ability to deconflict is important.
-                          The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                          Condition type.
                         maxLength: 316
                         pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                         type: string
@@ -124,11 +106,11 @@ spec:
                   type: array
                 address:
                   description: |
-                    The assigned IP address.
+                    Assigned IP address.
                   type: string
                 virtualMachineName:
                   description: |
-                    Represents the virtual machine that currently uses this IP address.
+                    Virtual machine name that is currently using the IP address.
                   type: string
                 phase:
                   type: string
@@ -137,15 +119,15 @@ spec:
                     - "Bound"
                     - "Attached"
                   description: |
-                    Represents the current state of IP address.
+                    Represents the current state of the VirtualMachineIPAddress resource.
 
-                    * Pending - the process of creating is in progress.
-                    * Bound - the IP address is bound to IP address lease.
-                    * Attached - the IP address is attached to VirtualMachine.
+                    * `Pending`: The resource is being created.
+                    * `Bound`: The VirtualMachineIPAddress has been bound to the VirtualMachineIPAddressLease resource.
+                    * `Attached`: The VirtualMachineIPAddress resource has been bound to the VirtualMachine resource.
                 observedGeneration:
                   type: integer
                   description: |
-                    The generation last processed by the controller.
+                    Resource generation last processed by the controller.
               type: object
           type: object
       served: true
