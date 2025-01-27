@@ -55,7 +55,6 @@ tasks:
     cmds:
       - |
         RESULT=$(ginkgo \
-          --skip-file affinity_toleration_test.go \
           --no-color \
           -v | tee /dev/stderr | grep --color=never -E 'FAIL!|SUCCESS!')
         if [ "${PIPESTATUS[0]}" -ne "0" ]; then
