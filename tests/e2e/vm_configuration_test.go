@@ -305,7 +305,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		It("deletes test case resources", func() {
 			var resourcesToDelete ResourcesToDelete
 
-			if !config.IsCleanUpNeeded() {
+			if config.IsCleanUpNeeded() {
 				resourcesToDelete.KustomizationDir = conf.TestData.VmConfiguration
 			}
 

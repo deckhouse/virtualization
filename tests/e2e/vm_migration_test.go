@@ -198,7 +198,7 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 				},
 			}
 
-			if !config.IsCleanUpNeeded() {
+			if config.IsCleanUpNeeded() {
 				resourcesToDelete.KustomizationDir = conf.TestData.VmMigration
 			}
 
