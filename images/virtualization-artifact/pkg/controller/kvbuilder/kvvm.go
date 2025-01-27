@@ -582,3 +582,18 @@ func (b *KVVM) GetBootloaderSettings() map[string]interface{} {
 		},
 	}
 }
+
+func (b *KVVM) SetMetadata(metadata metav1.ObjectMeta) {
+	if b.ResourceExists {
+		// initialize only
+		return
+	}
+	if b.Resource.Spec.Template.ObjectMeta.Labels == nil {
+		b.Resource.Spec.Template.ObjectMeta.Labels = make(map[string]string, len(metadata.Labels))
+	}
+	if b.Resource.Spec.Template.ObjectMeta.Annotations == nil {
+		b.Resource.Spec.Template.ObjectMeta.Annotations = make(map[string]string, len(metadata.Annotations))
+	}
+	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Labels, metadata.Labels)
+	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Annotations, metadata.Annotations)
+}

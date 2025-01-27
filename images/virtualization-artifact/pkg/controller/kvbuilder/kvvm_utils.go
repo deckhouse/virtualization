@@ -89,6 +89,7 @@ func ApplyVirtualMachineSpec(
 		return err
 	}
 
+	kvvm.SetMetadata(vm.ObjectMeta)
 	kvvm.SetNetworkInterface(NetworkInterfaceName)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
