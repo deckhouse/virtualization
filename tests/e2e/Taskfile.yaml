@@ -106,7 +106,6 @@ tasks:
     cmds:
       - |
         ginkgo -v \
-          --skip-file affinity_toleration_test.go \
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}"
           {{end}}
