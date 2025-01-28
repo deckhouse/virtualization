@@ -52,7 +52,6 @@ shell:
     git clone --depth=1 --branch {{ $gitRepoName }}-{{ $versionEdk2 }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionEdk2 }}
     
     git clone https://github.com/tianocore/edk2-platforms.git
-    # git clone https://github.com/tianocore/edk2-staging.git
 
     cd {{ $gitRepoName }}-{{ $versionEdk2 }}
     git submodule update --init --recursive
@@ -69,7 +68,6 @@ shell:
     echo "Setting up the build environment..."
     source ./edksetup.sh BaseTools
 
-    # mkdir -p /FIRMWARE
   setup:
   - |
     /build.sh 2>&1 > /dev/null

@@ -1,0 +1,402 @@
+From 40b5689f28e6fef2dfdd0269639c8556200458a3 Mon Sep 17 00:00:00 2001
+From: Jared Rossi <jrossi@linux.ibm.com>
+Date: Sat, 19 Oct 2024 21:29:47 -0400
+Subject: [PATCH 14/27] include/hw/s390x: Add include files for common IPL
+ structs
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RH-Author: Thomas Huth <thuth@redhat.com>
+RH-MergeRequest: 277: Full boot order support for s390x [CentOS 9]
+RH-Jira: RHEL-11424
+RH-Acked-by: Cédric Le Goater <clg@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Commit: [14/23] 632d18ef238ded324c962855edb77e3d3f0b4eae (thuth/qemu-kvm-cs9)
+
+Currently, structures defined in both hw/s390x/ipl.h and pc-bios/s390-ccw/iplb.h
+must be kept in sync, which is prone to error. Instead, create a new directory
+at include/hw/s390x/ipl/ to contain the definitions that must be shared.
+
+Signed-off-by: Jared Rossi <jrossi@linux.ibm.com>
+Reviewed-by: Thomas Huth <thuth@redhat.com>
+Message-ID: <20241020012953.1380075-14-jrossi@linux.ibm.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+(cherry picked from commit ba3658adc80a9370257a9c4e114829ec691311e3)
+---
+ hw/s390x/ipl.h              | 104 +-----------------------------
+ include/hw/s390x/ipl/qipl.h | 123 ++++++++++++++++++++++++++++++++++++
+ pc-bios/s390-ccw/Makefile   |   2 +-
+ pc-bios/s390-ccw/iplb.h     |  84 ++----------------------
+ 4 files changed, 130 insertions(+), 183 deletions(-)
+ create mode 100644 include/hw/s390x/ipl/qipl.h
+
+diff --git a/hw/s390x/ipl.h b/hw/s390x/ipl.h
+index b2105b616a..fa394c339d 100644
+--- a/hw/s390x/ipl.h
++++ b/hw/s390x/ipl.h
+@@ -16,95 +16,11 @@
+ #include "cpu.h"
+ #include "exec/address-spaces.h"
+ #include "hw/qdev-core.h"
++#include "hw/s390x/ipl/qipl.h"
+ #include "qom/object.h"
+ 
+-struct IPLBlockPVComp {
+-    uint64_t tweak_pref;
+-    uint64_t addr;
+-    uint64_t size;
+-} QEMU_PACKED;
+-typedef struct IPLBlockPVComp IPLBlockPVComp;
+-
+-struct IPLBlockPV {
+-    uint8_t  reserved18[87];    /* 0x18 */
+-    uint8_t  version;           /* 0x6f */
+-    uint32_t reserved70;        /* 0x70 */
+-    uint32_t num_comp;          /* 0x74 */
+-    uint64_t pv_header_addr;    /* 0x78 */
+-    uint64_t pv_header_len;     /* 0x80 */
+-    struct IPLBlockPVComp components[0];
+-} QEMU_PACKED;
+-typedef struct IPLBlockPV IPLBlockPV;
+-
+-struct IplBlockCcw {
+-    uint8_t  reserved0[85];
+-    uint8_t  ssid;
+-    uint16_t devno;
+-    uint8_t  vm_flags;
+-    uint8_t  reserved3[3];
+-    uint32_t vm_parm_len;
+-    uint8_t  nss_name[8];
+-    uint8_t  vm_parm[64];
+-    uint8_t  reserved4[8];
+-} QEMU_PACKED;
+-typedef struct IplBlockCcw IplBlockCcw;
+-
+-struct IplBlockFcp {
+-    uint8_t  reserved1[305 - 1];
+-    uint8_t  opt;
+-    uint8_t  reserved2[3];
+-    uint16_t reserved3;
+-    uint16_t devno;
+-    uint8_t  reserved4[4];
+-    uint64_t wwpn;
+-    uint64_t lun;
+-    uint32_t bootprog;
+-    uint8_t  reserved5[12];
+-    uint64_t br_lba;
+-    uint32_t scp_data_len;
+-    uint8_t  reserved6[260];
+-    uint8_t  scp_data[0];
+-} QEMU_PACKED;
+-typedef struct IplBlockFcp IplBlockFcp;
+-
+-struct IplBlockQemuScsi {
+-    uint32_t lun;
+-    uint16_t target;
+-    uint16_t channel;
+-    uint8_t  reserved0[77];
+-    uint8_t  ssid;
+-    uint16_t devno;
+-} QEMU_PACKED;
+-typedef struct IplBlockQemuScsi IplBlockQemuScsi;
+-
+ #define DIAG308_FLAGS_LP_VALID 0x80
+ 
+-union IplParameterBlock {
+-    struct {
+-        uint32_t len;
+-        uint8_t  reserved0[3];
+-        uint8_t  version;
+-        uint32_t blk0_len;
+-        uint8_t  pbt;
+-        uint8_t  flags;
+-        uint16_t reserved01;
+-        uint8_t  loadparm[8];
+-        union {
+-            IplBlockCcw ccw;
+-            IplBlockFcp fcp;
+-            IPLBlockPV pv;
+-            IplBlockQemuScsi scsi;
+-        };
+-    } QEMU_PACKED;
+-    struct {
+-        uint8_t  reserved1[110];
+-        uint16_t devno;
+-        uint8_t  reserved2[88];
+-        uint8_t  reserved_ext[4096 - 200];
+-    } QEMU_PACKED;
+-} QEMU_PACKED;
+-typedef union IplParameterBlock IplParameterBlock;
+-
+ int s390_ipl_set_loadparm(uint8_t *loadparm);
+ void s390_ipl_update_diag308(IplParameterBlock *iplb);
+ int s390_ipl_prepare_pv_header(Error **errp);
+@@ -131,24 +47,6 @@ void s390_ipl_clear_reset_request(void);
+ #define QIPL_FLAG_BM_OPTS_CMD   0x80
+ #define QIPL_FLAG_BM_OPTS_ZIPL  0x40
+ 
+-/*
+- * The QEMU IPL Parameters will be stored at absolute address
+- * 204 (0xcc) which means it is 32-bit word aligned but not
+- * double-word aligned. Placement of 64-bit data fields in this
+- * area must account for their alignment needs.
+- * The total size of the struct must never exceed 28 bytes.
+- * This definition must be kept in sync with the definition
+- * in pc-bios/s390-ccw/iplb.h.
+- */
+-struct QemuIplParameters {
+-    uint8_t  qipl_flags;
+-    uint8_t  reserved1[3];
+-    uint64_t reserved2;
+-    uint32_t boot_menu_timeout;
+-    uint8_t  reserved3[12];
+-} QEMU_PACKED;
+-typedef struct QemuIplParameters QemuIplParameters;
+-
+ #define TYPE_S390_IPL "s390-ipl"
+ OBJECT_DECLARE_SIMPLE_TYPE(S390IPLState, S390_IPL)
+ 
+diff --git a/include/hw/s390x/ipl/qipl.h b/include/hw/s390x/ipl/qipl.h
+new file mode 100644
+index 0000000000..0ef04af027
+--- /dev/null
++++ b/include/hw/s390x/ipl/qipl.h
+@@ -0,0 +1,123 @@
++/*
++ * S/390 boot structures
++ *
++ * Copyright 2024 IBM Corp.
++ * Author(s): Jared Rossi <jrossi@linux.ibm.com>
++ *
++ * This work is licensed under the terms of the GNU GPL, version 2 or (at
++ * your option) any later version. See the COPYING file in the top-level
++ * directory.
++ */
++
++#ifndef S390X_QIPL_H
++#define S390X_QIPL_H
++
++/* Boot Menu flags */
++#define QIPL_FLAG_BM_OPTS_CMD   0x80
++#define QIPL_FLAG_BM_OPTS_ZIPL  0x40
++
++#define QIPL_ADDRESS  0xcc
++#define LOADPARM_LEN    8
++
++/*
++ * The QEMU IPL Parameters will be stored at absolute address
++ * 204 (0xcc) which means it is 32-bit word aligned but not
++ * double-word aligned. Placement of 64-bit data fields in this
++ * area must account for their alignment needs.
++ * The total size of the struct must never exceed 28 bytes.
++ */
++struct QemuIplParameters {
++    uint8_t  qipl_flags;
++    uint8_t  reserved1[3];
++    uint64_t reserved2;
++    uint32_t boot_menu_timeout;
++    uint8_t  reserved3[12];
++} QEMU_PACKED;
++typedef struct QemuIplParameters QemuIplParameters;
++
++struct IPLBlockPVComp {
++    uint64_t tweak_pref;
++    uint64_t addr;
++    uint64_t size;
++} QEMU_PACKED;
++typedef struct IPLBlockPVComp IPLBlockPVComp;
++
++struct IPLBlockPV {
++    uint8_t  reserved18[87];    /* 0x18 */
++    uint8_t  version;           /* 0x6f */
++    uint32_t reserved70;        /* 0x70 */
++    uint32_t num_comp;          /* 0x74 */
++    uint64_t pv_header_addr;    /* 0x78 */
++    uint64_t pv_header_len;     /* 0x80 */
++    struct IPLBlockPVComp components[0];
++} QEMU_PACKED;
++typedef struct IPLBlockPV IPLBlockPV;
++
++struct IplBlockCcw {
++    uint8_t  reserved0[85];
++    uint8_t  ssid;
++    uint16_t devno;
++    uint8_t  vm_flags;
++    uint8_t  reserved3[3];
++    uint32_t vm_parm_len;
++    uint8_t  nss_name[8];
++    uint8_t  vm_parm[64];
++    uint8_t  reserved4[8];
++} QEMU_PACKED;
++typedef struct IplBlockCcw IplBlockCcw;
++
++struct IplBlockFcp {
++    uint8_t  reserved1[305 - 1];
++    uint8_t  opt;
++    uint8_t  reserved2[3];
++    uint16_t reserved3;
++    uint16_t devno;
++    uint8_t  reserved4[4];
++    uint64_t wwpn;
++    uint64_t lun;
++    uint32_t bootprog;
++    uint8_t  reserved5[12];
++    uint64_t br_lba;
++    uint32_t scp_data_len;
++    uint8_t  reserved6[260];
++    uint8_t  scp_data[0];
++} QEMU_PACKED;
++typedef struct IplBlockFcp IplBlockFcp;
++
++struct IplBlockQemuScsi {
++    uint32_t lun;
++    uint16_t target;
++    uint16_t channel;
++    uint8_t  reserved0[77];
++    uint8_t  ssid;
++    uint16_t devno;
++} QEMU_PACKED;
++typedef struct IplBlockQemuScsi IplBlockQemuScsi;
++
++union IplParameterBlock {
++    struct {
++        uint32_t len;
++        uint8_t  reserved0[3];
++        uint8_t  version;
++        uint32_t blk0_len;
++        uint8_t  pbt;
++        uint8_t  flags;
++        uint16_t reserved01;
++        uint8_t  loadparm[LOADPARM_LEN];
++        union {
++            IplBlockCcw ccw;
++            IplBlockFcp fcp;
++            IPLBlockPV pv;
++            IplBlockQemuScsi scsi;
++        };
++    } QEMU_PACKED;
++    struct {
++        uint8_t  reserved1[110];
++        uint16_t devno;
++        uint8_t  reserved2[88];
++        uint8_t  reserved_ext[4096 - 200];
++    } QEMU_PACKED;
++} QEMU_PACKED;
++typedef union IplParameterBlock IplParameterBlock;
++
++#endif
+diff --git a/pc-bios/s390-ccw/Makefile b/pc-bios/s390-ccw/Makefile
+index 27cbb354af..db9e8f0892 100644
+--- a/pc-bios/s390-ccw/Makefile
++++ b/pc-bios/s390-ccw/Makefile
+@@ -3,7 +3,7 @@ all: build-all
+ 	@true
+ 
+ include config-host.mak
+-CFLAGS = -O2 -g
++CFLAGS = -O2 -g -I $(SRC_PATH)/../../include/hw/s390x/ipl
+ MAKEFLAGS += -rR
+ 
+ GIT_SUBMODULES = roms/SLOF
+diff --git a/pc-bios/s390-ccw/iplb.h b/pc-bios/s390-ccw/iplb.h
+index 3758698468..16643f5879 100644
+--- a/pc-bios/s390-ccw/iplb.h
++++ b/pc-bios/s390-ccw/iplb.h
+@@ -12,88 +12,14 @@
+ #ifndef IPLB_H
+ #define IPLB_H
+ 
+-#define LOADPARM_LEN    8
++#ifndef QEMU_PACKED
++#define QEMU_PACKED __attribute__((packed))
++#endif
+ 
+-struct IplBlockCcw {
+-    uint8_t  reserved0[85];
+-    uint8_t  ssid;
+-    uint16_t devno;
+-    uint8_t  vm_flags;
+-    uint8_t  reserved3[3];
+-    uint32_t vm_parm_len;
+-    uint8_t  nss_name[8];
+-    uint8_t  vm_parm[64];
+-    uint8_t  reserved4[8];
+-} __attribute__ ((packed));
+-typedef struct IplBlockCcw IplBlockCcw;
+-
+-struct IplBlockFcp {
+-    uint8_t  reserved1[305 - 1];
+-    uint8_t  opt;
+-    uint8_t  reserved2[3];
+-    uint16_t reserved3;
+-    uint16_t devno;
+-    uint8_t  reserved4[4];
+-    uint64_t wwpn;
+-    uint64_t lun;
+-    uint32_t bootprog;
+-    uint8_t  reserved5[12];
+-    uint64_t br_lba;
+-    uint32_t scp_data_len;
+-    uint8_t  reserved6[260];
+-    uint8_t  scp_data[];
+-} __attribute__ ((packed));
+-typedef struct IplBlockFcp IplBlockFcp;
+-
+-struct IplBlockQemuScsi {
+-    uint32_t lun;
+-    uint16_t target;
+-    uint16_t channel;
+-    uint8_t  reserved0[77];
+-    uint8_t  ssid;
+-    uint16_t devno;
+-} __attribute__ ((packed));
+-typedef struct IplBlockQemuScsi IplBlockQemuScsi;
+-
+-struct IplParameterBlock {
+-    uint32_t len;
+-    uint8_t  reserved0[3];
+-    uint8_t  version;
+-    uint32_t blk0_len;
+-    uint8_t  pbt;
+-    uint8_t  flags;
+-    uint16_t reserved01;
+-    uint8_t  loadparm[LOADPARM_LEN];
+-    union {
+-        IplBlockCcw ccw;
+-        IplBlockFcp fcp;
+-        IplBlockQemuScsi scsi;
+-    };
+-} __attribute__ ((packed));
+-typedef struct IplParameterBlock IplParameterBlock;
+-
+-extern IplParameterBlock iplb __attribute__((__aligned__(PAGE_SIZE)));
+-
+-#define QIPL_ADDRESS  0xcc
+-
+-/* Boot Menu flags */
+-#define QIPL_FLAG_BM_OPTS_CMD   0x80
+-#define QIPL_FLAG_BM_OPTS_ZIPL  0x40
+-
+-/*
+- * This definition must be kept in sync with the definition
+- * in hw/s390x/ipl.h
+- */
+-struct QemuIplParameters {
+-    uint8_t  qipl_flags;
+-    uint8_t  reserved1[3];
+-    uint64_t reserved2;
+-    uint32_t boot_menu_timeout;
+-    uint8_t  reserved3[12];
+-} __attribute__ ((packed));
+-typedef struct QemuIplParameters QemuIplParameters;
++#include <qipl.h>
+ 
+ extern QemuIplParameters qipl;
++extern IplParameterBlock iplb __attribute__((__aligned__(PAGE_SIZE)));
+ 
+ #define S390_IPL_TYPE_FCP 0x00
+ #define S390_IPL_TYPE_CCW 0x02
+-- 
+2.39.3
+

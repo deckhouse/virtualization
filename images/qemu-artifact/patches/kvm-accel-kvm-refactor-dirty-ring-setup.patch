@@ -1,0 +1,143 @@
+From e27a9d1e5194243084efe4405fe50463442f0fe3 Mon Sep 17 00:00:00 2001
+From: Ani Sinha <anisinha@redhat.com>
+Date: Thu, 12 Sep 2024 11:48:38 +0530
+Subject: [PATCH 4/9] accel/kvm: refactor dirty ring setup
+
+RH-Author: Peter Xu <peterx@redhat.com>
+RH-MergeRequest: 284: KVM: Dynamic sized kvm memslots array
+RH-Jira: RHEL-57682
+RH-Acked-by: Juraj Marcin <None>
+RH-Commit: [3/7] 226ae9826237887fc55f75b9175524f12b4fa4a9 (peterx/qemu-kvm)
+
+Refactor setting up of dirty ring code in kvm_init() so that is can be
+reused in the future patchsets.
+
+Signed-off-by: Ani Sinha <anisinha@redhat.com>
+Link: https://lore.kernel.org/r/20240912061838.4501-1-anisinha@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit 28ed7f9761eb273e7dedcfdc0507d158106d0451)
+Signed-off-by: Peter Xu <peterx@redhat.com>
+---
+ accel/kvm/kvm-all.c | 88 +++++++++++++++++++++++++--------------------
+ 1 file changed, 50 insertions(+), 38 deletions(-)
+
+diff --git a/accel/kvm/kvm-all.c b/accel/kvm/kvm-all.c
+index 4f96d8b45e..de709fbc43 100644
+--- a/accel/kvm/kvm-all.c
++++ b/accel/kvm/kvm-all.c
+@@ -2439,6 +2439,55 @@ static int find_kvm_machine_type(MachineState *ms)
+     return type;
+ }
+ 
++static int kvm_setup_dirty_ring(KVMState *s)
++{
++    uint64_t dirty_log_manual_caps;
++    int ret;
++
++    /*
++     * Enable KVM dirty ring if supported, otherwise fall back to
++     * dirty logging mode
++     */
++    ret = kvm_dirty_ring_init(s);
++    if (ret < 0) {
++        return ret;
++    }
++
++    /*
++     * KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2 is not needed when dirty ring is
++     * enabled.  More importantly, KVM_DIRTY_LOG_INITIALLY_SET will assume no
++     * page is wr-protected initially, which is against how kvm dirty ring is
++     * usage - kvm dirty ring requires all pages are wr-protected at the very
++     * beginning.  Enabling this feature for dirty ring causes data corruption.
++     *
++     * TODO: Without KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2 and kvm clear dirty log,
++     * we may expect a higher stall time when starting the migration.  In the
++     * future we can enable KVM_CLEAR_DIRTY_LOG to work with dirty ring too:
++     * instead of clearing dirty bit, it can be a way to explicitly wr-protect
++     * guest pages.
++     */
++    if (!s->kvm_dirty_ring_size) {
++        dirty_log_manual_caps =
++            kvm_check_extension(s, KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2);
++        dirty_log_manual_caps &= (KVM_DIRTY_LOG_MANUAL_PROTECT_ENABLE |
++                                  KVM_DIRTY_LOG_INITIALLY_SET);
++        s->manual_dirty_log_protect = dirty_log_manual_caps;
++        if (dirty_log_manual_caps) {
++            ret = kvm_vm_enable_cap(s, KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2, 0,
++                                    dirty_log_manual_caps);
++            if (ret) {
++                warn_report("Trying to enable capability %"PRIu64" of "
++                            "KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2 but failed. "
++                            "Falling back to the legacy mode. ",
++                            dirty_log_manual_caps);
++                s->manual_dirty_log_protect = 0;
++            }
++        }
++    }
++
++    return 0;
++}
++
+ static int kvm_init(MachineState *ms)
+ {
+     MachineClass *mc = MACHINE_GET_CLASS(ms);
+@@ -2458,7 +2507,6 @@ static int kvm_init(MachineState *ms)
+     const KVMCapabilityInfo *missing_cap;
+     int ret;
+     int type;
+-    uint64_t dirty_log_manual_caps;
+ 
+     qemu_mutex_init(&kml_slots_lock);
+ 
+@@ -2570,47 +2618,11 @@ static int kvm_init(MachineState *ms)
+     s->coalesced_pio = s->coalesced_mmio &&
+                        kvm_check_extension(s, KVM_CAP_COALESCED_PIO);
+ 
+-    /*
+-     * Enable KVM dirty ring if supported, otherwise fall back to
+-     * dirty logging mode
+-     */
+-    ret = kvm_dirty_ring_init(s);
++    ret = kvm_setup_dirty_ring(s);
+     if (ret < 0) {
+         goto err;
+     }
+ 
+-    /*
+-     * KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2 is not needed when dirty ring is
+-     * enabled.  More importantly, KVM_DIRTY_LOG_INITIALLY_SET will assume no
+-     * page is wr-protected initially, which is against how kvm dirty ring is
+-     * usage - kvm dirty ring requires all pages are wr-protected at the very
+-     * beginning.  Enabling this feature for dirty ring causes data corruption.
+-     *
+-     * TODO: Without KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2 and kvm clear dirty log,
+-     * we may expect a higher stall time when starting the migration.  In the
+-     * future we can enable KVM_CLEAR_DIRTY_LOG to work with dirty ring too:
+-     * instead of clearing dirty bit, it can be a way to explicitly wr-protect
+-     * guest pages.
+-     */
+-    if (!s->kvm_dirty_ring_size) {
+-        dirty_log_manual_caps =
+-            kvm_check_extension(s, KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2);
+-        dirty_log_manual_caps &= (KVM_DIRTY_LOG_MANUAL_PROTECT_ENABLE |
+-                                  KVM_DIRTY_LOG_INITIALLY_SET);
+-        s->manual_dirty_log_protect = dirty_log_manual_caps;
+-        if (dirty_log_manual_caps) {
+-            ret = kvm_vm_enable_cap(s, KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2, 0,
+-                                    dirty_log_manual_caps);
+-            if (ret) {
+-                warn_report("Trying to enable capability %"PRIu64" of "
+-                            "KVM_CAP_MANUAL_DIRTY_LOG_PROTECT2 but failed. "
+-                            "Falling back to the legacy mode. ",
+-                            dirty_log_manual_caps);
+-                s->manual_dirty_log_protect = 0;
+-            }
+-        }
+-    }
+-
+ #ifdef KVM_CAP_VCPU_EVENTS
+     s->vcpu_events = kvm_check_extension(s, KVM_CAP_VCPU_EVENTS);
+ #endif
+-- 
+2.39.3
+

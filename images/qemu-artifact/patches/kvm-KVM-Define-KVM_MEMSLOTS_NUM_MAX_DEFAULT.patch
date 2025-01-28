@@ -1,0 +1,49 @@
+From f9dfed0e5fd03ee6fa7364801db7d101bf085a79 Mon Sep 17 00:00:00 2001
+From: Peter Xu <peterx@redhat.com>
+Date: Tue, 17 Sep 2024 12:38:33 -0400
+Subject: [PATCH 6/9] KVM: Define KVM_MEMSLOTS_NUM_MAX_DEFAULT
+
+RH-Author: Peter Xu <peterx@redhat.com>
+RH-MergeRequest: 284: KVM: Dynamic sized kvm memslots array
+RH-Jira: RHEL-57682
+RH-Acked-by: Juraj Marcin <None>
+RH-Commit: [5/7] c95bdaa406e76b943882fd75c4d345ca5fc397d4 (peterx/qemu-kvm)
+
+Make the default max nr_slots a macro, it's only used when KVM reports
+nothing.
+
+Reviewed-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Peter Xu <peterx@redhat.com>
+Link: https://lore.kernel.org/r/20240917163835.194664-3-peterx@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit b34a908c8f24eedb0a8e5ff486b059b58fd793f4)
+Signed-off-by: Peter Xu <peterx@redhat.com>
+---
+ accel/kvm/kvm-all.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/accel/kvm/kvm-all.c b/accel/kvm/kvm-all.c
+index 44bf4180fa..3900de8883 100644
+--- a/accel/kvm/kvm-all.c
++++ b/accel/kvm/kvm-all.c
+@@ -71,6 +71,8 @@
+ 
+ /* Default num of memslots to be allocated when VM starts */
+ #define  KVM_MEMSLOTS_NR_ALLOC_DEFAULT                      16
++/* Default max allowed memslots if kernel reported nothing */
++#define  KVM_MEMSLOTS_NR_MAX_DEFAULT                        32
+ 
+ struct KVMParkedVcpu {
+     unsigned long vcpu_id;
+@@ -2617,7 +2619,7 @@ static int kvm_init(MachineState *ms)
+ 
+     /* If unspecified, use the default value */
+     if (!s->nr_slots) {
+-        s->nr_slots = 32;
++        s->nr_slots_max = KVM_MEMSLOTS_NR_MAX_DEFAULT;
+     }
+ 
+     s->nr_as = kvm_check_extension(s, KVM_CAP_MULTI_ADDRESS_SPACE);
+-- 
+2.39.3
+

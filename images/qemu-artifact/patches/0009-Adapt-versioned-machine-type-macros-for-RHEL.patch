@@ -1,0 +1,195 @@
+From 3cb90f2fec9096ddde4038e037e82a9c44614791 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20P=2E=20Berrang=C3=A9?= <berrange@redhat.com>
+Date: Wed, 3 Jul 2024 15:27:03 +0100
+Subject: Adapt versioned machine type macros for RHEL
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The versioned machine type macros are changed thus:
+
+ * All symbol names get 'rhel' inserted eg 'virt_rhel_macine_9_4_0_<blah>'
+ * All machine type names get 'rhel' inserted eg 'virt-rhel9.4.0-machine'
+ * Lifecycle is changed to deprecate after 1 major RHEL release,
+   force non-registration (effectively deletion) after 2 major releases
+ * Custom message to explain RHEL deprecation/deletion policy
+ * Remove upstream logic that temporarily disabled deletion since
+   the upstream constraints in this area don't apply to RHEL
+ * For automatic deprecation/deletion, RHEL_VERSION is defined
+
+Signed-off-by: Daniel P. Berrangé <berrange@redhat.com>
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+ .distro/Makefile.common        |  1 +
+ .distro/qemu-kvm.spec.template |  1 +
+ include/hw/boards.h            | 60 +++++++++++-----------------------
+ meson.build                    |  1 +
+ meson_options.txt              |  2 ++
+ scripts/meson-buildoptions.sh  |  2 ++
+ 6 files changed, 26 insertions(+), 41 deletions(-)
+
+diff --git a/include/hw/boards.h b/include/hw/boards.h
+index ccfc3e10eb..7f7eb4ec40 100644
+--- a/include/hw/boards.h
++++ b/include/hw/boards.h
+@@ -548,16 +548,16 @@ struct MachineState {
+  *   "{prefix}-{major}.{minor}.{micro}-{tag}"
+  */
+ #define _MACHINE_VER_TYPE_NAME2(prefix, major, minor)   \
+-    prefix "-" #major "." #minor TYPE_MACHINE_SUFFIX
++    prefix "-rhel" #major "." #minor TYPE_MACHINE_SUFFIX
+ 
+ #define _MACHINE_VER_TYPE_NAME3(prefix, major, minor, micro) \
+-    prefix "-" #major "." #minor "." #micro TYPE_MACHINE_SUFFIX
++    prefix "-rhel" #major "." #minor "." #micro TYPE_MACHINE_SUFFIX
+ 
+ #define _MACHINE_VER_TYPE_NAME4(prefix, major, minor, _unused_, tag) \
+-    prefix "-" #major "." #minor "-" #tag TYPE_MACHINE_SUFFIX
++    prefix "-rhel" #major "." #minor "-" #tag TYPE_MACHINE_SUFFIX
+ 
+ #define _MACHINE_VER_TYPE_NAME5(prefix, major, minor, micro, _unused_, tag) \
+-    prefix "-" #major "." #minor "." #micro "-" #tag TYPE_MACHINE_SUFFIX
++    prefix "-rhel" #major "." #minor "." #micro "-" #tag TYPE_MACHINE_SUFFIX
+ 
+ #define MACHINE_VER_TYPE_NAME(prefix, ...) \
+     _MACHINE_VER_PICK(__VA_ARGS__, \
+@@ -585,16 +585,16 @@ struct MachineState {
+  *   {prefix}_machine_{major}_{minor}_{micro}_{tag}_{sym}
+  */
+ #define _MACHINE_VER_SYM2(sym, prefix, major, minor) \
+-    prefix ## _machine_ ## major ## _ ## minor ## _ ## sym
++    prefix ## _rhel_machine_ ## major ## _ ## minor ## _ ## sym
+ 
+ #define _MACHINE_VER_SYM3(sym, prefix, major, minor, micro) \
+-    prefix ## _machine_ ## major ## _ ## minor ## _ ## micro ## _ ## sym
++    prefix ## _rhel_machine_ ## major ## _ ## minor ## _ ## micro ## _ ## sym
+ 
+ #define _MACHINE_VER_SYM4(sym, prefix, major, minor, _unused_, tag) \
+-    prefix ## _machine_ ## major ## _ ## minor ## _ ## tag ## _ ## sym
++    prefix ## _rhel_machine_ ## major ## _ ## minor ## _ ## tag ## _ ## sym
+ 
+ #define _MACHINE_VER_SYM5(sym, prefix, major, minor, micro, _unused_, tag) \
+-    prefix ## _machine_ ## major ## _ ## minor ## _ ## micro ## _ ## tag ## _ ## sym
++    prefix ## _rhel_machine_ ## major ## _ ## minor ## _ ## micro ## _ ## tag ## _ ## sym
+ 
+ #define MACHINE_VER_SYM(sym, prefix, ...) \
+     _MACHINE_VER_PICK(__VA_ARGS__, \
+@@ -605,26 +605,22 @@ struct MachineState {
+ 
+ 
+ /*
+- * How many years/major releases for each phase
+- * of the life cycle. Assumes use of versioning
+- * scheme where major is bumped each year
++ * How many RHEL major releases for each phase
++ * of the life cycle.
+  */
+-#define MACHINE_VER_DELETION_MAJOR 6
+-#define MACHINE_VER_DEPRECATION_MAJOR 3
++#define MACHINE_VER_DELETION_MAJOR 2
++#define MACHINE_VER_DEPRECATION_MAJOR 1
+ 
+ /*
+  * Expands to a static string containing a deprecation
+  * message for a versioned machine type
+  */
+ #define MACHINE_VER_DEPRECATION_MSG \
+-    "machines more than " stringify(MACHINE_VER_DEPRECATION_MAJOR) \
+-    " years old are subject to deletion after " \
+-    stringify(MACHINE_VER_DELETION_MAJOR) " years"
++    "machines from the previous RHEL major release are " \
++    "subject to deletion in the next RHEL major release"
+ 
+ #define _MACHINE_VER_IS_EXPIRED_IMPL(cutoff, major, minor) \
+-    (((QEMU_VERSION_MAJOR - major) > cutoff) || \
+-     (((QEMU_VERSION_MAJOR - major) == cutoff) && \
+-      (QEMU_VERSION_MINOR - minor) >= 0))
++    ((RHEL_VERSION - major) >= cutoff)
+ 
+ #define _MACHINE_VER_IS_EXPIRED2(cutoff, major, minor) \
+     _MACHINE_VER_IS_EXPIRED_IMPL(cutoff, major, minor)
+@@ -686,32 +682,14 @@ struct MachineState {
+  * This must be unconditionally used in the register
+  * method for all machine types which support versioning.
+  *
+- * Inijtially it will effectively be a no-op, but after a
+- * suitable period of time has passed, it will cause
+- * execution of the method to return, avoiding registration
+- * of the machine
+- *
+- * The new deprecation and deletion policy for versioned
+- * machine types was introduced in QEMU 9.1.0.
+- *
+- * Under the new policy a number of old machine types (any
+- * prior to 2.12) would be liable for immediate deletion
+- * which would be a violation of our historical deprecation
+- * and removal policy
+- *
+- * Thus deletions are temporarily gated on existance of
+- * the env variable "QEMU_DELETE_MACHINES" / QEMU version
+- * number >= 10.1.0. This gate can be deleted in the 10.1.0
+- * dev cycle
++ * It will automatically avoid registration of machines
++ * that should have been deleted at the start of this
++ * RHEL release
+  */
+ #define MACHINE_VER_DELETION(...) \
+     do { \
+         if (MACHINE_VER_SHOULD_DELETE(__VA_ARGS__)) { \
+-            if (getenv("QEMU_DELETE_MACHINES") || \
+-                QEMU_VERSION_MAJOR > 10 || (QEMU_VERSION_MAJOR == 10 && \
+-                                            QEMU_VERSION_MINOR >= 1)) { \
+-                return; \
+-            } \
++            return; \
+         } \
+     } while (0)
+ 
+diff --git a/meson.build b/meson.build
+index 161d496d55..2de5ab024f 100644
+--- a/meson.build
++++ b/meson.build
+@@ -2440,6 +2440,7 @@ config_host_data.set('QEMU_VERSION', '"@0@"'.format(meson.project_version()))
+ config_host_data.set('QEMU_VERSION_MAJOR', meson.project_version().split('.')[0])
+ config_host_data.set('QEMU_VERSION_MINOR', meson.project_version().split('.')[1])
+ config_host_data.set('QEMU_VERSION_MICRO', meson.project_version().split('.')[2])
++config_host_data.set('RHEL_VERSION', get_option('rhel_version').split('.')[0])
+ 
+ config_host_data.set_quoted('CONFIG_HOST_DSOSUF', host_dsosuf)
+ config_host_data.set('HAVE_HOST_BLOCK_DEVICE', have_host_block_device)
+diff --git a/meson_options.txt b/meson_options.txt
+index 0269fa0f16..aa2ba0baef 100644
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -2,6 +2,8 @@
+ # on the configure script command line.  If you add more, list them in
+ # scripts/meson-buildoptions.py's SKIP_OPTIONS constant too.
+ 
++option('rhel_version', type: 'string', value: '0.0',
++       description: 'RHEL major/minor version')
+ option('qemu_suffix', type : 'string', value: 'qemu',
+        description: 'Suffix for QEMU data/modules/config directories (can be empty)')
+ option('docdir', type : 'string', value : 'share/doc',
+diff --git a/scripts/meson-buildoptions.sh b/scripts/meson-buildoptions.sh
+index c97079a38c..5f0cbfc725 100644
+--- a/scripts/meson-buildoptions.sh
++++ b/scripts/meson-buildoptions.sh
+@@ -71,6 +71,7 @@ meson_options_help() {
+   printf "%s\n" '                           "manufacturer" name for qemu-ga registry entries'
+   printf "%s\n" '                           [QEMU]'
+   printf "%s\n" '  --qemu-ga-version=VALUE  version number for qemu-ga installer'
++  printf "%s\n" '  --rhel-version=VALUE     RHEL major/minor version [0.0]'
+   printf "%s\n" '  --smbd=VALUE             Path to smbd for slirp networking'
+   printf "%s\n" '  --sysconfdir=VALUE       Sysconf data directory [etc]'
+   printf "%s\n" '  --tls-priority=VALUE     Default TLS protocol/cipher priority string'
+@@ -450,6 +451,7 @@ _meson_option_parse() {
+     --disable-relocatable) printf "%s" -Drelocatable=false ;;
+     --enable-replication) printf "%s" -Dreplication=enabled ;;
+     --disable-replication) printf "%s" -Dreplication=disabled ;;
++    --rhel-version=*) quote_sh "-Drhel_version=$2" ;;
+     --enable-rng-none) printf "%s" -Drng_none=true ;;
+     --disable-rng-none) printf "%s" -Drng_none=false ;;
+     --enable-rutabaga-gfx) printf "%s" -Drutabaga_gfx=enabled ;;
+-- 
+2.39.3
+

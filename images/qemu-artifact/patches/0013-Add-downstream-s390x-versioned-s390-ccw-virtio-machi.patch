@@ -1,0 +1,327 @@
+From 450ae6631771593689f7f9c3eb2081e93d3e75c5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Daniel=20P=2E=20Berrang=C3=A9?= <berrange@redhat.com>
+Date: Wed, 3 Jul 2024 13:44:36 +0100
+Subject: Add downstream s390x versioned 's390-ccw-virtio' machine types
+
+Adding changes to add RHEL machine types for s390x architecture.
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+--
+
+Rebase changes (7.1.0):
+- Moved adding rhel_old_machine_deprecation variable to general machine types commit
+
+Rebase notes (9.1.0 rc0)
+- Convert to new DEFINE_CCW_MACHINE macros
+
+Merged patches (6.1.0):
+- 64a9a5c971 hw/s390x: Remove the RHEL7-only machine type
+- 395516d62b redhat: s390x: add rhel-8.5.0 compat machine
+
+Merged patches (6.2.0):
+- 3bf66f4520 redhat: Add s390x machine type compatibility update for 6.1 rebase
+
+Merged patches (7.0.0):
+- e6ff4de4f7 redhat: Add s390x machine type compatibility handling for the rebase to v6.2
+- 4b0efa7e21 redhat: Add rhel8.6.0 and rhel9.0.0 machine types for s390x
+- dcc64971bf RHEL: mark old machine types as deprecated (partialy)
+
+Merged patches (7.1.0):
+- 1d6439527a WRB: Introduce RHEL 9.0.0 hw compat structure (only hw/s390x/s390-virtio-ccw.c chunk)
+- c8ad21ca31 redhat: Update s390x machine type compatibility for rebase to QEMU 7.0.0
+- 5bcf8d874c target/s390x: deprecate CPUs older than z14
+
+Merged patches (7.2.0):
+- 0be2889fa2 Introduce upstream 7.0 compat changes (only applicable parts)
+
+Merged patches (8.0.0):
+- 27c188c6a4 redhat: Update s390x machine type compatibility for QEMU 7.2.0 update
+- a932b8d429 redhat: Add new rhel-9.2.0 s390x machine type
+- ac88104bad s390x/s390-virtio-ccw: Activate zPCI features on s390-ccw-virtio-rhel8.6.0
+
+Merged patches (8.1.0):
+- bd5d81d286 Add RHEL 9.2.0 compat structure (s390x part)
+
+Merged patches (8.2.0):
+- 4ee284aca9 Add machine types compat bits. (partial)
+
+Merged patches (9.1.0 rc0):
+- 043ad5ce97 Add upstream compatibility bits (partial)
+---
+ hw/s390x/s390-virtio-ccw.c       | 164 ++++++++++++++++++++++++++++++-
+ target/s390x/cpu_models.c        |  11 +++
+ target/s390x/cpu_models.h        |   2 +
+ target/s390x/cpu_models_sysemu.c |   2 +
+ 4 files changed, 174 insertions(+), 5 deletions(-)
+
+diff --git a/hw/s390x/s390-virtio-ccw.c b/hw/s390x/s390-virtio-ccw.c
+index 86bfc9d2eb..72e1279db9 100644
+--- a/hw/s390x/s390-virtio-ccw.c
++++ b/hw/s390x/s390-virtio-ccw.c
+@@ -837,7 +837,7 @@ static const TypeInfo ccw_machine_info = {
+     {                                                                         \
+         MachineClass *mc = MACHINE_CLASS(oc);                                 \
+         MACHINE_VER_SYM(class_options, ccw, __VA_ARGS__)(mc);                 \
+-        mc->desc = "Virtual s390x machine (version " MACHINE_VER_STR(__VA_ARGS__) ")"; \
++        mc->desc = "Virtual s390x machine (version rhel" MACHINE_VER_STR(__VA_ARGS__) ")"; \
+         MACHINE_VER_DEPRECATION(__VA_ARGS__);                                 \
+         if (latest) {                                                         \
+             mc->alias = "s390-ccw-virtio";                                    \
+@@ -864,11 +864,11 @@ static const TypeInfo ccw_machine_info = {
+     }                                                                         \
+     type_init(MACHINE_VER_SYM(register, ccw, __VA_ARGS__))
+ 
+-#define DEFINE_CCW_MACHINE_AS_LATEST(major, minor) \
+-    DEFINE_CCW_MACHINE_IMPL(true, major, minor)
++#define DEFINE_CCW_MACHINE_AS_LATEST(major, minor, micro) \
++    DEFINE_CCW_MACHINE_IMPL(true, major, minor, micro)
+ 
+-#define DEFINE_CCW_MACHINE(major, minor) \
+-    DEFINE_CCW_MACHINE_IMPL(false, major, minor)
++#define DEFINE_CCW_MACHINE(major, minor, micro) \
++    DEFINE_CCW_MACHINE_IMPL(false, major, minor, micro)
+ 
+ 
+ #if 0 /* Disabled for Red Hat Enterprise Linux */
+@@ -1308,6 +1308,160 @@ DEFINE_CCW_MACHINE(2, 4);
+ #endif
+ #endif /* disabled for RHEL */
+ 
++static void ccw_rhel_machine_9_4_0_instance_options(MachineState *machine)
++{
++}
++
++static void ccw_rhel_machine_9_4_0_class_options(MachineClass *mc)
++{
++    compat_props_add(mc->compat_props, hw_compat_rhel_9_5, hw_compat_rhel_9_5_len);
++}
++DEFINE_CCW_MACHINE_AS_LATEST(9, 4, 0);
++
++static void ccw_rhel_machine_9_2_0_instance_options(MachineState *machine)
++{
++    ccw_rhel_machine_9_4_0_instance_options(machine);
++}
++
++static void ccw_rhel_machine_9_2_0_class_options(MachineClass *mc)
++{
++    ccw_rhel_machine_9_4_0_class_options(mc);
++    compat_props_add(mc->compat_props, hw_compat_rhel_9_4, hw_compat_rhel_9_4_len);
++    compat_props_add(mc->compat_props, hw_compat_rhel_9_3, hw_compat_rhel_9_3_len);
++    compat_props_add(mc->compat_props, hw_compat_rhel_9_2, hw_compat_rhel_9_2_len);
++    mc->smp_props.drawers_supported = false;    /* from ccw_machine_8_1 */
++    mc->smp_props.books_supported = false;      /* from ccw_machine_8_1 */
++}
++DEFINE_CCW_MACHINE(9, 2, 0);
++
++static void ccw_rhel_machine_9_0_0_instance_options(MachineState *machine)
++{
++    static const S390FeatInit qemu_cpu_feat = { S390_FEAT_LIST_QEMU_V6_2 };
++
++    ccw_rhel_machine_9_2_0_instance_options(machine);
++
++    s390_set_qemu_cpu_model(0x3906, 14, 2, qemu_cpu_feat);
++    s390_cpudef_featoff_greater(16, 1, S390_FEAT_PAIE);
++}
++
++static void ccw_rhel_machine_9_0_0_class_options(MachineClass *mc)
++{
++    S390CcwMachineClass *s390mc = S390_CCW_MACHINE_CLASS(mc);
++    static GlobalProperty compat[] = {
++        { TYPE_S390_PCI_DEVICE, "interpret", "off", },
++        { TYPE_S390_PCI_DEVICE, "forwarding-assist", "off", },
++    };
++
++    ccw_rhel_machine_9_2_0_class_options(mc);
++
++    compat_props_add(mc->compat_props, compat, G_N_ELEMENTS(compat));
++    compat_props_add(mc->compat_props, hw_compat_rhel_9_1, hw_compat_rhel_9_1_len);
++    compat_props_add(mc->compat_props, hw_compat_rhel_9_0, hw_compat_rhel_9_0_len);
++    s390mc->max_threads = S390_MAX_CPUS;
++}
++DEFINE_CCW_MACHINE(9, 0, 0);
++
++static void ccw_rhel_machine_8_6_0_instance_options(MachineState *machine)
++{
++    /* Note: The -rhel8.6.0 and -rhel9.0.0 machines are technically identical */
++    ccw_rhel_machine_9_0_0_instance_options(machine);
++}
++
++static void ccw_rhel_machine_8_6_0_class_options(MachineClass *mc)
++{
++    static GlobalProperty compat[] = {
++        { TYPE_S390_PCI_DEVICE, "interpret", "on", },
++        { TYPE_S390_PCI_DEVICE, "forwarding-assist", "on", },
++    };
++
++    ccw_rhel_machine_9_0_0_class_options(mc);
++    compat_props_add(mc->compat_props, hw_compat_rhel_8_6, hw_compat_rhel_8_6_len);
++    compat_props_add(mc->compat_props, compat, G_N_ELEMENTS(compat));
++}
++DEFINE_CCW_MACHINE(8, 6, 0);
++
++static void ccw_rhel_machine_8_5_0_instance_options(MachineState *machine)
++{
++    static const S390FeatInit qemu_cpu_feat = { S390_FEAT_LIST_QEMU_V6_0 };
++
++    ccw_rhel_machine_8_6_0_instance_options(machine);
++
++    s390_set_qemu_cpu_model(0x2964, 13, 2, qemu_cpu_feat);
++
++    s390_cpudef_featoff_greater(16, 1, S390_FEAT_NNPA);
++    s390_cpudef_featoff_greater(16, 1, S390_FEAT_VECTOR_PACKED_DECIMAL_ENH2);
++    s390_cpudef_featoff_greater(16, 1, S390_FEAT_BEAR_ENH);
++    s390_cpudef_featoff_greater(16, 1, S390_FEAT_RDP);
++    s390_cpudef_featoff_greater(16, 1, S390_FEAT_PAI);
++}
++
++static void ccw_rhel_machine_8_5_0_class_options(MachineClass *mc)
++{
++    static GlobalProperty compat[] = {
++        { TYPE_S390_PCI_DEVICE, "interpret", "off", },
++        { TYPE_S390_PCI_DEVICE, "forwarding-assist", "off", },
++    };
++
++    ccw_rhel_machine_8_6_0_class_options(mc);
++    compat_props_add(mc->compat_props, hw_compat_rhel_8_5, hw_compat_rhel_8_5_len);
++    compat_props_add(mc->compat_props, compat, G_N_ELEMENTS(compat));
++    mc->smp_props.prefer_sockets = true;
++}
++DEFINE_CCW_MACHINE(8, 5, 0);
++
++static void ccw_rhel_machine_8_4_0_instance_options(MachineState *machine)
++{
++    ccw_rhel_machine_8_5_0_instance_options(machine);
++}
++
++static void ccw_rhel_machine_8_4_0_class_options(MachineClass *mc)
++{
++    ccw_rhel_machine_8_5_0_class_options(mc);
++    compat_props_add(mc->compat_props, hw_compat_rhel_8_4, hw_compat_rhel_8_4_len);
++}
++DEFINE_CCW_MACHINE(8, 4, 0);
++
++static void ccw_rhel_machine_8_2_0_instance_options(MachineState *machine)
++{
++    ccw_rhel_machine_8_4_0_instance_options(machine);
++}
++
++static void ccw_rhel_machine_8_2_0_class_options(MachineClass *mc)
++{
++    ccw_rhel_machine_8_4_0_class_options(mc);
++    mc->fixup_ram_size = s390_fixup_ram_size;
++    /* we did not publish a rhel8.3.0 machine */
++    compat_props_add(mc->compat_props, hw_compat_rhel_8_3, hw_compat_rhel_8_3_len);
++    compat_props_add(mc->compat_props, hw_compat_rhel_8_2, hw_compat_rhel_8_2_len);
++}
++DEFINE_CCW_MACHINE(8, 2, 0);
++
++static void ccw_rhel_machine_7_6_0_instance_options(MachineState *machine)
++{
++    static const S390FeatInit qemu_cpu_feat = { S390_FEAT_LIST_QEMU_V3_1 };
++
++    ccw_rhel_machine_8_2_0_instance_options(machine);
++
++    s390_set_qemu_cpu_model(0x2827, 12, 2, qemu_cpu_feat);
++
++    /* The multiple-epoch facility was not available with rhel7.6.0 on z14GA1 */
++    s390_cpudef_featoff(14, 1, S390_FEAT_MULTIPLE_EPOCH);
++    s390_cpudef_featoff(14, 1, S390_FEAT_PTFF_QSIE);
++    s390_cpudef_featoff(14, 1, S390_FEAT_PTFF_QTOUE);
++    s390_cpudef_featoff(14, 1, S390_FEAT_PTFF_STOE);
++    s390_cpudef_featoff(14, 1, S390_FEAT_PTFF_STOUE);
++}
++
++static void ccw_rhel_machine_7_6_0_class_options(MachineClass *mc)
++{
++    ccw_rhel_machine_8_2_0_class_options(mc);
++    /* We never published the s390x version of RHEL-AV 8.0 and 8.1, so add this here */
++    compat_props_add(mc->compat_props, hw_compat_rhel_8_1, hw_compat_rhel_8_1_len);
++    compat_props_add(mc->compat_props, hw_compat_rhel_8_0, hw_compat_rhel_8_0_len);
++    compat_props_add(mc->compat_props, hw_compat_rhel_7_6, hw_compat_rhel_7_6_len);
++}
++DEFINE_CCW_MACHINE(7, 6, 0);
++
+ static void ccw_machine_register_types(void)
+ {
+     type_register_static(&ccw_machine_info);
+diff --git a/target/s390x/cpu_models.c b/target/s390x/cpu_models.c
+index a27f4b6f79..9ee30310c6 100644
+--- a/target/s390x/cpu_models.c
++++ b/target/s390x/cpu_models.c
+@@ -47,6 +47,9 @@
+  * of a following release have been a superset of the previous release. With
+  * generation 15 one base feature and one optional feature have been deprecated.
+  */
++
++#define RHEL_CPU_DEPRECATION "use at least 'z14', or 'host' / 'qemu' / 'max'"
++
+ static S390CPUDef s390_cpu_defs[] = {
+     /*
+      * Linux requires at least z10 nowadays, and IBM only supports recent CPUs
+@@ -871,22 +874,30 @@ static void s390_host_cpu_model_class_init(ObjectClass *oc, void *data)
+ static void s390_base_cpu_model_class_init(ObjectClass *oc, void *data)
+ {
+     S390CPUClass *xcc = S390_CPU_CLASS(oc);
++    CPUClass *cc = CPU_CLASS(oc);
+ 
+     /* all base models are migration safe */
+     xcc->cpu_def = (const S390CPUDef *) data;
+     xcc->is_migration_safe = true;
+     xcc->is_static = true;
+     xcc->desc = xcc->cpu_def->desc;
++    if (xcc->cpu_def->gen < 14) {
++        cc->deprecation_note = RHEL_CPU_DEPRECATION;
++    }
+ }
+ 
+ static void s390_cpu_model_class_init(ObjectClass *oc, void *data)
+ {
+     S390CPUClass *xcc = S390_CPU_CLASS(oc);
++    CPUClass *cc = CPU_CLASS(oc);
+ 
+     /* model that can change between QEMU versions */
+     xcc->cpu_def = (const S390CPUDef *) data;
+     xcc->is_migration_safe = true;
+     xcc->desc = xcc->cpu_def->desc;
++    if (xcc->cpu_def->gen < 14) {
++        cc->deprecation_note = RHEL_CPU_DEPRECATION;
++    }
+ }
+ 
+ static void s390_qemu_cpu_model_class_init(ObjectClass *oc, void *data)
+diff --git a/target/s390x/cpu_models.h b/target/s390x/cpu_models.h
+index 71d4bc2dd4..d6c7c2cb50 100644
+--- a/target/s390x/cpu_models.h
++++ b/target/s390x/cpu_models.h
+@@ -38,6 +38,8 @@ typedef struct S390CPUDef {
+     S390FeatBitmap full_feat;
+     /* used to init full_feat from generated data */
+     S390FeatInit full_init;
++    /* if deprecated, provides a suggestion */
++    const char *deprecation_note;
+ } S390CPUDef;
+ 
+ /* CPU model based on a CPU definition */
+diff --git a/target/s390x/cpu_models_sysemu.c b/target/s390x/cpu_models_sysemu.c
+index 72572726b8..707d546ca1 100644
+--- a/target/s390x/cpu_models_sysemu.c
++++ b/target/s390x/cpu_models_sysemu.c
+@@ -59,6 +59,7 @@ static void create_cpu_model_list(ObjectClass *klass, void *opaque)
+     CpuDefinitionInfo *info;
+     char *name = g_strdup(object_class_get_name(klass));
+     S390CPUClass *scc = S390_CPU_CLASS(klass);
++    CPUClass *cc = CPU_CLASS(klass);
+ 
+     /* strip off the -s390x-cpu */
+     g_strrstr(name, "-" TYPE_S390_CPU)[0] = 0;
+@@ -68,6 +69,7 @@ static void create_cpu_model_list(ObjectClass *klass, void *opaque)
+     info->migration_safe = scc->is_migration_safe;
+     info->q_static = scc->is_static;
+     info->q_typename = g_strdup(object_class_get_name(klass));
++    info->deprecated = !!cc->deprecation_note;
+     /* check for unavailable features */
+     if (cpu_list_data->model) {
+         Object *obj;
+-- 
+2.39.3
+

@@ -1,0 +1,72 @@
+From 6c0a0d9734c507af2c84aa33eb1624f35e1f51fb Mon Sep 17 00:00:00 2001
+From: Peter Xu <peterx@redhat.com>
+Date: Tue, 17 Sep 2024 12:38:34 -0400
+Subject: [PATCH 7/9] KVM: Rename KVMMemoryListener.nr_used_slots to
+ nr_slots_used
+
+RH-Author: Peter Xu <peterx@redhat.com>
+RH-MergeRequest: 284: KVM: Dynamic sized kvm memslots array
+RH-Jira: RHEL-57682
+RH-Acked-by: Juraj Marcin <None>
+RH-Commit: [6/7] 74e9576751e0adeb8113a5e8e495b4b1285b0d76 (peterx/qemu-kvm)
+
+This will make all nr_slots counters to be named in the same manner.
+
+Reviewed-by: David Hildenbrand <david@redhat.com>
+Signed-off-by: Peter Xu <peterx@redhat.com>
+Link: https://lore.kernel.org/r/20240917163835.194664-4-peterx@redhat.com
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit dbdc00ba5b136bba80d850f61cc79a9cafaae1cd)
+Signed-off-by: Peter Xu <peterx@redhat.com>
+---
+ accel/kvm/kvm-all.c      | 6 +++---
+ include/sysemu/kvm_int.h | 2 +-
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/accel/kvm/kvm-all.c b/accel/kvm/kvm-all.c
+index 3900de8883..e414d015c9 100644
+--- a/accel/kvm/kvm-all.c
++++ b/accel/kvm/kvm-all.c
+@@ -239,7 +239,7 @@ unsigned int kvm_get_free_memslots(void)
+         if (!s->as[i].ml) {
+             continue;
+         }
+-        used_slots = MAX(used_slots, s->as[i].ml->nr_used_slots);
++        used_slots = MAX(used_slots, s->as[i].ml->nr_slots_used);
+     }
+     kvm_slots_unlock();
+ 
+@@ -1516,7 +1516,7 @@ static void kvm_set_phys_mem(KVMMemoryListener *kml,
+             }
+             start_addr += slot_size;
+             size -= slot_size;
+-            kml->nr_used_slots--;
++            kml->nr_slots_used--;
+         } while (size);
+         return;
+     }
+@@ -1555,7 +1555,7 @@ static void kvm_set_phys_mem(KVMMemoryListener *kml,
+         ram_start_offset += slot_size;
+         ram += slot_size;
+         size -= slot_size;
+-        kml->nr_used_slots++;
++        kml->nr_slots_used++;
+     } while (size);
+ }
+ 
+diff --git a/include/sysemu/kvm_int.h b/include/sysemu/kvm_int.h
+index 48e496b3d4..b705dfc9b4 100644
+--- a/include/sysemu/kvm_int.h
++++ b/include/sysemu/kvm_int.h
+@@ -45,7 +45,7 @@ typedef struct KVMMemoryUpdate {
+ typedef struct KVMMemoryListener {
+     MemoryListener listener;
+     KVMSlot *slots;
+-    unsigned int nr_used_slots;
++    unsigned int nr_slots_used;
+     unsigned int nr_slots_allocated;
+     int as_id;
+     QSIMPLEQ_HEAD(, KVMMemoryUpdate) transaction_add;
+-- 
+2.39.3
+

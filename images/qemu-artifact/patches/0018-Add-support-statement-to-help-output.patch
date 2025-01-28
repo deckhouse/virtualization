@@ -1,0 +1,55 @@
+From d2a73465e69118a37a2bbc487b6faa30c9b5a81f Mon Sep 17 00:00:00 2001
+From: Eduardo Habkost <ehabkost@redhat.com>
+Date: Wed, 4 Dec 2013 18:53:17 +0100
+Subject: Add support statement to -help output
+
+RH-Author: Eduardo Habkost <ehabkost@redhat.com>
+Message-id: <1386183197-27761-1-git-send-email-ehabkost@redhat.com>
+Patchwork-id: 55994
+O-Subject: [qemu-kvm RHEL7 PATCH] Add support statement to -help output
+Bugzilla: 972773
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Acked-by: knoel@redhat.com
+RH-Acked-by: Paolo Bonzini <pbonzini@redhat.com>
+
+Add support statement to -help output, reporting direct qemu-kvm usage
+as unsupported by Red Hat, and advising users to use libvirt instead.
+
+Signed-off-by: Eduardo Habkost <ehabkost@redhat.com>
+---
+ system/vl.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/system/vl.c b/system/vl.c
+index 01b8b8e77a..5359231bf5 100644
+--- a/system/vl.c
++++ b/system/vl.c
+@@ -877,9 +877,17 @@ static void version(void)
+            QEMU_COPYRIGHT "\n");
+ }
+ 
++static void print_rh_warning(void)
++{
++    printf("\nWARNING: Direct use of qemu-kvm from the command line is not supported by Red Hat.\n"
++             "WARNING: Use libvirt as the stable management interface.\n"
++             "WARNING: Some command line options listed here may not be available in future releases.\n\n");
++}
++
+ static void help(int exitcode)
+ {
+     version();
++    print_rh_warning();
+     printf("usage: %s [options] [disk_image]\n\n"
+            "'disk_image' is a raw hard disk image for IDE hard disk 0\n\n",
+             g_get_prgname());
+@@ -905,6 +913,7 @@ static void help(int exitcode)
+            "\n"
+            QEMU_HELP_BOTTOM "\n");
+ 
++    print_rh_warning();
+     exit(exitcode);
+ }
+ 
+-- 
+2.39.3
+

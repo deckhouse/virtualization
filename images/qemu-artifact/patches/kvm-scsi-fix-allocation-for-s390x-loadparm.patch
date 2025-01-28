@@ -1,0 +1,48 @@
+From 15f5e84210537514394b18e9dc6c710ad1218ecd Mon Sep 17 00:00:00 2001
+From: Paolo Bonzini <pbonzini@redhat.com>
+Date: Tue, 19 Nov 2024 22:31:22 +0100
+Subject: [PATCH 06/10] scsi: fix allocation for s390x loadparm
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RH-Author: Thomas Huth <thuth@redhat.com>
+RH-MergeRequest: 298: [c9s] Fixes for the new s390x "boot order" feature
+RH-Jira: RHEL-68440
+RH-Acked-by: Cédric Le Goater <clg@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Commit: [5/8] 6a0e420261eb0521d4f979d2a6c250ee4aae7606 (thuth/qemu-kvm-cs9)
+
+Coverity reports a possible buffer overrun due to a non-NUL-terminated
+string in scsi_property_set_loadparm().  While things are not so easy,
+because qdev_prop_sanitize_s390x_loadparm is designed to operate on a
+buffer that is not NUL-terminated, in this case the string *does* have
+to be NUL-terminated because it is read by scsi_property_get_loadparm
+and s390_build_iplb.
+
+Reviewed-by: jrossi@linux.ibm.com
+Cc: thuth@redhat.com
+Fixes: 429442e52d9 ("hw: Add "loadparm" property to scsi disk devices for booting on s390x", 2024-11-18)
+Signed-off-by: Paolo Bonzini <pbonzini@redhat.com>
+(cherry picked from commit b73d7eff1eedb2399cd594bc872d5db13506d951)
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+---
+ hw/scsi/scsi-disk.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/scsi/scsi-disk.c b/hw/scsi/scsi-disk.c
+index 7566a5f531..de0c295173 100644
+--- a/hw/scsi/scsi-disk.c
++++ b/hw/scsi/scsi-disk.c
+@@ -3152,7 +3152,7 @@ static void scsi_property_set_loadparm(Object *obj, const char *value,
+         return;
+     }
+ 
+-    lp_str = g_malloc0(strlen(value));
++    lp_str = g_malloc0(strlen(value) + 1);
+     if (!qdev_prop_sanitize_s390x_loadparm(lp_str, value, errp)) {
+         g_free(lp_str);
+         return;
+-- 
+2.39.3
+

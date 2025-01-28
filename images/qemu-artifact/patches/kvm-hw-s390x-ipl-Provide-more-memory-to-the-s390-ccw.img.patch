@@ -1,0 +1,61 @@
+From 22693a98eca5872f87249006d873a95e71c448f2 Mon Sep 17 00:00:00 2001
+From: Thomas Huth <thuth@redhat.com>
+Date: Fri, 21 Jun 2024 10:24:17 +0200
+Subject: [PATCH 01/27] hw/s390x/ipl: Provide more memory to the s390-ccw.img
+ firmware
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RH-Author: Thomas Huth <thuth@redhat.com>
+RH-MergeRequest: 277: Full boot order support for s390x [CentOS 9]
+RH-Jira: RHEL-11424
+RH-Acked-by: Cédric Le Goater <clg@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Commit: [1/23] b54cc7784876becb9fcec189811f505c22119b72 (thuth/qemu-kvm-cs9)
+
+We are going to link the SLOF libc into the s390-ccw.img, and this
+libc needs more memory for providing space for malloc() and friends.
+Thus bump the memory size that we reserve for the bios to 3 MiB
+instead of only 2 MiB. While we're at it, add a proper check that
+there is really enough memory assigned to the machine before blindly
+using it.
+
+Message-ID: <20240621082422.136217-3-thuth@redhat.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+(cherry picked from commit abaabb2e601adfe296a64471746a997eabcc607f)
+---
+ hw/s390x/ipl.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/hw/s390x/ipl.c b/hw/s390x/ipl.c
+index e934bf89d1..9362de0b6f 100644
+--- a/hw/s390x/ipl.c
++++ b/hw/s390x/ipl.c
+@@ -45,6 +45,7 @@
+ #define INITRD_PARM_START               0x010408UL
+ #define PARMFILE_START                  0x001000UL
+ #define ZIPL_IMAGE_START                0x009000UL
++#define BIOS_MAX_SIZE                   0x300000UL
+ #define IPL_PSW_MASK                    (PSW_MASK_32 | PSW_MASK_64)
+ 
+ static bool iplb_extended_needed(void *opaque)
+@@ -144,7 +145,14 @@ static void s390_ipl_realize(DeviceState *dev, Error **errp)
+      * even if an external kernel has been defined.
+      */
+     if (!ipl->kernel || ipl->enforce_bios) {
+-        uint64_t fwbase = (MIN(ms->ram_size, 0x80000000U) - 0x200000) & ~0xffffUL;
++        uint64_t fwbase;
++
++        if (ms->ram_size < BIOS_MAX_SIZE) {
++            error_setg(errp, "not enough RAM to load the BIOS file");
++            return;
++        }
++
++        fwbase = (MIN(ms->ram_size, 0x80000000U) - BIOS_MAX_SIZE) & ~0xffffUL;
+ 
+         bios_filename = qemu_find_file(QEMU_FILE_TYPE_BIOS, ipl->firmware);
+         if (bios_filename == NULL) {
+-- 
+2.39.3
+

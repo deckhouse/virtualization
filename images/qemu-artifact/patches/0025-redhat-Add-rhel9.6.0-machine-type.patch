@@ -1,0 +1,55 @@
+From 1ceaf6413ec7cb19ea2b6147ec91c776c7c5df40 Mon Sep 17 00:00:00 2001
+From: Thomas Huth <thuth@redhat.com>
+Date: Mon, 26 Aug 2024 14:42:24 +0200
+Subject: redhat: Add rhel9.6.0 machine type
+
+JIRA: https://issues.redhat.com/browse/RHEL-52323
+
+Add a new machine type to enable the latest features by default.
+
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+---
+ hw/s390x/s390-virtio-ccw.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/hw/s390x/s390-virtio-ccw.c b/hw/s390x/s390-virtio-ccw.c
+index 4b7290f7a8..a4a6ffa053 100644
+--- a/hw/s390x/s390-virtio-ccw.c
++++ b/hw/s390x/s390-virtio-ccw.c
+@@ -1308,8 +1308,18 @@ DEFINE_CCW_MACHINE(2, 4);
+ #endif
+ #endif /* disabled for RHEL */
+ 
++static void ccw_rhel_machine_9_6_0_instance_options(MachineState *machine)
++{
++}
++
++static void ccw_rhel_machine_9_6_0_class_options(MachineClass *mc)
++{
++}
++DEFINE_CCW_MACHINE_AS_LATEST(9, 6, 0);
++
+ static void ccw_rhel_machine_9_4_0_instance_options(MachineState *machine)
+ {
++    ccw_rhel_machine_9_6_0_instance_options(machine);
+ }
+ 
+ static void ccw_rhel_machine_9_4_0_class_options(MachineClass *mc)
+@@ -1318,11 +1328,13 @@ static void ccw_rhel_machine_9_4_0_class_options(MachineClass *mc)
+         { TYPE_QEMU_S390_FLIC, "migrate-all-state", "off", },
+     };
+ 
++    ccw_rhel_machine_9_6_0_class_options(mc);
++
+     compat_props_add(mc->compat_props, hw_compat_rhel_9_6, hw_compat_rhel_9_6_len);
+     compat_props_add(mc->compat_props, hw_compat_rhel_9_5, hw_compat_rhel_9_5_len);
+     compat_props_add(mc->compat_props, compat, G_N_ELEMENTS(compat));
+ }
+-DEFINE_CCW_MACHINE_AS_LATEST(9, 4, 0);
++DEFINE_CCW_MACHINE(9, 4, 0);
+ 
+ static void ccw_rhel_machine_9_2_0_instance_options(MachineState *machine)
+ {
+-- 
+2.39.3
+

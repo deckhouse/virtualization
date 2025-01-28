@@ -1,5 +1,5 @@
 ---
-{{- $versionQemu := "9.2.0" }}
+{{- $versionQemu := "9.1.0" }}
 {{- $gitRepoUrl := "https://github.com/qemu/qemu.git" }}
 {{- $gitRepoName := "qemu" }}
 
@@ -14,6 +14,15 @@ git:
   stageDependencies:
     setup:
       - install-qemu.sh
+- add: /images/{{ $.ImageName }}
+  to: /
+  stageDependencies:
+    install:
+    - '**/*'
+  includePaths:
+  - patches
+  excludePaths:
+  - patches/README.md
 shell:
   beforeInstall:
   - | 
@@ -116,6 +125,11 @@ shell:
     git clone --depth=1 --branch v{{ $versionQemu }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionQemu }}
     
     cd {{ $gitRepoName }}-{{ $versionQemu }}
+
+    for p in /patches/*.patch ; do
+        echo -n "Apply ${p} ... "
+        git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
     
     ./configure \
       --target-list="x86_64-softmmu" \
@@ -125,6 +139,7 @@ shell:
       --block-drv-rw-whitelist="qcow2,raw,file,host_device,nbd,iscsi,rbd,blkdebug,luks,null-co,nvme,copy-on-read,throttle,compress,virtio-blk-vhost-vdpa,virtio-blk-vfio-pci,virtio-blk-vhost-user,io_uring,nvme-io_uring" \
       --block-drv-ro-whitelist="vdi,vmdk,vhdx,vpc,https" \
       --disable-alsa                   \
+      --disable-af-xdp \
       --disable-attr                   \
       --disable-auth-pam               \
       --disable-avx2                   \

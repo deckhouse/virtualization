@@ -1,0 +1,141 @@
+From 053fe7407d61ea7f885ae3a75b8dff18712e97fc Mon Sep 17 00:00:00 2001
+From: Thomas Huth <thuth@redhat.com>
+Date: Fri, 21 Jun 2024 09:40:11 +0200
+Subject: [PATCH 06/27] pc-bios/s390-ccw: Merge netboot.mak into the main
+ Makefile
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RH-Author: Thomas Huth <thuth@redhat.com>
+RH-MergeRequest: 277: Full boot order support for s390x [CentOS 9]
+RH-Jira: RHEL-11424
+RH-Acked-by: Cédric Le Goater <clg@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Commit: [6/23] a0f3671677000e9bf00557df773fd72d9f9768a7 (thuth/qemu-kvm-cs9)
+
+Now that the netboot code has been merged into the main s390-ccw.img,
+it also does not make sense to keep the build rules in a separate
+file. Thus let's merge netboot.mak into the main Makefile.
+
+Message-Id: <20240621082422.136217-7-thuth@redhat.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+(cherry picked from commit f1fdadda36f73c9a4a96f92deb3062528cd12acc)
+---
+ pc-bios/s390-ccw/Makefile    | 47 +++++++++++++++++++++++++++++++++++-
+ pc-bios/s390-ccw/netboot.mak | 45 ----------------------------------
+ 2 files changed, 46 insertions(+), 46 deletions(-)
+ delete mode 100644 pc-bios/s390-ccw/netboot.mak
+
+diff --git a/pc-bios/s390-ccw/Makefile b/pc-bios/s390-ccw/Makefile
+index cf6859823a..27cbb354af 100644
+--- a/pc-bios/s390-ccw/Makefile
++++ b/pc-bios/s390-ccw/Makefile
+@@ -61,7 +61,52 @@ config-cc.mak: Makefile
+ 	    $(call cc-option,-march=z900,-march=z10)) 3> config-cc.mak
+ -include config-cc.mak
+ 
+-include $(SRC_PATH)/netboot.mak
++# libc files:
++
++LIBC_CFLAGS = $(EXTRA_CFLAGS) $(CFLAGS) $(LIBC_INC) $(LIBNET_INC) \
++	      -MMD -MP -MT $@ -MF $(@:%.o=%.d)
++
++CTYPE_OBJS = isdigit.o isxdigit.o toupper.o
++%.o : $(SLOF_DIR)/lib/libc/ctype/%.c
++	$(call quiet-command,$(CC) $(LIBC_CFLAGS) -c -o $@ $<,Compiling)
++
++STRING_OBJS = strcat.o strchr.o strrchr.o strcpy.o strlen.o strncpy.o \
++	      strcmp.o strncmp.o strcasecmp.o strncasecmp.o strstr.o \
++	      memset.o memcpy.o memmove.o memcmp.o
++%.o : $(SLOF_DIR)/lib/libc/string/%.c
++	$(call quiet-command,$(CC) $(LIBC_CFLAGS) -c -o $@ $<,Compiling)
++
++STDLIB_OBJS = atoi.o atol.o strtoul.o strtol.o rand.o malloc.o free.o
++%.o : $(SLOF_DIR)/lib/libc/stdlib/%.c
++	$(call quiet-command,$(CC) $(LIBC_CFLAGS) -c -o $@ $<,Compiling)
++
++STDIO_OBJS = sprintf.o snprintf.o vfprintf.o vsnprintf.o vsprintf.o fprintf.o \
++	     printf.o putc.o puts.o putchar.o stdchnls.o fileno.o
++%.o : $(SLOF_DIR)/lib/libc/stdio/%.c
++	$(call quiet-command,$(CC) $(LIBC_CFLAGS) -c -o $@ $<,Compiling)
++
++sbrk.o: $(SLOF_DIR)/slof/sbrk.c
++	$(call quiet-command,$(CC) $(LIBC_CFLAGS) -c -o $@ $<,Compiling)
++
++LIBCOBJS := $(STRING_OBJS) $(CTYPE_OBJS) $(STDLIB_OBJS) $(STDIO_OBJS) sbrk.o
++
++libc.a: $(LIBCOBJS)
++	$(call quiet-command,$(AR) -rc $@ $^,Creating static library)
++
++# libnet files:
++
++LIBNETOBJS := args.o dhcp.o dns.o icmpv6.o ipv6.o tcp.o udp.o bootp.o \
++	      dhcpv6.o ethernet.o ipv4.o ndp.o tftp.o pxelinux.o
++LIBNETCFLAGS = $(EXTRA_CFLAGS) $(CFLAGS) $(LIBC_INC) $(LIBNET_INC) \
++	       -DDHCPARCH=0x1F -MMD -MP -MT $@ -MF $(@:%.o=%.d)
++
++%.o : $(SLOF_DIR)/lib/libnet/%.c
++	$(call quiet-command,$(CC) $(LIBNETCFLAGS) -c -o $@ $<,Compiling)
++
++libnet.a: $(LIBNETOBJS)
++	$(call quiet-command,$(AR) -rc $@ $^,Creating static library)
++
++# Main targets:
+ 
+ build-all: s390-ccw.img
+ 
+diff --git a/pc-bios/s390-ccw/netboot.mak b/pc-bios/s390-ccw/netboot.mak
+deleted file mode 100644
+index 0a24257ff4..0000000000
+--- a/pc-bios/s390-ccw/netboot.mak
++++ /dev/null
+@@ -1,45 +0,0 @@
+-
+-# libc files:
+-
+-LIBC_CFLAGS = $(EXTRA_CFLAGS) $(CFLAGS) $(LIBC_INC) $(LIBNET_INC) \
+-	      -MMD -MP -MT $@ -MF $(@:%.o=%.d)
+-
+-CTYPE_OBJS = isdigit.o isxdigit.o toupper.o
+-%.o : $(SLOF_DIR)/lib/libc/ctype/%.c
+-	$(call quiet-command,$(CC) $(LIBC_CFLAGS) -c -o $@ $<,Compiling)
+-
+-STRING_OBJS = strcat.o strchr.o strrchr.o strcpy.o strlen.o strncpy.o \
+-	      strcmp.o strncmp.o strcasecmp.o strncasecmp.o strstr.o \
+-	      memset.o memcpy.o memmove.o memcmp.o
+-%.o : $(SLOF_DIR)/lib/libc/string/%.c
+-	$(call quiet-command,$(CC) $(LIBC_CFLAGS) -c -o $@ $<,Compiling)
+-
+-STDLIB_OBJS = atoi.o atol.o strtoul.o strtol.o rand.o malloc.o free.o
+-%.o : $(SLOF_DIR)/lib/libc/stdlib/%.c
+-	$(call quiet-command,$(CC) $(LIBC_CFLAGS) -c -o $@ $<,Compiling)
+-
+-STDIO_OBJS = sprintf.o snprintf.o vfprintf.o vsnprintf.o vsprintf.o fprintf.o \
+-	     printf.o putc.o puts.o putchar.o stdchnls.o fileno.o
+-%.o : $(SLOF_DIR)/lib/libc/stdio/%.c
+-	$(call quiet-command,$(CC) $(LIBC_CFLAGS) -c -o $@ $<,Compiling)
+-
+-sbrk.o: $(SLOF_DIR)/slof/sbrk.c
+-	$(call quiet-command,$(CC) $(LIBC_CFLAGS) -c -o $@ $<,Compiling)
+-
+-LIBCOBJS := $(STRING_OBJS) $(CTYPE_OBJS) $(STDLIB_OBJS) $(STDIO_OBJS) sbrk.o
+-
+-libc.a: $(LIBCOBJS)
+-	$(call quiet-command,$(AR) -rc $@ $^,Creating static library)
+-
+-# libnet files:
+-
+-LIBNETOBJS := args.o dhcp.o dns.o icmpv6.o ipv6.o tcp.o udp.o bootp.o \
+-	      dhcpv6.o ethernet.o ipv4.o ndp.o tftp.o pxelinux.o
+-LIBNETCFLAGS = $(EXTRA_CFLAGS) $(CFLAGS) $(LIBC_INC) $(LIBNET_INC) \
+-	       -DDHCPARCH=0x1F -MMD -MP -MT $@ -MF $(@:%.o=%.d)
+-
+-%.o : $(SLOF_DIR)/lib/libnet/%.c
+-	$(call quiet-command,$(CC) $(LIBNETCFLAGS) -c -o $@ $<,Compiling)
+-
+-libnet.a: $(LIBNETOBJS)
+-	$(call quiet-command,$(AR) -rc $@ $^,Creating static library)
+-- 
+2.39.3
+
