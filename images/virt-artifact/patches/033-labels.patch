@@ -1,0 +1,37 @@
+diff --git a/pkg/virt-handler/notify-server/server.go b/pkg/virt-handler/notify-server/server.go
+index 783e00704e..db11340a4e 100644
+--- a/pkg/virt-handler/notify-server/server.go
++++ b/pkg/virt-handler/notify-server/server.go
+@@ -76,6 +76,12 @@ func (n *Notify) HandleDomainEvent(_ context.Context, request *notifyv1.DomainEv
+ 		}
+ 	}
+ 
++	log.Log.Object(domain).Infof("EVEEEEENT WAS RECEIVED %s", request.EventType)
++	v, ok := domain.Annotations["fooo"]
++	if ok {
++		log.Log.Object(domain).Infof("MODIFIED EVEEEEENT WAS RECEIVED %s %s", request.EventType, v)
++	}
++
+ 	log.Log.Object(domain).V(3).Infof("Received Domain Event of type %s", request.EventType)
+ 	switch request.EventType {
+ 	case string(watch.Added):
+diff --git a/pkg/virt-launcher/notify-client/client.go b/pkg/virt-launcher/notify-client/client.go
+index bb63f2eac5..b4ade745f7 100644
+--- a/pkg/virt-launcher/notify-client/client.go
++++ b/pkg/virt-launcher/notify-client/client.go
+@@ -352,6 +352,15 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
+ 			domain.Status.FSFreezeStatus = *fsFreezeStatus
+ 		}
+ 
++		if libvirtEvent.Event != nil && libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_SUSPENDED {
++			log.Log.Object(domain).Infof("SUSPEEEEEEEEEEENDEEED EVENT `%s`", libvirtEvent.Event.String())
++			if domain.Annotations == nil {
++				domain.Annotations = make(map[string]string)
++			}
++
++			domain.Annotations["fooo"] = "baar"
++		}
++
+ 		err := client.SendDomainEvent(watch.Event{Type: watch.Modified, Object: domain})
+ 		if err != nil {
+ 			log.Log.Reason(err).Error("Could not send domain notify event.")
