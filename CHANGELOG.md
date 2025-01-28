@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.16.0](https://github.com/deckhouse/virtualization/compare/v0.15.0...v0.16.0) (2025-01-28)
+
+
+### Features
+
+* **api:** add specification validation for correct VMI creation ([#627](https://github.com/deckhouse/virtualization/issues/627)) ([345db2d](https://github.com/deckhouse/virtualization/commit/345db2d0175a92bdaec1fb18e77392b16e418c3a))
+* **vmsnapshot:** add new events ([#647](https://github.com/deckhouse/virtualization/issues/647)) ([ab9fe54](https://github.com/deckhouse/virtualization/commit/ab9fe54176b11600181743b8d05f05a269943373))
+
+
+### Bug Fixes
+
+* **cdi:** fix cloning PVC to PVC ([#664](https://github.com/deckhouse/virtualization/issues/664)) ([f331af8](https://github.com/deckhouse/virtualization/commit/f331af835b017d4ab7008cde9e6e60da6a530d40))
+* **ci:** add color output to nightly e2e tests & fix exit code ([#671](https://github.com/deckhouse/virtualization/issues/671)) ([6c82174](https://github.com/deckhouse/virtualization/commit/6c82174b7ea93a9a9d6168512fefe3d883fb76d6))
+* fix expressions for restrict admission policy ([#656](https://github.com/deckhouse/virtualization/issues/656)) ([2ae60b2](https://github.com/deckhouse/virtualization/commit/2ae60b2557d716b8c4b2e1a87347034de10d7902))
+* **vd:** handle nil importer pod ([#649](https://github.com/deckhouse/virtualization/issues/649)) ([9afb71f](https://github.com/deckhouse/virtualization/commit/9afb71ff93fcf046853da28aa5c93b99d3815419))
+* **vi, cvi:** Add annotations to disable buffering for ingress used in image uploads ([a79d43b](https://github.com/deckhouse/virtualization/commit/a79d43bda80cf92c9235b44ffd7d9db2821e8bfb))
+* **vi, cvi:** Add annotations to disable buffering for ingress used in image uploads ([#655](https://github.com/deckhouse/virtualization/issues/655)) ([a79d43b](https://github.com/deckhouse/virtualization/commit/a79d43bda80cf92c9235b44ffd7d9db2821e8bfb))
+* **vi:** create from vd ([#663](https://github.com/deckhouse/virtualization/issues/663)) ([53e9d58](https://github.com/deckhouse/virtualization/commit/53e9d585cb0e8743d026bc20dd055d4f2e2aa6cb))
+* **vm:** allow crud over internal resources for sa in kube-system and d8 system namespaces ([#665](https://github.com/deckhouse/virtualization/issues/665)) ([885563e](https://github.com/deckhouse/virtualization/commit/885563edf54a28b26ae652ce2f75d003f2d99fa1))
+* **vmbda:** allow vmbda to be deleted when VirtualMachine is not running ([#653](https://github.com/deckhouse/virtualization/issues/653)) ([0ca8999](https://github.com/deckhouse/virtualization/commit/0ca8999900bff413320738e110e368a3549c8634))
+* **vm:** do not detect vmclass specification changes if vmclass is not found ([#660](https://github.com/deckhouse/virtualization/issues/660)) ([c5a7aeb](https://github.com/deckhouse/virtualization/commit/c5a7aebb44dd40357422e2f7ca8be8e2e7240dfb))
+* **vm:** Improve KVVM Builder. Add method SetMetadata ([#668](https://github.com/deckhouse/virtualization/issues/668)) ([9469bdc](https://github.com/deckhouse/virtualization/commit/9469bdc5db8f8942a47fc486100b6f9a81a0280c))
+* **vm:** Improved synchronization metadata for VirtualMachine child resources. ([#654](https://github.com/deckhouse/virtualization/issues/654)) ([38ede7a](https://github.com/deckhouse/virtualization/commit/38ede7a7e38d734747e680182e1950fdc0e735ee))
+
 ## [0.15.0](https://github.com/deckhouse/virtualization/compare/v0.14.1...v0.15.0) (2025-01-20)
 
 ### Features:
