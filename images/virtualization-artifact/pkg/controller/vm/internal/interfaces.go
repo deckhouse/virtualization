@@ -24,10 +24,10 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . EventRecorder IBlockDeviceService
+//go:generate moq -rm -out mock.go . EventRecorder BlockDeviceService
 
 type EventRecorder = record.EventRecorder
 
-type IBlockDeviceService interface {
+type BlockDeviceService interface {
 	CountBlockDevicesAttachedToVm(ctx context.Context, vm *virtv2.VirtualMachine) (int, error)
 }

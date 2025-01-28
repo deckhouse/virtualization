@@ -236,26 +236,26 @@ func (mock *EventRecorderMock) EventfCalls() []struct {
 	return calls
 }
 
-// Ensure, that IBlockDeviceServiceMock does implement IBlockDeviceService.
+// Ensure, that BlockDeviceServiceMock does implement BlockDeviceService.
 // If this is not the case, regenerate this file with moq.
-var _ IBlockDeviceService = &IBlockDeviceServiceMock{}
+var _ BlockDeviceService = &BlockDeviceServiceMock{}
 
-// IBlockDeviceServiceMock is a mock implementation of IBlockDeviceService.
+// BlockDeviceServiceMock is a mock implementation of BlockDeviceService.
 //
-//	func TestSomethingThatUsesIBlockDeviceService(t *testing.T) {
+//	func TestSomethingThatUsesBlockDeviceService(t *testing.T) {
 //
-//		// make and configure a mocked IBlockDeviceService
-//		mockedIBlockDeviceService := &IBlockDeviceServiceMock{
+//		// make and configure a mocked BlockDeviceService
+//		mockedBlockDeviceService := &BlockDeviceServiceMock{
 //			CountBlockDevicesAttachedToVmFunc: func(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
 //				panic("mock out the CountBlockDevicesAttachedToVm method")
 //			},
 //		}
 //
-//		// use mockedIBlockDeviceService in code that requires IBlockDeviceService
+//		// use mockedBlockDeviceService in code that requires BlockDeviceService
 //		// and then make assertions.
 //
 //	}
-type IBlockDeviceServiceMock struct {
+type BlockDeviceServiceMock struct {
 	// CountBlockDevicesAttachedToVmFunc mocks the CountBlockDevicesAttachedToVm method.
 	CountBlockDevicesAttachedToVmFunc func(ctx context.Context, vm *virtv2.VirtualMachine) (int, error)
 
@@ -273,9 +273,9 @@ type IBlockDeviceServiceMock struct {
 }
 
 // CountBlockDevicesAttachedToVm calls CountBlockDevicesAttachedToVmFunc.
-func (mock *IBlockDeviceServiceMock) CountBlockDevicesAttachedToVm(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
+func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVm(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
 	if mock.CountBlockDevicesAttachedToVmFunc == nil {
-		panic("IBlockDeviceServiceMock.CountBlockDevicesAttachedToVmFunc: method is nil but IBlockDeviceService.CountBlockDevicesAttachedToVm was just called")
+		panic("BlockDeviceServiceMock.CountBlockDevicesAttachedToVmFunc: method is nil but BlockDeviceService.CountBlockDevicesAttachedToVm was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -293,8 +293,8 @@ func (mock *IBlockDeviceServiceMock) CountBlockDevicesAttachedToVm(ctx context.C
 // CountBlockDevicesAttachedToVmCalls gets all the calls that were made to CountBlockDevicesAttachedToVm.
 // Check the length with:
 //
-//	len(mockedIBlockDeviceService.CountBlockDevicesAttachedToVmCalls())
-func (mock *IBlockDeviceServiceMock) CountBlockDevicesAttachedToVmCalls() []struct {
+//	len(mockedBlockDeviceService.CountBlockDevicesAttachedToVmCalls())
+func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVmCalls() []struct {
 	Ctx context.Context
 	VM  *virtv2.VirtualMachine
 } {

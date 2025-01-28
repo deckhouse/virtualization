@@ -42,7 +42,7 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 	var vdFoo *virtv2.VirtualDisk
 	var vdBar *virtv2.VirtualDisk
 
-	blockDeviceHandlerMock := &IBlockDeviceServiceMock{}
+	blockDeviceHandlerMock := &BlockDeviceServiceMock{}
 	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
 		return 1, nil
 	}
@@ -158,7 +158,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 	var vdFoo *virtv2.VirtualDisk
 	var vdBar *virtv2.VirtualDisk
 
-	blockDeviceHandlerMock := &IBlockDeviceServiceMock{}
+	blockDeviceHandlerMock := &BlockDeviceServiceMock{}
 	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
 		return 1, nil
 	}

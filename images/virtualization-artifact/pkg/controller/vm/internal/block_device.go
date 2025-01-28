@@ -43,7 +43,7 @@ import (
 
 const nameBlockDeviceHandler = "BlockDeviceHandler"
 
-func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger, blockDeviceService IBlockDeviceService) *BlockDeviceHandler {
+func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger, blockDeviceService BlockDeviceService) *BlockDeviceHandler {
 	return &BlockDeviceHandler{
 		client:             cl,
 		recorder:           recorder,
@@ -58,7 +58,7 @@ func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderL
 type BlockDeviceHandler struct {
 	client             client.Client
 	recorder           eventrecord.EventRecorderLogger
-	blockDeviceService IBlockDeviceService
+	blockDeviceService BlockDeviceService
 
 	viProtection  *service.ProtectionService
 	cviProtection *service.ProtectionService
@@ -97,8 +97,8 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, fmt.Errorf("unable to add block devices finalizers: %w", err)
 	}
 
-	// Get number of connected block devices
-	// If it is greater limit then set condition to false
+	// Get number of connected block devices.
+	// If it's greater than the limit, then set the condition to false.
 	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVm(ctx, changed)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -108,8 +108,8 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDeviceLimitExceeded).
-			Message(fmt.Sprintf("Can not attach %d block devices (%d is maximum) to `VirtualMachine` %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, changed.Name))
-		return reconcile.Result{Requeue: true}, nil
+			Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, changed.Name))
+		return reconcile.Result{}, nil
 	}
 
 	// Get hot plugged BlockDeviceRefs from vmbdas.
