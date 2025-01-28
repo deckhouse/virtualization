@@ -92,7 +92,16 @@ func PortForwardLocation(
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
 	streamPath := buildPortForwardResourcePath(opts)
-	return streamLocation(ctx, getter, name, opts, newKVVMIPather(streamPath), kubevirt, proxyCertManager)
+	return streamLocation(
+		ctx,
+		getter,
+		name,
+		opts,
+		newKVVMIPather(streamPath),
+		kubevirt,
+		proxyCertManager,
+		virtualMachineNeedRunning,
+	)
 }
 
 func buildPortForwardResourcePath(opts *subresources.VirtualMachinePortForward) string {

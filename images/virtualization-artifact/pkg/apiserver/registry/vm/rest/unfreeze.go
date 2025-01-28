@@ -87,5 +87,14 @@ func UnfreezeLocation(
 	kubevirt KubevirtApiServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, newKVVMIPather("unfreeze"), kubevirt, proxyCertManager)
+	return streamLocation(
+		ctx,
+		getter,
+		name,
+		opts,
+		newKVVMIPather("unfreeze"),
+		kubevirt,
+		proxyCertManager,
+		virtualMachineNeedRunning,
+	)
 }
