@@ -42,7 +42,7 @@ shell:
 #     LANG: ""
 #     LC_ALL: POSIX
 ---
-{{- $versionLibvirt := "10.10.0" }}
+{{- $versionLibvirt := "10.9.0" }}
 
 image: {{ $.ImageName }}-prepared
 final: false
@@ -156,9 +156,6 @@ shell:
   # Link to dir OVMF
   - |
     mkdir -p /usr/share/OVMF
-    # mkdir -p /usr/share/edk2
-    # ln -s /usr/share/OVMF /usr/share/edk2/ovmf
-    # ln -s /usr/share/OVMF/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.cc.fd
 
     echo "Create symlinks for OVMF"
     ln -sf /usr/share/edk2/ovmf/OVMF_CODE.fd         /usr/share/edk2/ovmf/OVMF_CODE.cc.fd
@@ -168,8 +165,6 @@ shell:
     ln -s /usr/share/edk2/ovmf/OVMF_VARS.fd         /usr/share/OVMF
     ln -s /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd /usr/share/OVMF
     ln -s /usr/share/edk2/ovmf/UefiShell.iso        /usr/share/OVMF
-    
-    # ln -s /usr/share/edk2/ovmf/OVMF_CODE.cc.fd /usr/share/edk2/ovmf/OVMF_CODE.fd
 
   # Create symlinc for libvirt
   - |
@@ -209,7 +204,7 @@ shell:
   - chmod +x /usr/bin/virt-launcher-monitor
 
   - |
-    # [[ ! -e /usr/bin/cp ]] && ln -s /bin/cp /usr/bin/cp
+    [[ ! -e /usr/bin/cp ]] && ln -s /bin/cp /usr/bin/cp
   - mkdir -p /init/usr/bin && ln -s /usr/bin/container-disk /init/usr/bin/container-disk
   
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-launcher/BUILD.bazel
