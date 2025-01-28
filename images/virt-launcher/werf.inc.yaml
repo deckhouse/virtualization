@@ -58,15 +58,18 @@ import:
   before: install
   includePaths:
   - usr
+
 - image: edk2-artifact
   add: /FIRMWARE/
-  to: /usr/share/OVMF
+  to: /usr/share/edk2/ovmf
+  # to: /usr/share/OVMF
   before: install
   includePaths:
   - '*.fd'
   - '*.bin'
   - '*.efi'
   - '*.iso'
+
 - image: edk2-artifact
   add: /FIRMWARE/
   to: /usr/share/qemu/firmware
@@ -148,9 +151,16 @@ shell:
 
   # Link to dir OVMF
   - |
-    mkdir -p /usr/share/edk2
-    ln -s /usr/share/OVMF /usr/share/edk2/ovmf
-    ln -s /usr/share/OVMF/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.cc.fd
+    mkdir -p /usr/share/OVMF
+    # mkdir -p /usr/share/edk2
+    # ln -s /usr/share/OVMF /usr/share/edk2/ovmf
+    # ln -s /usr/share/OVMF/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.cc.fd
+
+    ln -s /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd /usr/share/OVMF
+    ln -s /usr/share/edk2/ovmf/OVMF_VARS.fd         /usr/share/OVMF
+    ln -s /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd /usr/share/OVMF
+    ln -s /usr/share/edk2/ovmf/UefiShell.iso        /usr/share/OVMF
+    ln -s /usr/share/edk2/ovmf/OVMF_CODE.fd /usr/share/edk2/ovmf/OVMF_CODE.cc.fd
 
   # Create symlinc for libvirt
   - |
