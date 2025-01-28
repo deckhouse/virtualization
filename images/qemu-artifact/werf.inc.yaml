@@ -308,6 +308,7 @@ shell:
 
   setup:
   - |
-    /install-qemu.sh -s /{{ $gitRepoName }}-{{ $versionQemu }} \
+    /install-qemu.sh --version-num "{{ $versionQemu }}" \
+                        -s /{{ $gitRepoName }}-{{ $versionQemu }} \
                         -d /BINS \
                         -b build

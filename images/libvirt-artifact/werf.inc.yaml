@@ -241,6 +241,7 @@ shell:
 */}}
   setup:
   - |    
-    /install-libvirt.sh -s /{{ $gitRepoName }}-{{ $versionLibvirt }} \
+    /install-libvirt.sh --version-num "{{ $versionLibvirt }}" \
+                        -s /{{ $gitRepoName }}-{{ $versionLibvirt }} \
                         -d /BINS \
                         -b build
