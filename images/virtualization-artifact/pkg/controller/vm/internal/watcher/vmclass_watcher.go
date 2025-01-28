@@ -43,7 +43,7 @@ func NewVirtualMachineClassWatcher() *VirtualMachineClassWatcher {
 
 func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineClass{}),
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
 			c := mgr.GetClient()
 			vms := &virtv2.VirtualMachineList{}
