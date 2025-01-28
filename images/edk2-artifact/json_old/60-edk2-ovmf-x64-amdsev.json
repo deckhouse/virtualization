@@ -1,11 +1,15 @@
 {
-    "description": "OVMF with TDX support",
+    "description": "OVMF with SEV-ES support",
     "interface-types": [
         "uefi"
     ],
     "mapping": {
-        "device": "memory",
-        "filename": "/usr/share/edk2/ovmf/OVMF.inteltdx.secboot.fd"
+        "device": "flash",
+        "mode": "stateless",
+        "executable": {
+            "filename": "/usr/share/OVMF/OVMF.amdsev.fd",
+            "format": "raw"
+        }
     },
     "targets": [
         {
@@ -16,9 +20,9 @@
         }
     ],
     "features": [
-        "enrolled-keys",
-        "intel-tdx",
-        "secure-boot",
+        "amd-sev",
+        "amd-sev-es",
+        "amd-sev-snp",
         "verbose-dynamic"
     ],
     "tags": [
