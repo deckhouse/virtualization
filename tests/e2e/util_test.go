@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -207,7 +208,7 @@ func GetObject(resource kc.Resource, name string, object client.Object, opts kc.
 	}
 	cmd := kubectl.GetResource(resource, name, cmdOpts)
 	if cmd.Error() != nil {
-		return fmt.Errorf(cmd.StdErr())
+		return errors.New(cmd.StdErr())
 	}
 	err := json.Unmarshal(cmd.StdOutBytes(), object)
 	if err != nil {
@@ -302,7 +303,7 @@ func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 	var scList storagev1.StorageClassList
 	res := kubectl.List(kc.ResourceStorageClass, kc.GetOptions{Output: "json"})
 	if !res.WasSuccess() {
-		return nil, fmt.Errorf(res.StdErr())
+		return nil, errors.New(res.StdErr())
 	}
 
 	err := json.Unmarshal([]byte(res.StdOut()), &scList)
@@ -459,31 +460,35 @@ type ResourcesToDelete struct {
 
 // This function checks that all resources in test case can be deleted correctly.
 func DeleteTestCaseResources(resources ResourcesToDelete) {
-	By("Response on deletion request should be successful")
-	const errMessage = "cannot delete test case resources"
+	By("Response on deletion request should be successful", func() {
+		const errMessage = "cannot delete test case resources"
 
-	if resources.KustomizationDir != "" {
-		res := kubectl.Delete(kc.DeleteOptions{
-			Filename:       []string{resources.KustomizationDir},
-			FilenameOption: kc.Kustomize,
-		})
-		Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\ncmd: %s\nstderr: %s", errMessage, resources.KustomizationDir, res.GetCmd(), res.StdErr()))
-	}
+		if resources.KustomizationDir != "" {
+			kustimizationFile := fmt.Sprintf("%s/%s", resources.KustomizationDir, "kustomization.yaml")
+			err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
+			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\nstderr: %s", errMessage, resources.KustomizationDir, err))
+			res := kubectl.Delete(kc.DeleteOptions{
+				Filename:       []string{resources.KustomizationDir},
+				FilenameOption: kc.Kustomize,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\ncmd: %s\nstderr: %s", errMessage, resources.KustomizationDir, res.GetCmd(), res.StdErr()))
+		}
 
-	for _, r := range resources.AdditionalResources {
-		res := kubectl.Delete(kc.DeleteOptions{
-			Labels:    r.Labels,
-			Namespace: conf.Namespace,
-			Resource:  r.Resource,
-		})
-		Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr()))
-	}
+		for _, r := range resources.AdditionalResources {
+			res := kubectl.Delete(kc.DeleteOptions{
+				Labels:    r.Labels,
+				Namespace: conf.Namespace,
+				Resource:  r.Resource,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr()))
+		}
 
-	if len(resources.Files) != 0 {
-		res := kubectl.Delete(kc.DeleteOptions{
-			Filename:       resources.Files,
-			FilenameOption: kc.Filename,
-		})
-		Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr()))
-	}
+		if len(resources.Files) != 0 {
+			res := kubectl.Delete(kc.DeleteOptions{
+				Filename:       resources.Files,
+				FilenameOption: kc.Filename,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr()))
+		}
+	})
 }
