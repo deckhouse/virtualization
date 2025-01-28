@@ -37,10 +37,10 @@ shell:
       # delete docs
       echo "Delete docs"
       rm -rf /usr/share/doc/*
-docker:
-  ENV:
-    LANG: ""
-    LC_ALL: POSIX
+# docker:
+#   ENV:
+#     LANG: ""
+#     LC_ALL: POSIX
 ---
 {{- $versionLibvirt := "10.10.0" }}
 
