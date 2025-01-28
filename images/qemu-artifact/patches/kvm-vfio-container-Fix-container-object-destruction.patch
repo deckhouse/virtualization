@@ -1,0 +1,61 @@
+From 18d64190c2bb43d42e02ea250ffe40b8ba4970f3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?C=C3=A9dric=20Le=20Goater?= <clg@redhat.com>
+Date: Mon, 18 Nov 2024 16:34:30 +0100
+Subject: [PATCH 1/2] vfio/container: Fix container object destruction
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RH-Author: Cédric Le Goater <clg@redhat.com>
+RH-MergeRequest: 293: vfio/container: Fix container object destruction
+RH-Jira: RHEL-67935
+RH-Acked-by: Eric Auger <eric.auger@redhat.com>
+RH-Acked-by: Alex Williamson <None>
+RH-Commit: [1/1] cddda9554b1a858a7265d4ed9b81fdac46772a2c (clegoate/qemu-kvm-centos)
+
+JIRA: https://issues.redhat.com/browse/RHEL-67935
+
+commit ebbf7c60bbd1ceedf9faf962e428ceda2388c248
+Author: Cédric Le Goater <clg@redhat.com>
+Date:   Fri Nov 15 09:34:40 2024 +0100
+
+    vfio/container: Fix container object destruction
+
+    When commit 96b7af4388b3 intoduced a .instance_finalize() handler,
+    it did not take into account that the container was not necessarily
+    inserted into the container list of the address space. Hence, if
+    the container object is destroyed, by calling object_unref() for
+    example, before vfio_address_space_insert() is called, QEMU may
+    crash when removing the container from the list as done in
+    vfio_container_instance_finalize(). This was seen with an SEV-SNP
+    guest for which discarding of RAM fails.
+
+    To resolve this issue, use the safe version of QLIST_REMOVE().
+
+    Cc: Zhenzhong Duan <zhenzhong.duan@intel.com>
+    Cc: Eric Auger <eric.auger@redhat.com>
+    Fixes: 96b7af4388b3 ("vfio/container: Move vfio_container_destroy() to an instance_finalize() handler")
+    Reviewed-by: Zhenzhong Duan <zhenzhong.duan@intel.com>
+    Signed-off-by: Cédric Le Goater <clg@redhat.com>
+
+Signed-off-by: Cédric Le Goater <clg@redhat.com>
+---
+ hw/vfio/container-base.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hw/vfio/container-base.c b/hw/vfio/container-base.c
+index 809b157674..6f86c37d97 100644
+--- a/hw/vfio/container-base.c
++++ b/hw/vfio/container-base.c
+@@ -103,7 +103,7 @@ static void vfio_container_instance_finalize(Object *obj)
+     VFIOContainerBase *bcontainer = VFIO_IOMMU(obj);
+     VFIOGuestIOMMU *giommu, *tmp;
+ 
+-    QLIST_REMOVE(bcontainer, next);
++    QLIST_SAFE_REMOVE(bcontainer, next);
+ 
+     QLIST_FOREACH_SAFE(giommu, &bcontainer->giommu_list, giommu_next, tmp) {
+         memory_region_unregister_iommu_notifier(
+-- 
+2.45.1
+

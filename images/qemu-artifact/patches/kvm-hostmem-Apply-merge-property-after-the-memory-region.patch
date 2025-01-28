@@ -1,0 +1,61 @@
+From 34266f76ec5c96aceee89d1dd25c338af81f99dc Mon Sep 17 00:00:00 2001
+From: Gavin Shan <gshan@redhat.com>
+Date: Wed, 20 Nov 2024 17:13:44 +1000
+Subject: [PATCH 2/2] hostmem: Apply merge property after the memory region is
+ initialized
+
+RH-Author: Gavin Shan <gshan@redhat.com>
+RH-MergeRequest: 296: hostmem: Apply merge property after the memory region is initialized
+RH-Jira: RHEL-68289
+RH-Acked-by: David Hildenbrand <david@redhat.com>
+RH-Acked-by: Eric Auger <eric.auger@redhat.com>
+RH-Acked-by: Sebastian Ott <sebott@redhat.com>
+RH-Commit: [1/1] fc01302c3299a15fd523247e5a3df0957becba6a (gwshan/qemu-centos)
+
+JIRA: https://issues.redhat.com/browse/RHEL-68289
+
+The semantic change has been introduced by commit 5becdc0ab0 ("hostmem:
+simplify the code for merge and dump properties") even it clarifies that
+no senmatic change has been introduced. After the commit, the merge
+property can be applied even the corresponding memory region isn't
+initialized yet. This leads to crash dump by the following command
+lines.
+
+  # /home/gavin/sandbox/qemu.main/build/qemu-system-aarch64  \
+    -accel kvm  -machine virt -cpu host                      \
+    -object memory-backend-ram,id=mem-memN0,size=4096M,merge=off
+    :
+    qemu-system-aarch64: ../system/memory.c:2419: memory_region_get_ram_ptr: \
+    Assertion `mr->ram_block' failed.
+
+Fix it by applying the merge property only when the memory region is
+initialized.
+
+Message-ID: <20240915233117.478169-1-gshan@redhat.com>
+Fixes: 5becdc0ab083 ("hostmem: simplify the code for merge and dump properties")
+Reported-by: Zhenyu Zhang <zhenyzha@redhat.com>
+Tested-by: Zhenyu Zhang <zhenyzha@redhat.com>
+Signed-off-by: Gavin Shan <gshan@redhat.com>
+Signed-off-by: David Hildenbrand <david@redhat.com>
+(cherry picked from commit 78c8f780d3f0d6d17aa93d6f99ff72960080fdd7)
+Signed-off-by: Gavin Shan <gshan@redhat.com>
+---
+ backends/hostmem.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/backends/hostmem.c b/backends/hostmem.c
+index 4e5576a4ad..181446626a 100644
+--- a/backends/hostmem.c
++++ b/backends/hostmem.c
+@@ -178,7 +178,7 @@ static void host_memory_backend_set_merge(Object *obj, bool value, Error **errp)
+         return;
+     }
+ 
+-    if (!host_memory_backend_mr_inited(backend) &&
++    if (host_memory_backend_mr_inited(backend) &&
+         value != backend->merge) {
+         void *ptr = memory_region_get_ram_ptr(&backend->mr);
+         uint64_t sz = memory_region_size(&backend->mr);
+-- 
+2.45.1
+

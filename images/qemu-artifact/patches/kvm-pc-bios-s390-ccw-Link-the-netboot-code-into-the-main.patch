@@ -1,0 +1,263 @@
+From 5dd12012ec95bbac035a7a8b22216082def604f3 Mon Sep 17 00:00:00 2001
+From: Jared Rossi <jrossi@linux.ibm.com>
+Date: Sat, 19 Oct 2024 21:29:37 -0400
+Subject: [PATCH 03/27] pc-bios/s390-ccw: Link the netboot code into the main
+ s390-ccw.img binary
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RH-Author: Thomas Huth <thuth@redhat.com>
+RH-MergeRequest: 277: Full boot order support for s390x [CentOS 9]
+RH-Jira: RHEL-11424
+RH-Acked-by: Cédric Le Goater <clg@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Commit: [3/23] d369fc67aa9e10ba97618182e8f9681d151bcc49 (thuth/qemu-kvm-cs9)
+
+We originally built a separate binary for the netboot code since it
+was considered as experimental and we could not be sure that the
+necessary SLOF module had been checked out. Time passed, the code
+proved its usefulness, and the build system nowadays makes sure that
+the SLOF module is checked out if you have a s390x compiler available
+for building the s390-ccw bios. So there is no real compelling reason
+anymore to keep the netboot code in a separate binary. Linking the
+code together with the main s390-ccw.img will make future enhancements
+much easier, like supporting more than one boot device.
+
+Co-authored by: Thomas Huth <thuth@redhat.com>
+Signed-off-by: Jared Rossi <jrossi@linux.ibm.com>
+Message-ID: <20241020012953.1380075-4-jrossi@linux.ibm.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+(cherry picked from commit 8e5739ce4b0b04d7121cb2b29521acde2a8f3a24)
+---
+ pc-bios/s390-ccw/Makefile    | 13 +++++++------
+ pc-bios/s390-ccw/bootmap.c   |  2 +-
+ pc-bios/s390-ccw/cio.h       |  2 ++
+ pc-bios/s390-ccw/iplb.h      |  4 ++--
+ pc-bios/s390-ccw/main.c      | 10 +++++++---
+ pc-bios/s390-ccw/netboot.mak | 14 --------------
+ pc-bios/s390-ccw/netmain.c   | 15 ++-------------
+ pc-bios/s390-ccw/s390-ccw.h  |  3 +++
+ pc-bios/s390-ccw/virtio.h    |  1 -
+ 9 files changed, 24 insertions(+), 40 deletions(-)
+
+diff --git a/pc-bios/s390-ccw/Makefile b/pc-bios/s390-ccw/Makefile
+index 3f4232636e..cf6859823a 100644
+--- a/pc-bios/s390-ccw/Makefile
++++ b/pc-bios/s390-ccw/Makefile
+@@ -32,19 +32,20 @@ QEMU_DGFLAGS = -MMD -MP -MT $@ -MF $(@D)/$(*F).d
+ 
+ .PHONY : all clean build-all distclean
+ 
+-OBJECTS = start.o main.o bootmap.o jump2ipl.o sclp.o menu.o \
+-	  virtio.o virtio-scsi.o virtio-blkdev.o cio.o dasd-ipl.o
++OBJECTS = start.o main.o bootmap.o jump2ipl.o sclp.o menu.o netmain.o \
++	  virtio.o virtio-net.o virtio-scsi.o virtio-blkdev.o cio.o dasd-ipl.o
+ 
+ SLOF_DIR := $(SRC_PATH)/../../roms/SLOF
+ 
+ LIBC_INC := -nostdinc -I$(SLOF_DIR)/lib/libc/include
++LIBNET_INC := -I$(SLOF_DIR)/lib/libnet
+ 
+ EXTRA_CFLAGS += -Wall
+ EXTRA_CFLAGS += -ffreestanding -fno-delete-null-pointer-checks -fno-common -fPIE
+ EXTRA_CFLAGS += -fwrapv -fno-strict-aliasing -fno-asynchronous-unwind-tables
+ EXTRA_CFLAGS += -msoft-float
+ EXTRA_CFLAGS += -std=gnu99
+-EXTRA_CFLAGS += $(LIBC_INC)
++EXTRA_CFLAGS += $(LIBC_INC) $(LIBNET_INC)
+ LDFLAGS += -Wl,-pie -nostdlib -z noexecstack
+ 
+ cc-test = $(CC) -Werror $1 -c -o /dev/null -xc /dev/null >/dev/null 2>/dev/null
+@@ -62,9 +63,9 @@ config-cc.mak: Makefile
+ 
+ include $(SRC_PATH)/netboot.mak
+ 
+-build-all: s390-ccw.img s390-netboot.img
++build-all: s390-ccw.img
+ 
+-s390-ccw.elf: $(OBJECTS) libc.a
++s390-ccw.elf: $(OBJECTS) libnet.a libc.a
+ 	$(call quiet-command,$(CC) $(LDFLAGS) -o $@ $^,Linking)
+ 
+ s390-ccw.img: s390-ccw.elf
+@@ -72,7 +73,7 @@ s390-ccw.img: s390-ccw.elf
+ 
+ $(OBJECTS): Makefile
+ 
+-ALL_OBJS = $(sort $(OBJECTS) $(NETOBJS) $(LIBCOBJS) $(LIBNETOBJS))
++ALL_OBJS = $(sort $(OBJECTS) $(LIBCOBJS) $(LIBNETOBJS))
+ -include $(ALL_OBJS:%.o=%.d)
+ 
+ clean:
+diff --git a/pc-bios/s390-ccw/bootmap.c b/pc-bios/s390-ccw/bootmap.c
+index 3cc79706be..414c3f1b47 100644
+--- a/pc-bios/s390-ccw/bootmap.c
++++ b/pc-bios/s390-ccw/bootmap.c
+@@ -929,7 +929,7 @@ void zipl_load(void)
+     }
+ 
+     if (virtio_get_device_type() == VIRTIO_ID_NET) {
+-        jump_to_IPL_code(vdev->netboot_start_addr);
++        netmain();
+     }
+ 
+     ipl_scsi();
+diff --git a/pc-bios/s390-ccw/cio.h b/pc-bios/s390-ccw/cio.h
+index 8b18153deb..6a5e86ba01 100644
+--- a/pc-bios/s390-ccw/cio.h
++++ b/pc-bios/s390-ccw/cio.h
+@@ -361,6 +361,8 @@ typedef struct CcwSearchIdData {
+     uint8_t record;
+ } __attribute__((packed)) CcwSearchIdData;
+ 
++extern SubChannelId net_schid;
++
+ int enable_mss_facility(void);
+ void enable_subchannel(SubChannelId schid);
+ uint16_t cu_type(SubChannelId schid);
+diff --git a/pc-bios/s390-ccw/iplb.h b/pc-bios/s390-ccw/iplb.h
+index cb6ac8a880..3758698468 100644
+--- a/pc-bios/s390-ccw/iplb.h
++++ b/pc-bios/s390-ccw/iplb.h
+@@ -87,9 +87,9 @@ extern IplParameterBlock iplb __attribute__((__aligned__(PAGE_SIZE)));
+ struct QemuIplParameters {
+     uint8_t  qipl_flags;
+     uint8_t  reserved1[3];
+-    uint64_t netboot_start_addr;
++    uint64_t reserved2;
+     uint32_t boot_menu_timeout;
+-    uint8_t  reserved2[12];
++    uint8_t  reserved3[12];
+ } __attribute__ ((packed));
+ typedef struct QemuIplParameters QemuIplParameters;
+ 
+diff --git a/pc-bios/s390-ccw/main.c b/pc-bios/s390-ccw/main.c
+index 203df20965..fc44da3161 100644
+--- a/pc-bios/s390-ccw/main.c
++++ b/pc-bios/s390-ccw/main.c
+@@ -38,8 +38,13 @@ LowCore *lowcore; /* Yes, this *is* a pointer to address 0 */
+  */
+ void write_subsystem_identification(void)
+ {
+-    lowcore->subchannel_id = blk_schid.sch_id;
+-    lowcore->subchannel_nr = blk_schid.sch_no;
++    if (cutype == CU_TYPE_VIRTIO && virtio_get_device_type() == VIRTIO_ID_NET) {
++        lowcore->subchannel_id = net_schid.sch_id;
++        lowcore->subchannel_nr = net_schid.sch_no;
++    } else {
++        lowcore->subchannel_id = blk_schid.sch_id;
++        lowcore->subchannel_nr = blk_schid.sch_no;
++    }
+     lowcore->io_int_parm = 0;
+ }
+ 
+@@ -231,7 +236,6 @@ static int virtio_setup(void)
+     switch (vdev->senseid.cu_model) {
+     case VIRTIO_ID_NET:
+         puts("Network boot device detected");
+-        vdev->netboot_start_addr = qipl.netboot_start_addr;
+         return 0;
+     case VIRTIO_ID_BLOCK:
+         ret = virtio_blk_setup_device(blk_schid);
+diff --git a/pc-bios/s390-ccw/netboot.mak b/pc-bios/s390-ccw/netboot.mak
+index d2b3d8ee74..0a24257ff4 100644
+--- a/pc-bios/s390-ccw/netboot.mak
++++ b/pc-bios/s390-ccw/netboot.mak
+@@ -1,18 +1,4 @@
+ 
+-NETOBJS := start.o sclp.o cio.o virtio.o virtio-net.o jump2ipl.o netmain.o
+-
+-LIBNET_INC := -I$(SLOF_DIR)/lib/libnet
+-
+-NETLDFLAGS := $(LDFLAGS) -Wl,-Ttext=0x7800000
+-
+-$(NETOBJS): EXTRA_CFLAGS += $(LIBC_INC) $(LIBNET_INC)
+-
+-s390-netboot.elf: $(NETOBJS) libnet.a libc.a
+-	$(call quiet-command,$(CC) $(NETLDFLAGS) -o $@ $^,Linking)
+-
+-s390-netboot.img: s390-netboot.elf
+-	$(call quiet-command,$(STRIP) --strip-unneeded $< -o $@,Stripping $< into)
+-
+ # libc files:
+ 
+ LIBC_CFLAGS = $(EXTRA_CFLAGS) $(CFLAGS) $(LIBC_INC) $(LIBNET_INC) \
+diff --git a/pc-bios/s390-ccw/netmain.c b/pc-bios/s390-ccw/netmain.c
+index 509119be15..bc6ad8695f 100644
+--- a/pc-bios/s390-ccw/netmain.c
++++ b/pc-bios/s390-ccw/netmain.c
+@@ -41,7 +41,6 @@
+ #define DEFAULT_TFTP_RETRIES 20
+ 
+ extern char _start[];
+-void write_iplb_location(void) {}
+ 
+ #define KERNEL_ADDR             ((void *)0L)
+ #define KERNEL_MAX_SIZE         ((long)_start)
+@@ -50,10 +49,9 @@ void write_iplb_location(void) {}
+ /* STSI 3.2.2 offset of first vmdb + offset of uuid inside vmdb */
+ #define STSI322_VMDB_UUID_OFFSET ((8 + 12) * 4)
+ 
+-IplParameterBlock iplb __attribute__((aligned(PAGE_SIZE)));
+ static char cfgbuf[2048];
+ 
+-static SubChannelId net_schid = { .one = 1 };
++SubChannelId net_schid = { .one = 1 };
+ static uint8_t mac[6];
+ static uint64_t dest_timer;
+ 
+@@ -438,15 +436,6 @@ static int net_try_direct_tftp_load(filename_ip_t *fn_ip)
+     return rc;
+ }
+ 
+-void write_subsystem_identification(void)
+-{
+-    SubChannelId *schid = (SubChannelId *) 184;
+-    uint32_t *zeroes = (uint32_t *) 188;
+-
+-    *schid = net_schid;
+-    *zeroes = 0;
+-}
+-
+ static bool find_net_dev(Schib *schib, int dev_no)
+ {
+     int i, r;
+@@ -509,7 +498,7 @@ static void virtio_setup(void)
+     IPL_assert(found, "No virtio net device found");
+ }
+ 
+-void main(void)
++void netmain(void)
+ {
+     filename_ip_t fn_ip;
+     int rc, fnlen;
+diff --git a/pc-bios/s390-ccw/s390-ccw.h b/pc-bios/s390-ccw/s390-ccw.h
+index 6f6d95d170..6abb34e563 100644
+--- a/pc-bios/s390-ccw/s390-ccw.h
++++ b/pc-bios/s390-ccw/s390-ccw.h
+@@ -55,6 +55,9 @@ void write_iplb_location(void);
+ unsigned int get_loadparm_index(void);
+ void main(void);
+ 
++/* netmain.c */
++void netmain(void);
++
+ /* sclp.c */
+ void sclp_print(const char *string);
+ void sclp_set_write_mask(uint32_t receive_mask, uint32_t send_mask);
+diff --git a/pc-bios/s390-ccw/virtio.h b/pc-bios/s390-ccw/virtio.h
+index 85bd9d1695..6f9a558ff5 100644
+--- a/pc-bios/s390-ccw/virtio.h
++++ b/pc-bios/s390-ccw/virtio.h
+@@ -253,7 +253,6 @@ struct VDev {
+     uint8_t scsi_dev_heads;
+     bool scsi_device_selected;
+     ScsiDevice selected_scsi_device;
+-    uint64_t netboot_start_addr;
+     uint32_t max_transfer;
+     uint32_t guest_features[2];
+ };
+-- 
+2.39.3
+

@@ -1,0 +1,76 @@
+From 38df1fff536527bf47e190d000d8c05679f0f220 Mon Sep 17 00:00:00 2001
+From: Jared Rossi <jrossi@linux.ibm.com>
+Date: Sat, 19 Oct 2024 21:29:52 -0400
+Subject: [PATCH 19/27] docs/system: Update documentation for s390x IPL
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RH-Author: Thomas Huth <thuth@redhat.com>
+RH-MergeRequest: 277: Full boot order support for s390x [CentOS 9]
+RH-Jira: RHEL-11424
+RH-Acked-by: Cédric Le Goater <clg@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Commit: [19/23] feefab248336e1744eeb6bdf86e9033fe8184b3a (thuth/qemu-kvm-cs9)
+
+Update docs to show that s390x PC BIOS can support more than one boot device.
+
+Signed-off-by: Jared Rossi <jrossi@linux.ibm.com>
+Reviewed-by: Thomas Huth <thuth@redhat.com>
+Message-ID: <20241020012953.1380075-19-jrossi@linux.ibm.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+(cherry picked from commit 0bd107138ff0b171e3cd314dbc200950bcab2b05)
+---
+ docs/system/bootindex.rst         | 7 ++++---
+ docs/system/s390x/bootdevices.rst | 9 ++++++---
+ 2 files changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/docs/system/bootindex.rst b/docs/system/bootindex.rst
+index 8b057f812f..988f7b3beb 100644
+--- a/docs/system/bootindex.rst
++++ b/docs/system/bootindex.rst
+@@ -49,10 +49,11 @@ Limitations
+ -----------
+ 
+ Some firmware has limitations on which devices can be considered for
+-booting.  For instance, the PC BIOS boot specification allows only one
+-disk to be bootable.  If boot from disk fails for some reason, the BIOS
++booting.  For instance, the x86 PC BIOS boot specification allows only one
++disk to be bootable.  If boot from disk fails for some reason, the x86 BIOS
+ won't retry booting from other disk.  It can still try to boot from
+-floppy or net, though.
++floppy or net, though. In the case of s390x BIOS, the BIOS will try up to
++8 total devices, any number of which may be disks.
+ 
+ Sometimes, firmware cannot map the device path QEMU wants firmware to
+ boot from to a boot method.  It doesn't happen for devices the firmware
+diff --git a/docs/system/s390x/bootdevices.rst b/docs/system/s390x/bootdevices.rst
+index c97efb8fc0..1a1a764c1c 100644
+--- a/docs/system/s390x/bootdevices.rst
++++ b/docs/system/s390x/bootdevices.rst
+@@ -6,9 +6,7 @@ Booting with bootindex parameter
+ 
+ For classical mainframe guests (i.e. LPAR or z/VM installations), you always
+ have to explicitly specify the disk where you want to boot from (or "IPL" from,
+-in s390x-speak -- IPL means "Initial Program Load"). In particular, there can
+-also be only one boot device according to the architecture specification, thus
+-specifying multiple boot devices is not possible (yet).
++in s390x-speak -- IPL means "Initial Program Load").
+ 
+ So for booting an s390x guest in QEMU, you should always mark the
+ device where you want to boot from with the ``bootindex`` property, for
+@@ -17,6 +15,11 @@ example::
+  qemu-system-s390x -drive if=none,id=dr1,file=guest.qcow2 \
+                    -device virtio-blk,drive=dr1,bootindex=1
+ 
++Multiple devices may have a bootindex. The lowest bootindex is assigned to the
++device to IPL first.  If the IPL fails for the first, the device with the second
++lowest bootindex will be tried and so on until IPL is successful or there are no
++remaining boot devices to try.
++
+ For booting from a CD-ROM ISO image (which needs to include El-Torito boot
+ information in order to be bootable), it is recommended to specify a ``scsi-cd``
+ device, for example like this::
+-- 
+2.39.3
+

@@ -1,0 +1,42 @@
+From 826f14b90a0ad2427e4e80232c0fbaea80600650 Mon Sep 17 00:00:00 2001
+From: Sebastian Ott <sebott@redhat.com>
+Date: Thu, 5 Sep 2024 13:31:12 +0200
+Subject: x86: create new pc-q35 machine type for rhel 9.6
+
+Signed-off-by: Sebastian Ott <sebott@redhat.com>
+---
+ hw/i386/pc_q35.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/hw/i386/pc_q35.c b/hw/i386/pc_q35.c
+index 5cfed8b62f..7606007bda 100644
+--- a/hw/i386/pc_q35.c
++++ b/hw/i386/pc_q35.c
+@@ -672,11 +672,23 @@ DEFINE_Q35_MACHINE(2, 4);
+ 
+ /* Red Hat Enterprise Linux machine types */
+ 
+-static void pc_q35_rhel_machine_9_4_0_options(MachineClass *m)
++static void pc_q35_rhel_machine_9_6_0_options(MachineClass *m)
+ {
+     PCMachineClass *pcmc = PC_MACHINE_CLASS(m);
+     pc_q35_machine_options(m);
++    m->desc = "RHEL-9.6.0 PC (Q35 + ICH9, 2009)";
++    pcmc->smbios_stream_product = "RHEL";
++    pcmc->smbios_stream_version = "9.6.0";
++}
++
++DEFINE_Q35_MACHINE_BUGFIX(9, 6, 0);
++
++static void pc_q35_rhel_machine_9_4_0_options(MachineClass *m)
++{
++    PCMachineClass *pcmc = PC_MACHINE_CLASS(m);
++    pc_q35_rhel_machine_9_6_0_options(m);
+     m->desc = "RHEL-9.4.0 PC (Q35 + ICH9, 2009)";
++    m->alias = NULL;
+     pcmc->smbios_stream_product = "RHEL";
+     pcmc->smbios_stream_version = "9.4.0";
+ 
+-- 
+2.39.3
+

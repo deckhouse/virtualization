@@ -1,0 +1,116 @@
+From 090cdb81ce6913f1c5989853d0af0dbb2f1d3f9f Mon Sep 17 00:00:00 2001
+From: Peter Xu <peterx@redhat.com>
+Date: Wed, 20 Nov 2024 11:01:32 -0500
+Subject: [PATCH] migration: Allow pipes to keep working for fd migrations
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RH-Author: Peter Xu <peterx@redhat.com>
+RH-MergeRequest: 301: migration: Allow pipes to keep working for fd migrations
+RH-Jira: RHEL-66089
+RH-Acked-by: Juraj Marcin <None>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Commit: [1/1] 8b62be63720f81e9d1633844917ab6992d99566f (peterx/qemu-kvm)
+
+Libvirt may still use pipes for old file migrations in fd: URI form,
+especially when loading old images dumped from Libvirt's compression
+algorithms.
+
+In that case, Libvirt needs to compress / uncompress the images on its own
+over the migration binary stream, and pipes are passed over to QEMU for
+outgoing / incoming migrations in "fd:" URIs.
+
+For future such use case, it should be suggested to use mapped-ram when
+saving such VM image.  However there can still be old images that was
+compressed in such way, so libvirt needs to be able to load those images,
+uncompress them and use the same pipe mechanism to pass that over to QEMU.
+
+It means, even if new file migrations can be gradually moved over to
+mapped-ram (after Libvirt start supporting it), Libvirt still needs the
+uncompressor for the old images to be able to load like before.
+
+Meanwhile since Libvirt currently exposes the compression capability to
+guest images, it may needs its own lifecycle management to move that over
+to mapped-ram, maybe can be done after mapped-ram saved the image, however
+Dan and PeterK raised concern on temporary double disk space consumption.
+I suppose for now the easiest is to enable pipes for both sides of "fd:"
+migrations, until all things figured out from Libvirt side on how to move
+on.
+
+And for "channels" QMP interface support on "migrate" / "migrate-incoming"
+commands, we'll also need to move away from pipe.  But let's leave that for
+later too.
+
+So far, still allow pipes to happen like before on both save/load sides,
+just like we would allow sockets to pass.
+
+Cc: qemu-stable <qemu-stable@nongnu.org>
+Cc: Fabiano Rosas <farosas@suse.de>
+Cc: Peter Krempa <pkrempa@redhat.com>
+Cc: Daniel P. Berrangé <berrange@redhat.com>
+Fixes: c55deb860c ("migration: Deprecate fd: for file migration")
+Reviewed-by: Fabiano Rosas <farosas@suse.de>
+Link: https://lore.kernel.org/r/20241120160132.3659735-1-peterx@redhat.com
+Signed-off-by: Peter Xu <peterx@redhat.com>
+(cherry picked from commit 87ae45e602e2943d58509e470e3a1d4ba084ab2f)
+Signed-off-by: Peter Xu <peterx@redhat.com>
+---
+ migration/fd.c | 27 +++++++++++++++++++++++++--
+ 1 file changed, 25 insertions(+), 2 deletions(-)
+
+diff --git a/migration/fd.c b/migration/fd.c
+index aab5189eac..9bf9be6acb 100644
+--- a/migration/fd.c
++++ b/migration/fd.c
+@@ -25,6 +25,29 @@
+ #include "io/channel-util.h"
+ #include "trace.h"
+ 
++static bool fd_is_pipe(int fd)
++{
++    struct stat statbuf;
++
++    if (fstat(fd, &statbuf) == -1) {
++        return false;
++    }
++
++    return S_ISFIFO(statbuf.st_mode);
++}
++
++static bool migration_fd_valid(int fd)
++{
++    if (fd_is_socket(fd)) {
++        return true;
++    }
++
++    if (fd_is_pipe(fd)) {
++        return true;
++    }
++
++    return false;
++}
+ 
+ void fd_start_outgoing_migration(MigrationState *s, const char *fdname, Error **errp)
+ {
+@@ -34,7 +57,7 @@ void fd_start_outgoing_migration(MigrationState *s, const char *fdname, Error **
+         return;
+     }
+ 
+-    if (!fd_is_socket(fd)) {
++    if (!migration_fd_valid(fd)) {
+         warn_report("fd: migration to a file is deprecated."
+                     " Use file: instead.");
+     }
+@@ -68,7 +91,7 @@ void fd_start_incoming_migration(const char *fdname, Error **errp)
+         return;
+     }
+ 
+-    if (!fd_is_socket(fd)) {
++    if (!migration_fd_valid(fd)) {
+         warn_report("fd: migration to a file is deprecated."
+                     " Use file: instead.");
+     }
+-- 
+2.39.3
+

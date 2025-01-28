@@ -1,0 +1,37 @@
+From 492900c0b6a99f157249c2706c2f2ef5f67d20df Mon Sep 17 00:00:00 2001
+From: Thomas Huth <thuth@redhat.com>
+Date: Mon, 26 Aug 2024 14:27:49 +0200
+Subject: redhat: Add QEMU 9.1 compat handling to the s390x machine types
+
+JIRA: https://issues.redhat.com/browse/RHEL-52323
+
+Upstream changed the amount of information that is migrated for
+the S390 interrupt controller (FLIC), so we have to switch on
+a compatibility property for older machine types.
+
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+---
+ hw/s390x/s390-virtio-ccw.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/hw/s390x/s390-virtio-ccw.c b/hw/s390x/s390-virtio-ccw.c
+index f884528639..4b7290f7a8 100644
+--- a/hw/s390x/s390-virtio-ccw.c
++++ b/hw/s390x/s390-virtio-ccw.c
+@@ -1314,8 +1314,13 @@ static void ccw_rhel_machine_9_4_0_instance_options(MachineState *machine)
+ 
+ static void ccw_rhel_machine_9_4_0_class_options(MachineClass *mc)
+ {
++    static GlobalProperty compat[] = {
++        { TYPE_QEMU_S390_FLIC, "migrate-all-state", "off", },
++    };
++
+     compat_props_add(mc->compat_props, hw_compat_rhel_9_6, hw_compat_rhel_9_6_len);
+     compat_props_add(mc->compat_props, hw_compat_rhel_9_5, hw_compat_rhel_9_5_len);
++    compat_props_add(mc->compat_props, compat, G_N_ELEMENTS(compat));
+ }
+ DEFINE_CCW_MACHINE_AS_LATEST(9, 4, 0);
+ 
+-- 
+2.39.3
+

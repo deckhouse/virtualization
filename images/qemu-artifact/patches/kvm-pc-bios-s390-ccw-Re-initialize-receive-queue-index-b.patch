@@ -1,0 +1,45 @@
+From 7e73d3ad9a7e3f047f8ef79131065e4386e1bc00 Mon Sep 17 00:00:00 2001
+From: Thomas Huth <thuth@redhat.com>
+Date: Mon, 11 Nov 2024 14:11:20 +0100
+Subject: [PATCH 09/10] pc-bios/s390-ccw: Re-initialize receive queue index
+ before each boot attempt
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+RH-Author: Thomas Huth <thuth@redhat.com>
+RH-MergeRequest: 298: [c9s] Fixes for the new s390x "boot order" feature
+RH-Jira: RHEL-68440
+RH-Acked-by: Cédric Le Goater <clg@redhat.com>
+RH-Acked-by: Miroslav Rezanina <mrezanin@redhat.com>
+RH-Commit: [8/8] 3337c7737fa2eb33f1a27230ae1d6e0f2580a539 (thuth/qemu-kvm-cs9)
+
+Now that we can boot from multiple boot devices, we have to make sure
+to reinitialize static variables like rx_last_idx to avoid that they
+contain garbage data during the second boot attempt (which can lead to
+crashes when the code tries to access the wrong ring data).
+
+Message-ID: <20241111131120.317796-1-thuth@redhat.com>
+Reviewed-by: Jared Rossi <jrossi@linux.ibm.com>
+Signed-off-by: Thomas Huth <thuth@redhat.com>
+(cherry picked from commit 6ba1f714c00f8839a8df9f643e0058f00da3fd25)
+---
+ pc-bios/s390-ccw/virtio-net.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/pc-bios/s390-ccw/virtio-net.c b/pc-bios/s390-ccw/virtio-net.c
+index f9854a22c3..578c89d0c5 100644
+--- a/pc-bios/s390-ccw/virtio-net.c
++++ b/pc-bios/s390-ccw/virtio-net.c
+@@ -51,6 +51,8 @@ int virtio_net_init(void *mac_addr)
+     void *buf;
+     int i;
+ 
++    rx_last_idx = 0;
++
+     vdev->guest_features[0] = VIRTIO_NET_F_MAC_BIT;
+     virtio_setup_ccw(vdev);
+ 
+-- 
+2.39.3
+

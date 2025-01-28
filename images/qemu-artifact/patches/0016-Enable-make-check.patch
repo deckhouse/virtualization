@@ -1,0 +1,280 @@
+From b877c7926d84e264bcfa57e6797f997d400fb19d Mon Sep 17 00:00:00 2001
+From: Miroslav Rezanina <mrezanin@redhat.com>
+Date: Wed, 2 Sep 2020 09:39:41 +0200
+Subject: Enable make check
+
+Fixing tests after device disabling and machine types changes and enabling
+make check run during build.
+
+Signed-off-by: Miroslav Rezanina <mrezanin@redhat.com>
+---
+Rebase changes (6.1.0):
+- removed unnecessary test changes
+
+Rebase changes (6.2.0):
+- new way of disabling bios-table-test
+
+Rebase changes (7.0.0):
+- Disable testing virtio-iommu-pci
+- Rename default_bus_bypass_iommu property to default-bus-bypass-iommu
+- Disable qtest-bios-table for aarch64
+- Removed redhat chunks for boot-serial-test.c, cdrom-test.c and cpu-plug-test.c qtests
+- Do not disable boot-order-test, prom-env-test and boot-serial-test qtests
+- Use rhel machine type for new intel hda qtest
+- Remove unnecessary changes in iotest 051
+- Remove changes in bios-tables-test.c and prom-env-test.c qtests
+
+Rebase changes (7.1.0):
+- Disable bcm2835-dma-test (added upstream)
+
+Rebase changes (8.0.0):
+- Removed chunks for disabling bios-table-test (protected upstream)
+- Disable new qemu-iotests execution
+- Revert change in tco qtest (blocking test run)
+
+Rebase changes (8.1.0):
+- Do not disable device-plug-test for s390x
+
+Rebase changes (8.2.0 rc1):
+- Remove unneeded hack in qtest/usb-hcd-xhci-test.c
+
+Rebase changes (9.1.0 rc0):
+- use q35 for new pvpanic test
+
+Merged patches (6.1.0):
+- 2f129df7d3 redhat: Enable the 'test-block-iothread' test again
+
+Merged patches (7.1.0):
+- 64d736640e RHEL-only: tests/avocado: Switch aarch64 tests from a53 to a57
+
+Merged patches (8.1.0):
+- f468163234 iotests: Use alternative CPU type that is not deprecated in RHEL
+---
+ .distro/Makefile                    |  2 +-
+ .distro/qemu-kvm.spec.template      |  4 ++--
+ .distro/scripts/process-patches.sh  |  3 +++
+ tests/avocado/replay_kernel.py      |  2 +-
+ tests/avocado/reverse_debugging.py  |  2 +-
+ tests/avocado/tcg_plugins.py        |  4 ++--
+ tests/qemu-iotests/meson.build      | 34 ++++++++++++++---------------
+ tests/qemu-iotests/testenv.py       |  3 +++
+ tests/qtest/fuzz-e1000e-test.c      |  2 +-
+ tests/qtest/fuzz-virtio-scsi-test.c |  2 +-
+ tests/qtest/intel-hda-test.c        |  2 +-
+ tests/qtest/libqos/meson.build      |  2 +-
+ tests/qtest/lpc-ich9-test.c         |  2 +-
+ tests/qtest/meson.build             |  1 -
+ tests/qtest/pvpanic-test.c          |  2 +-
+ tests/qtest/virtio-net-failover.c   |  1 +
+ 16 files changed, 37 insertions(+), 31 deletions(-)
+
+diff --git a/tests/avocado/replay_kernel.py b/tests/avocado/replay_kernel.py
+index e22c200a36..cb7ca19b1b 100644
+--- a/tests/avocado/replay_kernel.py
++++ b/tests/avocado/replay_kernel.py
+@@ -193,7 +193,7 @@ def test_aarch64_virt(self):
+         """
+         :avocado: tags=arch:aarch64
+         :avocado: tags=machine:virt
+-        :avocado: tags=cpu:cortex-a53
++        :avocado: tags=cpu:cortex-a57
+         """
+         kernel_url = ('https://archives.fedoraproject.org/pub/archive/fedora'
+                       '/linux/releases/29/Everything/aarch64/os/images/pxeboot'
+diff --git a/tests/avocado/reverse_debugging.py b/tests/avocado/reverse_debugging.py
+index f24287cd0a..3880b81df6 100644
+--- a/tests/avocado/reverse_debugging.py
++++ b/tests/avocado/reverse_debugging.py
+@@ -228,7 +228,7 @@ def test_aarch64_virt(self):
+         """
+         :avocado: tags=arch:aarch64
+         :avocado: tags=machine:virt
+-        :avocado: tags=cpu:cortex-a53
++        :avocado: tags=cpu:cortex-a57
+         """
+         kernel_url = ('https://archives.fedoraproject.org/pub/archive/fedora'
+                       '/linux/releases/29/Everything/aarch64/os/images/pxeboot'
+diff --git a/tests/avocado/tcg_plugins.py b/tests/avocado/tcg_plugins.py
+index a6ff457e27..5172ee9b9e 100644
+--- a/tests/avocado/tcg_plugins.py
++++ b/tests/avocado/tcg_plugins.py
+@@ -66,7 +66,7 @@ def test_aarch64_virt_insn(self):
+         :avocado: tags=accel:tcg
+         :avocado: tags=arch:aarch64
+         :avocado: tags=machine:virt
+-        :avocado: tags=cpu:cortex-a53
++        :avocado: tags=cpu:cortex-a57
+         """
+         kernel_path = self._grab_aarch64_kernel()
+         kernel_command_line = (self.KERNEL_COMMON_COMMAND_LINE +
+@@ -96,7 +96,7 @@ def test_aarch64_virt_insn_icount(self):
+         :avocado: tags=accel:tcg
+         :avocado: tags=arch:aarch64
+         :avocado: tags=machine:virt
+-        :avocado: tags=cpu:cortex-a53
++        :avocado: tags=cpu:cortex-a57
+         """
+         kernel_path = self._grab_aarch64_kernel()
+         kernel_command_line = (self.KERNEL_COMMON_COMMAND_LINE +
+diff --git a/tests/qemu-iotests/meson.build b/tests/qemu-iotests/meson.build
+index fad340ad59..3c0d5241f6 100644
+--- a/tests/qemu-iotests/meson.build
++++ b/tests/qemu-iotests/meson.build
+@@ -51,21 +51,21 @@ foreach format, speed: qemu_iotests_formats
+       check: true,
+   )
+ 
+-  foreach item: rc.stdout().strip().split()
+-      args = [qemu_iotests_check_cmd,
+-              '-tap', '-' + format, item,
+-              '--source-dir', meson.current_source_dir(),
+-              '--build-dir', meson.current_build_dir()]
+-      # Some individual tests take as long as 45 seconds
+-      # Bump the timeout to 3 minutes for some headroom
+-      # on slow machines to minimize spurious failures
+-      test('io-' + format + '-' + item,
+-           python,
+-           args: args,
+-           depends: qemu_iotests_binaries,
+-           env: qemu_iotests_env,
+-           protocol: 'tap',
+-           timeout: 180,
+-           suite: suites)
+-  endforeach
++#  foreach item: rc.stdout().strip().split()
++#      args = [qemu_iotests_check_cmd,
++#              '-tap', '-' + format, item,
++#              '--source-dir', meson.current_source_dir(),
++#              '--build-dir', meson.current_build_dir()]
++#      # Some individual tests take as long as 45 seconds
++#      # Bump the timeout to 3 minutes for some headroom
++#      # on slow machines to minimize spurious failures
++#      test('io-' + format + '-' + item,
++#           python,
++#           args: args,
++#           depends: qemu_iotests_binaries,
++#           env: qemu_iotests_env,
++#           protocol: 'tap',
++#           timeout: 180,
++#           suite: suites)
++#  endforeach
+ endforeach
+diff --git a/tests/qemu-iotests/testenv.py b/tests/qemu-iotests/testenv.py
+index c8848f2ec2..d515e5b8b0 100644
+--- a/tests/qemu-iotests/testenv.py
++++ b/tests/qemu-iotests/testenv.py
+@@ -249,6 +249,9 @@ def __init__(self, source_dir: str, build_dir: str,
+             if self.qemu_prog.endswith(f'qemu-system-{suffix}'):
+                 self.qemu_options += f' -machine {machine}'
+ 
++        if self.qemu_prog.endswith('qemu-system-x86_64'):
++            self.qemu_options += ' -cpu Nehalem'
++
+         # QEMU_DEFAULT_MACHINE
+         self.qemu_default_machine = get_default_machine(self.qemu_prog)
+ 
+diff --git a/tests/qtest/fuzz-e1000e-test.c b/tests/qtest/fuzz-e1000e-test.c
+index 5052883fb6..b5286f4b12 100644
+--- a/tests/qtest/fuzz-e1000e-test.c
++++ b/tests/qtest/fuzz-e1000e-test.c
+@@ -17,7 +17,7 @@ static void test_lp1879531_eth_get_rss_ex_dst_addr(void)
+ {
+     QTestState *s;
+ 
+-    s = qtest_init("-nographic -monitor none -serial none -M pc-q35-5.0");
++    s = qtest_init("-nographic -monitor none -serial none -M pc-q35-rhel8.4.0");
+ 
+     qtest_outl(s, 0xcf8, 0x80001010);
+     qtest_outl(s, 0xcfc, 0xe1020000);
+diff --git a/tests/qtest/fuzz-virtio-scsi-test.c b/tests/qtest/fuzz-virtio-scsi-test.c
+index e37b48b2cc..88647da054 100644
+--- a/tests/qtest/fuzz-virtio-scsi-test.c
++++ b/tests/qtest/fuzz-virtio-scsi-test.c
+@@ -19,7 +19,7 @@ static void test_mmio_oob_from_memory_region_cache(void)
+ {
+     QTestState *s;
+ 
+-    s = qtest_init("-M pc-q35-5.2 -m 512M "
++    s = qtest_init("-M pc-q35-rhel8.4.0 -m 512M "
+                    "-device virtio-scsi,num_queues=8,addr=03.0 ");
+ 
+     qtest_outl(s, 0xcf8, 0x80001811);
+diff --git a/tests/qtest/intel-hda-test.c b/tests/qtest/intel-hda-test.c
+index 663bb6c485..2efc43e3f7 100644
+--- a/tests/qtest/intel-hda-test.c
++++ b/tests/qtest/intel-hda-test.c
+@@ -42,7 +42,7 @@ static void test_issue542_ich6(void)
+ {
+     QTestState *s;
+ 
+-    s = qtest_init("-nographic -nodefaults -M pc-q35-6.2 "
++    s = qtest_init("-nographic -nodefaults -M pc-q35-rhel9.0.0 "
+                    AUDIODEV
+                    "-device intel-hda,id=" HDA_ID CODEC_DEVICES);
+ 
+diff --git a/tests/qtest/libqos/meson.build b/tests/qtest/libqos/meson.build
+index 1b2b2dbb22..86afbddb58 100644
+--- a/tests/qtest/libqos/meson.build
++++ b/tests/qtest/libqos/meson.build
+@@ -44,7 +44,7 @@ libqos_srcs = files(
+         'virtio-rng.c',
+         'virtio-scsi.c',
+         'virtio-serial.c',
+-        'virtio-iommu.c',
++#        'virtio-iommu.c',
+         'virtio-gpio.c',
+         'virtio-scmi.c',
+         'generic-pcihost.c',
+diff --git a/tests/qtest/lpc-ich9-test.c b/tests/qtest/lpc-ich9-test.c
+index 8ac95b89f7..cd2102555c 100644
+--- a/tests/qtest/lpc-ich9-test.c
++++ b/tests/qtest/lpc-ich9-test.c
+@@ -15,7 +15,7 @@ static void test_lp1878642_pci_bus_get_irq_level_assert(void)
+ {
+     QTestState *s;
+ 
+-    s = qtest_init("-M pc-q35-5.0 "
++    s = qtest_init("-M pc-q35-rhel8.4.0 "
+                    "-nographic -monitor none -serial none");
+ 
+     qtest_outl(s, 0xcf8, 0x8000f840); /* PMBASE */
+diff --git a/tests/qtest/meson.build b/tests/qtest/meson.build
+index 2f0d3ef080..44ee791508 100644
+--- a/tests/qtest/meson.build
++++ b/tests/qtest/meson.build
+@@ -102,7 +102,6 @@ qtests_i386 = \
+    'drive_del-test',
+    'tco-test',
+    'cpu-plug-test',
+-   'q35-test',
+    'vmgenid-test',
+    'migration-test',
+    'test-x86-cpuid-compat',
+diff --git a/tests/qtest/pvpanic-test.c b/tests/qtest/pvpanic-test.c
+index c18f63e255..57fb129ae4 100644
+--- a/tests/qtest/pvpanic-test.c
++++ b/tests/qtest/pvpanic-test.c
+@@ -65,7 +65,7 @@ static void test_pvshutdown(void)
+     QDict *response, *data;
+     QTestState *qts;
+ 
+-    qts = qtest_init("-device pvpanic");
++    qts = qtest_init("-M q35 -device pvpanic");
+ 
+     val = qtest_inb(qts, 0x505);
+     g_assert_cmpuint(val, ==, PVPANIC_EVENTS);
+diff --git a/tests/qtest/virtio-net-failover.c b/tests/qtest/virtio-net-failover.c
+index 73dfabc272..a9dd304781 100644
+--- a/tests/qtest/virtio-net-failover.c
++++ b/tests/qtest/virtio-net-failover.c
+@@ -26,6 +26,7 @@
+ #define PCI_SEL_BASE            0x0010
+ 
+ #define BASE_MACHINE "-M q35 -nodefaults " \
++    "-global ICH9-LPC.acpi-pci-hotplug-with-bridge-support=on " \
+     "-device pcie-root-port,id=root0,addr=0x1,bus=pcie.0,chassis=1 " \
+     "-device pcie-root-port,id=root1,addr=0x2,bus=pcie.0,chassis=2 "
+ 
+-- 
+2.39.3
+
