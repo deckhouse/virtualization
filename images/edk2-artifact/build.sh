@@ -173,12 +173,15 @@ enroll() {
 # --distro-keys altlinux
 }
 
-enroll
+# enroll
 
-# cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
-# cp -p $FIRMWARE/OVMF_VARS_4M.fd $FIRMWARE/OVMF_VARS_4M.secboot.fd
-# cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd
+no_enroll() {
+  cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
+  cp -p $FIRMWARE/OVMF_VARS_4M.fd $FIRMWARE/OVMF_VARS_4M.secboot.fd
+  cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd  
+}
 
+no_enroll
 
 # build microvm
 echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/Microvm/MicrovmX64.dsc"
