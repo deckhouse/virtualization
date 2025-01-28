@@ -1,5 +1,5 @@
 ---
-{{- $versionLibvirt := "10.10.0" }}
+{{- $versionLibvirt := "10.9.0" }}
 {{- $gitRepoUrl := "https://github.com/libvirt/libvirt.git" }}
 {{- $gitRepoName := "libvirt" }}
 
