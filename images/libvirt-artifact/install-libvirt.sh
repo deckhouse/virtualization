@@ -601,7 +601,7 @@ copy_file() {
 
     # Copy the file
     # install -s "$SOURCE_PATH" "$DEST_BASE$dest_dir"
-    if ! [[ "$SOURCE_PATH" =~ \.(txt|log|sh|service|conf|xml|target|socket) ]];then
+    if ! [[ "$SOURCE_PATH" =~ \.(txt|log|sh|service|conf|xml|target|socket|bin|json|img|png|fd|dtb|rom) ]];then
         strip "$SOURCE_PATH"
     fi
     cp -p "$SOURCE_PATH" "$DEST_BASE$dest_dir"
