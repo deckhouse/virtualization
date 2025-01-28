@@ -54,12 +54,12 @@ tasks:
       - d8
     cmds:
       - |
-        GINKGO_RESULT=$(mktemp)
+        bash -c 'GINKGO_RESULT=$(mktemp)
         ginkgo \
           --skip-file affinity_toleration_test.go \
           -v | tee $GINKGO_RESULT
-        EXIT_CODE=${PIPESTATUS[0]}
-        RESULT=$(sed -e 's/\x1b\[[0-9;]*m//g' $GINKGO_RESULT | grep --color=never -E 'FAIL!|SUCCESS!')
+        EXIT_CODE="${PIPESTATUS[0]}"
+        RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
         if [[ $RESULT == FAIL!* || $EXIT_CODE -ne "0" ]]; then
           RESULT_STATUS=":x: FAIL!"
         elif [[ $RESULT == SUCCESS!* ]]; then
@@ -70,10 +70,10 @@ tasks:
         fi
         DATE=$(date +"%Y-%m-%d")
 
-        PASSED=$(echo "$RESULT" | grep -oP '\d+(?= Passed)')
-        FAILED=$(echo "$RESULT" | grep -oP '\d+(?= Failed)')
-        PENDING=$(echo "$RESULT" | grep -oP '\d+(?= Pending)')
-        SKIPPED=$(echo "$RESULT" | grep -oP '\d+(?= Skipped)')
+        PASSED=$(echo "$RESULT" | grep -oP "\d+(?= Passed)")
+        FAILED=$(echo "$RESULT" | grep -oP "\d+(?= Failed)")
+        PENDING=$(echo "$RESULT" | grep -oP "\d+(?= Pending)")
+        SKIPPED=$(echo "$RESULT" | grep -oP "\d+(?= Skipped)")
 
         SUMMARY="
         ### :dvp: **DVP $DATE Nightly e2e Tests**
@@ -91,7 +91,7 @@ tasks:
         echo "SUMMARY<<EOF" >> $GITHUB_ENV
         echo "$SUMMARY" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
-        exit $EXIT_CODE
+        exit $EXIT_CODE'
 
   run:
     desc: "Run e2e tests"
