@@ -140,7 +140,7 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 		switch {
 		case errors.Is(err, service.ErrIPAddressOutOfRange):
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
-			msg := fmt.Sprintf("The requested address %s is out of the valid range", vmip.Spec.StaticIP)
+			msg := fmt.Sprintf("The requested address %s is out of the valid range.", vmip.Spec.StaticIP)
 			conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressIsOutOfTheValidRange).
 				Message(msg)
@@ -181,7 +181,7 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 		return reconcile.Result{}, err
 	}
 
-	h.recorder.Event(vmip, corev1.EventTypeNormal, virtv2.ReasonVMIPLeaseBound, "VMIP is bound to a new lease")
+	h.recorder.Event(vmip, corev1.EventTypeNormal, virtv2.ReasonVMIPLeaseBound, "VirtualMachineIPAddress is bound to a new lease")
 
 	return reconcile.Result{}, nil
 }
