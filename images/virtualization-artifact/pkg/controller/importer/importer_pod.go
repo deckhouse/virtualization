@@ -23,8 +23,11 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -102,6 +105,16 @@ func (imp *Importer) CreatePod(ctx context.Context, client client.Client) (*core
 		return nil, err
 	}
 
+	policy, err := imp.makeNetworkPolicySpec(pod)
+	if err != nil {
+		return nil, err
+	}
+
+	err = client.Create(ctx, policy)
+	if err != nil {
+		return nil, err
+	}
+
 	err = client.Create(ctx, pod)
 	if err != nil {
 		return nil, err
@@ -154,6 +167,78 @@ func (imp *Importer) makeImporterPodSpec() (*corev1.Pod, error) {
 	pod.Spec.Containers = append(pod.Spec.Containers, *container)
 
 	return &pod, nil
+}
+
+// makeNetworkPolicySpec  creates and return the importer pod spec based on the passed-in endpoint, secret and pvc.
+func (imp *Importer) makeNetworkPolicySpec(pod *corev1.Pod) (*netv1.NetworkPolicy, error) {
+	policy := netv1.NetworkPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "NetworkPolicy",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      imp.PodSettings.Name,
+			Namespace: imp.PodSettings.Namespace,
+			Annotations: map[string]string{
+				annotations.AnnCreatedBy: "yes",
+			},
+			OwnerReferences: []metav1.OwnerReference{
+				imp.PodSettings.OwnerReference,
+			},
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: pod.Labels,
+			},
+			Egress: []netv1.NetworkPolicyEgressRule{
+				{
+					To: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"kubernetes.io/metadata.name": "d8-virtualization"},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{},
+				},
+				{
+					To: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"kubernetes.io/metadata.name": "kube-system"},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{
+						{
+							Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 53},
+							Protocol: ptr.To(corev1.ProtocolUDP),
+						},
+					},
+				},
+			},
+			Ingress: []netv1.NetworkPolicyIngressRule{
+				{
+					From: []netv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"kubernetes.io/metadata.name": "d8-virtualization"},
+							},
+						},
+					},
+					Ports: []netv1.NetworkPolicyPort{},
+				},
+			},
+			PolicyTypes: []netv1.PolicyType{
+				netv1.PolicyTypeEgress,
+				netv1.PolicyTypeIngress,
+			},
+		},
+	}
+
+	annotations.SetRecommendedLabels(&policy, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
+
+	return &policy, nil
 }
 
 func (imp *Importer) makeImporterContainerSpec() *corev1.Container {

@@ -23,6 +23,7 @@ const (
 	ResourceService                Resource = "service"
 	ResourceStorageClass           Resource = "storageclasses.storage.k8s.io"
 	ResourceVolumeSnapshotClass    Resource = "volumesnapshotclasses.snapshot.storage.k8s.io"
+	ResourceProject                Resource = "projects.deckhouse.io"
 	ResourceReplicatedStorageClass Resource = "replicatedstorageclasses.storage.deckhouse.io"
 	ResourceReplicatedStoragePool  Resource = "replicatedstoragepools.storage.deckhouse.io"
 	ResourceKubevirtVM             Resource = "internalvirtualizationvirtualmachines.internal.virtualization.deckhouse.io"

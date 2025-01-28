@@ -1,0 +1,22 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: vm
+spec:
+  blockDeviceRefs:
+    - kind: VirtualDisk
+      name: vd-root
+  cpu:
+    cores: 1
+    coreFraction: 5%
+  disruptions:
+    restartApprovalMode: Automatic
+  memory:
+    size: 1Gi
+  provisioning:
+    type: UserDataRef
+    userDataRef:
+      kind: Secret
+      name: cloud-init
+  runPolicy: AlwaysOn
+  virtualMachineClassName: generic

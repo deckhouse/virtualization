@@ -465,8 +465,19 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 
 		if resources.KustomizationDir != "" {
 			kustimizationFile := fmt.Sprintf("%s/%s", resources.KustomizationDir, "kustomization.yaml")
-			err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
-			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\nstderr: %s", errMessage, resources.KustomizationDir, err))
+			nsFile := fmt.Sprintf("%s/%s", resources.KustomizationDir, "ns.yaml")
+			projectFile := fmt.Sprintf("%s/%s", resources.KustomizationDir, "project.yaml")
+
+			if _, err := os.Stat(nsFile); !errors.Is(err, os.ErrNotExist) {
+				err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
+				Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\nstderr: %s", errMessage, resources.KustomizationDir, err))
+			}
+
+			if _, err := os.Stat(projectFile); !errors.Is(err, os.ErrNotExist) {
+				err = kustomize.ExcludeResource(kustimizationFile, "project.yaml")
+				Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\nstderr: %s", errMessage, resources.KustomizationDir, err))
+			}
+
 			res := kubectl.Delete(kc.DeleteOptions{
 				Filename:       []string{resources.KustomizationDir},
 				FilenameOption: kc.Kustomize,

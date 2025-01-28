@@ -1,0 +1,11 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: ClusterVirtualImage
+metadata:
+  name: test-cvi-vmi
+spec:
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
+      name: ubuntu-http
+      namespace: dev
