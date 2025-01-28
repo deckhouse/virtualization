@@ -4,7 +4,7 @@ index f251cae5d..99f5494dc 100644
 +++ b/pkg/controller/upload-controller.go
 @@ -45,6 +45,8 @@ import (
  	"sigs.k8s.io/controller-runtime/pkg/source"
- 
+
  	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 +	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
 +
@@ -17,7 +17,7 @@ index f251cae5d..99f5494dc 100644
  	cryptowatch "kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch"
 -	sdkapi "kubevirt.io/controller-lifecycle-operator-sdk/api"
  )
- 
+
  const (
 @@ -430,7 +431,7 @@ func (r *UploadReconciler) createUploadPodForPvc(pvc *corev1.PersistentVolumeCla
  	args := UploadPodArgs{
@@ -31,7 +31,7 @@ index f251cae5d..99f5494dc 100644
 @@ -723,11 +724,7 @@ func addUploadControllerWatches(mgr manager.Manager, uploadController controller
  	return nil
  }
- 
+
 -func createScratchPvcNameFromPvc(pvc *corev1.PersistentVolumeClaim, isCloneTarget bool) string {
 -	if isCloneTarget {
 -		return ""
@@ -40,20 +40,20 @@ index f251cae5d..99f5494dc 100644
 +func createScratchPvcNameFromPvc(pvc *corev1.PersistentVolumeClaim) string {
  	return naming.GetResourceName(pvc.Name, common.ScratchNameSuffix)
  }
- 
+
 @@ -801,6 +798,8 @@ func (r *UploadReconciler) makeUploadPodSpec(args UploadPodArgs, resourceRequire
  	cc.SetNodeNameIfPopulator(args.PVC, &pod.Spec)
  	cc.SetRestrictedSecurityContext(&pod.Spec)
- 
+
 +	pod.Spec.InitContainers = r.makeUploadPodInitContainers(args)
 +
  	return pod
  }
- 
+
 @@ -904,6 +903,33 @@ func (r *UploadReconciler) makeUploadPodContainers(args UploadPodArgs, resourceR
  	return containers
  }
- 
+
 +func (r *UploadReconciler) makeUploadPodInitContainers(args UploadPodArgs) []corev1.Container {
 +	if args.PVC == nil || len(args.PVC.Spec.AccessModes) == 0 || args.PVC.Spec.AccessModes[0] != corev1.ReadWriteMany {
 +		return nil
@@ -97,13 +97,13 @@ index aa9e5ab68..845981a1a 100644
  	"strings"
  	"sync"
 @@ -36,11 +37,14 @@ import (
- 
+
  	"github.com/golang/snappy"
  	"github.com/pkg/errors"
 +	"k8s.io/apimachinery/pkg/api/resource"
- 
+
  	"k8s.io/klog/v2"
- 
+
  	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 +
  	"kubevirt.io/containerized-data-importer/pkg/common"
@@ -118,12 +118,12 @@ index aa9e5ab68..845981a1a 100644
 -		return cloneProcessor(stream, sourceContentType, dest, preallocation)
 +		return cloneProcessor(stream, sourceContentType, dest, imageSize, preallocation)
  	}
- 
+
  	// Clone block device to block device or file system
 @@ -501,7 +505,7 @@ func newUploadStreamProcessor(stream io.ReadCloser, dest, imageSize string, file
  	return processor.PreallocationApplied(), err
  }
- 
+
 -func cloneProcessor(stream io.ReadCloser, contentType, dest string, preallocate bool) (bool, error) {
 +func cloneProcessor(stream io.ReadCloser, contentType, dest, imageSize string, preallocate bool) (bool, error) {
  	if contentType == common.FilesystemCloneContentType {
@@ -131,7 +131,7 @@ index aa9e5ab68..845981a1a 100644
  			return fileToFileCloneProcessor(stream)
 @@ -516,16 +520,79 @@ func cloneProcessor(stream io.ReadCloser, contentType, dest string, preallocate
  	}
- 
+
  	defer stream.Close()
 -	bytesRead, bytesWrittenn, err := util.StreamDataToFile(stream, dest, preallocate)
 +
@@ -157,7 +157,7 @@ index aa9e5ab68..845981a1a 100644
 -		return false, err
 +		return false, fmt.Errorf("failed to clean all: %w", err)
  	}
- 
+
 -	klog.Infof("Read %d bytes, wrote %d bytes to %s", bytesRead, bytesWrittenn, dest)
 +	format, err := util.GetFormat(dest)
 +	if err != nil {
@@ -170,10 +170,10 @@ index aa9e5ab68..845981a1a 100644
 +	}
 +
 +	klog.Infof("Read %d bytes, wrote %d bytes to %s", bytesRead, bytesWritten, dest)
- 
+
  	return false, nil
  }
- 
+
 +func calculateTargetSize(dest, imageSize string) int64 {
 +	klog.Infof("Calculating available size")
 +
@@ -195,13 +195,13 @@ index aa9e5ab68..845981a1a 100644
 +			klog.Error(err)
 +		}
 +		targetQuantity = resource.NewScaledQuantity(size, 0)
-+	}
 +
-+	if imageSize != "" {
-+		klog.Infof("Request image size not empty")
-+		newImageSizeQuantity := resource.MustParse(imageSize)
-+		minQuantity := util.MinQuantity(targetQuantity, &newImageSizeQuantity)
-+		targetQuantity = &minQuantity
++		if imageSize != "" {
++			klog.Infof("Request image size not empty")
++			newImageSizeQuantity := resource.MustParse(imageSize)
++			minQuantity := util.MinQuantity(targetQuantity, &newImageSizeQuantity)
++			targetQuantity = &minQuantity
++		}
 +	}
 +
 +	klog.Infof("Target size %s", targetQuantity.String())
