@@ -667,7 +667,7 @@ spec:
         - nginx
         - qemu-guest-agent
       run_cmd:
-        - systemctl daemon-relaod
+        - systemctl daemon-reload
         - systemctl enable --now nginx.service
         - systemctl enable --now qemu-guest-agent.service
       ssh_pwauth: True
@@ -1077,7 +1077,7 @@ spec:
 
 ![](images/placement-vm-affinity.png)
 
-In this example, the virtual machine will be placed, if possible (since preffered is used) only on hosts that have a virtual machine with the server label and database value.
+In this example, the virtual machine will be placed, if possible (since preferred is used) only on hosts that have a virtual machine with the server label and database value.
 
 #### Avoid co-location (AntiAffinity)
 
@@ -1480,7 +1480,7 @@ Create a new or modify an existing virtual machine and specify the required `vmi
 
 ```yaml
 spec:
-  virtualMachineIPAdressName: linux-vm-custom-ip
+  virtualMachineIPAddressName: linux-vm-custom-ip
 ```
 
 ### How to save the ip address assigned to the virtual machine?
@@ -1507,7 +1507,7 @@ After the virtual machine is deleted, the `vmip` resource is preserved and can b
 
 ```yaml
 spec:
-  virtualMachineIPAdressName: linux-vm-7prpx
+  virtualMachineIPAddressName: linux-vm-7prpx
 ```
 
 Even if the `vmip` resource is deleted. It remains rented for the current project/namespace for another 10 minutes. Therefore, it is possible to reoccupy it on request:
