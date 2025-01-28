@@ -37,6 +37,10 @@ shell:
       # delete docs
       echo "Delete docs"
       rm -rf /usr/share/doc/*
+docker:
+  ENV:
+    LANG: ""
+    LC_ALL: POSIX
 ---
 {{- $versionLibvirt := "10.10.0" }}
 
@@ -156,6 +160,7 @@ shell:
     # ln -s /usr/share/OVMF /usr/share/edk2/ovmf
     # ln -s /usr/share/OVMF/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.cc.fd
 
+    echo "Create symlinks for OVMF"
     ln -s /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd /usr/share/OVMF
     ln -s /usr/share/edk2/ovmf/OVMF_VARS.fd         /usr/share/OVMF
     ln -s /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd /usr/share/OVMF
