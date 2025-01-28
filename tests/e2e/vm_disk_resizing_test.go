@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/tests/e2e/config"
 	cfg "github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
@@ -162,7 +161,7 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 
 var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), func() {
 	BeforeEach(func() {
-		if config.IsReusable() {
+		if cfg.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
 		}
 	})

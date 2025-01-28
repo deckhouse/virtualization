@@ -146,16 +146,9 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 		})
 	})
 
-	Context("When test is complited:", func() {
-		It("tries to delete used resources", func() {
-			kustimizationFile := fmt.Sprintf("%s/%s", conf.TestData.AffinityToleration, "kustomization.yaml")
-			err := kustomize.ExcludeResource(kustimizationFile, "ns.yaml")
-			Expect(err).NotTo(HaveOccurred(), "cannot exclude namespace from clean up operation:\n%s", err)
-			res := kubectl.Delete(kc.DeleteOptions{
-				Filename:       []string{conf.TestData.AffinityToleration},
-				FilenameOption: kc.Kustomize,
-			})
-			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	Context("When test is completed", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ResourcesToDelete{KustomizationDir: conf.TestData.AffinityToleration})
 		})
 	})
 })
