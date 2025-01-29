@@ -18,6 +18,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -48,11 +50,16 @@ func (w *VirtualMachinesWatcher) Watch(mgr manager.Manager, ctr controller.Contr
 			}
 
 			c := mgr.GetClient()
-			vmc := &virtv2.VirtualMachineClass{}
-			err := c.Get(ctx, types.NamespacedName{
+
+			vmc, err := object.FetchObject(ctx, types.NamespacedName{
 				Name: vm.Spec.VirtualMachineClassName,
-			}, vmc)
+			}, c, &virtv2.VirtualMachineClass{})
 			if err != nil {
+				log := mgr.GetLogger()
+				fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+				log.Error(err, "failed to fetch virtual machine class")
+				fmt.Println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
+
 				return nil
 			}
 
