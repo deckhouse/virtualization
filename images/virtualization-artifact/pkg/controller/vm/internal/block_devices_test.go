@@ -18,28 +18,28 @@ package internal
 
 import (
 	"context"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	corev1 "k8s.io/api/core/v1"
-	apiruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
-	virtv1 "kubevirt.io/api/core/v1"
 	"log/slog"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 func TestBlockDeviceHandler(t *testing.T) {
@@ -358,8 +358,10 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 		ctx := logger.ToContext(context.TODO(), slog.Default())
 
 		recorderMock := &eventrecord.EventRecorderLoggerMock{
-			EventFunc:  func(_ client.Object, _ string, _ string, _ string) {},
-			EventfFunc: func(_ client.Object, _ string, _ string, _ string, _ ...interface{}) {},
+			EventFunc: func(object client.Object, eventtype, reason, message string) {
+			},
+			EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+			},
 		}
 
 		scheme := apiruntime.NewScheme()
@@ -399,7 +401,8 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm).Build()
 		vmResource := service.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
-		vmResource.Fetch(ctx)
+		err := vmResource.Fetch(ctx)
+		Fail(err.Error())
 		vmState := state.New(fakeClient, vmResource)
 
 		It("Should be ok because fewer than 16 devices are connected", func() {
