@@ -61,8 +61,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 		controllerutil.AddFinalizer(changed, virtv2.FinalizerVMCleanup)
 		return reconcile.Result{}, nil
 	}
-	cb := conditions.NewConditionBuilder(vmclasscondition.TypeInUse).Generation(changed.Generation)
-	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
+
 	vms, err := s.VirtualMachines(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -73,12 +72,17 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 			vmNamespacedNames = append(vmNamespacedNames, object.NamespacedName(&vms[i]).String())
 		}
 		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it %s.", strings.Join(vmNamespacedNames, ", "))
-		cb.
+		cb := conditions.NewConditionBuilder(vmclasscondition.TypeInUse).
+			Generation(changed.Generation).
 			Status(metav1.ConditionTrue).
 			Reason(vmclasscondition.ReasonVMClassInUse).
 			Message(msg)
+		conditions.SetCondition(cb, &changed.Status.Conditions)
 		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
+	} else {
+		conditions.RemoveCondition(vmclasscondition.ReasonVMClassInUse, &changed.Status.Conditions)
 	}
+
 	h.logger.Info("Deletion observed: remove cleanup finalizer from VirtualMachineClass")
 	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMCleanup)
 	return reconcile.Result{}, nil
