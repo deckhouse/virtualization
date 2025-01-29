@@ -109,6 +109,8 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDeviceLimitExceeded).
 			Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, changed.Name))
+		mgr.Update(cb.Condition())
+		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{}, nil
 	}
 
