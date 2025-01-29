@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -71,7 +72,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 		for i := range vms {
 			vmNamespacedNames = append(vmNamespacedNames, object.NamespacedName(&vms[i]).String())
 		}
-		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it. %q", vmNamespacedNames)
+		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it %s.", strings.Join(vmNamespacedNames, ", "))
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vmclasscondition.ReasonVMClassInUse).
