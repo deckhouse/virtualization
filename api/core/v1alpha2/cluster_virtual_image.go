@@ -95,15 +95,15 @@ type ClusterVirtualImageContainerImage struct {
 	CABundle []byte `json:"caBundle,omitempty"`
 }
 
-// Use an existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource to create an image.
+// Use an existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource to create an image.
 //
-// +kubebuilder:validation:XValidation:rule="self.kind == 'VirtualImage' || self.kind == 'VirtualDisk' ? has(self.__namespace__) && size(self.__namespace__) > 0 : true",message="The namespace is required for VirtualDisk and VirtualImage."
-// +kubebuilder:validation:XValidation:rule="self.kind == 'VirtualImage' || self.kind == 'VirtualDisk' ? has(self.__namespace__) && size(self.__namespace__) < 64 : true",message="The namespace must be no longer than 63 characters."
+// +kubebuilder:validation:XValidation:rule="self.kind == 'VirtualImage' || self.kind == 'VirtualDisk' || self.kind == 'VirtualDiskSnapshot' ? has(self.__namespace__) && size(self.__namespace__) > 0 : true",message="The namespace is required for VirtualDisk, VirtualImage and VirtualDiskSnapshot"
+// +kubebuilder:validation:XValidation:rule="self.kind == 'VirtualImage'  || self.kind == 'VirtualDisk' || self.kind == 'VirtualDiskSnapshot' ? has(self.__namespace__) && size(self.__namespace__) < 64 : true",message="The namespace must be no longer than 63 characters."
 type ClusterVirtualImageObjectRef struct {
 	Kind ClusterVirtualImageObjectRefKind `json:"kind"`
-	// Name of the existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource.
+	// Name of the existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource.
 	Name string `json:"name"`
-	// Namespace where the VirtualImage or VirtualDisk resource is located.
+	// Namespace where the VirtualImage, VirtualDisk or VirtualDiskSnapshot resource is located.
 	Namespace string `json:"namespace,omitempty"`
 }
 
@@ -115,6 +115,7 @@ const (
 	ClusterVirtualImageObjectRefKindVirtualImage        ClusterVirtualImageObjectRefKind = "VirtualImage"
 	ClusterVirtualImageObjectRefKindClusterVirtualImage ClusterVirtualImageObjectRefKind = "ClusterVirtualImage"
 	ClusterVirtualImageObjectRefKindVirtualDisk         ClusterVirtualImageObjectRefKind = "VirtualDisk"
+	ClusterVirtualImageObjectRefKindVirtualDiskSnapshot ClusterVirtualImageObjectRefKind = "VirtualDiskSnapshot"
 )
 
 type ClusterVirtualImageStatus struct {
@@ -137,7 +138,7 @@ type ClusterVirtualImageStatus struct {
 	Phase ImagePhase `json:"phase,omitempty"`
 	// Progress of copying an image from the source to DVCR. Appears only during the `Provisioning' phase.
 	Progress string `json:"progress,omitempty"`
-	// UID of the source (VirtualImage, ClusterVirtualImage, or VirtualDisk) used when creating the cluster virtual image.
+	// UID of the source (VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot) used when creating the cluster virtual image.
 	SourceUID *types.UID `json:"sourceUID,omitempty"`
 	// The latest available observations of an object's current state.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
