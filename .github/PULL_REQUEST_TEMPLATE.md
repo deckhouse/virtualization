@@ -28,3 +28,10 @@
 - [ ] e2e tests passed.
 - [ ] Documentation updated according to the changes.
 - [ ] Changes were tested in the Kubernetes cluster manually.
+
+## Changelog entries
+```changes
+section: <kebab-case of a module name> | <1st level dir in the repo>
+type: fix | feature | chore
+summary: <ONE-LINE of what effectively changes for a user>
+```
