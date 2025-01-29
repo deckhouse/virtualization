@@ -18,7 +18,7 @@ package watcher
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,15 +51,17 @@ func (w *VirtualMachinesWatcher) Watch(mgr manager.Manager, ctr controller.Contr
 
 			c := mgr.GetClient()
 
+			vmClassName := vm.Spec.VirtualMachineClassName
 			vmc, err := object.FetchObject(ctx, types.NamespacedName{
-				Name: vm.Spec.VirtualMachineClassName,
+				Name: vmClassName,
 			}, c, &virtv2.VirtualMachineClass{})
-			if err != nil {
-				log := mgr.GetLogger()
-				fmt.Println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-				log.Error(err, "failed to fetch virtual machine class")
-				fmt.Println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 
+			if vmc == nil {
+				return nil
+			}
+
+			if err != nil {
+				slog.Default().Error("failed to fetch virtual machine class %s: %q", vmClassName, err)
 				return nil
 			}
 
