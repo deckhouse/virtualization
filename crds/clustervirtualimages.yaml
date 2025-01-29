@@ -166,7 +166,7 @@ spec:
                     objectRef:
                       description:
                         Use an existing VirtualImage, ClusterVirtualImage,
-                        or VirtualDisk resource to create an image.
+                        VirtualDisk or VirtualDiskSnapshot resource to create an image.
                       properties:
                         kind:
                           description:
@@ -180,28 +180,30 @@ spec:
                         name:
                           description:
                             Name of the existing VirtualImage, ClusterVirtualImage,
-                            or VirtualDisk resource.
+                            VirtualDisk or VirtualDiskSnapshot resource.
                           type: string
                         namespace:
                           description:
-                            Namespace where the VirtualImage or VirtualDisk
-                            resource is located.
+                            Namespace where the VirtualImage, VirtualDisk
+                            or VirtualDiskSnapshot resource is located.
                           type: string
                       required:
                         - kind
                         - name
                       type: object
                       x-kubernetes-validations:
-                        - message: The namespace is required for VirtualDisk and VirtualImage.
+                        - message:
+                            The namespace is required for VirtualDisk, VirtualImage
+                            and VirtualDiskSnapshot
                           rule:
                             "self.kind == 'VirtualImage' || self.kind == 'VirtualDisk'
-                            ? has(self.__namespace__) && size(self.__namespace__) > 0
-                            : true"
+                            || self.kind == 'VirtualDiskSnapshot' ? has(self.__namespace__)
+                            && size(self.__namespace__) > 0 : true"
                         - message: The namespace must be no longer than 63 characters.
                           rule:
-                            "self.kind == 'VirtualImage' || self.kind == 'VirtualDisk'
-                            ? has(self.__namespace__) && size(self.__namespace__) < 64
-                            : true"
+                            "self.kind == 'VirtualImage'  || self.kind == 'VirtualDisk'
+                            || self.kind == 'VirtualDiskSnapshot' ? has(self.__namespace__)
+                            && size(self.__namespace__) < 64 : true"
                     type:
                       description: |-
                         The following image sources are available for creating an image:
@@ -391,7 +393,8 @@ spec:
                 sourceUID:
                   description:
                     UID of the source (VirtualImage, ClusterVirtualImage,
-                    or VirtualDisk) used when creating the cluster virtual image.
+                    VirtualDisk or VirtualDiskSnapshot) used when creating the cluster
+                    virtual image.
                   type: string
                 target:
                   properties:
