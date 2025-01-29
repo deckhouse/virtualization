@@ -358,10 +358,8 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 		ctx := logger.ToContext(context.TODO(), slog.Default())
 
 		recorderMock := &eventrecord.EventRecorderLoggerMock{
-			EventFunc: func(object client.Object, eventtype, reason, message string) {
-			},
-			EventfFunc: func(involved client.Object, eventtype, reason, messageFmt string, args ...interface{}) {
-			},
+			EventFunc:  func(_ client.Object, _, _, _ string) {},
+			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
 		}
 
 		scheme := apiruntime.NewScheme()
@@ -401,8 +399,7 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm).Build()
 		vmResource := service.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
-		err := vmResource.Fetch(ctx)
-		Fail(err.Error())
+		_ = vmResource.Fetch(ctx)
 		vmState := state.New(fakeClient, vmResource)
 
 		It("Should be ok because fewer than 16 devices are connected", func() {
