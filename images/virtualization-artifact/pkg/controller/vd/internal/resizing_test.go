@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -176,8 +178,109 @@ var _ = Describe("Resizing handler Run", func() {
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.Resized.String()))
 	})
+
+	DescribeTable("Resizing handler Handle", func(args handleTestArgs) {
+		vd := &virtv2.VirtualDisk{
+			Spec: virtv2.VirtualDiskSpec{},
+			Status: virtv2.VirtualDiskStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.ResizingType.String(),
+						Status: metav1.ConditionUnknown,
+						Reason: conditions.ReasonUnknown.String(),
+					},
+					{
+						Type:   vdcondition.ReadyType.String(),
+						Status: args.readyConditionStatus,
+						Reason: conditions.ReasonUnknown.String(),
+					},
+					{
+						Type:   vdcondition.StorageClassReadyType.String(),
+						Status: metav1.ConditionTrue,
+						Reason: vdcondition.StorageClassReady.String(),
+					},
+				},
+				Phase: args.vdPhase,
+			},
+		}
+
+		if args.isDiskDeleting {
+			vd.DeletionTimestamp = &metav1.Time{}
+		}
+
+		diskService := &DiskServiceMock{
+			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				if args.isPVCGetError {
+					return nil, errors.New("test error")
+				}
+				return args.pvc, nil
+			},
+			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
+				return nil
+			},
+		}
+
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+
+		handler := NewResizingHandler(recorder, diskService)
+		result, err := handler.Handle(testContext(), vd)
+		Expect(result).To(Equal(reconcile.Result{}))
+		if args.isErrorNil {
+			Expect(err).To(BeNil())
+		} else {
+			Expect(err).NotTo(BeNil())
+		}
+	},
+		Entry("Virtual Disk deleting", handleTestArgs{
+			isDiskDeleting: true,
+			isErrorNil:     true,
+		}),
+		Entry("Virtual Disk is not ready", handleTestArgs{
+			readyConditionStatus: metav1.ConditionFalse,
+			isErrorNil:           true,
+		}),
+		Entry("PVC get error", handleTestArgs{
+			readyConditionStatus: metav1.ConditionTrue,
+			isPVCGetError:        true,
+			isErrorNil:           false,
+		}),
+		Entry("PVC is nil", handleTestArgs{
+			readyConditionStatus: metav1.ConditionTrue,
+			pvc:                  nil,
+			isErrorNil:           true,
+		}),
+		Entry("PVC is not bound", handleTestArgs{
+			readyConditionStatus: metav1.ConditionTrue,
+			pvc: &corev1.PersistentVolumeClaim{
+				Status: corev1.PersistentVolumeClaimStatus{
+					Phase: corev1.ClaimPending,
+				},
+			},
+			isErrorNil: true,
+		}),
+		Entry("Everything is fine", handleTestArgs{
+			readyConditionStatus: metav1.ConditionTrue,
+			pvc: &corev1.PersistentVolumeClaim{
+				Status: corev1.PersistentVolumeClaimStatus{
+					Phase: corev1.ClaimBound,
+				},
+			},
+			isErrorNil: true,
+		}),
+	)
 })
 
 func testContext() context.Context {
 	return logger.ToContext(context.Background(), slog.Default())
+}
+
+type handleTestArgs struct {
+	isDiskDeleting       bool
+	isPVCGetError        bool
+	pvc                  *corev1.PersistentVolumeClaim
+	vdPhase              virtv2.DiskPhase
+	readyConditionStatus metav1.ConditionStatus
+	isErrorNil           bool
 }
