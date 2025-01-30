@@ -118,6 +118,10 @@ async function generateSummary(prs) {
   const readyForMerge = [];
 
   for (const pr of prs) {
+    // skip all changelog PRs
+    if (pr.labels.some(label => label.name === 'changelog')) {
+      continue; 
+    }
     const reviews = await fetchReviewsForPR(pr.number);
     const approvals = reviews.filter(review => review.state.toLowerCase() === 'approved');
     const isReadyForMerge = approvals.length >= approvalsRequired;
