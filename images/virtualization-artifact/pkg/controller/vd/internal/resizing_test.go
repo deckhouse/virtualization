@@ -232,42 +232,63 @@ var _ = Describe("Resizing handler Run", func() {
 		} else {
 			Expect(err).NotTo(BeNil())
 		}
+		Expect(vd.Status.Phase).To(Equal(args.vdPhase))
 	},
 		Entry("Virtual Disk deleting", handleTestArgs{
-			isDiskDeleting: true,
-			isErrorNil:     true,
+			isDiskDeleting:       true,
+			isPVCGetError:        false,
+			pvc:                  nil,
+			readyConditionStatus: metav1.ConditionUnknown,
+			isErrorNil:           true,
+			vdPhase:              virtv2.DiskTerminating,
 		}),
 		Entry("Virtual Disk is not ready", handleTestArgs{
+			isDiskDeleting:       false,
+			isPVCGetError:        false,
+			pvc:                  nil,
 			readyConditionStatus: metav1.ConditionFalse,
 			isErrorNil:           true,
+			vdPhase:              virtv2.DiskPending,
 		}),
 		Entry("PVC get error", handleTestArgs{
-			readyConditionStatus: metav1.ConditionTrue,
+			isDiskDeleting:       false,
 			isPVCGetError:        true,
+			pvc:                  nil,
+			readyConditionStatus: metav1.ConditionTrue,
 			isErrorNil:           false,
+			vdPhase:              virtv2.DiskPending,
 		}),
 		Entry("PVC is nil", handleTestArgs{
-			readyConditionStatus: metav1.ConditionTrue,
+			isDiskDeleting:       false,
+			isPVCGetError:        false,
 			pvc:                  nil,
+			readyConditionStatus: metav1.ConditionTrue,
 			isErrorNil:           true,
+			vdPhase:              virtv2.DiskPending,
 		}),
 		Entry("PVC is not bound", handleTestArgs{
-			readyConditionStatus: metav1.ConditionTrue,
+			isDiskDeleting: false,
+			isPVCGetError:  false,
 			pvc: &corev1.PersistentVolumeClaim{
 				Status: corev1.PersistentVolumeClaimStatus{
 					Phase: corev1.ClaimPending,
 				},
 			},
-			isErrorNil: true,
+			readyConditionStatus: metav1.ConditionTrue,
+			isErrorNil:           true,
+			vdPhase:              virtv2.DiskPending,
 		}),
 		Entry("Everything is fine", handleTestArgs{
-			readyConditionStatus: metav1.ConditionTrue,
+			isDiskDeleting: false,
+			isPVCGetError:  false,
 			pvc: &corev1.PersistentVolumeClaim{
 				Status: corev1.PersistentVolumeClaimStatus{
 					Phase: corev1.ClaimBound,
 				},
 			},
-			isErrorNil: true,
+			readyConditionStatus: metav1.ConditionTrue,
+			isErrorNil:           true,
+			vdPhase:              virtv2.DiskPending,
 		}),
 	)
 })
@@ -280,7 +301,7 @@ type handleTestArgs struct {
 	isDiskDeleting       bool
 	isPVCGetError        bool
 	pvc                  *corev1.PersistentVolumeClaim
-	vdPhase              virtv2.DiskPhase
 	readyConditionStatus metav1.ConditionStatus
 	isErrorNil           bool
+	vdPhase              virtv2.DiskPhase
 }
