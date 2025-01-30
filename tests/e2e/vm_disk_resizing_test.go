@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/resource"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	cfg "github.com/deckhouse/virtualization/tests/e2e/config"
@@ -41,20 +42,24 @@ type DiskMetaData struct {
 	SizeFromObject *resource.Quantity
 }
 
-const DiskIdPrefix = "scsi-0QEMU_QEMU_HARDDISK_"
+const (
+	DiskIdPrefix  = "scsi-0QEMU_QEMU_HARDDISK"
+	CdRomIdPrefix = "scsi-0QEMU_QEMU_CD-ROM_drive-ua"
+	diskCount     = 3
+)
 
-func WaitBlockDeviceRefsStatus(namespace string, vms ...string) {
+func WaitBlockDeviceRefsAttached(namespace string, vms ...string) {
 	GinkgoHelper()
 	Eventually(func() error {
 		for _, vmName := range vms {
 			vm := virtv2.VirtualMachine{}
-			err := GetObject(kc.ResourceKubevirtVM, vmName, &vm, kc.GetOptions{Namespace: namespace})
+			err := GetObject(virtv2.VirtualMachineResource, vmName, &vm, kc.GetOptions{Namespace: namespace})
 			if err != nil {
 				return fmt.Errorf("virtualMachine: %s\nstderr: %s", vmName, err)
 			}
-			for _, disk := range vm.Status.BlockDeviceRefs {
-				if !disk.Attached {
-					return fmt.Errorf("virtualMachine: %s\nblockDeviceRefs: %#v", vmName, vm.Status.BlockDeviceRefs)
+			for _, bd := range vm.Status.BlockDeviceRefs {
+				if !bd.Attached {
+					return fmt.Errorf("virtualMachine: %s\nblockDeviceRefs: %#v", vmName, bd)
 				}
 			}
 		}
@@ -85,13 +90,13 @@ func GetSizeFromObject(vdName, namespace string) (*resource.Quantity, error) {
 	return vd.Spec.PersistentVolumeClaim.Size, nil
 }
 
-func GetSizeByLsblk(vmName, diskId string) (*resource.Quantity, error) {
+func GetSizeByLsblk(vmName, diskIdPath string) (*resource.Quantity, error) {
 	GinkgoHelper()
 	var (
-		blockDevice BlockDevice
-		quantity    resource.Quantity
+		blockDevices *BlockDevices
+		quantity     resource.Quantity
 	)
-	cmd := fmt.Sprintf("lsblk --json --output size %s", diskId)
+	cmd := fmt.Sprintf("lsblk --json --nodeps --output size %s", diskIdPath)
 	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 		Namespace:   conf.Namespace,
 		Username:    conf.TestData.SshUser,
@@ -100,28 +105,44 @@ func GetSizeByLsblk(vmName, diskId string) (*resource.Quantity, error) {
 	if res.Error() != nil {
 		return nil, errors.New(res.StdErr())
 	}
-	err := json.Unmarshal(res.StdOutBytes(), &blockDevice)
+	err := json.Unmarshal(res.StdOutBytes(), &blockDevices)
 	if err != nil {
 		return nil, err
 	}
+	if len(blockDevices.BlockDevices) != 1 {
+		return nil, fmt.Errorf("`blockDevices` length should be 1")
+	}
+	blockDevice := &blockDevices.BlockDevices[0]
 	quantity = resource.MustParse(blockDevice.Size)
 	return &quantity, nil
 }
 
-func GetDiskSize(vmName, vdName, diskId string, config *cfg.Config, disk *DiskMetaData) {
+func GetDiskSize(vmName, vdName, diskIdPath string, config *cfg.Config, disk *DiskMetaData) {
 	GinkgoHelper()
 	sizeFromObject, err := GetSizeFromObject(vdName, config.Namespace)
 	Expect(err).NotTo(HaveOccurred(), err)
 	var sizeByLsblk *resource.Quantity
 	Eventually(func() error {
-		sizeByLsblk, err = GetSizeByLsblk(vmName, diskId)
+		sizeByLsblk, err = GetSizeByLsblk(vmName, diskIdPath)
 		if err != nil {
 			return fmt.Errorf("virtualMachine: %s\nstderr: %s", vmName, err)
 		}
 		return nil
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+	Expect(sizeFromObject).NotTo(BeNil())
+	Expect(sizeByLsblk).NotTo(BeNil())
 	disk.SizeFromObject = sizeFromObject
 	disk.SizeByLsblk = sizeByLsblk
+}
+
+func GetDiskIdPath(vdName string, vmi *virtv1.VirtualMachineInstance) string {
+	diskName := fmt.Sprintf("vd-%s", vdName)
+	for _, disk := range vmi.Spec.Domain.Devices.Disks {
+		if disk.Name == diskName {
+			return fmt.Sprintf("/dev/disk/by-id/%s_%s", DiskIdPrefix, disk.Serial)
+		}
+	}
+	return ""
 }
 
 // Refactor this flow when `target` field will be fixed for `VirtualMachine.Status.BlockDeviceRefs`
@@ -129,19 +150,19 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 	GinkgoHelper()
 	var vmObject virtv2.VirtualMachine
 	disks := make(map[string]DiskMetaData, 0)
-	err := GetObject(kc.ResourceKubevirtVM, vmName, &vmObject, kc.GetOptions{Namespace: config.Namespace})
+	err := GetObject(virtv2.VirtualMachineResource, vmName, &vmObject, kc.GetOptions{
+		Namespace: config.Namespace,
+	})
 	if err != nil {
 		return disks, err
 	}
 
-	for _, device := range vmObject.Spec.BlockDeviceRefs {
-		disk := DiskMetaData{}
-		if device.Kind != virtv2.DiskDevice {
-			continue
-		}
-		diskId := fmt.Sprintf("%s-vd-%s", DiskIdPrefix, device.Name)
-		GetDiskSize(vmName, device.Name, diskId, config, &disk)
-		disks[device.Name] = disk
+	intVirtVmi := &virtv1.VirtualMachineInstance{}
+	err = GetObject(kc.ResourceKubevirtVMI, vmName, intVirtVmi, kc.GetOptions{
+		Namespace: config.Namespace,
+	})
+	if err != nil {
+		return disks, err
 	}
 
 	for _, device := range vmObject.Status.BlockDeviceRefs {
@@ -149,11 +170,8 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 		if device.Kind != virtv2.DiskDevice {
 			continue
 		}
-		if _, found := disks[device.Name]; found {
-			continue
-		}
-		diskId := fmt.Sprintf("%s-%s", DiskIdPrefix, device.Name)
-		GetDiskSize(vmName, device.Name, diskId, config, &disk)
+		diskIdPath := GetDiskIdPath(device.Name, intVirtVmi)
+		GetDiskSize(vmName, device.Name, diskIdPath, config, &disk)
 		disks[device.Name] = disk
 	}
 	return disks, nil
@@ -242,6 +260,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 			It("get disks metadata before resizing", func() {
 				vmDisksBefore, err = GetVirtualMachineDisks(vmName, conf)
 				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(len(vmDisksBefore)).Should(BeNumerically("==", diskCount))
 			})
 			It("resizes disks", func() {
 				res := kubectl.List(kc.ResourceVD, kc.GetOptions{
@@ -254,10 +273,13 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 				vds := strings.Split(res.StdOut(), " ")
 				addedSize := resource.NewQuantity(100*1024*1024, resource.BinarySI)
 				ResizeDisks(addedSize, conf, vds...)
-			})
-			It("get disks metadata after resizing", func() {
-				vmDisksAfter, err = GetVirtualMachineDisks(vmName, conf)
-				Expect(err).NotTo(HaveOccurred(), err)
+				By(fmt.Sprintf("VDs should be in the %q phase", virtv2.DiskResizing), func() {
+					WaitPhaseByLabel(virtv2.VirtualDiskResource, string(virtv2.DiskResizing), kc.WaitOptions{
+						Labels:    testCaseLabel,
+						Namespace: conf.Namespace,
+						Timeout:   MaxWaitTimeout,
+					})
+				})
 			})
 
 			It("checks VDs, VMs and VMBDA phases", func() {
@@ -290,20 +312,34 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 				})
 				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 				vms := strings.Split(res.StdOut(), " ")
-				WaitBlockDeviceRefsStatus(conf.Namespace, vms...)
+				WaitBlockDeviceRefsAttached(conf.Namespace, vms...)
+			})
+
+			It("get disks metadata after resizing", func() {
+				vmDisksAfter, err = GetVirtualMachineDisks(vmName, conf)
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(len(vmDisksAfter)).Should(BeNumerically("==", diskCount))
 			})
 
 			It(fmt.Sprintf("compares disk size before and after resizing for %s", vmName), func() {
+				Expect(vmDisksBefore).NotTo(BeEmpty())
 				for disk := range vmDisksBefore {
-					By(fmt.Sprintf("Compare disks after resizing: %s", disk))
-					sizeFromObjectBefore := vmDisksBefore[disk].SizeFromObject.Value()
-					sizeFromObjectAfter := vmDisksAfter[disk].SizeFromObject.Value()
-					compareSizeFromObjects := sizeFromObjectBefore < sizeFromObjectAfter
-					Expect(compareSizeFromObjects).To(BeTrue(), "size from objects before must be lower than size after: before: %d, after: %d", sizeFromObjectBefore, sizeFromObjectAfter)
-					sizeByLsblkBefore := vmDisksBefore[disk].SizeByLsblk.Value()
-					sizeByLsblkAfter := vmDisksAfter[disk].SizeByLsblk.Value()
-					compareSizeByLsblk := sizeByLsblkBefore < sizeByLsblkAfter
-					Expect(compareSizeByLsblk).To(BeTrue(), "size by lsblk before must be lower than size after: before: %d, after: %d", sizeByLsblkBefore, sizeByLsblkAfter)
+					By(fmt.Sprintf("Compare disks after resizing: %s", disk), func() {
+						sizeFromObjectBefore := vmDisksBefore[disk].SizeFromObject.Value()
+						sizeFromObjectAfter := vmDisksAfter[disk].SizeFromObject.Value()
+						Expect(sizeFromObjectBefore).Should(BeNumerically("<", sizeFromObjectAfter),
+							"size from objects before must be lower than size after: before: %d, after: %d",
+							sizeFromObjectBefore,
+							sizeFromObjectAfter,
+						)
+						sizeByLsblkBefore := vmDisksBefore[disk].SizeByLsblk.Value()
+						sizeByLsblkAfter := vmDisksAfter[disk].SizeByLsblk.Value()
+						Expect(sizeByLsblkBefore).Should(BeNumerically("<", sizeByLsblkAfter),
+							"size by lsblk before must be lower than size after: before: %d, after: %d",
+							sizeByLsblkBefore,
+							sizeByLsblkAfter,
+						)
+					})
 				}
 			})
 		})

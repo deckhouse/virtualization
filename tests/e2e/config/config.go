@@ -138,6 +138,7 @@ type TestData struct {
 	DiskResizing          string `yaml:"diskResizing"`
 	SizingPolicy          string `yaml:"sizingPolicy"`
 	ImporterNetworkPolicy string `yaml:"importerNetworkPolicy"`
+	ImageHotplug          string `yaml:"imageHotplug"`
 	ImagesCreation        string `yaml:"imagesCreation"`
 	VmConfiguration       string `yaml:"vmConfiguration"`
 	VmLabelAnnotation     string `yaml:"vmLabelAnnotation"`

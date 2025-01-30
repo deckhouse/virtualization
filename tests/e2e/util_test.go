@@ -229,13 +229,21 @@ func GetObjects(resource kc.Resource, object client.ObjectList, opts kc.GetOptio
 	if opts.Labels != nil {
 		cmdOpts.Labels = opts.Labels
 	}
+	if opts.ExcludedLabels != nil {
+		cmdOpts.ExcludedLabels = opts.ExcludedLabels
+	}
+	if opts.IgnoreNotFound {
+		cmdOpts.IgnoreNotFound = opts.IgnoreNotFound
+	}
 	cmd := kubectl.List(resource, cmdOpts)
 	if cmd.Error() != nil {
 		return fmt.Errorf("cmd: %s\nstderr: %s", cmd.GetCmd(), cmd.StdErr())
 	}
-	err := json.Unmarshal(cmd.StdOutBytes(), object)
-	if err != nil {
-		return err
+	if cmd.StdOut() != "" {
+		err := json.Unmarshal(cmd.StdOutBytes(), object)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

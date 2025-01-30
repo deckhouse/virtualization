@@ -23,6 +23,7 @@ testData:
   complexTest: "/tmp/testdata/complex-test"
   connectivity: "/tmp/testdata/connectivity"
   diskResizing: "/tmp/testdata/disk-resizing"
+  imageHotplug: "/tmp/testdata/image-hotplug"
   sizingPolicy: "/tmp/testdata/sizing-policy"
   imagesCreation: "/tmp/testdata/images-creation"
   importerNetworkPolicy: "/tmp/testdata/importer-network-policy"
