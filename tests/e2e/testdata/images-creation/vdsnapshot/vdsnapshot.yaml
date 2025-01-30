@@ -5,4 +5,3 @@ metadata:
 spec:
   requiredConsistency: true
   virtualDiskName: vd-alpine-http
-  volumeSnapshotClassName: sds-replicated-volume

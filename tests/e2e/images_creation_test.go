@@ -133,6 +133,15 @@ var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators()
 				Timeout:   MaxWaitTimeout,
 			})
 		})
+
+		It("checks CVIs phases", func() {
+			By(fmt.Sprintf("CVIs should be in %s phases", virtv2.ImageReady))
+			WaitPhaseByLabel(kc.ResourceCVI, string(virtv2.ImageReady), kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Timeout:   MaxWaitTimeout,
+			})
+		})
 	})
 
 	Context("When test is completed", func() {

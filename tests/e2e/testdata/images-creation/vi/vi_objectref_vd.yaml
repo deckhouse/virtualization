@@ -9,7 +9,7 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualDisk"
-      name: vd-base
+      name: vd-alpine-http
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
@@ -22,4 +22,4 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualDisk"
-      name: vd-base
+      name: vd-alpine-http

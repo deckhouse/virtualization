@@ -7,5 +7,5 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualDisk"
-      name: vd-base
+      name: vd-alpine-http
       namespace: test-d8-virtualization

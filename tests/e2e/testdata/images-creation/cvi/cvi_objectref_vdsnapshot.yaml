@@ -7,5 +7,5 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualDiskSnapshot"
-      name: vdsnapshot-base
+      name: vdsnapshot
       namespace: test-d8-virtualization
