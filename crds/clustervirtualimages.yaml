@@ -171,11 +171,12 @@ spec:
                         kind:
                           description:
                             Kind of the existing VirtualImage, ClusterVirtualImage,
-                            or VirtualDisk resource.
+                            VirtualDisk or VirtualDiskSnapshot resource.
                           enum:
                             - ClusterVirtualImage
                             - VirtualImage
                             - VirtualDisk
+                            - VirtualDiskSnapshot
                           type: string
                         name:
                           description:
