@@ -184,3 +184,12 @@ The HotPlug mechanism allows dynamic attachment of PVCs and `container-disk` vol
 - The unmount process is identical to that of `hotplug PVCs`.
 - The `emptyDir` resources are retained and cleaned up later by Kubernetes.
 ---
+
+#### `033-fix-virt-controller-tests.patch`
+
+Fix unit tests for virt-controller.
+
+```shell
+# Use to run tests:
+ginkgo -succinct /home/dmitrii/Base/Flant/kubevirt/pkg/virt-controller/...
+```
