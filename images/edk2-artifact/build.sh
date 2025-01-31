@@ -16,7 +16,6 @@
 
 # UEFI Revocation List File can be downloaded from https://uefi.org
 
-set -e
 usage() {
     cat <<EOF
     Usage: $0 [OPTIONS]

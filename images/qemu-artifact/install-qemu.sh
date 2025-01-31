@@ -81,13 +81,15 @@ parse_args() {
     else
         SRC_BUILD="$SRC_BASE"
     fi
-
-    if [ -z $VERSION_NUM ]; then
-        VERSION_NUM="9.2.0"
-    fi
 }
 
 parse_args $@
+
+if [ -z $VERSION_NUM ]; then
+    echo "Error: Option '--version-num' is missed but required"
+    usage
+    exit 1
+fi
 
 FILE_LIST=$(cat <<EOF
 $SRC_BUILD/trace/trace-events-all to /usr/share/qemu
