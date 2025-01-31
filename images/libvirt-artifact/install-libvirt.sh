@@ -89,13 +89,15 @@ parse_args() {
     else
         SRC_BUILD="$SRC_BASE"
     fi
-
-    if [ -z $VERSION_NUM ]; then
-        VERSION_NUM="10.10.0"
-    fi
 }
 
 parse_args $@
+
+if [ -z $VERSION_NUM ]; then
+    echo "Error: Option '--version-num' is missed but required"
+    usage
+    exit 1
+fi
 
 # 10.10.0 -> 10010, 10.0.5 -> 10005
 lib_version=$(convert_version $VERSION_NUM)

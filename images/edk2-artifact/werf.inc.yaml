@@ -1,7 +1,7 @@
 ---
 {{- $gitRepoName := "edk2" }}
 {{- $version := get $.Version $gitRepoName }}
-{{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
+{{- $gitRepoUrl := cat $.SOURCE_REPO "/tianocore/edk2.git" | nospace }}
 
 image: {{ $.ImageName }}
 final: false
@@ -20,10 +20,15 @@ git:
   to: /FIRMWARE
   includePaths:
   - '*.json'
-  - '*.bin'
   stageDependencies:
     setup:
       - '*.json'
+- add: /images/{{ $.ImageName }}
+  to: /FIRMWARE
+  includePaths:
+  - '*.bin'
+  stageDependencies:
+    setup:
       - '*.bin'
 shell:
   beforeInstall:

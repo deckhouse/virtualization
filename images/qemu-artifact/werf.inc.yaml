@@ -1,7 +1,7 @@
 ---
 {{- $gitRepoName := "qemu" }}
 {{- $version := get $.Version $gitRepoName }}
-{{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
+{{- $gitRepoUrl := cat $.SOURCE_REPO "/qemu/qemu.git" | nospace }}
 
 image: {{ $.ImageName }}
 final: false
