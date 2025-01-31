@@ -1,7 +1,7 @@
 ---
-{{- $versionEdk2 := "stable202411" }}
-{{- $gitRepoUrl := "https://github.com/tianocore/edk2.git" }}
 {{- $gitRepoName := "edk2" }}
+{{- $version := get $.Version $gitRepoName }}
+{{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
 
 image: {{ $.ImageName }}
 final: false
@@ -20,9 +20,11 @@ git:
   to: /FIRMWARE
   includePaths:
   - '*.json'
+  - '*.bin'
   stageDependencies:
     setup:
       - '*.json'
+      - '*.bin'
 shell:
   beforeInstall:
   - | 
@@ -49,11 +51,11 @@ shell:
 
   install:
   - |
-    git clone --depth=1 --branch {{ $gitRepoName }}-{{ $versionEdk2 }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionEdk2 }}
+    git clone --depth=1 --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
     
-    git clone https://github.com/tianocore/edk2-platforms.git
+    git clone {{ $.SOURCE_REPO }}/tianocore/edk2-platforms.git
 
-    cd {{ $gitRepoName }}-{{ $versionEdk2 }}
+    cd {{ $gitRepoName }}-{{ $version }}
     git submodule update --init --recursive
 
     # Set env edk
@@ -70,6 +72,5 @@ shell:
 
   setup:
   - |
-    /build.sh 2>&1 > /dev/null
+    /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }} 2>&1 > /dev/null
 
-    ls -lah /FIRMWARE
