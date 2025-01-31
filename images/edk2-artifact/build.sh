@@ -115,8 +115,9 @@ OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FAL
 
 # unset MAKEFLAGS
 echo "run source edksetup.sh"
+source ./edksetup.sh BaseTools
 source ./edksetup.sh
-. edksetup.sh
+
 
 ls -lah
 
@@ -203,27 +204,20 @@ enroll() {
               --output  $FIRMWARE/OVMF_VARS.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-$DBXDATE.x64.bin \
               --secure-boot 
-# --enroll-altlinux 
-# --distro-keys altlinux
 
   virt-fw-vars --input   $FIRMWARE/OVMF_VARS_4M.fd \
               --output  $FIRMWARE/OVMF_VARS_4M.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-$DBXDATE.x64.bin \
               --secure-boot 
-# --enroll-altlinux 
-# --distro-keys altlinux
 
   virt-fw-vars --input   $FIRMWARE/OVMF.inteltdx.fd \
               --output  $FIRMWARE/OVMF.inteltdx.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-$DBXDATE.x64.bin \
               --secure-boot 
-# --enroll-altlinux 
-# --distro-keys altlinux
 }
 
 no_enroll() {
   cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
-  # cp -p $FIRMWARE/OVMF_VARS_4M.fd $FIRMWARE/OVMF_VARS_4M.secboot.fd
   cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd  
 }
 

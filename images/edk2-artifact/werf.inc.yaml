@@ -70,10 +70,6 @@ shell:
     echo "Building BaseTools..."
     ln /usr/bin/python3 /usr/bin/python
     make -C BaseTools -j$(nproc)
-    
-    # Set up the build environment
-    echo "Setting up the build environment..."
-    source ./edksetup.sh BaseTools
 
   setup:
   - |
