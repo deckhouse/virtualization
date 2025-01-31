@@ -189,7 +189,7 @@ func (ds ObjectRefVirtualDiskSnapshot) StoreToDVCR(ctx context.Context, vi *virt
 			Reason(vicondition.Provisioning).
 			Message("PVC has created: waiting to be Bound.")
 
-		vi.Status.Progress = "50%"
+		vi.Status.Progress = "0%"
 		vi.Status.SourceUID = pointer.GetPointer(vs.UID)
 
 		return reconcile.Result{Requeue: true}, err
@@ -260,6 +260,16 @@ func (ds ObjectRefVirtualDiskSnapshot) StoreToDVCR(ctx context.Context, vi *virt
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
+				if pvc.Status.Phase != corev1.ClaimBound {
+					vi.Status.Phase = virtv2.ImageProvisioning
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vicondition.Provisioning).
+						Message("Waiting for PVC to be bound")
+
+					return reconcile.Result{Requeue: true}, nil
+				}
+
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningNotStarted).
