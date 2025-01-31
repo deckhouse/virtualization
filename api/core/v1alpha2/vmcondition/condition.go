@@ -38,7 +38,6 @@ const (
 	TypeFilesystemReady                     Type = "FilesystemReady"
 	TypeSizingPolicyMatched                 Type = "SizingPolicyMatched"
 	TypeSnapshotting                        Type = "Snapshotting"
-	TypeDiskAttachmentCapacityAvailable     Type = "DiskAttachmentCapacityAvailable"
 )
 
 type Reason string
@@ -102,8 +101,8 @@ const (
 	ReasonVirtualMachineClassTerminating Reason = "VirtualMachineClassTerminating"
 	ReasonVirtualMachineClassNotExists   Reason = "VirtalMachineClassNotExists"
 
-	ReasonBlockDeviceCapacityAvailable Reason = "BlockDeviceCapacityAvailable"
-	ReasonBlockDeviceCapacityReached   Reason = "BlockDeviceCapacityReached"
+	// ReasonBlockDeviceLimitExceeded indicates that the limit for attaching block devices has been exceeded
+	ReasonBlockDeviceLimitExceeded Reason = "BlockDeviceLimitExceeded"
 
 	ReasonPodTerminatingReason      Reason = "PodTerminating"
 	ReasonPodNotExistsReason        Reason = "PodNotExists"

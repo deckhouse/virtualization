@@ -17,18 +17,29 @@ limitations under the License.
 package internal
 
 import (
+	"context"
 	"log/slog"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 func TestBlockDeviceHandler(t *testing.T) {
@@ -41,10 +52,15 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 	var vdFoo *virtv2.VirtualDisk
 	var vdBar *virtv2.VirtualDisk
 
+	blockDeviceHandlerMock := &BlockDeviceServiceMock{}
+	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
+		return 1, nil
+	}
+
 	BeforeEach(func() {
 		h = NewBlockDeviceHandler(nil, &eventrecord.EventRecorderLoggerMock{
 			EventFunc: func(_ client.Object, _, _, _ string) {},
-		})
+		}, blockDeviceHandlerMock)
 		vdFoo = &virtv2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "vd-foo"},
 			Status: virtv2.VirtualDiskStatus{
@@ -152,6 +168,11 @@ var _ = Describe("BlockDeviceHandler", func() {
 	var vdFoo *virtv2.VirtualDisk
 	var vdBar *virtv2.VirtualDisk
 
+	blockDeviceHandlerMock := &BlockDeviceServiceMock{}
+	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
+		return 1, nil
+	}
+
 	getBlockDevicesState := func(vi *virtv2.VirtualImage, cvi *virtv2.ClusterVirtualImage, vdFoo, vdBar *virtv2.VirtualDisk) BlockDevicesState {
 		return BlockDevicesState{
 			VIByName:  map[string]*virtv2.VirtualImage{vi.Name: vi},
@@ -164,7 +185,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 		logger = slog.Default()
 		h = NewBlockDeviceHandler(nil, &eventrecord.EventRecorderLoggerMock{
 			EventFunc: func(_ client.Object, _, _, _ string) {},
-		})
+		}, blockDeviceHandlerMock)
 		vi = &virtv2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{Name: "vi-01"},
 			Status:     virtv2.VirtualImageStatus{Phase: virtv2.ImageReady},
@@ -320,3 +341,96 @@ var _ = Describe("BlockDeviceHandler", func() {
 		})
 	})
 })
+
+var _ = Describe("BlockDeviceHandler Handle", func() {
+	Context("Handle call result based on the number of connected block devices", func() {
+		okBlockDeviceServiceMock := &BlockDeviceServiceMock{
+			CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+				return 1, nil
+			},
+		}
+		erroredBlockDeviceServiceMock := &BlockDeviceServiceMock{
+			CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+				return 17, nil
+			},
+		}
+
+		ctx := logger.ToContext(context.TODO(), slog.Default())
+
+		recorderMock := &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(_ client.Object, _, _, _ string) {},
+			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
+		}
+
+		scheme := apiruntime.NewScheme()
+		for _, f := range []func(*apiruntime.Scheme) error{
+			virtv2.AddToScheme,
+			virtv1.AddToScheme,
+			corev1.AddToScheme,
+		} {
+			err := f(scheme)
+			if err != nil {
+				Fail(err.Error())
+			}
+		}
+
+		namespacedName := types.NamespacedName{
+			Namespace: "ns",
+			Name:      "vm",
+		}
+
+		vm := &virtv2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      namespacedName.Name,
+				Namespace: namespacedName.Namespace,
+			},
+			Spec: virtv2.VirtualMachineSpec{},
+			Status: virtv2.VirtualMachineStatus{
+				Conditions: []metav1.Condition{
+					{
+						Status:  metav1.ConditionUnknown,
+						Type:    vmcondition.TypeBlockDevicesReady.String(),
+						Reason:  conditions.ReasonUnknown.String(),
+						Message: "",
+					},
+				},
+			},
+		}
+
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm).Build()
+		vmResource := service.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		_ = vmResource.Fetch(ctx)
+		vmState := state.New(fakeClient, vmResource)
+
+		It("Should be ok because fewer than 16 devices are connected", func() {
+			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			result, err := handler.Handle(ctx, vmState)
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(reconcile.Result{}))
+			readyCondition, ok := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+			Expect(ok).To(BeTrue())
+			Expect(readyCondition.Status).To(Equal(metav1.ConditionTrue))
+			Expect(readyCondition.Reason).To(Equal(vmcondition.ReasonBlockDevicesReady.String()))
+		})
+		It("There might be an issue since 16 or more devices are connected.", func() {
+			handler := NewBlockDeviceHandler(fakeClient, recorderMock, erroredBlockDeviceServiceMock)
+			result, err := handler.Handle(ctx, vmState)
+			Expect(err).To(BeNil())
+			Expect(result).To(Equal(reconcile.Result{}))
+			readyCondition, ok := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+			Expect(ok).To(BeTrue())
+			Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
+			Expect(readyCondition.Reason).To(Equal(vmcondition.ReasonBlockDeviceLimitExceeded.String()))
+		})
+	})
+})
+
+func vmFactoryByVm(vm *virtv2.VirtualMachine) func() *virtv2.VirtualMachine {
+	return func() *virtv2.VirtualMachine {
+		return vm
+	}
+}
+
+func vmStatusGetter(obj *virtv2.VirtualMachine) virtv2.VirtualMachineStatus {
+	return obj.Status
+}

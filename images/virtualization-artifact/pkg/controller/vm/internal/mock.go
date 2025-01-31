@@ -4,6 +4,8 @@
 package internal
 
 import (
+	"context"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sync"
 )
@@ -231,5 +233,77 @@ func (mock *EventRecorderMock) EventfCalls() []struct {
 	mock.lockEventf.RLock()
 	calls = mock.calls.Eventf
 	mock.lockEventf.RUnlock()
+	return calls
+}
+
+// Ensure, that BlockDeviceServiceMock does implement BlockDeviceService.
+// If this is not the case, regenerate this file with moq.
+var _ BlockDeviceService = &BlockDeviceServiceMock{}
+
+// BlockDeviceServiceMock is a mock implementation of BlockDeviceService.
+//
+//	func TestSomethingThatUsesBlockDeviceService(t *testing.T) {
+//
+//		// make and configure a mocked BlockDeviceService
+//		mockedBlockDeviceService := &BlockDeviceServiceMock{
+//			CountBlockDevicesAttachedToVmFunc: func(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
+//				panic("mock out the CountBlockDevicesAttachedToVm method")
+//			},
+//		}
+//
+//		// use mockedBlockDeviceService in code that requires BlockDeviceService
+//		// and then make assertions.
+//
+//	}
+type BlockDeviceServiceMock struct {
+	// CountBlockDevicesAttachedToVmFunc mocks the CountBlockDevicesAttachedToVm method.
+	CountBlockDevicesAttachedToVmFunc func(ctx context.Context, vm *virtv2.VirtualMachine) (int, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// CountBlockDevicesAttachedToVm holds details about calls to the CountBlockDevicesAttachedToVm method.
+		CountBlockDevicesAttachedToVm []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// VM is the vm argument value.
+			VM *virtv2.VirtualMachine
+		}
+	}
+	lockCountBlockDevicesAttachedToVm sync.RWMutex
+}
+
+// CountBlockDevicesAttachedToVm calls CountBlockDevicesAttachedToVmFunc.
+func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVm(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
+	if mock.CountBlockDevicesAttachedToVmFunc == nil {
+		panic("BlockDeviceServiceMock.CountBlockDevicesAttachedToVmFunc: method is nil but BlockDeviceService.CountBlockDevicesAttachedToVm was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		VM  *virtv2.VirtualMachine
+	}{
+		Ctx: ctx,
+		VM:  vm,
+	}
+	mock.lockCountBlockDevicesAttachedToVm.Lock()
+	mock.calls.CountBlockDevicesAttachedToVm = append(mock.calls.CountBlockDevicesAttachedToVm, callInfo)
+	mock.lockCountBlockDevicesAttachedToVm.Unlock()
+	return mock.CountBlockDevicesAttachedToVmFunc(ctx, vm)
+}
+
+// CountBlockDevicesAttachedToVmCalls gets all the calls that were made to CountBlockDevicesAttachedToVm.
+// Check the length with:
+//
+//	len(mockedBlockDeviceService.CountBlockDevicesAttachedToVmCalls())
+func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVmCalls() []struct {
+	Ctx context.Context
+	VM  *virtv2.VirtualMachine
+} {
+	var calls []struct {
+		Ctx context.Context
+		VM  *virtv2.VirtualMachine
+	}
+	mock.lockCountBlockDevicesAttachedToVm.RLock()
+	calls = mock.calls.CountBlockDevicesAttachedToVm
+	mock.lockCountBlockDevicesAttachedToVm.RUnlock()
 	return calls
 }

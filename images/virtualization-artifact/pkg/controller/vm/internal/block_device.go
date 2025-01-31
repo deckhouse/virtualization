@@ -43,10 +43,11 @@ import (
 
 const nameBlockDeviceHandler = "BlockDeviceHandler"
 
-func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger) *BlockDeviceHandler {
+func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger, blockDeviceService BlockDeviceService) *BlockDeviceHandler {
 	return &BlockDeviceHandler{
-		client:   cl,
-		recorder: recorder,
+		client:             cl,
+		recorder:           recorder,
+		blockDeviceService: blockDeviceService,
 
 		viProtection:  service.NewProtectionService(cl, virtv2.FinalizerVIProtection),
 		cviProtection: service.NewProtectionService(cl, virtv2.FinalizerCVIProtection),
@@ -55,8 +56,9 @@ func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderL
 }
 
 type BlockDeviceHandler struct {
-	client   client.Client
-	recorder eventrecord.EventRecorderLogger
+	client             client.Client
+	recorder           eventrecord.EventRecorderLogger
+	blockDeviceService BlockDeviceService
 
 	viProtection  *service.ProtectionService
 	cviProtection *service.ProtectionService
@@ -93,6 +95,23 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	if err = h.setFinalizersOnBlockDevices(ctx, changed, bdState); err != nil {
 		return reconcile.Result{}, fmt.Errorf("unable to add block devices finalizers: %w", err)
+	}
+
+	// Get number of connected block devices.
+	// If it's greater than the limit, then set the condition to false.
+	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVm(ctx, changed)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonBlockDeviceLimitExceeded).
+			Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, changed.Name))
+		mgr.Update(cb.Condition())
+		changed.Status.Conditions = mgr.Generate()
+		return reconcile.Result{}, nil
 	}
 
 	// Get hot plugged BlockDeviceRefs from vmbdas.
