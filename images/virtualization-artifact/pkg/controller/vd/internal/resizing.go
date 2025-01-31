@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -155,6 +156,14 @@ func (h ResizingHandler) ResizeNeededBranch(
 
 	switch storageClassReadyCondition.Status {
 	case metav1.ConditionTrue:
+		if vd.Spec.PersistentVolumeClaim.Size == nil {
+			cb.
+				Status(metav1.ConditionUnknown).
+				Reason(conditions.ReasonUnknown).
+				Message("")
+			return reconcile.Result{}, errors.New("PersistentVolumeClaim does not have a size")
+		}
+
 		err := h.diskService.Resize(ctx, pvc, *vd.Spec.PersistentVolumeClaim.Size)
 		if err != nil {
 			if k8serrors.IsForbidden(err) {
@@ -162,7 +171,6 @@ func (h ResizingHandler) ResizeNeededBranch(
 					Status(metav1.ConditionFalse).
 					Reason(vdcondition.ResizingNotAvailable).
 					Message(fmt.Sprintf("Disk resizing is not allowed: %s.", err.Error()))
-				return reconcile.Result{}, nil
 			}
 			return reconcile.Result{}, err
 		}
@@ -184,7 +192,7 @@ func (h ResizingHandler) ResizeNeededBranch(
 	case metav1.ConditionFalse:
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ResizingNotRequested).
+			Reason(vdcondition.ResizingNotAvailable).
 			Message("Disk resizing is not allowed: Storage class is not ready")
 	case metav1.ConditionUnknown:
 		cb.
