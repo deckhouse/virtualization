@@ -78,7 +78,11 @@ EDK2_DIR="/${gitRepoName}-${edk2Branch}"
 FIRMWARE="/FIRMWARE"
 
 cp -f Logo.bmp $EDK2_DIR/MdeModulePkg/Logo/
+echo "=== cd $EDK2_DIR ==="
 cd $EDK2_DIR
+
+echo "= pwd ="
+pwd
 
 mkdir -p ${FIRMWARE}
 
@@ -109,9 +113,15 @@ OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SECURE_BOOT_ENABLE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SMM_REQUIRE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FALSE"
 
-unset MAKEFLAGS
-
+# unset MAKEFLAGS
+echo "run source edksetup.sh"
+source ./edksetup.sh
 . edksetup.sh
+
+ls -lah
+
+echo "build -h"
+build -h
 
 build_iso() {
   dir="$1"
@@ -147,62 +157,46 @@ build_iso() {
     -o "$ISO_IMAGE" "$UEFI_SHELL_IMAGE"
 }
 
-# Build with neither SB nor SMM; include UEFI shell.
-# mkdir -p OVMF
-# echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
-# build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
-# cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
-# cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
 
-# Build 4MB with neither SB nor SMM; include UEFI shell.
-echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
-build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
-cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
-cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
-# cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE_4M.fd
-# cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS_4M.fd
+build_ovmf() {
+  echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
+  build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
+  cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
+  cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
+}
 
-# Build with SB and SMM; exclude UEFI shell.
-# echo_dbg "build ${OVMF_2M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
-# build ${OVMF_2M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
-# cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.secboot.fd
+build_ovmf_secboot() {
+  # Build with SB and SMM; exclude UEFI shell.
+  echo_dbg "build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
+  build ${OVMF_2M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
+  cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.secboot.fd
+}
 
-# Build 4MB with SB and SMM; exclude UEFI shell.
-echo_dbg "build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
-build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
-cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.secboot.fd
-# cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE_4M.secboot.fd
+build_ovmf_amdsev() {
+  # Build AmdSev and IntelTdx variants
+  touch OvmfPkg/AmdSev/Grub/grub.efi   # dummy
 
-# Build AmdSev and IntelTdx variants
-touch OvmfPkg/AmdSev/Grub/grub.efi   # dummy
+  echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc"
+  build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc
+  cp -p Build/AmdSev/*/FV/OVMF.fd $FIRMWARE/OVMF.amdsev.fd
 
-echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc"
-build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc
-cp -p Build/AmdSev/*/FV/OVMF.fd $FIRMWARE/OVMF.amdsev.fd
-# echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc"
-# build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc
-# cp -p Build/AmdSev/*/FV/OVMF.fd $FIRMWARE/OVMF.amdsev.fd
+  echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc"
+  build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc
+  cp -p Build/IntelTdx/*/FV/OVMF.fd $FIRMWARE/OVMF.inteltdx.fd
+}
 
-echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc"
-build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc
-cp -p Build/IntelTdx/*/FV/OVMF.fd $FIRMWARE/OVMF.inteltdx.fd
-# echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc"
-# build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc
-# cp -p Build/IntelTdx/*/FV/OVMF.fd $FIRMWARE/OVMF.inteltdx.fd
+build_shell() {
+  # build shell
+  echo_dbg "build shell"
+  build ${OVMF_4M_FLAGS} -a X64 -p ShellPkg/ShellPkg.dsc
+  build ${OVMF_4M_FLAGS} -a IA32 -p ShellPkg/ShellPkg.dsc
 
-# build shell
-echo_dbg "build shell"
-build ${OVMF_4M_FLAGS} -a X64 -p ShellPkg/ShellPkg.dsc
-build ${OVMF_4M_FLAGS} -a IA32 -p ShellPkg/ShellPkg.dsc
-# build ${OVMF_2M_FLAGS} -a X64 -p ShellPkg/ShellPkg.dsc
-# build ${OVMF_2M_FLAGS} -a IA32 -p ShellPkg/ShellPkg.dsc
+  # build ovmf (x64) shell iso with EnrollDefaultKeys
+  #cp Build/Ovmf3264/*/X64/Shell.efi $FIRMWARE/
+  cp -p Build/Shell/*/X64/ShellPkg/Application/Shell/Shell/OUTPUT/Shell.efi $FIRMWARE/
+  cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+}
 
-# build ovmf (x64) shell iso with EnrollDefaultKeys
-#cp Build/Ovmf3264/*/X64/Shell.efi $FIRMWARE/
-cp -p Build/Shell/*/X64/ShellPkg/Application/Shell/Shell/OUTPUT/Shell.efi $FIRMWARE/
-cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
-
-build_iso $FIRMWARE
 
 enroll() {
   virt-fw-vars --input   $FIRMWARE/OVMF_VARS.fd \
@@ -227,17 +221,16 @@ enroll() {
 # --distro-keys altlinux
 }
 
-# enroll
-
 no_enroll() {
   cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
   # cp -p $FIRMWARE/OVMF_VARS_4M.fd $FIRMWARE/OVMF_VARS_4M.secboot.fd
   cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd  
 }
 
-no_enroll
+build_ovmf 2>&1 > /dev/null
+build_ovmf_secboot 2>&1 > /dev/null
+build_ovmf_amdsev 2>&1 > /dev/null
+build_shell 2>&1 > /dev/null
 
-# build microvm
-# echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/Microvm/MicrovmX64.dsc"
-# build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/Microvm/MicrovmX64.dsc
-# cp -p Build/MicrovmX64/*/FV/MICROVM.fd $FIRMWARE
+build_iso $FIRMWARE
+no_enroll
