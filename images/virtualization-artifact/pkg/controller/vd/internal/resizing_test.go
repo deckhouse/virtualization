@@ -192,7 +192,7 @@ var _ = Describe("Resizing handler Run", func() {
 					},
 					{
 						Type:   vdcondition.ReadyType.String(),
-						Status: args.readyConditionStatus,
+						Status: args.expectedReadyConditionStatus,
 						Reason: conditions.ReasonUnknown.String(),
 					},
 					{
@@ -201,7 +201,7 @@ var _ = Describe("Resizing handler Run", func() {
 						Reason: vdcondition.StorageClassReady.String(),
 					},
 				},
-				Phase: args.vdPhase,
+				Phase: args.expectedVdPhase,
 			},
 		}
 
@@ -233,39 +233,39 @@ var _ = Describe("Resizing handler Run", func() {
 		} else {
 			Expect(err).To(HaveOccurred())
 		}
-		Expect(vd.Status.Phase).To(Equal(args.vdPhase))
+		Expect(vd.Status.Phase).To(Equal(args.expectedVdPhase))
 	},
 		Entry("Virtual Disk deleting", handleTestArgs{
-			isDiskDeleting:       true,
-			isPVCGetError:        false,
-			pvc:                  nil,
-			readyConditionStatus: metav1.ConditionUnknown,
-			isErrorNil:           true,
-			vdPhase:              virtv2.DiskTerminating,
+			isDiskDeleting:               true,
+			isPVCGetError:                false,
+			pvc:                          nil,
+			isErrorNil:                   true,
+			expectedReadyConditionStatus: metav1.ConditionUnknown,
+			expectedVdPhase:              virtv2.DiskTerminating,
 		}),
 		Entry("Virtual Disk is not ready", handleTestArgs{
-			isDiskDeleting:       false,
-			isPVCGetError:        false,
-			pvc:                  nil,
-			readyConditionStatus: metav1.ConditionFalse,
-			isErrorNil:           true,
-			vdPhase:              virtv2.DiskPending,
+			isDiskDeleting:               false,
+			isPVCGetError:                false,
+			pvc:                          nil,
+			isErrorNil:                   true,
+			expectedReadyConditionStatus: metav1.ConditionFalse,
+			expectedVdPhase:              virtv2.DiskPending,
 		}),
 		Entry("PVC get error", handleTestArgs{
-			isDiskDeleting:       false,
-			isPVCGetError:        true,
-			pvc:                  nil,
-			readyConditionStatus: metav1.ConditionTrue,
-			isErrorNil:           false,
-			vdPhase:              virtv2.DiskPending,
+			isDiskDeleting:               false,
+			isPVCGetError:                true,
+			pvc:                          nil,
+			isErrorNil:                   false,
+			expectedReadyConditionStatus: metav1.ConditionTrue,
+			expectedVdPhase:              virtv2.DiskPending,
 		}),
 		Entry("PVC is nil", handleTestArgs{
-			isDiskDeleting:       false,
-			isPVCGetError:        false,
-			pvc:                  nil,
-			readyConditionStatus: metav1.ConditionTrue,
-			isErrorNil:           true,
-			vdPhase:              virtv2.DiskPending,
+			isDiskDeleting:               false,
+			isPVCGetError:                false,
+			pvc:                          nil,
+			isErrorNil:                   true,
+			expectedReadyConditionStatus: metav1.ConditionTrue,
+			expectedVdPhase:              virtv2.DiskPending,
 		}),
 		Entry("PVC is not bound", handleTestArgs{
 			isDiskDeleting: false,
@@ -275,9 +275,9 @@ var _ = Describe("Resizing handler Run", func() {
 					Phase: corev1.ClaimPending,
 				},
 			},
-			readyConditionStatus: metav1.ConditionTrue,
-			isErrorNil:           true,
-			vdPhase:              virtv2.DiskPending,
+			isErrorNil:                   true,
+			expectedReadyConditionStatus: metav1.ConditionTrue,
+			expectedVdPhase:              virtv2.DiskPending,
 		}),
 		Entry("Everything is fine", handleTestArgs{
 			isDiskDeleting: false,
@@ -287,9 +287,9 @@ var _ = Describe("Resizing handler Run", func() {
 					Phase: corev1.ClaimBound,
 				},
 			},
-			readyConditionStatus: metav1.ConditionTrue,
-			isErrorNil:           true,
-			vdPhase:              virtv2.DiskPending,
+			isErrorNil:                   true,
+			expectedReadyConditionStatus: metav1.ConditionTrue,
+			expectedVdPhase:              virtv2.DiskPending,
 		}),
 	)
 
@@ -449,12 +449,12 @@ func testContext() context.Context {
 }
 
 type handleTestArgs struct {
-	isDiskDeleting       bool
-	isPVCGetError        bool
-	pvc                  *corev1.PersistentVolumeClaim
-	readyConditionStatus metav1.ConditionStatus
-	isErrorNil           bool
-	vdPhase              virtv2.DiskPhase
+	isDiskDeleting               bool
+	isPVCGetError                bool
+	isErrorNil                   bool
+	pvc                          *corev1.PersistentVolumeClaim
+	expectedReadyConditionStatus metav1.ConditionStatus
+	expectedVdPhase              virtv2.DiskPhase
 }
 
 type resizeNeededBranchArgs struct {
