@@ -1,7 +1,7 @@
 ---
-{{- $versionQemu := "9.2.0" }}
-{{- $gitRepoUrl := "https://github.com/qemu/qemu.git" }}
 {{- $gitRepoName := "qemu" }}
+{{- $version := get $.Version $gitRepoName }}
+{{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
 
 image: {{ $.ImageName }}
 final: false
@@ -113,9 +113,9 @@ shell:
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
 
-    git clone --depth=1 --branch v{{ $versionQemu }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionQemu }}
+    git clone --depth=1 --branch v{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
     
-    cd {{ $gitRepoName }}-{{ $versionQemu }}
+    cd {{ $gitRepoName }}-{{ $version }}
     
     ./configure \
       --target-list="x86_64-softmmu" \
@@ -308,7 +308,7 @@ shell:
 
   setup:
   - |
-    /install-qemu.sh --version-num "{{ $versionQemu }}" \
-                        -s /{{ $gitRepoName }}-{{ $versionQemu }} \
+    /install-qemu.sh --version-num "{{ $version }}" \
+                        -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
                         -b build
