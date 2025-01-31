@@ -1,7 +1,7 @@
 ---
-{{- $versionLibvirt := "10.9.0" }}
-{{- $gitRepoUrl := "https://github.com/libvirt/libvirt.git" }}
 {{- $gitRepoName := "libvirt" }}
+{{- $version := get $.Version $gitRepoName }}
+{{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
 
 image: {{ $.ImageName }}
 final: false
@@ -119,9 +119,9 @@ shell:
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
 
-    git clone --depth=1 --branch v{{ $versionLibvirt }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $versionLibvirt }}
+    git clone --depth=1 --branch v{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
 
-    cd {{ $gitRepoName }}-{{ $versionLibvirt }}
+    cd {{ $gitRepoName }}-{{ $version }}
 
     CFLAGS="-Wframe-larger-than=262144" meson setup build \
       -Dinit_script=systemd \
@@ -171,7 +171,7 @@ shell:
 
   setup:
   - |    
-    /install-libvirt.sh --version-num "{{ $versionLibvirt }}" \
-                        -s /{{ $gitRepoName }}-{{ $versionLibvirt }} \
+    /install-libvirt.sh --version-num "{{ $version }}" \
+                        -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
                         -b build
