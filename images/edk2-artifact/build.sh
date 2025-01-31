@@ -14,29 +14,74 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# set -e
+# UEFI Revocation List File can be downloaded from https://uefi.org
 
-versionEdk2="stable202411"
-gitRepoName="edk2"
-EDK2_DIR="/${gitRepoName}-${versionEdk2}"
+set -e
+usage() {
+    cat <<EOF
+    Usage: $0 [OPTIONS]
+    Options:
+    
+    Set brranch:                        --branch (example: v2.1 2.3 stable2024)
+    Set repository name:                --repo-name (example: edk2 libvirt etc)
+    Show this help message and exit:    -h, --help
+EOF
+    exit 0
+}
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --branch)
+            if [[ -n "$2" && "$2" != "-"* ]]; then
+                edk2Branch="$2"
+                shift 2
+            else
+                echo "Error: Option '$1' requires a non-empty argument."
+                usage
+            fi
+            ;;
+        --repo-name)
+            if [[ -n "$2" && "$2" != "-"* ]]; then
+                gitRepoName="$2"
+                shift 2
+            else
+                echo "Error: Option '$1' requires a non-empty argument."
+                usage
+            fi
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            echo "Error: Unknown option '$1'"
+            usage
+            ;;
+        esac
+    done
+}
+
+parse_args $@
+
+if [[ -z "$edk2Branch" ]]; then
+    echo "Error: Option '--branch' is missed but required"
+    usage
+    exit 1
+fi
+
+if [[ -z "$gitRepoName" ]]; then
+    echo "Error: Option '--repo-name' is missed but required"
+    usage
+    exit 1
+fi
+
+EDK2_DIR="/${gitRepoName}-${edk2Branch}"
 FIRMWARE="/FIRMWARE"
-
-DBXDATE="20230509"
-UEFI_BIN_BASE_URL="https://uefi.org/sites/default/files/resources"
 
 cp -f Logo.bmp $EDK2_DIR/MdeModulePkg/Logo/
 cd $EDK2_DIR
 
 mkdir -p ${FIRMWARE}
-
-download_DBXUpdate() {
-    local dst_dir=$1
-
-    if [ -z $dst_dir ];then dst_dir="$FIRMWARE"; fi
-
-    # curl -L $UEFI_BIN_BASE_URL/x86_DBXUpdate$DBXDATE.bin -o $dst_dir/DBXUpdate-$DBXDATE.x86.bin
-    curl -L $UEFI_BIN_BASE_URL/x64_DBXUpdate_$DBXDATE.bin -o $dst_dir/DBXUpdate-$DBXDATE.x64.bin
-}
 
 echo_dbg() {
   local str=$1
@@ -159,7 +204,6 @@ cp -p Build/Shell/*/X64/ShellPkg/Application/Shell/Shell/OUTPUT/Shell.efi $FIRMW
 cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
 
 build_iso $FIRMWARE
-download_DBXUpdate
 
 enroll() {
   virt-fw-vars --input   $FIRMWARE/OVMF_VARS.fd \
