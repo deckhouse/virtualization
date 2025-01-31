@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -230,7 +231,7 @@ var _ = Describe("Resizing handler Run", func() {
 		if args.isErrorNil {
 			Expect(err).To(BeNil())
 		} else {
-			Expect(err).NotTo(BeNil())
+			Expect(err).To(HaveOccurred())
 		}
 		Expect(vd.Status.Phase).To(Equal(args.vdPhase))
 	},
@@ -291,6 +292,156 @@ var _ = Describe("Resizing handler Run", func() {
 			vdPhase:              virtv2.DiskPending,
 		}),
 	)
+
+	DescribeTable("Resizing handler ResizeNeededBranch", func(args resizeNeededBranchArgs) {
+		vd := &virtv2.VirtualDisk{
+			Spec: virtv2.VirtualDiskSpec{
+				PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+					Size: ptr.To(resource.Quantity{}),
+				},
+			},
+			Status: virtv2.VirtualDiskStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.ResizingType.String(),
+						Status: metav1.ConditionUnknown,
+						Reason: conditions.ReasonUnknown.String(),
+					},
+					{
+						Type:   vdcondition.SnapshottingType.String(),
+						Status: args.snapshottingStatus,
+						Reason: conditions.ReasonUnknown.String(),
+					},
+					{
+						Type:   vdcondition.StorageClassReadyType.String(),
+						Status: args.storageClassReadyStatus,
+						Reason: vdcondition.StorageClassReady.String(),
+					},
+				},
+				Phase: virtv2.DiskPending,
+			},
+		}
+
+		resizeCalled := false
+		diskService := &DiskServiceMock{
+			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
+				resizeCalled = true
+				if args.isResizeReturnErr {
+					return errors.New("test error")
+				}
+				return nil
+			},
+		}
+
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+
+		log := logger.FromContext(testContext()).With(logger.SlogHandler("resizing"))
+
+		handler := NewResizingHandler(recorder, diskService)
+		cb := conditions.NewConditionBuilder(vdcondition.ResizingType)
+
+		result, err := handler.ResizeNeededBranch(testContext(), vd, pvc, cb, log)
+
+		Expect(result).To(Equal(reconcile.Result{}))
+		if args.expectedHaveError {
+			Expect(err).To(HaveOccurred())
+		} else {
+			Expect(err).To(BeNil())
+		}
+		Expect(vd.Status.Phase).To(Equal(args.expectedPhase))
+		Expect(resizeCalled).To(Equal(args.expectedResizeCalled))
+		Expect(cb.Condition().Status).To(Equal(args.expectedStatus))
+		Expect(cb.Condition().Reason).To(Equal(args.expectedReason))
+	},
+		Entry("Snapshotting", resizeNeededBranchArgs{
+			snapshottingStatus:      metav1.ConditionTrue,
+			storageClassReadyStatus: metav1.ConditionUnknown,
+			isResizeReturnErr:       false,
+			expectedResizeCalled:    false,
+			expectedHaveError:       false,
+			expectedPhase:           virtv2.DiskPending,
+			expectedStatus:          metav1.ConditionFalse,
+			expectedReason:          vdcondition.ResizingNotAvailable.String(),
+		}),
+		Entry("StorageClass not ready", resizeNeededBranchArgs{
+			snapshottingStatus:      metav1.ConditionFalse,
+			storageClassReadyStatus: metav1.ConditionFalse,
+			isResizeReturnErr:       false,
+			expectedResizeCalled:    false,
+			expectedHaveError:       false,
+			expectedPhase:           virtv2.DiskPending,
+			expectedStatus:          metav1.ConditionFalse,
+			expectedReason:          vdcondition.ResizingNotAvailable.String(),
+		}),
+		Entry("StorageClassReady is Unknown", resizeNeededBranchArgs{
+			snapshottingStatus:      metav1.ConditionFalse,
+			storageClassReadyStatus: metav1.ConditionUnknown,
+			isResizeReturnErr:       false,
+			expectedResizeCalled:    false,
+			expectedHaveError:       false,
+			expectedPhase:           virtv2.DiskPending,
+			expectedStatus:          metav1.ConditionUnknown,
+			expectedReason:          conditions.ReasonUnknown.String(),
+		}),
+		Entry("Resize return err", resizeNeededBranchArgs{
+			snapshottingStatus:      metav1.ConditionFalse,
+			storageClassReadyStatus: metav1.ConditionTrue,
+			isResizeReturnErr:       true,
+			expectedResizeCalled:    true,
+			expectedHaveError:       true,
+			expectedPhase:           virtv2.DiskPending,
+			expectedStatus:          metav1.ConditionUnknown,
+			expectedReason:          conditions.ReasonUnknown.String(),
+		}),
+		Entry("Positive case", resizeNeededBranchArgs{
+			snapshottingStatus:      metav1.ConditionFalse,
+			storageClassReadyStatus: metav1.ConditionTrue,
+			isResizeReturnErr:       false,
+			expectedResizeCalled:    true,
+			expectedHaveError:       false,
+			expectedPhase:           virtv2.DiskResizing,
+			expectedStatus:          metav1.ConditionTrue,
+			expectedReason:          vdcondition.InProgress.String(),
+		}),
+	)
+
+	DescribeTable("Resizing Handler ResizeNotNeededBranch", func(args resizeNotNeededBranchArgs) {
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+
+		handler := NewResizingHandler(recorder, nil)
+		cb := conditions.NewConditionBuilder(vdcondition.ResizingType)
+
+		resizingCondition := metav1.Condition{
+			Type:    vdcondition.ResizingType.String(),
+			Reason:  args.resizingConditionReason,
+			Status:  metav1.ConditionUnknown,
+			Message: "",
+		}
+
+		result, err := handler.ResizeNotNeededBranch(nil, resizingCondition, cb)
+
+		Expect(result).To(Equal(reconcile.Result{}))
+		Expect(err).To(BeNil())
+		Expect(cb.Condition().Status).To(Equal(metav1.ConditionFalse))
+		Expect(cb.Condition().Reason).To(Equal(args.expectedReason))
+	},
+		Entry("Resizing in progress", resizeNotNeededBranchArgs{
+			resizingConditionReason: vdcondition.InProgress.String(),
+			expectedReason:          vdcondition.Resized.String(),
+		}),
+		Entry("Resized", resizeNotNeededBranchArgs{
+			resizingConditionReason: vdcondition.Resized.String(),
+			expectedReason:          vdcondition.Resized.String(),
+		}),
+		Entry("Default", resizeNotNeededBranchArgs{
+			resizingConditionReason: conditions.ReasonUnknown.String(),
+			expectedReason:          vdcondition.ResizingNotRequested.String(),
+		}),
+	)
 })
 
 func testContext() context.Context {
@@ -304,4 +455,20 @@ type handleTestArgs struct {
 	readyConditionStatus metav1.ConditionStatus
 	isErrorNil           bool
 	vdPhase              virtv2.DiskPhase
+}
+
+type resizeNeededBranchArgs struct {
+	snapshottingStatus      metav1.ConditionStatus
+	storageClassReadyStatus metav1.ConditionStatus
+	isResizeReturnErr       bool
+	expectedResizeCalled    bool
+	expectedHaveError       bool
+	expectedPhase           virtv2.DiskPhase
+	expectedStatus          metav1.ConditionStatus
+	expectedReason          string
+}
+
+type resizeNotNeededBranchArgs struct {
+	resizingConditionReason string
+	expectedReason          string
 }
