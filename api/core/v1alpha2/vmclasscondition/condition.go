@@ -48,6 +48,4 @@ const (
 
 	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
 	ReasonVMClassInUse Reason = "VirtualMachineClassInUse"
-	// ReasonVMClassFree is event reason that VMClass not used by virtual machine.
-	ReasonVMClassFree Reason = "VirtualMachineClassFree"
 )

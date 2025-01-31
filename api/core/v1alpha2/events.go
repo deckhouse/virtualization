@@ -119,14 +119,14 @@ const (
 	// ReasonNotAttached is event reason that VirtualMachineIPAddress is not attached to VirtualMachine.
 	ReasonNotAttached = "NotAttached"
 
+	// ReasonBound is the event reason indicating that a VirtualMachineIPLease is bound to a VirtualMachineIPAddress.
+	ReasonBound = "Bound"
+	// ReasonFailed is the event reason indicating that the binding of a VirtualMachineIPLease to a VirtualMachineIPAddress has failed.
+	ReasonFailed = "Failed"
+
 	// ReasonVMClassSizingPoliciesWereChanged is event reason that VMClass sizing policies were changed.
 	ReasonVMClassSizingPoliciesWereChanged = "SizingPoliciesWereChanged"
 
 	// ReasonVMClassAvailableNodesListEmpty is event reason that VMClass has no available nodes.
 	ReasonVMClassAvailableNodesListEmpty = "AvailableNodesListEmpty"
-
-	// ReasonBound is the event reason indicating that a VirtualMachineIPLease is bound to a VirtualMachineIPAddress.
-	ReasonBound = "Bound"
-	// ReasonFailed is the event reason indicating that the binding of a VirtualMachineIPLease to a VirtualMachineIPAddress has failed.
-	ReasonFailed = "Failed"
 )
