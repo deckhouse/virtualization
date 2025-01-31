@@ -46,6 +46,10 @@ configVersion: 1
 # Edition module settings
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
 
+# Versions modules
+{{- $versions_ctx := (.Files.Get "candi/version_map.yml" | fromYaml) }}
+{{ printf "%s" $versions_ctx }} 
+
 # Modules_images
 {{- define "module_image_template" }}
 
