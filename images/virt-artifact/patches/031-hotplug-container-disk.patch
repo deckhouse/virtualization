@@ -869,10 +869,10 @@ index fa4e86ee17..c40f1fad89 100644
  			pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 diff --git a/pkg/virt-handler/container-disk/hotplug.go b/pkg/virt-handler/container-disk/hotplug.go
 new file mode 100644
-index 0000000000..553f76cb0a
+index 0000000000..3960b6bcb2
 --- /dev/null
 +++ b/pkg/virt-handler/container-disk/hotplug.go
-@@ -0,0 +1,538 @@
+@@ -0,0 +1,644 @@
 +package container_disk
 +
 +import (
@@ -1119,20 +1119,11 @@ index 0000000000..553f76cb0a
 +
 +	for _, volume := range vmi.Spec.Volumes {
 +		if volume.ContainerDisk != nil && volume.ContainerDisk.Hotpluggable {
-+			target, err := m.hotplugManager.GetFileSystemDiskTargetPathFromHostView(virtLauncherUID, volume.Name, true)
++			entry, err := m.newMountTargetEntry(vmi, virtLauncherUID, sourceUID, volume.Name)
 +			if err != nil {
 +				return nil, err
 +			}
-+
-+			sock, err := m.hotplugPathGetter(vmi, volume.Name, sourceUID)
-+			if err != nil {
-+				return nil, err
-+			}
-+
-+			record.MountTargetEntries = append(record.MountTargetEntries, vmiMountTargetEntry{
-+				TargetFile: unsafepath.UnsafeAbsolute(target.Raw()),
-+				SocketFile: sock,
-+			})
++			record.MountTargetEntries = append(record.MountTargetEntries, entry)
 +		}
 +	}
 +
@@ -1189,20 +1180,110 @@ index 0000000000..553f76cb0a
 +	return disksInfo, nil
 +}
 +
++func (m *hotplugMounter) newMountTargetEntry(
++	vmi *v1.VirtualMachineInstance,
++	virtLauncherUID, sourceUID types.UID,
++	volumeName string,
++) (vmiMountTargetEntry, error) {
++	target, err := m.hotplugManager.GetFileSystemDiskTargetPathFromHostView(virtLauncherUID, volumeName, true)
++	if err != nil {
++		return vmiMountTargetEntry{}, err
++	}
++
++	sock, err := m.hotplugPathGetter(vmi, volumeName, sourceUID)
++	if err != nil {
++		return vmiMountTargetEntry{}, err
++	}
++	return vmiMountTargetEntry{
++		TargetFile: unsafepath.UnsafeAbsolute(target.Raw()),
++		SocketFile: sock,
++	}, nil
++}
++
++func (m *hotplugMounter) getMountedVolumesInWorld(vmi *v1.VirtualMachineInstance, virtLauncherUID types.UID) ([]vmiMountTargetEntry, error) {
++	path, err := m.hotplugManager.GetHotplugTargetPodPathOnHost(virtLauncherUID)
++	if err != nil {
++		return nil, err
++	}
++	rawPath := unsafepath.UnsafeAbsolute(path.Raw())
++	entries, err := os.ReadDir(rawPath)
++	if err != nil {
++		return nil, err
++	}
++	var volumes []string
++	for _, entry := range entries {
++		info, err := entry.Info()
++		if err != nil {
++			return nil, err
++		}
++		if info.IsDir() {
++			continue
++		}
++		if strings.HasSuffix(entry.Name(), ".img") {
++			name := strings.TrimPrefix(entry.Name(), ".img")
++			volumes = append(volumes, name)
++		}
++	}
++	var mountedVolumes []vmiMountTargetEntry
++	for _, v := range volumes {
++		mounted, err := m.IsMounted(vmi, v)
++		if err != nil {
++			return nil, err
++		}
++		if mounted {
++			entry, err := m.newMountTargetEntry(vmi, virtLauncherUID, "", v)
++			if err != nil {
++				return nil, err
++			}
++			mountedVolumes = append(mountedVolumes, entry)
++		}
++	}
++	return mountedVolumes, nil
++}
++
++func (m *hotplugMounter) mergeMountEntries(r1, r2 []vmiMountTargetEntry) []vmiMountTargetEntry {
++	newRecords := make([]vmiMountTargetEntry, 0)
++	added := make(map[vmiMountTargetEntry]struct{})
++
++	fn := func(r []vmiMountTargetEntry) {
++		for _, entry := range r {
++			if _, ok := added[entry]; ok {
++				continue
++			}
++			newRecords = append(newRecords, entry)
++		}
++	}
++	fn(r1)
++	fn(r2)
++
++	return newRecords
++}
++
 +func (m *hotplugMounter) Umount(vmi *v1.VirtualMachineInstance) error {
 +	record, err := m.getMountTargetRecord(vmi)
 +	if err != nil {
 +		return err
-+	} else if record == nil {
-+		// no entries to unmount
++	}
 +
++	worldEntries, err := m.getMountedVolumesInWorld(vmi, m.findVirtlauncherUID(vmi))
++	if err != nil {
++		return fmt.Errorf("failed to get world entries: %w", err)
++	}
++	var recordMountTargetEntries []vmiMountTargetEntry
++	if record != nil {
++		recordMountTargetEntries = record.MountTargetEntries
++	}
++
++	mountEntries := m.mergeMountEntries(recordMountTargetEntries, worldEntries)
++
++	if len(mountEntries) == 0 {
 +		log.DefaultLogger().Object(vmi).Infof("No container disk mount entries found to unmount")
 +		return nil
 +	}
 +
 +	entriesForDelete := make(map[vmiMountTargetEntry]struct{})
 +
-+	for _, r := range record.MountTargetEntries {
++	for _, r := range mountEntries {
 +		name, err := extractNameFromSocket(r.SocketFile)
 +		if err != nil {
 +			return err
@@ -1228,6 +1309,9 @@ index 0000000000..553f76cb0a
 +				return fmt.Errorf(failedCheckMountPointFmt, r.TargetFile, err)
 +			}
 +			if !mounted {
++				if err = safepath.UnlinkAtNoFollow(file.Path()); err != nil {
++					return fmt.Errorf("failed to delete file %s: %w", file.Path(), err)
++				}
 +				entriesForDelete[r] = struct{}{}
 +				continue
 +			}
@@ -1235,6 +1319,9 @@ index 0000000000..553f76cb0a
 +			out, err := virt_chroot.UmountChroot(file.Path()).CombinedOutput()
 +			if err != nil {
 +				return fmt.Errorf(failedUnmountFmt, file, string(out), err)
++			}
++			if err = safepath.UnlinkAtNoFollow(file.Path()); err != nil {
++				return fmt.Errorf("failed to delete file %s: %w", file.Path(), err)
 +			}
 +			entriesForDelete[r] = struct{}{}
 +		}
@@ -1268,15 +1355,27 @@ index 0000000000..553f76cb0a
 +	record, err := m.getMountTargetRecord(vmi)
 +	if err != nil {
 +		return err
-+	} else if record == nil {
-+		// no entries to unmount
++	}
 +
++	worldEntries, err := m.getMountedVolumesInWorld(vmi, m.findVirtlauncherUID(vmi))
++	if err != nil {
++		return fmt.Errorf("failed to get world entries: %w", err)
++	}
++	var recordMountTargetEntries []vmiMountTargetEntry
++	if record != nil {
++		recordMountTargetEntries = record.MountTargetEntries
++	}
++
++	mountEntries := m.mergeMountEntries(recordMountTargetEntries, worldEntries)
++
++	if len(mountEntries) == 0 {
 +		log.DefaultLogger().Object(vmi).Infof("No container disk mount entries found to unmount")
 +		return nil
 +	}
 +
 +	log.DefaultLogger().Object(vmi).Infof("Found container disk mount entries")
-+	for _, entry := range record.MountTargetEntries {
++
++	for _, entry := range mountEntries {
 +		log.DefaultLogger().Object(vmi).Infof("Looking to see if containerdisk is mounted at path %s", entry.TargetFile)
 +		file, err := safepath.NewFileNoFollow(entry.TargetFile)
 +		if err != nil {
@@ -1294,6 +1393,13 @@ index 0000000000..553f76cb0a
 +			out, err := virt_chroot.UmountChroot(file.Path()).CombinedOutput()
 +			if err != nil {
 +				return fmt.Errorf(failedUnmountFmt, file, string(out), err)
++			}
++			if err = safepath.UnlinkAtNoFollow(file.Path()); err != nil {
++				return fmt.Errorf("failed to delete file %s: %w", file.Path(), err)
++			}
++		} else {
++			if err = safepath.UnlinkAtNoFollow(file.Path()); err != nil {
++				return fmt.Errorf("failed to delete file %s: %w", file.Path(), err)
 +			}
 +		}
 +	}
