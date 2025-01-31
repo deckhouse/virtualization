@@ -181,7 +181,7 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 		return reconcile.Result{}, err
 	}
 
-	h.recorder.Event(vmip, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineIPAddress is bound to a new lease.")
+	h.recorder.Event(vmip, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineIPAddress is bound to a new VirtualMachineIPAddressLease.")
 
 	return reconcile.Result{}, nil
 }
