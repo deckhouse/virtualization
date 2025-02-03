@@ -160,7 +160,7 @@ func Cleanup() []error {
 			continue
 		}
 		res := kubectl.Delete(kc.DeleteOptions{
-			Filename:       []string{conf.Namespace},
+			Filename:       []string{namespace},
 			IgnoreNotFound: true,
 			Resource:       kc.ResourceNamespace,
 		})
