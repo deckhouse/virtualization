@@ -30,8 +30,8 @@ convert_version() {
     local version="$1"
 
     # Split the version string into major, minor, and patch parts
+    # and construct the compact version by combining major and zero-padded minor
     IFS='.' read -r major minor patch <<< "$version"
-    # Construct the compact version by combining major and zero-padded minor
     printf "%d%03d\n" "$major" "$minor"
 }
 
@@ -102,7 +102,9 @@ fi
 # 10.10.0 -> 10010, 10.0.5 -> 10005
 lib_version=$(convert_version $VERSION_NUM)
 
-# List of files and destinations
+# List of files and destinations of libvirt
+# Commented lines - binary for additional features. 
+# When building with support for a new feature, uncomment the necessary files
 FILE_LIST=$(cat <<EOF
 # $SRC_BUILD/src/libvirt_probes.stp to /usr/share/systemtap/tapset
 $SRC_BUILD/src/access/org.libvirt.api.policy to /usr/share/polkit-1/actions
@@ -188,53 +190,8 @@ $SRC_BUILD/tools/nss/libnss_libvirt.so.2 to /usr/lib64
 $SRC_BUILD/tools/nss/libnss_libvirt_guest.so.2 to /usr/lib64
 # $SRC_BUILD/tools/wireshark/src/libvirt.so to /usr/lib64/wireshark/plugins/4.4/epan
 $SRC_BUILD/tools/ssh-proxy/libvirt-ssh-proxy to /usr/libexec
-# $SRC_BASE/po/as/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/as/LC_MESSAGES
-# $SRC_BASE/po/bg/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bg/LC_MESSAGES
-# $SRC_BASE/po/bn_IN/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bn_IN/LC_MESSAGES
-# $SRC_BASE/po/bs/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/bs/LC_MESSAGES
-# $SRC_BASE/po/ca/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ca/LC_MESSAGES
-# $SRC_BASE/po/cs/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/cs/LC_MESSAGES
-# $SRC_BASE/po/da/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/da/LC_MESSAGES
-# $SRC_BASE/po/de/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/de/LC_MESSAGES
-# $SRC_BASE/po/el/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/el/LC_MESSAGES
 $SRC_BASE/po/en_GB/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/en_GB/LC_MESSAGES
-# $SRC_BASE/po/es/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/es/LC_MESSAGES
-# $SRC_BASE/po/fi/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/fi/LC_MESSAGES
-# $SRC_BASE/po/fr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/fr/LC_MESSAGES
-# $SRC_BASE/po/gu/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/gu/LC_MESSAGES
-# $SRC_BASE/po/hi/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/hi/LC_MESSAGES
-# $SRC_BASE/po/hu/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/hu/LC_MESSAGES
-# $SRC_BASE/po/id/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/id/LC_MESSAGES
-# $SRC_BASE/po/it/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/it/LC_MESSAGES
-# $SRC_BASE/po/ja/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ja/LC_MESSAGES
-# $SRC_BASE/po/ka/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ka/LC_MESSAGES
-# $SRC_BASE/po/kn/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/kn/LC_MESSAGES
-# $SRC_BASE/po/ko/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ko/LC_MESSAGES
-# $SRC_BASE/po/mk/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/mk/LC_MESSAGES
-# $SRC_BASE/po/ml/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ml/LC_MESSAGES
-# $SRC_BASE/po/mr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/mr/LC_MESSAGES
-# $SRC_BASE/po/ms/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ms/LC_MESSAGES
-# $SRC_BASE/po/nb/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/nb/LC_MESSAGES
-# $SRC_BASE/po/nl/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/nl/LC_MESSAGES
-# $SRC_BASE/po/or/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/or/LC_MESSAGES
-# $SRC_BASE/po/pa/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pa/LC_MESSAGES
-# $SRC_BASE/po/pl/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pl/LC_MESSAGES
-# $SRC_BASE/po/pt/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pt/LC_MESSAGES
-# $SRC_BASE/po/pt_BR/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/pt_BR/LC_MESSAGES
 $SRC_BASE/po/ru/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ru/LC_MESSAGES
-# $SRC_BASE/po/si/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/si/LC_MESSAGES
-# $SRC_BASE/po/sr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/sr/LC_MESSAGES
-# $SRC_BASE/po/sr@latin/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/sr@latin/LC_MESSAGES
-# $SRC_BASE/po/sv/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/sv/LC_MESSAGES
-# $SRC_BASE/po/ta/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ta/LC_MESSAGES
-# $SRC_BASE/po/te/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/te/LC_MESSAGES
-# $SRC_BASE/po/tr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/tr/LC_MESSAGES
-# $SRC_BASE/po/uk/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/uk/LC_MESSAGES
-# $SRC_BASE/po/vi/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/vi/LC_MESSAGES
-# $SRC_BASE/po/zh_CN/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/zh_CN/LC_MESSAGES
-# $SRC_BASE/po/zh_TW/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/zh_TW/LC_MESSAGES
-# $SRC_BASE/po/hr/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/hr/LC_MESSAGES
-# $SRC_BASE/po/ro/LC_MESSAGES/libvirt.mo to /usr/local/share/locale/ro/LC_MESSAGES
 $SRC_BASE/include/libvirt/libvirt-admin.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-domain-checkpoint.h to /usr/include/libvirt
 $SRC_BASE/include/libvirt/libvirt-domain.h to /usr/include/libvirt
