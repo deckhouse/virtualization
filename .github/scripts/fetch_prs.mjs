@@ -36,7 +36,8 @@ async function fetchPullRequests() {
     return data.filter(pr => {
       if (pr.draft) return false;
       const hasAutoreleaseLabel = pr.labels.some(label => label.name.includes('autorelease'));
-      return !hasAutoreleaseLabel;
+      const hasChangelogLabel = pr.labels.some(label => label.name === 'changelog');
+      return !(hasChangelogLabel || hasAutoreleaseLabel);
     });
   } catch (error) {
     console.error('Error fetching pull requests:', error);
@@ -118,10 +119,6 @@ async function generateSummary(prs) {
   const readyForMerge = [];
 
   for (const pr of prs) {
-    // skip all changelog PRs
-    if (pr.labels.some(label => label.name === 'changelog')) {
-      continue; 
-    }
     const reviews = await fetchReviewsForPR(pr.number);
     const approvals = reviews.filter(review => review.state.toLowerCase() === 'approved');
     const isReadyForMerge = approvals.length >= approvalsRequired;
