@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -42,13 +43,13 @@ func NewController(
 	log *log.Logger,
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
-	recorder := mgr.GetEventRecorderFor(ControllerName)
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	ipService := service.NewIpAddressService(log, virtualMachineCIDRs)
 
 	handlers := []Handler{
 		internal.NewProtectionHandler(mgr.GetClient()),
 		internal.NewIPLeaseHandler(mgr.GetClient(), ipService, recorder),
-		internal.NewLifecycleHandler(),
+		internal.NewLifecycleHandler(recorder),
 	}
 
 	r, err := NewReconciler(mgr.GetClient(), handlers...)
