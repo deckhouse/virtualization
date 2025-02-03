@@ -90,7 +90,9 @@ if [ -z $VERSION_NUM ]; then
     usage
     exit 1
 fi
-
+# List of files and destinations of qemu
+# Commented lines - binary for additional features. 
+# When building with support for a new feature, uncomment the necessary files
 FILE_LIST=$(cat <<EOF
 $SRC_BUILD/trace/trace-events-all to /usr/share/qemu
 $SRC_BUILD/ui-opengl.so to /usr/lib64/qemu
@@ -168,15 +170,6 @@ $SRC_BUILD/pc-bios/keymaps/en-us to /usr/share/qemu/keymaps
 $SRC_BUILD/pc-bios/keymaps/ru to /usr/share/qemu/keymaps
 # $SRC_BUILD/pc-bios/keymaps/th to /usr/share/qemu/keymaps
 # $SRC_BUILD/pc-bios/keymaps/tr to /usr/share/qemu/keymaps
-# $SRC_BUILD/po/bg/LC_MESSAGES/qemu.mo to /usr/share/locale/bg/LC_MESSAGES
-# $SRC_BUILD/po/de_DE/LC_MESSAGES/qemu.mo to /usr/share/locale/de_DE/LC_MESSAGES
-# $SRC_BUILD/po/fr_FR/LC_MESSAGES/qemu.mo to /usr/share/locale/fr_FR/LC_MESSAGES
-# $SRC_BUILD/po/hu/LC_MESSAGES/qemu.mo to /usr/share/locale/hu/LC_MESSAGES
-# $SRC_BUILD/po/it/LC_MESSAGES/qemu.mo to /usr/share/locale/it/LC_MESSAGES
-# $SRC_BUILD/po/sv/LC_MESSAGES/qemu.mo to /usr/share/locale/sv/LC_MESSAGES
-# $SRC_BUILD/po/tr/LC_MESSAGES/qemu.mo to /usr/share/locale/tr/LC_MESSAGES
-# $SRC_BUILD/po/uk/LC_MESSAGES/qemu.mo to /usr/share/locale/uk/LC_MESSAGES
-# $SRC_BUILD/po/zh_CN/LC_MESSAGES/qemu.mo to /usr/share/locale/zh_CN/LC_MESSAGES
 $SRC_BASE/include/qemu/qemu-plugin.h to /usr/include
 $SRC_BASE/ui/icons/qemu_16x16.png to /usr/share/icons/hicolor/16x16/apps
 $SRC_BASE/ui/icons/qemu_24x24.png to /usr/share/icons/hicolor/24x24/apps
