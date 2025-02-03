@@ -45,11 +45,22 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 		})
 
 		It("project apply", func() {
+			config.PrepareProject(conf.TestData.ImporterNetworkPolicy)
+
 			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.ImporterNetworkPolicy},
+				Filename:       []string{conf.TestData.ImporterNetworkPolicy + "/project"},
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+		})
+
+		It("checks project readiness", func() {
+			By("Project should be deployed")
+			WaitByLabel(kc.ResourceProject, kc.WaitOptions{
+				Labels:  testCaseLabel,
+				Timeout: MaxWaitTimeout,
+				For:     "'jsonpath={.status.state}=Deployed'",
+			})
 		})
 	})
 
@@ -78,6 +89,17 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 		It("checks VDs phases", func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Timeout:   MaxWaitTimeout,
+			})
+		})
+	})
+
+	Context("When virtual machines are applied", func() {
+		It("checks VMs phases", func() {
+			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
+			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,

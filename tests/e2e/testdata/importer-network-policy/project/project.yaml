@@ -1,7 +1,7 @@
 apiVersion: deckhouse.io/v1alpha2
 kind: Project
 metadata:
-  name: testcases-importer-network-policy
+  name: project
 spec:
   parameters:
     administrators: []

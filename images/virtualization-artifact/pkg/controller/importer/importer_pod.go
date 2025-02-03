@@ -23,7 +23,6 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -103,13 +102,6 @@ func (imp *Importer) CreatePod(ctx context.Context, client client.Client) (*core
 		return nil, err
 	}
 
-	policy := imp.makeNetworkPolicySpec(pod)
-
-	err = client.Create(ctx, policy)
-	if err != nil {
-		return nil, err
-	}
-
 	err = client.Create(ctx, pod)
 	if err != nil {
 		return nil, err
@@ -162,37 +154,6 @@ func (imp *Importer) makeImporterPodSpec() (*corev1.Pod, error) {
 	pod.Spec.Containers = append(pod.Spec.Containers, *container)
 
 	return &pod, nil
-}
-
-// makeNetworkPolicySpec  creates and return the importer pod spec based on the passed-in endpoint, secret and pvc.
-func (imp *Importer) makeNetworkPolicySpec(pod *corev1.Pod) *netv1.NetworkPolicy {
-	policy := netv1.NetworkPolicy{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "NetworkPolicy",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      imp.PodSettings.Name,
-			Namespace: imp.PodSettings.Namespace,
-			Annotations: map[string]string{
-				annotations.AnnCreatedBy: "yes",
-			},
-			OwnerReferences: []metav1.OwnerReference{
-				imp.PodSettings.OwnerReference,
-			},
-		},
-		Spec: netv1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: pod.Labels,
-			},
-			Egress:      []netv1.NetworkPolicyEgressRule{{}},
-			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
-		},
-	}
-
-	annotations.SetRecommendedLabels(&policy, imp.PodSettings.InstallerLabels, imp.PodSettings.ControllerName)
-
-	return &policy
 }
 
 func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
@@ -432,12 +393,4 @@ type PodNamer interface {
 
 func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
 	return object.FetchObject(ctx, name.ImporterPod(), client, &corev1.Pod{})
-}
-
-func FindPolicy(ctx context.Context, client client.Client, name PodNamer) (*netv1.NetworkPolicy, error) {
-	return object.FetchObject(ctx, name.ImporterPod(), client, &netv1.NetworkPolicy{})
-}
-
-func FindPolicyFromPod(ctx context.Context, client client.Client, pod *corev1.Pod) (*netv1.NetworkPolicy, error) {
-	return object.FetchObject(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, client, &netv1.NetworkPolicy{})
 }
