@@ -36,7 +36,8 @@ async function fetchPullRequests() {
     return data.filter(pr => {
       if (pr.draft) return false;
       const hasAutoreleaseLabel = pr.labels.some(label => label.name.includes('autorelease'));
-      return !hasAutoreleaseLabel;
+      const hasChangelogLabel = pr.labels.some(label => label.name === 'changelog');
+      return !(hasChangelogLabel || hasAutoreleaseLabel);
     });
   } catch (error) {
     console.error('Error fetching pull requests:', error);
