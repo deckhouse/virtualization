@@ -28,6 +28,7 @@ import (
 	"k8s.io/apiserver/pkg/registry/rest"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/subresources"
@@ -119,7 +120,7 @@ func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAdd
 		Disk: &virtv1.Disk{
 			Name:       opts.Name,
 			DiskDevice: dd,
-			Serial:     opts.Name,
+			Serial:     kvbuilder.GenerateSerial(opts.Name),
 		},
 	}
 	switch opts.VolumeKind {

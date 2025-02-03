@@ -202,3 +202,12 @@ Network traffic will be directed to the pod with the higher priority. Absence of
    while the source pod retains the default behavior (no label).
 
 Thus, packets are delivered as expected: initially only to the source pod during migration, and after migration completes, only to the target pod.
+
+#### `034-allow-update-kvvmi-for-virtualization-sas.patch`
+
+By default, the KVVMI spec can update only KubeVirt service accounts. This patch adds our virtualization accounts to the allowed list.  
+(`virtualization-controller`, `virtualization-api`)
+
+#### `035-allow-change-serial-on-kvvmi.patch`
+
+By default, the disk specification is immutable, but for backward compatibility, we need to allow modifying the serial. 
