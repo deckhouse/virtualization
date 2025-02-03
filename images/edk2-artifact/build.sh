@@ -158,7 +158,7 @@ build_iso() {
     -o "$ISO_IMAGE" "$UEFI_SHELL_IMAGE"
 }
 
-
+# Build with SB and SMM; exclude UEFI shell.
 build_ovmf() {
   echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
   build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
@@ -166,16 +166,16 @@ build_ovmf() {
   cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
 }
 
+# Build with SB and SMM with secure boot; exclude UEFI shell.
 build_ovmf_secboot() {
-  # Build with SB and SMM; exclude UEFI shell.
   echo_dbg "build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
   build ${OVMF_2M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
   cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.secboot.fd
 }
 
+# Build AmdSev and IntelTdx variants
 build_ovmf_amdsev() {
-  # Build AmdSev and IntelTdx variants
-  touch OvmfPkg/AmdSev/Grub/grub.efi   # dummy
+  touch OvmfPkg/AmdSev/Grub/grub.efi
 
   echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc"
   build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc
@@ -186,14 +186,12 @@ build_ovmf_amdsev() {
   cp -p Build/IntelTdx/*/FV/OVMF.fd $FIRMWARE/OVMF.inteltdx.fd
 }
 
+# Build ovmf (x64) shell iso with EnrollDefaultKeys
 build_shell() {
-  # build shell
   echo_dbg "build shell"
   build ${OVMF_4M_FLAGS} -a X64 -p ShellPkg/ShellPkg.dsc
   build ${OVMF_4M_FLAGS} -a IA32 -p ShellPkg/ShellPkg.dsc
 
-  # build ovmf (x64) shell iso with EnrollDefaultKeys
-  #cp Build/Ovmf3264/*/X64/Shell.efi $FIRMWARE/
   cp -p Build/Shell/*/X64/ShellPkg/Application/Shell/Shell/OUTPUT/Shell.efi $FIRMWARE/
   cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
 }
