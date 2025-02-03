@@ -78,6 +78,12 @@ func (g *Generator) ImporterPod() types.NamespacedName {
 	return g.shortenNamespaced(name)
 }
 
+// ImporterPod generates name for importer Pod.
+func (g *Generator) BounderPod() types.NamespacedName {
+	name := fmt.Sprintf("%s-bounder-%s", g.Prefix, g.Name)
+	return g.shortenNamespaced(name)
+}
+
 // UploaderPod generates name for uploader Pod.
 func (g *Generator) UploaderPod() types.NamespacedName {
 	name := fmt.Sprintf("%s-uploader-%s", g.Prefix, g.Name)

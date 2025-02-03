@@ -84,8 +84,9 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 		return reconcile.Result{}, err
 	}
 
+	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	switch {
-	case isDiskProvisioningFinished(cb.Condition()):
+	case isDiskProvisioningFinished(condition):
 		log.Info("Virtual image provisioning finished: clean up")
 
 		cb.
@@ -215,8 +216,9 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 		quotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 	}
 
+	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	switch {
-	case isDiskProvisioningFinished(cb.Condition()):
+	case isDiskProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)

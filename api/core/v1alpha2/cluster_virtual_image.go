@@ -107,8 +107,8 @@ type ClusterVirtualImageObjectRef struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// Kind of the existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource.
-// +kubebuilder:validation:Enum:={ClusterVirtualImage,VirtualImage,VirtualDisk}
+// Kind of the existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource.
+// +kubebuilder:validation:Enum:={ClusterVirtualImage,VirtualImage,VirtualDisk,VirtualDiskSnapshot}
 type ClusterVirtualImageObjectRefKind string
 
 const (

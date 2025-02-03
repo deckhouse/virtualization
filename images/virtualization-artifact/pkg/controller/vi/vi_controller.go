@@ -54,6 +54,7 @@ func NewController(
 	log *log.Logger,
 	importerImage string,
 	uploaderImage string,
+	bounderImage string,
 	requirements corev1.ResourceRequirements,
 	dvcr *dvcr.Settings,
 	storageClassSettings config.VirtualImageStorageClassSettings,
@@ -62,6 +63,7 @@ func NewController(
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVIProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
+	bounder := service.NewBounderPodService(dvcr, mgr.GetClient(), bounderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
 	scService := service.NewVirtualImageStorageClassService(storageClassSettings)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
@@ -69,7 +71,7 @@ func NewController(
 	sources := source.NewSources()
 	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcr, disk, scService))
 	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcr, mgr.GetClient(), disk, scService))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, dvcr, mgr.GetClient(), disk, scService))
+	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, bounder, dvcr, mgr.GetClient(), disk, scService))
 	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcr, disk, scService))
 
 	reconciler := NewReconciler(

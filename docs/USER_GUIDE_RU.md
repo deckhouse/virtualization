@@ -421,6 +421,27 @@ spec:
 EOF
 ```
 
+### Создание образа из снимка диска
+
+Можно создать образ из [снимка](#снимки). Для этого необходимо чтобы снимок диска находился в фазе готовности.
+
+Пример создания образа из моментального снимка диска:
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: linux-vm-root
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: ObjectRef
+    objectRef:
+      kind: VirtualDiskSnapshot
+      name: linux-vm-root-snapshot
+EOF
+```
+
 ## Диски
 
 Диски в виртуальных машинах необходимы для записи и хранения данных, они обеспечивают полноценное функционирование приложений и операционных систем. Хранилище для этих дисков предоставляет платформа.

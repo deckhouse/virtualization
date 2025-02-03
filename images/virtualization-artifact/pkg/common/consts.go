@@ -22,6 +22,8 @@ const (
 	// OwnerUID provides the UID of the owner entity (either PVC or DV)
 	OwnerUID = "OWNER_UID"
 
+	// BounderContainerName provides a constant to use as a name for bounder Container
+	BounderContainerName = "bounder"
 	// ImporterContainerName provides a constant to use as a name for importer Container
 	ImporterContainerName = "importer"
 	// UploaderContainerName provides a constant to use as a name for uploader Container
@@ -34,6 +36,8 @@ const (
 	ImporterPodImageNameVar = "IMPORTER_IMAGE"
 	// UploaderPodImageNameVar is a name of variable with the image name for the uploader Pod
 	UploaderPodImageNameVar = "UPLOADER_IMAGE"
+	// BounderPodImageNameVar is a name of variable with the image name for the bounder Pod
+	BounderPodImageNameVar = "BOUNDER_IMAGE"
 	// ImporterCertDir is where the configmap containing certs will be mounted
 	ImporterCertDir = "/certs"
 	// ImporterProxyCertDir is where the configmap containing proxy certs will be mounted

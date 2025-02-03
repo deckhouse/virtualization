@@ -99,7 +99,7 @@ type VirtualImageStatus struct {
 	UploadCommand   string                   `json:"uploadCommand,omitempty"`
 	ImageUploadURLs *ImageUploadURLs         `json:"imageUploadURLs,omitempty"`
 	Target          VirtualImageStatusTarget `json:"target,omitempty"`
-	// UID of the source (VirtualImage, ClusterVirtualImage, or VirtualDisk) used when creating the virtual image.
+	// UID of the source (VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot) used when creating the virtual image.
 	SourceUID *types.UID `json:"sourceUID,omitempty"`
 	// The latest available observations of an object's current state.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
@@ -139,21 +139,22 @@ type VirtualImageContainerImage struct {
 	CABundle []byte `json:"caBundle,omitempty"`
 }
 
-// Use an existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource to create an image.
+// Use an existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource to create an image.
 type VirtualImageObjectRef struct {
-	// Kind of an existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource.
+	// Kind of an existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource.
 	Kind VirtualImageObjectRefKind `json:"kind"`
-	// Name of an existing VirtualImage, ClusterVirtualImage, or VirtualDisk resource.
+	// Name of an existing VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualDiskSnapshot resource.
 	Name string `json:"name"`
 }
 
-// +kubebuilder:validation:Enum:={ClusterVirtualImage,VirtualImage,VirtualDisk}
+// +kubebuilder:validation:Enum:={ClusterVirtualImage,VirtualImage,VirtualDisk,VirtualDiskSnapshot}
 type VirtualImageObjectRefKind string
 
 const (
 	VirtualImageObjectRefKindVirtualImage        VirtualImageObjectRefKind = "VirtualImage"
 	VirtualImageObjectRefKindClusterVirtualImage VirtualImageObjectRefKind = "ClusterVirtualImage"
 	VirtualImageObjectRefKindVirtualDisk         VirtualImageObjectRefKind = "VirtualDisk"
+	VirtualImageObjectRefKindVirtualDiskSnapshot VirtualImageObjectRefKind = "VirtualDiskSnapshot"
 )
 
 // Storage type to keep the image for the current virtualization setup.

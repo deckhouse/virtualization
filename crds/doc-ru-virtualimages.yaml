@@ -74,14 +74,14 @@ spec:
                             * xz.
                     objectRef:
                       description: |
-                        Использование существующего ресурса VirtualImage, ClusterVirtualImage или VirtualDisk для создания образа.
+                        Использование существующего ресурса VirtualImage, ClusterVirtualImage, VirtualDisk или VirtualDiskSnapshot для создания образа.
                       properties:
                         kind:
                           description: |
-                            Ссылка на существующий ресурс VirtualImage, ClusterVirtualImage или VirtualDisk.
+                            Ссылка на существующий ресурс VirtualImage, ClusterVirtualImage, VirtualDisk или VirtualDiskSnapshot.
                         name:
                           description: |
-                            Имя существующего ресурса VirtualImage, ClusterVirtualImage или VirtualDisk.
+                            Имя существующего ресурса VirtualImage, ClusterVirtualImage, VirtualDisk или VirtualDiskSnapshot.
                     type:
                       description: |
                         Доступные типы источников для создания образа:
@@ -193,7 +193,7 @@ spec:
                         Команда для загрузки образа с использованием `Service` внутри кластера.
                 sourceUID:
                   description: |
-                    UID источника (VirtualImage, ClusterVirtualImage или VirtualDisk), использованного при создании виртуального образа.
+                    UID источника (VirtualImage, ClusterVirtualImage, VirtualDisk или VirtualDiskSnapshot), использованного при создании виртуального образа.
                 storageClassName:
                   description: |
                     Имя StorageClass, использованного для создания DataVolume, если в поле `storage` был выбран тип `Kubernetes`.

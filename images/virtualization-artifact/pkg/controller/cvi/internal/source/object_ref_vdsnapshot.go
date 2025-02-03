@@ -258,6 +258,16 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
+				if pvc.Status.Phase != corev1.ClaimBound {
+					cvi.Status.Phase = virtv2.ImageProvisioning
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vicondition.Provisioning).
+						Message("Waiting for PVC to be bound")
+
+					return reconcile.Result{Requeue: true}, nil
+				}
+
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vicondition.ProvisioningNotStarted).
