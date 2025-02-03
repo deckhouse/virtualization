@@ -1,0 +1,119 @@
+### DVCR
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-objectref-vi-http
+  namespace: test-d8-virtualization
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
+      name: vi-http
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-objectref-vi-containerimage
+  namespace: test-d8-virtualization
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
+      name: vi-containerimage
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-objectref-vi-objectref-cvi
+  namespace: test-d8-virtualization
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
+      name: vi-objectref-cvi
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-objectref-vi-objectref-vd
+  namespace: test-d8-virtualization
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
+      name: vi-objectref-vd
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-objectref-vi-objectref-vdsnapshot
+  namespace: test-d8-virtualization
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
+      name: vi-objectref-vdsnapshot
+
+### PVC
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-objectref-vi-http-pvc
+  namespace: test-d8-virtualization
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
+      name: vi-pvc-http
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-objectref-vi-containerimage-pvc
+  namespace: test-d8-virtualization
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
+      name: vi-pvc-containerimage
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-objectref-vi-objectref-vd-pvc
+  namespace: test-d8-virtualization
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
+      name: vi-pvc-objectref-vd
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-objectref-vi-objectref-vdsnapshot-pvc
+  namespace: test-d8-virtualization
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualImage"
+      name: vi-pvc-objectref-vdsnapshot

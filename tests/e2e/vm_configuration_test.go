@@ -53,6 +53,39 @@ func ExecSshCommand(vmName, cmd string) {
 	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
 }
 
+func ExecStartCommand(vmName string) {
+	GinkgoHelper()
+	Eventually(func() error {
+		res := d8Virtualization.StartVM(vmName, d8.SshOptions{Namespace: conf.Namespace})
+		if res.Error() != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return nil
+	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
+}
+
+func ExecStopCommand(vmName string) {
+	GinkgoHelper()
+	Eventually(func() error {
+		res := d8Virtualization.StopVM(vmName, d8.SshOptions{Namespace: conf.Namespace})
+		if res.Error() != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return nil
+	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
+}
+
+func ExecRestartCommand(vmName string) {
+	GinkgoHelper()
+	Eventually(func() error {
+		res := d8Virtualization.RestartVM(vmName, d8.SshOptions{Namespace: conf.Namespace})
+		if res.Error() != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return nil
+	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
+}
+
 func ChangeCPUCoresNumber(cpuNumber int, virtualMachines ...string) {
 	vms := strings.Join(virtualMachines, " ")
 	cmd := fmt.Sprintf("patch %s --namespace %s %s --type merge --patch '{\"spec\":{\"cpu\":{\"cores\":%d}}}'", kc.ResourceVM, conf.Namespace, vms, cpuNumber)

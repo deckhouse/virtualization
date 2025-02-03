@@ -1,0 +1,11 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: ClusterVirtualImage
+metadata:
+  name: cvi-objectref-vd
+spec:
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualDisk"
+      name: vd-alpine-http
+      namespace: test-d8-virtualization

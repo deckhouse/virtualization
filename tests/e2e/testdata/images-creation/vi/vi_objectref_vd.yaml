@@ -1,0 +1,25 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-objectref-vd
+  namespace: test-d8-virtualization
+spec:
+  storage: ContainerRegistry
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualDisk"
+      name: vd-alpine-http
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualImage
+metadata:
+  name: vi-pvc-objectref-vd
+  namespace: test-d8-virtualization
+spec:
+  storage: PersistentVolumeClaim
+  dataSource:
+    type: "ObjectRef"
+    objectRef:
+      kind: "VirtualDisk"
+      name: vd-alpine-http

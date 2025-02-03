@@ -1,0 +1,9 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: ClusterVirtualImage
+metadata:
+  name: cvi-http
+spec:
+  dataSource:
+    type: "HTTP"
+    http:
+      url: https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/alpine/alpine-virt-3.21.0-x86.iso
