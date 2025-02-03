@@ -1,0 +1,27 @@
+diff --git a/pkg/virt-api/webhooks/utils.go b/pkg/virt-api/webhooks/utils.go
+index e6ee54431f..5c68ce992d 100644
+--- a/pkg/virt-api/webhooks/utils.go
++++ b/pkg/virt-api/webhooks/utils.go
+@@ -100,7 +100,9 @@ func IsKubeVirtServiceAccount(serviceAccount string) bool {
+ 
+ 	return IsComponentServiceAccount(serviceAccount, ns, components.ApiServiceAccountName) ||
+ 		IsComponentServiceAccount(serviceAccount, ns, components.HandlerServiceAccountName) ||
+-		IsComponentServiceAccount(serviceAccount, ns, components.ControllerServiceAccountName)
++		IsComponentServiceAccount(serviceAccount, ns, components.ControllerServiceAccountName) ||
++		IsComponentServiceAccount(serviceAccount, ns, components.VirtualizationController) ||
++		IsComponentServiceAccount(serviceAccount, ns, components.VirtualizationApi)
+ }
+ 
+ func IsARM64(vmiSpec *v1.VirtualMachineInstanceSpec) bool {
+diff --git a/pkg/virt-operator/resource/generate/components/serviceaccountnames.go b/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
+index 9aca3b3bd2..4ed51d98b5 100644
+--- a/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
++++ b/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
+@@ -6,4 +6,7 @@ const (
+ 	ExportProxyServiceAccountName = "kubevirt-internal-virtualization-exportproxy"
+ 	HandlerServiceAccountName     = "kubevirt-internal-virtualization-handler"
+ 	OperatorServiceAccountName    = "kubevirt-operator"
++
++	VirtualizationController = "virtualization-controller"
++	VirtualizationApi        = "virtualization-api"
+ )

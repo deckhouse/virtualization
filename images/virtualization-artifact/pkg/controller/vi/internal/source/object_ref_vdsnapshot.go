@@ -260,7 +260,7 @@ func (ds ObjectRefVirtualDiskSnapshot) StoreToDVCR(ctx context.Context, vi *virt
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				if pvc.Status.Phase != corev1.ClaimBound {
+				if strings.Contains(err.Error(), "pod has unbound immediate PersistentVolumeClaims") {
 					vi.Status.Phase = virtv2.ImageProvisioning
 					cb.
 						Status(metav1.ConditionFalse).

@@ -17,6 +17,8 @@ limitations under the License.
 package kvbuilder
 
 import (
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -60,6 +62,14 @@ func GetOriginalDiskName(prefixedName string) (string, bool) {
 	}
 
 	return prefixedName, false
+}
+
+func GenerateSerial(input string) string {
+	name, _ := GetOriginalDiskName(input)
+	hasher := md5.New()
+	hasher.Write([]byte(name))
+	hashInBytes := hasher.Sum(nil)
+	return hex.EncodeToString(hashInBytes)
 }
 
 type HotPlugDeviceSettings struct {
@@ -139,7 +149,7 @@ func ApplyVirtualMachineSpec(
 				if err := kvvm.SetDisk(name, SetDiskOptions{
 					PersistentVolumeClaim: pointer.GetPointer(vi.Status.Target.PersistentVolumeClaim),
 					IsEphemeral:           true,
-					Serial:                name,
+					Serial:                GenerateSerial(name),
 					BootOrder:             bootOrder,
 				}); err != nil {
 					return err
@@ -148,7 +158,7 @@ func ApplyVirtualMachineSpec(
 				if err := kvvm.SetDisk(name, SetDiskOptions{
 					ContainerDisk: pointer.GetPointer(vi.Status.Target.RegistryURL),
 					IsCdrom:       imageformat.IsISO(vi.Status.Format),
-					Serial:        name,
+					Serial:        GenerateSerial(name),
 					BootOrder:     bootOrder,
 				}); err != nil {
 					return err
@@ -167,7 +177,7 @@ func ApplyVirtualMachineSpec(
 			if err := kvvm.SetDisk(name, SetDiskOptions{
 				ContainerDisk: pointer.GetPointer(cvi.Status.Target.RegistryURL),
 				IsCdrom:       imageformat.IsISO(cvi.Status.Format),
-				Serial:        name,
+				Serial:        GenerateSerial(name),
 				BootOrder:     bootOrder,
 			}); err != nil {
 				return err
@@ -186,7 +196,7 @@ func ApplyVirtualMachineSpec(
 			name := GenerateVMDDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
 				PersistentVolumeClaim: pointer.GetPointer(vd.Status.Target.PersistentVolumeClaim),
-				Serial:                name,
+				Serial:                GenerateSerial(name),
 				BootOrder:             bootOrder,
 			}); err != nil {
 				return err

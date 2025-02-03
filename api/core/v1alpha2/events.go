@@ -61,9 +61,6 @@ const (
 	// ReasonVMOPStarted is event reason that the operation is started
 	ReasonVMOPStarted = "VirtualMachineOperationStarted"
 
-	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
-	ReasonVMClassInUse = "VirtualMachineClassInUse"
-
 	// ReasonVDStorageClassWasDeleted is event reason that VDStorageClass was deleted.
 	ReasonVDStorageClassWasDeleted = "VirtualDiskStorageClassWasDeleted"
 	// ReasonVDStorageClassNotFound is event reason that VDStorageClass not found.
@@ -116,4 +113,23 @@ const (
 
 	// ReasonVMSnapshottingFailed is event reason that VirtualMachine snapshotting is failed.
 	ReasonVMSnapshottingFailed = "VirtualMachineSnapshottingFailed"
+
+	// ReasonAttached is event reason that VirtualMachineIPAddress is attached to VM.
+	ReasonAttached = "Attached"
+	// ReasonNotAttached is event reason that VirtualMachineIPAddress is not attached to VirtualMachine.
+	ReasonNotAttached = "NotAttached"
+
+	// ReasonBound is the event reason indicating that a VirtualMachineIPLease is bound to a VirtualMachineIPAddress.
+	ReasonBound = "Bound"
+	// ReasonFailed is the event reason indicating that the binding of a VirtualMachineIPLease to a VirtualMachineIPAddress has failed.
+	ReasonFailed = "Failed"
+
+	// ReasonVMClassSizingPoliciesWereChanged is event reason indicating that VMClass sizing policies were changed.
+	ReasonVMClassSizingPoliciesWereChanged = "SizingPoliciesWereChanged"
+
+	// ReasonVMClassAvailableNodesListEmpty is event reason indicating that VMClass has no available nodes.
+	ReasonVMClassAvailableNodesListEmpty = "AvailableNodesListEmpty"
+
+	// ReasonVMClassNodesWereUpdated is event reason indicating that VMClass available nodes list was updated.
+	ReasonVMClassNodesWereUpdated = "NodesWereUpdated"
 )

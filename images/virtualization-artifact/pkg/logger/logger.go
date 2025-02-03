@@ -103,6 +103,7 @@ func detectLogOutput(output string) io.Writer {
 }
 
 func SetDefaultLogger(l *log.Logger) {
+	slog.SetDefault(slog.New(l.Handler()))
 	log.SetDefault(l)
 	fromSlog := logr.FromSlogHandler(l.Handler())
 	logf.SetLogger(fromSlog)
