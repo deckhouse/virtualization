@@ -11,10 +11,15 @@ git:
   to: /
   includePaths:
   - build.sh
-  - Logo.bmp
   stageDependencies:
     setup:
       - build.sh
+- add: /images/{{ $.ImageName }}/logo
+  to: /
+  includePaths:
+  - Logo.bmp
+  stageDependencies:
+    setup:
       - Logo.bmp
 - add: /images/{{ $.ImageName }}/json
   to: /FIRMWARE
