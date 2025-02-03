@@ -50,6 +50,7 @@ runs:
           dvcr
           module
           observability
+          ci:low
 
     # Patch-version YAML changelog
     - name: Write Changelog YAML
