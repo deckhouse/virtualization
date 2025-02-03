@@ -46,16 +46,12 @@ configVersion: 1
 # Edition module settings
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
 
-# Versions modules
-{{ $_ := set . "version" dict }}
-{{- $versions_ctx := (.Files.Get "candi/version_map.yml" | fromYaml) }}
+# Component versions
+{{ $_ := set . "Version" dict }}
+{{- $versions_ctx := (.Files.Get "cv/version_map.yml" | fromYaml) }}
 {{- range $k, $v := $versions_ctx.hypervisor }}
   {{- $_ := set $.version $k $v}}
 {{- end }}
-
-{{/*
-# {{printf "%s%s" $k $v }} 
-*/}}
 
 # Modules_images
 {{- define "module_image_template" }}
@@ -90,7 +86,7 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "Images" $Root.Images }}
   {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
   {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
-  {{- $_ := set $ctx "Version" $Root.version }}
+  {{- $_ := set $ctx "Version" $Root.Version }}
 
   {{- include "module_image_template" $ctx }}
   {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
