@@ -185,7 +185,7 @@ func (imp *Importer) makeNetworkPolicySpec(pod *corev1.Pod) *netv1.NetworkPolicy
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: pod.Labels,
 			},
-			Egress:      []netv1.NetworkPolicyEgressRule{},
+			Egress:      []netv1.NetworkPolicyEgressRule{{}},
 			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
 		},
 	}
@@ -432,4 +432,12 @@ type PodNamer interface {
 
 func FindPod(ctx context.Context, client client.Client, name PodNamer) (*corev1.Pod, error) {
 	return object.FetchObject(ctx, name.ImporterPod(), client, &corev1.Pod{})
+}
+
+func FindPolicy(ctx context.Context, client client.Client, name PodNamer) (*netv1.NetworkPolicy, error) {
+	return object.FetchObject(ctx, name.ImporterPod(), client, &netv1.NetworkPolicy{})
+}
+
+func FindPolicyFromPod(ctx context.Context, client client.Client, pod *corev1.Pod) (*netv1.NetworkPolicy, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, client, &netv1.NetworkPolicy{})
 }

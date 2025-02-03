@@ -5,7 +5,7 @@ metadata:
 spec:
   blockDeviceRefs:
     - kind: VirtualDisk
-      name: vd-root
+      name: vd
   cpu:
     cores: 1
     coreFraction: 5%
@@ -13,10 +13,5 @@ spec:
     restartApprovalMode: Automatic
   memory:
     size: 1Gi
-  provisioning:
-    type: UserDataRef
-    userDataRef:
-      kind: Secret
-      name: cloud-init
   runPolicy: AlwaysOn
   virtualMachineClassName: generic

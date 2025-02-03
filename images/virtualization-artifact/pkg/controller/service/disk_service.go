@@ -28,6 +28,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	storev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -49,20 +50,23 @@ import (
 )
 
 type DiskService struct {
-	client       client.Client
-	dvcrSettings *dvcr.Settings
-	protection   *ProtectionService
+	client         client.Client
+	dvcrSettings   *dvcr.Settings
+	protection     *ProtectionService
+	controllerName string
 }
 
 func NewDiskService(
 	client client.Client,
 	dvcrSettings *dvcr.Settings,
 	protection *ProtectionService,
+	controllerName string,
 ) *DiskService {
 	return &DiskService{
-		client:       client,
-		dvcrSettings: dvcrSettings,
-		protection:   protection,
+		client:         client,
+		dvcrSettings:   dvcrSettings,
+		protection:     protection,
+		controllerName: controllerName,
 	}
 }
 
@@ -584,6 +588,35 @@ func (s DiskService) getStorageClass(ctx context.Context, storageClassName strin
 	}
 
 	return &sc, nil
+}
+
+// makeNetworkPolicySpec  creates and return the importer pod spec based on the passed-in endpoint, secret and pvc.
+func (s DiskService) makeNetworkPolicySpec(pod *corev1.Pod) *netv1.NetworkPolicy {
+	policy := netv1.NetworkPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "NetworkPolicy",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pod.Name,
+			Namespace: pod.Namespace,
+			Annotations: map[string]string{
+				annotations.AnnCreatedBy: "yes",
+			},
+			OwnerReferences: pod.OwnerReferences,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: pod.Labels,
+			},
+			Egress:      []netv1.NetworkPolicyEgressRule{{}},
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
+		},
+	}
+
+	annotations.SetRecommendedLabels(&policy, pod.Labels, s.controllerName)
+
+	return &policy
 }
 
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")

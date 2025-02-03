@@ -1,0 +1,25 @@
+diff --git a/pkg/common/common.go b/pkg/common/common.go
+index 3e948fca6..780a4bfe4 100644
+--- a/pkg/common/common.go
++++ b/pkg/common/common.go
+@@ -43,6 +43,8 @@ const (
+ 	AppKubernetesManagedByLabel = "app.kubernetes.io/managed-by"
+ 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
+ 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
++	// AppKubernetesNameLabel is the Kubernetes recommended component label
++	AppKubernetesNameLabel = "app.kubernetes.io/name"
+ 
+ 	// PrometheusLabelKey provides the label to indicate prometheus metrics are available in the pods.
+ 	PrometheusLabelKey = "prometheus.cdi.kubevirt.io"
+diff --git a/pkg/util/util.go b/pkg/util/util.go
+index bcba5f68c..7c4a44fb2 100644
+--- a/pkg/util/util.go
++++ b/pkg/util/util.go
+@@ -209,6 +209,7 @@ func SetRecommendedLabels(obj metav1.Object, installerLabels map[string]string,
+ 	staticLabels := map[string]string{
+ 		common.AppKubernetesManagedByLabel: controllerName,
+ 		common.AppKubernetesComponentLabel: "storage",
++    common.AppKubernetesNameLabel: obj.GetName(),
+ 	}
+ 
+ 	// Merge static & existing labels

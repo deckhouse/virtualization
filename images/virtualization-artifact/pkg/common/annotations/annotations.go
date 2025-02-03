@@ -82,6 +82,8 @@ const (
 	AppKubernetesManagedByLabel = "app.kubernetes.io/managed-by"
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
+	// AppKubernetesNameLabel is the Kubernetes recommended component label
+	AppKubernetesNameLabel = "app.kubernetes.io/name"
 )
 
 // AddAnnotation adds an annotation to an object
@@ -100,10 +102,10 @@ func AddLabel(obj metav1.Object, key, value string) {
 	obj.GetLabels()[key] = value
 }
 
-// IsBound returns if the pvc is bound
 // SetRecommendedLabels sets the recommended labels on CDI resources (does not get rid of existing ones)
 func SetRecommendedLabels(obj metav1.Object, installerLabels map[string]string, controllerName string) {
 	staticLabels := map[string]string{
+		AppKubernetesNameLabel:      obj.GetName(),
 		AppKubernetesManagedByLabel: controllerName,
 		AppKubernetesComponentLabel: "storage",
 	}

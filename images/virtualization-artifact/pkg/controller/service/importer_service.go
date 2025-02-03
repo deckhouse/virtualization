@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -146,6 +147,18 @@ func (s ImporterService) DeletePod(ctx context.Context, obj ObjectKind, controll
 					return false, err
 				}
 
+				policy, err := s.getPolicyFromPod(ctx, &pod)
+				if err != nil {
+					return false, err
+				}
+
+				if policy != nil {
+					err = s.client.Delete(ctx, policy)
+					if err != nil && !k8serrors.IsNotFound(err) {
+						return false, err
+					}
+				}
+
 				return true, nil
 			}
 		}
@@ -175,6 +188,18 @@ func (s ImporterService) CleanUpSupplements(ctx context.Context, sup *supplement
 		}
 	}
 
+	policy, err := s.getPolicy(ctx, sup)
+	if err != nil {
+		return false, err
+	}
+
+	if policy != nil {
+		err = s.client.Delete(ctx, policy)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return false, err
+		}
+	}
+
 	return hasDeleted, nil
 }
 
@@ -184,6 +209,16 @@ func (s ImporterService) Protect(ctx context.Context, pod *corev1.Pod) error {
 		return fmt.Errorf("failed to add protection for importer's supplements: %w", err)
 	}
 
+	policy, err := s.getPolicyFromPod(ctx, pod)
+	if err != nil {
+		return fmt.Errorf("failed to get policy for importer's supplements protection: %w", err)
+	}
+
+	err = s.protection.AddProtection(ctx, policy)
+	if err != nil {
+		return fmt.Errorf("failed to add protection for importer's policy: %w", err)
+	}
+
 	return nil
 }
 
@@ -191,6 +226,19 @@ func (s ImporterService) Unprotect(ctx context.Context, pod *corev1.Pod) error {
 	err := s.protection.RemoveProtection(ctx, pod)
 	if err != nil {
 		return fmt.Errorf("failed to remove protection for importer's supplements: %w", err)
+	}
+
+	if pod != nil {
+
+		policy, err := s.getPolicyFromPod(ctx, pod)
+		if err != nil {
+			return fmt.Errorf("failed to get policy for removing importer's supplements protection: %w", err)
+		}
+
+		err = s.protection.RemoveProtection(ctx, policy)
+		if err != nil {
+			return fmt.Errorf("failed to remove protection for importer's supplements: %w", err)
+		}
 	}
 
 	return nil
@@ -203,6 +251,24 @@ func (s ImporterService) GetPod(ctx context.Context, sup *supplements.Generator)
 	}
 
 	return pod, nil
+}
+
+func (s ImporterService) getPolicy(ctx context.Context, sup *supplements.Generator) (*netv1.NetworkPolicy, error) {
+	policy, err := importer.FindPolicy(ctx, s.client, sup)
+	if err != nil {
+		return nil, err
+	}
+
+	return policy, nil
+}
+
+func (s ImporterService) getPolicyFromPod(ctx context.Context, pod *corev1.Pod) (*netv1.NetworkPolicy, error) {
+	policy, err := importer.FindPolicyFromPod(ctx, s.client, pod)
+	if err != nil {
+		return nil, err
+	}
+
+	return policy, nil
 }
 
 func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *importer.PodSettings {
