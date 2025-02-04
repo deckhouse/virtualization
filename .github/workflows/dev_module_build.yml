@@ -32,6 +32,9 @@ on:
         type: number
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - test/test/ci-runner
   push:
     branches:
       - main
@@ -97,10 +100,16 @@ jobs:
 
           # Select runner
           if echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/github/ubuntu"; then
-            echo "RUNNER_TYPE=ubuntu-22.04" >> "$GITHUB_OUTPUT"
+            echo "RUNNER_TYPE=[\"ubuntu-22.04\"]" >> "$GITHUB_OUTPUT"
           else
-            echo "RUNNER_TYPE=[self-hosted, regular, selectel]" >> "$GITHUB_OUTPUT"
+            echo "RUNNER_TYPE=[\"self-hosted\", \"regular\", \"selectel\"]" >> "$GITHUB_OUTPUT"
+            RUNNER_TYPE="[self-hosted, regular, selectel]"
           fi
+
+          echo "======="
+          echo $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+          echo "======="
 
   show_dev_manifest:
     runs-on: ubuntu-latest
@@ -216,12 +225,14 @@ jobs:
           task virtualization-controller:test:unit
 
   dev_setup_build:
-    runs-on: ${{needs.set_vars.outputs.runner_type}}
+    # runs-on: [self-hosted, regular, selectel]
+    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     name: Build and Push images
     needs: set_vars
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
       MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
+      RUNNER_TYPE: ${{needs.set_vars.outputs.runner_type}}
       WERF_VIRTUAL_MERGE: 0
     steps:
       - name: Print vars
@@ -232,6 +243,7 @@ jobs:
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo MODULE_EDITION=$MODULE_EDITION
+          echo RUNNER_TYPE=$RUNNER_TYPE
 
       - uses: actions/checkout@v4
         with:
