@@ -126,50 +126,14 @@ $SRC_BUILD/contrib/vhost-user-gpu/vhost-user-gpu to /usr/libexec
 $SRC_BUILD/qemu-bridge-helper to /usr/libexec
 $SRC_BUILD/qemu-pr-helper to /usr/bin
 $SRC_BUILD/qemu-vmsr-helper to /usr/bin
-# $SRC_BUILD/pc-bios/edk2-aarch64-code.fd to /usr/share/qemu
-# $SRC_BUILD/pc-bios/edk2-arm-code.fd to /usr/share/qemu
-# $SRC_BUILD/pc-bios/edk2-arm-vars.fd to /usr/share/qemu
-# $SRC_BUILD/pc-bios/edk2-riscv-code.fd to /usr/share/qemu
-# $SRC_BUILD/pc-bios/edk2-riscv-vars.fd to /usr/share/qemu
 $SRC_BUILD/pc-bios/edk2-i386-code.fd to /usr/share/qemu
 $SRC_BUILD/pc-bios/edk2-i386-secure-code.fd to /usr/share/qemu
 $SRC_BUILD/pc-bios/edk2-i386-vars.fd to /usr/share/qemu
 $SRC_BUILD/pc-bios/edk2-x86_64-code.fd to /usr/share/qemu
 $SRC_BUILD/pc-bios/edk2-x86_64-secure-code.fd to /usr/share/qemu
-# $SRC_BUILD/pc-bios/edk2-loongarch64-code.fd to /usr/share/qemu
-# $SRC_BUILD/pc-bios/edk2-loongarch64-vars.fd to /usr/share/qemu
-# $SRC_BUILD/pc-bios/keymaps/ar to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/bepo to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/cz to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/da to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/de to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/de-ch to /usr/share/qemu/keymaps
 $SRC_BUILD/pc-bios/keymaps/en-gb to /usr/share/qemu/keymaps
 $SRC_BUILD/pc-bios/keymaps/en-us to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/es to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/et to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/fi to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/fo to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/fr to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/fr-be to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/fr-ca to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/fr-ch to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/hr to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/hu to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/is to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/it to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/ja to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/lt to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/lv to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/mk to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/nl to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/no to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/pl to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/pt to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/pt-br to /usr/share/qemu/keymaps
 $SRC_BUILD/pc-bios/keymaps/ru to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/th to /usr/share/qemu/keymaps
-# $SRC_BUILD/pc-bios/keymaps/tr to /usr/share/qemu/keymaps
 $SRC_BASE/include/qemu/qemu-plugin.h to /usr/include
 $SRC_BASE/ui/icons/qemu_16x16.png to /usr/share/icons/hicolor/16x16/apps
 $SRC_BASE/ui/icons/qemu_24x24.png to /usr/share/icons/hicolor/24x24/apps
@@ -232,8 +196,6 @@ $SRC_BASE/pc-bios/qemu_vga.ndrv to /usr/share/qemu
 $SRC_BASE/pc-bios/edk2-licenses.txt to /usr/share/qemu
 $SRC_BASE/pc-bios/hppa-firmware.img to /usr/share/qemu
 $SRC_BASE/pc-bios/hppa-firmware64.img to /usr/share/qemu
-# $SRC_BASE/pc-bios/opensbi-riscv32-generic-fw_dynamic.bin to /usr/share/qemu
-# $SRC_BASE/pc-bios/opensbi-riscv64-generic-fw_dynamic.bin to /usr/share/qemu
 $SRC_BASE/pc-bios/npcm7xx_bootrom.bin to /usr/share/qemu
 $SRC_BASE/pc-bios/vof.bin to /usr/share/qemu
 $SRC_BASE/pc-bios/vof-nvram.bin to /usr/share/qemu
@@ -243,13 +205,8 @@ $SRC_BASE/pc-bios/petalogix-s3adsp1800.dtb to /usr/share/qemu
 $SRC_BASE/pc-bios/petalogix-ml605.dtb to /usr/share/qemu
 $SRC_BUILD/pc-bios/descriptors/50-edk2-i386-secure.json to /usr/share/qemu/firmware
 $SRC_BUILD/pc-bios/descriptors/50-edk2-x86_64-secure.json to /usr/share/qemu/firmware
-# $SRC_BUILD/pc-bios/descriptors/60-edk2-aarch64.json to /usr/share/qemu/firmware
-# $SRC_BUILD/pc-bios/descriptors/60-edk2-arm.json to /usr/share/qemu/firmware
 $SRC_BUILD/pc-bios/descriptors/60-edk2-i386.json to /usr/share/qemu/firmware
 $SRC_BUILD/pc-bios/descriptors/60-edk2-x86_64.json to /usr/share/qemu/firmware
-# $SRC_BUILD/pc-bios/descriptors/60-edk2-loongarch64.json to /usr/share/qemu/firmware
-# $SRC_BASE/pc-bios/keymaps/sl to /usr/share/qemu/keymaps
-# $SRC_BASE/pc-bios/keymaps/sv to /usr/share/qemu/keymaps
 EOF
 )
 
