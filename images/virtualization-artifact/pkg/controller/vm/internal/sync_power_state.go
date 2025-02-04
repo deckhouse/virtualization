@@ -22,16 +22,20 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 const nameSyncPowerStateHandler = "SyncPowerStateHandler"
@@ -104,6 +108,9 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 		shutdownInfo = s.ShutdownInfo
 	})
 
+	appliedCondtion, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, s.VirtualMachine().Changed().Status.Conditions)
+	canStartVM := appliedCondtion.Status == metav1.ConditionTrue
+
 	switch runPolicy {
 	case virtv2.AlwaysOffPolicy:
 		if kvvmi != nil {
@@ -120,6 +127,10 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 		}
 	case virtv2.AlwaysOnPolicy:
 		if kvvmi == nil {
+			if !canStartVM {
+				return h.handleCanNotStartVM(ctx, s, kvvm)
+			}
+
 			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
 				"Start initiated by controller for %v policy",
 				runPolicy,
@@ -132,6 +143,10 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
 			if kvvmi.Status.Phase == virtv1.Succeeded {
+				if !canStartVM {
+					return h.handleCanNotStartVM(ctx, s, kvvm)
+				}
+
 				if shutdownInfo.PodCompleted {
 					// Treat completed Pod as restart if guest was restarted or as a start if guest was stopped.
 					switch shutdownInfo.Reason {
@@ -157,6 +172,10 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 			}
 
 			if kvvmi.Status.Phase == virtv1.Failed {
+				if !canStartVM {
+					return h.handleCanNotStartVM(ctx, s, kvvm)
+				}
+
 				h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
 					"Restart initiated by controller for %s runPolicy after observing failed guest VM",
 					runPolicy,
@@ -166,10 +185,23 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 					return fmt.Errorf("restart VM on failed: %w", err)
 				}
 			}
+		} else if canStartVM && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
+			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
+				"Start initiated by controller for %v policy",
+				runPolicy,
+			)
+
+			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
+				return fmt.Errorf("failed to start VM: %w", err)
+			}
 		}
 	case virtv2.AlwaysOnUnlessStoppedManually:
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
 			if kvvmi.Status.Phase == virtv1.Succeeded {
+				if !canStartVM {
+					return h.handleCanNotStartVM(ctx, s, kvvm)
+				}
+
 				if shutdownInfo.PodCompleted {
 					// Request to start new KVVMI if guest was restarted.
 					// Cleanup KVVMI is enough if VM was stopped from inside.
@@ -178,6 +210,7 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 						h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
 							"Restart initiated from inside the guest VM",
 						)
+
 						err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
 						if err != nil {
 							return fmt.Errorf("restart VM on guest-reset: %w", err)
@@ -210,6 +243,10 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				}
 			}
 			if kvvmi.Status.Phase == virtv1.Failed {
+				if !canStartVM {
+					return h.handleCanNotStartVM(ctx, s, kvvm)
+				}
+
 				h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
 					"Restart initiated by controller for %s runPolicy after observing failed guest VM",
 					runPolicy,
@@ -219,12 +256,25 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 					return fmt.Errorf("automatic restart of failed VM: %w", err)
 				}
 			}
+		} else if canStartVM && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
+			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
+				"Start initiated by controller for %v policy",
+				runPolicy,
+			)
+
+			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
+				return fmt.Errorf("failed to start VM: %w", err)
+			}
 		}
 	case virtv2.ManualPolicy:
 		// Manual policy requires to handle only guest-reset event.
 		// All types of shutdown are final states.
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
 			if kvvmi.Status.Phase == virtv1.Succeeded && shutdownInfo.PodCompleted {
+				if !canStartVM {
+					return h.handleCanNotStartVM(ctx, s, kvvm)
+				}
+
 				// Request to start new KVVMI (with updated settings).
 				switch shutdownInfo.Reason {
 				case powerstate.GuestResetReason:
@@ -246,9 +296,29 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 					}
 				}
 			}
+		} else if canStartVM && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
+			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
+				"Start initiated by controller for %v policy",
+				runPolicy,
+			)
+
+			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
+				return fmt.Errorf("failed to start VM: %w", err)
+			}
 		}
 	}
 
+	return nil
+}
+
+func (h *SyncPowerStateHandler) handleCanNotStartVM(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) error {
+	h.recordStopEventf(ctx, s.VirtualMachine().Current(),
+		"The VirtualMachine failed to start because the provided configuration could not be applied.",
+	)
+	err := addStartAnnotationToKVVM(ctx, h.client, kvvm)
+	if err != nil {
+		return fmt.Errorf("add annotation to KVVM: %w", err)
+	}
 	return nil
 }
 
