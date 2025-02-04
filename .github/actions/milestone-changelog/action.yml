@@ -42,12 +42,12 @@ runs:
           vi
           cvi
           core
-          api-service
-          vm-route-forge
-          kubevirt
-          kube-api-rewriter
-          cdi
-          dvcr
+          api-service:low
+          vm-route-forge:low
+          kubevirt:low
+          kube-api-rewriter:low
+          cdi:low
+          dvcr:low
           module
           observability
           ci:low
