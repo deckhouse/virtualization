@@ -97,9 +97,9 @@ jobs:
 
           # Select runner
           if echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/github/ubuntu"; then
-            echo "RUNNER_TYPE=ubuntu-22.04" >> "$GITHUB_OUTPUT"
+            echo "RUNNER_TYPE=[\"ubuntu-22.04\"]" >> "$GITHUB_OUTPUT"
           else
-            echo "RUNNER_TYPE=[self-hosted, regular, selectel]" >> "$GITHUB_OUTPUT"
+            echo "RUNNER_TYPE=[\"self-hosted\", \"regular\", \"selectel\"]" >> "$GITHUB_OUTPUT"
           fi
 
   show_dev_manifest:
@@ -216,7 +216,7 @@ jobs:
           task virtualization-controller:test:unit
 
   dev_setup_build:
-    runs-on: ${{needs.set_vars.outputs.runner_type}}
+    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     name: Build and Push images
     needs: set_vars
     env:
