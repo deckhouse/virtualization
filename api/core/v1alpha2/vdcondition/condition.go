@@ -107,7 +107,7 @@ const (
 	Lost ReadyReason = "PVCLost"
 	// QuotaExceeded indicates that the VirtualDisk is reached project quotas and can not be provisioned.
 	QuotaExceeded ReadyReason = "QuotaExceeded"
-	// ImagePullFailed indicates an issue with importing from DVCR.
+	// ImagePullFailed indicates that there was an issue with importing from DVCR.
 	ImagePullFailed ReadyReason = "ImagePullFailed"
 
 	// ResizingNotRequested indicates that the resize operation has not been requested yet.
