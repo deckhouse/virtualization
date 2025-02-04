@@ -27,16 +27,6 @@ shell:
   setup:
     # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
     - mv /etc/ld.so.preload.in /etc/ld.so.preload
-    - |
-      # Delete unnecessary locales
-      KEEP_LOCALES=("ru" "en_US" "en_GB")
-      EXCLUDE_PATTERN=$(printf "! -name %s " "${KEEP_LOCALES[@]}")
-      echo "Delete unnecessary locales"
-      find /usr/share/locale -mindepth 1 -maxdepth 1 -type d ${EXCLUDE_PATTERN} -exec rm -rf {} +
-
-      # delete docs
-      echo "Delete docs"
-      rm -rf /usr/share/doc/*
 
 ---
 {{- $gitRepoName := "libvirt" }}
@@ -146,6 +136,17 @@ shell:
 
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  
+  - |
+    # Delete unnecessary locales
+    KEEP_LOCALES=("ru" "en_US" "en_GB")
+    EXCLUDE_PATTERN=$(printf "! -name %s " "${KEEP_LOCALES[@]}")
+    echo "Delete unnecessary locales"
+    find /usr/share/locale -mindepth 1 -maxdepth 1 -type d ${EXCLUDE_PATTERN} -exec rm -rf {} +
+
+    # delete docs
+    echo "Delete docs"
+    rm -rf /usr/share/doc/*
 
   install:
   # Create qemu group and user.

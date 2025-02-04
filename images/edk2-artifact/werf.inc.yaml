@@ -8,33 +8,39 @@ final: false
 fromImage: base-alt-p11
 git:
 - add: /images/{{ $.ImageName }}/
+  to: /FIRMWARE
+  includePaths:
+  - logo/Logo.bmp
+  - json
+  - uefi-revocation-list
+  stageDependencies:
+    setup:
+      - '**/*'
+- add: /images/{{ $.ImageName }}/
   to: /
   includePaths:
   - build.sh
   stageDependencies:
     setup:
       - build.sh
-- add: /images/{{ $.ImageName }}/logo
-  to: /
-  includePaths:
-  - Logo.bmp
-  stageDependencies:
-    setup:
-      - Logo.bmp
-- add: /images/{{ $.ImageName }}/json
-  to: /FIRMWARE
-  includePaths:
-  - '*.json'
-  stageDependencies:
-    setup:
-      - '*.json'
-- add: /images/{{ $.ImageName }}
-  to: /FIRMWARE
-  includePaths:
-  - 'DBXUpdate-20230509.x64.bin'
-  stageDependencies:
-    setup:
-      - 'DBXUpdate-20230509.x64.bin'
+
+{{/*
+# - add: /images/{{ $.ImageName }}/json
+#   to: /FIRMWARE
+#   includePaths:
+#   - '*.json'
+#   stageDependencies:
+#     setup:
+#       - '*.json'
+# - add: /images/{{ $.ImageName }}
+#   to: /FIRMWARE
+#   includePaths:
+#   - 'DBXUpdate-20230509.x64.bin'
+#   stageDependencies:
+#     setup:
+#       - 'DBXUpdate-20230509.x64.bin'
+*/}}
+
 shell:
   beforeInstall:
   - | 
@@ -78,5 +84,6 @@ shell:
 
   setup:
   - |
+    ls -lah /FIRMWARE
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
 
