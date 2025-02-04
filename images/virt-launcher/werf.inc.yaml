@@ -27,10 +27,6 @@ shell:
   setup:
     # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
     - mv /etc/ld.so.preload.in /etc/ld.so.preload
-docker:
-  ENV:
-    LANG: en_US.UTF-8
-    LC_ALL: en_US.UTF-8
 
 ---
 {{- $gitRepoName := "libvirt" }}
@@ -213,6 +209,10 @@ shell:
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-launcher/BUILD.bazel
 #docker:
 #  ENTRYPOINT: ["/usr/bin/virt-launcher"]
+docker:
+  ENV:
+    LANG: ""
+    LC_ALL: POSIX
 
 ---
 image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
