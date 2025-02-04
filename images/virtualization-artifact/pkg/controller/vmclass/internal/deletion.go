@@ -19,13 +19,11 @@ package internal
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"strings"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -78,7 +76,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 			Reason(vmclasscondition.ReasonVMClassInUse).
 			Message(msg)
 		conditions.SetCondition(cb, &changed.Status.Conditions)
-		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
+		return reconcile.Result{}, nil
 	} else {
 		conditions.RemoveCondition(vmclasscondition.ReasonVMClassInUse, &changed.Status.Conditions)
 	}
