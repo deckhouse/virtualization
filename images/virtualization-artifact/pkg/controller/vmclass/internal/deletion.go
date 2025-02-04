@@ -70,7 +70,13 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 		for i := range vms {
 			vmNamespacedNames = append(vmNamespacedNames, object.NamespacedName(&vms[i]).String())
 		}
-		msg := fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it %s.", strings.Join(vmNamespacedNames, ", "))
+		var msg string
+		switch len(vms) {
+		case 1:
+			msg = fmt.Sprintf("VirtualMachineClass cannot be deleted, there is VM that use it: %s.", vmNamespacedNames[0])
+		default:
+			msg = fmt.Sprintf("VirtualMachineClass cannot be deleted, there are VMs that use it %s.", strings.Join(vmNamespacedNames, ", "))
+		}
 		cb := conditions.NewConditionBuilder(vmclasscondition.TypeInUse).
 			Generation(changed.Generation).
 			Status(metav1.ConditionTrue).
