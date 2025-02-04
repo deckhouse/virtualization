@@ -81,7 +81,7 @@ const (
 	Ready ReadyReason = "Ready"
 	// QuotaExceeded indicates that the VirtualImage is reached project quotas and can not be provisioned.
 	QuotaExceeded ReadyReason = "QuotaExceeded"
-	// ImagePullFailed indicates an issue with importing from DVCR.
+	// ImagePullFailed indicates that there was an issue with importing from DVCR.
 	ImagePullFailed ReadyReason = "ImagePullFailed"
 
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualImage` can no longer be used.
