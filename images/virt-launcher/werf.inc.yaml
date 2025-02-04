@@ -39,7 +39,8 @@ shell:
       rm -rf /usr/share/doc/*
 
 ---
-{{- $versionLibvirt := "10.9.0" }}
+{{- $gitRepoName := "libvirt" }}
+{{- $version := get $.Version $gitRepoName }}
 
 image: {{ $.ImageName }}-prepared
 final: false
@@ -171,7 +172,7 @@ shell:
       printf "%d%03d\n" "$major" "$minor"
     }
 
-    libvirt_version=$(convert_version {{ $versionLibvirt }})
+    libvirt_version=$(convert_version {{ $version }})
 
     echo "libvirt_version: $libvirt_version"
 
