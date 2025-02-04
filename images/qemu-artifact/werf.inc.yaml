@@ -105,10 +105,10 @@ shell:
 
   install:
   - |
-    # export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
-    # export PATH="$CCACHE_WRAPPERSDIR:$PATH"
-    # export CCACHE_BASEDIR="$(pwd)"
-    # export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
+    export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
+    export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
+    export CCACHE_BASEDIR="$(pwd)"
+    export PATH="$CCACHE_WRAPPERSDIR:$PATH"
     export MAKE="/usr/bin/make"
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
