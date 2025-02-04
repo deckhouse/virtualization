@@ -7,40 +7,30 @@ image: {{ $.ImageName }}
 final: false
 fromImage: base-alt-p11
 git:
-- add: /images/{{ $.ImageName }}/
+- add: /images/{{ $.ImageName }}/logo
   to: /FIRMWARE
   includePaths:
-  - logo/Logo.bmp
-  - json
-  - uefi-revocation-list
+  - Logo.bmp
   stageDependencies:
     setup:
       - '**/*'
-- add: /images/{{ $.ImageName }}/
+- add: /images/{{ $.ImageName }}/json
+  to: /FIRMWARE
+  stageDependencies:
+    setup:
+      - '*.json'
+- add: /images/{{ $.ImageName }}/uefi-revocation-list
+  to: /FIRMWARE
+  stageDependencies:
+    setup:
+      - '*.bin'
+- add: /images/{{ $.ImageName }}
   to: /
   includePaths:
   - build.sh
   stageDependencies:
     setup:
       - build.sh
-
-{{/*
-# - add: /images/{{ $.ImageName }}/json
-#   to: /FIRMWARE
-#   includePaths:
-#   - '*.json'
-#   stageDependencies:
-#     setup:
-#       - '*.json'
-# - add: /images/{{ $.ImageName }}
-#   to: /FIRMWARE
-#   includePaths:
-#   - 'DBXUpdate-20230509.x64.bin'
-#   stageDependencies:
-#     setup:
-#       - 'DBXUpdate-20230509.x64.bin'
-*/}}
-
 shell:
   beforeInstall:
   - | 
