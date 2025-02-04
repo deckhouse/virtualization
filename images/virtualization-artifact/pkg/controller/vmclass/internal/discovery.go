@@ -131,7 +131,7 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 			h.recorder.Eventf(
 				changed,
 				corev1.EventTypeNormal,
-				virtv2.ReasonVMClassNodesWasUpdated,
+				virtv2.ReasonVMClassNodesWereUpdated,
 				"List of available nodes was updated, added nodes: %q, removed nodes: %q",
 				addedNodes,
 				removedNodes,

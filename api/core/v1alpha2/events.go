@@ -124,9 +124,12 @@ const (
 	// ReasonFailed is the event reason indicating that the binding of a VirtualMachineIPLease to a VirtualMachineIPAddress has failed.
 	ReasonFailed = "Failed"
 
-	// ReasonVMClassSizingPoliciesWereChanged is event reason that VMClass sizing policies were changed.
+	// ReasonVMClassSizingPoliciesWereChanged is event reason indicating that VMClass sizing policies were changed.
 	ReasonVMClassSizingPoliciesWereChanged = "SizingPoliciesWereChanged"
 
-	// ReasonVMClassAvailableNodesListEmpty is event reason that VMClass has no available nodes.
+	// ReasonVMClassAvailableNodesListEmpty is event reason indicating that VMClass has no available nodes.
 	ReasonVMClassAvailableNodesListEmpty = "AvailableNodesListEmpty"
+
+	// ReasonVMClassNodesWereUpdated is event reason indicating that VMClass available nodes list was updated.
+	ReasonVMClassNodesWereUpdated = "NodesWereUpdated"
 )

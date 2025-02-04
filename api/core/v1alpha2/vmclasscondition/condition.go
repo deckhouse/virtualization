@@ -46,6 +46,6 @@ const (
 	ReasonDiscoverySkip      Reason = "DiscoverySkip"
 	ReasonDiscoveryFailed    Reason = "DiscoveryFailed"
 
-	// ReasonVMClassInUse is event reason that VMClass is used by virtual machine.
+	// ReasonVMClassInUse is the event reason indicating that the VMClass is being used by a virtual machine.
 	ReasonVMClassInUse Reason = "VirtualMachineClassInUse"
 )
