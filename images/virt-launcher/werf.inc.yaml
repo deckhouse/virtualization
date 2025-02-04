@@ -279,9 +279,17 @@ shell:
     ./reloclibs.sh -i "$LIST" -o /VBINS
 
 ---
-image: {{ $.ImageName }}-lib-builder
+image: {{ $.ImageName }}-liboverride-builder
 final: false
 fromImage: base-alt-p11
+git:
+  - add: /images/{{ $.ImageName }}/liboverride
+    to: /liboverride
+    includePaths:
+      - '*.c'
+    stageDependencies:
+      install:
+      - '*.c'
 shell:
   beforeInstall:
   # Install build packages. Pin only GCC to detect gcc updates later.
@@ -299,20 +307,6 @@ shell:
     gcc-c++==13-alt1
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-
----
-image: {{ $.ImageName }}-liboverride-builder
-final: false
-fromImage: {{ $.ImageName }}-lib-builder
-git:
-  - add: /images/{{ $.ImageName }}/liboverride
-    to: /liboverride
-    includePaths:
-      - '*.c'
-    stageDependencies:
-      install:
-      - '*.c'
-shell:
   install:
   # Build liboverride.
   - cd /liboverride
