@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -76,8 +77,8 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 
 	Context("When virtual images are applied", func() {
 		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
+			By(fmt.Sprintf("VIs should be in %s phases", string(virtv2.ImageReady)))
+			WaitPhaseByLabel(kc.ResourceVI, string(virtv2.ImageReady), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -87,8 +88,8 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 
 	Context("When virtual disks are applied", func() {
 		It("checks VDs phases", func() {
-			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
+			By(fmt.Sprintf("VDs should be in %s phases", virtv2.DiskReady))
+			WaitPhaseByLabel(kc.ResourceVD, string(virtv2.DiskReady), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -98,8 +99,8 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+			By(fmt.Sprintf("VMs should be in %s phases", virtv2.MachineRunning))
+			WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineRunning), kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,

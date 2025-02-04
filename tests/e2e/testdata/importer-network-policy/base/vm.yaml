@@ -6,6 +6,8 @@ spec:
   blockDeviceRefs:
     - kind: VirtualDisk
       name: vd
+    - kind: VirtualDisk
+      name: vd-cvi
   cpu:
     cores: 1
     coreFraction: 5%
