@@ -1,6 +1,6 @@
 # Integration tests
 
-## Prerequisites
+## Prerequisites.
 
 ### Utilities
 
