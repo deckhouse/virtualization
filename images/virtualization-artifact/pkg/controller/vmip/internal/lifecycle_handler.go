@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
@@ -35,10 +37,14 @@ import (
 
 const LifecycleHandlerName = "LifecycleHandler"
 
-type LifecycleHandler struct{}
+type LifecycleHandler struct {
+	recorder eventrecord.EventRecorderLogger
+}
 
-func NewLifecycleHandler() *LifecycleHandler {
-	return &LifecycleHandler{}
+func NewLifecycleHandler(recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
+	return &LifecycleHandler{
+		recorder: recorder,
+	}
 }
 
 func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
@@ -72,6 +78,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 		conditionAttach.Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineNotFound).
 			Message("Virtual machine not found")
+		h.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonNotAttached, "Virtual machine not found.")
 	}
 
 	lease, err := state.VirtualMachineIPLease(ctx)
@@ -104,6 +111,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 			vmipStatus.VirtualMachine = vm.Name
 			conditionAttach.Status(metav1.ConditionTrue).
 				Reason(vmipcondition.Attached)
+			h.recorder.Eventf(vmip, corev1.EventTypeNormal, virtv2.ReasonAttached, "VirtualMachineIPAddress is attached to %q/%q.", vm.Namespace, vm.Name)
 		}
 
 	case util.IsBoundLease(lease, vmip):
