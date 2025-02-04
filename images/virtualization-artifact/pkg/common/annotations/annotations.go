@@ -82,8 +82,13 @@ const (
 	AppKubernetesManagedByLabel = "app.kubernetes.io/managed-by"
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
-	// AppKubernetesNameLabel is the Kubernetes recommended component label
-	AppKubernetesNameLabel = "app.kubernetes.io/name"
+
+	// AppLabel is the app name label.
+	AppLabel = "app"
+	// CDILabelValue provides a constant  for CDI Pod label values.
+	CDILabelValue = "containerized-data-importer"
+	// DVCRLabelValue provides a constant  for DVCR Pod label values.
+	DVCRLabelValue = "dvcr-data-importer"
 )
 
 // AddAnnotation adds an annotation to an object
@@ -105,7 +110,6 @@ func AddLabel(obj metav1.Object, key, value string) {
 // SetRecommendedLabels sets the recommended labels on CDI resources (does not get rid of existing ones)
 func SetRecommendedLabels(obj metav1.Object, installerLabels map[string]string, controllerName string) {
 	staticLabels := map[string]string{
-		AppKubernetesNameLabel:      obj.GetName(),
 		AppKubernetesManagedByLabel: controllerName,
 		AppKubernetesComponentLabel: "storage",
 	}

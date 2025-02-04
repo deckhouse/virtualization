@@ -22,12 +22,18 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
 var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators(), func() {
+	AfterAll(func() {
+		By("Delete manifests")
+		DeleteTestCaseResources(ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
+	})
+
 	BeforeEach(func() {
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
@@ -74,42 +80,17 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 		})
 	})
 
-	Context("When virtual images are applied", func() {
-		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
+	DescribeTable("Extracting the author's first and last name",
+		func(resourceShortName string, resource kc.Resource, phase string) {
+			By(fmt.Sprintf("%ss should be in %s phases", resourceShortName, phase))
+			WaitPhaseByLabel(resource, phase, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
-		})
-	})
-
-	Context("When virtual disks are applied", func() {
-		It("checks VDs phases", func() {
-			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When virtual machines are applied", func() {
-		It("checks VMs phases", func() {
-			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
-		})
-	})
+		},
+		Entry("When virtual images are applied", "VI", kc.ResourceVI, string(virtv2.ImageReady)),
+		Entry("When virtual disks are applied", "VD", kc.ResourceVD, string(virtv2.DiskReady)),
+		Entry("When virtual machines are applied", "VM", kc.ResourceVM, string(virtv2.MachineRunning)),
+	)
 })

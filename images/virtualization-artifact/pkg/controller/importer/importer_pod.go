@@ -120,6 +120,9 @@ func (imp *Importer) makeImporterPodSpec() (*corev1.Pod, error) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      imp.PodSettings.Name,
 			Namespace: imp.PodSettings.Namespace,
+			Labels: map[string]string{
+				annotations.AppLabel: annotations.DVCRLabelValue,
+			},
 			Annotations: map[string]string{
 				annotations.AnnCreatedBy: "yes",
 			},
