@@ -14,13 +14,17 @@ git:
   stageDependencies:
     setup:
       - '**/*'
-- add: /images/{{ $.ImageName }}/json
+- add: /images/{{ $.ImageName }}
   to: /FIRMWARE
+  includePaths:
+  - json
   stageDependencies:
     setup:
       - '*.json'
-- add: /images/{{ $.ImageName }}/uefi-revocation-list
+- add: /images/{{ $.ImageName }}
   to: /FIRMWARE
+  includePaths:
+  - uefi-revocation-list
   stageDependencies:
     setup:
       - '*.bin'
