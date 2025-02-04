@@ -1,0 +1,13 @@
+ci:
+  fixes:
+    - summary: fix runner choose
+      pull_request: https://github.com/deckhouse/virtualization/pull/697
+vi:
+  features:
+    - summary: add the ability to create a VirtualImage from a VirtualDiskSnapshot.
+      pull_request: https://github.com/deckhouse/virtualization/pull/617
+vmip:
+  features:
+    - summary: add new events
+      pull_request: https://github.com/deckhouse/virtualization/pull/645
+
