@@ -127,22 +127,13 @@ EFIConfiguration, so we can't set needed files directly.
 But there is combination for SEV: OVFM_CODE.cc.fd + OVMF_VARS.fd that works for Linux, because OVFM_CODE.cc.fd is actually a symlink to OVFM_CODE.fd. 
 So, we set true for the second flag to force OVFM_CODE.cc.fd + OVMF_VARS.fd for non-Windows virtual machines._
 
-#### `030-hide-target-pod-during-migration-via-cilium-label.patch`
-
-During the VM migration process, two pods with the same address are created and packets are randomly delivered to them. 
-To force delivery of packages to only one VM pod, the special label `network.deckhouse.io/hidden-pod` for target pod were added.
-When the migration completes, the label is removed and the target pod becomes accessible via network.
-
-d8-cni-cilium ensures that once the label is removed from the target pod, only the target pod remains accessible over the network (while the source pod does not).
-
-#### `031-prevent-adding-node-selector-for-dvp-generic-cpu-model.patch`
+#### `030-prevent-adding-node-selector-for-dvp-generic-cpu-model.patch`
 
 - Do not add cpu-model nodeSelector for "kvm64" model. This selector prevents starting VMs as node-labeler ignores to labeling nodes with "kvm64" model.
 
 - Overwrite calculated model on migration, put back "kvm64" for Discovery and Features vmclass types.
 
----
-#### `032-hotplug-container-disk.patch`
+#### `031-hotplug-container-disk.patch`
 
 Add Hotplug container-disk volumes.
 How `container-disk` and HotPlug Work
@@ -183,9 +174,8 @@ The HotPlug mechanism allows dynamic attachment of PVCs and `container-disk` vol
 ### Unmounting
 - The unmount process is identical to that of `hotplug PVCs`.
 - The `emptyDir` resources are retained and cleaned up later by Kubernetes.
----
 
-#### `033-fix-virt-controller-tests.patch`
+#### `032-fix-virt-controller-tests.patch`
 
 Fix unit tests for virt-controller.
 
@@ -193,3 +183,22 @@ Fix unit tests for virt-controller.
 # Use to run tests:
 ginkgo -succinct /home/dmitrii/Base/Flant/kubevirt/pkg/virt-controller/...
 ```
+
+#### `033-manage-pods-network-priotity-during-migration-using-cilium-label.patch`
+
+**Problem:**  
+During the VM migration process, two pods with the same address are created and packets are randomly delivered to them.
+
+**Solution**:  
+To force delivery of packages to only one VM pod, the special label `network.deckhouse.io/pod-common-ip-priority` were added.
+The label allows setting the priority of pod for cilium relative to other pods with the same IP address.
+Network traffic will be directed to the pod with the higher priority. Absence of the label means default network behavior:
+`low` < `no label` < `high`.
+
+**How does it work?**
+1. When migration starts, the label is removed (if present) from the source pod (the default network behavior is applied).
+2. The target pod is immediately created with a lowered network priority.
+3. When the virtual machine is suspended for offline migration, the target pod receives elevated network priority (high),
+   while the source pod retains the default behavior (no label).
+
+Thus, packets are delivered as expected: initially only to the source pod during migration, and after migration completes, only to the target pod.
