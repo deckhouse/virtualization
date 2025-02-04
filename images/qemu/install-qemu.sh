@@ -92,7 +92,9 @@ if [ -z $VERSION_NUM ]; then
 fi
 # List of files and destinations of qemu
 # Commented lines - binary for additional features. 
-# When building with support for a new feature, uncomment the necessary files
+# 
+# The specific format of the list, 'SOURCE_FILE to DESTINATION', 
+# is due to the output of the installation scripts. To make it easier to add them to this list.
 FILE_LIST=$(cat <<EOF
 $SRC_BUILD/trace/trace-events-all to /usr/share/qemu
 $SRC_BUILD/ui-opengl.so to /usr/lib64/qemu
