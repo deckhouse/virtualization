@@ -31,6 +31,10 @@ EOF
 parse_args() {
     while [[ $# -gt 0 ]]; do
     case "$1" in
+        --debug)
+            set -x 
+            shift
+            ;;
         --branch)
             if [[ -n "$2" && "$2" != "-"* ]]; then
                 edk2Branch="$2"
@@ -77,7 +81,7 @@ fi
 EDK2_DIR="/${gitRepoName}-${edk2Branch}"
 FIRMWARE="/FIRMWARE"
 
-cp -f Logo.bmp $EDK2_DIR/MdeModulePkg/Logo/
+mv -f Logo.bmp $EDK2_DIR/MdeModulePkg/Logo/
 echo "=== cd $EDK2_DIR ==="
 cd $EDK2_DIR
 

@@ -7,27 +7,6 @@ image: {{ $.ImageName }}
 final: false
 fromImage: base-alt-p11
 git:
-- add: /images/{{ $.ImageName }}/logo
-  to: /FIRMWARE
-  includePaths:
-  - Logo.bmp
-  stageDependencies:
-    setup:
-      - '**/*'
-- add: /images/{{ $.ImageName }}
-  to: /FIRMWARE
-  includePaths:
-  - json
-  stageDependencies:
-    setup:
-      - '*.json'
-- add: /images/{{ $.ImageName }}
-  to: /FIRMWARE
-  includePaths:
-  - uefi-revocation-list
-  stageDependencies:
-    setup:
-      - '*.bin'
 - add: /images/{{ $.ImageName }}
   to: /
   includePaths:
@@ -35,6 +14,27 @@ git:
   stageDependencies:
     setup:
       - build.sh
+- add: /images/{{ $.ImageName }}/logo
+  to: /
+  includePaths:
+  - Logo.bmp
+  stageDependencies:
+    setup:
+      - '**/*'
+- add: /images/{{ $.ImageName }}/json
+  to: /FIRMWARE
+  includePaths:
+  - '*.json'
+  stageDependencies:
+    setup:
+      - '*.json'
+- add: /images/{{ $.ImageName }}/uefi-revocation-list
+  to: /FIRMWARE
+  includePaths:
+  - '*.bin'
+  stageDependencies:
+    setup:
+      - '*.bin'
 shell:
   beforeInstall:
   - | 
