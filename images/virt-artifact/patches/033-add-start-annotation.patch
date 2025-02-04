@@ -1,0 +1,38 @@
+diff --git a/pkg/virt-controller/watch/vm.go b/pkg/virt-controller/watch/vm.go
+index 0b4ab053d8..df586f81ea 100644
+--- a/pkg/virt-controller/watch/vm.go
++++ b/pkg/virt-controller/watch/vm.go
+@@ -1118,7 +1118,7 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
+ 		} else {
+ 			if hasStartRequest(vm) {
+ 				log.Log.Object(vm).Infof("%s due to start request and runStrategy: %s", startingVmMsg, runStrategy)
+-
++				c.setStartAnnotationOnVm(vm)
+ 				vm, err = c.startVMI(vm)
+ 				if err != nil {
+ 					return vm, &syncErrorImpl{fmt.Errorf(startingVMIFailureFmt, err), FailedCreateReason}
+@@ -1168,6 +1168,24 @@ func (c *VMController) syncRunStrategy(vm *virtv1.VirtualMachine, vmi *virtv1.Vi
+ 	}
+ }
+ 
++func (c *VMController) setStartAnnotationOnVm(vm *virtv1.VirtualMachine) error {
++	anno := "kubevirt.io/vm-start-requested"
++
++	if vm.Annotations[anno] != "true" {
++		patchset := patch.New()
++		patchset.AddOption(patch.WithAdd(fmt.Sprintf("/metadata/annotations/%s", anno), "true"))
++		generatedPatch, err := patchset.GeneratePayload()
++		if err != nil {
++			return err
++		}
++		_, err = c.clientset.VirtualMachineInstance(vm.Namespace).Patch(context.Background(), vm.Name, types.JSONPatchType, generatedPatch, metav1.PatchOptions{})
++		if err != nil {
++			return err
++		}
++	}
++	return nil
++}
++
+ // isVMIStartExpected determines whether a VMI is expected to be started for this VM.
+ func (c *VMController) isVMIStartExpected(vm *virtv1.VirtualMachine) bool {
+ 	vmKey, err := controller.KeyFunc(vm)
