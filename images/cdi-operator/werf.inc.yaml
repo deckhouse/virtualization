@@ -1,7 +1,6 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_SCRATCH }}
-import:
+from: {{ $.Images.BASE_SCRATCH }}
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
@@ -11,4 +10,4 @@ import:
   before: setup
 docker:
   ENTRYPOINT: ["/usr/bin/cdi-operator"]
-  USER: 1001
+  USER: 64535
