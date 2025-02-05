@@ -46,6 +46,13 @@ configVersion: 1
 # Edition module settings
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
 
+# Component versions
+{{ $_ := set . "Version" dict }}
+{{- $versions_ctx := (.Files.Get "cv/version_map.yml" | fromYaml) }}
+{{- range $k, $v := $versions_ctx.firmware }}
+  {{- $_ := set $.Version $k $v}}
+{{- end }}
+
 # Modules_images
 {{- define "module_image_template" }}
 
@@ -79,6 +86,7 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "Images" $Root.Images }}
   {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
   {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
+  {{- $_ := set $ctx "Version" $Root.Version }}
 
   {{- include "module_image_template" $ctx }}
   {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
