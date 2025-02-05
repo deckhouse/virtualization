@@ -30,11 +30,8 @@
 - [ ] Changes were tested in the Kubernetes cluster manually.
 
 ## Changelog entries
-<!---
-  for the list of allowed sections, see https://github.com/deckhouse/virtualization/blob/main/.github/actions/milestone-changelog/action.yml#L28 
--->
 ```changes
-section: <kebab-case of allowed section>
+section: <scope name in kebab-case (See CONTRIBUTING.md#scope)>
 type: fix | feature | chore
 summary: <ONE-LINE of what effectively changes for a user>
 ```
