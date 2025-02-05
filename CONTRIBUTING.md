@@ -121,10 +121,6 @@ Supported scopes are the following:
 
   # Maintaining, improving code quality and development workflow.
   - ci
-  - lint
-  - format
-  - gen
-  - dev
   ```
 
 #### Subject
@@ -154,6 +150,73 @@ When naming branches, only the top-level scope should be used. Multiple or neste
 
   - _feat/disks/support-new-image-source_
   - _chore/ci/speed-up-builds_
+
+#### Changes Block
+
+When submitting a pull request, include a **changes block** to document modifications for the changelog. This block helps automate the release changelog creation, tracks updates, and prepares release notes.
+
+##### Format
+
+The changes block consists of YAML documents, each detailing a specific change. Use the following structure:
+
+````
+```changes
+section: <affected-section>
+type: <feature|fix|chore>
+summary: <Concise description of the change.>
+impact_level: <low|high>  # Optional
+impact: |
+  <Detailed impact description if impact_level is high>
+```
+````
+
+##### Fields Description
+
+  - **section**: (Required) Specifies the part of the project affected. Use kebab-case of allowed section. For multiple affected sections, provide multiple changes blocks. For the list of allowed sections, see [here](https://github.com/deckhouse/virtualization/blob/main/.github/actions/milestone-changelog/action.yml#L28).
+    - Examples: `api`, `core`, `ci`
+
+  - **type**: (Required) Defines the nature of the change:
+    - `feature`: Adds new functionality.
+    - `fix`: Resolves user-facing issues.
+    - `chore`: Maintenance tasks without direct user impact.
+
+  - **summary**: (Required) A concise explanation of the change, ending with a period.
+
+  - **impact_level**: (Optional) Indicates the significance of the change.
+    - `high`: Requires an **impact** description and will be included in "Know before update" sections.
+    - `low`: Minor changes, typically omitted from user-facing changelogs.
+
+  - **impact**: (Required if `impact_level` is high) Describes the change's effects, such as expected restarts or downtime.
+    - Examples:
+      - "Ingress controller will restart."
+      - "Expect slow downtime due to kube-apiserver restarts."
+
+##### Example
+
+```changes
+section: core
+type: feature
+summary: "Node restarts can be avoided by pinning a checksum to a node group in config values."
+impact: Recommended to use as a last resort.
+---
+section: core
+type: fix
+summary: "Nodes with outdated manifests are no longer provisioned on *InstanceClass update."
+impact_level: high
+impact: |
+  Expect nodes of "Cloud" type to restart.
+
+  Node checksum calculation is fixed, as well as a race condition during
+  the machines (MCM) rendering which caused outdated nodes to spawn.
+---
+section: ci
+type: fix
+summary: "Improved comments tracking workflow progress."
+impact_level: low
+```
+
+For full guidelines, refer to [here](https://github.com/deckhouse/deckhouse/wiki/Guidelines-for-working-with-PRs).
+
 
 #### Short description
 
