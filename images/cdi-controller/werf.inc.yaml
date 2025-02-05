@@ -1,7 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p11
-import:
+from: {{ $.Images.BASE_SCRATCH }}
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
@@ -11,5 +10,4 @@ import:
 # Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-controller/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/cdi-controller", "-alsologtostderr"]
-  USER: 1001
-
+  USER: 64535
