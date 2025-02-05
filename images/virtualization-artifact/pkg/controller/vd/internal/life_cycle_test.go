@@ -73,7 +73,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			}
 
 			sourcesMock.GetFunc = func(dsType virtv2.DataSourceType) (source.Handler, bool) {
-				var handler source.HandlerMock
+				var handler HandlerMock
 
 				handler.SyncFunc = func(_ context.Context, _ *virtv2.VirtualDisk) (reconcile.Result, error) {
 					return reconcile.Result{}, nil
@@ -175,7 +175,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			}
 
 			sourcesMock.GetFunc = func(dsType virtv2.DataSourceType) (source.Handler, bool) {
-				var handler source.HandlerMock
+				var handler HandlerMock
 
 				handler.SyncFunc = func(_ context.Context, _ *virtv2.VirtualDisk) (reconcile.Result, error) {
 					return reconcile.Result{}, nil
