@@ -21,12 +21,15 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -103,6 +106,11 @@ func (s ImporterService) Start(
 		return err
 	}
 
+	err = s.createNetworkPolicy(ctx, pod)
+	if err != nil {
+		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
+	}
+
 	return supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
 }
 
@@ -146,6 +154,18 @@ func (s ImporterService) DeletePod(ctx context.Context, obj ObjectKind, controll
 					return false, err
 				}
 
+				networkPolicy, err := s.getNetworkPolicyFromPod(ctx, &pod)
+				if err != nil {
+					return false, err
+				}
+
+				if networkPolicy != nil {
+					err = s.client.Delete(ctx, networkPolicy)
+					if err != nil && !k8serrors.IsNotFound(err) {
+						return false, err
+					}
+				}
+
 				return true, nil
 			}
 		}
@@ -175,6 +195,18 @@ func (s ImporterService) CleanUpSupplements(ctx context.Context, sup *supplement
 		}
 	}
 
+	networkPolicy, err := s.getNetworkPolicy(ctx, sup)
+	if err != nil {
+		return false, err
+	}
+
+	if networkPolicy != nil {
+		err = s.client.Delete(ctx, networkPolicy)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return false, err
+		}
+	}
+
 	return hasDeleted, nil
 }
 
@@ -184,6 +216,16 @@ func (s ImporterService) Protect(ctx context.Context, pod *corev1.Pod) error {
 		return fmt.Errorf("failed to add protection for importer's supplements: %w", err)
 	}
 
+	networkPolicy, err := s.getNetworkPolicyFromPod(ctx, pod)
+	if err != nil {
+		return fmt.Errorf("failed to get networkPolicy for importer's supplements protection: %w", err)
+	}
+
+	err = s.protection.AddProtection(ctx, networkPolicy)
+	if err != nil {
+		return fmt.Errorf("failed to add protection for importer's networkPolicy: %w", err)
+	}
+
 	return nil
 }
 
@@ -191,6 +233,18 @@ func (s ImporterService) Unprotect(ctx context.Context, pod *corev1.Pod) error {
 	err := s.protection.RemoveProtection(ctx, pod)
 	if err != nil {
 		return fmt.Errorf("failed to remove protection for importer's supplements: %w", err)
+	}
+
+	if pod != nil {
+		networkPolicy, err := s.getNetworkPolicyFromPod(ctx, pod)
+		if err != nil {
+			return fmt.Errorf("failed to get networkPolicy for removing importer's supplements protection: %w", err)
+		}
+
+		err = s.protection.RemoveProtection(ctx, networkPolicy)
+		if err != nil {
+			return fmt.Errorf("failed to remove protection for importer's supplements: %w", err)
+		}
 	}
 
 	return nil
@@ -203,6 +257,47 @@ func (s ImporterService) GetPod(ctx context.Context, sup *supplements.Generator)
 	}
 
 	return pod, nil
+}
+
+func (s ImporterService) createNetworkPolicy(ctx context.Context, pod *corev1.Pod) error {
+	networkPolicy := netv1.NetworkPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "NetworkPolicy",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            pod.Name,
+			Namespace:       pod.Namespace,
+			Annotations:     map[string]string{annotations.AnnCreatedBy: "yes"},
+			OwnerReferences: pod.OwnerReferences,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					annotations.AppKubernetesNameLabel: pod.Name,
+				},
+			},
+			Egress:      []netv1.NetworkPolicyEgressRule{{}},
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
+		},
+	}
+
+	annotations.SetRecommendedLabels(&networkPolicy, pod.Labels, s.controllerName)
+
+	err := s.client.Create(ctx, &networkPolicy)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s ImporterService) getNetworkPolicy(ctx context.Context, sup *supplements.Generator) (*netv1.NetworkPolicy, error) {
+	return object.FetchObject(ctx, sup.ImporterPod(), s.client, &netv1.NetworkPolicy{})
+}
+
+func (s ImporterService) getNetworkPolicyFromPod(ctx context.Context, pod *corev1.Pod) (*netv1.NetworkPolicy, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, s.client, &netv1.NetworkPolicy{})
 }
 
 func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *importer.PodSettings {

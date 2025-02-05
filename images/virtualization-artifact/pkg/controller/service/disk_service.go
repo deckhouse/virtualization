@@ -28,6 +28,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	storev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -49,20 +50,23 @@ import (
 )
 
 type DiskService struct {
-	client       client.Client
-	dvcrSettings *dvcr.Settings
-	protection   *ProtectionService
+	client         client.Client
+	dvcrSettings   *dvcr.Settings
+	protection     *ProtectionService
+	controllerName string
 }
 
 func NewDiskService(
 	client client.Client,
 	dvcrSettings *dvcr.Settings,
 	protection *ProtectionService,
+	controllerName string,
 ) *DiskService {
 	return &DiskService{
-		client:       client,
-		dvcrSettings: dvcrSettings,
-		protection:   protection,
+		client:         client,
+		dvcrSettings:   dvcrSettings,
+		protection:     protection,
+		controllerName: controllerName,
 	}
 }
 
@@ -180,6 +184,11 @@ func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.Persiste
 		return nil
 	}
 
+	err = s.createNetworkPolicy(ctx, pod)
+	if err != nil {
+		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
+	}
+
 	scheduled, _ := conditions.GetPodCondition(corev1.PodScheduled, pod.Status.Conditions)
 	if scheduled.Status == corev1.ConditionFalse && scheduled.Reason == corev1.PodReasonUnschedulable {
 		return ErrDataVolumeProvisionerUnschedulable
@@ -212,6 +221,23 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 
 	if pvc != nil {
 		resourcesHaveDeleted = true
+
+		networkPolicy, err := s.getNetworkPolicy(ctx, types.NamespacedName{Namespace: pvc.Namespace, Name: dvutil.GetImporterPrimeName(pvc.UID)})
+		if err != nil {
+			return false, err
+		}
+
+		if networkPolicy != nil {
+			err = s.protection.RemoveProtection(ctx, networkPolicy)
+			if err != nil {
+				return false, err
+			}
+
+			err = s.client.Delete(ctx, networkPolicy)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return false, err
+			}
+		}
 
 		err = s.protection.RemoveProtection(ctx, pvc)
 		if err != nil {
@@ -253,6 +279,23 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 			return false, err
 		}
 		if pvc != nil {
+			networkPolicy, err := s.getNetworkPolicy(ctx, types.NamespacedName{Namespace: dv.Namespace, Name: dvutil.GetImporterPrimeName(pvc.UID)})
+			if err != nil {
+				return false, err
+			}
+
+			if networkPolicy != nil {
+				err = s.protection.RemoveProtection(ctx, networkPolicy)
+				if err != nil {
+					return false, err
+				}
+
+				err = s.client.Delete(ctx, networkPolicy)
+				if err != nil && !k8serrors.IsNotFound(err) {
+					return false, err
+				}
+			}
+
 			pvc.ObjectMeta.OwnerReferences = slices.DeleteFunc(pvc.ObjectMeta.OwnerReferences, func(ref metav1.OwnerReference) bool {
 				return ref.Kind == "DataVolume"
 			})
@@ -277,11 +320,43 @@ func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1
 		return fmt.Errorf("failed to add protection for disk's supplements: %w", err)
 	}
 
+	if dv != nil {
+		pvc, err := object.FetchObject(ctx, types.NamespacedName{Name: dv.Status.ClaimName, Namespace: dv.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
+		if err != nil {
+			return fmt.Errorf("failed to get pvc for disk's supplements protection: %w", err)
+		}
+
+		NetworkPolicy, err := s.getNetworkPolicy(ctx, types.NamespacedName{Namespace: dv.Namespace, Name: dvutil.GetImporterPrimeName(pvc.UID)})
+		if err != nil {
+			return fmt.Errorf("failed to get networkPolicy for disk's supplements protection: %w", err)
+		}
+
+		err = s.protection.AddProtection(ctx, NetworkPolicy)
+		if err != nil {
+			return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
+		}
+	}
+
 	return nil
 }
 
 func (s DiskService) Unprotect(ctx context.Context, dv *cdiv1.DataVolume) error {
-	err := s.protection.RemoveProtection(ctx, dv)
+	pvc, err := object.FetchObject(ctx, types.NamespacedName{Name: dv.Status.ClaimName, Namespace: dv.Namespace}, s.client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return fmt.Errorf("failed to get pvc for removing disk's supplements protection: %w", err)
+	}
+
+	networkPolicy, err := s.getNetworkPolicy(ctx, types.NamespacedName{Namespace: dv.Namespace, Name: dvutil.GetImporterPrimeName(pvc.UID)})
+	if err != nil {
+		return fmt.Errorf("failed to get networkPolicy for removing disk's supplements protection: %w", err)
+	}
+
+	err = s.protection.RemoveProtection(ctx, networkPolicy)
+	if err != nil {
+		return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
+	}
+
+	err = s.protection.RemoveProtection(ctx, dv)
 	if err != nil {
 		return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
 	}
@@ -584,6 +659,43 @@ func (s DiskService) getStorageClass(ctx context.Context, storageClassName strin
 	}
 
 	return &sc, nil
+}
+
+func (s DiskService) createNetworkPolicy(ctx context.Context, pod *corev1.Pod) error {
+	networkPolicy := netv1.NetworkPolicy{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "NetworkPolicy",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            pod.Name,
+			Namespace:       pod.Namespace,
+			Annotations:     map[string]string{annotations.AnnCreatedBy: "yes"},
+			OwnerReferences: pod.OwnerReferences,
+		},
+		Spec: netv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					annotations.AppKubernetesNameLabel: pod.Name,
+				},
+			},
+			Egress:      []netv1.NetworkPolicyEgressRule{{}},
+			PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeEgress},
+		},
+	}
+
+	annotations.SetRecommendedLabels(&networkPolicy, pod.Labels, s.controllerName)
+
+	err := s.client.Create(ctx, &networkPolicy)
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
+		return err
+	}
+
+	return nil
+}
+
+func (s DiskService) getNetworkPolicy(ctx context.Context, name types.NamespacedName) (*netv1.NetworkPolicy, error) {
+	return object.FetchObject(ctx, name, s.client, &netv1.NetworkPolicy{})
 }
 
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")

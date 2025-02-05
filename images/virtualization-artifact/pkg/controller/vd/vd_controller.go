@@ -64,7 +64,7 @@ func NewController(
 	protection := service.NewProtectionService(mgr.GetClient(), virtv2.FinalizerVDProtection)
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
+	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
 	scService := service.NewVirtualDiskStorageClassService(storageClassSettings)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
