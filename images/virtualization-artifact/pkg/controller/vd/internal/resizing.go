@@ -122,14 +122,14 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 	if isResizeNeeded(vdSpecSize, &pvcSpecSize) {
 		// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
-		return h.ResizeNeededBranch(ctx, vd, pvc, cb, log)
+		return h.ResizeNeeded(ctx, vd, pvc, cb, log)
 	} else {
 		// Expected disk size is NOT GREATER THAN expected pvc size: no resize needed since downsizing is not possible, and resizing to the same value makes no sense.
-		return h.ResizeNotNeededBranch(vd, condition, cb)
+		return h.ResizeNotNeeded(vd, condition, cb)
 	}
 }
 
-func (h ResizingHandler) ResizeNeededBranch(
+func (h ResizingHandler) ResizeNeeded(
 	ctx context.Context,
 	vd *v1alpha2.VirtualDisk,
 	pvc *corev1.PersistentVolumeClaim,
@@ -204,7 +204,7 @@ func (h ResizingHandler) ResizeNeededBranch(
 	return reconcile.Result{}, nil
 }
 
-func (h ResizingHandler) ResizeNotNeededBranch(
+func (h ResizingHandler) ResizeNotNeeded(
 	vd *v1alpha2.VirtualDisk,
 	resizingCondition metav1.Condition,
 	cb *conditions.ConditionBuilder,
