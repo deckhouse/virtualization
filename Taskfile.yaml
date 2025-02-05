@@ -216,3 +216,36 @@ tasks:
       }'
       kubectl -n d8-virtualization port-forward pod/<virt-handler-pod> 2345:2345
       EOF
+
+  dlv:virt-api:build:
+    desc: "Build image virt-api with dlv"
+    cmd: docker build -f ./images/virt-api/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
+
+  dlv:virt-api:build-push:
+    desc: "Build and Push image virt-api with dlv"
+    cmds:
+      - task: dlv:virt-api:build
+      - docker push "{{ .DLV_IMAGE }}"
+      - task: dlv:virt-api:print
+
+  dlv:virt-api:print:
+    desc: "Print commands for debug"
+    env:
+      IMAGE: "{{ .DLV_IMAGE }}"
+    cmd: |
+      cat <<EOF
+      kubectl -n d8-virtualization patch deploy virt-api --type='strategic' -p '{
+        "spec": {
+          "template": {
+            "spec": {
+              "containers": [ {
+                "name": "virt-api",
+                "image": "${IMAGE}",
+                "ports": [ { "containerPort": 2345, "name": "dlv" } ]
+              }]
+            }
+          }
+        }
+      }'
+      kubectl -n d8-virtualization port-forward deploy/vit-api 2345:2345
+      EOF
