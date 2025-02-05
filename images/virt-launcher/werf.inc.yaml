@@ -191,8 +191,8 @@ shell:
 
     while IFS= read -r LINE; do
       echo "Create symlinc for $LINE"
-      TARGET=$(echo $LINE | awk -F' to ' '{print $1}')
-      SYMLINK=$(echo $LINE | awk -F' to ' '{print $2}')
+      TARGET=$(echo $LINE | awk -F' ' '{print $1}')
+      SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
       ln -s $TARGET $SYMLINK
     done <<< "$SYMLINC_LIST"
     cd /
