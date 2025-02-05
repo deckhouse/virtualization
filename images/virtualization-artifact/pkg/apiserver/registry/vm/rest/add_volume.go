@@ -106,7 +106,7 @@ func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAdd
 	var dd virtv1.DiskDevice
 	if opts.IsCdrom {
 		dd.CDRom = &virtv1.CDRomTarget{
-			Bus: virtv1.DiskBusSCSI,
+			Bus: virtv1.DiskBusUSB,
 		}
 	} else {
 		dd.Disk = &virtv1.DiskTarget{
