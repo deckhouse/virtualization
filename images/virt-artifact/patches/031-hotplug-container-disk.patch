@@ -869,10 +869,10 @@ index fa4e86ee17..c40f1fad89 100644
  			pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 diff --git a/pkg/virt-handler/container-disk/hotplug.go b/pkg/virt-handler/container-disk/hotplug.go
 new file mode 100644
-index 0000000000..3960b6bcb2
+index 0000000000..fa3a7c39af
 --- /dev/null
 +++ b/pkg/virt-handler/container-disk/hotplug.go
-@@ -0,0 +1,644 @@
+@@ -0,0 +1,667 @@
 +package container_disk
 +
 +import (
@@ -1185,7 +1185,7 @@ index 0000000000..3960b6bcb2
 +	virtLauncherUID, sourceUID types.UID,
 +	volumeName string,
 +) (vmiMountTargetEntry, error) {
-+	target, err := m.hotplugManager.GetFileSystemDiskTargetPathFromHostView(virtLauncherUID, volumeName, true)
++	targetFile, err := m.getTarget(virtLauncherUID, volumeName)
 +	if err != nil {
 +		return vmiMountTargetEntry{}, err
 +	}
@@ -1195,9 +1195,17 @@ index 0000000000..3960b6bcb2
 +		return vmiMountTargetEntry{}, err
 +	}
 +	return vmiMountTargetEntry{
-+		TargetFile: unsafepath.UnsafeAbsolute(target.Raw()),
++		TargetFile: targetFile,
 +		SocketFile: sock,
 +	}, nil
++}
++
++func (m *hotplugMounter) getTarget(virtLauncherUID types.UID, volumeName string) (string, error) {
++	target, err := m.hotplugManager.GetFileSystemDiskTargetPathFromHostView(virtLauncherUID, volumeName, true)
++	if err != nil {
++		return "", err
++	}
++	return unsafepath.UnsafeAbsolute(target.Raw()), nil
 +}
 +
 +func (m *hotplugMounter) getMountedVolumesInWorld(vmi *v1.VirtualMachineInstance, virtLauncherUID types.UID) ([]vmiMountTargetEntry, error) {
@@ -1220,7 +1228,7 @@ index 0000000000..3960b6bcb2
 +			continue
 +		}
 +		if strings.HasSuffix(entry.Name(), ".img") {
-+			name := strings.TrimPrefix(entry.Name(), ".img")
++			name := strings.TrimSuffix(entry.Name(), ".img")
 +			volumes = append(volumes, name)
 +		}
 +	}
@@ -1231,30 +1239,41 @@ index 0000000000..3960b6bcb2
 +			return nil, err
 +		}
 +		if mounted {
-+			entry, err := m.newMountTargetEntry(vmi, virtLauncherUID, "", v)
++			target, err := m.getTarget(virtLauncherUID, v)
 +			if err != nil {
 +				return nil, err
 +			}
-+			mountedVolumes = append(mountedVolumes, entry)
++			mountedVolumes = append(mountedVolumes, vmiMountTargetEntry{
++				TargetFile: target,
++			})
 +		}
 +	}
 +	return mountedVolumes, nil
 +}
 +
 +func (m *hotplugMounter) mergeMountEntries(r1, r2 []vmiMountTargetEntry) []vmiMountTargetEntry {
-+	newRecords := make([]vmiMountTargetEntry, 0)
-+	added := make(map[vmiMountTargetEntry]struct{})
++	targetSocket := make(map[string]string)
 +
-+	fn := func(r []vmiMountTargetEntry) {
++	sortTargetSocket := func(r []vmiMountTargetEntry) {
 +		for _, entry := range r {
-+			if _, ok := added[entry]; ok {
-+				continue
++			socket := targetSocket[entry.TargetFile]
++			if socket == "" {
++				targetSocket[entry.TargetFile] = entry.SocketFile
 +			}
-+			newRecords = append(newRecords, entry)
 +		}
 +	}
-+	fn(r1)
-+	fn(r2)
++	sortTargetSocket(r1)
++	sortTargetSocket(r2)
++
++	newRecords := make([]vmiMountTargetEntry, len(targetSocket))
++	count := 0
++	for t, s := range targetSocket {
++		newRecords[count] = vmiMountTargetEntry{
++			TargetFile: t,
++			SocketFile: s,
++		}
++		count++
++	}
 +
 +	return newRecords
 +}
@@ -1281,13 +1300,11 @@ index 0000000000..3960b6bcb2
 +		return nil
 +	}
 +
-+	entriesForDelete := make(map[vmiMountTargetEntry]struct{})
++	entriesTargetForDelete := make(map[string]struct{})
 +
 +	for _, r := range mountEntries {
-+		name, err := extractNameFromSocket(r.SocketFile)
-+		if err != nil {
-+			return err
-+		}
++		name := extractNameFromTarget(r.TargetFile)
++
 +		needUmount := true
 +		for _, v := range vmi.Status.VolumeStatus {
 +			if v.Name == name {
@@ -1298,7 +1315,7 @@ index 0000000000..3960b6bcb2
 +			file, err := safepath.NewFileNoFollow(r.TargetFile)
 +			if err != nil {
 +				if errors.Is(err, os.ErrNotExist) {
-+					entriesForDelete[r] = struct{}{}
++					entriesTargetForDelete[r.TargetFile] = struct{}{}
 +					continue
 +				}
 +				return fmt.Errorf(failedCheckMountPointFmt, r.TargetFile, err)
@@ -1312,7 +1329,7 @@ index 0000000000..3960b6bcb2
 +				if err = safepath.UnlinkAtNoFollow(file.Path()); err != nil {
 +					return fmt.Errorf("failed to delete file %s: %w", file.Path(), err)
 +				}
-+				entriesForDelete[r] = struct{}{}
++				entriesTargetForDelete[r.TargetFile] = struct{}{}
 +				continue
 +			}
 +			// #nosec No risk for attacket injection. Parameters are predefined strings
@@ -1323,12 +1340,12 @@ index 0000000000..3960b6bcb2
 +			if err = safepath.UnlinkAtNoFollow(file.Path()); err != nil {
 +				return fmt.Errorf("failed to delete file %s: %w", file.Path(), err)
 +			}
-+			entriesForDelete[r] = struct{}{}
++			entriesTargetForDelete[r.TargetFile] = struct{}{}
 +		}
 +	}
-+	newEntries := make([]vmiMountTargetEntry, 0, len(record.MountTargetEntries)-len(entriesForDelete))
-+	for _, entry := range record.MountTargetEntries {
-+		if _, found := entriesForDelete[entry]; found {
++	newEntries := make([]vmiMountTargetEntry, 0, len(recordMountTargetEntries)-len(entriesTargetForDelete))
++	for _, entry := range recordMountTargetEntries {
++		if _, found := entriesTargetForDelete[entry.TargetFile]; found {
 +			continue
 +		}
 +		newEntries = append(newEntries, entry)
@@ -1345,6 +1362,12 @@ index 0000000000..3960b6bcb2
 +		return name, nil
 +	}
 +	return "", fmt.Errorf("name not found in path")
++}
++
++func extractNameFromTarget(targetFile string) string {
++	filename := filepath.Base(targetFile)
++	name := strings.TrimSuffix(filename, filepath.Ext(filename))
++	return name
 +}
 +
 +func (m *hotplugMounter) UmountAll(vmi *v1.VirtualMachineInstance) error {
