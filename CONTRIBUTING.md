@@ -178,7 +178,7 @@ impact: |
 
 #### Fields Description
 
-  - **section**: (Required) Specifies the part of the project affected. Use kebab-case of allowed section. For multiple affected sections, provide multiple changes blocks. For the list of allowed sections, see [here](https://github.com/deckhouse/virtualization/blob/main/.github/actions/milestone-changelog/action.yml#L28).
+  - **section**: (Required) Specifies the affected scope of the project. Should be in kebab-case, choose one of [available scopes](#scope). If PR affects multiple scopes, add change block for each scope.
     - Examples: `api`, `core`, `ci`
 
   - **type**: (Required) Defines the nature of the change:
