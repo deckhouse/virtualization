@@ -27,6 +27,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -41,11 +42,11 @@ func NewController(
 	controllerNamespace string,
 	log *log.Logger,
 ) (controller.Controller, error) {
-	recorder := mgr.GetEventRecorderFor(ControllerName)
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
 	handlers := []Handler{
 		internal.NewDeletionHandler(client, recorder, log),
-		internal.NewDiscoveryHandler(),
+		internal.NewDiscoveryHandler(recorder),
 		internal.NewLifeCycleHandler(client),
 	}
 	r := NewReconciler(controllerNamespace, client, handlers...)
@@ -66,7 +67,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineClass{}).
-		WithValidator(NewValidator(mgr.GetClient(), log)).
+		WithValidator(NewValidator(mgr.GetClient(), log, recorder)).
 		Complete(); err != nil {
 		return nil, err
 	}

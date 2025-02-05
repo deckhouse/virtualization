@@ -31,17 +31,22 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmclasscondition"
 )
 
 const nameDiscoveryHandler = "DiscoveryHandler"
 
-func NewDiscoveryHandler() *DiscoveryHandler {
-	return &DiscoveryHandler{}
+func NewDiscoveryHandler(recorder eventrecord.EventRecorderLogger) *DiscoveryHandler {
+	return &DiscoveryHandler{
+		recorder: recorder,
+	}
 }
 
-type DiscoveryHandler struct{}
+type DiscoveryHandler struct {
+	recorder eventrecord.EventRecorderLogger
+}
 
 func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineClassState) (reconcile.Result, error) {
 	if s.VirtualMachineClass().IsEmpty() {
@@ -120,6 +125,28 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 	sort.Strings(featuresEnabled)
 	sort.Strings(featuresNotEnabled)
 
+	addedNodes, removedNodes := NodeNamesDiff(current.Status.AvailableNodes, availableNodeNames)
+	if len(addedNodes) > 0 || len(removedNodes) > 0 {
+		if len(availableNodes) > 0 {
+			h.recorder.Eventf(
+				changed,
+				corev1.EventTypeNormal,
+				virtv2.ReasonVMClassNodesWereUpdated,
+				"List of available nodes was updated, added nodes: %q, removed nodes: %q",
+				addedNodes,
+				removedNodes,
+			)
+		} else {
+			h.recorder.Eventf(
+				changed,
+				corev1.EventTypeWarning,
+				virtv2.ReasonVMClassAvailableNodesListEmpty,
+				"List of available nodes was updated, now it's empty, removed nodes: %q",
+				removedNodes,
+			)
+		}
+	}
+
 	changed.Status.AvailableNodes = availableNodeNames
 	changed.Status.MaxAllocatableResources = h.maxAllocatableResources(availableNodes)
 	changed.Status.CpuFeatures = virtv2.CpuFeatures{
@@ -132,6 +159,35 @@ func (h *DiscoveryHandler) Handle(ctx context.Context, s state.VirtualMachineCla
 
 func (h *DiscoveryHandler) Name() string {
 	return nameDiscoveryHandler
+}
+
+func NodeNamesDiff(prev, current []string) (added, removed []string) {
+	added = make([]string, 0)
+	removed = make([]string, 0)
+	prevMap := make(map[string]struct{})
+	currentMap := make(map[string]struct{})
+
+	for _, nodeName := range prev {
+		prevMap[nodeName] = struct{}{}
+	}
+
+	for _, nodeName := range current {
+		currentMap[nodeName] = struct{}{}
+	}
+
+	for _, nodeName := range prev {
+		if _, ok := currentMap[nodeName]; !ok {
+			removed = append(removed, nodeName)
+		}
+	}
+
+	for _, nodeName := range current {
+		if _, ok := prevMap[nodeName]; !ok {
+			added = append(added, nodeName)
+		}
+	}
+
+	return added, removed
 }
 
 func (h *DiscoveryHandler) discoveryCommonFeatures(nodes []corev1.Node) []string {

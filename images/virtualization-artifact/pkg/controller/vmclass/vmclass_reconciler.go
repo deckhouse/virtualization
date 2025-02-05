@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 
 	corev1 "k8s.io/api/core/v1"
@@ -37,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -44,6 +46,10 @@ import (
 type Handler interface {
 	Handle(ctx context.Context, s state.VirtualMachineClassState) (reconcile.Result, error)
 	Name() string
+}
+
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
 }
 
 func NewReconciler(controllerNamespace string, client client.Client, handlers ...Handler) *Reconciler {
@@ -60,7 +66,7 @@ type Reconciler struct {
 	handlers            []Handler
 }
 
-func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+func (r *Reconciler) SetupController(ctx context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(source.Kind(mgr.GetCache(),
 		&virtv2.VirtualMachineClass{}),
 		&handler.EnqueueRequestForObject{}); err != nil {
@@ -124,6 +130,16 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	); err != nil {
 		return fmt.Errorf("error setting watch on Node: %w", err)
 	}
+
+	for _, w := range []Watcher{
+		watcher.NewVirtualMachinesWatcher(),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+		}
+	}
+
 	return nil
 }
 
