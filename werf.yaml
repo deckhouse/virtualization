@@ -152,6 +152,10 @@ import:
     add: /dist
     to: /lib/python/dist
     after: setup
+  - image: hooks
+    add: /hooks
+    to: /hooks/go
+    after: setup
 git:
   - add: /
     to: /

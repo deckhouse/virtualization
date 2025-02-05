@@ -1,6 +1,6 @@
 {{- if ne (dig "dvcr" "serviceIP" "" .Values.virtualization.internal) "" }}
 ---
-    {{- $ca := printf "%s" .Values.virtualization.internal.dvcr.cert.ca | b64dec }}
+    {{- $ca := printf "%s" .Values.virtualization.internal.dvcr.cert.ca }}
     {{- $password :=  printf "admin:%s" (printf "%s" .Values.virtualization.internal.dvcr.passwordRW | b64dec) | b64enc }}
     {{- $registry := include "dvcr.get_registry" (list .) }}
     {{- $endpoint := .Values.virtualization.internal.dvcr.serviceIP }}
