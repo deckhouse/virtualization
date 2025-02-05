@@ -1,0 +1,17 @@
+ci:
+  fixes:
+    - summary: cleanup namespaces after e2e tests
+      pull_request: https://github.com/deckhouse/virtualization/pull/682
+kubevirt:
+  fixes:
+    - summary: manage pods network priority during a migration using the cilium label
+      pull_request: https://github.com/deckhouse/virtualization/pull/642
+vm:
+  features:
+    - summary: move disk attachement capacity available condition to block devices ready condition reason.
+      pull_request: https://github.com/deckhouse/virtualization/pull/633
+vmclass:
+  features:
+    - summary: add events about available nodes and sizing policies changed
+      pull_request: https://github.com/deckhouse/virtualization/pull/606
+
