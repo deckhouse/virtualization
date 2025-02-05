@@ -121,6 +121,12 @@ Supported scopes are the following:
 
   # Maintaining, improving code quality and development workflow.
   - ci
+  
+  # Maintaining, improving documentation.
+  - docs
+
+  # Network related changes important for end-user.
+  - network  
   ```
 
 #### Subject
