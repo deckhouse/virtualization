@@ -16,7 +16,10 @@ limitations under the License.
 
 package logger
 
-import "log/slog"
+import (
+	"encoding/json"
+	"log/slog"
+)
 
 const (
 	errAttr        = "err"
@@ -54,4 +57,12 @@ func SlogController(controller string) slog.Attr {
 
 func SlogCollector(collector string) slog.Attr {
 	return slog.String(collectorAttr, collector)
+}
+
+func SlogTryJson(key string, i interface{}) slog.Attr {
+	bytes, err := json.Marshal(i)
+	if err == nil {
+		return slog.String(key, string(bytes))
+	}
+	return slog.Any(key, i)
 }

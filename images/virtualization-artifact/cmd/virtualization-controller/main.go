@@ -31,6 +31,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1beta1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -54,6 +55,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2alpha1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -222,6 +224,18 @@ func main() {
 
 	// Setup context to gracefully handle termination.
 	ctx := signals.SetupSignalHandler()
+
+	onlyMigrationClient, err := client.New(cfg, client.Options{Scheme: scheme})
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+	mCtrl, err := migration.NewController(onlyMigrationClient, log)
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+	mCtrl.Run(ctx)
 
 	if err = indexer.IndexALL(ctx, mgr); err != nil {
 		log.Error(err.Error())
