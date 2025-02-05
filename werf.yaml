@@ -49,7 +49,7 @@ configVersion: 1
 # Component versions
 {{ $_ := set . "Version" dict }}
 {{- $versions_ctx := (.Files.Get "cv/version_map.yml" | fromYaml) }}
-{{- range $k, $v := $versions_ctx.hypervisor }}
+{{- range $k, $v := $versions_ctx.firmware }}
   {{- $_ := set $.Version $k $v}}
 {{- end }}
 
