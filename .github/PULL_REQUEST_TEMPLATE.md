@@ -31,7 +31,7 @@
 
 ## Changelog entries
 ```changes
-section: <kebab-case of a module name> | <1st level dir in the repo>
+section: <scope name in kebab-case (See CONTRIBUTING.md#scope)>
 type: fix | feature | chore
 summary: <ONE-LINE of what effectively changes for a user>
 ```
