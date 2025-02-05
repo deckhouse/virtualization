@@ -78,6 +78,5 @@ shell:
 
   setup:
   - |
-    ls -lah /FIRMWARE
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
 
