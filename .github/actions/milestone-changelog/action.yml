@@ -52,6 +52,7 @@ runs:
           observability
           ci:low
           docs
+          network
 
     # Patch-version YAML changelog
     - name: Write Changelog YAML
