@@ -287,18 +287,55 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefsFromVMBDA(ctx context.Conte
 			continue
 		}
 
-		var vd *virtv2.VirtualDisk
-		vd, err = s.VirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name)
-		if err != nil {
-			return nil, err
+		var (
+			cvi         *virtv2.ClusterVirtualImage
+			vi          *virtv2.VirtualImage
+			vd          *virtv2.VirtualDisk
+			bdStatusRef virtv2.BlockDeviceStatusRef
+		)
+
+		switch vmbda.Spec.BlockDeviceRef.Kind {
+		case virtv2.VMBDAObjectRefKindVirtualDisk:
+			vd, err = s.VirtualDisk(ctx, vmbda.Spec.BlockDeviceRef.Name)
+			if err != nil {
+				return nil, err
+			}
+
+			if vd == nil {
+				continue
+			}
+
+			bdStatusRef = h.getDiskStatusRef(virtv2.DiskDevice, vmbda.Spec.BlockDeviceRef.Name)
+			bdStatusRef.Size = vd.Status.Capacity
+		case virtv2.VMBDAObjectRefKindVirtualImage:
+			vi, err = s.VirtualImage(ctx, vmbda.Spec.BlockDeviceRef.Name)
+			if err != nil {
+				return nil, err
+			}
+
+			if vi == nil {
+				continue
+			}
+
+			bdStatusRef = h.getDiskStatusRef(virtv2.ImageDevice, vmbda.Spec.BlockDeviceRef.Name)
+			bdStatusRef.Size = vi.Status.Size.Unpacked
+
+		case virtv2.VMBDAObjectRefKindClusterVirtualImage:
+			cvi, err = s.ClusterVirtualImage(ctx, vmbda.Spec.BlockDeviceRef.Name)
+			if err != nil {
+				return nil, err
+			}
+
+			if cvi == nil {
+				continue
+			}
+
+			bdStatusRef = h.getDiskStatusRef(virtv2.ClusterImageDevice, vmbda.Spec.BlockDeviceRef.Name)
+			bdStatusRef.Size = cvi.Status.Size.Unpacked
+		default:
+			return nil, fmt.Errorf("unacceptable `Kind` of `BlockDeviceRef`: %s", vmbda.Spec.BlockDeviceRef.Kind)
 		}
 
-		if vd == nil {
-			continue
-		}
-
-		bdStatusRef := h.getDiskStatusRef(virtv2.DiskDevice, vmbda.Spec.BlockDeviceRef.Name)
-		bdStatusRef.Size = vd.Status.Capacity
 		bdStatusRef.Hotplugged = true
 		bdStatusRef.VirtualMachineBlockDeviceAttachmentName = vmbda.Name
 
