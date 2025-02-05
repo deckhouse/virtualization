@@ -95,6 +95,7 @@ shell:
     - CGO_ENABLED=1 go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
     
     - echo ============== Build virt-launcher-monitor ============
+    # virt-launcher-monitor is wrapped in the final image. Add suffix here to prevent image size increasing as effect of file renaming.
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-monitor-orig ./cmd/virt-launcher-monitor/
     
     - echo ============== Build virt-tail ========================
