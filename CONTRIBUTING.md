@@ -151,11 +151,11 @@ When naming branches, only the top-level scope should be used. Multiple or neste
   - _feat/disks/support-new-image-source_
   - _chore/ci/speed-up-builds_
 
-#### Changes Block
+### Changes Block
 
 When submitting a pull request, include a **changes block** to document modifications for the changelog. This block helps automate the release changelog creation, tracks updates, and prepares release notes.
 
-##### Format
+#### Format
 
 The changes block consists of YAML documents, each detailing a specific change. Use the following structure:
 
@@ -170,7 +170,7 @@ impact: |
 ```
 ````
 
-##### Fields Description
+#### Fields Description
 
   - **section**: (Required) Specifies the part of the project affected. Use kebab-case of allowed section. For multiple affected sections, provide multiple changes blocks. For the list of allowed sections, see [here](https://github.com/deckhouse/virtualization/blob/main/.github/actions/milestone-changelog/action.yml#L28).
     - Examples: `api`, `core`, `ci`
@@ -191,7 +191,7 @@ impact: |
       - "Ingress controller will restart."
       - "Expect slow downtime due to kube-apiserver restarts."
 
-##### Example
+#### Example
 
 ```changes
 section: core
@@ -216,7 +216,6 @@ impact_level: low
 ```
 
 For full guidelines, refer to [here](https://github.com/deckhouse/deckhouse/wiki/Guidelines-for-working-with-PRs).
-
 
 #### Short description
 
