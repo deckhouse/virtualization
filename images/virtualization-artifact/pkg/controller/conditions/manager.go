@@ -28,7 +28,7 @@ type Manager struct {
 	conds []metav1.Condition
 }
 
-// Deprecated: use direct SetCondition instead.
+// Deprecated: use direct SetCondition insteada.
 func NewManager(conditions []metav1.Condition) *Manager {
 	return &Manager{
 		conds: slices.Clone(conditions),
