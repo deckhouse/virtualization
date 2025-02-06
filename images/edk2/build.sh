@@ -122,12 +122,6 @@ echo "run source edksetup.sh"
 source ./edksetup.sh BaseTools
 source ./edksetup.sh
 
-
-ls -lah
-
-echo "build -h"
-build -h
-
 build_iso() {
   dir="$1"
   UEFI_SHELL_BINARY=${dir}/Shell.efi
@@ -173,7 +167,7 @@ build_ovmf() {
 # Build with SB and SMM with secure boot; exclude UEFI shell.
 build_ovmf_secboot() {
   echo_dbg "build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
-  build ${OVMF_2M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
+  build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
   cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.secboot.fd
 }
 
@@ -182,11 +176,11 @@ build_ovmf_amdsev() {
   touch OvmfPkg/AmdSev/Grub/grub.efi
 
   echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc"
-  build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc
+  build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc
   cp -p Build/AmdSev/*/FV/OVMF.fd $FIRMWARE/OVMF.amdsev.fd
 
-  echo_dbg "build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc"
-  build ${OVMF_2M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc
+  echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc"
+  build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc
   cp -p Build/IntelTdx/*/FV/OVMF.fd $FIRMWARE/OVMF.inteltdx.fd
 }
 
@@ -202,19 +196,14 @@ build_shell() {
 
 
 enroll() {
-  virt-fw-vars --input   $FIRMWARE/OVMF_VARS.fd \
+  virt-fw-vars --input  $FIRMWARE/OVMF_VARS.fd \
               --output  $FIRMWARE/OVMF_VARS.secboot.fd \
-              --set-dbx $FIRMWARE/DBXUpdate-$DBXDATE.x64.bin \
+              --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
               --secure-boot 
 
-  virt-fw-vars --input   $FIRMWARE/OVMF_VARS_4M.fd \
-              --output  $FIRMWARE/OVMF_VARS_4M.secboot.fd \
-              --set-dbx $FIRMWARE/DBXUpdate-$DBXDATE.x64.bin \
-              --secure-boot 
-
-  virt-fw-vars --input   $FIRMWARE/OVMF.inteltdx.fd \
+  virt-fw-vars --input  $FIRMWARE/OVMF.inteltdx.fd \
               --output  $FIRMWARE/OVMF.inteltdx.secboot.fd \
-              --set-dbx $FIRMWARE/DBXUpdate-$DBXDATE.x64.bin \
+              --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
               --secure-boot 
 }
 
