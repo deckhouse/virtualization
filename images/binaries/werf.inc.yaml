@@ -1,0 +1,17 @@
+image: {{ $.ImageName }}
+final: false
+from: {{ $.Images.BASE_ALT_P11 }}
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /
+    stageDependencies:
+      setup:
+      - '**/*'
+    includePaths:
+    - relocate_binaries.sh
+shell:
+  beforeInstall:
+  - |
+    apt-get update && apt-get install -y \
+    glibc-utils \
+    libffi8 libssh-devel libssh2-devel
