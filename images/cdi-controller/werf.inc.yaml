@@ -3,6 +3,10 @@ image: {{ $.ImageName }}
 from: {{ $.Images.BASE_SCRATCH }}
 import:
 - image: cdi-artifact
+  add: /tmp
+  to: /tmp
+  before: setup
+- image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
