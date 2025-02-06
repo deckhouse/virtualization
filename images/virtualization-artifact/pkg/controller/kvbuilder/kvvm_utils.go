@@ -65,8 +65,9 @@ func GetOriginalDiskName(prefixedName string) (string, bool) {
 }
 
 func GenerateSerial(input string) string {
+	name, _ := GetOriginalDiskName(input)
 	hasher := md5.New()
-	hasher.Write([]byte(input))
+	hasher.Write([]byte(name))
 	hashInBytes := hasher.Sum(nil)
 	return hex.EncodeToString(hashInBytes)
 }
