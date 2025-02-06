@@ -5263,6 +5263,13 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref
 							Format:  "",
 						},
 					},
+					"serial": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 					"isCdrom": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
@@ -5271,7 +5278,7 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref
 						},
 					},
 				},
-				Required: []string{"name", "volumeKind", "pvcName", "image", "isCdrom"},
+				Required: []string{"name", "volumeKind", "pvcName", "image", "serial", "isCdrom"},
 			},
 		},
 	}

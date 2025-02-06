@@ -57,6 +57,7 @@ type VirtualMachineAddVolume struct {
 	VolumeKind string
 	PVCName    string
 	Image      string
+	Serial     string
 	IsCdrom    bool
 }
 

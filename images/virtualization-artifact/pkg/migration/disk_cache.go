@@ -1,0 +1,73 @@
+/*
+Copyright 2025 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package migration
+
+import (
+	"context"
+
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+type diskCache struct {
+	CVINameUid map[string]types.UID
+	VINameUid  map[types.NamespacedName]types.UID
+	VDNameUid  map[types.NamespacedName]types.UID
+}
+
+func newDiskCache(ctx context.Context, c client.Client) (diskCache, error) {
+	cviList := &virtv2.ClusterVirtualImageList{}
+	if err := c.List(ctx, cviList, &client.ListOptions{}); err != nil {
+		return diskCache{}, err
+	}
+	cviNameUidMap := make(map[string]types.UID, len(cviList.Items))
+	for i := range cviList.Items {
+		cviNameUidMap[cviList.Items[i].Name] = cviList.Items[i].UID
+	}
+
+	viList := &virtv2.VirtualImageList{}
+	if err := c.List(ctx, viList, &client.ListOptions{}); err != nil {
+		return diskCache{}, err
+	}
+	viNameUidMap := make(map[types.NamespacedName]types.UID, len(viList.Items))
+	for i := range viList.Items {
+		viNameUidMap[types.NamespacedName{
+			Namespace: viList.Items[i].Namespace,
+			Name:      viList.Items[i].Name,
+		}] = viList.Items[i].UID
+	}
+
+	vdList := &virtv2.VirtualDiskList{}
+	if err := c.List(ctx, vdList, &client.ListOptions{}); err != nil {
+		return diskCache{}, err
+	}
+	vdNameUidMap := make(map[types.NamespacedName]types.UID, len(vdList.Items))
+	for i := range vdList.Items {
+		vdNameUidMap[types.NamespacedName{
+			Namespace: vdList.Items[i].Namespace,
+			Name:      vdList.Items[i].Name,
+		}] = vdList.Items[i].UID
+	}
+
+	return diskCache{
+		CVINameUid: cviNameUidMap,
+		VINameUid:  viNameUidMap,
+		VDNameUid:  vdNameUidMap,
+	}, nil
+}

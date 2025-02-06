@@ -166,6 +166,7 @@ func autoConvert_v1alpha2_VirtualMachineAddVolume_To_subresources_VirtualMachine
 	out.VolumeKind = in.VolumeKind
 	out.PVCName = in.PVCName
 	out.Image = in.Image
+	out.Serial = in.Serial
 	out.IsCdrom = in.IsCdrom
 	return nil
 }
@@ -180,6 +181,7 @@ func autoConvert_subresources_VirtualMachineAddVolume_To_v1alpha2_VirtualMachine
 	out.VolumeKind = in.VolumeKind
 	out.PVCName = in.PVCName
 	out.Image = in.Image
+	out.Serial = in.Serial
 	out.IsCdrom = in.IsCdrom
 	return nil
 }
@@ -219,6 +221,13 @@ func autoConvert_url_Values_To_v1alpha2_VirtualMachineAddVolume(in *url.Values, 
 		}
 	} else {
 		out.Image = ""
+	}
+	if values, ok := map[string][]string(*in)["serial"]; ok && len(values) > 0 {
+		if err := runtime.Convert_Slice_string_To_string(&values, &out.Serial, s); err != nil {
+			return err
+		}
+	} else {
+		out.Serial = ""
 	}
 	if values, ok := map[string][]string(*in)["isCdrom"]; ok && len(values) > 0 {
 		if err := runtime.Convert_Slice_string_To_bool(&values, &out.IsCdrom, s); err != nil {

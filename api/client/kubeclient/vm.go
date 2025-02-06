@@ -159,6 +159,7 @@ func (v vm) AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMac
 		Param("volumeKind", opts.VolumeKind).
 		Param("pvcName", opts.PVCName).
 		Param("image", opts.Image).
+		Param("serial", opts.Serial).
 		Param("isCdrom", strconv.FormatBool(opts.IsCdrom)).
 		Do(ctx).
 		Error()

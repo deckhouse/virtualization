@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -64,10 +65,13 @@ func GetOriginalDiskName(prefixedName string) (string, bool) {
 	return prefixedName, false
 }
 
+func GenerateSerialFromObject(obj metav1.Object) string {
+	return GenerateSerial(string(obj.GetUID()))
+}
+
 func GenerateSerial(input string) string {
-	name, _ := GetOriginalDiskName(input)
 	hasher := md5.New()
-	hasher.Write([]byte(name))
+	hasher.Write([]byte(input))
 	hashInBytes := hasher.Sum(nil)
 	return hex.EncodeToString(hashInBytes)
 }
@@ -149,7 +153,7 @@ func ApplyVirtualMachineSpec(
 				if err := kvvm.SetDisk(name, SetDiskOptions{
 					PersistentVolumeClaim: pointer.GetPointer(vi.Status.Target.PersistentVolumeClaim),
 					IsEphemeral:           true,
-					Serial:                GenerateSerial(name),
+					Serial:                GenerateSerialFromObject(vi),
 					BootOrder:             bootOrder,
 				}); err != nil {
 					return err
@@ -158,7 +162,7 @@ func ApplyVirtualMachineSpec(
 				if err := kvvm.SetDisk(name, SetDiskOptions{
 					ContainerDisk: pointer.GetPointer(vi.Status.Target.RegistryURL),
 					IsCdrom:       imageformat.IsISO(vi.Status.Format),
-					Serial:        GenerateSerial(name),
+					Serial:        GenerateSerialFromObject(vi),
 					BootOrder:     bootOrder,
 				}); err != nil {
 					return err
@@ -177,7 +181,7 @@ func ApplyVirtualMachineSpec(
 			if err := kvvm.SetDisk(name, SetDiskOptions{
 				ContainerDisk: pointer.GetPointer(cvi.Status.Target.RegistryURL),
 				IsCdrom:       imageformat.IsISO(cvi.Status.Format),
-				Serial:        GenerateSerial(name),
+				Serial:        GenerateSerialFromObject(cvi),
 				BootOrder:     bootOrder,
 			}); err != nil {
 				return err
@@ -196,7 +200,7 @@ func ApplyVirtualMachineSpec(
 			name := GenerateVMDDiskName(bd.Name)
 			if err := kvvm.SetDisk(name, SetDiskOptions{
 				PersistentVolumeClaim: pointer.GetPointer(vd.Status.Target.PersistentVolumeClaim),
-				Serial:                GenerateSerial(name),
+				Serial:                GenerateSerialFromObject(vd),
 				BootOrder:             bootOrder,
 			}); err != nil {
 				return err

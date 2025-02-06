@@ -59,6 +59,7 @@ type VirtualMachineAddVolume struct {
 	VolumeKind      string `json:"volumeKind"`
 	PVCName         string `json:"pvcName"`
 	Image           string `json:"image"`
+	Serial          string `json:"serial"`
 	IsCdrom         bool   `json:"isCdrom"`
 }
 
