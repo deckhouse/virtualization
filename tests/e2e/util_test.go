@@ -253,6 +253,20 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
+func WaitVmOsStarted(resource kc.Resource, waitAgent bool, opts kc.WaitOptions) {
+	GinkgoHelper()
+	WaitPhaseByLabel(resource, PhaseRunning, opts)
+	if waitAgent {
+		WaitConditionIsTrueByLabel(resource, AgentReadyCondition, opts)
+	}
+}
+
+func WaitConditionIsTrueByLabel(resource kc.Resource, conditionName string, opts kc.WaitOptions) {
+	GinkgoHelper()
+	opts.For = fmt.Sprintf("condition=%s=True", conditionName)
+	WaitByLabel(resource, opts)
+}
+
 // Useful when require to async await resources filtered by labels.
 //
 //	Static condition `wait --for`: `jsonpath={.status.phase}=phase`.

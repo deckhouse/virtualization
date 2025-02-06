@@ -179,8 +179,8 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 	})
 
 	Context("When virtual machines are applied", func() {
-		It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
-			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+		It("should be running and OS started", func() {
+			WaitVmOsStarted(kc.ResourceVM, true, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
