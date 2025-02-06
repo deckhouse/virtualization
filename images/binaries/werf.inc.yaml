@@ -1,3 +1,4 @@
+---
 image: {{ $.ImageName }}
 final: false
 from: {{ $.Images.BASE_ALT_P11 }}
@@ -5,12 +6,12 @@ git:
   - add: /images/{{ $.ImageName }}
     to: /
     stageDependencies:
-      setup:
+      install:
       - '**/*'
     includePaths:
     - relocate_binaries.sh
 shell:
-  beforeInstall:
+  install:
   - |
     apt-get update && apt-get install -y \
     glibc-utils \
