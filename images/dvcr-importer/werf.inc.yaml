@@ -6,7 +6,7 @@ import:
 - image: {{ $.ImageName }}-bins
   add: /relocate
   to: /
-  before: install
+  after: install
 - image: dvcr-artifact-builder
   add: /out
   to: /usr/local/bin

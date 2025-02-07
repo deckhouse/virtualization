@@ -11,9 +11,9 @@ git:
     - go.sum
     setup:
     - "**/*.go"
-mount:
-- fromPath: ~/go-pkg-cache
-  to: /go/pkg
+# mount:
+# - fromPath: ~/go-pkg-cache
+#   to: /go/pkg
 shell:
   install:
   - apt-get -qq update
@@ -23,9 +23,14 @@ shell:
   setup:
   - mkdir /out
   - cd /src
-  - go build -o /out/dvcr-importer ./cmd/dvcr-importer
-  - go build -o /out/dvcr-uploader ./cmd/dvcr-uploader
-  - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o /out/dvcr-cleaner ./cmd/dvcr-cleaner
+  - |
+    export GO111MODULE=on
+    export GOOS=linux
+    export CGO_ENABLED=0
+    export GOARCH=amd64
+  - go build -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer
+  - go build -ldflags="-s -w" -o /out/dvcr-uploader ./cmd/dvcr-uploader
+  - go build -ldflags="-s -w" -o /out/dvcr-cleaner ./cmd/dvcr-cleaner
 ---
 image: {{ $.ImageName }}
 final: false
