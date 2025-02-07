@@ -10,4 +10,5 @@ import:
   before: setup
 docker:
   ENTRYPOINT: ["/usr/bin/cdi-uploadproxy", "-alsologtostderr"]
+  USER: 64535
 
