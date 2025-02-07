@@ -15,4 +15,5 @@ shell:
   - |
     apt-get update && apt-get install -y \
     glibc-utils \
-    libffi8 libssh-devel libssh2-devel
+    libffi8 libssh-devel libssh2-devel \
+    mount xfsprogs xfstests util-linux e2fsprogs

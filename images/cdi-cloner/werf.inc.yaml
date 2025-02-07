@@ -9,19 +9,19 @@ import:
   before: setup
 - image: cdi-artifact
   add: /cdi-binaries
-  to: /usr/bin
+  to: /usr/sbin
   includePaths:
   - cdi-cloner
   - cloner_startup.sh
   before: setup
-shell:
-  setup:
-  - ls -la /usr/bin/cdi* /usr/bin/clo*
+# shell:
+#   setup:
+#   - ls -la /usr/bin/cdi* /usr/bin/clo*
 # Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-cloner/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/cloner_startup.sh"]
 ---
-{{- $binaries := "/usr/sbin/blockdev /usr/bin/mount /usr/bin/umount /sbin/fsck /usr/sbin/blkid /usr/sbin/mkfs /usr/sbin/mkfs.ext4 /usr/sbin/mkfs.xfs /usr/sbin/dumpe2fs /usr/usr/sbin/xfs_io /usr/usr/sbin/xfs_growfs /usr/sbin/resize2fs" }}
+{{- $binaries := "/usr/bin/sh /usr/sbin/blockdev /usr/bin/mount /usr/bin/umount /usr/sbin/fsck /usr/sbin/blkid /usr/sbin/mkfs /usr/sbin/mkfs.ext4 /usr/sbin/mkfs.xfs /usr/sbin/dumpe2fs /usr/sbin/xfs_io /usr/sbin/xfs_growfs /usr/sbin/resize2fs" }}
 
 image: {{ $.ImageName }}-bins
 final: false
