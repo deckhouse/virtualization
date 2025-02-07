@@ -1,7 +1,12 @@
 ---
 image: {{ $.ImageName }}
-fromImage: dvcr-artifact
+from: {{ $.Images.BASE_SCRATCH }}
+# fromImage: dvcr-artifact
 import:
+- image: {{ $.ImageName }}-bins
+  add: /relocate
+  to: /
+  after: install
 - image: dvcr-artifact-builder
   add: /out
   to: /usr/local/bin
@@ -18,3 +23,14 @@ git:
 docker:
   WORKDIR: "/"
   CMD: ["/usr/local/bin/dvcr-uploader"]
+  USER: 64535
+---
+{{- $binaries := "/usr/bin/sh /usr/bin/rm /usr/bin/grep" }}
+
+image: {{ $.ImageName }}-bins
+final: false
+fromImage: base-alt-p11-binaries
+shell:
+  beforeInstall:
+  - |
+    /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
