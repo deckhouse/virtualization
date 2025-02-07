@@ -179,8 +179,8 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 	})
 
 	Context("When virtual machines are applied", func() {
-		It("should be running and OS started", func() {
-			WaitVmOsStarted(kc.ResourceVM, true, kc.WaitOptions{
+		It("should be running", func() {
+			WaitVmRunning(true, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,

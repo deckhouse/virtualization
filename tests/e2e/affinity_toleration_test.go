@@ -98,8 +98,8 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 
 	Context("When virtual machines are applied:", func() {
 		It("checks VMs phases", func() {
-			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+			By("VMs should be running")
+			WaitVmRunning(true, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
