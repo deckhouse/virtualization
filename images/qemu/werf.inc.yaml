@@ -124,6 +124,9 @@ shell:
       --tls-priority="@QEMU,SYSTEM" \
       --block-drv-rw-whitelist="qcow2,raw,file,host_device,nbd,iscsi,rbd,blkdebug,luks,null-co,nvme,copy-on-read,throttle,compress,virtio-blk-vhost-vdpa,virtio-blk-vfio-pci,virtio-blk-vhost-user,io_uring,nvme-io_uring" \
       --block-drv-ro-whitelist="vdi,vmdk,vhdx,vpc,https" \
+      {{- if semverCompare "<9.2.0" $version }}
+      --disable-af-xdp \
+      {{- end }}
       --disable-alsa                   \
       --disable-attr                   \
       --disable-auth-pam               \
