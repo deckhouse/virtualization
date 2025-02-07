@@ -258,7 +258,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 
 			switch {
 			case errors.Is(err, service.ErrNotInitialized), errors.Is(err, service.ErrNotScheduled):
-				if pvc.Status.Phase != corev1.ClaimBound {
+				if strings.Contains(err.Error(), "pod has unbound immediate PersistentVolumeClaims") {
 					cvi.Status.Phase = virtv2.ImageProvisioning
 					cb.
 						Status(metav1.ConditionFalse).
