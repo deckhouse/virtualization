@@ -267,7 +267,6 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.QuotaExceeded).
 			Message(dvQuotaNotExceededCondition.Message)
-		ds.recorder.Event(vd, corev1.EventTypeWarning, vdcondition.ImagePullFailed.String(), dvRunningCondition.Message)
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
 		vd.Status.Phase = virtv2.DiskPending
@@ -275,6 +274,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).
 			Message(dvRunningCondition.Message)
+		ds.recorder.Event(vd, corev1.EventTypeWarning, vdcondition.ImagePullFailed.String(), dvRunningCondition.Message)
 		return reconcile.Result{}, nil
 	case pvc == nil:
 		vd.Status.Phase = virtv2.DiskProvisioning
