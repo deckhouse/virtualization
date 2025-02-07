@@ -1,5 +1,5 @@
 firmware:
   qemu: 9.0.2
   # qemu: 9.2.0
-  libvirt: 10.1.0
+  libvirt: 10.7.0
   edk2: stable202411
