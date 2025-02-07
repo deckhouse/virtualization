@@ -75,7 +75,7 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	if kvvmi.Status.FSFreezeStatus == "frozen" {
-		cb.Status(metav1.ConditionFalse).
+		cb.Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonFilesystemFrozen).
 			Message("The virtual machine is frozen.")
 		return reconcile.Result{}, nil
