@@ -170,30 +170,27 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 
 			if vdSnapshot.Spec.RequiredConsistency {
 				vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhasePending
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vdscondition.PotentiallyInconsistent)
 
 				agentReadyCondition, _ := conditions.GetCondition(vmcondition.TypeAgentReady, vm.Status.Conditions)
 				switch {
 				case agentReadyCondition.Status != metav1.ConditionTrue:
-					cb.
-						Status(metav1.ConditionFalse).
-						Reason(vdscondition.PotentiallyInconsistent).
-						Message(fmt.Sprintf(
-							"The virtual machine %q with an attached virtual disk %q is %s: "+
-								"the snapshotting of virtual disk might result in an inconsistent snapshot: "+
-								"virtual machine agent is not ready and virtual machine can not be frozen: "+
-								"waiting for virtual machine agent to be ready",
-							vm.Name, vd.Name, vm.Status.Phase,
-						))
+					cb.Message(fmt.Sprintf(
+						"The virtual machine %q with an attached virtual disk %q is %s: "+
+							"the snapshotting of virtual disk might result in an inconsistent snapshot: "+
+							"virtual machine agent is not ready and virtual machine can not be frozen: "+
+							"waiting for virtual machine agent to be ready",
+						vm.Name, vd.Name, vm.Status.Phase,
+					))
 				default:
-					cb.
-						Status(metav1.ConditionFalse).
-						Reason(vdscondition.PotentiallyInconsistent).
-						Message(fmt.Sprintf(
-							"The virtual machine %q with an attached virtual disk %q is %s: "+
-								"the snapshotting of virtual disk might result in an inconsistent snapshot: "+
-								"waiting for the virtual machine to be %s or the disk to be detached",
-							vm.Name, vd.Name, vm.Status.Phase, virtv2.MachineStopped,
-						))
+					cb.Message(fmt.Sprintf(
+						"The virtual machine %q with an attached virtual disk %q is %s: "+
+							"the snapshotting of virtual disk might result in an inconsistent snapshot: "+
+							"waiting for the virtual machine to be %s or the disk to be detached",
+						vm.Name, vd.Name, vm.Status.Phase, virtv2.MachineStopped,
+					))
 				}
 
 				return reconcile.Result{}, nil
