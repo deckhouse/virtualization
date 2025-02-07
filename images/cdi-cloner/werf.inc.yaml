@@ -25,7 +25,7 @@ docker:
 
 image: {{ $.ImageName }}-bins
 final: false
-fromImage: binaries
+fromImage: base-alt-p11-binaries
 shell:
   beforeInstall:
   - |
