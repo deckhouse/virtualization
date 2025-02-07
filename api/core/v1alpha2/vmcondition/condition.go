@@ -35,7 +35,7 @@ const (
 	TypeAgentVersionNotSupported            Type = "AgentVersionNotSupported"
 	TypeConfigurationApplied                Type = "ConfigurationApplied"
 	TypeAwaitingRestartToApplyConfiguration Type = "AwaitingRestartToApplyConfiguration"
-	TypeFilesystemReady                     Type = "FilesystemReady"
+	TypeFilesystemFrozen                    Type = "FilesystemFrozen"
 	TypeSizingPolicyMatched                 Type = "SizingPolicyMatched"
 	TypeSnapshotting                        Type = "Snapshotting"
 )
@@ -89,9 +89,8 @@ const (
 	ReasonVmIsRunning                    Reason = "VirtualMachineRunning"
 	ReasonInternalVirtualMachineError    Reason = "InternalVirtualMachineError"
 
-	ReasonFilesystemReady    Reason = "Ready"
-	ReasonFilesystemFrozen   Reason = "Frozen"
-	ReasonFilesystemNotReady Reason = "NotReady"
+	ReasonFilesystemFrozen    Reason = "Frozen"
+	ReasonFilesystemNotFrozen Reason = "NotFrozen"
 
 	WaitingForTheSnapshotToStart Reason = "WaitingForTheSnapshotToStart"
 	ReasonSnapshottingInProgress Reason = "SnapshottingInProgress"

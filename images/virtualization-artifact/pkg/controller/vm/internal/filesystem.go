@@ -42,7 +42,7 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, vmcondition.TypeFilesystemReady); update {
+	if update := addAllUnknown(changed, vmcondition.TypeFilesystemFrozen); update {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -55,15 +55,15 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		return reconcile.Result{}, err
 	}
 
-	cb := conditions.NewConditionBuilder(vmcondition.TypeFilesystemReady).
+	cb := conditions.NewConditionBuilder(vmcondition.TypeFilesystemFrozen).
 		Status(metav1.ConditionUnknown).
 		Generation(changed.GetGeneration())
 
 	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
 
 	if kvvmi == nil {
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonFilesystemNotReady).
+		cb.Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonFilesystemFrozen).
 			Message("The virtual machine is not running.")
 		return reconcile.Result{}, nil
 	}
@@ -81,8 +81,8 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		return reconcile.Result{}, nil
 	}
 
-	cb.Status(metav1.ConditionTrue).
-		Reason(vmcondition.ReasonFilesystemReady)
+	cb.Status(metav1.ConditionFalse).
+		Reason(vmcondition.ReasonFilesystemNotFrozen)
 	return reconcile.Result{}, nil
 }
 
