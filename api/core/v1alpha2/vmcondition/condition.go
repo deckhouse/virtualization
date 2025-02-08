@@ -91,6 +91,7 @@ const (
 
 	ReasonFilesystemFrozen    Reason = "Frozen"
 	ReasonFilesystemNotFrozen Reason = "NotFrozen"
+	ReasonFilesystemNotReady  Reason = "NotReady"
 
 	WaitingForTheSnapshotToStart Reason = "WaitingForTheSnapshotToStart"
 	ReasonSnapshottingInProgress Reason = "SnapshottingInProgress"

@@ -62,8 +62,8 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
 
 	if kvvmi == nil {
-		cb.Status(metav1.ConditionTrue).
-			Reason(vmcondition.ReasonFilesystemFrozen).
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonFilesystemNotReady).
 			Message("The virtual machine is not running.")
 		return reconcile.Result{}, nil
 	}
