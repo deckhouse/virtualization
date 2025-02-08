@@ -205,7 +205,7 @@ func GetVolumeSnapshotClassName(storageClass *storagev1.StorageClass) (string, e
 	return "", fmt.Errorf("cannot found `VolumeSnapshotClass` by provisioner %q", storageClass.Provisioner)
 }
 
-func CheckFilesystemReadyStatus(vmName string, status v1.ConditionStatus) (string, error) {
+func CheckFileSystemFrozen(vmName string, status v1.ConditionStatus) (string, error) {
 	GinkgoHelper()
 	vmObj := virtv2.VirtualMachine{}
 	filesystemReadyConditionReason := ""
@@ -215,9 +215,9 @@ func CheckFilesystemReadyStatus(vmName string, status v1.ConditionStatus) (strin
 	}
 
 	for _, condition := range vmObj.Status.Conditions {
-		if condition.Type == "FilesystemReady" {
+		if condition.Type == "FilesystemFrozen" {
 			if condition.Status != status {
-				return condition.Reason, fmt.Errorf("`FilesystemReady` status of %q is not %q: %s", vmName, status, condition.Reason)
+				return condition.Reason, fmt.Errorf("`FilesystemFrozen` status of %q is not %q: %s", vmName, status, condition.Reason)
 			} else {
 				filesystemReadyConditionReason = condition.Reason
 			}
@@ -388,7 +388,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 
 			for _, vm := range vmObjects.Items {
 				Eventually(func() error {
-					_, err := CheckFilesystemReadyStatus(vm.Name, v1.ConditionTrue)
+					_, err := CheckFileSystemFrozen(vm.Name, v1.ConditionFalse)
 					return err
 				}).WithTimeout(
 					filesystemReadyTimeout,
@@ -408,7 +408,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 						Expect(err).NotTo(HaveOccurred(), "%s", err)
 
 						Eventually(func() error {
-							reason, err := CheckFilesystemReadyStatus(vm.Name, v1.ConditionFalse)
+							reason, err := CheckFileSystemFrozen(vm.Name, v1.ConditionTrue)
 							if reason != "Frozen" {
 								return fmt.Errorf("`Filesystem` should be frozen when controller is snapshotting the attached virtual disk")
 							}
@@ -433,7 +433,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 
 			for _, vm := range vmObjects.Items {
 				Eventually(func() error {
-					_, err := CheckFilesystemReadyStatus(vm.Name, v1.ConditionTrue)
+					_, err := CheckFileSystemFrozen(vm.Name, v1.ConditionFalse)
 					return err
 				}).WithTimeout(
 					filesystemReadyTimeout,
@@ -467,7 +467,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 						Expect(errs).To(BeEmpty(), "concurrent snapshotting error")
 
 						Eventually(func() error {
-							reason, err := CheckFilesystemReadyStatus(vm.Name, v1.ConditionFalse)
+							reason, err := CheckFileSystemFrozen(vm.Name, v1.ConditionTrue)
 							if reason != "Frozen" {
 								return fmt.Errorf("`Filesystem` should be frozen when controller is snapshotting the attached virtual disk")
 							}
@@ -499,7 +499,11 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 				Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
 
 				for _, snapshot := range vdSnapshots.Items {
-					Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
+					consistent := false
+					if snapshot.Status.Consistent != nil {
+						consistent = *snapshot.Status.Consistent
+					}
+					Expect(consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
 				}
 			})
 		})
@@ -512,7 +516,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 
 			for _, vm := range vmObjects.Items {
 				Eventually(func() error {
-					reason, err := CheckFilesystemReadyStatus(vm.Name, v1.ConditionTrue)
+					reason, err := CheckFileSystemFrozen(vm.Name, v1.ConditionTrue)
 					if err != nil {
 						return fmt.Errorf("vmName: %s\nstderr: %s\nreason: %s", vm.Name, err, reason)
 					}
