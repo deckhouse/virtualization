@@ -508,7 +508,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 			})
 		})
 
-		It("checks `FileSystemReady` status of VMs", func() {
+		It("checks `FileSystemFrozen` status of VMs", func() {
 			By(fmt.Sprintf("Status should be %s", PhaseReady))
 			vmObjects := virtv2.VirtualMachineList{}
 			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: conf.Namespace})
