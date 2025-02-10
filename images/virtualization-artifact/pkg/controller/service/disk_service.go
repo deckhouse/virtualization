@@ -28,6 +28,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	storev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -39,6 +40,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	dvutil "github.com/deckhouse/virtualization-controller/pkg/common/datavolume"
+	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -49,20 +51,23 @@ import (
 )
 
 type DiskService struct {
-	client       client.Client
-	dvcrSettings *dvcr.Settings
-	protection   *ProtectionService
+	client         client.Client
+	dvcrSettings   *dvcr.Settings
+	protection     *ProtectionService
+	controllerName string
 }
 
 func NewDiskService(
 	client client.Client,
 	dvcrSettings *dvcr.Settings,
 	protection *ProtectionService,
+	controllerName string,
 ) *DiskService {
 	return &DiskService{
-		client:       client,
-		dvcrSettings: dvcrSettings,
-		protection:   protection,
+		client:         client,
+		dvcrSettings:   dvcrSettings,
+		protection:     protection,
+		controllerName: controllerName,
 	}
 }
 
@@ -122,9 +127,15 @@ func (s DiskService) Start(
 		dvBuilder.SetImmediate()
 	}
 
-	err = s.client.Create(ctx, dvBuilder.GetResource())
+	dv := dvBuilder.GetResource()
+	err = s.client.Create(ctx, dv)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
+	}
+
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv)
+	if err != nil {
+		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
 
 	if source.Blank != nil || source.PVC != nil {
@@ -152,10 +163,16 @@ func (s DiskService) StartImmediate(
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
 	dvBuilder.SetPVC(ptr.To(sc.GetName()), pvcSize, corev1.ReadWriteMany, corev1.PersistentVolumeBlock)
 	dvBuilder.SetImmediate()
+	dv := dvBuilder.GetResource()
 
-	err = s.client.Create(ctx, dvBuilder.GetResource())
+	err = s.client.Create(ctx, dv)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
+	}
+
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv)
+	if err != nil {
+		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
 
 	if source.PVC != nil {
@@ -247,11 +264,29 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 			return false, err
 		}
 
+		networkPolicy, err := s.getNetworkPolicy(ctx, sup.DataVolume())
+		if err != nil {
+			return false, err
+		}
+
+		if networkPolicy != nil {
+			err = s.protection.RemoveProtection(ctx, networkPolicy)
+			if err != nil {
+				return false, err
+			}
+
+			err = s.client.Delete(ctx, networkPolicy)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return false, err
+			}
+		}
+
 		var pvc *corev1.PersistentVolumeClaim
 		pvc, err = s.GetPersistentVolumeClaim(ctx, sup)
 		if err != nil {
 			return false, err
 		}
+
 		if pvc != nil {
 			pvc.ObjectMeta.OwnerReferences = slices.DeleteFunc(pvc.ObjectMeta.OwnerReferences, func(ref metav1.OwnerReference) bool {
 				return ref.Kind == "DataVolume"
@@ -277,6 +312,20 @@ func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1
 		return fmt.Errorf("failed to add protection for disk's supplements: %w", err)
 	}
 
+	if dv != nil {
+		networkPolicy, err := s.getNetworkPolicy(ctx, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
+		if err != nil {
+			return fmt.Errorf("failed to get networkPolicy for disk's supplements protection: %w", err)
+		}
+
+		if networkPolicy != nil {
+			err = s.protection.AddProtection(ctx, networkPolicy)
+			if err != nil {
+				return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -284,6 +333,20 @@ func (s DiskService) Unprotect(ctx context.Context, dv *cdiv1.DataVolume) error 
 	err := s.protection.RemoveProtection(ctx, dv)
 	if err != nil {
 		return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
+	}
+
+	if dv != nil {
+		networkPolicy, err := s.getNetworkPolicy(ctx, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
+		if err != nil {
+			return fmt.Errorf("failed to get networkPolicy for removing disk's supplements protection: %w", err)
+		}
+
+		if networkPolicy != nil {
+			err = s.protection.RemoveProtection(ctx, networkPolicy)
+			if err != nil {
+				return fmt.Errorf("failed to remove protection for disk's supplements: %w", err)
+			}
+		}
 	}
 
 	return nil
@@ -584,6 +647,10 @@ func (s DiskService) getStorageClass(ctx context.Context, storageClassName strin
 	}
 
 	return &sc, nil
+}
+
+func (s DiskService) getNetworkPolicy(ctx context.Context, name types.NamespacedName) (*netv1.NetworkPolicy, error) {
+	return object.FetchObject(ctx, name, s.client, &netv1.NetworkPolicy{})
 }
 
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")

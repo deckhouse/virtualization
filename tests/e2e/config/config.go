@@ -132,19 +132,20 @@ type Config struct {
 }
 
 type TestData struct {
-	AffinityToleration string `yaml:"affinityToleration"`
-	ComplexTest        string `yaml:"complexTest"`
-	Connectivity       string `yaml:"connectivity"`
-	DiskResizing       string `yaml:"diskResizing"`
-	SizingPolicy       string `yaml:"sizingPolicy"`
-	ImagesCreation     string `yaml:"imagesCreation"`
-	VmConfiguration    string `yaml:"vmConfiguration"`
-	VmLabelAnnotation  string `yaml:"vmLabelAnnotation"`
-	VmMigration        string `yaml:"vmMigration"`
-	VmDiskAttachment   string `yaml:"vmDiskAttachment"`
-	VdSnapshots        string `yaml:"vdSnapshots"`
-	Sshkey             string `yaml:"sshKey"`
-	SshUser            string `yaml:"sshUser"`
+	AffinityToleration    string `yaml:"affinityToleration"`
+	ComplexTest           string `yaml:"complexTest"`
+	Connectivity          string `yaml:"connectivity"`
+	DiskResizing          string `yaml:"diskResizing"`
+	SizingPolicy          string `yaml:"sizingPolicy"`
+	ImporterNetworkPolicy string `yaml:"importerNetworkPolicy"`
+	ImagesCreation        string `yaml:"imagesCreation"`
+	VmConfiguration       string `yaml:"vmConfiguration"`
+	VmLabelAnnotation     string `yaml:"vmLabelAnnotation"`
+	VmMigration           string `yaml:"vmMigration"`
+	VmDiskAttachment      string `yaml:"vmDiskAttachment"`
+	VdSnapshots           string `yaml:"vdSnapshots"`
+	Sshkey                string `yaml:"sshKey"`
+	SshUser               string `yaml:"sshUser"`
 }
 
 type StorageClass struct {

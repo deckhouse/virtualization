@@ -64,7 +64,7 @@ func NewController(
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	bounder := service.NewBounderPodService(dvcr, mgr.GetClient(), bounderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
-	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection)
+	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
 	scService := service.NewVirtualImageStorageClassService(storageClassSettings)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 

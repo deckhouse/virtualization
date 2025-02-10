@@ -104,6 +104,7 @@ func init() {
 		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.ImporterNetworkPolicy, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.ImagesCreation, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml"),
@@ -144,6 +145,18 @@ func TestTests(t *testing.T) {
 
 func Cleanup() []error {
 	cleanupErrs := make([]error, 0)
+
+	res := kubectl.Delete(kc.DeleteOptions{
+		IgnoreNotFound: true,
+		Labels:         map[string]string{"id": namePrefix},
+		Resource:       kc.ResourceProject,
+	})
+	if res.Error() != nil {
+		cleanupErrs = append(
+			cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
+		)
+	}
+
 	testCases, err := conf.GetTestCases()
 	if err != nil {
 		cleanupErrs = append(cleanupErrs, err)
@@ -172,7 +185,7 @@ func Cleanup() []error {
 		}
 	}
 
-	res := kubectl.Delete(kc.DeleteOptions{
+	res = kubectl.Delete(kc.DeleteOptions{
 		IgnoreNotFound: true,
 		Labels:         map[string]string{"id": namePrefix},
 		Resource:       kc.ResourceCVI,
