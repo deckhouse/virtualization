@@ -49,7 +49,7 @@ func NewObjectRefDataSource(
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
 		diskService:      diskService,
-		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(recorder, diskService),
+		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(recorder, diskService, client),
 		viDVCRSyncer:     NewObjectRefVirtualImageDVCR(recorder, statService, diskService, storageClassService, client),
 		viPVCSyncer:      NewObjectRefVirtualImagePVC(recorder, diskService, storageClassService, client),
 		cviSyncer:        NewObjectRefClusterVirtualImage(recorder, statService, diskService, storageClassService, client),
