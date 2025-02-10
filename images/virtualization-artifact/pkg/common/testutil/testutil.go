@@ -17,7 +17,6 @@ limitations under the License.
 package testutil
 
 import (
-	"github.com/deckhouse/deckhouse/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -25,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 

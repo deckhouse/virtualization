@@ -55,7 +55,6 @@ var _ = Describe("Migration Qemu Max Length 36", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		expectFunc(vmList)
-
 	},
 		Entry("should replace all disks serial",
 			func(kvvmList *virtv1.VirtualMachineList) {
