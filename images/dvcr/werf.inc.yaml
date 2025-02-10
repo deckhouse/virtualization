@@ -7,12 +7,15 @@ import:
   to: /bin
   after: install
 # Registry configuration is stored in configmap: templates/dvcr/configmap.yaml
-- image: {{ $.ImageName }}-artifact-builder
-  add: /out
-  to: /bin
+# - image: {{ $.ImageName }}-artifact-builder
+- image: {{ $.ImageName }}-artifact-bins
+  add: /relocate
+  to: /
   includePaths:
   - dvcr-cleaner
   after: install
+docker:
+  USER: 64535
 ---
 {{- $version := "2.8.3" }}
 

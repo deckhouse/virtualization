@@ -18,9 +18,6 @@ shell:
   install:
   - apt-get -qq update
   - apt-get -qq install -y --no-install-recommends libnbd-dev
-  # - |
-  #   apt-get -qq install -y libnbd-dev nbdkit gcc libc6-dev libxml2-dev zlib1g-dev \
-  #     nbdkit nbdkit-plugin-dev qemu-utils python3-pycurl python3-six libsqlite3-dev
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/* /var/cache/apt/*
   setup:
@@ -33,21 +30,45 @@ shell:
     export GOARCH=amd64
   - go build -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer
   - go build -ldflags="-s -w" -o /out/dvcr-uploader ./cmd/dvcr-uploader
-  # - go build -ldflags "-extldflags -static -w -s" -o /out/dvcr-uploader ./cmd/dvcr-uploader
   - CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/dvcr-cleaner ./cmd/dvcr-cleaner
+  - chown -R 64535:64535 /out
+
+{{/*
+# ---
+# image: {{ $.ImageName }}
+# final: false
+# fromImage: base-alt-p11
+# shell:
+#   install:
+#   - |
+#     apt-get update && apt-get install --yes \
+#       ca-certificates \
+#       file \
+#       libnbd==1.19.11-alt1 \
+#       qemu-img==9.1.2-alt1
+#   # Cleanup
+#   - apt-get clean
+#   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+*/}}
 
 ---
-image: {{ $.ImageName }}
+{{- $binaries := "/usr/bin/sh /usr/bin/rm /usr/bin/grep /usr/bin/dvcr-importer /usr/bin/dvcr-uploader /usr/bin/dvcr-cleaner /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd /usr/bin/nbd*" }}
+
+image: {{ $.ImageName }}-bins
 final: false
-fromImage: base-alt-p11
+fromImage: base-alt-p11-binaries
+import:
+- image: dvcr-artifact-builder
+  add: /out
+  to: /usr/bin
+  before: setup
 shell:
   install:
   - |
     apt-get update && apt-get install --yes \
-      ca-certificates \
-      file \
-      libnbd==1.19.11-alt1 \
-      qemu-img==9.1.2-alt1
-  # Cleanup
+      qemu-img libnbd
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  setup:
+  - |
+    /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
