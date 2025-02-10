@@ -21,9 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,28 +78,35 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	log.Debug("Start vd reconciliation")
 
-	var requeue bool
-
+	var result reconcile.Result
 	var handlerErrs []error
 
 	for _, h := range r.handlers {
 		log.Debug("Run handler", logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
-
 		var res reconcile.Result
 		res, err = h.Handle(ctx, vd.Changed())
-		if err != nil {
+		switch {
+		case err == nil: // OK.
+		case k8serrors.IsConflict(err):
+			log.Debug("Failed to handle vd", logger.SlogErr(err), logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
+			result.Requeue = true
+		default:
 			log.Error("Failed to handle vd", logger.SlogErr(err), logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
 			handlerErrs = append(handlerErrs, err)
 		}
 
-		// TODO: merger.
-		requeue = requeue || res.Requeue
+		result = service.MergeResults(result, res)
 	}
 
 	vd.Changed().Status.ObservedGeneration = vd.Changed().Generation
 
 	err = vd.Update(ctx)
-	if err != nil {
+	switch {
+	case err == nil: // OK.
+	case k8serrors.IsConflict(err):
+		log.Debug("Failed to update vi", logger.SlogErr(err))
+		result.Requeue = true
+	default:
 		return reconcile.Result{}, err
 	}
 
@@ -108,15 +115,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	if requeue {
-		log.Debug("Requeue vd reconciliation")
-		return reconcile.Result{
-			RequeueAfter: 2 * time.Second,
-		}, nil
-	}
-
-	log.Debug("Finished vd reconciliation")
-	return reconcile.Result{}, nil
+	return result, nil
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {

@@ -21,9 +21,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -75,28 +75,37 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	var requeue bool
-
 	log.Debug("Start vi reconciliation")
 
+	var result reconcile.Result
 	var handlerErrs []error
 
 	for _, h := range r.handlers {
 		log.Debug("Run handler", logger.SlogHandler(h.Name()))
 		var res reconcile.Result
 		res, err = h.Handle(ctx, vi.Changed())
-		if err != nil {
+		switch {
+		case err == nil: // OK.
+		case k8serrors.IsConflict(err):
+			log.Debug("Failed to handle vi", logger.SlogErr(err), logger.SlogHandler(h.Name()))
+			result.Requeue = true
+		default:
 			log.Error("Failed to handle vi", logger.SlogErr(err), logger.SlogHandler(h.Name()))
 			handlerErrs = append(handlerErrs, err)
 		}
 
-		requeue = requeue || res.Requeue
+		result = service.MergeResults(result, res)
 	}
 
 	vi.Changed().Status.ObservedGeneration = vi.Changed().Generation
 
 	err = vi.Update(ctx)
-	if err != nil {
+	switch {
+	case err == nil: // OK.
+	case k8serrors.IsConflict(err):
+		log.Debug("Failed to update vi", logger.SlogErr(err))
+		result.Requeue = true
+	default:
 		return reconcile.Result{}, err
 	}
 
@@ -105,15 +114,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
-	if requeue {
-		log.Debug("Requeue vi reconciliation")
-		return reconcile.Result{
-			RequeueAfter: 2 * time.Second,
-		}, nil
-	}
-
-	log.Debug("Finished vi reconciliation")
-	return reconcile.Result{}, nil
+	return result, nil
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
