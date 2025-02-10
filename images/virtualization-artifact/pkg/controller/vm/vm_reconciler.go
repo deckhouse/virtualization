@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -85,7 +86,9 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				oldVM := e.ObjectOld.(*virtv1.VirtualMachine)
 				newVM := e.ObjectNew.(*virtv1.VirtualMachine)
 				return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
-					oldVM.Status.Ready != newVM.Status.Ready
+					oldVM.Status.Ready != newVM.Status.Ready ||
+					oldVM.Annotations[annotations.AnnVmStartRequested] != newVM.Annotations[annotations.AnnVmStartRequested] ||
+					oldVM.Annotations[annotations.AnnVmRestartRequested] != newVM.Annotations[annotations.AnnVmRestartRequested]
 			},
 		},
 	); err != nil {
