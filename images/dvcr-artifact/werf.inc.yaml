@@ -18,20 +18,24 @@ shell:
   install:
   - apt-get -qq update
   - apt-get -qq install -y --no-install-recommends libnbd-dev
+  # - |
+  #   apt-get -qq install -y libnbd-dev nbdkit gcc libc6-dev libxml2-dev zlib1g-dev \
+  #     nbdkit nbdkit-plugin-dev qemu-utils python3-pycurl python3-six libsqlite3-dev
   - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  - rm --recursive --force /var/lib/apt/lists/* /var/cache/apt/*
   setup:
   - mkdir /out
   - cd /src
-  - go mod download
   - |
     export GO111MODULE=on
     export GOOS=linux
-    export CGO_ENABLED=0
+    export CGO_ENABLED=1
     export GOARCH=amd64
-  # - go build -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer
+  - go build -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer
   - go build -ldflags="-s -w" -o /out/dvcr-uploader ./cmd/dvcr-uploader
-  - go build -ldflags="-s -w" -o /out/dvcr-cleaner ./cmd/dvcr-cleaner
+  # - go build -ldflags "-extldflags -static -w -s" -o /out/dvcr-uploader ./cmd/dvcr-uploader
+  - CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/dvcr-cleaner ./cmd/dvcr-cleaner
+
 ---
 image: {{ $.ImageName }}
 final: false

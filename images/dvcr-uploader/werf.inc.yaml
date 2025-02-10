@@ -6,12 +6,6 @@ import:
   add: /relocate
   to: /
   after: install
-- image: dvcr-artifact-builder
-  add: /out
-  to: /usr/local/bin
-  includePaths:
-  - dvcr-uploader
-  after: install
 git:
 - add: /images/dvcr-artifact/build
   to: /
@@ -24,12 +18,23 @@ docker:
   CMD: ["/usr/local/bin/dvcr-uploader"]
   USER: 64535
 ---
-{{- $binaries := "/usr/bin/sh /usr/bin/rm /usr/bin/grep" }}
+{{- $binaries := "/usr/bin/sh /usr/bin/rm /usr/bin/grep /usr/bin/dvcr-uploader /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd /usr/bin/nbd*"}}
 
 image: {{ $.ImageName }}-bins
 final: false
 fromImage: base-alt-p11-binaries
+import:
+- image: dvcr-artifact-builder
+  add: /out
+  to: /usr/bin
+  includePaths:
+  - dvcr-uploader
+  before: setup
 shell:
-  beforeInstall:
+  install:
+  - |
+    apt-get update && apt-get install --yes \
+      qemu-img libnbd
+  setup:
   - |
     /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
