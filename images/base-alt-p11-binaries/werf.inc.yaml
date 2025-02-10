@@ -17,3 +17,6 @@ shell:
     glibc-utils \
     libffi8 libssh-devel libssh2-devel \
     mount xfsprogs xfstests util-linux e2fsprogs
+  - |
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin

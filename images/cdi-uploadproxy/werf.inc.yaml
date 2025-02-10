@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: distroless
 import:
 - image: cdi-artifact
   add: /cdi-binaries
