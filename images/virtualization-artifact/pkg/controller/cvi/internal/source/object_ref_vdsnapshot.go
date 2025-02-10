@@ -78,7 +78,7 @@ func NewObjectRefVirtualDiskSnapshot(
 func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage, vdSnapshotRef *virtv2.VirtualDiskSnapshot, cb *conditions.ConditionBuilder) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	supgen := supplements.NewGenerator(annotations.VIShortName, cvi.Name, vdSnapshotRef.Namespace, cvi.UID)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, vdSnapshotRef.Namespace, cvi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -129,7 +129,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 			"The ObjectRef DataSource import has started",
 		)
 
-		namespacedName := supplements.NewGenerator(annotations.VIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID).PersistentVolumeClaim()
+		pvcKey := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID).PersistentVolumeClaim()
 
 		storageClassName := vs.Annotations["storageClass"]
 		volumeMode := vs.Annotations["volumeMode"]
@@ -166,8 +166,8 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 
 		pvc = &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      namespacedName.Name,
-				Namespace: namespacedName.Namespace,
+				Name:      pvcKey.Name,
+				Namespace: pvcKey.Namespace,
 				OwnerReferences: []metav1.OwnerReference{
 					service.MakeOwnerReference(cvi),
 				},
@@ -306,7 +306,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 }
 
 func (ds ObjectRefVirtualDiskSnapshot) CleanUpSupplements(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(annotations.VIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -327,7 +327,7 @@ func (ds ObjectRefVirtualDiskSnapshot) CleanUpSupplements(ctx context.Context, c
 }
 
 func (ds ObjectRefVirtualDiskSnapshot) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
-	supgen := supplements.NewGenerator(annotations.VIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
+	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, cvi.Spec.DataSource.ObjectRef.Namespace, cvi.UID)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {

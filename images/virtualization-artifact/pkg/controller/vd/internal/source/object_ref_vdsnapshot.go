@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/blockdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -73,7 +74,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 		return reconcile.Result{}, err
 	}
 
-	return step.NewTakers[*virtv2.VirtualDisk](
+	return blockdevice.NewStepTakers[*virtv2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),

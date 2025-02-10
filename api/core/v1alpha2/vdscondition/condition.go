@@ -59,7 +59,7 @@ const (
 	WaitingForTheVirtualDisk VirtualDiskSnapshotReadyReason = "WaitingForTheVirtualDisk"
 	// PotentiallyInconsistent signifies that the snapshotting process cannot begin because creating a snapshot of virtual disk attached to the running virtual machine might result in an inconsistent snapshot.
 	PotentiallyInconsistent VirtualDiskSnapshotReadyReason = "PotentiallyInconsistent"
-	// VolumeSnapshotLost signifies that the underling `VolumeSnapshot` is lost: cannot use the virtual disk snapshot as a data source.
+	// VolumeSnapshotLost signifies that the underlying `VolumeSnapshot` is lost: cannot use the virtual disk snapshot as a data source.
 	VolumeSnapshotLost VirtualDiskSnapshotReadyReason = "Lost"
 	// FileSystemFreezing signifies that the `VirtualDiskSnapshot` resource is in the process of freezing the filesystem of the virtual machine associated with the source virtual disk.
 	FileSystemFreezing VirtualDiskSnapshotReadyReason = "FileSystemFreezing"

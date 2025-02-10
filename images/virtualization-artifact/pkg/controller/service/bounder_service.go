@@ -64,8 +64,8 @@ func NewBounderPodService(
 	}
 }
 
-func (s BounderPodService) Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvc *corev1.PersistentVolumeClaim, opts ...Option) error {
-	podSettings := s.GetPodSettings(ownerRef, sup, pvc)
+func (s BounderPodService) Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup *supplements.Generator, opts ...Option) error {
+	podSettings := s.GetPodSettings(ownerRef, sup)
 
 	for _, opt := range opts {
 		switch v := opt.(type) {
@@ -172,17 +172,17 @@ func (s BounderPodService) GetPod(ctx context.Context, sup *supplements.Generato
 	return pod, nil
 }
 
-func (s BounderPodService) GetPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvc *corev1.PersistentVolumeClaim) *bounder.PodSettings {
+func (s BounderPodService) GetPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *bounder.PodSettings {
 	bounderPod := sup.BounderPod()
 	return &bounder.PodSettings{
 		Name:                 bounderPod.Name,
-		Namespace:            pvc.Namespace,
+		Namespace:            bounderPod.Namespace,
 		Image:                s.image,
 		PullPolicy:           s.pullPolicy,
 		OwnerReference:       *ownerRef,
 		ControllerName:       s.controllerName,
 		InstallerLabels:      map[string]string{},
 		ResourceRequirements: &s.requirements,
-		PVCName:              pvc.Name,
+		PVCName:              sup.PersistentVolumeClaim().Name,
 	}
 }

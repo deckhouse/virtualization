@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package step
+package blockdevice
 
 import (
 	"context"
@@ -29,17 +29,17 @@ type Resource interface {
 	*virtv2.VirtualDisk | *virtv2.VirtualImage
 }
 
-type Taker[R Resource] interface {
+type StepTaker[R Resource] interface {
 	Take(ctx context.Context, obj R) (*reconcile.Result, error)
 }
 
-type Takers[R Resource] []Taker[R]
+type StepTakers[R Resource] []StepTaker[R]
 
-func NewTakers[R Resource](takers ...Taker[R]) Takers[R] {
+func NewStepTakers[R Resource](takers ...StepTaker[R]) StepTakers[R] {
 	return takers
 }
 
-func (steps Takers[R]) Run(ctx context.Context, r R) (reconcile.Result, error) {
+func (steps StepTakers[R]) Run(ctx context.Context, r R) (reconcile.Result, error) {
 	for _, s := range steps {
 		res, err := s.Take(ctx, r)
 		if err != nil {
@@ -51,5 +51,5 @@ func (steps Takers[R]) Run(ctx context.Context, r R) (reconcile.Result, error) {
 		}
 	}
 
-	return reconcile.Result{}, errors.New("todo unexpected")
+	return reconcile.Result{}, errors.New("none of the steps returned a final result, please report a bug")
 }
