@@ -499,6 +499,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 				Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
 
 				for _, snapshot := range vdSnapshots.Items {
+					Expect(snapshot.Status.Consistent).ToNot(BeNil())
 					consistent := false
 					if snapshot.Status.Consistent != nil {
 						consistent = *snapshot.Status.Consistent
@@ -516,7 +517,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 
 			for _, vm := range vmObjects.Items {
 				Eventually(func() error {
-					reason, err := CheckFileSystemFrozen(vm.Name, v1.ConditionTrue)
+					reason, err := CheckFileSystemFrozen(vm.Name, v1.ConditionFalse)
 					if err != nil {
 						return fmt.Errorf("vmName: %s\nstderr: %s\nreason: %s", vm.Name, err, reason)
 					}
