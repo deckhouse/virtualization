@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -52,8 +53,13 @@ func (r *qemuMaxLength36) Name() string {
 }
 
 func (r *qemuMaxLength36) Migrate(ctx context.Context) error {
+	disks, err := newDiskCache(ctx, r.client)
+	if err != nil {
+		return fmt.Errorf("failed to create diskCache: %w", err)
+	}
+
 	kvvmList := &virtv1.VirtualMachineList{}
-	err := r.client.List(ctx, kvvmList)
+	err = r.client.List(ctx, kvvmList)
 	if err != nil {
 		return err
 	}
@@ -61,7 +67,7 @@ func (r *qemuMaxLength36) Migrate(ctx context.Context) error {
 	for i := range kvvmList.Items {
 		kvvm := &kvvmList.Items[i]
 
-		needUpdate, genPatch, err := r.genPatch("/spec/template/spec", &kvvm.Spec.Template.Spec)
+		needUpdate, genPatch, err := r.genPatch("/spec/template/spec", kvvm.GetNamespace(), &kvvm.Spec.Template.Spec, disks)
 		if err != nil {
 			return err
 		}
@@ -86,47 +92,49 @@ func (r *qemuMaxLength36) Migrate(ctx context.Context) error {
 		}
 	}
 
-	kvvmiList := &virtv1.VirtualMachineInstanceList{}
-	err = r.client.List(ctx, kvvmiList)
-	if err != nil {
-		return err
-	}
-
-	for i := range kvvmiList.Items {
-		kvvmi := &kvvmiList.Items[i]
-
-		needUpdate, genPatch, err := r.genPatch("/spec", &kvvmi.Spec)
-		if err != nil {
-			return err
-		}
-		if !needUpdate {
-			continue
-		}
-
-		r.logger.Info("Patch kvvmi", slog.String("name", kvvmi.Name), slog.String("namespace", kvvmi.Namespace))
-
-		if r.logger.GetLevel() <= log.LevelDebug {
-			if data, err := genPatch.Data(kvvmi); err == nil {
-				r.logger.Debug("Patch kvvmi",
-					slog.String("name", kvvmi.Name),
-					slog.String("namespace", kvvmi.Namespace),
-					slog.String("data", string(data)),
-				)
-			}
-		}
-
-		if err = r.client.Patch(ctx, kvvmi, genPatch); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
-func (r *qemuMaxLength36) genPatch(base string, spec *virtv1.VirtualMachineInstanceSpec) (bool, client.Patch, error) {
+func (r *qemuMaxLength36) genPatch(base, namespace string, spec *virtv1.VirtualMachineInstanceSpec, disks diskCache) (bool, client.Patch, error) {
 	var ops []patch.JsonPatchOperation
 	for i, d := range spec.Domain.Devices.Disks {
-		newSerial := kvbuilder.GenerateSerial(d.Name)
+		if d.Disk == nil {
+			continue
+		}
+
+		var (
+			uid   types.UID
+			found bool
+		)
+
+		switch {
+		case strings.HasPrefix(d.Name, kvbuilder.CVMIDiskPrefix):
+			newName := strings.TrimPrefix(d.Name, kvbuilder.CVMIDiskPrefix)
+			if uid, found = disks.CVINameUid[newName]; !found {
+				continue
+			}
+		case strings.HasPrefix(d.Name, kvbuilder.VMIDiskPrefix):
+			newName := strings.TrimPrefix(d.Name, kvbuilder.VMIDiskPrefix)
+			if uid, found = disks.VINameUid[types.NamespacedName{
+				Name:      newName,
+				Namespace: namespace,
+			}]; !found {
+				continue
+			}
+		case strings.HasPrefix(d.Name, kvbuilder.VMDDiskPrefix):
+			newName := strings.TrimPrefix(d.Name, kvbuilder.VMDDiskPrefix)
+			if uid, found = disks.VDNameUid[types.NamespacedName{
+				Name:      newName,
+				Namespace: namespace,
+			}]; !found {
+				continue
+			}
+		default:
+			continue
+		}
+
+		newSerial := kvbuilder.GenerateSerial(string(uid))
+
 		if d.Serial != "" && d.Serial != newSerial {
 			ops = append(ops, patch.NewJsonPatchOperation(
 				patch.PatchReplaceOp,

@@ -211,3 +211,17 @@ By default, the KVVMI spec can update only KubeVirt service accounts. This patch
 #### `035-allow-change-serial-on-kvvmi.patch`
 
 By default, the disk specification is immutable, but for backward compatibility, we need to allow modifying the serial. 
+
+#### `036-enhance-SCSI-disk-serial-validation.patch`
+
+**Related Issue:** [#13858](https://github.com/kubevirt/kubevirt/issues/13858)  
+**Pull Request:** [#13859](https://github.com/kubevirt/kubevirt/pull/13859)
+
+##### What this PR does
+- **Before:** A virtual machine (VM) launched by QEMU could fail if a disk's serial number exceeded 36 characters, as QEMU enforces this limit. KubeVirt did not validate this beforehand, leading to runtime errors.
+- **After:**
+  - The API now validates disk serial numbers, preventing users from setting values longer than 36 characters and avoiding VM startup failures in QEMU.
+  - For existing VMs, serial numbers exceeding this limit will be automatically truncated to maintain backward compatibility.
+
+##### Why this change?
+This update ensures compatibility with recent QEMU changes and prevents runtime errors by enforcing validation at the API level while preserving support for existing VMs through automatic serial number truncation.
