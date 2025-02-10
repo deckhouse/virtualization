@@ -1,7 +1,6 @@
 ---
 image: {{ $.ImageName }}
-from: {{ $.Images.BASE_SCRATCH }}
-# fromImage: dvcr-artifact
+fromImage: distroless
 import:
 - image: {{ $.ImageName }}-bins
   add: /relocate
