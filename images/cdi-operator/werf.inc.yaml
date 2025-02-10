@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: distroless
 import:
 - image: cdi-artifact
   add: /cdi-binaries
@@ -11,4 +11,4 @@ import:
   before: setup
 docker:
   ENTRYPOINT: ["/usr/bin/cdi-operator"]
-  USER: 1001
+  USER: 64535

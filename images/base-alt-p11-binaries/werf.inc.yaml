@@ -1,0 +1,22 @@
+---
+image: {{ $.ImageName }}
+final: false
+from: {{ $.Images.BASE_ALT_P11 }}
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /
+    stageDependencies:
+      install:
+      - '**/*'
+    includePaths:
+    - relocate_binaries.sh
+shell:
+  install:
+  - |
+    apt-get update && apt-get install -y \
+    glibc-utils \
+    libffi8 libssh-devel libssh2-devel \
+    mount xfsprogs xfstests util-linux e2fsprogs
+  - |
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin

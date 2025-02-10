@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: distroless
 import:
 - image: cdi-artifact
   add: /cdi-binaries
@@ -10,4 +10,5 @@ import:
   before: setup
 docker:
   ENTRYPOINT: ["/usr/bin/cdi-uploadproxy", "-alsologtostderr"]
+  USER: 64535
 

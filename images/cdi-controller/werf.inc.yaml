@@ -1,7 +1,15 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p11
+fromImage: distroless
 import:
+- image: {{ $.ImageName }}-bins
+  add: /tmp
+  to: /tmp
+  before: setup
+- image: {{ $.ImageName }}-bins
+  add: /relocate
+  to: /
+  before: setup
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
@@ -11,5 +19,14 @@ import:
 # Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-controller/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/cdi-controller", "-alsologtostderr"]
-  USER: 1001
+  USER: 64535
+---
+{{- $binaries := "/usr/bin/cat" }}
 
+image: {{ $.ImageName }}-bins
+final: false
+fromImage: base-alt-p11-binaries
+shell:
+  beforeInstall:
+  - |
+    /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate

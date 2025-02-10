@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p11
+fromImage: distroless
 import:
 - image: cdi-artifact
   add: /cdi-binaries
@@ -10,4 +10,4 @@ import:
   - cdi-apiserver
 docker:
   ENTRYPOINT: ["/usr/bin/cdi-apiserver", "-alsologtostderr"]
-  USER: 1001
+  USER: 64535
