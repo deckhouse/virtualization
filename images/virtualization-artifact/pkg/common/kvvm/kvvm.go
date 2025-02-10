@@ -19,6 +19,7 @@ package kvvm
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -26,7 +27,9 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 )
 
 // PatchRunStrategy returns JSON merge patch to set 'runStrategy' field to the desired value
@@ -97,4 +100,76 @@ func DeletePodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virt
 		return nil
 	}
 	return object.DeleteObject(ctx, cli, pod, opts)
+}
+
+func AddRestartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
+	if kvvm.Annotations[annotations.AnnVmStartRequested] == "" {
+		jp := patch.NewJsonPatch(
+			patch.NewJsonPatchOperation(patch.PatchReplaceOp, fmt.Sprintf("/metadata/annotations/%s", escapeJSONPointer(annotations.AnnVmRestartRequested)), "true"),
+		)
+		bytes, err := jp.Bytes()
+		if err != nil {
+			return err
+		}
+		err = cl.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, bytes))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func AddStartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
+	if kvvm.Annotations[annotations.AnnVmStartRequested] == "" {
+		jp := patch.NewJsonPatch(
+			patch.NewJsonPatchOperation(patch.PatchReplaceOp, fmt.Sprintf("/metadata/annotations/%s", escapeJSONPointer(annotations.AnnVmStartRequested)), "true"),
+		)
+		bytes, err := jp.Bytes()
+		if err != nil {
+			return err
+		}
+		err = cl.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, bytes))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func escapeJSONPointer(path string) string {
+	return strings.ReplaceAll(path, "/", "~1")
+}
+
+func RemoveStartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
+	jp := patch.NewJsonPatch(
+		patch.NewJsonPatchOperation(patch.PatchReplaceOp, fmt.Sprintf("/metadata/annotations/%s", escapeJSONPointer(annotations.AnnVmStartRequested)), ""),
+	)
+	bytes, err := jp.Bytes()
+	if err != nil {
+		return err
+	}
+	err = cl.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, bytes))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func RemoveRestartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
+	jp := patch.NewJsonPatch(
+		patch.NewJsonPatchOperation(patch.PatchReplaceOp, fmt.Sprintf("/metadata/annotations/%s", escapeJSONPointer(annotations.AnnVmRestartRequested)), ""),
+	)
+	bytes, err := jp.Bytes()
+	if err != nil {
+		return err
+	}
+	err = cl.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, bytes))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

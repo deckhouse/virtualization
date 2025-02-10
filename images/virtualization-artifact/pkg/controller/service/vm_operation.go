@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
@@ -76,7 +77,7 @@ func (s VMOperationService) DoStart(ctx context.Context, vmNamespace, vmName str
 	if err != nil {
 		return fmt.Errorf("get kvvm %q: %w", vmName, err)
 	}
-	return powerstate.StartVM(ctx, s.client, kvvm)
+	return kvvmutil.AddStartAnnotation(ctx, s.client, kvvm)
 }
 
 func (s VMOperationService) DoStop(ctx context.Context, vmNamespace, vmName string, force bool) error {
@@ -92,11 +93,7 @@ func (s VMOperationService) DoRestart(ctx context.Context, vmNamespace, vmName s
 	if err != nil {
 		return fmt.Errorf("get kvvm %q: %w", vmName, err)
 	}
-	kvvmi, err := s.getKVVMI(ctx, vmNamespace, vmName)
-	if err != nil {
-		return fmt.Errorf("get kvvmi %q: %w", vmName, err)
-	}
-	return powerstate.RestartVM(ctx, s.client, kvvm, kvvmi, force)
+	return kvvmutil.AddRestartAnnotation(ctx, s.client, kvvm)
 }
 
 func (s VMOperationService) DoEvict(ctx context.Context, vmNamespace, vmName string) error {

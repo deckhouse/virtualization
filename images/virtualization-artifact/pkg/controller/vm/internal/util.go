@@ -18,18 +18,14 @@ package internal
 
 import (
 	"context"
-	"fmt"
 	"slices"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -243,43 +239,4 @@ func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) b
 
 func podFinal(pod corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
-}
-
-func addStartAnnotationToKVVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
-	if kvvm.Annotations[annotations.AnnVmStartRequested] == "" {
-		jp := patch.NewJsonPatch(
-			patch.NewJsonPatchOperation(patch.PatchReplaceOp, fmt.Sprintf("/metadata/annotations/%s", escapeJSONPointer(annotations.AnnVmStartRequested)), "true"),
-		)
-		bytes, err := jp.Bytes()
-		if err != nil {
-			return err
-		}
-		err = cl.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, bytes))
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func removeStartAnnotationToKVVM(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
-	if kvvm.Annotations[annotations.AnnVmStartRequested] == "" {
-		jp := patch.NewJsonPatch(
-			patch.NewJsonPatchOperation(patch.PatchReplaceOp, fmt.Sprintf("/metadata/annotations/%s", escapeJSONPointer(annotations.AnnVmStartRequested)), ""),
-		)
-		bytes, err := jp.Bytes()
-		if err != nil {
-			return err
-		}
-		err = cl.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, bytes))
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func escapeJSONPointer(path string) string {
-	return strings.ReplaceAll(path, "/", "~1")
 }

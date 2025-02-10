@@ -131,209 +131,164 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 
 	switch runPolicy {
 	case virtv2.AlwaysOffPolicy:
-		if kvvmi != nil {
-			h.recordStopEventf(ctx, s.VirtualMachine().Current(),
-				"Stop initiated by controller to ensure %s policy",
-				runPolicy,
-			)
-
-			// Ensure KVVMI is absent.
-			err = h.client.Delete(ctx, kvvmi)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return fmt.Errorf("automatic stop VM for %s policy: delete KVVMI: %w", runPolicy, err)
-			}
-		}
+		return h.handleAlwaysOffPolicy(ctx, s, kvvmi, runPolicy)
 	case virtv2.AlwaysOnPolicy:
-		if kvvmi == nil {
-			if !isConfigurationApplied {
-				return h.interruptionRunningVM(ctx, s, kvvm)
-			}
-
-			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
-				"Start initiated by controller for %v policy",
-				runPolicy,
-			)
-
-			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
-				return fmt.Errorf("failed to start VM: %w", err)
-			}
-		}
-
-		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
-			if kvvmi.Status.Phase == virtv1.Succeeded {
-				if !isConfigurationApplied {
-					return h.interruptionRunningVM(ctx, s, kvvm)
-				}
-
-				if shutdownInfo.PodCompleted {
-					// Treat completed Pod as restart if guest was restarted or as a start if guest was stopped.
-					switch shutdownInfo.Reason {
-					case powerstate.GuestResetReason:
-						h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
-							"Restart initiated from inside the guest VM",
-						)
-					default:
-						h.recordStartEventf(ctx, s.VirtualMachine().Current(),
-							"Start initiated by controller after stopping from inside the guest VM",
-						)
-					}
-				} else {
-					h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
-						"Restart initiated by controller for %v runPolicy",
-						runPolicy,
-					)
-				}
-				err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
-				if err != nil {
-					return fmt.Errorf("restart VM on guest-reset: %w", err)
-				}
-			}
-
-			if kvvmi.Status.Phase == virtv1.Failed {
-				if !isConfigurationApplied {
-					return h.interruptionRunningVM(ctx, s, kvvm)
-				}
-
-				h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
-					"Restart initiated by controller for %s runPolicy after observing failed guest VM",
-					runPolicy,
-				)
-				err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
-				if err != nil {
-					return fmt.Errorf("restart VM on failed: %w", err)
-				}
-			}
-		} else if isConfigurationApplied && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
-			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
-				"Start initiated by controller for %v policy",
-				runPolicy,
-			)
-
-			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
-				return fmt.Errorf("failed to start VM: %w", err)
-			}
-		}
+		return h.handleAlwaysOnPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, runPolicy, shutdownInfo)
 	case virtv2.AlwaysOnUnlessStoppedManually:
-		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
-			if kvvmi.Status.Phase == virtv1.Succeeded {
-				if !isConfigurationApplied {
-					return h.interruptionRunningVM(ctx, s, kvvm)
-				}
-
-				if shutdownInfo.PodCompleted {
-					// Request to start new KVVMI if guest was restarted.
-					// Cleanup KVVMI is enough if VM was stopped from inside.
-					switch shutdownInfo.Reason {
-					case powerstate.GuestResetReason:
-						h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
-							"Restart initiated from inside the guest VM",
-						)
-
-						err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
-						if err != nil {
-							return fmt.Errorf("restart VM on guest-reset: %w", err)
-						}
-					default:
-						vmPod, err := s.Pod(ctx)
-						if err != nil {
-							return fmt.Errorf("get virtual machine pod: %w", err)
-						}
-
-						if vmPod != nil && !vmPod.GetObjectMeta().GetDeletionTimestamp().IsZero() {
-							h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
-								"Restart initiated by controller for %s runPolicy after the deletion of pod VM.",
-								runPolicy,
-							)
-							err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
-							if err != nil {
-								return fmt.Errorf("automatic restart of failed VM: %w", err)
-							}
-						} else {
-							h.recordStopEventf(ctx, s.VirtualMachine().Current(),
-								"Stop initiated from inside the guest VM",
-							)
-							err = h.client.Delete(ctx, kvvmi)
-							if err != nil && !k8serrors.IsNotFound(err) {
-								return fmt.Errorf("delete Succeeded KVVMI: %w", err)
-							}
-						}
-					}
-				}
-			}
-			if kvvmi.Status.Phase == virtv1.Failed {
-				if !isConfigurationApplied {
-					return h.interruptionRunningVM(ctx, s, kvvm)
-				}
-
-				h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
-					"Restart initiated by controller for %s runPolicy after observing failed guest VM",
-					runPolicy,
-				)
-				err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
-				if err != nil {
-					return fmt.Errorf("automatic restart of failed VM: %w", err)
-				}
-			}
-		} else if isConfigurationApplied && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
-			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
-				"Start initiated by controller for %v policy",
-				runPolicy,
-			)
-
-			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
-				return fmt.Errorf("failed to start VM: %w", err)
-			}
-		}
+		return h.handleAlwaysOnUnlessStoppedManuallyPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, runPolicy, shutdownInfo)
 	case virtv2.ManualPolicy:
-		// Manual policy requires to handle only guest-reset event.
-		// All types of shutdown are final states.
-		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
-			if kvvmi.Status.Phase == virtv1.Succeeded && shutdownInfo.PodCompleted {
-				if !isConfigurationApplied {
-					return h.interruptionRunningVM(ctx, s, kvvm)
-				}
+		return h.handleManualPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, runPolicy, shutdownInfo)
+	}
 
-				// Request to start new KVVMI (with updated settings).
-				switch shutdownInfo.Reason {
-				case powerstate.GuestResetReason:
-					h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
-						"Restart initiated from inside the guest VM",
-					)
-					err = powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi)
-					if err != nil {
-						return fmt.Errorf("restart VM on guest-reset: %w", err)
-					}
-				default:
-					h.recordStopEventf(ctx, s.VirtualMachine().Current(),
-						"Stop initiated from inside the guest VM",
-					)
-					// Cleanup old version of KVVMI.
-					err = h.client.Delete(ctx, kvvmi)
-					if err != nil && !k8serrors.IsNotFound(err) {
-						return fmt.Errorf("delete Succeeded KVVMI: %w", err)
-					}
-				}
-			}
-		} else if isConfigurationApplied && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
-			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
-				"Start initiated by controller for %v policy",
-				runPolicy,
-			)
+	return nil
+}
 
-			if err = powerstate.StartVM(ctx, h.client, kvvm); err != nil {
-				return fmt.Errorf("failed to start VM: %w", err)
-			}
+func (h *SyncPowerStateHandler) handleAlwaysOffPolicy(ctx context.Context,
+	s state.VirtualMachineState,
+	kvvmi *virtv1.VirtualMachineInstance,
+	runPolicy virtv2.RunPolicy,
+) error {
+	if kvvmi != nil {
+		h.recordStopEventf(ctx, s.VirtualMachine().Current(),
+			"Stop initiated by controller to ensure %s policy",
+			runPolicy,
+		)
+
+		err := h.client.Delete(ctx, kvvmi)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("automatic stop VM for %s policy: delete KVVMI: %w", runPolicy, err)
 		}
 	}
 
 	return nil
 }
 
-func (h *SyncPowerStateHandler) interruptionRunningVM(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) error {
+func (h *SyncPowerStateHandler) handleStartRequest(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, runPolicy virtv2.RunPolicy, isConfigurationApplied bool) error {
+	if !isConfigurationApplied {
+		return h.interruptionRunningVM(ctx, s, kvvm, nil, runPolicy)
+	}
+	h.recordStartEventf(ctx, s.VirtualMachine().Current(), "Start initiated by controller for %v policy", runPolicy)
+	return h.startVM(ctx, kvvm)
+}
+
+func (h *SyncPowerStateHandler) startVM(ctx context.Context, kvvm *virtv1.VirtualMachine) error {
+	if err := powerstate.StartVM(ctx, h.client, kvvm); err != nil {
+		return fmt.Errorf("failed to start VM: %w", err)
+	}
+	return nil
+}
+
+func (h *SyncPowerStateHandler) handleRestart(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, runPolicy virtv2.RunPolicy, isConfigurationApplied bool, reason string) error {
+	if !isConfigurationApplied {
+		return h.interruptionRunningVM(ctx, s, kvvm, kvvmi, runPolicy)
+	}
+	h.recordRestartEventf(ctx, s.VirtualMachine().Current(), "Restart initiated by %s for %s runPolicy", reason, runPolicy)
+	return h.safeRestartVM(ctx, kvvm, kvvmi)
+}
+
+func (h *SyncPowerStateHandler) safeRestartVM(ctx context.Context, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
+	if err := powerstate.SafeRestartVM(ctx, h.client, kvvm, kvvmi); err != nil {
+		return fmt.Errorf("restart VM: %w", err)
+	}
+	return nil
+}
+
+func (h *SyncPowerStateHandler) handleManualPolicy(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, isConfigurationApplied bool, runPolicy virtv2.RunPolicy, shutdownInfo powerstate.ShutdownInfo) error {
+	if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
+		if kvvm.Annotations[annotations.AnnVmRestartRequested] == "true" {
+			if kvvmi.Status.Phase == virtv1.Running {
+				return h.handleRestart(ctx, s, kvvm, kvvmi, runPolicy, isConfigurationApplied, "VMOP")
+			}
+		} else if kvvmi.Status.Phase == virtv1.Succeeded && shutdownInfo.PodCompleted {
+			if shutdownInfo.Reason == powerstate.GuestResetReason {
+				return h.handleRestart(ctx, s, kvvm, kvvmi, runPolicy, isConfigurationApplied, "inside the guest VM")
+			} else {
+				h.recordStopEventf(ctx, s.VirtualMachine().Current(), "Stop initiated from inside the guest VM")
+				return h.deleteSucceededKVVMI(ctx, kvvmi)
+			}
+		}
+	} else if isConfigurationApplied && (kvvm.Annotations[annotations.AnnVmStartRequested] == "true" || kvvm.Annotations[annotations.AnnVmRestartRequested] == "true") {
+		return h.handleStartRequest(ctx, s, kvvm, runPolicy, isConfigurationApplied)
+	}
+	return nil
+}
+
+func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, isConfigurationApplied bool, runPolicy virtv2.RunPolicy, shutdownInfo powerstate.ShutdownInfo) error {
+	if kvvmi == nil {
+		return h.handleStartRequest(ctx, s, kvvm, runPolicy, isConfigurationApplied)
+	}
+
+	if kvvmi.DeletionTimestamp == nil {
+		if kvvm.Annotations[annotations.AnnVmRestartRequested] == "true" && kvvmi.Status.Phase == virtv1.Running {
+			return h.handleRestart(ctx, s, kvvm, kvvmi, runPolicy, isConfigurationApplied, "VMOP")
+		}
+
+		if kvvmi.Status.Phase == virtv1.Succeeded || kvvmi.Status.Phase == virtv1.Failed {
+			if shutdownInfo.PodCompleted {
+				if shutdownInfo.Reason == powerstate.GuestResetReason {
+					return h.handleRestart(ctx, s, kvvm, kvvmi, runPolicy, isConfigurationApplied, "inside the guest VM")
+				}
+			}
+			return h.handleRestart(ctx, s, kvvm, kvvmi, runPolicy, isConfigurationApplied, "controller after stopping from inside the guest VM")
+		}
+	} else if isConfigurationApplied && (kvvm.Annotations[annotations.AnnVmStartRequested] == "true" || kvvm.Annotations[annotations.AnnVmRestartRequested] == "true") {
+		return h.handleStartRequest(ctx, s, kvvm, runPolicy, isConfigurationApplied)
+	}
+	return nil
+}
+
+func (h *SyncPowerStateHandler) handleAlwaysOnUnlessStoppedManuallyPolicy(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, isConfigurationApplied bool, runPolicy virtv2.RunPolicy, shutdownInfo powerstate.ShutdownInfo) error {
+	if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
+		if kvvm.Annotations[annotations.AnnVmRestartRequested] == "true" && kvvmi.Status.Phase == virtv1.Running {
+			return h.handleRestart(ctx, s, kvvm, kvvmi, runPolicy, isConfigurationApplied, "VMOP")
+		}
+
+		if kvvmi.Status.Phase == virtv1.Succeeded {
+			if shutdownInfo.PodCompleted {
+				if shutdownInfo.Reason == powerstate.GuestResetReason {
+					return h.handleRestart(ctx, s, kvvm, kvvmi, runPolicy, isConfigurationApplied, "inside the guest VM")
+				} else {
+					vmPod, err := s.Pod(ctx)
+					if err != nil {
+						return fmt.Errorf("get virtual machine pod: %w", err)
+					}
+					if vmPod != nil && !vmPod.GetObjectMeta().GetDeletionTimestamp().IsZero() {
+						return h.handleRestart(ctx, s, kvvm, kvvmi, runPolicy, isConfigurationApplied, "controller after the deletion of pod VM")
+					}
+					h.recordStopEventf(ctx, s.VirtualMachine().Current(), "Stop initiated from inside the guest VM")
+					return h.deleteSucceededKVVMI(ctx, kvvmi)
+				}
+			}
+		}
+		if kvvmi.Status.Phase == virtv1.Failed {
+			return h.handleRestart(ctx, s, kvvm, kvvmi, runPolicy, isConfigurationApplied, "controller after observing failed guest VM")
+		}
+	} else if isConfigurationApplied && (kvvm.Annotations[annotations.AnnVmStartRequested] == "true" || kvvm.Annotations[annotations.AnnVmRestartRequested] == "true") {
+		return h.handleStartRequest(ctx, s, kvvm, runPolicy, isConfigurationApplied)
+	}
+	return nil
+}
+
+func (h *SyncPowerStateHandler) deleteSucceededKVVMI(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) error {
+	err := h.client.Delete(ctx, kvvmi)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return fmt.Errorf("delete Succeeded KVVMI: %w", err)
+	}
+	return nil
+}
+
+func (h *SyncPowerStateHandler) interruptionRunningVM(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, runPolicy virtv2.RunPolicy) error {
 	h.recordStopEventf(ctx, s.VirtualMachine().Current(),
 		"The VirtualMachine has been interrupted because the provided configuration could not be applied.",
 	)
-	err := addStartAnnotationToKVVM(ctx, h.client, kvvm)
+	if kvvmi != nil {
+		err := h.client.Delete(ctx, kvvmi)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("stop VM for %s policy: delete KVVMI: %w", runPolicy, err)
+		}
+	}
+
+	err := kvvmutil.AddStartAnnotation(ctx, h.client, kvvm)
 	if err != nil {
 		return fmt.Errorf("add annotation to KVVM: %w", err)
 	}

@@ -194,17 +194,29 @@ func (h LifecycleHandler) checkOperationComplete(ctx context.Context, changed *v
 			completedCond.
 				Reason(vmopcondition.ReasonOperationCompleted).
 				Status(metav1.ConditionTrue).
-				Message("Virtual machine is in desired state"),
+				Message(""),
 			&changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
 	// Keep InProgress phase as-is (InProgress), set complete condition to false.
-	conditions.SetCondition(
-		completedCond.
-			Reason(h.vmopSrv.InProgressReasonForType(changed)).
-			Status(metav1.ConditionFalse).
-			Message("Wait until operation completed"),
-		&changed.Status.Conditions)
+	if vm.Status.Phase == virtv2.MachinePending {
+		conditions.SetCondition(
+			completedCond.
+				Reason(h.vmopSrv.InProgressReasonForType(changed)).
+				Status(metav1.ConditionFalse).
+				Message("The request to restart the VirtualMachine has been sent. "+
+					"The VirtualMachine is currently in the 'Pending' phase. "+
+					"We are waiting for it to enter the 'Starting' phase."),
+			&changed.Status.Conditions)
+	} else {
+		conditions.SetCondition(
+			completedCond.
+				Reason(h.vmopSrv.InProgressReasonForType(changed)).
+				Status(metav1.ConditionFalse).
+				Message("Wait until operation completed"),
+			&changed.Status.Conditions)
+	}
+
 	return reconcile.Result{}, nil
 }
