@@ -109,6 +109,7 @@ shell:
 
     - echo ============== Build virt-api =========================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-api ./cmd/virt-api/
+    - chown 64535:64535 /kubevirt-binaries/virt-api
 
     - echo ============== Build virt-chroot ======================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/
