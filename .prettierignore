@@ -5,6 +5,8 @@
 **/werf*.yml
 **/templates
 **/ISSUE_TEMPLATE
+CHANGELOG/*.yml
+CHANGELOG/*.yaml
 crds/embedded
 images/cdi-artifact/__containerized-data-importer*
 images/virt-artifact/__kubevirt*
