@@ -7,7 +7,6 @@ import:
   to: /bin
   after: install
 # Registry configuration is stored in configmap: templates/dvcr/configmap.yaml
-# - image: {{ $.ImageName }}-artifact-builder
 - image: {{ $.ImageName }}-artifact-bins
   add: /relocate/usr/bin
   to: /usr/bin

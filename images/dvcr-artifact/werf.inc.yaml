@@ -11,9 +11,6 @@ git:
     - go.sum
     setup:
     - "**/*.go"
-# mount:
-# - fromPath: ~/go-pkg-cache
-#   to: /go/pkg
 shell:
   install:
   - apt-get -qq update
@@ -32,24 +29,6 @@ shell:
   - go build -ldflags="-s -w" -o /out/dvcr-uploader ./cmd/dvcr-uploader
   - CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/dvcr-cleaner ./cmd/dvcr-cleaner
   - chown -R 64535:64535 /out
-
-{{/*
-# ---
-# image: {{ $.ImageName }}
-# final: false
-# fromImage: base-alt-p11
-# shell:
-#   install:
-#   - |
-#     apt-get update && apt-get install --yes \
-#       ca-certificates \
-#       file \
-#       libnbd==1.19.11-alt1 \
-#       qemu-img==9.1.2-alt1
-#   # Cleanup
-#   - apt-get clean
-#   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-*/}}
 
 ---
 {{- $binaries := "/usr/bin/sh /usr/bin/rm /usr/bin/grep /usr/bin/dvcr-importer /usr/bin/dvcr-uploader /usr/bin/dvcr-cleaner /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd /usr/bin/nbd* /usr/bin/file /usr/share/file/magic /usr/share/file/magic.mgc /etc/magic /usr/bin/mount /usr/bin/umount" }}
@@ -72,8 +51,3 @@ shell:
   setup:
   - |
     /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
-    
-    ls -la /relocate
-    echo "================="
-    ls -la /relocate/usr/bin
-    echo "================="

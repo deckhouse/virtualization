@@ -20,27 +20,3 @@ docker:
   WORKDIR: "/"
   CMD: ["/usr/bin/dvcr-uploader"]
   USER: 64535
-
-{{/*
-# ---
-# {{- $binaries := "/usr/bin/sh /usr/bin/rm /usr/bin/grep /usr/bin/dvcr-uploader /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd /usr/bin/nbd*"}}
-
-# image: {{ $.ImageName }}-bins
-# final: false
-# fromImage: base-alt-p11-binaries
-# import:
-# - image: dvcr-artifact-builder
-#   add: /out
-#   to: /usr/bin
-#   includePaths:
-#   - dvcr-uploader
-#   before: setup
-# shell:
-#   install:
-#   - |
-#     apt-get update && apt-get install --yes \
-#       qemu-img libnbd
-#   setup:
-#   - |
-#     /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
-*/}}
