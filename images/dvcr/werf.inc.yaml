@@ -10,7 +10,7 @@ import:
 # - image: {{ $.ImageName }}-artifact-builder
 - image: {{ $.ImageName }}-artifact-bins
   add: /relocate/usr/bin
-  to: /
+  to: /usr/bin
   includePaths:
   - dvcr-cleaner
   after: install
