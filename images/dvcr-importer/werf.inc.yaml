@@ -18,7 +18,7 @@ git:
     setup: ['*']
 docker:
   WORKDIR: "/"
-  CMD: ["/usr/local/bin/dvcr-importer"]
+  CMD: ["/usr/bin/dvcr-importer"]
   USER: 64535
 
 
