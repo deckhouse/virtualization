@@ -44,6 +44,8 @@ type VirtualMachineState interface {
 	Pod(ctx context.Context) (*corev1.Pod, error)
 	VMBDAList(ctx context.Context) ([]virtv2.VirtualMachineBlockDeviceAttachment, error)
 	VirtualDisk(ctx context.Context, name string) (*virtv2.VirtualDisk, error)
+	VirtualImage(ctx context.Context, name string) (*virtv2.VirtualImage, error)
+	ClusterVirtualImage(ctx context.Context, name string) (*virtv2.ClusterVirtualImage, error)
 	VirtualDisksByName(ctx context.Context) (map[string]*virtv2.VirtualDisk, error)
 	VirtualImagesByName(ctx context.Context) (map[string]*virtv2.VirtualImage, error)
 	ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error)
@@ -191,6 +193,19 @@ func (s *state) VirtualDisk(ctx context.Context, name string) (*virtv2.VirtualDi
 		Name:      name,
 		Namespace: s.vm.Current().GetNamespace(),
 	}, s.client, &virtv2.VirtualDisk{})
+}
+
+func (s *state) VirtualImage(ctx context.Context, name string) (*virtv2.VirtualImage, error) {
+	return object.FetchObject(ctx, types.NamespacedName{
+		Name:      name,
+		Namespace: s.vm.Current().GetNamespace(),
+	}, s.client, &virtv2.VirtualImage{})
+}
+
+func (s *state) ClusterVirtualImage(ctx context.Context, name string) (*virtv2.ClusterVirtualImage, error) {
+	return object.FetchObject(ctx, types.NamespacedName{
+		Name: name,
+	}, s.client, &virtv2.ClusterVirtualImage{})
 }
 
 func (s *state) VirtualDisksByName(ctx context.Context) (map[string]*virtv2.VirtualDisk, error) {

@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"testing"
 
@@ -343,6 +344,20 @@ var _ = Describe("BlockDeviceHandler", func() {
 })
 
 var _ = Describe("BlockDeviceHandler Handle", func() {
+	var (
+		ctx          context.Context
+		recorderMock *eventrecord.EventRecorderLoggerMock
+	)
+
+	BeforeEach(func() {
+		ctx = logger.ToContext(context.TODO(), slog.Default())
+
+		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(_ client.Object, _, _, _ string) {},
+			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
+		}
+	})
+
 	Context("Handle call result based on the number of connected block devices", func() {
 		okBlockDeviceServiceMock := &BlockDeviceServiceMock{
 			CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
@@ -355,13 +370,6 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 			},
 		}
 
-		ctx := logger.ToContext(context.TODO(), slog.Default())
-
-		recorderMock := &eventrecord.EventRecorderLoggerMock{
-			EventFunc:  func(_ client.Object, _, _, _ string) {},
-			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
-		}
-
 		scheme := apiruntime.NewScheme()
 		for _, f := range []func(*apiruntime.Scheme) error{
 			virtv2.AddToScheme,
@@ -369,9 +377,7 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 			corev1.AddToScheme,
 		} {
 			err := f(scheme)
-			if err != nil {
-				Fail(err.Error())
-			}
+			Expect(err).NotTo(HaveOccurred(), "failed to add scheme: %s", err)
 		}
 
 		namespacedName := types.NamespacedName{
@@ -421,6 +427,167 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 			Expect(ok).To(BeTrue())
 			Expect(readyCondition.Status).To(Equal(metav1.ConditionFalse))
 			Expect(readyCondition.Reason).To(Equal(vmcondition.ReasonBlockDeviceLimitExceeded.String()))
+		})
+	})
+
+	Context("When images are hotplugged into a VirtualMachine", func() {
+		It("checks that `VirtualMachine.Status.BlockDeviceRefs` contains the hotplugged images", func() {
+			blockDeviceServiceMock := &BlockDeviceServiceMock{
+				CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+					return 2, nil
+				},
+			}
+
+			scheme := apiruntime.NewScheme()
+			for _, f := range []func(*apiruntime.Scheme) error{
+				virtv2.AddToScheme,
+				virtv1.AddToScheme,
+			} {
+				err := f(scheme)
+				Expect(err).NotTo(HaveOccurred(), "failed to add scheme: %s", err)
+			}
+
+			namespacedVirtualMachine := types.NamespacedName{
+				Namespace: "hotplugged",
+				Name:      "vm-with-hotplugged-images",
+			}
+
+			namespacedVirtualImage := types.NamespacedName{
+				Namespace: "hotplugged",
+				Name:      "vi-hotplug",
+			}
+
+			namespacedClusterVirtualImage := types.NamespacedName{
+				Name: "cvi-hotplug",
+			}
+
+			vi := &virtv2.VirtualImage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedVirtualImage.Name,
+					Namespace: namespacedVirtualImage.Namespace,
+				},
+				Spec: virtv2.VirtualImageSpec{},
+				Status: virtv2.VirtualImageStatus{
+					Phase: virtv2.ImageReady,
+					Size: virtv2.ImageStatusSize{
+						Unpacked: "200Mi",
+					},
+				},
+			}
+
+			cvi := &virtv2.ClusterVirtualImage{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespacedClusterVirtualImage.Name,
+				},
+				Spec: virtv2.ClusterVirtualImageSpec{},
+				Status: virtv2.ClusterVirtualImageStatus{
+					Phase: virtv2.ImageReady,
+					Size: virtv2.ImageStatusSize{
+						Unpacked: "200Mi",
+					},
+				},
+			}
+
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedVirtualMachine.Name,
+					Namespace: namespacedVirtualMachine.Namespace,
+				},
+				Spec: virtv2.VirtualMachineSpec{},
+				Status: virtv2.VirtualMachineStatus{
+					Conditions: []metav1.Condition{
+						{
+							Status:  metav1.ConditionUnknown,
+							Type:    vmcondition.TypeBlockDevicesReady.String(),
+							Reason:  conditions.ReasonUnknown.String(),
+							Message: "",
+						},
+					},
+				},
+			}
+
+			cviTarget := "sdb"
+			viTarget := "sdc"
+			kvvmi := &virtv1.VirtualMachineInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedVirtualMachine.Name,
+					Namespace: namespacedVirtualMachine.Namespace,
+				},
+				Status: virtv1.VirtualMachineInstanceStatus{
+					VolumeStatus: []virtv1.VolumeStatus{
+						{
+							Name:   fmt.Sprintf("cvi-%s", namespacedClusterVirtualImage.Name),
+							Target: cviTarget,
+							Phase:  virtv1.VolumeReady,
+						},
+						{
+							Name:   fmt.Sprintf("vi-%s", namespacedVirtualImage.Name),
+							Target: viTarget,
+							Phase:  virtv1.VolumeReady,
+						},
+					},
+				},
+			}
+
+			vmbdaVi := &virtv2.VirtualMachineBlockDeviceAttachment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedVirtualImage.Name,
+					Namespace: namespacedVirtualImage.Namespace,
+				},
+				Spec: virtv2.VirtualMachineBlockDeviceAttachmentSpec{
+					VirtualMachineName: namespacedVirtualMachine.Name,
+					BlockDeviceRef: virtv2.VMBDAObjectRef{
+						Kind: virtv2.VMBDAObjectRefKindVirtualImage,
+						Name: namespacedVirtualImage.Name,
+					},
+				},
+				Status: virtv2.VirtualMachineBlockDeviceAttachmentStatus{
+					Phase: virtv2.BlockDeviceAttachmentPhaseAttached,
+				},
+			}
+
+			vmbdaCvi := &virtv2.VirtualMachineBlockDeviceAttachment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedClusterVirtualImage.Name,
+					Namespace: namespacedVirtualMachine.Namespace,
+				},
+				Spec: virtv2.VirtualMachineBlockDeviceAttachmentSpec{
+					VirtualMachineName: namespacedVirtualMachine.Name,
+					BlockDeviceRef: virtv2.VMBDAObjectRef{
+						Kind: virtv2.VMBDAObjectRefKindClusterVirtualImage,
+						Name: namespacedClusterVirtualImage.Name,
+					},
+				},
+				Status: virtv2.VirtualMachineBlockDeviceAttachmentStatus{
+					Phase: virtv2.BlockDeviceAttachmentPhaseAttached,
+				},
+			}
+
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvmi, vi, cvi, vmbdaVi, vmbdaCvi).Build()
+			vmResource := service.NewResource(namespacedVirtualMachine, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			_ = vmResource.Fetch(ctx)
+			vmState := state.New(fakeClient, vmResource)
+
+			handler := NewBlockDeviceHandler(fakeClient, recorderMock, blockDeviceServiceMock)
+			_, err := handler.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred(), "failed to handle VirtualMachineState: %s", err)
+			vm = vmState.VirtualMachine().Changed()
+			for _, bd := range vm.Status.BlockDeviceRefs {
+				Expect(bd.Attached).To(BeTrue(), "`attached` field should be `true`")
+				Expect(bd.Hotplugged).To(BeTrue(), "`hotplugged` field should be `true`")
+				switch bd.Kind {
+				case virtv2.ClusterVirtualImageKind:
+					Expect(bd.Name).To(Equal(namespacedClusterVirtualImage.Name), "`Name` should be %q", namespacedClusterVirtualImage.Name)
+					Expect(bd.VirtualMachineBlockDeviceAttachmentName).To(Equal(namespacedClusterVirtualImage.Name), "`VirtualMachineBlockDeviceAttachmentName` should be %q", namespacedClusterVirtualImage.Name)
+					Expect(bd.Size).To(Equal(cvi.Status.Size.Unpacked), "unpacked size of image should be %s", cvi.Status.Size.Unpacked)
+					Expect(bd.Target).To(Equal(cviTarget), "`target` field should be %s", cviTarget)
+				case virtv2.VirtualImageKind:
+					Expect(bd.Name).To(Equal(namespacedVirtualImage.Name), "`Name` should be %q", namespacedVirtualImage.Name)
+					Expect(bd.VirtualMachineBlockDeviceAttachmentName).To(Equal(namespacedVirtualImage.Name), "`VirtualMachineBlockDeviceAttachmentName` should be %q", namespacedVirtualImage.Name)
+					Expect(bd.Size).To(Equal(vi.Status.Size.Unpacked), "unpacked size of image should be %s", vi.Status.Size.Unpacked)
+					Expect(bd.Target).To(Equal(viTarget), "`target` field should be %s", viTarget)
+				}
+			}
 		})
 	})
 })
