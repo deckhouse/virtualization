@@ -254,12 +254,10 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
-func WaitVmReady(waitAgent bool, opts kc.WaitOptions) {
+func WaitVmReady(opts kc.WaitOptions) {
 	GinkgoHelper()
 	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
-	if waitAgent {
-		WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)
-	}
+	WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)
 }
 
 func WaitConditionIsTrueByLabel(resource kc.Resource, conditionName string, opts kc.WaitOptions) {
