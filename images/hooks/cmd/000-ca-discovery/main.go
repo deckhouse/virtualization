@@ -82,12 +82,12 @@ func handlerModuleCommonCA(_ context.Context, input *pkg.HookInput) error {
 	var rootCA CASecret
 
 	if len(ca_secret) == 0 {
-		input.Logger.Info(fmt.Sprintf("[ModuleCommonCA] No module's common CA certificate (in secret %s) found. Just waiting for it.", common.MODULE_NAME))
+		input.Logger.Info(fmt.Sprintf("[ModuleCommonCA] No module's common CA certificate (in secret %s) found. Nothing to do here, next hook should generate CA pair.", common.MODULE_NAME))
 
 		return nil
 	}
 
-	// CA secret founded, decode it and save to Values
+	// CA secret is found, decode it and save to Values.
 	err := ca_secret[0].UnmarhalTo(&rootCA)
 	if err != nil {
 		return fmt.Errorf("unmarshalTo: %w", err)
