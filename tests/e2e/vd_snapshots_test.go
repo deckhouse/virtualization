@@ -316,8 +316,8 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 
 	Context("When virtual machines are applied:", func() {
 		It("checks VMs phases", func() {
-			By("VMs should be running")
-			WaitVmRunning(true, kc.WaitOptions{
+			By("VMs should be ready")
+			WaitVmReady(true, kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,

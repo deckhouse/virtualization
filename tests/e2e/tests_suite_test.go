@@ -49,7 +49,6 @@ const (
 	PhaseRunning              = "Running"
 	PhaseWaitForUserUpload    = "WaitForUserUpload"
 	PhaseWaitForFirstConsumer = "WaitForFirstConsumer"
-	AgentReadyCondition       = "AgentReady"
 )
 
 var (
