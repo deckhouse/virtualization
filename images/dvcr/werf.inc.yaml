@@ -9,7 +9,7 @@ import:
 # Registry configuration is stored in configmap: templates/dvcr/configmap.yaml
 # - image: {{ $.ImageName }}-artifact-builder
 - image: {{ $.ImageName }}-artifact-bins
-  add: /relocate
+  add: /relocate/usr/bin
   to: /
   includePaths:
   - dvcr-cleaner
