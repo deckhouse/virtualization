@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-from: distroless
+fromImage: distroless
 import:
 - image: virt-artifact
   add: /kubevirt-binaries/
