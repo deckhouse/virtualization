@@ -186,7 +186,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 
 			It("checks VM phase and condition status after changing", func() {
-				By("VM should be in ready")
+				By("VM should be ready")
 				WaitVmReady(kc.WaitOptions{
 					Labels:    notExistingVmClassChanging,
 					Namespace: conf.Namespace,
