@@ -122,6 +122,7 @@ shell:
 
     - echo ============== Build virt-controller ==================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/
+    - chown 64535:64535 /kubevirt-binaries/virt-api
 
     - echo ============== Build virt-operator ====================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/

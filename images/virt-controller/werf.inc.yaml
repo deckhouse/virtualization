@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.DISTROLESS_ALT_P11 }}
+from: distroless
 import:
 - image: virt-artifact
   add: /kubevirt-binaries/
@@ -19,4 +19,4 @@ import:
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-controller/BUILD.bazel
 docker:
   ENTRYPOINT: ["/usr/bin/virt-controller"]
-  USER: 1001
+  USER: 64535
