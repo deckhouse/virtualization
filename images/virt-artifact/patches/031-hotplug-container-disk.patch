@@ -869,10 +869,10 @@ index fa4e86ee17..c40f1fad89 100644
  			pvcName := storagetypes.PVCNameFromVirtVolume(&volume)
 diff --git a/pkg/virt-handler/container-disk/hotplug.go b/pkg/virt-handler/container-disk/hotplug.go
 new file mode 100644
-index 0000000000..fa3a7c39af
+index 0000000000..993d1be31b
 --- /dev/null
 +++ b/pkg/virt-handler/container-disk/hotplug.go
-@@ -0,0 +1,667 @@
+@@ -0,0 +1,676 @@
 +package container_disk
 +
 +import (
@@ -1209,13 +1209,22 @@ index 0000000000..fa3a7c39af
 +}
 +
 +func (m *hotplugMounter) getMountedVolumesInWorld(vmi *v1.VirtualMachineInstance, virtLauncherUID types.UID) ([]vmiMountTargetEntry, error) {
++	if vmi == nil || virtLauncherUID == "" {
++		return nil, nil
++	}
 +	path, err := m.hotplugManager.GetHotplugTargetPodPathOnHost(virtLauncherUID)
 +	if err != nil {
++		if os.IsNotExist(err) {
++			return nil, nil
++		}
 +		return nil, err
 +	}
 +	rawPath := unsafepath.UnsafeAbsolute(path.Raw())
 +	entries, err := os.ReadDir(rawPath)
 +	if err != nil {
++		if os.IsNotExist(err) {
++			return nil, nil
++		}
 +		return nil, err
 +	}
 +	var volumes []string

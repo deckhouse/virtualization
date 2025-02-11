@@ -21,7 +21,7 @@ docker:
   ENTRYPOINT: ["/usr/bin/cdi-controller", "-alsologtostderr"]
   USER: 64535
 ---
-{{- $binaries := "/usr/bin/cat" }}
+{{- $binaries := "/usr/bin/cat /usr/bin/bash /usr/bin/echo" }}
 
 image: {{ $.ImageName }}-bins
 final: false

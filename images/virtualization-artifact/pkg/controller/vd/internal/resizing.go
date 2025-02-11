@@ -19,9 +19,12 @@ package internal
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -117,58 +120,67 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return reconcile.Result{}, nil
 	}
 
+	if isResizeNeeded(vdSpecSize, &pvcSpecSize) {
+		// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
+		return h.ResizeNeeded(ctx, vd, pvc, cb, log)
+	} else {
+		// Expected disk size is NOT GREATER THAN expected pvc size: no resize needed since downsizing is not possible, and resizing to the same value makes no sense.
+		return h.ResizeNotNeeded(vd, condition, cb)
+	}
+}
+
+func (h ResizingHandler) ResizeNeeded(
+	ctx context.Context,
+	vd *v1alpha2.VirtualDisk,
+	pvc *corev1.PersistentVolumeClaim,
+	cb *conditions.ConditionBuilder,
+	log *slog.Logger,
+) (reconcile.Result, error) {
+	snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
+	if snapshotting.Status == metav1.ConditionTrue {
+		h.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonVDResizingNotAvailable,
+			"The virtual disk cannot be selected for resizing as it is currently snapshotting.",
+		)
+
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ResizingNotAvailable).
+			Message("The virtual disk cannot be selected for resizing as it is currently snapshotting.")
+		return reconcile.Result{}, nil
+	}
+
 	storageClassReadyCondition, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 
-	// Expected disk size is GREATER THAN expected pvc size: resize needed, resizing to a larger size.
-	if vdSpecSize != nil && vdSpecSize.Cmp(pvcSpecSize) == common.CmpGreater {
-		snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
-		if snapshotting.Status == metav1.ConditionTrue {
-			h.recorder.Event(
-				vd,
-				corev1.EventTypeNormal,
-				v1alpha2.ReasonVDResizingNotAvailable,
-				"The virtual disk cannot be selected for resizing as it is currently snapshotting.",
-			)
-
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.ResizingNotAvailable).
-				Message("The virtual disk cannot be selected for resizing as it is currently snapshotting.")
-			return reconcile.Result{}, nil
-		}
-
-		switch storageClassReadyCondition.Status {
-		case metav1.ConditionTrue:
-			err = h.diskService.Resize(ctx, pvc, *vdSpecSize)
-			if err != nil {
-				if k8serrors.IsForbidden(err) {
-					cb.
-						Status(metav1.ConditionFalse).
-						Reason(vdcondition.ResizingNotAvailable).
-						Message(fmt.Sprintf("Disk resizing is not allowed: %s.", err.Error()))
-					return reconcile.Result{}, nil
-				}
-				return reconcile.Result{}, err
-			}
-
-			h.recorder.Event(
-				vd,
-				corev1.EventTypeNormal,
-				v1alpha2.ReasonVDResizingStarted,
-				"The virtual disk resizing has started",
-			)
-
-		case metav1.ConditionFalse:
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vdcondition.ResizingNotRequested).
-				Message("Disk resizing is not allowed: Storage class is not ready")
-		case metav1.ConditionUnknown:
+	switch storageClassReadyCondition.Status {
+	case metav1.ConditionTrue:
+		if vd.Spec.PersistentVolumeClaim.Size == nil {
 			cb.
 				Status(metav1.ConditionUnknown).
 				Reason(conditions.ReasonUnknown).
 				Message("")
+			return reconcile.Result{}, errors.New("PersistentVolumeClaim does not have a size")
 		}
+
+		err := h.diskService.Resize(ctx, pvc, *vd.Spec.PersistentVolumeClaim.Size)
+		if err != nil {
+			if k8serrors.IsForbidden(err) {
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vdcondition.ResizingNotAvailable).
+					Message(fmt.Sprintf("Disk resizing is not allowed: %s.", err.Error()))
+			}
+			return reconcile.Result{}, err
+		}
+
+		h.recorder.Event(
+			vd,
+			corev1.EventTypeNormal,
+			v1alpha2.ReasonVDResizingStarted,
+			"The virtual disk resizing has started",
+		)
 
 		log.Info("The virtual disk resizing has started")
 
@@ -177,11 +189,27 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.InProgress).
 			Message("The virtual disk resizing has started.")
-		return reconcile.Result{}, nil
+	case metav1.ConditionFalse:
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ResizingNotAvailable).
+			Message("Disk resizing is not allowed: Storage class is not ready")
+	case metav1.ConditionUnknown:
+		cb.
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Message("")
 	}
 
-	// Expected disk size is NOT GREATER THAN expected pvc size: no resize needed since downsizing is not possible, and resizing to the same value makes no sense.
-	switch condition.Reason {
+	return reconcile.Result{}, nil
+}
+
+func (h ResizingHandler) ResizeNotNeeded(
+	vd *v1alpha2.VirtualDisk,
+	resizingCondition metav1.Condition,
+	cb *conditions.ConditionBuilder,
+) (reconcile.Result, error) {
+	switch resizingCondition.Reason {
 	case vdcondition.InProgress.String(), vdcondition.Resized.String():
 		h.recorder.Event(
 			vd,
@@ -202,4 +230,8 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func isResizeNeeded(vdSpecSize, pvcSpecSize *resource.Quantity) bool {
+	return vdSpecSize != nil && pvcSpecSize != nil && vdSpecSize.Cmp(*pvcSpecSize) == common.CmpGreater
 }

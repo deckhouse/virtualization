@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,7 +26,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -176,8 +179,296 @@ var _ = Describe("Resizing handler Run", func() {
 		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
 		Expect(resized.Reason).To(Equal(vdcondition.Resized.String()))
 	})
+
+	DescribeTable("Resizing handler Handle", func(args handleTestArgs) {
+		vd := &virtv2.VirtualDisk{
+			Spec: virtv2.VirtualDiskSpec{},
+			Status: virtv2.VirtualDiskStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.ResizingType.String(),
+						Status: metav1.ConditionUnknown,
+						Reason: conditions.ReasonUnknown.String(),
+					},
+					{
+						Type:   vdcondition.ReadyType.String(),
+						Status: args.expectedReadyConditionStatus,
+						Reason: conditions.ReasonUnknown.String(),
+					},
+					{
+						Type:   vdcondition.StorageClassReadyType.String(),
+						Status: metav1.ConditionTrue,
+						Reason: vdcondition.StorageClassReady.String(),
+					},
+				},
+				Phase: args.expectedVdPhase,
+			},
+		}
+
+		if args.isDiskDeleting {
+			vd.DeletionTimestamp = &metav1.Time{}
+		}
+
+		diskService := &DiskServiceMock{
+			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				if args.isPVCGetError {
+					return nil, errors.New("test error")
+				}
+				return args.pvc, nil
+			},
+			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
+				return nil
+			},
+		}
+
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+
+		handler := NewResizingHandler(recorder, diskService)
+		result, err := handler.Handle(testContext(), vd)
+		Expect(result).To(Equal(reconcile.Result{}))
+		if args.isErrorNil {
+			Expect(err).To(BeNil())
+		} else {
+			Expect(err).To(HaveOccurred())
+		}
+		Expect(vd.Status.Phase).To(Equal(args.expectedVdPhase))
+	},
+		Entry("Virtual Disk deleting", handleTestArgs{
+			isDiskDeleting:               true,
+			isPVCGetError:                false,
+			pvc:                          nil,
+			isErrorNil:                   true,
+			expectedReadyConditionStatus: metav1.ConditionUnknown,
+			expectedVdPhase:              virtv2.DiskTerminating,
+		}),
+		Entry("Virtual Disk is not ready", handleTestArgs{
+			isDiskDeleting:               false,
+			isPVCGetError:                false,
+			pvc:                          nil,
+			isErrorNil:                   true,
+			expectedReadyConditionStatus: metav1.ConditionFalse,
+			expectedVdPhase:              virtv2.DiskPending,
+		}),
+		Entry("PVC get error", handleTestArgs{
+			isDiskDeleting:               false,
+			isPVCGetError:                true,
+			pvc:                          nil,
+			isErrorNil:                   false,
+			expectedReadyConditionStatus: metav1.ConditionTrue,
+			expectedVdPhase:              virtv2.DiskPending,
+		}),
+		Entry("PVC is nil", handleTestArgs{
+			isDiskDeleting:               false,
+			isPVCGetError:                false,
+			pvc:                          nil,
+			isErrorNil:                   true,
+			expectedReadyConditionStatus: metav1.ConditionTrue,
+			expectedVdPhase:              virtv2.DiskPending,
+		}),
+		Entry("PVC is not bound", handleTestArgs{
+			isDiskDeleting: false,
+			isPVCGetError:  false,
+			pvc: &corev1.PersistentVolumeClaim{
+				Status: corev1.PersistentVolumeClaimStatus{
+					Phase: corev1.ClaimPending,
+				},
+			},
+			isErrorNil:                   true,
+			expectedReadyConditionStatus: metav1.ConditionTrue,
+			expectedVdPhase:              virtv2.DiskPending,
+		}),
+		Entry("Everything is fine", handleTestArgs{
+			isDiskDeleting: false,
+			isPVCGetError:  false,
+			pvc: &corev1.PersistentVolumeClaim{
+				Status: corev1.PersistentVolumeClaimStatus{
+					Phase: corev1.ClaimBound,
+				},
+			},
+			isErrorNil:                   true,
+			expectedReadyConditionStatus: metav1.ConditionTrue,
+			expectedVdPhase:              virtv2.DiskPending,
+		}),
+	)
+
+	DescribeTable("Resizing handler ResizeNeeded", func(args resizeNeededArgs) {
+		vd := &virtv2.VirtualDisk{
+			Spec: virtv2.VirtualDiskSpec{
+				PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+					Size: ptr.To(resource.Quantity{}),
+				},
+			},
+			Status: virtv2.VirtualDiskStatus{
+				Conditions: []metav1.Condition{
+					{
+						Type:   vdcondition.ResizingType.String(),
+						Status: metav1.ConditionUnknown,
+						Reason: conditions.ReasonUnknown.String(),
+					},
+					{
+						Type:   vdcondition.SnapshottingType.String(),
+						Status: args.snapshottingStatus,
+						Reason: conditions.ReasonUnknown.String(),
+					},
+					{
+						Type:   vdcondition.StorageClassReadyType.String(),
+						Status: args.storageClassReadyStatus,
+						Reason: vdcondition.StorageClassReady.String(),
+					},
+				},
+				Phase: virtv2.DiskPending,
+			},
+		}
+
+		resizeCalled := false
+		diskService := &DiskServiceMock{
+			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
+				resizeCalled = true
+				if args.isResizeReturnErr {
+					return errors.New("test error")
+				}
+				return nil
+			},
+		}
+
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+
+		log := logger.FromContext(testContext()).With(logger.SlogHandler("resizing"))
+
+		handler := NewResizingHandler(recorder, diskService)
+		cb := conditions.NewConditionBuilder(vdcondition.ResizingType)
+
+		result, err := handler.ResizeNeeded(testContext(), vd, pvc, cb, log)
+
+		Expect(result).To(Equal(reconcile.Result{}))
+		if args.expectedHaveError {
+			Expect(err).To(HaveOccurred())
+		} else {
+			Expect(err).To(BeNil())
+		}
+		Expect(vd.Status.Phase).To(Equal(args.expectedPhase))
+		Expect(resizeCalled).To(Equal(args.expectedResizeCalled))
+		Expect(cb.Condition().Status).To(Equal(args.expectedStatus))
+		Expect(cb.Condition().Reason).To(Equal(args.expectedReason))
+	},
+		Entry("Snapshotting", resizeNeededArgs{
+			snapshottingStatus:      metav1.ConditionTrue,
+			storageClassReadyStatus: metav1.ConditionUnknown,
+			isResizeReturnErr:       false,
+			expectedResizeCalled:    false,
+			expectedHaveError:       false,
+			expectedPhase:           virtv2.DiskPending,
+			expectedStatus:          metav1.ConditionFalse,
+			expectedReason:          vdcondition.ResizingNotAvailable.String(),
+		}),
+		Entry("StorageClass not ready", resizeNeededArgs{
+			snapshottingStatus:      metav1.ConditionFalse,
+			storageClassReadyStatus: metav1.ConditionFalse,
+			isResizeReturnErr:       false,
+			expectedResizeCalled:    false,
+			expectedHaveError:       false,
+			expectedPhase:           virtv2.DiskPending,
+			expectedStatus:          metav1.ConditionFalse,
+			expectedReason:          vdcondition.ResizingNotAvailable.String(),
+		}),
+		Entry("StorageClassReady is Unknown", resizeNeededArgs{
+			snapshottingStatus:      metav1.ConditionFalse,
+			storageClassReadyStatus: metav1.ConditionUnknown,
+			isResizeReturnErr:       false,
+			expectedResizeCalled:    false,
+			expectedHaveError:       false,
+			expectedPhase:           virtv2.DiskPending,
+			expectedStatus:          metav1.ConditionUnknown,
+			expectedReason:          conditions.ReasonUnknown.String(),
+		}),
+		Entry("Resize return err", resizeNeededArgs{
+			snapshottingStatus:      metav1.ConditionFalse,
+			storageClassReadyStatus: metav1.ConditionTrue,
+			isResizeReturnErr:       true,
+			expectedResizeCalled:    true,
+			expectedHaveError:       true,
+			expectedPhase:           virtv2.DiskPending,
+			expectedStatus:          metav1.ConditionUnknown,
+			expectedReason:          conditions.ReasonUnknown.String(),
+		}),
+		Entry("Positive case", resizeNeededArgs{
+			snapshottingStatus:      metav1.ConditionFalse,
+			storageClassReadyStatus: metav1.ConditionTrue,
+			isResizeReturnErr:       false,
+			expectedResizeCalled:    true,
+			expectedHaveError:       false,
+			expectedPhase:           virtv2.DiskResizing,
+			expectedStatus:          metav1.ConditionTrue,
+			expectedReason:          vdcondition.InProgress.String(),
+		}),
+	)
+
+	DescribeTable("Resizing Handler ResizeNotNeeded", func(args resizeNotNeededArgs) {
+		recorder := &eventrecord.EventRecorderLoggerMock{
+			EventFunc: func(_ client.Object, _, _, _ string) {},
+		}
+
+		handler := NewResizingHandler(recorder, nil)
+		cb := conditions.NewConditionBuilder(vdcondition.ResizingType)
+
+		resizingCondition := metav1.Condition{
+			Type:    vdcondition.ResizingType.String(),
+			Reason:  args.resizingConditionReason,
+			Status:  metav1.ConditionUnknown,
+			Message: "",
+		}
+
+		result, err := handler.ResizeNotNeeded(nil, resizingCondition, cb)
+
+		Expect(result).To(Equal(reconcile.Result{}))
+		Expect(err).To(BeNil())
+		Expect(cb.Condition().Status).To(Equal(metav1.ConditionFalse))
+		Expect(cb.Condition().Reason).To(Equal(args.expectedReason))
+	},
+		Entry("Resizing in progress", resizeNotNeededArgs{
+			resizingConditionReason: vdcondition.InProgress.String(),
+			expectedReason:          vdcondition.Resized.String(),
+		}),
+		Entry("Resized", resizeNotNeededArgs{
+			resizingConditionReason: vdcondition.Resized.String(),
+			expectedReason:          vdcondition.Resized.String(),
+		}),
+		Entry("Default", resizeNotNeededArgs{
+			resizingConditionReason: conditions.ReasonUnknown.String(),
+			expectedReason:          vdcondition.ResizingNotRequested.String(),
+		}),
+	)
 })
 
 func testContext() context.Context {
 	return logger.ToContext(context.Background(), slog.Default())
+}
+
+type handleTestArgs struct {
+	isDiskDeleting               bool
+	isPVCGetError                bool
+	isErrorNil                   bool
+	pvc                          *corev1.PersistentVolumeClaim
+	expectedReadyConditionStatus metav1.ConditionStatus
+	expectedVdPhase              virtv2.DiskPhase
+}
+
+type resizeNeededArgs struct {
+	snapshottingStatus      metav1.ConditionStatus
+	storageClassReadyStatus metav1.ConditionStatus
+	isResizeReturnErr       bool
+	expectedResizeCalled    bool
+	expectedHaveError       bool
+	expectedPhase           virtv2.DiskPhase
+	expectedStatus          metav1.ConditionStatus
+	expectedReason          string
+}
+
+type resizeNotNeededArgs struct {
+	resizingConditionReason string
+	expectedReason          string
 }
