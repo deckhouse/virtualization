@@ -36,6 +36,7 @@ on:
     branches:
       - main
       - pre-alpha
+      - release-*
 
 defaults:
   run:
@@ -76,6 +77,8 @@ jobs:
         id: modules_module_tag
         run: |
           if [[ "${{ github.ref_name }}" == 'pre-alpha' || "${{ github.ref_name }}" == 'main' ]]; then
+            MODULES_MODULE_TAG="${{ github.ref_name }}"
+          elif [[ "${{ github.ref_name }}" =~ release-* ]]; then
             MODULES_MODULE_TAG="${{ github.ref_name }}"
           elif [[ -n "${{ github.event.pull_request.number }}" ]]; then
             MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
