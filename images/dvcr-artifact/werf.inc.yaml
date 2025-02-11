@@ -52,7 +52,7 @@ shell:
 */}}
 
 ---
-{{- $binaries := "/usr/bin/sh /usr/bin/rm /usr/bin/grep /usr/bin/dvcr-importer /usr/bin/dvcr-uploader /usr/bin/dvcr-cleaner /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd /usr/bin/nbd* /usr/bin/file /usr/bin/mount /usr/bin/umount /usr/bin/mkdir" }}
+{{- $binaries := "/usr/bin/sh /usr/bin/rm /usr/bin/grep /usr/bin/dvcr-importer /usr/bin/dvcr-uploader /usr/bin/dvcr-cleaner /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd /usr/bin/nbd* /usr/bin/file /usr/share/file/magic /usr/share/file/magic.mgc /etc/magic /usr/bin/mount /usr/bin/umount" }}
 
 image: {{ $.ImageName }}-bins
 final: false
