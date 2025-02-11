@@ -177,7 +177,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("VMs should be running")
+			By("VMs should be ready")
 			WaitVmReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
@@ -203,7 +203,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be running")
+				By("Virtual machines should be ready")
 				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
@@ -240,7 +240,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 			})
 			It("checks VM phase", func() {
-				By("Virtual machines should be running")
+				By("Virtual machines should be ready")
 				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,

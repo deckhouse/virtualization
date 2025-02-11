@@ -173,7 +173,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("VMs should be running")
+			By("VMs should be ready")
 			WaitVmReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,

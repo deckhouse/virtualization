@@ -179,7 +179,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 	})
 
 	Context("When virtual machines are applied", func() {
-		It("should be running", func() {
+		It("should be ready", func() {
 			WaitVmReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
@@ -231,7 +231,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		})
 
 		Context("When virtual machine is restarted", func() {
-			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
+			It("should be ready", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
 					Namespace: conf.Namespace,
@@ -244,7 +244,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 					cmd := "sudo reboot"
 					ExecSshCommand(vm, cmd)
 				}
-				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+				WaitVmReady(kc.WaitOptions{
 					Labels:    manualLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -310,8 +310,8 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		})
 
 		Context("When virtual machine is restarted", func() {
-			It(fmt.Sprintf("should be in %s phase", PhaseRunning), func() {
-				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+			It("should be ready", func() {
+				WaitVmReady(kc.WaitOptions{
 					Labels:    automaticLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
