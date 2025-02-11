@@ -93,43 +93,43 @@ shell:
 
     - echo ============== Build virt-handler =====================
     - CGO_ENABLED=1 go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
-    
+
     - echo ============== Build virt-launcher-monitor ============
     # virt-launcher-monitor is wrapped in the final image. Add suffix here to prevent image size increasing as effect of file renaming.
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-monitor-orig ./cmd/virt-launcher-monitor/
-    
+
     - echo ============== Build virt-tail ========================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-tail ./cmd/virt-tail/
-    
+
     - echo ============== Build virt-freezer =====================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-freezer ./cmd/virt-freezer/
-    
+
     - echo ============== Build virt-probe =======================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-probe ./cmd/virt-probe/
-    
+
     - echo ============== Build virt-api =========================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-api ./cmd/virt-api/
-    
+
     - echo ============== Build virt-chroot ======================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/
-    
+
     - echo ============== Build virt-exportproxy =================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-exportproxy ./cmd/virt-exportproxy/
-    
+
     - echo ============== Build virt-exportserver ================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-exportserver ./cmd/virt-exportserver/
-   
+
     - echo ============== Build virt-controller ==================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/
-    
+
     - echo ============== Build virt-operator ====================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/
-    
+
     - echo ============== Build csv-generator ====================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/csv-generator ./tools/csv-generator
-    
+
     - echo ============== Build sidecars =========================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/sidecars ./cmd/sidecars/
-    
+
     - echo ============== Build virtctl ==========================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virtctl ./cmd/virtctl/
