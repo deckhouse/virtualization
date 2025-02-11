@@ -41,7 +41,7 @@ jobs:
 
       - name: Fetch PR Data and Send Summary
         run: |
-          node ./.github/scripts/fetch_prs.mjs
+          node ./.github/scripts/prs_notifier.mjs
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           LOOP_WEBHOOK_URL: ${{ secrets.LOOP_WEBHOOK_URL }}

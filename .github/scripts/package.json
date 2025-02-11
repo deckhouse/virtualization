@@ -1,7 +1,7 @@
 {
     "name": "github-action-pr-summary",
     "version": "1.0.0",
-    "main": ".github/scripts/fetch_prs.mjs",
+    "main": ".github/scripts/prs_notifier.mjs",
     "dependencies": {
       "@octokit/core": "^3.2.5",
       "axios": "^0.24.0",
