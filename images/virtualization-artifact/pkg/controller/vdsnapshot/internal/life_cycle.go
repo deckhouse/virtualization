@@ -180,7 +180,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 					cb.Message(fmt.Sprintf(
 						"The virtual machine %q with an attached virtual disk %q is %s: "+
 							"the snapshotting of virtual disk might result in an inconsistent snapshot: "+
-							"virtual machine agent is not ready and virtual machine can not be frozen: "+
+							"virtual machine agent is not ready and virtual machine cannot be frozen: "+
 							"waiting for virtual machine agent to be ready",
 						vm.Name, vd.Name, vm.Status.Phase,
 					))
