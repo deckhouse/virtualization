@@ -58,7 +58,7 @@ image: {{ $.ImageName }}-bins
 final: false
 fromImage: base-alt-p11-binaries
 import:
-- image: dvcr-artifact-builder
+- image: {{ $.ImageName }}-builder
   add: /out
   to: /usr/bin
   before: setup
@@ -72,3 +72,8 @@ shell:
   setup:
   - |
     /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
+    
+    ls -la /relocate
+    echo "================="
+    ls -la /relocate/usr/bin
+    echo "================="
