@@ -211,8 +211,8 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+			By("VMs should be ready")
+			WaitVmReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -268,8 +268,8 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 					Timeout:   MaxWaitTimeout,
 				})
 
-				By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+				By("VMs should be ready")
+				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,

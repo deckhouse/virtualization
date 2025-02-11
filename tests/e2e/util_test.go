@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	. "github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
@@ -251,6 +252,18 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 			log.Fatal(err)
 		}
 	}
+}
+
+func WaitVmReady(opts kc.WaitOptions) {
+	GinkgoHelper()
+	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
+	WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)
+}
+
+func WaitConditionIsTrueByLabel(resource kc.Resource, conditionName string, opts kc.WaitOptions) {
+	GinkgoHelper()
+	opts.For = fmt.Sprintf("condition=%s=True", conditionName)
+	WaitByLabel(resource, opts)
 }
 
 // Useful when require to async await resources filtered by labels.

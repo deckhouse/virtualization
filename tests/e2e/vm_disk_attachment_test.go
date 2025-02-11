@@ -177,8 +177,8 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By(fmt.Sprintf("VMs should be in %s phases", PhaseRunning))
-			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+			By("VMs should be ready")
+			WaitVmReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -203,8 +203,8 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
-				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+				By("Virtual machines should be ready")
+				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -240,8 +240,8 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 			})
 			It("checks VM phase", func() {
-				By(fmt.Sprintf("Virtual machines should be in %s phase", PhaseRunning))
-				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+				By("Virtual machines should be ready")
+				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
