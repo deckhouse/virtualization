@@ -5,9 +5,6 @@ from: {{ $.Images.BASE_ALT_P11 }}
 git:
   - add: /images/{{ $.ImageName }}
     to: /
-    stageDependencies:
-      install:
-      - '**/*'
     includePaths:
     - relocate_binaries.sh
 shell:
