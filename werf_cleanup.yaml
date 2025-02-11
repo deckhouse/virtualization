@@ -7,6 +7,6 @@ cleanup:
       limit:
         in: 168h # keep dev images build during last week which not main|pre-alpha
   - references:
-      branch: /main|pre-alpha/
+      branch: /main|pre-alpha|release-.*/
     imagesPerReference:
       last: 5 # keep 5 images for branches main|pre-alpha
