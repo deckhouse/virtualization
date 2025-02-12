@@ -32,6 +32,7 @@ import (
 	sdsrepvolv1 "github.com/deckhouse/sds-replicated-volume/api/v1alpha1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
@@ -215,7 +216,7 @@ func CheckFileSystemFrozen(vmName string, status v1.ConditionStatus) (string, er
 	}
 
 	for _, condition := range vmObj.Status.Conditions {
-		if condition.Type == "FilesystemFrozen" {
+		if condition.Type == vmcondition.TypeFilesystemFrozen.String() {
 			if condition.Status != status {
 				return condition.Reason, fmt.Errorf("`FilesystemFrozen` status of %q is not %q: %s", vmName, status, condition.Reason)
 			} else {
