@@ -18,11 +18,12 @@ package validator
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"strings"
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/blockdevice"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -33,19 +34,27 @@ func NewNameValidator() *NameValidator {
 }
 
 func (v *NameValidator) ValidateCreate(_ context.Context, vd *virtv2.VirtualDisk) (admission.Warnings, error) {
-	if strings.Contains(vd.ObjectMeta.Name, ".") {
-		return nil, errors.New("VirtualDisk name is invalid: '.' is forbidden, allowed name symbols are [0-9a-zA-Z-]")
+	if strings.Contains(vd.Name, ".") {
+		return nil, fmt.Errorf("the VirtualDisk name %q is invalid: '.' is forbidden, allowed name symbols are [0-9a-zA-Z-]", vd.Name)
+	}
+
+	if len(vd.Name) > blockdevice.MaxDiskNameLen {
+		return nil, fmt.Errorf("the VirtualDisk name %q is too long: it must be no more than %d characters", vd.Name, blockdevice.MaxDiskNameLen)
 	}
 
 	return nil, nil
 }
 
 func (v *NameValidator) ValidateUpdate(_ context.Context, _, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
-	if strings.Contains(newVD.ObjectMeta.Name, ".") {
-		var warnings admission.Warnings
-		warnings = append(warnings, "VirtualDisk name is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another disk with valid name to avoid problems with future updates.")
-		return warnings, nil
+	var warnings admission.Warnings
+
+	if strings.Contains(newVD.Name, ".") {
+		warnings = append(warnings, fmt.Sprintf("the VirtualDisk name %q is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another disk with valid name to avoid problems with future updates.", newVD.Name))
 	}
 
-	return nil, nil
+	if len(newVD.Name) > blockdevice.MaxDiskNameLen {
+		warnings = append(warnings, fmt.Sprintf("the VirtualDisk name %q is too long: it must be no more than %d characters", newVD.Name, blockdevice.MaxDiskNameLen))
+	}
+
+	return warnings, nil
 }
