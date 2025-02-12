@@ -8,6 +8,10 @@ import:
     to: /
     before: setup
 docker:
+  ENV:
+    PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    LANG: ""
+    LC_ALL: POSIX
   USER: 64535
 ---
 image: {{ $.ImageName }}-artifact
@@ -19,13 +23,14 @@ shell:
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
-  - mkdir -p /relocate/bin /relocate/sbin /relocate/etc /relocate/etc/ssl /relocate/usr/bin /relocate/usr/sbin /relocate/usr/share
+  - mkdir -p /relocate/{usr,bin,sbin,etc} /relocate/etc/{pki,ssl} /relocate/usr/{bin,sbin,share}
   - cp -pr /tmp /relocate
   - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /relocate/etc
   - cp -pr /usr/share/ca-certificates /relocate/usr/share
   - cp -pr /usr/share/zoneinfo /relocate/usr/share
   - cp -pr /etc/pki/tls/cert.pem /relocate/etc/ssl
   - cp -pr /etc/pki/tls/certs /relocate/etc/ssl
+  - cp -pr /etc/pki/ca-trust/ /relocate/etc/
   - echo "deckhouse:x:64535:64535:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
   - echo "deckhouse:x:64535:" >> /relocate/etc/group
   - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
