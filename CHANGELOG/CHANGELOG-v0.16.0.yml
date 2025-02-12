@@ -1,0 +1,77 @@
+api:
+  features:
+    - summary: create a network policy for the importer to avoid restrictions during import to dvcr
+      pull_request: https://github.com/deckhouse/virtualization/pull/675
+    - summary: provide dvcr connection error from DataVolume
+      pull_request: https://github.com/deckhouse/virtualization/pull/666
+  fixes:
+    - summary: reduce max len of block device names to avoid errors during vm creation
+      pull_request: https://github.com/deckhouse/virtualization/pull/737
+ci:
+  fixes:
+    - summary: fix ci for release branch build
+      pull_request: https://github.com/deckhouse/virtualization/pull/729
+    - summary: fix import path for cdi images (cloner,controller)
+      pull_request: https://github.com/deckhouse/virtualization/pull/725
+    - summary: fix runner choose
+      pull_request: https://github.com/deckhouse/virtualization/pull/697
+    - summary: cleanup namespaces after e2e tests
+      pull_request: https://github.com/deckhouse/virtualization/pull/682
+core:
+  fixes:
+    - summary: manage pods network priority during a migration using the cilium label
+      pull_request: https://github.com/deckhouse/virtualization/pull/642
+docs:
+  fixes:
+    - summary: fix alert in virtualMachineCIDRs parameter
+      pull_request: https://github.com/deckhouse/virtualization/pull/677
+images:
+  fixes:
+    - summary: images can be successfully created from images on immediate storage class
+      pull_request: https://github.com/deckhouse/virtualization/pull/712
+kubevirt:
+  fixes:
+    - summary: >-
+        Improve unmounting process by cleaning up mount point files and verifying actual mount
+        states
+      pull_request: https://github.com/deckhouse/virtualization/pull/683
+vd:
+  fixes:
+    - summary: add WaitingForFirstConsumer phase for virtual disks created from snapshots
+      pull_request: https://github.com/deckhouse/virtualization/pull/704
+vi:
+  features:
+    - summary: add the ability to create a VirtualImage from a VirtualDiskSnapshot
+      pull_request: https://github.com/deckhouse/virtualization/pull/617
+vm:
+  features:
+    - summary: >-
+        move error about exceeding the allowed number of block devices from
+        DiskAttachmentCapacityAvailable into BlockDevicesReady condition
+      pull_request: https://github.com/deckhouse/virtualization/pull/633
+  fixes:
+    - summary: >-
+        disk serials are now generated using the MD5 hash of the disk uid instead of the disk name
+        itself; this prevents errors caused by recent QEMU changes enforcing a strict 36-character
+        limit on serial numbers
+      pull_request: https://github.com/deckhouse/virtualization/pull/710
+    - summary: truncate prefixes
+      pull_request: https://github.com/deckhouse/virtualization/pull/705
+    - summary: >-
+        Disk serials are now generated using the MD5 hash of the disk name instead of the disk name
+        itself. This prevents errors caused by recent QEMU changes enforcing a strict 36-character
+        limit on serial numbers.
+      pull_request: https://github.com/deckhouse/virtualization/pull/690
+vmbda:
+  fixes:
+    - summary: add serial for hotplug vi, cvi
+      pull_request: https://github.com/deckhouse/virtualization/pull/735
+vmclass:
+  features:
+    - summary: add events about available nodes and sizing policies changed
+      pull_request: https://github.com/deckhouse/virtualization/pull/606
+vmip:
+  features:
+    - summary: add new events
+      pull_request: https://github.com/deckhouse/virtualization/pull/645
+
