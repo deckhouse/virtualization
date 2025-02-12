@@ -1,0 +1,30 @@
+---
+image: {{ $.ImageName }}
+final: false
+from: {{ .Images.BASE_GOLANG_23_BOOKWORM }}
+git:
+- add: /images/{{ $.ImageName }}
+  to: /app/images/hooks
+  stageDependencies:
+    install:
+    - go.mod
+    - go.sum
+    setup:
+    - "**/*.go"
+mount:
+- fromPath: ~/go-pkg-cache
+  to: /go/pkg
+shell:
+  install:
+  - cd /app/images/hooks
+  - go mod download
+  setup:
+  - cd /app/images/hooks
+  - export GOOS=linux
+  - export GOARCH=amd64
+  - export CGO_ENABLED=0
+  - go build -ldflags="-s -w" -a -o /hooks/000-ca-discovery ./cmd/000-ca-discovery
+  - go build -ldflags="-s -w" -o /hooks/001-tls-certificates-controller ./cmd/001-tls-certificates-controller
+  - go build -ldflags="-s -w" -o /hooks/002-tls-certificates-dvcr ./cmd/002-tls-certificates-dvcr
+  - go build -ldflags="-s -w" -o /hooks/003-tls-certificates-api ./cmd/003-tls-certificates-api
+  - go build -ldflags="-s -w" -o /hooks/004-tls-certificates-api-proxy ./cmd/004-tls-certificates-api-proxy

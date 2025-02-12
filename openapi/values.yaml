@@ -17,16 +17,20 @@ properties:
             type: string
       dvcr:
         type: object
+        default: {}
         properties:
           cert:
             type: object
             properties:
               ca:
                 type: string
+                default: ""
               crt:
                 type: string
+                default: ""
               key:
                 type: string
+                default: ""
           passwordRW:
             type: string
           htpasswd:
@@ -37,43 +41,61 @@ properties:
             type: string
       controller:
         type: object
+        default: {}
         properties:
           cert:
             type: object
+            default: {}
             properties:
               ca:
                 type: string
+                default: ""
               crt:
                 type: string
+                default: ""
               key:
                 type: string
+                default: ""
       apiserver:
         type: object
+        default: {}
         properties:
           cert:
             type: object
+            default: {}
             properties:
               ca:
                 type: string
+                default: ""
               crt:
                 type: string
+                default: ""
               key:
                 type: string
+                default: ""
           proxyCert:
             type: object
+            default: {}
             properties:
               ca:
                 type: string
+                default: ""
               crt:
                 type: string
+                default: ""
               key:
                 type: string
+                default: ""
       rootCA:
         type: object
+        default: {}
         properties:
           ca:
             type: string
+            default: ""
           crt:
             type: string
+            default: ""
           key:
             type: string
+            default: ""
