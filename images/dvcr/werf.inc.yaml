@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: distroless
 import:
 - image: {{ $.ImageName }}-builder
   add: /container-registry-binary
