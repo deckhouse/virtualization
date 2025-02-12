@@ -506,7 +506,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 		})
 
 		It("checks `FileSystemFrozen` status of VMs", func() {
-			By(fmt.Sprintf("Status should be %s", PhaseReady))
+			By("Status should not be `Frozen`")
 			vmObjects := virtv2.VirtualMachineList{}
 			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: conf.Namespace})
 			Expect(err).NotTo(HaveOccurred(), "cannot get virtual machines\nstderr: %s", err)

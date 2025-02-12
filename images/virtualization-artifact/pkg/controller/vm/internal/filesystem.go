@@ -59,12 +59,15 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		Status(metav1.ConditionUnknown).
 		Generation(changed.GetGeneration())
 
-	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
+	defer func() {
+		if cb.Condition().Status == metav1.ConditionTrue {
+			conditions.SetCondition(cb, &changed.Status.Conditions)
+		} else {
+			conditions.RemoveCondition(vmcondition.TypeFilesystemFrozen, &changed.Status.Conditions)
+		}
+	}()
 
 	if kvvmi == nil {
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonFilesystemNotReady).
-			Message("The virtual machine is not running.")
 		return reconcile.Result{}, nil
 	}
 
@@ -81,8 +84,6 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		return reconcile.Result{}, nil
 	}
 
-	cb.Status(metav1.ConditionFalse).
-		Reason(vmcondition.ReasonFilesystemNotFrozen)
 	return reconcile.Result{}, nil
 }
 
