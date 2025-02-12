@@ -500,11 +500,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 
 				for _, snapshot := range vdSnapshots.Items {
 					Expect(snapshot.Status.Consistent).ToNot(BeNil())
-					consistent := false
-					if snapshot.Status.Consistent != nil {
-						consistent = *snapshot.Status.Consistent
-					}
-					Expect(consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
+					Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
 				}
 			})
 		})
