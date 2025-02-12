@@ -1,7 +1,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vdsnapshot
+  name: cvi-oref-vdsnapshot
 spec:
   dataSource:
     type: "ObjectRef"
