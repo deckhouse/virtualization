@@ -292,7 +292,7 @@ func NewAttachmentDiskFromVirtualDisk(vd *virtv2.VirtualDisk) *AttachmentDisk {
 func NewAttachmentDiskFromVirtualImage(vi *virtv2.VirtualImage) *AttachmentDisk {
 	serial := ""
 	if !vi.Status.CDROM {
-		kvbuilder.GenerateSerialFromObject(vi)
+		serial = kvbuilder.GenerateSerialFromObject(vi)
 	}
 	ad := AttachmentDisk{
 		Kind:         virtv2.ImageDevice,
@@ -315,7 +315,7 @@ func NewAttachmentDiskFromVirtualImage(vi *virtv2.VirtualImage) *AttachmentDisk 
 func NewAttachmentDiskFromClusterVirtualImage(cvi *virtv2.ClusterVirtualImage) *AttachmentDisk {
 	serial := ""
 	if !cvi.Status.CDROM {
-		kvbuilder.GenerateSerialFromObject(cvi)
+		serial = kvbuilder.GenerateSerialFromObject(cvi)
 	}
 	return &AttachmentDisk{
 		Kind:         virtv2.ClusterImageDevice,
