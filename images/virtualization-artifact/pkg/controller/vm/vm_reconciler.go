@@ -222,7 +222,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVd.Status.Conditions)
 				newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVd.Status.Conditions)
 
-				if oldVd.Status.Phase != newVd.Status.Phase || oldInUseCondition.Status != newInUseCondition.Status {
+				if oldVd.Status.Phase != newVd.Status.Phase || oldInUseCondition != newInUseCondition {
 					return true
 				}
 

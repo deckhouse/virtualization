@@ -225,7 +225,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVD.Status.Conditions)
 				newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVD.Status.Conditions)
 
-				if oldVD.Status.Phase != newVD.Status.Phase || len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) || oldInUseCondition.Status != newInUseCondition.Status {
+				if oldVD.Status.Phase != newVD.Status.Phase || len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) || oldInUseCondition != newInUseCondition {
 					return true
 				}
 
