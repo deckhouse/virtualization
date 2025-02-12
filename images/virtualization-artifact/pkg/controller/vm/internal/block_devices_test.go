@@ -109,8 +109,8 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 				anyVd.Name: anyVd,
 			}
 
-			allowed := h.areVirtualDisksAllowedToUse(vds)
-			Expect(allowed).To(BeFalse())
+			allowedCount := h.areVirtualDisksAllowedToUse(vds)
+			Expect(allowedCount).To(Equal(2))
 		})
 	})
 
@@ -143,7 +143,7 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 			}
 
 			allowed := h.areVirtualDisksAllowedToUse(vds)
-			Expect(allowed).To(BeFalse())
+			Expect(allowed).To(Equal(2))
 		})
 	})
 
@@ -155,7 +155,7 @@ var _ = Describe("func areVirtualDisksAllowedToUse", func() {
 			}
 
 			allowed := h.areVirtualDisksAllowedToUse(vds)
-			Expect(allowed).To(BeTrue())
+			Expect(allowed).To(Equal(2))
 		})
 	})
 })

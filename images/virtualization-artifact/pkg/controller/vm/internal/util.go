@@ -103,6 +103,11 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 			}
 		}
 
+		if vm.Status.Phase == virtv2.MachinePending &&
+			(vm.Spec.RunPolicy == virtv2.AlwaysOnPolicy || vm.Spec.RunPolicy == virtv2.AlwaysOnUnlessStoppedManually) {
+			return virtv2.MachinePending
+		}
+
 		return virtv2.MachineStopped
 	},
 	// VirtualMachineStatusProvisioning indicates that cluster resources associated with the virtual machine
