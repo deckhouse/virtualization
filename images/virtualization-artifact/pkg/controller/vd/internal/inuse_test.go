@@ -71,7 +71,7 @@ var _ = Describe("InUseHandler", func() {
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		})
 
 		It("must set condition generation equal resource generation", func() {
@@ -202,7 +202,7 @@ var _ = Describe("InUseHandler", func() {
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		})
 	})
 
@@ -371,8 +371,8 @@ var _ = Describe("InUseHandler", func() {
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),
-							Reason: conditions.ReasonUnknown.String(),
-							Status: metav1.ConditionUnknown,
+							Reason: vdcondition.UsedForImageCreation.String(),
+							Status: metav1.ConditionTrue,
 						},
 					},
 				},
@@ -418,8 +418,8 @@ var _ = Describe("InUseHandler", func() {
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),
-							Reason: conditions.ReasonUnknown.String(),
-							Status: metav1.ConditionUnknown,
+							Reason: vdcondition.AttachedToVirtualMachine.String(),
+							Status: metav1.ConditionTrue,
 						},
 					},
 				},
@@ -482,7 +482,7 @@ var _ = Describe("InUseHandler", func() {
 
 			result, err := handler.Handle(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(ctrl.Result{Requeue: true}))
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
@@ -514,7 +514,7 @@ var _ = Describe("InUseHandler", func() {
 
 			result, err := handler.Handle(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(ctrl.Result{Requeue: true}))
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
