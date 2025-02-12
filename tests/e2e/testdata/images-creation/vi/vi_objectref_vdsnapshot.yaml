@@ -1,7 +1,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vdsnapshot
+  name: vi-oref-vdsnapshot
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -14,7 +14,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-pvc-objectref-vdsnapshot
+  name: vi-pvc-oref-vdsnapshot
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim

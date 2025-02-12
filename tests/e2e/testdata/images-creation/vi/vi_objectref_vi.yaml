@@ -2,7 +2,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vi-http
+  name: vi-oref-vi-http
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -15,7 +15,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vi-containerimage
+  name: vi-oref-vi-containerimage
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -28,7 +28,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vi-objectref-cvi
+  name: vi-oref-vi-oref-cvi
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -36,12 +36,12 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-objectref-cvi
+      name: vi-oref-cvi
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vi-objectref-vd
+  name: vi-oref-vi-oref-vd
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -49,12 +49,12 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-objectref-vd
+      name: vi-oref-vd
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vi-objectref-vdsnapshot
+  name: vi-oref-vi-oref-vdsnapshot
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -62,14 +62,14 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-objectref-vdsnapshot
+      name: vi-oref-vdsnapshot
 
 # PVC SOURCE
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vi-http-pvc
+  name: vi-oref-vi-http-pvc
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -82,7 +82,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vi-containerimage-pvc
+  name: vi-oref-vi-containerimage-pvc
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -95,7 +95,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vi-objectref-cvi-pvc
+  name: vi-oref-vi-oref-cvi-pvc
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -103,12 +103,12 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-pvc-objectref-cvi
+      name: vi-pvc-oref-cvi
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vi-objectref-vd-pvc
+  name: vi-oref-vi-oref-vd-pvc
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -116,12 +116,12 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-pvc-objectref-vd
+      name: vi-pvc-oref-vd
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-objectref-vi-objectref-vdsnapshot-pvc
+  name: vi-oref-vi-oref-vdsnapshot-pvc
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -129,4 +129,4 @@ spec:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-pvc-objectref-vdsnapshot
+      name: vi-pvc-oref-vdsnapshot

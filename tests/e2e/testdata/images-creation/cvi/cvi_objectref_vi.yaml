@@ -2,7 +2,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vi-http
+  name: cvi-oref-vi-http
 spec:
   dataSource:
     type: "ObjectRef"
@@ -14,7 +14,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vi-containerimage
+  name: cvi-oref-vi-containerimage
 spec:
   dataSource:
     type: "ObjectRef"
@@ -26,37 +26,37 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vi-objectref-cvi
+  name: cvi-oref-vi-oref-cvi
 spec:
   dataSource:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-objectref-cvi
+      name: vi-oref-cvi
       namespace: test-d8-virtualization
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vi-objectref-vd
+  name: cvi-oref-vi-oref-vd
 spec:
   dataSource:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-objectref-vd
+      name: vi-oref-vd
       namespace: test-d8-virtualization
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vi-objectref-vdsnapshot
+  name: cvi-oref-vi-oref-vdsnapshot
 spec:
   dataSource:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-objectref-vdsnapshot
+      name: vi-oref-vdsnapshot
       namespace: test-d8-virtualization
 
 # PVC SOURCE
@@ -64,7 +64,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vi-http-pvc
+  name: cvi-oref-vi-http-pvc
 spec:
   dataSource:
     type: "ObjectRef"
@@ -76,7 +76,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vi-containerimage-pvc
+  name: cvi-oref-vi-containerimage-pvc
 spec:
   dataSource:
     type: "ObjectRef"
@@ -88,35 +88,35 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vi-objectref-cvi-pvc
+  name: cvi-oref-vi-oref-cvi-pvc
 spec:
   dataSource:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-pvc-objectref-cvi
+      name: vi-pvc-oref-cvi
       namespace: test-d8-virtualization
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vi-objectref-vd-pvc
+  name: cvi-oref-vi-oref-vd-pvc
 spec:
   dataSource:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-pvc-objectref-vd
+      name: vi-pvc-oref-vd
       namespace: test-d8-virtualization
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-objectref-vi-objectref-vdsnapshot-pvc
+  name: cvi-oref-vi-oref-vdsnapshot-pvc
 spec:
   dataSource:
     type: "ObjectRef"
     objectRef:
       kind: "VirtualImage"
-      name: vi-pvc-objectref-vdsnapshot
+      name: vi-pvc-oref-vdsnapshot
       namespace: test-d8-virtualization
