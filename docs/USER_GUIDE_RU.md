@@ -1057,7 +1057,7 @@ spec:
     disktype: ssd
 ```
 
-![](images/placement-node-affinity.ru.png)
+![](images/placement-nodeselector.ru.png)
 
 В этом примере виртуальная машина будет размещена только на узлах, которые имеют метку `disktype` со значением `ssd`.
 
