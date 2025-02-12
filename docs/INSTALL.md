@@ -104,7 +104,7 @@ Successful startup of the operating system is determined by the following criter
   * uninterrupted operation of key components such as networking and storage;
   * no crashes or errors during operation.
 
-For Linux family operating systems it is recommended to use guest OS images with cloud-init support, which allows initializing virtual machines after their creation.
+For Linux family operating systems it is recommended to use guest OS images with `cloud-init` support, which allows initializing virtual machines after their creation.
 
 For Windows operating systems, the platform supports initialization using the built-in sysprep utility.
 
@@ -115,7 +115,7 @@ Maximum amount of RAM: `1024 GB`
 
 ## Supported Storage Systems
 
-Virtual machines use PersistentVolume resources. To manage these resources and allocate disk space within the cluster, one or more supported storage systems must be installed:
+Virtual machines use `PersistentVolume` resources. To manage these resources and allocate disk space within the cluster, one or more supported storage systems must be installed:
 
 | Storage System                              | Disk Location              |
 |---------------------------------------------|----------------------------|

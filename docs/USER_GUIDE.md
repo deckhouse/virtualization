@@ -1076,7 +1076,7 @@ spec:
                   - ssd
 ```
 
-![](images/placement-node-affinity.png)
+![](images/placement-nodeselector.png)
 
 In this example, the virtual machine will only be placed on hosts that have a `disktype` label with a value of `ssd`.
 
