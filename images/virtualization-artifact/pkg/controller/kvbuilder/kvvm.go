@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
+	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -232,10 +233,11 @@ func (b *KVVM) SetCpu(cores int, coreFraction string) error {
 	}
 	domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
 	domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
-	// https://bugzilla.redhat.com/show_bug.cgi?id=1653453
-	domainSpec.CPU.Cores = uint32(1)
-	domainSpec.CPU.Sockets = uint32(cores)
-	domainSpec.CPU.MaxSockets = uint32(cores)
+
+	socketsNeeded := vm.CalculateSockets(cores)
+	domainSpec.CPU.Cores = uint32(cores)
+	domainSpec.CPU.Sockets = uint32(socketsNeeded)
+	domainSpec.CPU.MaxSockets = uint32(8)
 	return nil
 }
 
