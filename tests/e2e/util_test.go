@@ -564,6 +564,6 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 		//	Username:    conf.TestData.SshUser,
 		//	IdenityFile: conf.TestData.Sshkey,
 		//})
-		ExecSshCommand(vm, cmd)
+		ExecSshCommand(vm+"1", cmd)
 	}
 }
