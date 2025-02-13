@@ -518,13 +518,17 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 
 func RebootVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
 	GinkgoHelper()
-	migrationFilesPath := fmt.Sprintf("%s/reboots", templatePath)
+	CreateAndApplyVMOPs(label, templatePath, "reboots", virtv2.VMOPTypeRestart, virtualMachines...)
+}
+
+func CreateAndApplyVMOPs(label map[string]string, templatePath, subFolderPath string, vmopType virtv2.VMOPType, virtualMachines ...string) {
+	opsFilesPath := fmt.Sprintf("%s/%s", templatePath, subFolderPath)
 	for _, vm := range virtualMachines {
-		rebootFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
-		err := CreateRebootManifest(vm, rebootFilePath, label)
+		opFilePath := fmt.Sprintf("%s/%s.yaml", opsFilesPath, vm)
+		err := CreateVMOPManifest(vm, opFilePath, label, vmopType)
 		Expect(err).NotTo(HaveOccurred(), err)
 		res := kubectl.Apply(kc.ApplyOptions{
-			Filename:       []string{rebootFilePath},
+			Filename:       []string{opFilePath},
 			FilenameOption: kc.Filename,
 			Namespace:      conf.Namespace,
 		})
@@ -532,7 +536,7 @@ func RebootVirtualMachinesByVMOP(label map[string]string, templatePath string, v
 	}
 }
 
-func CreateRebootManifest(vmName, filePath string, labels map[string]string) error {
+func CreateVMOPManifest(vmName, filePath string, labels map[string]string, vmopType virtv2.VMOPType) error {
 	vmop := &virtv2.VirtualMachineOperation{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: virtv2.SchemeGroupVersion.String(),
@@ -543,7 +547,7 @@ func CreateRebootManifest(vmName, filePath string, labels map[string]string) err
 			Labels: labels,
 		},
 		Spec: virtv2.VirtualMachineOperationSpec{
-			Type:           virtv2.VMOPTypeRestart,
+			Type:           vmopType,
 			VirtualMachine: vmName,
 		},
 	}
@@ -564,6 +568,6 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 		//	Username:    conf.TestData.SshUser,
 		//	IdenityFile: conf.TestData.Sshkey,
 		//})
-		ExecSshCommand(vm+"1", cmd)
+		ExecSshCommand(vm, cmd)
 	}
 }

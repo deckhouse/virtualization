@@ -20,15 +20,12 @@ import (
 	"fmt"
 	"strings"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 const (
@@ -53,26 +50,7 @@ func MigrateVirtualMachines(label map[string]string, templatePath string, virtua
 }
 
 func CreateMigrationManifest(vmName, filePath string, labels map[string]string) error {
-	vmop := &virtv2.VirtualMachineOperation{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: virtv2.SchemeGroupVersion.String(),
-			Kind:       virtv2.VirtualMachineOperationKind,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:   vmName,
-			Labels: labels,
-		},
-		Spec: virtv2.VirtualMachineOperationSpec{
-			Type:           virtv2.VMOPTypeEvict,
-			VirtualMachine: vmName,
-		},
-	}
-	err := WriteYamlObject(filePath, vmop)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return CreateVMOPManifest(vmName, filePath, labels, virtv2.VMOPTypeMigrate)
 }
 
 var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators(), func() {
