@@ -19,6 +19,7 @@ package e2e
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -176,6 +177,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		})
 
 		It("checks VMs and pods labels after VMs labeling", func() {
+			time.Sleep(5 * time.Second)
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
@@ -212,6 +214,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		})
 
 		It("checks VMs and pods labels after VMs unlabeling", func() {
+			time.Sleep(5 * time.Second)
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
@@ -250,6 +253,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		})
 
 		It("checks VMs and pods annotations after VMs annotating", func() {
+			time.Sleep(5 * time.Second)
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
@@ -286,6 +290,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		})
 
 		It("checks VMs and pods annotations after VMs unannotating", func() {
+			time.Sleep(5 * time.Second)
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
