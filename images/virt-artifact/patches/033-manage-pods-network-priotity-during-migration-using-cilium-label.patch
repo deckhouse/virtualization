@@ -1,9 +1,9 @@
 diff --git a/pkg/util/migrations/network.go b/pkg/util/migrations/network.go
 new file mode 100644
-index 0000000000..cbd55a56f8
+index 0000000000..6268e6ea4d
 --- /dev/null
 +++ b/pkg/util/migrations/network.go
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,64 @@
 +package migrations
 +
 +import (
@@ -25,8 +25,9 @@ index 0000000000..cbd55a56f8
 +type NetworkPriority = string
 +
 +const (
-+	NetworkPriorityLow NetworkPriority = "low"
-+	NetworkPriorityHigh NetworkPriority = "high"
++	NetworkPriorityTheHighest NetworkPriority = "0"
++	NetworkPriorityDecreased NetworkPriority = "1"
++	NetworkPriorityDeferred NetworkPriority = "2"
 +)
 +
 +func NewNetworkAccessibilityManager(virtClient kubecli.KubevirtClient) *NetworkAccessibilityManager  {
@@ -35,46 +36,46 @@ index 0000000000..cbd55a56f8
 +	}
 +}
 +
-+func (m NetworkAccessibilityManager) SetNetworkPriorityHigh(ctx context.Context, pod types.NamespacedName) error {
++func (m NetworkAccessibilityManager) SetTheHighestNetworkPriority(ctx context.Context, pod types.NamespacedName) error {
 +	patchBytes, err := patch.New(
-+		patch.WithTest(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel)), NetworkPriorityLow),
-+		patch.WithReplace(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel)), NetworkPriorityHigh),
++		patch.WithTest(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel)), NetworkPriorityDeferred),
++		patch.WithReplace(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel)), NetworkPriorityTheHighest),
 +	).GeneratePayload()
 +	if err != nil {
-+		return fmt.Errorf("generate patch to set new network priority %s=%s for the pod %s: %w", virtv1.NetworkPriorityLabel, NetworkPriorityHigh, pod, err)
++		return fmt.Errorf("generate patch to set new network priority %s=%s for the pod %s: %w", virtv1.NetworkPriorityLabel, NetworkPriorityTheHighest, pod, err)
 +	}
 +
 +	_, err = m.virtClient.CoreV1().Pods(pod.Namespace).Patch(ctx, pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 +	if err != nil {
-+		return fmt.Errorf("apply patch to set new network priority %s=%s for the pod %s: %w", virtv1.NetworkPriorityLabel, NetworkPriorityHigh, pod, err)
++		return fmt.Errorf("apply patch to set new network priority %s=%s for the pod %s: %w", virtv1.NetworkPriorityLabel, NetworkPriorityTheHighest, pod, err)
 +	}
 +
 +	return nil
 +}
 +
-+func (m NetworkAccessibilityManager) RemoveNetworkPriority(ctx context.Context, pod types.NamespacedName) error {
++func (m NetworkAccessibilityManager) DecreaseNetworkPriority(ctx context.Context, pod types.NamespacedName) error {
 +	patchBytes, err := patch.New(
-+		patch.WithRemove(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel))),
++		patch.WithReplace(fmt.Sprintf("/metadata/labels/%s", patch.EscapeJSONPointer(virtv1.NetworkPriorityLabel)), NetworkPriorityDecreased),
 +	).GeneratePayload()
 +	if err != nil {
-+		return fmt.Errorf("generate patch to remove network priority label %s from the pod %s: %w", virtv1.NetworkPriorityLabel, pod, err)
++		return fmt.Errorf("generate patch to set new network priority %s=%s for the pod %s: %w", virtv1.NetworkPriorityLabel, NetworkPriorityDecreased, pod, err)
 +	}
 +
 +	_, err = m.virtClient.CoreV1().Pods(pod.Namespace).Patch(ctx, pod.Name, types.JSONPatchType, patchBytes, v1.PatchOptions{})
 +	if err != nil {
-+		return fmt.Errorf("apply patch to remove network priority label %s from the pod %s: %w", virtv1.NetworkPriorityLabel, pod, err)
++		return fmt.Errorf("apply patch to set new network priority %s=%s for the pod %s: %w", virtv1.NetworkPriorityLabel, NetworkPriorityDecreased, pod, err)
 +	}
 +
 +	return nil
 +}
 diff --git a/pkg/virt-controller/watch/migration.go b/pkg/virt-controller/watch/migration.go
-index 28d6636b36..81b9be6ee9 100644
+index 28d6636b36..4cec8371df 100644
 --- a/pkg/virt-controller/watch/migration.go
 +++ b/pkg/virt-controller/watch/migration.go
 @@ -115,6 +115,8 @@ type MigrationController struct {
  	handOffLock sync.Mutex
  	handOffMap  map[string]struct{}
-
+ 
 +	nam *migrations.NetworkAccessibilityManager
 +
  	unschedulablePendingTimeoutSeconds int64
@@ -83,7 +84,7 @@ index 28d6636b36..81b9be6ee9 100644
 @@ -152,6 +154,8 @@ func NewMigrationController(templateService services.TemplateService,
  		statusUpdater:        status.NewMigrationStatusUpdater(clientset),
  		handOffMap:           make(map[string]struct{}),
-
+ 
 +		nam: migrations.NewNetworkAccessibilityManager(clientset),
 +
  		unschedulablePendingTimeoutSeconds: defaultUnschedulablePendingTimeoutSeconds,
@@ -92,90 +93,34 @@ index 28d6636b36..81b9be6ee9 100644
 @@ -713,6 +717,9 @@ func (c *MigrationController) createTargetPod(migration *virtv1.VirtualMachineIn
  		}
  	}
-
-+	// Create the new pod with the lowest possible network priority to prevent Cilium from directing traffic to it.
-+	templatePod.Labels[virtv1.NetworkPriorityLabel] = migrations.NetworkPriorityLow
+ 
++	// Create the new pod with the lowest network priority to prevent Cilium from directing traffic to it.
++	templatePod.Labels[virtv1.NetworkPriorityLabel] = migrations.NetworkPriorityDeferred
 +
  	key := controller.MigrationKey(migration)
  	c.podExpectations.ExpectCreations(key, 1)
  	pod, err := c.clientset.CoreV1().Pods(vmi.GetNamespace()).Create(context.Background(), templatePod, v1.CreateOptions{})
-@@ -1249,6 +1256,28 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
-
- 	if migrationFinalizedOnVMI := vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationUID == migration.UID &&
- 		vmi.Status.MigrationState.EndTimestamp != nil; migrationFinalizedOnVMI {
-+
-+		if vmi.Status.MigrationState.Completed {
-+			vmiConditionManager := controller.NewVirtualMachineInstanceConditionManager()
-+
-+			if !vmiConditionManager.HasCondition(vmi, virtv1.VirtualMachineInstanceVCPUChange) &&
-+				!vmiConditionManager.HasConditionWithStatus(vmi, virtv1.VirtualMachineInstanceMemoryChange, k8sv1.ConditionTrue) {
-+
-+				priority, ok := pod.Labels[virtv1.NetworkPriorityLabel]
-+				if !ok || priority != migrations.NetworkPriorityHigh {
-+					log.Log.Error("The target pod still doesn't have the highest network priority, please report a bug.")
-+
-+					err := c.nam.SetNetworkPriorityHigh(context.Background(), types.NamespacedName{
-+						Namespace: pod.Namespace,
-+						Name:      pod.Name,
-+					})
-+					if err != nil {
-+						log.Log.Reason(err).Error("Failed to set the highest network priority for the target pod, please report a bug")
-+					}
-+				}
-+			}
-+		}
-+
- 		return nil
- 	}
-
-@@ -1286,6 +1315,18 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
+@@ -1286,6 +1293,18 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
  				return nil
  			}
-
-+			_, ok := sourcePod.Labels[virtv1.NetworkPriorityLabel]
-+			if ok {
-+				err = c.nam.RemoveNetworkPriority(context.Background(), types.NamespacedName{
+ 
++			priority := sourcePod.Labels[virtv1.NetworkPriorityLabel]
++			if priority != migrations.NetworkPriorityDecreased {
++				err = c.nam.DecreaseNetworkPriority(context.Background(), types.NamespacedName{
 +					Namespace: sourcePod.Namespace,
 +					Name:      sourcePod.Name,
 +				})
 +				if err != nil {
-+					log.Log.Reason(err).Error("Failed to remove the network priority from the source pod, please report a bug")
-+					return fmt.Errorf("remove network priority: %w", err)
++					log.Log.Reason(err).Error("Failed to decrease the network priority for the source pod, please report a bug")
++					return fmt.Errorf("decrease network priority: %w", err)
 +				}
 +			}
 +
  			if _, exists := migration.GetAnnotations()[virtv1.EvacuationMigrationAnnotation]; exists {
  				if err = descheduler.MarkEvictionInProgress(c.clientset, sourcePod); err != nil {
  					return err
-@@ -1370,6 +1411,26 @@ func (c *MigrationController) sync(key string, migration *virtv1.VirtualMachineI
- 	return nil
- }
-
-+func (c *MigrationController) findSourcePod(migration *virtv1.VirtualMachineInstanceMigration) (*k8sv1.Pod, error) {
-+	if migration.Status.MigrationState == nil || migration.Status.MigrationState.SourcePod == "" {
-+		return nil, nil
-+	}
-+
-+	objs, err := c.podIndexer.ByIndex(cache.NamespaceIndex, migration.Namespace)
-+	if err != nil {
-+		return nil, fmt.Errorf("get pods by namespace %s: %w", migration.Namespace, err)
-+	}
-+
-+	for _, obj := range objs {
-+		pod := obj.(*k8sv1.Pod)
-+		if pod.Name == migration.Status.MigrationState.SourcePod {
-+			return pod, nil
-+		}
-+	}
-+
-+	return nil, nil
-+}
-+
- func (c *MigrationController) setupVMIRuntimeUser(vmi *virtv1.VirtualMachineInstance) *patch.PatchSet {
- 	patchSet := patch.New()
- 	if !c.clusterConfig.RootEnabled() {
 diff --git a/pkg/virt-handler/vm.go b/pkg/virt-handler/vm.go
-index 301d7b2249..1ff0209578 100644
+index 301d7b2249..ce689368a8 100644
 --- a/pkg/virt-handler/vm.go
 +++ b/pkg/virt-handler/vm.go
 @@ -255,6 +255,7 @@ func NewController(
@@ -184,12 +129,12 @@ index 301d7b2249..1ff0209578 100644
  		),
 +		nam: migrations.NewNetworkAccessibilityManager(clientset),
  	}
-
+ 
  	_, err := vmiSourceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 @@ -284,6 +285,13 @@ func NewController(
  		return nil, err
  	}
-
+ 
 +	_, err = domainInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 +			UpdateFunc: c.updateNetworkPriorityFunc,
 +		})
@@ -198,15 +143,15 @@ index 301d7b2249..1ff0209578 100644
 +	}
 +
  	c.launcherClients = virtcache.LauncherClientInfoByVMI{}
-
+ 
  	c.netConf = netsetup.NewNetConf()
 @@ -352,6 +360,7 @@ type VirtualMachineController struct {
  	ioErrorRetryManager         *FailRetryManager
-
+ 
  	hotplugContainerDiskMounter container_disk.HotplugMounter
 +	nam *migrations.NetworkAccessibilityManager
  }
-
+ 
  type virtLauncherCriticalSecurebootError struct {
 @@ -3809,3 +3818,43 @@ func (d *VirtualMachineController) updateMemoryInfo(vmi *v1.VirtualMachineInstan
  	vmi.Status.Memory.GuestCurrent = currentGuest
@@ -243,7 +188,7 @@ index 301d7b2249..1ff0209578 100644
 +		return
 +	}
 +
-+	err = d.nam.SetNetworkPriorityHigh(context.Background(), types.NamespacedName{
++	err = d.nam.SetTheHighestNetworkPriority(context.Background(), types.NamespacedName{
 +		Namespace: vmi.Namespace,
 +		Name:      vmi.Status.MigrationState.TargetPod,
 +	})
@@ -259,7 +204,7 @@ index bb63f2eac5..5da5f68103 100644
 @@ -352,6 +352,14 @@ func eventCallback(c cli.Connection, domain *api.Domain, libvirtEvent libvirtEve
  			domain.Status.FSFreezeStatus = *fsFreezeStatus
  		}
-
+ 
 +		if libvirtEvent.Event != nil && libvirtEvent.Event.Event == libvirt.DOMAIN_EVENT_SUSPENDED && libvirtEvent.Event.Detail == int(libvirt.DOMAIN_EVENT_SUSPENDED_MIGRATED) {
 +			if domain.Annotations == nil {
 +				domain.Annotations = make(map[string]string)
@@ -294,7 +239,7 @@ index e55a4044ea..2640f61826 100644
  	}
  }
 diff --git a/staging/src/kubevirt.io/api/core/v1/types.go b/staging/src/kubevirt.io/api/core/v1/types.go
-index 841387d304..dad832bcd7 100644
+index 841387d304..403a28610e 100644
 --- a/staging/src/kubevirt.io/api/core/v1/types.go
 +++ b/staging/src/kubevirt.io/api/core/v1/types.go
 @@ -878,6 +878,14 @@ const (
@@ -303,8 +248,8 @@ index 841387d304..dad832bcd7 100644
  	MigrationTargetNodeNameLabel string = "kubevirt.io/migrationTargetNodeName"
 +	// A special label allows setting the priority of pod for cilium relative to other pods with the same IP address.
 +	// Network traffic will be directed to the pod with the higher priority.
-+	// Absence of the label means default network behavior.
-+	// `low` < `no label` < `high`.
++	// Absence of the label means the lowest priority (pod with a network priority label is more prioritized than a pod without a label).
++	// The lower the numerical value, the higher the priority.
 +	NetworkPriorityLabel string = "network.deckhouse.io/pod-common-ip-priority"
 +	// A special annotation through which information is passed from virt-launcher to virt-handler indicating
 +	// that the virtual machine has been suspended for offline migration.

@@ -192,14 +192,15 @@ During the VM migration process, two pods with the same address are created and 
 **Solution**:  
 To force delivery of packages to only one VM pod, the special label `network.deckhouse.io/pod-common-ip-priority` were added.
 The label allows setting the priority of pod for cilium relative to other pods with the same IP address.
-Network traffic will be directed to the pod with the higher priority. Absence of the label means default network behavior:
-`low` < `no label` < `high`.
+Network traffic will be directed to the pod with the higher priority.
+Absence of the label means the lowest priority (pod with a network priority label is more prioritized than a pod without a label).
+The lower the numerical value, the higher the priority.
 
 **How does it work?**
-1. When migration starts, the label is removed (if present) from the source pod (the default network behavior is applied).
-2. The target pod is immediately created with a lowered network priority.
-3. When the virtual machine is suspended for offline migration, the target pod receives elevated network priority (high),
-   while the source pod retains the default behavior (no label).
+1. When migration starts, the source pod receives a decreased network priority ("1").
+2. The target pod is immediately created with the lowest network priority ("2").
+3. When the virtual machine is suspended for offline migration, the target pod receives the highest network priority ("0"),
+   while the source pod retains its decreased priority ("1").
 
 Thus, packets are delivered as expected: initially only to the source pod during migration, and after migration completes, only to the target pod.
 
