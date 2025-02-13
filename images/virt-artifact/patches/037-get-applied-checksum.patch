@@ -590,7 +590,7 @@ index 0000000000..cb05a968b9
 +}
 diff --git a/pkg/util/syncobject/syncobject.go b/pkg/util/syncobject/syncobject.go
 new file mode 100644
-index 0000000000..d471a0876d
+index 0000000000..0e53df4907
 --- /dev/null
 +++ b/pkg/util/syncobject/syncobject.go
 @@ -0,0 +1,29 @@
@@ -603,7 +603,7 @@ index 0000000000..d471a0876d
 +	Set(value T)
 +}
 +
-+func NewSharedObject[T any]() SyncObject[T] {
++func NewSyncObject[T any]() SyncObject[T] {
 +	return &defaultSyncObject[T]{}
 +}
 +
@@ -987,7 +987,7 @@ index 9815b402b9..2be5af2eb3 100644
  	_, earlyExit := os.LookupEnv(receivedEarlyExitSignalEnvVar)
  	return earlyExit
 diff --git a/pkg/virt-launcher/virtwrap/manager.go b/pkg/virt-launcher/virtwrap/manager.go
-index cddee4f199..a2e187975d 100644
+index cddee4f199..6744cb2913 100644
 --- a/pkg/virt-launcher/virtwrap/manager.go
 +++ b/pkg/virt-launcher/virtwrap/manager.go
 @@ -42,6 +42,8 @@ import (
@@ -1021,7 +1021,7 @@ index cddee4f199..a2e187975d 100644
  		migrateInfoStats:         &stats.DomainJobInfo{},
  		metadataCache:            metadataCache,
 +
-+		checksum: syncobject.NewSharedObject[string](),
++		checksum: syncobject.NewSyncObject[string](),
  	}
  
  	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
