@@ -19,6 +19,7 @@ package e2e
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -205,6 +206,10 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				vms := strings.Split(res.StdOut(), " ")
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
+
+				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+				RebootVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
+				time.Sleep(120 * time.Second)
 			})
 		})
 	})

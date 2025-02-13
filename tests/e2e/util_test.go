@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"log"
 	"net"
 	"net/netip"
@@ -32,6 +33,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	storagev1 "k8s.io/api/storage/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8snet "k8s.io/utils/net"
@@ -513,4 +515,55 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 			Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr()))
 		}
 	})
+}
+
+func RebootVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
+	GinkgoHelper()
+	migrationFilesPath := fmt.Sprintf("%s/reboots", templatePath)
+	for _, vm := range virtualMachines {
+		migrationFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
+		err := CreateMigrationManifest(vm, migrationFilePath, label)
+		Expect(err).NotTo(HaveOccurred(), err)
+		res := kubectl.Apply(kc.ApplyOptions{
+			Filename:       []string{migrationFilePath},
+			FilenameOption: kc.Filename,
+			Namespace:      conf.Namespace,
+		})
+		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+	}
+}
+
+func CreateRebootManifest(vmName, filePath string, labels map[string]string) error {
+	vmop := &virtv2.VirtualMachineOperation{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: virtv2.SchemeGroupVersion.String(),
+			Kind:       virtv2.VirtualMachineOperationKind,
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:   vmName,
+			Labels: labels,
+		},
+		Spec: virtv2.VirtualMachineOperationSpec{
+			Type:           virtv2.VMOPTypeRestart,
+			VirtualMachine: vmName,
+		},
+	}
+	err := helper.WriteYamlObject(filePath, vmop)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func RebootVirtualMachinesBySSH(virtualMachines ...string) {
+	GinkgoHelper()
+	for _, vm := range virtualMachines {
+		cmd := "sudo reboot"
+		d8Virtualization.SshCommand(vm, cmd, d8.SshOptions{
+			Namespace:   conf.Namespace,
+			Username:    conf.TestData.SshUser,
+			IdenityFile: conf.TestData.Sshkey,
+		})
+	}
 }
