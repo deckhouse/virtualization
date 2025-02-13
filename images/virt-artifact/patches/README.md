@@ -226,3 +226,13 @@ By default, the disk specification is immutable, but for backward compatibility,
 
 ##### Why this change?
 This update ensures compatibility with recent QEMU changes and prevents runtime errors by enforcing validation at the API level while preserving support for existing VMs through automatic serial number truncation.
+
+#### `037-get-applied-checksum.patch`
+
+This patch introduces the GetAppliedChecksum() method in virt-launcher.
+
+virt-handler now tracks synchronized VMIs and computes their checksums. Periodically, it queries virt-launcher for the applied checksum. This ensures that we have two checksums:
+
+The last one sent for synchronization.
+The one actually applied.
+Storing these checksums in VMI annotations helps verify that spec changes were pushed by virt-handler and not by an attacker.
