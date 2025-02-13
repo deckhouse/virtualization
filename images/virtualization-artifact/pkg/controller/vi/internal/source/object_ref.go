@@ -59,16 +59,17 @@ type ObjectRefDataSource struct {
 	storageClassService *service.VirtualImageStorageClassService
 	recorder            eventrecord.EventRecorderLogger
 
-	viObjectRefOnPvc *ObjectRefDataVirtualImageOnPVC
-	vdSyncer         *ObjectRefVirtualDisk
-	vdSnapshotSyncer *ObjectRefVirtualDiskSnapshot
+	viObjectRefOnPvc    *ObjectRefDataVirtualImageOnPVC
+	vdSyncer            *ObjectRefVirtualDisk
+	vdSnapshotCRSyncer  *ObjectRefVirtualDiskSnapshotCR
+	vdSnapshotPVCSyncer *ObjectRefVirtualDiskSnapshotPVC
 }
 
 func NewObjectRefDataSource(
 	recorder eventrecord.EventRecorderLogger,
 	statService Stat,
 	importerService Importer,
-	bounderService Bounder,
+	bounderService *service.BounderPodService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
@@ -85,11 +86,16 @@ func NewObjectRefDataSource(
 		recorder:            recorder,
 		viObjectRefOnPvc:    NewObjectRefDataVirtualImageOnPVC(recorder, statService, importerService, dvcrSettings, client, diskService, storageClassService),
 		vdSyncer:            NewObjectRefVirtualDisk(recorder, importerService, client, diskService, dvcrSettings, statService, storageClassService),
-		vdSnapshotSyncer:    NewObjectRefVirtualDiskSnapshot(recorder, importerService, bounderService, client, diskService, dvcrSettings, statService, storageClassService),
+		vdSnapshotCRSyncer:  NewObjectRefVirtualDiskSnapshotCR(importerService, statService, client, dvcrSettings, recorder),
+		vdSnapshotPVCSyncer: NewObjectRefVirtualDiskSnapshotPVC(importerService, statService, bounderService, client, dvcrSettings, recorder),
 	}
 }
 
 func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskSnapshotKind {
+		return ds.vdSnapshotPVCSyncer.Sync(ctx, vi)
+	}
+
 	log, ctx := logger.GetDataSourceContext(ctx, objectRefDataSource)
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
@@ -129,18 +135,6 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 		}
 
 		return ds.vdSyncer.StoreToPVC(ctx, vi, vd, cb)
-	case virtv2.VirtualDiskSnapshotKind:
-		vdSnapshotKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
-		vdSnapshot, err := object.FetchObject(ctx, vdSnapshotKey, ds.client, &virtv2.VirtualDiskSnapshot{})
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("unable to get VDSnapshot %s: %w", vdSnapshotKey, err)
-		}
-
-		if vdSnapshot == nil {
-			return reconcile.Result{}, fmt.Errorf("VDSnapshot object ref %s is nil", vdSnapshotKey)
-		}
-
-		return ds.vdSnapshotSyncer.StoreToPVC(ctx, vi, vdSnapshot, cb)
 	}
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
@@ -306,6 +300,10 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 }
 
 func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+	if vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskSnapshotKind {
+		return ds.vdSnapshotCRSyncer.Sync(ctx, vi)
+	}
+
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
@@ -339,18 +337,6 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 		}
 
 		return ds.vdSyncer.StoreToDVCR(ctx, vi, vd, cb)
-	case virtv2.VirtualDiskSnapshotKind:
-		vdSnapshotKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
-		vdSnapshot, err := object.FetchObject(ctx, vdSnapshotKey, ds.client, &virtv2.VirtualDiskSnapshot{})
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("unable to get VDSnapshot %s: %w", vdSnapshotKey, err)
-		}
-
-		if vdSnapshot == nil {
-			return reconcile.Result{}, fmt.Errorf("VDSnapshot object ref %s is nil", vdSnapshotKey)
-		}
-
-		return ds.vdSnapshotSyncer.StoreToDVCR(ctx, vi, vdSnapshot, cb)
 	}
 
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
@@ -490,12 +476,17 @@ func (ds ObjectRefDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualIma
 		return false, err
 	}
 
+	bounderRequeue, err := ds.bounderService.CleanUp(ctx, supgen)
+	if err != nil {
+		return false, err
+	}
+
 	diskRequeue, err := ds.diskService.CleanUp(ctx, supgen)
 	if err != nil {
 		return false, err
 	}
 
-	return importerRequeue || diskRequeue, nil
+	return importerRequeue || bounderRequeue || diskRequeue, nil
 }
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
@@ -546,7 +537,14 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 	case virtv2.VirtualImageObjectRefKindVirtualDisk:
 		return ds.vdSyncer.Validate(ctx, vi)
 	case virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot:
-		return ds.vdSnapshotSyncer.Validate(ctx, vi)
+		switch vi.Spec.Storage {
+		case virtv2.StorageKubernetes, virtv2.StoragePersistentVolumeClaim:
+			return ds.vdSnapshotPVCSyncer.Validate(ctx, vi)
+		case virtv2.StorageContainerRegistry:
+			return ds.vdSnapshotCRSyncer.Validate(ctx, vi)
+		}
+
+		return fmt.Errorf("unexpected object ref kind: %s", vi.Spec.DataSource.ObjectRef.Kind)
 	default:
 		return fmt.Errorf("unexpected object ref kind: %s", vi.Spec.DataSource.ObjectRef.Kind)
 	}

@@ -47,7 +47,7 @@ const (
 	BlockDevicesNotReady VirtualMachineSnapshotReadyReason = "BlockDevicesNotReady"
 	// PotentiallyInconsistent signifies that the snapshotting process cannot begin because creating a snapshot of the running virtual machine might result in an inconsistent snapshot.
 	PotentiallyInconsistent VirtualMachineSnapshotReadyReason = "PotentiallyInconsistent"
-	// VirtualDiskSnapshotLost signifies that the underling `VirtualDiskSnapshot` is lost: cannot restore the virtual machine using this snapshot.
+	// VirtualDiskSnapshotLost signifies that the underlying `VirtualDiskSnapshot` is lost: cannot restore the virtual machine using this snapshot.
 	VirtualDiskSnapshotLost VirtualMachineSnapshotReadyReason = "VirtualDiskSnapshotLost"
 	// FileSystemFreezing signifies that the `VirtualMachineSnapshot` resource is in the process of freezing the filesystem of the virtual machine.
 	FileSystemFreezing VirtualMachineSnapshotReadyReason = "FileSystemFreezing"
