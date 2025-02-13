@@ -521,11 +521,11 @@ func RebootVirtualMachinesByVMOP(label map[string]string, templatePath string, v
 	GinkgoHelper()
 	migrationFilesPath := fmt.Sprintf("%s/reboots", templatePath)
 	for _, vm := range virtualMachines {
-		migrationFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
-		err := CreateMigrationManifest(vm, migrationFilePath, label)
+		rebootFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
+		err := CreateRebootManifest(vm, rebootFilePath, label)
 		Expect(err).NotTo(HaveOccurred(), err)
 		res := kubectl.Apply(kc.ApplyOptions{
-			Filename:       []string{migrationFilePath},
+			Filename:       []string{rebootFilePath},
 			FilenameOption: kc.Filename,
 			Namespace:      conf.Namespace,
 		})
