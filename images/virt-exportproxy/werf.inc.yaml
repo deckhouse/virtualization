@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.DISTROLESS_ALT_P11 }}
+fromImage: distroless
 import:
 - image: virt-artifact
   add: /kubevirt-binaries/
@@ -20,4 +20,3 @@ import:
 docker:
   WORKDIR: /usr/bin/
   ENTRYPOINT: ["/usr/bin/virt-exportproxy"]
-  USER: 1001
