@@ -44,6 +44,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
+}
+
 type Handler interface {
 	Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error)
 	Name() string
@@ -248,9 +252,15 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
-	storageClassReadyWatcher := watcher.NewStorageClassWatcher(mgr.GetClient())
-	if err := storageClassReadyWatcher.Watch(mgr, ctr); err != nil {
-		return fmt.Errorf("error setting watch on StorageClass: %w", err)
+	for _, w := range []Watcher{
+		watcher.NewPodWatcher(mgr.GetClient()),
+		watcher.NewStorageClassWatcher(mgr.GetClient()),
+		watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient()),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("error setting watcher: %w", err)
+		}
 	}
 
 	return nil
