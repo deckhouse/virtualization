@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"log"
 	"net"
 	"net/netip"
@@ -560,10 +559,11 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	GinkgoHelper()
 	for _, vm := range virtualMachines {
 		cmd := "sudo reboot"
-		d8Virtualization.SshCommand(vm, cmd, d8.SshOptions{
-			Namespace:   conf.Namespace,
-			Username:    conf.TestData.SshUser,
-			IdenityFile: conf.TestData.Sshkey,
-		})
+		//d8Virtualization.SshCommand(vm, cmd, d8.SshOptions{
+		//	Namespace:   conf.Namespace,
+		//	Username:    conf.TestData.SshUser,
+		//	IdenityFile: conf.TestData.Sshkey,
+		//})
+		ExecSshCommand(vm, cmd)
 	}
 }
