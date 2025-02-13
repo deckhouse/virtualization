@@ -208,7 +208,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 
 				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-				RebootVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
+				RebootVirtualMachinesBySSH(vms...)
+				//RebootVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
 				time.Sleep(120 * time.Second)
 			})
 		})
