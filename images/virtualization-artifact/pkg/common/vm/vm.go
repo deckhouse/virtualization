@@ -24,3 +24,18 @@ func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
 	}
 	return vm.Spec.Disruptions.RestartApprovalMode
 }
+
+func CalculateSockets(cores int) int {
+	switch {
+	case cores <= 16:
+		return 1
+	case cores >= 17 && cores <= 32:
+		return 2
+	case cores >= 33 && cores <= 64:
+		return 4
+	case cores >= 65 && cores <= 128:
+		return 8
+	default:
+		return 1
+	}
+}
