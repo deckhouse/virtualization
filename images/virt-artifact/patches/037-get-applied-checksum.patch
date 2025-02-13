@@ -625,7 +625,7 @@ index 0000000000..0e53df4907
 +}
 diff --git a/pkg/virt-handler/checksum-controller/checksum-controller.go b/pkg/virt-handler/checksum-controller/checksum-controller.go
 new file mode 100644
-index 0000000000..6153c5506c
+index 0000000000..808adc2388
 --- /dev/null
 +++ b/pkg/virt-handler/checksum-controller/checksum-controller.go
 @@ -0,0 +1,153 @@
@@ -725,12 +725,12 @@ index 0000000000..6153c5506c
 +	patchset := patch.New()
 +	if vmi.Annotations[AnnotationChecksum] != handlerSum {
 +		patchset.AddOption(
-+			patch.WithReplace(fmt.Sprintf("/metadata/%s", EscapeJSONPointer(AnnotationChecksum)), handlerSum),
++			patch.WithReplace(fmt.Sprintf("/metadata/annotations/%s", EscapeJSONPointer(AnnotationChecksum)), handlerSum),
 +		)
 +	}
 +	if vmi.Annotations[AnnotationChecksumApplied] != launcherSum {
 +		patchset.AddOption(
-+			patch.WithReplace(fmt.Sprintf("/metadata/%s", EscapeJSONPointer(AnnotationChecksum)), launcherSum),
++			patch.WithReplace(fmt.Sprintf("/metadata/annotations/%s", EscapeJSONPointer(AnnotationChecksum)), launcherSum),
 +		)
 +	}
 +	if patchset.IsEmpty() {
