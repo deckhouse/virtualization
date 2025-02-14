@@ -589,9 +589,8 @@ func KillVMPod(vm string) {
 	Expect(err).NotTo(HaveOccurred(), err)
 
 	res := kubectl.Delete(kc.DeleteOptions{
-		IgnoreNotFound: true,
-		Labels:         map[string]string{"id": namePrefix},
-		Resource:       kc.ResourceProject,
+		Namespace: conf.Namespace,
+		Resource:  kc.ResourcePod,
 	})
 	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 }
