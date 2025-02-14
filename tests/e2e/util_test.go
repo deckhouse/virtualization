@@ -579,8 +579,8 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 		go func() {
 			defer func() {
 				wg.Done()
-				GinkgoRecover()
 			}()
+			defer GinkgoRecover()
 			ExecSshCommand(vm+"1", cmd)
 		}()
 	}
