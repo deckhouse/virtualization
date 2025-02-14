@@ -210,7 +210,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!")
 				time.Sleep(20 * time.Second)
 				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-				RebootVirtualMachinesBySSH(vms...)
+				RebootVirtualMachinesByKillPods(vms...)
 				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,

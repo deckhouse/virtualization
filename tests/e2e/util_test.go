@@ -31,6 +31,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	virtv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -543,7 +544,7 @@ func CreateVMOPManifest(vmName, filePath string, labels map[string]string, vmopT
 			Kind:       virtv2.VirtualMachineOperationKind,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:   vmName,
+			Name:   fmt.Sprintf("%s-%s", vmName, vmopType),
 			Labels: labels,
 		},
 		Spec: virtv2.VirtualMachineOperationSpec{
@@ -567,4 +568,30 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	for _, vm := range virtualMachines {
 		ExecSshCommand(vm, cmd)
 	}
+}
+
+func RebootVirtualMachinesByKillPods(virtualMachines ...string) {
+	GinkgoHelper()
+
+	for _, vm := range virtualMachines {
+		KillVMPod(vm)
+	}
+}
+
+func KillVMPod(vm string) {
+	vmObj := virtv2.VirtualMachine{}
+	err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+	Expect(err).NotTo(HaveOccurred(), err)
+
+	activePod := GetActiveVirtualMachinePod(&vmObj)
+	vmPodObj := virtv1.Pod{}
+	err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
+	Expect(err).NotTo(HaveOccurred(), err)
+
+	res := kubectl.Delete(kc.DeleteOptions{
+		IgnoreNotFound: true,
+		Labels:         map[string]string{"id": namePrefix},
+		Resource:       kc.ResourceProject,
+	})
+	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 }
