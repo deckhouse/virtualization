@@ -625,10 +625,10 @@ index 0000000000..0e53df4907
 +}
 diff --git a/pkg/virt-handler/checksum-controller/checksum-controller.go b/pkg/virt-handler/checksum-controller/checksum-controller.go
 new file mode 100644
-index 0000000000..6a6ef8ad21
+index 0000000000..a747f0be28
 --- /dev/null
 +++ b/pkg/virt-handler/checksum-controller/checksum-controller.go
-@@ -0,0 +1,199 @@
+@@ -0,0 +1,202 @@
 +package checksum_controller
 +
 +import (
@@ -649,7 +649,6 @@ index 0000000000..6a6ef8ad21
 +
 +	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
 +	"kubevirt.io/kubevirt/pkg/util/checksum"
-+	cmdclient "kubevirt.io/kubevirt/pkg/virt-handler/cmd-client"
 +)
 +
 +const (
@@ -657,6 +656,10 @@ index 0000000000..6a6ef8ad21
 +	AnnotationChecksum        = "virtualization.deckhouse.io/checksum"
 +	AnnotationChecksumApplied = "virtualization.deckhouse.io/checksum-applied"
 +)
++
++type VMIChecksumGetter interface {
++	GetAppliedVMIChecksum() (string, error)
++}
 +
 +func NewController(vmiSourceInformer cache.SharedIndexInformer, clientset kubecli.KubevirtClient) *Controller {
 +	queue := workqueue.NewRateLimitingQueueWithConfig(
@@ -730,7 +733,7 @@ index 0000000000..6a6ef8ad21
 +		return nil
 +	}
 +
-+	sum, err := control.Client.GetAppliedVMIChecksum()
++	sum, err := control.checksumGetter.GetAppliedVMIChecksum()
 +	if err != nil {
 +		return fmt.Errorf("could not get checksum for VirtualMachine instance %v: %w", key, err)
 +	}
@@ -798,7 +801,7 @@ index 0000000000..6a6ef8ad21
 +	return control, ok
 +}
 +
-+func NewVMIControl(vmi *v1.VirtualMachineInstance, client cmdclient.LauncherClient) (VMIControl, error) {
++func NewVMIControl(vmi *v1.VirtualMachineInstance, checksumGetter VMIChecksumGetter) (VMIControl, error) {
 +	if vmi == nil {
 +		return VMIControl{}, fmt.Errorf("vmi is nil")
 +	}
@@ -811,9 +814,9 @@ index 0000000000..6a6ef8ad21
 +			Name:      vmi.Name,
 +			Namespace: vmi.Namespace,
 +		},
-+		UID:      vmi.UID,
-+		Checksum: sum,
-+		Client:   client,
++		UID:            vmi.UID,
++		Checksum:       sum,
++		checksumGetter: checksumGetter,
 +	}, nil
 +}
 +
@@ -822,7 +825,7 @@ index 0000000000..6a6ef8ad21
 +	UID            types.UID
 +	Checksum       string
 +
-+	Client cmdclient.LauncherClient
++	checksumGetter VMIChecksumGetter
 +}
 +
 +func EscapeJSONPointer(path string) string {
