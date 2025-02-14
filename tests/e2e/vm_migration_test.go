@@ -35,22 +35,7 @@ const (
 
 func MigrateVirtualMachines(label map[string]string, templatePath string, virtualMachines ...string) {
 	GinkgoHelper()
-	migrationFilesPath := fmt.Sprintf("%s/migrations", templatePath)
-	for _, vm := range virtualMachines {
-		migrationFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
-		err := CreateMigrationManifest(vm, migrationFilePath, label)
-		Expect(err).NotTo(HaveOccurred(), "%v", err)
-		res := kubectl.Apply(kc.ApplyOptions{
-			Filename:       []string{migrationFilePath},
-			FilenameOption: kc.Filename,
-			Namespace:      conf.Namespace,
-		})
-		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-	}
-}
-
-func CreateMigrationManifest(vmName, filePath string, labels map[string]string) error {
-	return CreateVMOPManifest(vmName, filePath, labels, virtv2.VMOPTypeMigrate)
+	CreateAndApplyVMOPs(label, templatePath, "migrations", virtv2.VMOPTypeMigrate, virtualMachines...)
 }
 
 var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators(), func() {

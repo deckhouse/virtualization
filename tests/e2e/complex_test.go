@@ -211,6 +211,12 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				time.Sleep(20 * time.Second)
 				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 				RebootVirtualMachinesBySSH(vms...)
+				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				fmt.Println("!!!!!!1111111111111!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 				//RebootVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
 				time.Sleep(120 * time.Second)
 			})
