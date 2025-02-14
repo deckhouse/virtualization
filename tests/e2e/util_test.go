@@ -577,11 +577,9 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	for _, vm := range virtualMachines {
 		wg.Add(1)
 		go func() {
-			defer func() {
-				wg.Done()
-			}()
 			defer GinkgoRecover()
 			ExecSshCommand(vm+"1", cmd)
+			wg.Done()
 		}()
 	}
 	wg.Wait()
