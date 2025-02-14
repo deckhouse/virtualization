@@ -562,7 +562,7 @@ func CreateVMOPManifest(vmName, filePath string, labels map[string]string, vmopT
 func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	GinkgoHelper()
 
-	cmd := "sleep 20; sudo reboot&"
+	cmd := "sudo reboot"
 
 	for _, vm := range virtualMachines {
 		ExecSshCommand(vm, cmd)
