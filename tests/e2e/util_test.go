@@ -544,7 +544,7 @@ func CreateVMOPManifest(vmName, filePath string, labels map[string]string, vmopT
 			Kind:       virtv2.VirtualMachineOperationKind,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:   fmt.Sprintf("%s-%s", vmName, vmopType),
+			Name:   fmt.Sprintf("%s.%s", vmName, vmopType),
 			Labels: labels,
 		},
 		Spec: virtv2.VirtualMachineOperationSpec{
@@ -573,9 +573,11 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 func RebootVirtualMachinesByKillPods(virtualMachines ...string) {
 	GinkgoHelper()
 
-	for _, vm := range virtualMachines {
-		KillVMPod(vm)
-	}
+	kubectl.Delete(kc.DeleteOptions{
+		Namespace:      conf.Namespace,
+		IgnoreNotFound: true,
+		Resource:       kc.ResourcePod,
+	})
 }
 
 func KillVMPod(vm string) {
@@ -588,9 +590,5 @@ func KillVMPod(vm string) {
 	err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
 	Expect(err).NotTo(HaveOccurred(), err)
 
-	res := kubectl.Delete(kc.DeleteOptions{
-		Namespace: conf.Namespace,
-		Resource:  kc.ResourcePod,
-	})
-	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+	kubectl.Delete(kc.DeleteOptions{})
 }
