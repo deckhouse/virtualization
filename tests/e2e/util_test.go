@@ -31,7 +31,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	virtv1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -570,12 +569,8 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	}
 }
 
-func RebootVirtualMachinesByKillPods(virtualMachines ...string) {
+func RebootVirtualMachinesByKillPods(labels map[string]string) {
 	GinkgoHelper()
-
-	labels := map[string]string{
-		"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher",
-	}
 
 	kubectl.Delete(kc.DeleteOptions{
 		Namespace:      conf.Namespace,
@@ -583,17 +578,4 @@ func RebootVirtualMachinesByKillPods(virtualMachines ...string) {
 		Resource:       kc.ResourcePod,
 		Labels:         labels,
 	})
-}
-
-func KillVMPod(vm string) {
-	vmObj := virtv2.VirtualMachine{}
-	err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-	Expect(err).NotTo(HaveOccurred(), err)
-
-	activePod := GetActiveVirtualMachinePod(&vmObj)
-	vmPodObj := virtv1.Pod{}
-	err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
-	Expect(err).NotTo(HaveOccurred(), err)
-
-	kubectl.Delete(kc.DeleteOptions{})
 }

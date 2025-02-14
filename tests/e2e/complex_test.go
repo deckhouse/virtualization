@@ -66,6 +66,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel      = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
+		vmPodLabel         = map[string]string{"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher"}
 	)
 
 	Context("Preparing the environment", func() {
@@ -210,7 +211,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!")
 				time.Sleep(20 * time.Second)
 				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-				RebootVirtualMachinesByKillPods(vms...)
+				RebootVirtualMachinesByKillPods(vmPodLabel)
 				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
@@ -220,7 +221,10 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!")
 				RebootVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
 				fmt.Println("!!!!!!1111111111111!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-				time.Sleep(120 * time.Second)
+				time.Sleep(30 * time.Second)
+				RebootVirtualMachinesBySSH(vms...)
+				fmt.Println("!!!!!!2222222222222!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+				time.Sleep(30 * time.Second)
 			})
 		})
 	})
