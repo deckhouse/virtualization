@@ -25,6 +25,12 @@ func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
 	return vm.Spec.Disruptions.RestartApprovalMode
 }
 
+// CalculateSockets calculates the number of CPU sockets needed based on the number of cores.
+// It returns:
+// - 1 socket for up to 16 cores
+// - 2 sockets for 17 to 32 cores
+// - 4 sockets for 33 to 64 cores
+// - 8 sockets for more than 64 cores
 func CalculateSockets(cores int) int {
 	switch {
 	case cores <= 16:
@@ -33,7 +39,7 @@ func CalculateSockets(cores int) int {
 		return 2
 	case cores >= 33 && cores <= 64:
 		return 4
-	case cores >= 65 && cores <= 128:
+	case cores >= 65:
 		return 8
 	default:
 		return 1
