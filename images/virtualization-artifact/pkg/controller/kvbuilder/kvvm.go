@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"maps"
 
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,7 +34,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // TODO(VM): Implement at this level some mechanics supporting "effectiveSpec" logic
@@ -234,8 +234,8 @@ func (b *KVVM) SetCpu(cores int, coreFraction string) error {
 	domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
 	domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
 
-	socketsNeeded := vm.CalculateSockets(cores)
-	domainSpec.CPU.Cores = uint32(cores)
+	socketsNeeded, coresNeeded := vm.CalculateCoresAndSockets(cores)
+	domainSpec.CPU.Cores = uint32(coresNeeded)
 	domainSpec.CPU.Sockets = uint32(socketsNeeded)
 	domainSpec.CPU.MaxSockets = uint32(8)
 	return nil
