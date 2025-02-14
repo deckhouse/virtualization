@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -40,8 +41,7 @@ const (
 
 func ExecSshCommand(vmName, cmd string) {
 	GinkgoHelper()
-	defer GinkgoRecover()
-	
+
 	Eventually(func() error {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 			Namespace:   conf.Namespace,
@@ -52,7 +52,7 @@ func ExecSshCommand(vmName, cmd string) {
 			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		}
 		return nil
-	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
+	}).WithTimeout(20 * time.Second).WithPolling(Interval).ShouldNot(HaveOccurred())
 }
 
 func ExecStartCommand(vmName string) {
