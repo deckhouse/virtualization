@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -93,24 +92,7 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, err
 	}
 
-	phase := getPhase(kvvm)
-	if phase == "" {
-		phase = virtv2.MachinePending
-	}
-
-	confAppliedCondtion, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, s.VirtualMachine().Changed().Status.Conditions)
-	if confAppliedCondtion.Status == metav1.ConditionFalse && kvvm != nil && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" && phase == virtv2.MachineStopped {
-		phase = virtv2.MachinePending
-	}
-
-	changed.Status.Phase = phase
-
-	if phase == virtv2.MachineStarting && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
-		err = removeStartAnnotationToKVVM(ctx, h.client, kvvm)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	}
+	changed.Status.Phase = getPhase(changed, kvvm)
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
