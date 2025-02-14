@@ -543,7 +543,7 @@ func CreateVMOPManifest(vmName, filePath string, labels map[string]string, vmopT
 			Kind:       virtv2.VirtualMachineOperationKind,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:   fmt.Sprintf("%s%s", vmName, vmopType),
+			Name:   fmt.Sprintf("%s%s", vmName, strings.ToLower(string(vmopType))),
 			Labels: labels,
 		},
 		Spec: virtv2.VirtualMachineOperationSpec{
