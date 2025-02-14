@@ -72,7 +72,24 @@ func (h *SyncPowerStateHandler) Handle(ctx context.Context, s state.VirtualMachi
 		log.Error(err.Error())
 	}
 
+	err = h.syncKVVMAnnotations(ctx, changed, kvvm)
+	if err != nil {
+		err = fmt.Errorf("failed to sync KVVM power state annotations: %w", err)
+		log.Error(err.Error())
+	}
+
 	return reconcile.Result{}, err
+}
+
+func (h *SyncPowerStateHandler) syncKVVMAnnotations(ctx context.Context, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
+	if vm.Status.Phase == virtv2.MachineStarting && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
+		err := removeStartAnnotationToKVVM(ctx, h.client, kvvm)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // syncPowerState enforces runPolicy on the underlying KVVM.
