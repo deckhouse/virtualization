@@ -527,7 +527,10 @@ func CreateAndApplyVMOPs(label map[string]string, templatePath, subFolderPath st
 	for _, vm := range virtualMachines {
 		wg.Add(1)
 		go func() {
-			defer func() { wg.Done() }()
+			defer func() {
+				wg.Done()
+				GinkgoRecover()
+			}()
 			opFilePath := fmt.Sprintf("%s/%s.yaml", opsFilesPath, vm)
 			err := CreateVMOPManifest(vm, opFilePath, label, vmopType)
 			Expect(err).NotTo(HaveOccurred(), err)
@@ -574,6 +577,7 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	for _, vm := range virtualMachines {
 		wg.Add(1)
 		go func() {
+			defer GinkgoRecover()
 			ExecSshCommand(vm+"1", cmd)
 			wg.Done()
 		}()
