@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -52,7 +51,7 @@ func ExecSshCommand(vmName, cmd string) {
 			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		}
 		return nil
-	}).WithTimeout(20 * time.Second).WithPolling(Interval).ShouldNot(HaveOccurred())
+	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
 }
 
 func ExecStartCommand(vmName string) {
