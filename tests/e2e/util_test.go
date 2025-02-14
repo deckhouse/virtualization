@@ -573,10 +573,15 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 func RebootVirtualMachinesByKillPods(virtualMachines ...string) {
 	GinkgoHelper()
 
+	labels := map[string]string{
+		"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher",
+	}
+
 	kubectl.Delete(kc.DeleteOptions{
 		Namespace:      conf.Namespace,
 		IgnoreNotFound: true,
 		Resource:       kc.ResourcePod,
+		Labels:         labels,
 	})
 }
 
