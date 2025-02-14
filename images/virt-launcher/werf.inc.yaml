@@ -1,4 +1,13 @@
 ---
+# TODO:
+# Import to image distroless only nessesary packages
+# 
+image: {{ $.ImageName }}-v1
+fromImage: distroless
+
+---
+# Done
+# merge-qemu-libvirt-binaries contaains /VBINS and /relocate
 image: {{ $.ImageName }}
 fromImage: {{ $.ImageName }}-prepared
 git:
@@ -158,7 +167,7 @@ shell:
 
     echo "Create symlinks for OVMF"
     ln -sf /usr/share/edk2/ovmf/OVMF_CODE.fd         /usr/share/edk2/ovmf/OVMF_CODE.cc.fd
-    ln -sf /usr/share/edk2/ovmf/OVMF_CODE.cc.fd /usr/share/OVMF/OVMF_CODE.cc.fd
+    ln -sf /usr/share/edk2/ovmf/OVMF_CODE.cc.fd      /usr/share/OVMF/OVMF_CODE.cc.fd
     
     ln -s /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd /usr/share/OVMF
     ln -s /usr/share/edk2/ovmf/OVMF_VARS.fd         /usr/share/OVMF
@@ -215,9 +224,27 @@ docker:
     LC_ALL: POSIX
 
 ---
+{{- $binaries := "/usr/bin/bash /usr/bin/rm /usr/bin/mv /usr/bin/grep /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd /usr/bin/mount /usr/bin/umount /usr/bin/chacl /usr/bin/getfacl /usr/bin/setfacl /usr/bin/ps /usr/sbin/slabtop /usr/sbin/sysctl /usr/bin/free /usr/bin/pgrep /usr/bin/pidwait /usr/bin/pkill /usr/bin/pmap /usr/bin/pwdx /usr/bin/skill /usr/bin/snice /usr/bin/tload /usr/bin/top /usr/bin/uptime /usr/bin/vmstat /usr/bin/w /usr/bin/watch /usr/sbin/nft /usr/lib64/libpcre*" }}
+
+{{- $binariesXorriso := "/usr/bin/xorriso /usr/bin/xorrecord /usr/bin/osirrox /usr/bin/xorriso-dd-target /usr/bin/xorrisofs" }}
+
+{{- $binariesEthtool := "/usr/sbin/ethlist /usr/sbin/ethtool" }}
+
+{{- $binariesPasst := "/usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 usr/bin/qrap" }}
+
+{{- $binariesSwtpm := "/usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup" }}
+
+{{- $binariesDmidecode := "/usr/sbin/biosdecode /usr/sbin/dmidecode /usr/sbin/ownership /usr/sbin/vpddecode" }}
+
+{{- $binariesNumactl := "/usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numademo /usr/bin/numastat" }}
+
+{{- $binariesHwclock := "/usr/bin/clock_unsynced /usr/etc/adjtime /usr/sbin/clock /usr/sbin/hwclock /usr/sbin/hwclock" }}
+
+{{- $binariesLibffi8 := "/usr/lib64/libffi.so*" }}
+
 image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
 final: false
-fromImage: base-alt-p11
+fromImage: base-alt-p11-binaries
 import:
 - image: libvirt
   add: /BINS
@@ -238,8 +265,7 @@ git:
 shell:
   install:
   - |
-    apt-get update && apt-get install -y tree \
-    glibc-utils \
+    apt-get update && apt-get install -y \
     libffi8 \
     libssh-devel libssh2-devel \
     libcap-ng-devel \
@@ -257,7 +283,20 @@ shell:
     libvdeplug-devel libpciaccess-devel libyajl-devel sanlock-devel libpcap-devel libnl-devel libparted-devel libdevmapper-devel \
     libglusterfs-devel libaudit-devel libfuse-devel libnbd-devel libblkid-devel libp11-kit-devel libreadline-devel \
     libattr-devel libbsd-devel libsystemd-devel libjson-c-devel systemtap-sdt-devel libacl-devel glib2-devel \
-    libgio-devel libxml2-devel libtirpc-devel libclocale libLLVMSPIRVLib-devel
+    libgio-devel libxml2-devel libtirpc-devel libclocale libLLVMSPIRVLib-devel \
+    acl \
+    pcre \
+    procps \
+    ethtool \
+    nftables \
+    passt \
+    swtpm swtpm-tools \
+    xorriso \
+    dmidecode \
+    numactl \
+    hwclock \
+    libffi8 \
+    glibc-gconv-modules
 
     apt-get clean
 
@@ -276,7 +315,23 @@ shell:
     LIST+=" $(find /VBINS/usr/sbin/ -type f)"
     LIST+=" /usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3"
     LIST+=" /usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4"
-    ./reloclibs.sh -i "$LIST" -o /VBINS
+
+    ./relocate_binaries.sh -i "$LIST" -o /VBINS
+    
+    ./relocate_binaries.sh -i "{{ $binaries }}"          -o /relocate
+    ./relocate_binaries.sh -i "{{ $binariesXorriso }}"   -o /relocate
+    ./relocate_binaries.sh -i "{{ $binariesEthtool }}"   -o /relocate
+    ./relocate_binaries.sh -i "{{ $binariesPasst }}"     -o /relocate
+    ./relocate_binaries.sh -i "{{ $binariesSwtpm }}"     -o /relocate
+    ./relocate_binaries.sh -i "{{ $binariesDmidecode }}" -o /relocate
+    ./relocate_binaries.sh -i "{{ $binariesNumactl }}"   -o /relocate
+    ./relocate_binaries.sh -i "{{ $binariesHwclock }}"   -o /relocate
+    ./relocate_binaries.sh -i "{{ $binariesLibffi8 }}"   -o /relocate
+
+    # glibc-gconv-modules
+    cp -a /usr/lib64/gconv /relocate/usr/lib64
+
+    # ./reloclibs.sh -i "$LIST" -o /VBINS
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
