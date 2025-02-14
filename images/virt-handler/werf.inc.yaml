@@ -50,6 +50,7 @@ import:
   - nsswitch.conf
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-handler/BUILD.bazel
 docker:
+  USER: 0
   ENTRYPOINT: ["/usr/bin/virt-handler"]
 
 ---
@@ -73,10 +74,10 @@ shell:
   - |
     /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
 
-    mkdir -p /relocate/etc
-    echo "deckhouse:x:64535:64535:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
-    echo "deckhouse:x:64535:" >> /relocate/etc/group
-    echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
+    mkdir -p /relocate/etc /relocate/root
+    echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
+    echo "root:x:0:" >> /relocate/etc/group
+    echo "root:x:20066::::::" >> /relocate/etc/shadow
     
     echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /relocate/etc/passwd
     echo "qemu:x:107:" >> /relocate/etc/group
