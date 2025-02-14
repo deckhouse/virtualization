@@ -523,17 +523,23 @@ func RebootVirtualMachinesByVMOP(label map[string]string, templatePath string, v
 
 func CreateAndApplyVMOPs(label map[string]string, templatePath, subFolderPath string, vmopType virtv2.VMOPType, virtualMachines ...string) {
 	opsFilesPath := fmt.Sprintf("%s/%s", templatePath, subFolderPath)
+	var wg sync.WaitGroup
 	for _, vm := range virtualMachines {
-		opFilePath := fmt.Sprintf("%s/%s.yaml", opsFilesPath, vm)
-		err := CreateVMOPManifest(vm, opFilePath, label, vmopType)
-		Expect(err).NotTo(HaveOccurred(), err)
-		res := kubectl.Apply(kc.ApplyOptions{
-			Filename:       []string{opFilePath},
-			FilenameOption: kc.Filename,
-			Namespace:      conf.Namespace,
-		})
-		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+		wg.Add(1)
+		go func() {
+			defer func() { wg.Done() }()
+			opFilePath := fmt.Sprintf("%s/%s.yaml", opsFilesPath, vm)
+			err := CreateVMOPManifest(vm, opFilePath, label, vmopType)
+			Expect(err).NotTo(HaveOccurred(), err)
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{opFilePath},
+				FilenameOption: kc.Filename,
+				Namespace:      conf.Namespace,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+		}()
 	}
+	wg.Wait()
 }
 
 func CreateVMOPManifest(vmName, filePath string, labels map[string]string, vmopType virtv2.VMOPType) error {
@@ -561,13 +567,16 @@ func CreateVMOPManifest(vmName, filePath string, labels map[string]string, vmopT
 
 func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	GinkgoHelper()
+
+	var wg sync.WaitGroup
+	cmd := "sudo reboot"
+
 	for _, vm := range virtualMachines {
-		cmd := "sudo reboot"
-		//d8Virtualization.SshCommand(vm, cmd, d8.SshOptions{
-		//	Namespace:   conf.Namespace,
-		//	Username:    conf.TestData.SshUser,
-		//	IdenityFile: conf.TestData.Sshkey,
-		//})
-		ExecSshCommand(vm, cmd)
+		wg.Add(1)
+		go func() {
+			ExecSshCommand(vm, cmd)
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
