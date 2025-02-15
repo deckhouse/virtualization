@@ -83,7 +83,14 @@ func (h *SyncPowerStateHandler) Handle(ctx context.Context, s state.VirtualMachi
 
 func (h *SyncPowerStateHandler) syncKVVMAnnotations(ctx context.Context, vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) error {
 	if vm.Status.Phase == virtv2.MachineStarting && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
-		err := removeStartAnnotationToKVVM(ctx, h.client, kvvm)
+		err := kvvmutil.RemoveStartAnnotation(ctx, h.client, kvvm)
+		if err != nil {
+			return err
+		}
+	}
+
+	if vm.Status.Phase == virtv2.MachineStarting && kvvm.Annotations[annotations.AnnVmRestartRequested] == "true" {
+		err := kvvmutil.RemoveRestartAnnotation(ctx, h.client, kvvm)
 		if err != nil {
 			return err
 		}
