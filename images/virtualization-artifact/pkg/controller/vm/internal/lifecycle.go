@@ -27,8 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -95,7 +93,6 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	}
 
 	changed.Status.Phase = getPhase(changed, kvvm)
-
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
