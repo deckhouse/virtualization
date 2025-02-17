@@ -215,79 +215,95 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			cmdResult *executor.CMDResult
 		)
 
-		//Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
-		//	It("stop VMs by VMOP", func() {
-		//		res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-		//			Labels:    testCaseLabel,
-		//			Namespace: conf.Namespace,
-		//			Output:    "jsonpath='{.items[*].metadata.name}'",
-		//		})
-		//		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-		//
-		//		vms := strings.Split(res.StdOut(), " ")
-		//
-		//		StopVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
-		//	})
-		//})
-		//
-		//Context("When stop VMOPs are applied", func() {
-		//	It("checks VMs and VMOPs phases", func() {
-		//		By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-		//		WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
-		//			Labels:    testCaseLabel,
-		//			Namespace: conf.Namespace,
-		//			Timeout:   MaxWaitTimeout,
-		//		})
-		//	})
-		//})
-		//
-		//Context(fmt.Sprintf("When VMs are in %s phases", PhaseStopped), func() {
-		//	It("start VMs by VMOP", func() {
-		//		res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-		//			Labels:    testCaseLabel,
-		//			Namespace: conf.Namespace,
-		//			Output:    "jsonpath='{.items[*].metadata.name}'",
-		//		})
-		//		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-		//
-		//		vms := strings.Split(res.StdOut(), " ")
-		//
-		//		StartVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
-		//	})
-		//})
-		//
-		//Context("When start VMOPs are applied", func() {
-		//	It("checks VMs and VMOPs phases", func() {
-		//		By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-		//		WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
-		//			Labels:    testCaseLabel,
-		//			Namespace: conf.Namespace,
-		//			Timeout:   MaxWaitTimeout,
-		//		})
-		//		By("Virtual machines should be ready")
-		//		WaitVmReady(kc.WaitOptions{
-		//			Labels:    testCaseLabel,
-		//			Namespace: conf.Namespace,
-		//			Timeout:   MaxWaitTimeout,
-		//		})
-		//	})
-		//
-		//	It("checks VMs external connection after stopped and started", func() {
-		//		res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-		//			Labels:    testCaseLabel,
-		//			Namespace: conf.Namespace,
-		//			Output:    "jsonpath='{.items[*].metadata.name}'",
-		//		})
-		//		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-		//
-		//		var vms []string
-		//		for _, vm := range strings.Split(res.StdOut(), " ") {
-		//			vms = append(vms, vm)
-		//		}
-		//
-		//		CheckExternalConnection(externalHost, httpStatusOk, vms...)
-		//	})
-		//})
+		Context("When VMs are ready", func() {
+			It("stop VMs by VMOP", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				vms := strings.Split(res.StdOut(), " ")
+				var notAlwaysOnVMs []string
+				for _, vm := range vms {
+					vmObj := virtv2.VirtualMachine{}
+					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+					Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+					if vmObj.Spec.RunPolicy != virtv2.AlwaysOnPolicy {
+						notAlwaysOnVMs = append(notAlwaysOnVMs, vm)
+					}
+				}
+
+				StopVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, notAlwaysOnVMs...)
+			})
+		})
+
+		Context("When stop VMOPs are applied", func() {
+			It("checks VMs and VMOPs phases", func() {
+				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By("Virtual machines should be stopped")
+				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+		})
+
+		Context(fmt.Sprintf("When VMs are in %s phases", PhaseStopped), func() {
+			It("start VMs by VMOP", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				vms := strings.Split(res.StdOut(), " ")
+
+				StartVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
+			})
+		})
+
+		Context("When start VMOPs are applied", func() {
+			It("checks VMs and VMOPs phases", func() {
+				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By("Virtual machines should be ready")
+				WaitVmReady(kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+
+			It("checks VMs external connection after stopped and started", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				var vms []string
+				for _, vm := range strings.Split(res.StdOut(), " ") {
+					vms = append(vms, vm)
+				}
+
+				CheckExternalConnection(externalHost, httpStatusOk, vms...)
+			})
+		})
 
 		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
 			It("reboot VMs by VMOP", func() {
