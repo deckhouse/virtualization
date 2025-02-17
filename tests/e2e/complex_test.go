@@ -205,6 +205,9 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				vms := strings.Split(res.StdOut(), " ")
+				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
 	})
