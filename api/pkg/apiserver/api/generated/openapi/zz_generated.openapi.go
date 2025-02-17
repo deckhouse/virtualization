@@ -849,6 +849,14 @@ func schema_virtualization_api_core_v1alpha2_CPUSpec(ref common.ReferenceCallbac
 							Format:      "int32",
 						},
 					},
+					"sockets": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Specifies the number of sockets inside the VM. The value must be greater or equal 1.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 					"coreFraction": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.",
@@ -857,7 +865,7 @@ func schema_virtualization_api_core_v1alpha2_CPUSpec(ref common.ReferenceCallbac
 						},
 					},
 				},
-				Required: []string{"cores"},
+				Required: []string{"cores", "sockets"},
 			},
 		},
 	}
