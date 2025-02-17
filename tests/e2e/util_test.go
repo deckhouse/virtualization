@@ -521,6 +521,16 @@ func RebootVirtualMachinesByVMOP(label map[string]string, templatePath string, v
 	CreateAndApplyVMOPs(label, templatePath, "reboots", virtv2.VMOPTypeRestart, virtualMachines...)
 }
 
+func StopVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
+	GinkgoHelper()
+	CreateAndApplyVMOPs(label, templatePath, "stops", virtv2.VMOPTypeStop, virtualMachines...)
+}
+
+func StartVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
+	GinkgoHelper()
+	CreateAndApplyVMOPs(label, templatePath, "starts", virtv2.VMOPTypeStart, virtualMachines...)
+}
+
 func CreateAndApplyVMOPs(label map[string]string, templatePath, subFolderPath string, vmopType virtv2.VMOPType, virtualMachines ...string) {
 	opsFilesPath := fmt.Sprintf("%s/%s", templatePath, subFolderPath)
 	for _, vm := range virtualMachines {
@@ -569,13 +579,15 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	}
 }
 
-func RebootVirtualMachinesByKillPods(labels map[string]string) {
+func RebootVirtualMachinesByKillPods(labels map[string]string, cmdResult *executor.CMDResult, wg *sync.WaitGroup) {
 	GinkgoHelper()
 
-	kubectl.Delete(kc.DeleteOptions{
+	cmdResult = kubectl.Delete(kc.DeleteOptions{
 		Namespace:      conf.Namespace,
 		IgnoreNotFound: true,
 		Resource:       kc.ResourcePod,
 		Labels:         labels,
 	})
+
+	wg.Done()
 }

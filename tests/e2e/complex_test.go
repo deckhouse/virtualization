@@ -19,7 +19,7 @@ package e2e
 import (
 	"fmt"
 	"strings"
-	"time"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,6 +27,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
+	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -204,27 +205,230 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+			})
+		})
+	})
+
+	Describe("Power state checks", func() {
+		var (
+			wg        sync.WaitGroup
+			cmdResult *executor.CMDResult
+		)
+
+		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
+			It("stop VMs by VMOP", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 
-				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!")
-				time.Sleep(20 * time.Second)
-				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-				go RebootVirtualMachinesByKillPods(vmPodLabel)
+				StopVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
+			})
+		})
+
+		Context("When stop VMOPs are applied", func() {
+			It("checks VMs and VMOPs phases", func() {
+				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By("Virtual machines should be stopped")
 				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				time.Sleep(30 * time.Second)
-				fmt.Println("!!!!!!!!!!!!!!!!!!!!!!!")
+			})
+		})
+
+		Context(fmt.Sprintf("When VMs are in %s phases", PhaseStopped), func() {
+			It("start VMs by VMOP", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				vms := strings.Split(res.StdOut(), " ")
+
+				StartVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
+			})
+		})
+
+		Context("When start VMOPs are applied", func() {
+			It("checks VMs and VMOPs phases", func() {
+				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By("Virtual machines should be running")
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+
+			It("checks VMs external connection after stopped and started", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				var vms []string
+				for _, vm := range strings.Split(res.StdOut(), " ") {
+					vms = append(vms, vm)
+				}
+
+				CheckExternalConnection(externalHost, httpStatusOk, vms...)
+			})
+		})
+
+		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
+			It("reboot VMs by VMOP", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				vms := strings.Split(res.StdOut(), " ")
+
 				RebootVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
-				fmt.Println("!!!!!!1111111111111!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-				time.Sleep(30 * time.Second)
+			})
+		})
+
+		Context("When reboot VMOPs are applied", func() {
+			It("checks VMs and VMOPs phases", func() {
+				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By("Virtual machines should be running")
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+
+			It("checks VMs external connection after reboot", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				var vms []string
+				for _, vm := range strings.Split(res.StdOut(), " ") {
+					vms = append(vms, vm)
+				}
+
+				CheckExternalConnection(externalHost, httpStatusOk, vms...)
+			})
+		})
+
+		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
+			It("reboot VMs by ssh", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				vms := strings.Split(res.StdOut(), " ")
+
 				RebootVirtualMachinesBySSH(vms...)
-				fmt.Println("!!!!!!2222222222222!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-				time.Sleep(30 * time.Second)
+			})
+		})
+
+		Context("When VM reboot command sent by ssh", func() {
+			It("checks VMs phases", func() {
+				By("Virtual machines should be stopped")
+				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By("Virtual machines should be running")
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+
+			It("checks VMs external connection after reboot", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				var vms []string
+				for _, vm := range strings.Split(res.StdOut(), " ") {
+					vms = append(vms, vm)
+				}
+
+				CheckExternalConnection(externalHost, httpStatusOk, vms...)
+			})
+		})
+
+		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
+			It("reboot VMs by ssh", func() {
+				wg.Add(1)
+				go RebootVirtualMachinesByKillPods(vmPodLabel, cmdResult, &wg)
+			})
+		})
+
+		Context("When VM reboot command sent by kill pods", func() {
+			It("checks VMs phases", func() {
+				By("Virtual machines should be stopped")
+				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By("Virtual machines should be running")
+				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				wg.Wait()
+			})
+
+			It("checks VMs external connection after reboot", func() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				var vms []string
+				for _, vm := range strings.Split(res.StdOut(), " ") {
+					vms = append(vms, vm)
+				}
+
+				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
 	})
