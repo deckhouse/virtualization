@@ -61,7 +61,7 @@ shell:
     mkdir -p /relocate/etc /relocate/root
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
-    echo "root:x:20066::::::" >> /relocate/etc/shadow
+    echo "root:x:::::::" >> /relocate/etc/shadow
     
     echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /relocate/etc/passwd
     echo "qemu:x:107:" >> /relocate/etc/group
