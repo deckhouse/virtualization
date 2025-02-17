@@ -1,12 +1,12 @@
 ---
 image: {{ $.ImageName }}
-fromImage: distroless
+from: {{ .Images.BASE_SCRATCH }}
 import:
   - image: virtualization-artifact
     add: /usr/local/go/src/virtualization-controller/virtualization-api
     to: /app/virtualization-api
     after: install
 docker:
-  USER: 65534
+  USER: "65532:65532"
   WORKDIR: "/app"
   ENTRYPOINT: ["/app/virtualization-api"]
