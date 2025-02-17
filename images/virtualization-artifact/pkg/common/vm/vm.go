@@ -30,7 +30,7 @@ func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
 // CalculateCoresAndSockets calculates the number of sockets and cores per socket needed to achieve
 // the desired total number of CPU cores.
 // The function tries to minimize the number of sockets while ensuring the desired core count.
-func CalculateCoresAndSockets(desiredCores int) (sockets int, coresPerSocket int) {
+func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket int) {
 	socketOptions := []int{1, 2, 4, 8}
 
 	for _, option := range socketOptions {

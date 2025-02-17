@@ -159,6 +159,12 @@ type CPUSpec struct {
 	// +kubebuilder:validation:Format:=int32
 	// +kubebuilder:validation:Minimum=1
 	Cores int `json:"cores"`
+
+	// Specifies the number of sockets inside the VM. The value must be greater or equal 1.
+	// +kubebuilder:validation:Format:=int32
+	// +kubebuilder:validation:Minimum=1
+	Sockets int `json:"sockets"`
+
 	// Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
 	// +kubebuilder:default:="100%"
 	// +kubebuilder:validation:Enum:={"5%", "10%", "25%", "50%", "100%"}
