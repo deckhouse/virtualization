@@ -387,6 +387,9 @@ spec:
                     cores:
                       description: |
                         Количество ядер.
+                    sockets:
+                      description: |
+                        Количество сокетов.
                 disruptions:
                   description: |
                     Описание политики применения изменений, требующих перезагрузки ВМ.
