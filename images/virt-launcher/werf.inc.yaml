@@ -1,13 +1,75 @@
 ---
-# TODO:
-# Import to image distroless only nessesary packages
 # 
 image: {{ $.ImageName }}-v1
+final: false
 fromImage: distroless
+git:
+  # Add liboverride as a global LD_PRELOAD.
+  - add: /images/{{ $.ImageName }}/liboverride
+    to: /etc
+    stageDependencies:
+      setup:
+      - 'ld.so.preload.in'
+    includePaths:
+    - ld.so.preload.in
+import:
+  # Copy qemu and libvirt binaries
+  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
+    add: /relocate
+    to: /
+    after: install
+
+  - image: {{ $.ImageName }}-liboverride-builder
+    add: /liboverride/
+    to: /liboverride
+    after: install
+    includePaths:
+    - liboverride.so
+
+  # After install stage.
+  # Add kubeivrt files from virt-artifact.
+  - image: virt-artifact
+    add: /kubevirt-config-files/
+    to: /
+    after: install
+    includePaths:
+    - .version
+  - image: virt-artifact
+    add: /kubevirt/cmd/{{ $.ImageName }}/
+    to: /etc/libvirt
+    after: install
+    includePaths:
+    - qemu.conf
+    - virtqemud.conf
+  - image: virt-artifact
+    add: /kubevirt/cmd/{{ $.ImageName }}/
+    to: /etc
+    after: install
+    includePaths:
+    - nsswitch.conf
+  - image: virt-artifact
+    add: /kubevirt-binaries/
+    to: /usr/bin
+    before: setup
+    includePaths:
+    - container-disk
+    - virt-freezer
+    - virt-launcher
+    - virt-launcher-monitor-orig
+    - virt-probe
+    - virt-tail
+  - image: virt-artifact
+    add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
+    to: /usr/bin
+    before: setup
+    includePaths:
+    - '*.sh'
+docker:
+  USER: 0
 
 ---
 # Done
-# merge-qemu-libvirt-binaries contaains /VBINS and /relocate
+# merge-qemu-libvirt-binaries contains /VBINS and /relocate
 image: {{ $.ImageName }}
 fromImage: {{ $.ImageName }}-prepared
 git:
@@ -224,6 +286,7 @@ docker:
     LC_ALL: POSIX
 
 ---
+# NEW relocate ----
 {{- $binaries := "/usr/bin/bash /usr/bin/rm /usr/bin/mv /usr/bin/grep /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd /usr/bin/mount /usr/bin/umount /usr/bin/chacl /usr/bin/getfacl /usr/bin/setfacl /usr/bin/ps /usr/sbin/slabtop /usr/sbin/sysctl /usr/bin/free /usr/bin/pgrep /usr/bin/pidwait /usr/bin/pkill /usr/bin/pmap /usr/bin/pwdx /usr/bin/skill /usr/bin/snice /usr/bin/tload /usr/bin/top /usr/bin/uptime /usr/bin/vmstat /usr/bin/w /usr/bin/watch /usr/sbin/nft /usr/lib64/libpcre*" }}
 
 {{- $binariesXorriso := "/usr/bin/xorriso /usr/bin/xorrecord /usr/bin/osirrox /usr/bin/xorriso-dd-target /usr/bin/xorrisofs" }}
@@ -254,6 +317,22 @@ import:
   add: /BINS
   to: /qemu-bins
   before: install
+  # EDK2 (uefi firmware)
+- image: edk2
+  add: /FIRMWARE/
+  to: /relocate/usr/share/edk2/ovmf
+  before: install
+  includePaths:
+  - '*.fd'
+  - '*.bin'
+  - '*.efi'
+  - '*.iso'
+- image: edk2
+  add: /FIRMWARE/
+  to: /relocate/usr/share/qemu/firmware
+  before: install
+  includePaths:
+  - '*.json'
 git:
   - add: /images/{{ $.ImageName }}
     to: /
@@ -317,6 +396,8 @@ shell:
     LIST+=" /usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4"
 
     ./relocate_binaries.sh -i "$LIST" -o /VBINS
+
+    cp -a /VBINS/. /relocate
     
     ./relocate_binaries.sh -i "{{ $binaries }}"          -o /relocate
     ./relocate_binaries.sh -i "{{ $binariesXorriso }}"   -o /relocate
@@ -330,6 +411,67 @@ shell:
 
     # glibc-gconv-modules
     cp -a /usr/lib64/gconv /relocate/usr/lib64
+
+    mkdir -p /relocate/etc /relocate/root
+    echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
+    echo "root:x:0:" >> /relocate/etc/group
+    echo "root:x:::::::" >> /relocate/etc/shadow
+    
+    echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /relocate/etc/passwd
+    echo "qemu:x:107:" >> /relocate/etc/group
+    mkdir -p /relocate/home/qemu
+    chown -R 107:107 /relocate/home/qemu
+
+    echo "Create symlinks for OVMF"
+    mkdir -p /usr/share/OVMF
+
+    cd /relocate/usr/share/edk2/ovmf
+    ln -sf OVMF_CODE.fd         OVMF_CODE.cc.fd
+    ln -sf OVMF_CODE.cc.fd      ../../OVMF/OVMF_CODE.cc.fd
+    
+    ln -s OVMF_CODE.secboot.fd ../../OVMF
+    ln -s OVMF_VARS.fd         ../../OVMF
+    ln -s OVMF_VARS.secboot.fd ../../OVMF
+    ln -s UefiShell.iso        ../../OVMF
+    
+    cd /
+
+    # cp -a /VBINS/* /relocate
+# =========
+  - |
+    convert_version() {
+      local version="$1"
+      IFS='.' read -r major minor patch <<< "$version"
+      printf "%d%03d\n" "$major" "$minor"
+    }
+
+    libvirt_version=$(convert_version {{ $version }})
+
+    echo "libvirt_version: $libvirt_version"
+
+    SYMLINC_LIST=$(cat <<EOF
+    libvirt.so.0.${libvirt_version}.0       lib64/libvirt.so.0
+    libvirt.so.0                            lib64/libvirt.so
+    libvirt-qemu.so.0.${libvirt_version}.0  lib64/libvirt-qemu.so.0
+    libvirt-qemu.so.0                       lib64/libvirt-qemu.so
+    libvirt-lxc.so.0.${libvirt_version}.0   lib64/libvirt-lxc.so.0
+    libvirt-lxc.so.0                        lib64/libvirt-lxc.so
+    libvirt-admin.so.0.${libvirt_version}.0 lib64/libvirt-admin.so.0
+    libvirt-admin.so.0                      lib64/libvirt-admin.so
+    EOF
+    )
+
+    cd /relocate/usr/local/lib64/
+
+    while IFS= read -r LINE; do
+      echo "Create symlinc for $LINE"
+      TARGET=$(echo $LINE | awk -F' ' '{print $1}')
+      SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
+      ln -s $TARGET ../../../$SYMLINK
+    done <<< "$SYMLINC_LIST"
+    
+    cd /
+
 
     # ./reloclibs.sh -i "$LIST" -o /VBINS
 
