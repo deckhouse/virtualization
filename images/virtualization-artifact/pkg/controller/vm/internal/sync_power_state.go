@@ -70,6 +70,7 @@ func (h *SyncPowerStateHandler) Handle(ctx context.Context, s state.VirtualMachi
 	if err != nil {
 		err = fmt.Errorf("failed to sync powerstate: %w", err)
 		log.Error(err.Error())
+		return reconcile.Result{}, err
 	}
 
 	err = h.syncKVVMAnnotations(ctx, changed, kvvm)
@@ -125,8 +126,8 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 		shutdownInfo = s.ShutdownInfo
 	})
 
-	appliedCondtion, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, s.VirtualMachine().Changed().Status.Conditions)
-	canStartVM := appliedCondtion.Status == metav1.ConditionTrue
+	appliedCondition, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, s.VirtualMachine().Changed().Status.Conditions)
+	isConfigurationApplied := appliedCondition.Status == metav1.ConditionTrue
 
 	switch runPolicy {
 	case virtv2.AlwaysOffPolicy:
@@ -144,8 +145,8 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 		}
 	case virtv2.AlwaysOnPolicy:
 		if kvvmi == nil {
-			if !canStartVM {
-				return h.handleCanNotStartVM(ctx, s, kvvm)
+			if !isConfigurationApplied {
+				return h.interruptionRunningVM(ctx, s, kvvm)
 			}
 
 			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
@@ -160,8 +161,8 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
 			if kvvmi.Status.Phase == virtv1.Succeeded {
-				if !canStartVM {
-					return h.handleCanNotStartVM(ctx, s, kvvm)
+				if !isConfigurationApplied {
+					return h.interruptionRunningVM(ctx, s, kvvm)
 				}
 
 				if shutdownInfo.PodCompleted {
@@ -189,8 +190,8 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 			}
 
 			if kvvmi.Status.Phase == virtv1.Failed {
-				if !canStartVM {
-					return h.handleCanNotStartVM(ctx, s, kvvm)
+				if !isConfigurationApplied {
+					return h.interruptionRunningVM(ctx, s, kvvm)
 				}
 
 				h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
@@ -202,7 +203,7 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 					return fmt.Errorf("restart VM on failed: %w", err)
 				}
 			}
-		} else if canStartVM && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
+		} else if isConfigurationApplied && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
 			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
 				"Start initiated by controller for %v policy",
 				runPolicy,
@@ -215,8 +216,8 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 	case virtv2.AlwaysOnUnlessStoppedManually:
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
 			if kvvmi.Status.Phase == virtv1.Succeeded {
-				if !canStartVM {
-					return h.handleCanNotStartVM(ctx, s, kvvm)
+				if !isConfigurationApplied {
+					return h.interruptionRunningVM(ctx, s, kvvm)
 				}
 
 				if shutdownInfo.PodCompleted {
@@ -260,8 +261,8 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 				}
 			}
 			if kvvmi.Status.Phase == virtv1.Failed {
-				if !canStartVM {
-					return h.handleCanNotStartVM(ctx, s, kvvm)
+				if !isConfigurationApplied {
+					return h.interruptionRunningVM(ctx, s, kvvm)
 				}
 
 				h.recordRestartEventf(ctx, s.VirtualMachine().Current(),
@@ -273,7 +274,7 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 					return fmt.Errorf("automatic restart of failed VM: %w", err)
 				}
 			}
-		} else if canStartVM && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
+		} else if isConfigurationApplied && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
 			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
 				"Start initiated by controller for %v policy",
 				runPolicy,
@@ -288,8 +289,8 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 		// All types of shutdown are final states.
 		if kvvmi != nil && kvvmi.DeletionTimestamp == nil {
 			if kvvmi.Status.Phase == virtv1.Succeeded && shutdownInfo.PodCompleted {
-				if !canStartVM {
-					return h.handleCanNotStartVM(ctx, s, kvvm)
+				if !isConfigurationApplied {
+					return h.interruptionRunningVM(ctx, s, kvvm)
 				}
 
 				// Request to start new KVVMI (with updated settings).
@@ -313,7 +314,7 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 					}
 				}
 			}
-		} else if canStartVM && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
+		} else if isConfigurationApplied && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
 			h.recordStartEventf(ctx, s.VirtualMachine().Current(),
 				"Start initiated by controller for %v policy",
 				runPolicy,
@@ -328,9 +329,9 @@ func (h *SyncPowerStateHandler) syncPowerState(ctx context.Context, s state.Virt
 	return nil
 }
 
-func (h *SyncPowerStateHandler) handleCanNotStartVM(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) error {
+func (h *SyncPowerStateHandler) interruptionRunningVM(ctx context.Context, s state.VirtualMachineState, kvvm *virtv1.VirtualMachine) error {
 	h.recordStopEventf(ctx, s.VirtualMachine().Current(),
-		"The VirtualMachine failed to start because the provided configuration could not be applied.",
+		"The VirtualMachine has been interrupted because the provided configuration could not be applied.",
 	)
 	err := addStartAnnotationToKVVM(ctx, h.client, kvvm)
 	if err != nil {
