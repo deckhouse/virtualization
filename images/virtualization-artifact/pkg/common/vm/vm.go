@@ -31,13 +31,17 @@ func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
 // the desired total number of CPU cores.
 // The function tries to minimize the number of sockets while ensuring the desired core count.
 func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket int) {
-	socketOptions := []int{1, 2, 4, 8}
+	if desiredCores <= 16 {
+		return 1, desiredCores
+	}
 
-	for _, option := range socketOptions {
-		if desiredCores <= option*16 {
-			sockets = option
-			break
-		}
+	switch {
+	case desiredCores > 16 && desiredCores <= 32:
+		sockets = 2
+	case desiredCores > 32 && desiredCores <= 64:
+		sockets = 4
+	case desiredCores > 64:
+		sockets = 8
 	}
 
 	coresPerSocket = desiredCores / sockets
