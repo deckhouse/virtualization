@@ -1190,6 +1190,9 @@ spec:
                         cores:
                           description: Current number of the VM cores.
                           type: integer
+                        sockets:
+                          description: Current number of the VM sockets.
+                          type: integer
                         requestedCores:
                           anyOf:
                             - type: integer
