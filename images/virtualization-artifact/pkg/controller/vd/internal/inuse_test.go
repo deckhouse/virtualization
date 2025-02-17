@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -362,6 +363,7 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is used by VirtualMachine after create image", func() {
 		It("must set status True and reason AllowedForVirtualMachineUsage", func() {
+			startTime := metav1.Time{Time: time.Now()}
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -370,9 +372,10 @@ var _ = Describe("InUseHandler", func() {
 				Status: virtv2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   vdcondition.InUseType.String(),
-							Reason: vdcondition.UsedForImageCreation.String(),
-							Status: metav1.ConditionTrue,
+							Type:               vdcondition.InUseType.String(),
+							Reason:             vdcondition.UsedForImageCreation.String(),
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: startTime,
 						},
 					},
 				},
@@ -404,6 +407,7 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vdcondition.AttachedToVirtualMachine.String()))
+			Expect(cond.LastTransitionTime).ToNot(Equal(startTime))
 		})
 	})
 

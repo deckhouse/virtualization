@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,12 +95,14 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		cb.Generation(vd.Generation).
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.AttachedToVirtualMachine).
-			Message("")
+			Message("").
+			LastTransitionTime(time.Now())
 	case usedByImage:
 		cb.Generation(vd.Generation).
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.UsedForImageCreation).
-			Message("")
+			Message("").
+			LastTransitionTime(time.Now())
 	default:
 		cb.Generation(vd.Generation).
 			Status(metav1.ConditionFalse).
