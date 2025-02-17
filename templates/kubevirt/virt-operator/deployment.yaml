@@ -10,10 +10,6 @@
   value: {{ include "helm_lib_module_image" (list . "virtHandler") }}
 - name: VIRT_LAUNCHER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "virtLauncher") }}
-- name: VIRT_EXPORTPROXY_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "virtExportproxy") }}
-- name: VIRT_EXPORTSERVER_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "virtExportserver") }}
 {{- end }}
 {{- define "virt_operator_resources" }}
 cpu: 10m
