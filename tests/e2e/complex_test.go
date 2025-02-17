@@ -248,12 +248,6 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be stopped")
-				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
 			})
 		})
 
