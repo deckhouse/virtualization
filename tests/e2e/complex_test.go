@@ -262,7 +262,18 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				vms := strings.Split(res.StdOut(), " ")
 
-				StartVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
+				var notAlwaysOnVMs []string
+				for _, vm := range vms {
+					vmObj := virtv2.VirtualMachine{}
+					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+					Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+					if vmObj.Spec.RunPolicy != virtv2.AlwaysOnPolicy {
+						notAlwaysOnVMs = append(notAlwaysOnVMs, vm)
+					}
+				}
+
+				StartVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, notAlwaysOnVMs...)
 			})
 		})
 
