@@ -93,14 +93,11 @@ func getPhase(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) virtv2.Mac
 	return virtv2.MachinePending
 }
 
-type PhaseHandler func(...interface{}) virtv2.MachinePhase
+type PhaseGetter func(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) virtv2.MachinePhase
 
-var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseHandler{
+var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 	// VirtualMachineStatusStopped indicates that the virtual machine is currently stopped and isn't expected to start.
-	virtv1.VirtualMachineStatusStopped: func(args ...interface{}) virtv2.MachinePhase {
-		vm := args[0].(*virtv2.VirtualMachine)
-		kvvm := args[1].(*virtv1.VirtualMachine)
-
+	virtv1.VirtualMachineStatusStopped: func(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) virtv2.MachinePhase {
 		if vm != nil && kvvm != nil {
 			confAppliedCondition, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, vm.Status.Conditions)
 			if confAppliedCondition.Status == metav1.ConditionFalse &&
@@ -113,75 +110,75 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseHandler{
 	},
 	// VirtualMachineStatusProvisioning indicates that cluster resources associated with the virtual machine
 	// (e.g., DataVolumes) are being provisioned and prepared.
-	virtv1.VirtualMachineStatusProvisioning: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusProvisioning: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachineStarting
 	},
 	// VirtualMachineStatusStarting indicates that the virtual machine is being prepared for running.
-	virtv1.VirtualMachineStatusStarting: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusStarting: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachineStarting
 	},
 	// VirtualMachineStatusRunning indicates that the virtual machine is running.
-	virtv1.VirtualMachineStatusRunning: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusRunning: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachineRunning
 	},
 	// VirtualMachineStatusPaused indicates that the virtual machine is paused.
-	virtv1.VirtualMachineStatusPaused: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusPaused: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachinePause
 	},
 	// VirtualMachineStatusStopping indicates that the virtual machine is in the process of being stopped.
-	virtv1.VirtualMachineStatusStopping: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusStopping: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachineStopping
 	},
 	// VirtualMachineStatusTerminating indicates that the virtual machine is in the process of deletion,
 	// as well as its associated resources (VirtualMachineInstance, DataVolumes, …).
-	virtv1.VirtualMachineStatusTerminating: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusTerminating: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachineTerminating
 	},
 	// VirtualMachineStatusCrashLoopBackOff indicates that the virtual machine is currently in a crash loop waiting to be retried.
-	virtv1.VirtualMachineStatusCrashLoopBackOff: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusCrashLoopBackOff: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachinePending
 	},
 	// VirtualMachineStatusMigrating indicates that the virtual machine is in the process of being migrated
 	// to another host.
-	virtv1.VirtualMachineStatusMigrating: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusMigrating: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachineMigrating
 	},
 	// VirtualMachineStatusUnknown indicates that the state of the virtual machine could not be obtained,
 	// typically due to an error in communicating with the host on which it's running.
-	virtv1.VirtualMachineStatusUnknown: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusUnknown: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachinePending
 	},
 	// VirtualMachineStatusUnschedulable indicates that an error has occurred while scheduling the virtual machine,
 	// e.g. due to unsatisfiable resource requests or unsatisfiable scheduling constraints.
-	virtv1.VirtualMachineStatusUnschedulable: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusUnschedulable: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachinePending
 	},
 	// VirtualMachineStatusErrImagePull indicates that an error has occurred while pulling an image for
 	// a containerDisk VM volume.
-	virtv1.VirtualMachineStatusErrImagePull: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusErrImagePull: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachinePending
 	},
 	// VirtualMachineStatusImagePullBackOff indicates that an error has occurred while pulling an image for
 	// a containerDisk VM volume, and that kubelet is backing off before retrying.
-	virtv1.VirtualMachineStatusImagePullBackOff: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusImagePullBackOff: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachinePending
 	},
 	// VirtualMachineStatusPvcNotFound indicates that the virtual machine references a PVC volume which doesn't exist.
-	virtv1.VirtualMachineStatusPvcNotFound: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusPvcNotFound: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachinePending
 	},
 	// VirtualMachineStatusDataVolumeError indicates that an error has been reported by one of the DataVolumes
 	// referenced by the virtual machines.
-	virtv1.VirtualMachineStatusDataVolumeError: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusDataVolumeError: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachinePending
 	},
 	// VirtualMachineStatusWaitingForVolumeBinding indicates that some PersistentVolumeClaims backing
 	// the virtual machine volume are still not bound.
-	virtv1.VirtualMachineStatusWaitingForVolumeBinding: func(args ...interface{}) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusWaitingForVolumeBinding: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachinePending
 	},
 
-	kvvmEmptyPhase: func(args ...interface{}) virtv2.MachinePhase {
+	kvvmEmptyPhase: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
 		return virtv2.MachinePending
 	},
 }
