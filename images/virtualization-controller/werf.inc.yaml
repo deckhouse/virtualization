@@ -7,6 +7,6 @@ import:
     to: /app/virtualization-controller
     after: install
 docker:
-  USER: 65534
+  USER: 64535
   WORKDIR: "/app"
   ENTRYPOINT: ["/app/virtualization-controller"]

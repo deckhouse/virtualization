@@ -18,5 +18,5 @@ import:
   before: setup
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-operator/BUILD.bazel
 docker:
-  USER: 65534
+  USER: 64535
   ENTRYPOINT: ["/usr/bin/virt-operator"]
