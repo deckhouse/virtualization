@@ -106,12 +106,8 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		}
 	})
 
-	const (
-		specialKey   = "specialKey"
-		specialValue = "specialValue"
-	)
 	testCaseLabel := map[string]string{"testcase": "vm-label-annotation"}
-	specialKeyValue := map[string]string{specialKey: specialValue}
+	specialKeyValue := map[string]string{"specialKey": "specialValue"}
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
@@ -180,36 +176,26 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		})
 
 		It("checks VMs and pods labels after VMs labeling", func() {
-			Eventually(func() error {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 
-				vms := strings.Split(res.StdOut(), " ")
-				for _, vm := range vms {
-					vmObj := virtv2.VirtualMachine{}
-					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-					Expect(err).NotTo(HaveOccurred(), err)
-					value, ok := vmObj.Labels[specialKey]
-					if !ok || value != specialValue {
-						return fmt.Errorf("vm label %q with value %q not found in %s", specialKey, specialValue, vmObj.Name)
-					}
+			vms := strings.Split(res.StdOut(), " ")
+			for _, vm := range vms {
+				vmObj := virtv2.VirtualMachine{}
+				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmObj.Labels).Should(HaveKeyWithValue("specialKey", "specialValue"))
 
-					activePod := GetActiveVirtualMachinePod(&vmObj)
-					vmPodObj := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
-					Expect(err).NotTo(HaveOccurred(), err)
-					value, ok = vmPodObj.Labels[specialKey]
-					if !ok || value != specialValue {
-						return fmt.Errorf("pod label %q with value %q not found in %s", specialKey, specialValue, vmPodObj.Name)
-					}
-				}
-
-				return nil
-			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+				activePod := GetActiveVirtualMachinePod(&vmObj)
+				vmPodObj := v1.Pod{}
+				err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmPodObj.Labels).Should(HaveKeyWithValue("specialKey", "specialValue"))
+			}
 		})
 
 		It(fmt.Sprintf("removes label %s from VMs", specialKeyValue), func() {
@@ -226,36 +212,26 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		})
 
 		It("checks VMs and pods labels after VMs unlabeling", func() {
-			Eventually(func() error {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 
-				vms := strings.Split(res.StdOut(), " ")
-				for _, vm := range vms {
-					vmObj := virtv2.VirtualMachine{}
-					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-					Expect(err).NotTo(HaveOccurred(), err)
-					_, ok := vmObj.Labels[specialKey]
-					if ok {
-						return fmt.Errorf("vm label %q found in %s", specialKey, vmObj.Name)
-					}
+			vms := strings.Split(res.StdOut(), " ")
+			for _, vm := range vms {
+				vmObj := virtv2.VirtualMachine{}
+				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmObj.Labels).ShouldNot(HaveKey("specialKey"))
 
-					activePod := GetActiveVirtualMachinePod(&vmObj)
-					vmPodObj := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
-					Expect(err).NotTo(HaveOccurred(), err)
-					_, ok = vmPodObj.Labels[specialKey]
-					if ok {
-						return fmt.Errorf("pod label %q found in %s", specialKey, vmPodObj.Name)
-					}
-				}
-
-				return nil
-			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+				activePod := GetActiveVirtualMachinePod(&vmObj)
+				vmPodObj := v1.Pod{}
+				err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmPodObj.Labels).ShouldNot(HaveKey("specialKey"))
+			}
 		})
 	})
 
@@ -274,36 +250,26 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		})
 
 		It("checks VMs and pods annotations after VMs annotating", func() {
-			Eventually(func() error {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 
-				vms := strings.Split(res.StdOut(), " ")
-				for _, vm := range vms {
-					vmObj := virtv2.VirtualMachine{}
-					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-					Expect(err).NotTo(HaveOccurred(), err)
-					value, ok := vmObj.Annotations[specialKey]
-					if !ok || value != specialValue {
-						return fmt.Errorf("vm annotation %q with value %q not found in %s", specialKey, specialValue, vmObj.Name)
-					}
+			vms := strings.Split(res.StdOut(), " ")
+			for _, vm := range vms {
+				vmObj := virtv2.VirtualMachine{}
+				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmObj.Annotations).Should(HaveKeyWithValue("specialKey", "specialValue"))
 
-					activePod := GetActiveVirtualMachinePod(&vmObj)
-					vmPodObj := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
-					Expect(err).NotTo(HaveOccurred(), err)
-					value, ok = vmPodObj.Annotations[specialKey]
-					if !ok || value != specialValue {
-						return fmt.Errorf("pod annotation %q with value %q not found in %s", specialKey, specialValue, vmPodObj.Name)
-					}
-				}
-
-				return nil
-			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+				activePod := GetActiveVirtualMachinePod(&vmObj)
+				vmPodObj := v1.Pod{}
+				err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmPodObj.Annotations).Should(HaveKeyWithValue("specialKey", "specialValue"))
+			}
 		})
 
 		It(fmt.Sprintf("removes annotation %s from VMs", specialKeyValue), func() {
@@ -320,36 +286,26 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		})
 
 		It("checks VMs and pods annotations after VMs unannotating", func() {
-			Eventually(func() error {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				Labels:    testCaseLabel,
+				Namespace: conf.Namespace,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 
-				vms := strings.Split(res.StdOut(), " ")
-				for _, vm := range vms {
-					vmObj := virtv2.VirtualMachine{}
-					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-					Expect(err).NotTo(HaveOccurred(), err)
-					_, ok := vmObj.Annotations[specialKey]
-					if ok {
-						return fmt.Errorf("vm annotation %q found in %s", specialKey, vmObj.Name)
-					}
+			vms := strings.Split(res.StdOut(), " ")
+			for _, vm := range vms {
+				vmObj := virtv2.VirtualMachine{}
+				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmObj.Annotations).ShouldNot(HaveKey("specialKey"))
 
-					activePod := GetActiveVirtualMachinePod(&vmObj)
-					vmPodObj := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
-					Expect(err).NotTo(HaveOccurred(), err)
-					_, ok = vmPodObj.Annotations[specialKey]
-					if ok {
-						return fmt.Errorf("pod annotation %q found in %s", specialKey, vmPodObj.Name)
-					}
-				}
-
-				return nil
-			}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
+				activePod := GetActiveVirtualMachinePod(&vmObj)
+				vmPodObj := v1.Pod{}
+				err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmPodObj.Annotations).ShouldNot(HaveKey("specialKey"))
+			}
 		})
 	})
 
