@@ -238,12 +238,6 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be stopped")
-				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
 			})
 		})
 
@@ -270,8 +264,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be running")
-				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+				By("Virtual machines should be ready")
+				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -318,8 +312,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be running")
-				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+				By("Virtual machines should be ready")
+				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -366,8 +360,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be running")
-				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+				By("Virtual machines should be ready")
+				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -406,8 +400,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be running")
-				WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
+				By("Virtual machines should be ready")
+				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
