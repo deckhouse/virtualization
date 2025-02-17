@@ -499,6 +499,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 				Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
 
 				for _, snapshot := range vdSnapshots.Items {
+					Expect(snapshot.Status.Consistent).ToNot(BeNil())
 					Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
 				}
 			})
