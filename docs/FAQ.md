@@ -102,7 +102,7 @@ and perform the OS installation.
 To perform an unattended installation of Windows,
 create answer file (usually named unattend.xml or autounattend.xml).
 
-autounattend.xml
+<details><summary><b>autounattend.xml</b></summary>
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -290,6 +290,8 @@ autounattend.xml
   </settings>
 </unattend>
 ```
+
+</details>
 
 Create a secret from this xml file:
 

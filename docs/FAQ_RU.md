@@ -101,7 +101,7 @@ weight: 70
 Чтобы выполнить автоматическую установку Windows,
 создайте файл ответов (обычно именуются unattend.xml или autounattend.xml).
 
-autounattend.xml
+<details><summary><b>autounattend.xml</b></summary>
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -289,6 +289,8 @@ autounattend.xml
   </settings>
 </unattend>
 ```
+
+</details>
 
 Создайте секрет из этого xml файла:
 
