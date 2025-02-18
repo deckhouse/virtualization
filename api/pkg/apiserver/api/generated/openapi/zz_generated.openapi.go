@@ -898,7 +898,7 @@ func schema_virtualization_api_core_v1alpha2_CPUStatus(ref common.ReferenceCallb
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
-					"cpuTopology": {
+					"topology": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Topology with Cores count and Sockets count",
 							Default:     map[string]interface{}{},
