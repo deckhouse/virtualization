@@ -354,14 +354,14 @@ type CPUStatus struct {
 	RequestedCores resource.Quantity `json:"requestedCores,omitempty"`
 	// runtime overhead.
 	RuntimeOverhead resource.Quantity `json:"runtimeOverhead,omitempty"`
-	// CPUTopology with Cores count and Sockets count
-	CPUTopology CPUTopology `json:"cpuTopology,omitempty"`
+	// Topology with Cores count and Sockets count
+	Topology Topology `json:"topology,omitempty"`
 }
 
 // Statistics on used CPU topology.
-type CPUTopology struct {
+type Topology struct {
 	// Current number of cores inside the VM.
-	Cores int `json:"cores"`
+	CoresPerSocket int `json:"cores"`
 	// Current number of cores inside the VM.
 	Sockets int `json:"sockets"`
 }
