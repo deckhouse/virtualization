@@ -685,10 +685,10 @@ spec:
                           description: Запрошенные ядра.
                         runtimeOverhead:
                           description: Накладные расходы на CPU во время выполнения.
-                        cpuTopology:
+                        topology:
                           description: Статистика использованной топологии CPU.
                           properties:
-                            cores:
+                            coresPerSocket:
                               description: Текущее количество ядер виртуальной машины.
                             sockets:
                               description: Текущее количество сокетов виртуальной машины.
