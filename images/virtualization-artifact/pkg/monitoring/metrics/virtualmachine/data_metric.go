@@ -83,7 +83,7 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		Phase:                               vm.Status.Phase,
 		CpuConfigurationCores:               float64(vm.Spec.CPU.Cores),
 		CpuConfigurationCoreFraction:        float64(cfSpec.IntValue()),
-		CpuCores:                            float64(res.CPU.Cores) * float64(res.CPU.Sockets),
+		CpuCores:                            float64(res.CPU.Cores),
 		CpuCoreFraction:                     float64(cf.IntValue()),
 		CpuRuntimeOverhead:                  float64(res.CPU.RuntimeOverhead.MilliValue()),
 		MemoryConfigurationSize:             float64(vm.Spec.Memory.Size.Value()),
