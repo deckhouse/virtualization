@@ -114,7 +114,7 @@ func (h OperationHandler) Handle(ctx context.Context, s state.VMOperationState) 
 
 	msg := fmt.Sprintf("Sent signal %q to VM without errors.", changed.Spec.Type)
 	log.Debug(msg)
-	h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, msg)
+	h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPInProgress, msg)
 
 	changed.Status.Phase = virtv2.VMOPPhaseInProgress
 
