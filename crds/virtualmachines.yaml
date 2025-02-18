@@ -1190,9 +1190,6 @@ spec:
                         cores:
                           description: Current number of the VM cores.
                           type: integer
-                        sockets:
-                          description: Current number of the VM sockets.
-                          type: integer
                         requestedCores:
                           anyOf:
                             - type: integer
@@ -1209,6 +1206,10 @@ spec:
                           x-kubernetes-int-or-string: true
                         topology:
                           description: Statistics on used CPU topology.
+                          type: object
+                          required:
+                            - coresPerSocket
+                            - sockets
                           properties:
                             coresPerSocket:
                               description: Current number of the VM cores.
