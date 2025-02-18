@@ -22,17 +22,19 @@ env:
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   RELEASE_CHANNEL: ${{ github.event.inputs.channel }}
-  MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
+  MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}-dev
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
   GO_VERSION: "1.22.7"
   MODULE_EDITION: "EE"
 
 on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
   workflow_dispatch:
     inputs:
-
       tag:
-        description: "The module's tag, which must include the -dev postfix. For example: v1.21.1-dev"
+        description: "Input existing tag, example v0.16.1. Image module tag in dev-registry will have suffix -dev. For example: v0.16.1-dev"
         type: string
         required: true
 
@@ -66,13 +68,18 @@ jobs:
         shell: bash
       - name: Validation for tag
         run: |
-          echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+-dev.*$'
+          echo ${{ github.event.inputs.tag }} | grep -P '^v\d+\.\d+\.\d+.*$'
         shell: bash
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Get specified tag
+        run: git fetch --tags
+
+      - name: Checkout specified tag
+        run: git checkout tags/${{ github.event.inputs.tag }}
 
       - uses: deckhouse/modules-actions/setup@v1
       - if: ${{ github.event.inputs.enableBuild == 'true' }}

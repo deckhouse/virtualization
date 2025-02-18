@@ -3,6 +3,10 @@ configVersion: 1
 cleanup:
   keepPolicies:
   - references:
+      tag: /.*/
+      limit:
+        in: 72h
+  - references:
       branch: /.*/
       limit:
         in: 168h # keep dev images build during last week which not main|pre-alpha
