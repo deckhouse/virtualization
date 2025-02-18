@@ -71,7 +71,8 @@ docker:
 # Done
 # merge-qemu-libvirt-binaries contains /VBINS and /relocate
 image: {{ $.ImageName }}
-fromImage: {{ $.ImageName }}-prepared
+fromImage: distroless
+# fromImage: {{ $.ImageName }}-prepared
 git:
   # Add liboverride as a global LD_PRELOAD.
   - add: /images/{{ $.ImageName }}/liboverride
@@ -84,10 +85,10 @@ git:
 import:
   - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
     add: /VBINS
-    to: /usr
+    to: /
     after: install
-    includePaths:
-    - lib64
+    # includePaths:
+    # - lib64
   - image: {{ $.ImageName }}-liboverride-builder
     add: /liboverride/
     to: /liboverride
