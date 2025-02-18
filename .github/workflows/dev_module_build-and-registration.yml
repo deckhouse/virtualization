@@ -24,20 +24,12 @@ env:
   RELEASE_CHANNEL: ${{ github.event.inputs.channel }}
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
+  GO_VERSION: "1.22.7"
+  MODULE_EDITION: "EE"
 
 on:
   workflow_dispatch:
     inputs:
-      channel:
-        description: "Select release channel"
-        type: choice
-        default: alpha
-        options:
-          - "alpha"
-          - "beta"
-          - "early-access"
-          - "stable"
-          - "rock-solid"
 
       tag:
         description: "The module's tag, which must include the -dev postfix. For example: v1.21.1-dev"
@@ -49,9 +41,17 @@ on:
         default: true
         description: "Set to true if build is required"
 
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
+  cancel-in-progress: true
+
 jobs:
   deploy-dev:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, regular, selectel]
     name: Deploy dev
     steps:
       - name: PRINT VARS
@@ -62,6 +62,7 @@ jobs:
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo RELEASE_CHANNEL=$RELEASE_CHANNEL
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
+          echo MODULE_EDITION=$MODULE_EDITION
         shell: bash
       - name: Validation for tag
         run: |
@@ -69,10 +70,9 @@ jobs:
         shell: bash
 
       - uses: actions/checkout@v4
-
-      - name: Remove unwanted software
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: ./.github/actions/remove-unwanted-software
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: deckhouse/modules-actions/setup@v1
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
