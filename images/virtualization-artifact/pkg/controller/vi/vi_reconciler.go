@@ -255,6 +255,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	for _, w := range []Watcher{
 		watcher.NewPodWatcher(mgr.GetClient()),
 		watcher.NewStorageClassWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
 		watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
