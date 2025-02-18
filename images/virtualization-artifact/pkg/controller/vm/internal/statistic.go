@@ -84,8 +84,8 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 		return
 	}
 	var resources virtv2.ResourcesStatus
-	switch {
-	case pod == nil:
+	switch pod {
+	case nil:
 		var (
 			cpuKVVMIRequest resource.Quantity
 			memorySize      resource.Quantity
@@ -108,9 +108,9 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 				Cores:          cores,
 				CoreFraction:   coreFraction,
 				RequestedCores: cpuKVVMIRequest,
-				CPUTopology: virtv2.CPUTopology{
-					Cores:   int(kvvmi.Spec.Domain.CPU.Cores),
-					Sockets: int(kvvmi.Spec.Domain.CPU.Sockets),
+				Topology: virtv2.Topology{
+					CoresPerSocket: int(kvvmi.Spec.Domain.CPU.Cores),
+					Sockets:        int(kvvmi.Spec.Domain.CPU.Sockets),
 				},
 			},
 			Memory: virtv2.MemoryStatus{
@@ -151,9 +151,9 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 				CoreFraction:    coreFraction,
 				RequestedCores:  cpuKVVMIRequest,
 				RuntimeOverhead: cpuOverhead,
-				CPUTopology: virtv2.CPUTopology{
-					Cores:   int(kvvmi.Status.CurrentCPUTopology.Cores),
-					Sockets: int(kvvmi.Status.CurrentCPUTopology.Sockets),
+				Topology: virtv2.Topology{
+					CoresPerSocket: int(kvvmi.Status.CurrentCPUTopology.Cores),
+					Sockets:        int(kvvmi.Status.CurrentCPUTopology.Sockets),
 				},
 			},
 			Memory: virtv2.MemoryStatus{
