@@ -227,7 +227,7 @@ By default, the disk specification is immutable, but for backward compatibility,
 ##### Why this change?
 This update ensures compatibility with recent QEMU changes and prevents runtime errors by enforcing validation at the API level while preserving support for existing VMs through automatic serial number truncation.
 
-#### `037-get-applied-checksum.patch`
+#### `038-get-applied-checksum.patch`
 
 This patch introduces the GetAppliedChecksum() method in virt-launcher.
 
