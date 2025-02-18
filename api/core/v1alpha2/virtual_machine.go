@@ -348,14 +348,22 @@ type ResourcesStatus struct {
 type CPUStatus struct {
 	// Current number of cores inside the VM.
 	Cores int `json:"cores"`
-	// Current number of cores inside the VM.
-	Sockets int `json:"sockets"`
 	// Current CoreFraction.
 	CoreFraction string `json:"coreFraction,omitempty"`
 	// Requested cores.
 	RequestedCores resource.Quantity `json:"requestedCores,omitempty"`
 	// runtime overhead.
 	RuntimeOverhead resource.Quantity `json:"runtimeOverhead,omitempty"`
+	// CPUTopology with Cores count and Sockets count
+	CPUTopology CPUTopology `json:"cpuTopology,omitempty"`
+}
+
+// Statistics on used CPU topology.
+type CPUTopology struct {
+	// Current number of cores inside the VM.
+	Cores int `json:"cores"`
+	// Current number of cores inside the VM.
+	Sockets int `json:"sockets"`
 }
 
 // MemoryStatus defines statistics about the Memory resource usage.

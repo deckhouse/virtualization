@@ -39,6 +39,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPU":                                       schema_virtualization_api_core_v1alpha2_CPU(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUSpec":                                   schema_virtualization_api_core_v1alpha2_CPUSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUStatus":                                 schema_virtualization_api_core_v1alpha2_CPUStatus(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUTopology":                               schema_virtualization_api_core_v1alpha2_CPUTopology(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Checksum":                                  schema_virtualization_api_core_v1alpha2_Checksum(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImage":                       schema_virtualization_api_core_v1alpha2_ClusterVirtualImage(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageContainerImage":         schema_virtualization_api_core_v1alpha2_ClusterVirtualImageContainerImage(ref),
@@ -878,14 +879,6 @@ func schema_virtualization_api_core_v1alpha2_CPUStatus(ref common.ReferenceCallb
 							Format:      "int32",
 						},
 					},
-					"sockets": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Current number of cores inside the VM.",
-							Default:     0,
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
 					"coreFraction": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Current CoreFraction.",
@@ -905,12 +898,49 @@ func schema_virtualization_api_core_v1alpha2_CPUStatus(ref common.ReferenceCallb
 							Ref:         ref("k8s.io/apimachinery/pkg/api/resource.Quantity"),
 						},
 					},
+					"cpuTopology": {
+						SchemaProps: spec.SchemaProps{
+							Description: "CPUTopology with Cores count and Sockets count",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.CPUTopology"),
+						},
+					},
+				},
+				Required: []string{"cores"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.CPUTopology", "k8s.io/apimachinery/pkg/api/resource.Quantity"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_CPUTopology(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Statistics on used CPU topology.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"cores": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current number of cores inside the VM.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"sockets": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Current number of cores inside the VM.",
+							Default:     0,
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
 				},
 				Required: []string{"cores", "sockets"},
 			},
 		},
-		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/api/resource.Quantity"},
 	}
 }
 
