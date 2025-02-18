@@ -361,9 +361,9 @@ type CPUStatus struct {
 // Statistics on used CPU topology.
 type Topology struct {
 	// Current number of cores inside the VM.
-	CoresPerSocket int `json:"cores"`
+	CoresPerSocket int `json:"cores,omitempty"`
 	// Current number of cores inside the VM.
-	Sockets int `json:"sockets"`
+	Sockets int `json:"sockets,omitempty"`
 }
 
 // MemoryStatus defines statistics about the Memory resource usage.

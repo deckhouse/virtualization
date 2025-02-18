@@ -1207,9 +1207,6 @@ spec:
                         topology:
                           description: Statistics on used CPU topology.
                           type: object
-                          required:
-                            - coresPerSocket
-                            - sockets
                           properties:
                             coresPerSocket:
                               description: Current number of the VM cores.
