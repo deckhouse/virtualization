@@ -61,6 +61,9 @@ const (
 	// ReasonVMOPStarted is event reason that the operation is started
 	ReasonVMOPStarted = "VirtualMachineOperationStarted"
 
+	// ReasonVMOPInProgress is event reason that the operation is in progress
+	ReasonVMOPInProgress = "VirtualMachineOperationInProgress"
+
 	// ReasonVDStorageClassWasDeleted is event reason that VDStorageClass was deleted.
 	ReasonVDStorageClassWasDeleted = "VirtualDiskStorageClassWasDeleted"
 	// ReasonVDStorageClassNotFound is event reason that VDStorageClass not found.

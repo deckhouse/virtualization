@@ -32,6 +32,7 @@ echo
 echo "Start importer ..."
 
 /usr/local/bin/dvcr-importer "$@"
+
 exitCode=$?
 if [ "x$exitCode" != "x0" ] ; then
   # Add some messages for test purposes.

@@ -1,13 +1,14 @@
 ---
 image: {{ $.ImageName }}
-fromImage: dvcr-artifact
+fromImage: distroless
 import:
-- image: dvcr-artifact-builder
-  add: /out
-  to: /usr/local/bin
-  includePaths:
-  - dvcr-importer
+- image: dvcr-artifact-bins
+  add: /relocate
+  to: /
   after: install
+  excludePaths:
+  - '*/dvcr-uploader'
+  - '*/dvcr-cleaner'
 git:
 - add: /images/dvcr-artifact/build
   to: /
@@ -18,3 +19,4 @@ git:
 docker:
   WORKDIR: "/"
   CMD: ["/usr/local/bin/dvcr-importer"]
+  USER: 64535
