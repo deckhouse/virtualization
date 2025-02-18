@@ -297,6 +297,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 					return reconcile.Result{}, err
 				}
 			}
+		default:
+			vdSnapshot.Status.Consistent = ptr.To(false)
 		}
 
 		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseReady
