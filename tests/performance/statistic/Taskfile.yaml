@@ -1,0 +1,20 @@
+version: "3"
+
+silent: true
+
+vars:
+  NS: '{{ .NS | default "perf" }}'
+
+tasks:
+  run:vd:
+    desc: "Run collect stat from vds"
+    cmds:
+      - go run cmd/stat/main.go -vd=true -ns={{.NS}}
+  run:vm:
+    desc: "Run collect stat from vms"
+    cmds:
+      - go run cmd/stat/main.go -vm=true -ns={{.NS}}
+  run:all:
+    desc: "Run collect stat from vds and vms"
+    cmds:
+      - go run cmd/stat/main.go -ns={{.NS}}
