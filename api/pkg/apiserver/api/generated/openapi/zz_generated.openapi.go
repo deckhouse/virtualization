@@ -2020,9 +2020,10 @@ func schema_virtualization_api_core_v1alpha2_Topology(ref common.ReferenceCallba
 				Description: "Statistics on used CPU topology.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"cores": {
+					"coresPerSocket": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Current number of cores inside the VM.",
+							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
@@ -2030,11 +2031,13 @@ func schema_virtualization_api_core_v1alpha2_Topology(ref common.ReferenceCallba
 					"sockets": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Current number of cores inside the VM.",
+							Default:     0,
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
 					},
 				},
+				Required: []string{"coresPerSocket", "sockets"},
 			},
 		},
 	}
