@@ -17,14 +17,14 @@ For 16 < .spec.cpu.cores <= 32:
 - Create two sockets with the same number of cores in each.
 - Core increment step: 2
 - Allowed values: 18, 20, 22, ..., 32.
-- Minimum cores per socket: 8
+- Minimum cores per socket: 9
 - Maximum cores per socket: 16
 
 For 32 < .spec.cpu.cores <= 64:
 - Create four sockets with the same number of cores in each.
 - Core increment step: 4
 - Allowed values: 36, 40, 44, ..., 64.
-- Minimum cores per socket: 4
+- Minimum cores per socket: 9
 - Maximum cores per socket: 16
 
 For .spec.cpu.cores > 64:
