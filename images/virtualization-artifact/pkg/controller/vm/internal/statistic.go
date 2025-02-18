@@ -193,7 +193,7 @@ func (h *StatisticHandler) getTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstan
 }
 
 func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstance) virtv2.Topology {
-	if kvvmi == nil {
+	if kvvmi == nil || kvvmi.Status.CurrentCPUTopology == nil {
 		return virtv2.Topology{}
 	}
 
