@@ -92,11 +92,7 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, err
 	}
 
-	phase := getPhase(kvvm)
-	if phase == "" {
-		phase = virtv2.MachinePending
-	}
-	changed.Status.Phase = phase
+	changed.Status.Phase = getPhase(changed, kvvm)
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
