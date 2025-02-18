@@ -116,7 +116,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 
 	if changed.Status.Phase == virtv2.VMOPPhaseInProgress {
 		log.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", changed.Status.Phase)
-		return h.checkOperationComplete(ctx, changed, vm)
+		return h.syncOperationComplete(ctx, changed, vm)
 	}
 
 	// At this point VMOP is in Pending phase, do some validation checks.
@@ -175,9 +175,9 @@ func (h LifecycleHandler) Name() string {
 	return lifecycleHandlerName
 }
 
-// checkOperationComplete detects if operation is completed and VM has desired phase.
+// syncOperationComplete detects if operation is completed and VM has desired phase.
 // TODO detect if VM is stuck to prevent infinite InProgress state.
-func (h LifecycleHandler) checkOperationComplete(ctx context.Context, changed *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
+func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 		Generation(changed.GetGeneration())
 

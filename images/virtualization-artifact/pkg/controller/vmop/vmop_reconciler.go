@@ -88,7 +88,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldVM := e.ObjectOld.(*virtv2.VirtualMachine)
 				newVM := e.ObjectNew.(*virtv2.VirtualMachine)
-				return oldVM.Status.Phase != newVM.Status.Phase
+				return oldVM.Status.Phase != newVM.Status.Phase || newVM.Status.MigrationState != nil
 			},
 		},
 	); err != nil {
