@@ -138,7 +138,7 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 
 		cores := h.getCoresByKVVMI(kvvmi)
 		coreFraction := h.getCoreFractionByKVVMI(kvvmi)
-		topology := h.getTopologyByKVVMI(kvvmi)
+		topology := h.getCurrentTopologyByKVVMI(kvvmi)
 
 		memoryKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 		memoryPodRequest := ctr.Resources.Requests[corev1.ResourceMemory]

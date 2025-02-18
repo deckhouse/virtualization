@@ -1207,15 +1207,15 @@ spec:
                           description: CPU overhead required by the runtime.
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
-                      topology:
-                        description: Statistics on used CPU topology.
-                        properties:
-                          coresPerSocket:
-                            description: Current number of the VM cores.
-                            type: integer
-                          sockets:
-                            description: Current number of the VM sockets.
-                            type: integer
+                        topology:
+                          description: Statistics on used CPU topology.
+                          properties:
+                            coresPerSocket:
+                              description: Current number of the VM cores.
+                              type: integer
+                            sockets:
+                              description: Current number of the VM sockets.
+                              type: integer
                       required:
                         - cores
                       type: object
