@@ -31,24 +31,12 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 )
 
-const (
-	viCount     = 2
-	cviCount    = 2
-	vmCount     = 1
-	vdCount     = 1
-	vmbdaCount  = 0
-	imgCount    = viCount + cviCount
-	cdRom       = "rom"
-	readOnlyOpt = "ro"
-)
-
 type Image struct {
 	Kind string
 	Name string
 }
 
 func IsBlockDeviceCdRom(vmName, blockDeviceName string) (bool, error) {
-	GinkgoHelper()
 	var blockDevices *BlockDevices
 	bdIdPath := fmt.Sprintf("/dev/disk/by-id/%s-%s", CdRomIdPrefix, blockDeviceName)
 	cmd := fmt.Sprintf("lsblk --json --nodeps --output name,type %s", bdIdPath)
@@ -68,11 +56,10 @@ func IsBlockDeviceCdRom(vmName, blockDeviceName string) (bool, error) {
 		return false, fmt.Errorf("`blockDevices` length should be 1")
 	}
 	blockDevice := &blockDevices.BlockDevices[0]
-	return blockDevice.Type == cdRom, nil
+	return blockDevice.Type == "rom", nil
 }
 
 func MountBlockDevice(vmName, blockDeviceId string) error {
-	GinkgoHelper()
 	bdIdPath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceId)
 	cmd := fmt.Sprintf("sudo mount --read-only %s /mnt", bdIdPath)
 	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
@@ -87,7 +74,6 @@ func MountBlockDevice(vmName, blockDeviceId string) error {
 }
 
 func IsBlockDeviceReadOnly(vmName, blockDeviceId string) (bool, error) {
-	GinkgoHelper()
 	bdIdPath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceId)
 	cmd := fmt.Sprintf("findmnt --noheadings --output options %s", bdIdPath)
 	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
@@ -99,18 +85,30 @@ func IsBlockDeviceReadOnly(vmName, blockDeviceId string) (bool, error) {
 		return false, errors.New(res.StdErr())
 	}
 	options := strings.Split(res.StdOut(), ",")
+	if len(options) == 0 {
+		return false, fmt.Errorf("list of options is empty: %s", options)
+	}
 	roOpt := options[0]
-	return roOpt == readOnlyOpt, nil
+	return roOpt == "ro", nil
 }
 
 var _ = Describe("Image hotplug", func() {
+	const (
+		viCount    = 2
+		cviCount   = 2
+		vmCount    = 1
+		vdCount    = 1
+		vmbdaCount = 0
+		imgCount   = viCount + cviCount
+	)
+
 	var (
-		vmObj         virtv2.VirtualMachine
-		disksBefore   Disks
-		disksAfter    Disks
-		testCaseLabel = map[string]string{"testcase": "image-hotplug"}
-		isoLabel      = "iso"
-		blockDevices  = make([]Image, 0)
+		vmObj             virtv2.VirtualMachine
+		disksBefore       Disks
+		disksAfter        Disks
+		testCaseLabel     = map[string]string{"testcase": "image-hotplug"}
+		isoLabel          = "iso"
+		imageBlockDevices = make([]Image, 0)
 	)
 
 	Context("Preparing the environment", func() {
@@ -209,7 +207,7 @@ var _ = Describe("Image hotplug", func() {
 			Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualImages`: %s", err)
 
 			for _, viObj := range viObjs.Items {
-				blockDevices = append(blockDevices, Image{
+				imageBlockDevices = append(imageBlockDevices, Image{
 					Kind: viObj.Kind,
 					Name: viObj.Name,
 				})
@@ -237,7 +235,7 @@ var _ = Describe("Image hotplug", func() {
 			Expect(err).NotTo(HaveOccurred(), "failed to get `ClusterVirtualImages`: %s", err)
 
 			for _, cviObj := range cviObjs.Items {
-				blockDevices = append(blockDevices, Image{
+				imageBlockDevices = append(imageBlockDevices, Image{
 					Kind: cviObj.Kind,
 					Name: cviObj.Name,
 				})
@@ -275,7 +273,7 @@ var _ = Describe("Image hotplug", func() {
 				Namespace: conf.Namespace,
 			})
 			Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualMachines`: %s", err)
-			Expect(len(vmObjs.Items)).To(BeNumerically("==", vmCount), "there is only %d `VirtualMachine` in this test case", vmCount)
+			Expect(len(vmObjs.Items)).To(Equal(vmCount), "there is only %d `VirtualMachine` in this test case", vmCount)
 			vmObj = vmObjs.Items[0]
 		})
 	})
@@ -288,7 +286,7 @@ var _ = Describe("Image hotplug", func() {
 		})
 
 		It("attaches images into `VirtualMachine`", func() {
-			for _, bd := range blockDevices {
+			for _, bd := range imageBlockDevices {
 				AttachBlockDevice(vmObj.Name, bd.Name, virtv2.VMBDAObjectRefKind(bd.Kind), testCaseLabel, conf.TestData.ImageHotplug)
 			}
 		})
@@ -357,7 +355,7 @@ var _ = Describe("Image hotplug", func() {
 			Expect(err).NotTo(HaveOccurred(), "failed to get `ClusterVirtualImages`: %s", err)
 			for _, cvi := range cviImgs.Items {
 				diskName := fmt.Sprintf("cvi-%s", cvi.Name)
-				imgs[diskName] = "value"
+				imgs[diskName] = ""
 			}
 
 			viImgs := &virtv2.VirtualImageList{}
@@ -368,7 +366,7 @@ var _ = Describe("Image hotplug", func() {
 			Expect(err).NotTo(HaveOccurred(), "failed to get `ClusterVirtualImages`: %s", err)
 			for _, vi := range viImgs.Items {
 				diskName := fmt.Sprintf("vi-%s", vi.Name)
-				imgs[diskName] = "value"
+				imgs[diskName] = ""
 			}
 
 			intVirtVmi := &virtv1.VirtualMachineInstance{}
@@ -386,7 +384,7 @@ var _ = Describe("Image hotplug", func() {
 				}
 			}
 
-			Expect(len(imgs)).To(BeNumerically("==", imgCount), "there are only %d `blockDevices` in this case", imgCount)
+			Expect(len(imgs)).To(Equal(imgCount), "there are only %d `blockDevices` in this case", imgCount)
 			for img, diskId := range imgs {
 				err := MountBlockDevice(vmObj.Name, diskId)
 				Expect(err).NotTo(HaveOccurred(), "failed to mount %q into `VirtualMachine`: %s", img, err)
