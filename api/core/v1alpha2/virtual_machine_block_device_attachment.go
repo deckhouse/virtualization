@@ -84,6 +84,10 @@ type VMBDAObjectRef struct {
 // +kubebuilder:validation:Enum={VirtualDisk,VirtualImage,ClusterVirtualImage}
 type VMBDAObjectRefKind string
 
+func (k VMBDAObjectRefKind) String() string {
+	return string(k)
+}
+
 const (
 	VMBDAObjectRefKindVirtualDisk         VMBDAObjectRefKind = "VirtualDisk"
 	VMBDAObjectRefKindVirtualImage        VMBDAObjectRefKind = "VirtualImage"

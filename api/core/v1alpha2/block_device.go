@@ -47,6 +47,10 @@ type BlockDeviceStatusRef struct {
 // +kubebuilder:validation:Enum:={ClusterVirtualImage,VirtualImage,VirtualDisk}
 type BlockDeviceKind string
 
+func (k BlockDeviceKind) String() string {
+	return string(k)
+}
+
 const (
 	ClusterImageDevice BlockDeviceKind = "ClusterVirtualImage"
 	ImageDevice        BlockDeviceKind = "VirtualImage"
