@@ -86,7 +86,7 @@ func TestStatisticHandler(t *testing.T) {
 			},
 		},
 	} {
-		// t.Log("Start test", test.name)
+		t.Log("Start test", test.name)
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(test.getObjects()...).Build()
 		vm := service.NewResource(namespacedName, fakeClient, factory, statusGetter)
 		if err := vm.Fetch(context.Background()); err != nil {
