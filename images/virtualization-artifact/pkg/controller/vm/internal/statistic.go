@@ -138,7 +138,7 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 
 		cores := h.getCoresByKVVMI(kvvmi)
 		coreFraction := h.getCoreFractionByKVVMI(kvvmi)
-		topology := h.getCurrentTopologyByKVVMI(kvvmi)
+		topology := h.getTopologyByKVVMI(kvvmi)
 
 		memoryKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 		memoryPodRequest := ctr.Resources.Requests[corev1.ResourceMemory]
@@ -186,6 +186,12 @@ func (h *StatisticHandler) getTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstan
 		return virtv2.Topology{}
 	}
 
+	if kvvmi.Spec.Domain.CPU == nil {
+		cores := h.getCoresByKVVMI(kvvmi)
+		sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
+		return virtv2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
+	}
+
 	return virtv2.Topology{
 		CoresPerSocket: int(kvvmi.Spec.Domain.CPU.Cores),
 		Sockets:        int(kvvmi.Spec.Domain.CPU.Sockets),
@@ -193,8 +199,14 @@ func (h *StatisticHandler) getTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstan
 }
 
 func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstance) virtv2.Topology {
-	if kvvmi == nil || kvvmi.Status.CurrentCPUTopology == nil {
+	if kvvmi == nil {
 		return virtv2.Topology{}
+	}
+
+	if kvvmi.Status.CurrentCPUTopology == nil {
+		cores := h.getCoresByKVVMI(kvvmi)
+		sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
+		return virtv2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 	}
 
 	return virtv2.Topology{
