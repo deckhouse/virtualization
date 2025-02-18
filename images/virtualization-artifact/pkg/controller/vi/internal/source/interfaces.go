@@ -21,39 +21,28 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/bounder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source/step"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . Importer Uploader Stat Handler
+//go:generate moq -rm -out mock.go . Importer Uploader Stat Bounder Handler
 
 type Importer interface {
+	step.CreatePodStepImporter
+	step.ReadyContainerRegistryStepImporter
+	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
+	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
+	Protect(ctx context.Context, pod *corev1.Pod) error
+	Unprotect(ctx context.Context, pod *corev1.Pod) error
 	Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-	StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
-	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
-	Protect(ctx context.Context, pod *corev1.Pod) error
-	Unprotect(ctx context.Context, pod *corev1.Pod) error
-	GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings
-}
-
-type Bounder interface {
-	Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvc *corev1.PersistentVolumeClaim, opts ...service.Option) error
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
-	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
-	Protect(ctx context.Context, pod *corev1.Pod) error
-	Unprotect(ctx context.Context, pod *corev1.Pod) error
-	GetPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvc *corev1.PersistentVolumeClaim) *bounder.PodSettings
 }
 
 type Uploader interface {
@@ -70,13 +59,16 @@ type Uploader interface {
 }
 
 type Stat interface {
-	GetFormat(pod *corev1.Pod) string
-	GetCDROM(pod *corev1.Pod) bool
-	GetSize(pod *corev1.Pod) virtv2.ImageStatusSize
-	GetDVCRImageName(pod *corev1.Pod) string
-	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed
-	GetProgress(ownerUID types.UID, pod *corev1.Pod, prevProgress string, opts ...service.GetProgressOption) string
-	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool
+	step.CreatePodStepStat
+	step.WaitForPodStepStat
+	step.ReadyContainerRegistryStepStat
 	IsUploadStarted(ownerUID types.UID, pod *corev1.Pod) bool
-	CheckPod(pod *corev1.Pod) error
+	IsUploaderReady(pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) bool
+	GetDownloadSpeed(ownerUID types.UID, pod *corev1.Pod) *virtv2.StatusSpeed
+}
+
+type Bounder interface {
+	step.CreateBounderPodStepBounder
+	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 }
