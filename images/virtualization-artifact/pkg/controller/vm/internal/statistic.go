@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -90,28 +91,29 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 			cpuKVVMIRequest resource.Quantity
 			memorySize      resource.Quantity
 			cores           int
+			topology        virtv2.Topology
 			coreFraction    string
 		)
 		if kvvmi == nil {
 			memorySize = changed.Spec.Memory.Size
 			cores = changed.Spec.CPU.Cores
 			coreFraction = changed.Spec.CPU.CoreFraction
+			sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
+			topology = virtv2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 		} else {
 			cpuKVVMIRequest = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
 			memorySize = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 
 			cores = h.getCoresByKVVMI(kvvmi)
 			coreFraction = h.getCoreFractionByKVVMI(kvvmi)
+			topology = h.getTopologyByKVVMI(kvvmi)
 		}
 		resources = virtv2.ResourcesStatus{
 			CPU: virtv2.CPUStatus{
 				Cores:          cores,
 				CoreFraction:   coreFraction,
 				RequestedCores: cpuKVVMIRequest,
-				Topology: virtv2.Topology{
-					CoresPerSocket: int(kvvmi.Spec.Domain.CPU.Cores),
-					Sockets:        int(kvvmi.Spec.Domain.CPU.Sockets),
-				},
+				Topology:       topology,
 			},
 			Memory: virtv2.MemoryStatus{
 				Size: memorySize,
@@ -136,6 +138,7 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 
 		cores := h.getCoresByKVVMI(kvvmi)
 		coreFraction := h.getCoreFractionByKVVMI(kvvmi)
+		topology := h.getCurrentTopologyByKVVMI(kvvmi)
 
 		memoryKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 		memoryPodRequest := ctr.Resources.Requests[corev1.ResourceMemory]
@@ -151,10 +154,7 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 				CoreFraction:    coreFraction,
 				RequestedCores:  cpuKVVMIRequest,
 				RuntimeOverhead: cpuOverhead,
-				Topology: virtv2.Topology{
-					CoresPerSocket: int(kvvmi.Status.CurrentCPUTopology.Cores),
-					Sockets:        int(kvvmi.Status.CurrentCPUTopology.Sockets),
-				},
+				Topology:        topology,
 			},
 			Memory: virtv2.MemoryStatus{
 				Size:            memoryKVVMIRequest,
@@ -179,6 +179,28 @@ func (h *StatisticHandler) getCoreFractionByKVVMI(kvvmi *virtv1.VirtualMachineIn
 	}
 	cpuKVVMIRequest := kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceCPU]
 	return strconv.Itoa(int(cpuKVVMIRequest.MilliValue())*100/(h.getCoresByKVVMI(kvvmi)*1000)) + "%"
+}
+
+func (h *StatisticHandler) getTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstance) virtv2.Topology {
+	if kvvmi == nil {
+		return virtv2.Topology{}
+	}
+
+	return virtv2.Topology{
+		CoresPerSocket: int(kvvmi.Spec.Domain.CPU.Cores),
+		Sockets:        int(kvvmi.Spec.Domain.CPU.Sockets),
+	}
+}
+
+func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstance) virtv2.Topology {
+	if kvvmi == nil {
+		return virtv2.Topology{}
+	}
+
+	return virtv2.Topology{
+		CoresPerSocket: int(kvvmi.Status.CurrentCPUTopology.Cores),
+		Sockets:        int(kvvmi.Status.CurrentCPUTopology.Sockets),
+	}
 }
 
 func (h *StatisticHandler) syncPods(changed *virtv2.VirtualMachine, pod *corev1.Pod, pods *corev1.PodList) {
