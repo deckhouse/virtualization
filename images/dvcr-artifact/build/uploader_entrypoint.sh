@@ -26,7 +26,7 @@ echo "$@"
 echo
 echo "Start uploader ..."
 
-/usr/bin/dvcr-uploader "$@"
+/usr/local/bin/dvcr-uploader "$@"
 
 exitCode=$?
 if [ "x$exitCode" != "x0" ] ; then

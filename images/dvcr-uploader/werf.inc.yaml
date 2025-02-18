@@ -18,5 +18,5 @@ git:
     setup: ['*']
 docker:
   WORKDIR: "/"
-  CMD: ["/usr/bin/dvcr-uploader"]
+  CMD: ["/usr/local/bin/dvcr-uploader"]
   USER: 64535

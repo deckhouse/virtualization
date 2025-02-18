@@ -31,7 +31,7 @@ fi
 echo
 echo "Start importer ..."
 
-/usr/bin/dvcr-importer "$@"
+/usr/local/bin/dvcr-importer "$@"
 
 exitCode=$?
 if [ "x$exitCode" != "x0" ] ; then

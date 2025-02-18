@@ -31,7 +31,7 @@ shell:
   - chown -R 64535:64535 /out
 
 ---
-{{- $binaries := "/usr/bin/sh /usr/bin/rm /usr/bin/grep /usr/bin/dvcr-importer /usr/bin/dvcr-uploader /usr/bin/dvcr-cleaner /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd /usr/bin/nbd* /usr/bin/file /usr/share/file/magic /usr/share/file/magic.mgc /etc/magic /usr/bin/mount /usr/bin/umount" }}
+{{- $binaries := "/usr/bin/sh /usr/bin/rm /usr/bin/grep /usr/local/bin/dvcr-importer /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd /usr/bin/nbd* /usr/bin/file /usr/share/file/magic /usr/share/file/magic.mgc /etc/magic /usr/bin/mount /usr/bin/umount /usr/local/bin/dvcr-uploader /usr/local/bin/dvcr-cleaner" }}
 
 image: {{ $.ImageName }}-bins
 final: false
@@ -39,7 +39,7 @@ fromImage: base-alt-p11-binaries
 import:
 - image: {{ $.ImageName }}-builder
   add: /out
-  to: /usr/bin
+  to: /usr/local/bin
   before: setup
 shell:
   install:
