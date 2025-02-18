@@ -70,6 +70,12 @@ const (
 
 	AnnOsType = AnnAPIGroupV + "/os-type"
 
+	// AnnVmStartRequested is an annotation on KVVM that represents a request to start a virtual machine.
+	AnnVmStartRequested = AnnAPIGroupV + "/vm-start-requested"
+
+	// AnnVmRestartRequested is an annotation on KVVM that represents a request to restart a virtual machine.
+	AnnVmRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
+
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 
