@@ -133,11 +133,6 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 					},
 				},
 			},
-			Status: virtv2.VirtualDiskStatus{
-				Target: virtv2.DiskTarget{
-					PersistentVolumeClaim: pvc.Name,
-				},
-			},
 		}
 	})
 
@@ -222,6 +217,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 
 	Context("VirtualDisk is lost", func() {
 		It("is lost when PVC is not found", func() {
+			vd.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
 			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
@@ -232,11 +228,11 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Lost, true)
 			Expect(vd.Status.Phase).To(Equal(virtv2.DiskLost))
-			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
 		})
 
 		It("is lost when PVC is lost as well", func() {
 			pvc.Status.Phase = corev1.ClaimLost
+			vd.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
 			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)

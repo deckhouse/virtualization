@@ -25,6 +25,25 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+func IndexVIByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByVDSnapshot, func(object client.Object) []string {
+		vi, ok := object.(*virtv2.VirtualImage)
+		if !ok || vi == nil {
+			return nil
+		}
+
+		if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
+			return nil
+		}
+
+		if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot {
+			return nil
+		}
+
+		return []string{vi.Spec.DataSource.ObjectRef.Name}
+	})
+}
+
 func IndexVIByStorageClass(ctx context.Context, mgr manager.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByStorageClass, func(object client.Object) []string {
 		vi, ok := object.(*virtv2.VirtualImage)

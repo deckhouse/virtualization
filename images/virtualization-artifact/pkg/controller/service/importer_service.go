@@ -117,6 +117,7 @@ func (s ImporterService) Start(
 
 func (s ImporterService) StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error {
 	settings.Verbose = s.verbose
+	podSettings.Finalizer = s.protection.finalizer
 
 	pod, err := importer.NewImporter(podSettings, settings).CreatePod(ctx, s.client)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -290,6 +291,7 @@ func (s ImporterService) getPodSettings(ownerRef *metav1.OwnerReference, sup *su
 		ControllerName:       s.controllerName,
 		InstallerLabels:      map[string]string{},
 		ResourceRequirements: &s.requirements,
+		Finalizer:            s.protection.GetFinalizer(),
 	}
 }
 
