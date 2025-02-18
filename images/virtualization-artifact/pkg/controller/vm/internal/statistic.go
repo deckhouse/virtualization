@@ -90,6 +90,7 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 			cpuKVVMIRequest resource.Quantity
 			memorySize      resource.Quantity
 			cores           int
+			sockets         int
 			coreFraction    string
 		)
 		if kvvmi == nil {
@@ -101,11 +102,13 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 			memorySize = kvvmi.Spec.Domain.Resources.Requests[corev1.ResourceMemory]
 
 			cores = h.getCoresByKVVMI(kvvmi)
+			sockets = h.getSocketsByKVVMI(kvvmi)
 			coreFraction = h.getCoreFractionByKVVMI(kvvmi)
 		}
 		resources = virtv2.ResourcesStatus{
 			CPU: virtv2.CPUStatus{
 				Cores:          cores,
+				Sockets:        sockets,
 				CoreFraction:   coreFraction,
 				RequestedCores: cpuKVVMIRequest,
 			},
@@ -163,6 +166,14 @@ func (h *StatisticHandler) getCoresByKVVMI(kvvmi *virtv1.VirtualMachineInstance)
 	}
 	cpuKVVMILimit := kvvmi.Spec.Domain.Resources.Limits[corev1.ResourceCPU]
 	return int(cpuKVVMILimit.Value())
+}
+
+func (h *StatisticHandler) getSocketsByKVVMI(kvvmi *virtv1.VirtualMachineInstance) int {
+	if kvvmi == nil {
+		return -1
+	}
+
+	return int(kvvmi.Spec.Domain.CPU.Sockets)
 }
 
 func (h *StatisticHandler) getCoreFractionByKVVMI(kvvmi *virtv1.VirtualMachineInstance) string {
