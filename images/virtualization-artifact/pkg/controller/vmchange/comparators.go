@@ -127,7 +127,6 @@ func compareBootloader(current, desired *v1alpha2.VirtualMachineSpec) []FieldCha
 // compareCPU returns changes in the cpu section.
 func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	coresChanges := compareInts("cpu.cores", current.CPU.Cores, desired.CPU.Cores, 0, ActionRestart)
-	socketsChanges := compareInts("cpu.sockets", current.CPU.Sockets, desired.CPU.Sockets, 0, ActionRestart)
 	fractionChanges := compareStrings("cpu.coreFraction", current.CPU.CoreFraction, desired.CPU.CoreFraction, DefaultCPUCoreFraction, ActionRestart)
 
 	// Yield full replace if both fields changed.
@@ -144,10 +143,6 @@ func compareCPU(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
 	}
 
 	if HasChanges(coresChanges) {
-		return coresChanges
-	}
-
-	if HasChanges(socketsChanges) {
 		return coresChanges
 	}
 
