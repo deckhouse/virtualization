@@ -8,10 +8,6 @@ import:
     after: setup
     includePaths:
     - etc/ld.so.preload
-# shell:
-#   setup:
-#   - echo "Im here {{ $.ImageName }}"
-#   - echo "Im here {{ $.ImageName }}"
 ---
 image: {{ $.ImageName }}-prepared
 final: false
@@ -23,10 +19,6 @@ import:
     after: install
     excludePaths:
     - etc/ld.so.preload
-# shell:
-#   setup:
-#   - echo "Im here {{ $.ImageName }}-prepared"
-#   - echo "Im here {{ $.ImageName }}-prepared"
 docker:
   USER: 0
 
@@ -189,6 +181,9 @@ shell:
     
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
+
+    echo "======Create var/log/libvirt======"
+    mkdir -p /VBINS/var/log/libvirt
     
     rm -rf /VBINS/var/run
   setup:
@@ -288,7 +283,7 @@ shell:
     ln -s usr/bin/container-disk ./init/usr/bin/container-disk
     cd /
 
-    touch /relocate/try1
+    touch /relocate/try2
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
