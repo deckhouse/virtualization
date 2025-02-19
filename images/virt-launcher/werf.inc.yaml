@@ -222,14 +222,14 @@ shell:
     echo "Create symlinks for OVMF"
     mkdir -p /relocate/usr/share/OVMF
 
-    cd /relocate/usr/share/edk2/ovmf
-    ln -sf OVMF_CODE.fd         OVMF_CODE.cc.fd
-    ln -sf OVMF_CODE.cc.fd      ../../OVMF/OVMF_CODE.cc.fd
+    cd /relocate
+    ln -sf usr/share/edk2/ovmf/OVMF_CODE.fd        usr/share/edk2/ovmf/OVMF_CODE.cc.fd
+    ln -sf usr/share/edk2/ovmf/OVMF_CODE.cc.fd     usr/share/OVMF/OVMF_CODE.cc.fd
     
-    ln -s OVMF_CODE.secboot.fd ../../OVMF
-    ln -s OVMF_VARS.fd         ../../OVMF
-    ln -s OVMF_VARS.secboot.fd ../../OVMF
-    ln -s UefiShell.iso        ../../OVMF
+    ln -s usr/share/edk2/ovmf/OVMF_CODE.secboot.fd usr/share/OVMF
+    ln -s usr/share/edk2/ovmf/OVMF_VARS.fd         usr/share/OVMF
+    ln -s usr/share/edk2/ovmf/OVMF_VARS.secboot.fd usr/share/OVMF
+    ln -s usr/share/edk2/ovmf/UefiShell.iso        usr/share/OVMF
     
     cd /
 
@@ -256,13 +256,13 @@ shell:
     EOF
     )
 
-    cd /relocate/usr/local/lib64/
+    cd /relocate
 
     while IFS= read -r LINE; do
       echo "Create symlinc for $LINE"
       TARGET=$(echo $LINE | awk -F' ' '{print $1}')
       SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
-      ln -s $TARGET ../../../$SYMLINK
+      ln -s usr/local/lib64/$TARGET $SYMLINK
     done <<< "$SYMLINC_LIST"
     
     cd /
