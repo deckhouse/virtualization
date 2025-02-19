@@ -100,10 +100,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 		}
 
 		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseReady
+		vdSnapshot.Status.VolumeSnapshotName = vs.Name
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdscondition.VirtualDiskSnapshotReady).
 			Message("")
+
 		return reconcile.Result{}, nil
 	}
 
@@ -252,6 +254,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 		log.Debug("Waiting for the volume snapshot to be ready to use")
 
 		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseInProgress
+		vdSnapshot.Status.VolumeSnapshotName = vs.Name
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdscondition.Snapshotting).
@@ -285,6 +288,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 		}
 
 		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseReady
+		vdSnapshot.Status.VolumeSnapshotName = vs.Name
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdscondition.VirtualDiskSnapshotReady).
