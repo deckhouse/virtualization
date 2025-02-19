@@ -101,6 +101,15 @@ and perform the OS installation.
 
 To perform an unattended installation of Windows,
 create answer file (usually named unattend.xml or autounattend.xml).
+For example, let's take a file that allows you to:
+
+- Add Russian language and keyboard layout
+- Set the time zone to UTC+3
+- Specify the location of the virtio drivers needed for the installation
+  (hence the order of disk devices in the VM specification is important)
+- Partition the disks for installing windows on a VM with EFI
+- Create an user with name *cloud* and the password *cloud* in the Administrators group
+- Create a non-privileged user with name *user* and the password *user*
 
 <details><summary><b>autounattend.xml</b></summary>
 
