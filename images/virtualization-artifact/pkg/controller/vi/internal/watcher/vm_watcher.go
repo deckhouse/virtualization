@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -51,7 +50,7 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachine{}),
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
