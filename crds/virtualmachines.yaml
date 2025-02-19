@@ -1215,7 +1215,7 @@ spec:
                               description: Current number of the CPU cores under the hood.
                               type: integer
                             sockets:
-                              description: Current number of the VM sockets.
+                              description: Current number of the CPU socets under the hood
                               type: integer
                       required:
                         - cores
