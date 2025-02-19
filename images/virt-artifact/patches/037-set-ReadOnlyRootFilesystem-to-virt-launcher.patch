@@ -1,0 +1,299 @@
+diff --git a/pkg/virt-controller/services/rendervolumes.go b/pkg/virt-controller/services/rendervolumes.go
+index de90ed3cbc..798bd2d74e 100644
+--- a/pkg/virt-controller/services/rendervolumes.go
++++ b/pkg/virt-controller/services/rendervolumes.go
+@@ -52,6 +52,11 @@ func NewVolumeRenderer(namespace string, ephemeralDisk string, containerDiskDir
+ 
+ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
+ 	volumeMounts := []k8sv1.VolumeMount{
++		mountPath(varRunVolumeName, varRun),
++		mountPath(varLogVolumeName, varLog),
++		mountPath(etcLibvirtVolumeName, etcLibvirt),
++		mountPath(varLibLibvirtVolumeName, varLibLibvirt),
++		mountPath(varCacheLibvirtVolumeName, varCacheLibvirt),
+ 		mountPath("private", util.VirtPrivateDir),
+ 		mountPath("public", util.VirtShareDir),
+ 		mountPath("ephemeral-disks", vr.ephemeralDiskDir),
+@@ -64,6 +69,11 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
+ 
+ func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
+ 	volumes := []k8sv1.Volume{
++		emptyDirVolume(varRunVolumeName),
++		emptyDirVolume(varLogVolumeName),
++		emptyDirVolume(etcLibvirtVolumeName),
++		emptyDirVolume(varLibLibvirtVolumeName),
++		emptyDirVolume(varCacheLibvirtVolumeName),
+ 		emptyDirVolume("private"),
+ 		emptyDirVolume("public"),
+ 		emptyDirVolume("sockets"),
+diff --git a/pkg/virt-controller/services/template.go b/pkg/virt-controller/services/template.go
+index f607c24786..0dd9283a93 100644
+--- a/pkg/virt-controller/services/template.go
++++ b/pkg/virt-controller/services/template.go
+@@ -64,15 +64,24 @@ import (
+ )
+ 
+ const (
+-	containerDisks        = "container-disks"
+-	hotplugDisks          = "hotplug-disks"
+-	hookSidecarSocks      = "hook-sidecar-sockets"
+-	varRun                = "/var/run"
+-	virtBinDir            = "virt-bin-share-dir"
+-	hotplugDisk           = "hotplug-disk"
+-	virtExporter          = "virt-exporter"
+-	hotplugContainerDisks = "hotplug-container-disks"
+-	HotplugContainerDisk  = "hotplug-container-disk-"
++	containerDisks            = "container-disks"
++	hotplugDisks              = "hotplug-disks"
++	hookSidecarSocks          = "hook-sidecar-sockets"
++	varRun                    = "/var/run"
++	virtBinDir                = "virt-bin-share-dir"
++	hotplugDisk               = "hotplug-disk"
++	virtExporter              = "virt-exporter"
++	hotplugContainerDisks     = "hotplug-container-disks"
++	HotplugContainerDisk      = "hotplug-container-disk-"
++	varLog                    = "/var/log"
++	etcLibvirt                = "/etc/libvirt"
++	varLibLibvirt             = "/var/lib/libvirt/"
++	varCacheLibvirt           = "/var/cache/libvirt"
++	varLogVolumeName          = "var-log"
++	etcLibvirtVolumeName      = "etc-libvirt"
++	varLibLibvirtVolumeName   = "var-lib-libvirt"
++	varCacheLibvirtVolumeName = "var-cache-libvirt"
++	varRunVolumeName          = "var-run"
+ )
+ 
+ const KvmDevice = "devices.virtualization.deckhouse.io/kvm"
+@@ -301,7 +310,6 @@ func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
+ 
+ func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.SeccompProfile) *k8sv1.PodSecurityContext {
+ 	psc := &k8sv1.PodSecurityContext{}
+-
+ 	if util.IsNonRootVMI(vmi) {
+ 		nonRootUser := int64(util.NonRootUID)
+ 		psc.RunAsUser = &nonRootUser
+@@ -573,6 +581,19 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
+ 		}
+ 
+ 	}
++	// Set ReadOnlyRootFilesystem
++	setReadOnlyRootFilesystem := func(ctrs []k8sv1.Container) {
++		for i := range ctrs {
++			ctr := &ctrs[i]
++			if ctr.SecurityContext == nil {
++				ctr.SecurityContext = &k8sv1.SecurityContext{}
++			}
++			ctr.SecurityContext.ReadOnlyRootFilesystem = pointer.Bool(true)
++		}
++	}
++	setReadOnlyRootFilesystem(initContainers)
++	setReadOnlyRootFilesystem(containers)
++
+ 	pod := k8sv1.Pod{
+ 		ObjectMeta: metav1.ObjectMeta{
+ 			GenerateName: "virt-launcher-" + domain + "-",
+@@ -603,6 +624,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
+ 		},
+ 	}
+ 
++	t.addEtcLibvirt(&pod)
++
+ 	alignPodMultiCategorySecurity(&pod, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.DockerSELinuxMCSWorkaroundEnabled())
+ 
+ 	// If we have a runtime class specified, use it, otherwise don't set a runtimeClassName
+@@ -639,6 +662,55 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
+ 	return &pod, nil
+ }
+ 
++const compute = "compute"
++
++func (t *templateService) addEtcLibvirt(pod *k8sv1.Pod) {
++	if pod == nil {
++		return
++	}
++	var (
++		image      string
++		pullPolicy k8sv1.PullPolicy
++		secContext *k8sv1.SecurityContext
++		found      bool
++	)
++	for i := range pod.Spec.Containers {
++		ctr := &pod.Spec.Containers[i]
++		if ctr.Name == compute {
++			image = ctr.Image
++			pullPolicy = ctr.ImagePullPolicy
++			secContext = ctr.SecurityContext.DeepCopy()
++			found = true
++			break
++		}
++	}
++	if !found {
++		return
++	}
++
++	const initPath = "/init"
++	pod.Spec.InitContainers = append(pod.Spec.InitContainers, k8sv1.Container{
++		Name:            etcLibvirtVolumeName + "-init",
++		Image:           image,
++		ImagePullPolicy: pullPolicy,
++		Resources: k8sv1.ResourceRequirements{
++			Requests: k8sv1.ResourceList{
++				"memory": resource.MustParse("10Mi"),
++				"cpu":    resource.MustParse("10m"),
++			},
++		},
++
++		Command: []string{"sh", "-c", fmt.Sprintf("cp -a %s/. %s", etcLibvirt, initPath+"/")},
++		VolumeMounts: []k8sv1.VolumeMount{
++			{
++				Name:      etcLibvirtVolumeName,
++				MountPath: initPath,
++			},
++		},
++		SecurityContext: secContext,
++	})
++}
++
+ func (t *templateService) newNodeSelectorRenderer(vmi *v1.VirtualMachineInstance) *NodeSelectorRenderer {
+ 	var opts []NodeSelectorRendererOption
+ 	if vmi.IsCPUDedicated() {
+diff --git a/pkg/virt-controller/services/template_test.go b/pkg/virt-controller/services/template_test.go
+index c6a7f66a54..33d1870205 100644
+--- a/pkg/virt-controller/services/template_test.go
++++ b/pkg/virt-controller/services/template_test.go
+@@ -458,7 +458,7 @@ var _ = Describe("Template", func() {
+ 				Expect(pod.Spec.Containers[1].Image).To(Equal("some-image:v1"))
+ 				Expect(pod.Spec.Containers[1].ImagePullPolicy).To(Equal(k8sv1.PullPolicy("IfNotPresent")))
+ 				Expect(*pod.Spec.TerminationGracePeriodSeconds).To(Equal(int64(60)))
+-				Expect(pod.Spec.InitContainers).To(BeEmpty())
++				Expect(pod.Spec.InitContainers).To(HaveLen(1))
+ 				By("setting the right hostname")
+ 				Expect(pod.Spec.Hostname).To(Equal("testvmi"))
+ 				Expect(pod.Spec.Subdomain).To(BeEmpty())
+@@ -933,7 +933,7 @@ var _ = Describe("Template", func() {
+ 				pod, err := svc.RenderLaunchManifest(&vmi)
+ 				Expect(err).ToNot(HaveOccurred())
+ 
+-				Expect(pod.Spec.InitContainers).To(HaveLen(3))
++				Expect(pod.Spec.InitContainers).To(HaveLen(4))
+ 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].MountPath).To(Equal("/init/usr/bin"))
+ 				Expect(pod.Spec.InitContainers[0].VolumeMounts[0].Name).To(Equal("virt-bin-share-dir"))
+ 				Expect(pod.Spec.InitContainers[0].Command).To(Equal([]string{"/usr/bin/cp",
+@@ -2314,7 +2314,7 @@ var _ = Describe("Template", func() {
+ 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+ 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+ 
+-				Expect(pod.Spec.Volumes).To(HaveLen(9))
++				Expect(pod.Spec.Volumes).To(HaveLen(14))
+ 				Expect(pod.Spec.Volumes).To(
+ 					ContainElements(
+ 						k8sv1.Volume{
+@@ -2329,7 +2329,7 @@ var _ = Describe("Template", func() {
+ 								EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+ 							}}))
+ 
+-				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
++				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(13))
+ 				Expect(pod.Spec.Containers[0].VolumeMounts).To(
+ 					ContainElements(
+ 						k8sv1.VolumeMount{
+@@ -2393,7 +2393,7 @@ var _ = Describe("Template", func() {
+ 				Expect(hugepagesRequest.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+ 				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
+ 
+-				Expect(pod.Spec.Volumes).To(HaveLen(9))
++				Expect(pod.Spec.Volumes).To(HaveLen(14))
+ 				Expect(pod.Spec.Volumes).To(
+ 					ContainElements(
+ 						k8sv1.Volume{
+@@ -2408,7 +2408,7 @@ var _ = Describe("Template", func() {
+ 								EmptyDir: &k8sv1.EmptyDirVolumeSource{},
+ 							}}))
+ 
+-				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
++				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(13))
+ 				Expect(pod.Spec.Containers[0].VolumeMounts).To(
+ 					ContainElements(
+ 						k8sv1.VolumeMount{
+@@ -2463,11 +2463,11 @@ var _ = Describe("Template", func() {
+ 				Expect(pod.Spec.Containers[0].VolumeDevices).To(BeEmpty(), "No devices in manifest for 1st container")
+ 
+ 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
+-				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7), "7 mounts in manifest for 1st container")
+-				Expect(pod.Spec.Containers[0].VolumeMounts[6].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
++				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(12), "12 mounts in manifest for 1st container")
++				Expect(pod.Spec.Containers[0].VolumeMounts[11].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
+ 
+ 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
+-				Expect(pod.Spec.Volumes).To(HaveLen(8), "Found 8 volumes in manifest")
++				Expect(pod.Spec.Volumes).To(HaveLen(13), "Found 13 volumes in manifest")
+ 				Expect(pod.Spec.Volumes).To(
+ 					ContainElement(
+ 						k8sv1.Volume{
+@@ -2535,10 +2535,10 @@ var _ = Describe("Template", func() {
+ 				Expect(pod.Spec.Containers[0].VolumeDevices[1].Name).To(Equal(ephemeralVolumeName), "Found device for 1st container with correct name")
+ 
+ 				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
+-				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(6), "Found 6 mounts in manifest for 1st container")
++				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(11), "Found 11 mounts in manifest for 1st container")
+ 
+ 				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
+-				Expect(pod.Spec.Volumes).To(HaveLen(9), "Found 9 volumes in manifest")
++				Expect(pod.Spec.Volumes).To(HaveLen(14), "Found 14 volumes in manifest")
+ 				Expect(pod.Spec.Volumes).To(
+ 					ContainElement(
+ 						k8sv1.Volume{
+@@ -3048,7 +3048,7 @@ var _ = Describe("Template", func() {
+ 				pod, err := svc.RenderLaunchManifest(vmi)
+ 				Expect(err).ToNot(HaveOccurred())
+ 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+-				Expect(pod.Spec.Volumes).To(HaveLen(8))
++				Expect(pod.Spec.Volumes).To(HaveLen(13))
+ 
+ 				oneMB := resource.MustParse("1Mi")
+ 				Expect(pod.Spec.Volumes).To(ContainElement(
+@@ -3062,7 +3062,7 @@ var _ = Describe("Template", func() {
+ 						},
+ 					}))
+ 
+-				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal(k6tconfig.DownwardMetricDisksDir))
++				Expect(pod.Spec.Containers[0].VolumeMounts[11].MountPath).To(Equal(k6tconfig.DownwardMetricDisksDir))
+ 			})
+ 
+ 			It("Should add 1Mi memory overhead", func() {
+@@ -3116,7 +3116,7 @@ var _ = Describe("Template", func() {
+ 				Expect(err).ToNot(HaveOccurred())
+ 
+ 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+-				Expect(pod.Spec.Volumes).To(HaveLen(8))
++				Expect(pod.Spec.Volumes).To(HaveLen(13))
+ 				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+ 					Name: "configmap-volume",
+ 					VolumeSource: k8sv1.VolumeSource{
+@@ -3155,7 +3155,7 @@ var _ = Describe("Template", func() {
+ 					Expect(err).ToNot(HaveOccurred())
+ 
+ 					Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+-					Expect(pod.Spec.Volumes).To(HaveLen(9))
++					Expect(pod.Spec.Volumes).To(HaveLen(14))
+ 					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+ 						Name: "sysprep-configmap-volume",
+ 						VolumeSource: k8sv1.VolumeSource{
+@@ -3192,7 +3192,7 @@ var _ = Describe("Template", func() {
+ 					Expect(err).ToNot(HaveOccurred())
+ 
+ 					Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+-					Expect(pod.Spec.Volumes).To(HaveLen(9))
++					Expect(pod.Spec.Volumes).To(HaveLen(14))
+ 
+ 					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+ 						Name: "sysprep-configmap-volume",
+@@ -3234,7 +3234,7 @@ var _ = Describe("Template", func() {
+ 				Expect(err).ToNot(HaveOccurred())
+ 
+ 				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
+-				Expect(pod.Spec.Volumes).To(HaveLen(8))
++				Expect(pod.Spec.Volumes).To(HaveLen(13))
+ 
+ 				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
+ 					Name: "secret-volume",
