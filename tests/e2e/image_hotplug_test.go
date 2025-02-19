@@ -112,15 +112,15 @@ func CheckReusableResources(resources ReusableResources, opts kc.GetOptions) {
 		c.Current = len(strings.Split(res.StdOut(), " "))
 	}
 
-	isResourceCountExpected := false
+	isReusableResourcesExist := false
 	for _, c := range resources {
 		if c.Current == c.Expected {
-			isResourceCountExpected = true
+			isReusableResourcesExist = true
 		} else {
-			isResourceCountExpected = false
+			isReusableResourcesExist = false
 		}
 	}
-	if isResourceCountExpected {
+	if isReusableResourcesExist {
 		return
 	}
 }
@@ -331,40 +331,17 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 		It("check that the images are attached as the `ReadOnly` devices", func() {
 			imgs := make(map[string]string, imgCount)
-
-			cviImgs := &virtv2.ClusterVirtualImageList{}
-			err := GetObjects(virtv2.ClusterVirtualImageResource, cviImgs, kc.GetOptions{
-				Labels: testCaseLabel,
-			})
-			Expect(err).NotTo(HaveOccurred(), "failed to get `ClusterVirtualImages`: %s", err)
-			for _, cvi := range cviImgs.Items {
-				diskName := fmt.Sprintf("cvi-%s", cvi.Name)
-				imgs[diskName] = ""
-			}
-
-			viImgs := &virtv2.VirtualImageList{}
-			err = GetObjects(virtv2.VirtualImageResource, viImgs, kc.GetOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-			})
-			Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualImages`: %s", err)
-			for _, vi := range viImgs.Items {
-				diskName := fmt.Sprintf("vi-%s", vi.Name)
-				imgs[diskName] = ""
-			}
-
 			intVirtVmi := &virtv1.VirtualMachineInstance{}
-			err = GetObject(kc.ResourceKubevirtVMI, vmObj.Name, intVirtVmi, kc.GetOptions{
+			err := GetObject(kc.ResourceKubevirtVMI, vmObj.Name, intVirtVmi, kc.GetOptions{
 				Namespace: conf.Namespace,
 			})
 			Expect(err).NotTo(HaveOccurred(), "failed to get `InternalVirtulMachineInstance`: %s", err)
 			for _, disk := range intVirtVmi.Spec.Domain.Devices.Disks {
-				if _, ok := imgs[disk.Name]; ok {
-					if strings.HasSuffix(disk.Name, "iso") {
-						imgs[disk.Name] = fmt.Sprintf("%s-%s", CdRomIdPrefix, disk.Name)
-					} else {
-						imgs[disk.Name] = fmt.Sprintf("%s_%s", DiskIdPrefix, disk.Serial)
-					}
+				switch {
+				case strings.HasSuffix(disk.Name, "iso"):
+					imgs[disk.Name] = fmt.Sprintf("%s-%s", CdRomIdPrefix, disk.Name)
+				case strings.HasPrefix(disk.Name, "cvi-") || strings.HasPrefix(disk.Name, "vi-"):
+					imgs[disk.Name] = fmt.Sprintf("%s_%s", DiskIdPrefix, disk.Serial)
 				}
 			}
 
