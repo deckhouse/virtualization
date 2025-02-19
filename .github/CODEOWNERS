@@ -1,0 +1,9 @@
+.github/                        @universal-itengineer @nevermarine
+crds/                           @fl64 @z9r5 @goganat
+docs/                           @fl64 @z9r5 @goganat
+openapi/                        @fl64 @z9r5 @goganat
+images/                         @universal-itengineer @nevermarine
+images/kube-api-rewriter        @diafour
+images/vm-route-forge           @yaroslavborbat
+monitoring/                     @fl64
+tests/                          @hardcoretime
