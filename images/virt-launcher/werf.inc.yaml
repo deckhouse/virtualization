@@ -70,8 +70,8 @@ docker:
   USER: 0
 */}}
 
----
 {{/*
+#---
   # - image: {{ $.ImageName }}-liboverride-builder
   #   add: /liboverride
   #   to: /liboverride
@@ -100,9 +100,18 @@ docker:
   #   - liboverride.so
 */}}
 
-# Done
-# merge-qemu-libvirt-binaries contains /VBINS and /relocate
+---
 image: {{ $.ImageName }}
+fromImage: {{ $.ImageName }}-tmp
+import:
+  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
+    add: /relocate
+    to: /
+    after: install
+    includePaths:
+    - ld.so.preload
+---
+image: {{ $.ImageName }}-tmp
 fromImage: distroless
 import:
   - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
@@ -110,12 +119,9 @@ import:
     to: /
     after: install
     excludePaths:
-shell:
-  setup:
-    # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
-    - mv /etc/ld.so.preload.in /etc/ld.so.preload
-# docker:
-#   USER: 0
+    - ld.so.preload
+docker:
+  USER: 0
 
 ---
 {{- $gitRepoName := "libvirt" }}
@@ -551,6 +557,9 @@ shell:
     done <<< "$SYMLINC_LIST"
     
     cd /
+  - |
+# Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
+    mv /relocate/etc/ld.so.preload.in /relocate/etc/ld.so.preload
   - |
     cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
     chmod +x /relocate/usr/bin/virt-launcher-monitor
