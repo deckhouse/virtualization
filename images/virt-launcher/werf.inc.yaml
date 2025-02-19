@@ -1,6 +1,7 @@
+
 {{/*
 
----
+# ===
 # 
 image: {{ $.ImageName }}-v1
 final: false
@@ -68,10 +69,8 @@ import:
     - '*.sh'
 docker:
   USER: 0
-*/}}
 
-{{/*
-#---
+# ===
   # - image: {{ $.ImageName }}-liboverride-builder
   #   add: /liboverride
   #   to: /liboverride
@@ -112,6 +111,7 @@ import:
     - ld.so.preload
 ---
 image: {{ $.ImageName }}-tmp
+final: false
 fromImage: distroless
 import:
   - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
