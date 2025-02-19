@@ -28,8 +28,7 @@ shell:
     # create symlincs
     cd /relocate
     for dir in {bin,sbin};do
-      mkdir -p $dir
-      ln -s usr/$dir $(echo $dir | cut -d '/' -f2)
+      ln -s usr/$dir $dir
     done
     cd /
   - cp -pr /tmp /relocate
