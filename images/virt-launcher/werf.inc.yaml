@@ -80,12 +80,20 @@ import:
     add: /relocate
     to: /
     after: install
-  - image: {{ $.ImageName }}-liboverride-builder
-    add: /liboverride
-    to: /liboverride
+    excludePaths:
+    - ld.so.preload
+  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
+    add: /relocate/etc
+    to: /
     after: setup
     includePaths:
-    - liboverride.so
+    - ld.so.preload
+  # - image: {{ $.ImageName }}-liboverride-builder
+  #   add: /liboverride
+  #   to: /liboverride
+  #   after: setup
+  #   includePaths:
+  #   - liboverride.so
 # fromImage: {{ $.ImageName }}-prepared
 # git:
 #   # Add liboverride as a global LD_PRELOAD.
@@ -344,6 +352,12 @@ git:
     includePaths:
     - scripts
 import:
+- image: {{ $.ImageName }}-liboverride-builder
+  add: /liboverride
+  to: /relocate/liboverride
+  after: setup
+  includePaths:
+  - liboverride.so
 # libvirt and qemu
 - image: libvirt
   add: /BINS
