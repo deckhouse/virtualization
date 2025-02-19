@@ -683,7 +683,7 @@ spec:
                         runtimeOverhead:
                           description: Накладные расходы на CPU во время выполнения.
                         topology:
-                          description: Статистика использованной топологии CPU.
+                          description: Информация по используемой топологии CPU.
                           properties:
                             coresPerSocket:
                               description: Текущее количество ядер виртуальной машины.
