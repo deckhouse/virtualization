@@ -8,9 +8,9 @@ import:
     after: setup
     includePaths:
     - etc/ld.so.preload
-# shell:
-#   setup:
-#   - echo "Im here"
+shell:
+  setup:
+  - echo "Im here {{ $.ImageName }}"
 ---
 image: {{ $.ImageName }}-prepared
 final: false
@@ -22,6 +22,9 @@ import:
     after: install
     excludePaths:
     - etc/ld.so.preload
+shell:
+  setup:
+  - echo "Im here {{ $.ImageName }}-prepared"
 docker:
   USER: 0
 
