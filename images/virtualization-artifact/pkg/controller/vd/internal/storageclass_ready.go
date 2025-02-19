@@ -18,32 +18,27 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type StorageClassReadyHandler struct {
-	service  DiskService
-	recorder eventrecord.EventRecorderLogger
+	svc StorageClassService
 }
 
-func NewStorageClassReadyHandler(recorder eventrecord.EventRecorderLogger, diskService DiskService) *StorageClassReadyHandler {
+func NewStorageClassReadyHandler(svc StorageClassService) *StorageClassReadyHandler {
 	return &StorageClassReadyHandler{
-		service:  diskService,
-		recorder: recorder,
+		svc: svc,
 	}
 }
 
@@ -60,69 +55,156 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
-	pvc, err := h.service.GetPersistentVolumeClaim(ctx, supgen)
+	sup := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	pvc, err := h.svc.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	hasNoStorageClassInSpec := vd.Spec.PersistentVolumeClaim.StorageClass == nil || *vd.Spec.PersistentVolumeClaim.StorageClass == ""
-	hasStorageClassInStatus := vd.Status.StorageClassName != ""
-	var storageClassName *string
-	switch {
-	case pvc != nil && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "":
-		storageClassName = pvc.Spec.StorageClassName
-	case hasStorageClassInStatus && hasNoStorageClassInSpec:
-		storageClassName = &vd.Status.StorageClassName
-	default:
-		storageClassName = vd.Spec.PersistentVolumeClaim.StorageClass
+	// Reset storage class every time.
+	vd.Status.StorageClassName = ""
+
+	// 1. PVC already exists: used storage class is known.
+	if pvc != nil {
+		return reconcile.Result{}, h.setFromExistingPVC(ctx, vd, pvc, cb)
 	}
 
-	sc, err := h.service.GetStorageClass(ctx, storageClassName)
-	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) && !errors.Is(err, service.ErrStorageClassNotFound) {
-		return reconcile.Result{}, err
+	// 2. VirtualDisk has storage class in the spec.
+	if vd.Spec.PersistentVolumeClaim.StorageClass != nil && *vd.Spec.PersistentVolumeClaim.StorageClass != "" {
+		return reconcile.Result{}, h.setFromSpec(ctx, vd, cb)
 	}
 
-	switch {
-	case pvc != nil && pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "":
-		vd.Status.StorageClassName = *pvc.Spec.StorageClassName
-	case vd.Spec.PersistentVolumeClaim.StorageClass != nil:
-		vd.Status.StorageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
-	case !hasStorageClassInStatus && sc != nil:
-		vd.Status.StorageClassName = sc.Name
+	// 3. Try to use default storage class from the module settings.
+	moduleStorageClass, err := h.svc.GetModuleStorageClass(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("get module storage class: %w", err)
 	}
 
-	switch {
-	case sc != nil:
+	if moduleStorageClass != nil {
+		h.setFromModuleSettings(vd, moduleStorageClass, cb)
+		return reconcile.Result{}, nil
+	}
+
+	// 4. Try to use default storage class from the cluster.
+	defaultStorageClass, err := h.svc.GetDefaultStorageClass(ctx)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("get default storage class: %w", err)
+	}
+
+	if defaultStorageClass != nil {
+		h.setFromDefault(vd, defaultStorageClass, cb)
+		return reconcile.Result{}, nil
+	}
+
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(vdcondition.StorageClassNotReady).
+		Message("The default StorageClass was not found in either the cluster or the module settings. Please specify a StorageClass name explicitly in the spec.")
+	return reconcile.Result{}, nil
+}
+
+func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *virtv2.VirtualDisk, pvc *corev1.PersistentVolumeClaim, cb *conditions.ConditionBuilder) error {
+	if pvc.Spec.StorageClassName == nil || *pvc.Spec.StorageClassName == "" {
+		return fmt.Errorf("pvc does not have storage class")
+	}
+
+	vd.Status.StorageClassName = *pvc.Spec.StorageClassName
+
+	sc, err := h.svc.GetStorageClass(ctx, *pvc.Spec.StorageClassName)
+	if err != nil {
+		return fmt.Errorf("get storage class used by pvc: %w", err)
+	}
+
+	if sc == nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(fmt.Sprintf("The StorageClass %q used by the underlying PersistentVolumeClaim was not found.", vd.Status.StorageClassName))
+		return nil
+	}
+
+	if sc.DeletionTimestamp != nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(fmt.Sprintf("The StorageClass %q used by the underlying PersistentVolumeClaim is terminating and cannot be used.", vd.Status.StorageClassName))
+		return nil
+	}
+
+	cb.
+		Status(metav1.ConditionTrue).
+		Reason(vdcondition.StorageClassReady).
+		Message("")
+	return nil
+}
+
+func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) error {
+	vd.Status.StorageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
+
+	if !h.svc.IsStorageClassAllowed(*vd.Spec.PersistentVolumeClaim.StorageClass) {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(fmt.Sprintf("The specified StorageClass %q is not allowed. Please check the module settings.", vd.Status.StorageClassName))
+		return nil
+	}
+
+	sc, err := h.svc.GetStorageClass(ctx, *vd.Spec.PersistentVolumeClaim.StorageClass)
+	if err != nil {
+		return fmt.Errorf("get storage class specified in spec: %w", err)
+	}
+
+	if sc == nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(fmt.Sprintf("The specified StorageClass %q was not found.", vd.Status.StorageClassName))
+		return nil
+	}
+
+	if !sc.DeletionTimestamp.IsZero() {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(fmt.Sprintf("The specified StorageClass %q is terminating and cannot be used.", vd.Status.StorageClassName))
+		return nil
+	}
+
+	cb.
+		Status(metav1.ConditionTrue).
+		Reason(vdcondition.StorageClassReady).
+		Message("")
+	return nil
+}
+
+func (h StorageClassReadyHandler) setFromModuleSettings(vd *virtv2.VirtualDisk, moduleStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
+	vd.Status.StorageClassName = moduleStorageClass.Name
+
+	if moduleStorageClass.DeletionTimestamp.IsZero() {
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.StorageClassReady).
 			Message("")
-	case hasNoStorageClassInSpec:
-		h.recorder.Event(
-			vd,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDStorageClassNotFound,
-			"The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification.",
-		)
-
+	} else {
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(vdcondition.StorageClassNotFound).
-			Message("The default storage class was not found in cluster. Please specify the storage class name in the virtual disk specification.")
-	default:
-		h.recorder.Eventf(
-			vd,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDStorageClassNotFound,
-			"Storage class %q not found", *vd.Spec.PersistentVolumeClaim.StorageClass,
-		)
-
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.StorageClassNotFound).
-			Message(fmt.Sprintf("Storage class %q not found", *vd.Spec.PersistentVolumeClaim.StorageClass))
+			Reason(vdcondition.StorageClassNotReady).
+			Message(fmt.Sprintf("The default StorageClass %q, defined in the module settings, is terminating and cannot be used.", vd.Status.StorageClassName))
 	}
+}
 
-	return reconcile.Result{}, nil
+func (h StorageClassReadyHandler) setFromDefault(vd *virtv2.VirtualDisk, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
+	vd.Status.StorageClassName = defaultStorageClass.Name
+
+	if defaultStorageClass.DeletionTimestamp.IsZero() {
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vdcondition.StorageClassReady).
+			Message("")
+	} else {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(fmt.Sprintf("The default StorageClass %q is terminating and cannot be used.", vd.Status.StorageClassName))
+	}
 }

@@ -22,8 +22,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -33,7 +31,6 @@ import (
 
 type ReadyStepDiskService interface {
 	GetCapacity(pvc *corev1.PersistentVolumeClaim) string
-	Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
 type ReadyStep struct {
@@ -86,11 +83,6 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = s.diskService.GetCapacity(s.pvc)
 		vd.Status.Target.PersistentVolumeClaim = s.pvc.Name
-
-		err := s.diskService.Protect(ctx, vd, nil, s.pvc)
-		if err != nil {
-			return nil, fmt.Errorf("protect: %w", err)
-		}
 
 		return &reconcile.Result{}, nil
 	default:

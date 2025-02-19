@@ -334,11 +334,18 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 						)
 						sizeByLsblkBefore := vmDisksBefore[disk].SizeByLsblk.Value()
 						sizeByLsblkAfter := vmDisksAfter[disk].SizeByLsblk.Value()
-						Expect(sizeByLsblkBefore).Should(BeNumerically("<", sizeByLsblkAfter),
-							"size by lsblk before must be lower than size after: before: %d, after: %d",
-							sizeByLsblkBefore,
-							sizeByLsblkAfter,
-						)
+
+						Eventually(func() error {
+							if sizeByLsblkBefore >= sizeByLsblkAfter {
+								return fmt.Errorf(
+									"size by lsblk before must be lower than size after: before: %d, after: %d",
+									sizeByLsblkBefore,
+									sizeByLsblkAfter,
+								)
+							}
+
+							return nil
+						}).WithTimeout(ShortTimeout).WithPolling(Interval).Should(Succeed())
 					})
 				}
 			})

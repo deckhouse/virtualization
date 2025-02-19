@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,7 +20,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
@@ -28,7 +28,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . Handler Sources DiskService
+//go:generate moq -rm -out mock.go . Handler Sources DiskService StorageClassService
 
 type Handler = source.Handler
 
@@ -41,5 +41,13 @@ type Sources interface {
 type DiskService interface {
 	Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
 	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-	GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error)
+	GetStorageClass(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error)
+}
+
+type StorageClassService interface {
+	IsStorageClassAllowed(sc string) bool
+	GetModuleStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
+	GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
+	GetStorageClass(ctx context.Context, sc string) (*storagev1.StorageClass, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }

@@ -73,27 +73,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		vd.Status.Phase = virtv2.DiskPending
 	}
 
-	dataSourceReadyCondition, exists := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-	if !exists {
-		return reconcile.Result{}, fmt.Errorf("condition %s not found, but required", vdcondition.DatasourceReadyType)
-	}
-
-	if dataSourceReadyCondition.Status != metav1.ConditionTrue {
-		return reconcile.Result{}, nil
-	}
-
 	if readyCondition.Status != metav1.ConditionTrue && readyCondition.Reason != vdcondition.Lost.String() && h.sources.Changed(ctx, vd) {
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
 			v1alpha2.ReasonVDStorageClassWasDeleted,
-			"Spec changes are detected: restart import process",
+			"Spec changes are detected: import process is restarted by controller",
 		)
 
+		// Reset status and start import again.
 		vd.Status = virtv2.VirtualDiskStatus{
-			Phase:              virtv2.DiskPending,
-			Conditions:         vd.Status.Conditions,
-			ObservedGeneration: vd.Status.ObservedGeneration,
+			Phase: virtv2.DiskPending,
 		}
 
 		_, err := h.sources.CleanUp(ctx, vd)
@@ -104,63 +94,46 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	storageClassReadyCondition, ok := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
-	if !ok {
-		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
-	}
-
-	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue {
-		readyCB := conditions.
-			NewConditionBuilder(vdcondition.ReadyType).
+	dataSourceReady, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+	if dataSourceReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(dataSourceReady, vd) {
+		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
 			Generation(vd.Generation).
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.StorageClassNotReady).
-			Message("Storage class is not ready, please read the StorageClassReady condition state.")
-
-		conditions.SetCondition(readyCB, &vd.Status.Conditions)
-	}
-
-	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue && vd.Status.StorageClassName != "" {
-		h.recorder.Event(
-			vd,
-			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDStorageClassWasDeleted,
-			"Storage class was deleted while population",
-		)
-
-		vd.Status = virtv2.VirtualDiskStatus{
-			Phase:              virtv2.DiskPending,
-			Conditions:         vd.Status.Conditions,
-			ObservedGeneration: vd.Status.ObservedGeneration,
-			StorageClassName:   vd.Status.StorageClassName,
-		}
-
-		_, err := h.sources.CleanUp(ctx, vd)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to clean up to restart import process: %w", err)
-		}
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown)
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 
 		return reconcile.Result{}, nil
 	}
 
-	if vd.Status.StorageClassName != "" && storageClassReadyCondition.Status == metav1.ConditionTrue {
-		var ds source.Handler
-		if vd.Spec.DataSource == nil {
-			ds = h.blank
-		} else {
-			ds, exists = h.sources.Get(vd.Spec.DataSource.Type)
-			if !exists {
-				return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", vd.Spec.DataSource.Type)
-			}
-		}
+	storageClassReady, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
+	if storageClassReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(storageClassReady, vd) {
+		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
+			Generation(vd.Generation).
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown)
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 
-		result, err := ds.Sync(ctx, vd)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
-		}
-
-		return result, nil
+		return reconcile.Result{}, nil
 	}
 
-	return reconcile.Result{}, nil
+	if vd.Status.StorageClassName == "" {
+		return reconcile.Result{}, fmt.Errorf("empty storage class in status")
+	}
+
+	var ds source.Handler
+	if vd.Spec.DataSource == nil {
+		ds = h.blank
+	} else {
+		ds, ok = h.sources.Get(vd.Spec.DataSource.Type)
+		if !ok {
+			return reconcile.Result{}, fmt.Errorf("data source runner not found for type: %s", vd.Spec.DataSource.Type)
+		}
+	}
+
+	result, err := ds.Sync(ctx, vd)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
+	}
+
+	return result, nil
 }

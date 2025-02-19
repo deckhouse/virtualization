@@ -41,20 +41,20 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-type CreatePVCStep struct {
+type CreatePVCFromVDSnapshotStep struct {
 	pvc      *corev1.PersistentVolumeClaim
 	recorder eventrecord.EventRecorderLogger
 	client   client.Client
 	cb       *conditions.ConditionBuilder
 }
 
-func NewCreatePVCStep(
+func NewCreatePVCFromVDSnapshotStep(
 	pvc *corev1.PersistentVolumeClaim,
 	recorder eventrecord.EventRecorderLogger,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
-) *CreatePVCStep {
-	return &CreatePVCStep{
+) *CreatePVCFromVDSnapshotStep {
+	return &CreatePVCFromVDSnapshotStep{
 		pvc:      pvc,
 		recorder: recorder,
 		client:   client,
@@ -62,7 +62,7 @@ func NewCreatePVCStep(
 	}
 }
 
-func (s CreatePVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc != nil {
 		return nil, nil
 	}
@@ -119,10 +119,10 @@ func (s CreatePVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*recon
 	vd.Status.SourceUID = pointer.GetPointer(vdSnapshot.UID)
 	vd.Status.Target.PersistentVolumeClaim = pvc.Name
 
-	return &reconcile.Result{}, nil
+	return nil, nil
 }
 
-func (s CreatePVCStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
+func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
 	storageClassName := vs.Annotations["storageClass"]
 	volumeMode := vs.Annotations["volumeMode"]
 	accessModesStr := strings.Split(vs.Annotations["accessModes"], ",")
@@ -163,6 +163,9 @@ func (s CreatePVCStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot)
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcKey.Name,
 			Namespace: pvcKey.Namespace,
+			Finalizers: []string{
+				virtv2.FinalizerVDProtection,
+			},
 			OwnerReferences: []metav1.OwnerReference{
 				service.MakeOwnerReference(vd),
 			},

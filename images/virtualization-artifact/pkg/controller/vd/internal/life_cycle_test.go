@@ -148,7 +148,6 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			cleanUpCalled := false
 			vd := virtv2.VirtualDisk{
 				Status: virtv2.VirtualDiskStatus{
-					StorageClassName: args.StorageClassInStatusName,
 					Conditions: []metav1.Condition{
 						args.ReadyCondition,
 						args.StorageClassReadyCondition,
@@ -197,19 +196,6 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			Expect(cleanUpCalled).To(Equal(args.ExpectCleanup))
 		},
 		Entry(
-			"CleanUp should be called",
-			cleanupAfterScNotReadyTestArgs{
-				ReadyCondition: metav1.Condition{
-					Status: metav1.ConditionFalse,
-				},
-				StorageClassReadyCondition: metav1.Condition{
-					Status: metav1.ConditionFalse,
-				},
-				StorageClassInStatusName: "sc",
-				ExpectCleanup:            true,
-			},
-		),
-		Entry(
 			"CleanUp should not be called because StorageClassReady status is true",
 			cleanupAfterScNotReadyTestArgs{
 				ReadyCondition: metav1.Condition{
@@ -218,8 +204,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				StorageClassReadyCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 				},
-				StorageClassInStatusName: "sc",
-				ExpectCleanup:            false,
+				ExpectCleanup: false,
 			},
 		),
 		Entry(
@@ -231,8 +216,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				StorageClassReadyCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
 				},
-				StorageClassInStatusName: "sc",
-				ExpectCleanup:            false,
+				ExpectCleanup: false,
 			},
 		),
 		Entry(
@@ -244,8 +228,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				StorageClassReadyCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
 				},
-				StorageClassInStatusName: "",
-				ExpectCleanup:            false,
+				ExpectCleanup: false,
 			},
 		),
 	)
@@ -260,6 +243,5 @@ type cleanupAfterSpecChangeTestArgs struct {
 type cleanupAfterScNotReadyTestArgs struct {
 	ReadyCondition             metav1.Condition
 	StorageClassReadyCondition metav1.Condition
-	StorageClassInStatusName   string
 	ExpectCleanup              bool
 }

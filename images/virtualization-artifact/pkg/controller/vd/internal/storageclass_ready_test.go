@@ -25,194 +25,269 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-var _ = Describe("StorageClassHandler Run", func() {
-	DescribeTable("Check StorageClass handler",
-		func(args handlerTestArgs) {
-			recorder := &eventrecord.EventRecorderLoggerMock{
-				EventFunc: func(_ client.Object, _, _, _ string) {},
-			}
-			handler := NewStorageClassReadyHandler(recorder, newDiskServiceMock(args.StorageClassExistedInCluster, args.StorageClassInExistedPVC))
-			_, err := handler.Handle(context.TODO(), args.VirtualDisk)
-
-			Expect(err).To(BeNil())
-			condition, ok := conditions.GetCondition(vdcondition.StorageClassReadyType, args.VirtualDisk.Status.Conditions)
-			Expect(ok).To(BeTrue())
-			Expect(condition.Status).To(Equal(args.ExpectedCondition.Status))
-			Expect(condition.Reason).To(Equal(args.ExpectedCondition.Reason))
-			Expect(args.VirtualDisk.Status.StorageClassName).To(Equal(args.ExpectedStorageClassInStatus))
-		},
-		Entry(
-			"Should be false condition and empty sc in status",
-			handlerTestArgs{
-				VirtualDisk:                  newVD(nil, ""),
-				StorageClassExistedInCluster: nil,
-				StorageClassInExistedPVC:     nil,
-				ExpectedCondition: metav1.Condition{
-					Status: metav1.ConditionFalse,
-					Reason: vdcondition.StorageClassNotFound.String(),
-				},
-				ExpectedStorageClassInStatus: "",
-			},
-		),
-		Entry(
-			"Should be \"true\" status condition because PVC exists",
-			handlerTestArgs{
-				VirtualDisk:                  newVD(nil, ""),
-				StorageClassExistedInCluster: ptr.To("sc"),
-				StorageClassInExistedPVC:     ptr.To("sc"),
-				ExpectedCondition: metav1.Condition{
-					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady.String(),
-				},
-				ExpectedStorageClassInStatus: "sc",
-			},
-		),
-		Entry(
-			"Should be \"true\" status condition because sc in spec",
-			handlerTestArgs{
-				VirtualDisk:                  newVD(ptr.To("sc"), ""),
-				StorageClassExistedInCluster: ptr.To("sc"),
-				StorageClassInExistedPVC:     nil,
-				ExpectedCondition: metav1.Condition{
-					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady.String(),
-				},
-				ExpectedStorageClassInStatus: "sc",
-			},
-		),
-		Entry(
-			"Should be \"true\" status condition because has default sc",
-			handlerTestArgs{
-				VirtualDisk:                  newVD(nil, ""),
-				StorageClassExistedInCluster: ptr.To("sc"),
-				StorageClassInExistedPVC:     nil,
-				ExpectedCondition: metav1.Condition{
-					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady.String(),
-				},
-				ExpectedStorageClassInStatus: "sc",
-			},
-		),
-		Entry(
-			"Should be \"false\" status condition because sc from status not found",
-			handlerTestArgs{
-				VirtualDisk:                  newVD(nil, "statusSC"),
-				StorageClassExistedInCluster: nil,
-				StorageClassInExistedPVC:     nil,
-				ExpectedCondition: metav1.Condition{
-					Status: metav1.ConditionFalse,
-					Reason: vdcondition.StorageClassNotFound.String(),
-				},
-				ExpectedStorageClassInStatus: "statusSC",
-			},
-		),
-		Entry(
-			"Should be pvc sc in status",
-			handlerTestArgs{
-				VirtualDisk:                  newVD(ptr.To("specSC"), "statusSC"),
-				StorageClassExistedInCluster: ptr.To("pvcSC"),
-				StorageClassInExistedPVC:     ptr.To("pvcSC"),
-				ExpectedCondition: metav1.Condition{
-					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady.String(),
-				},
-				ExpectedStorageClassInStatus: "pvcSC",
-			},
-		),
-		Entry(
-			"Should be pvc sc in status",
-			handlerTestArgs{
-				VirtualDisk:                  newVD(ptr.To("specSC"), "statusSC"),
-				StorageClassExistedInCluster: ptr.To("pvcSC"),
-				StorageClassInExistedPVC:     ptr.To("pvcSC"),
-				ExpectedCondition: metav1.Condition{
-					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady.String(),
-				},
-				ExpectedStorageClassInStatus: "pvcSC",
-			},
-		),
-		Entry(
-			"Should be spec sc in status",
-			handlerTestArgs{
-				VirtualDisk:                  newVD(ptr.To("specSC"), "statusSC"),
-				StorageClassExistedInCluster: ptr.To("specSC"),
-				StorageClassInExistedPVC:     nil,
-				ExpectedCondition: metav1.Condition{
-					Status: metav1.ConditionTrue,
-					Reason: vdcondition.StorageClassReady.String(),
-				},
-				ExpectedStorageClassInStatus: "specSC",
-			},
-		),
+var _ = Describe("StorageClassReadyHandler Run", func() {
+	var (
+		ctx context.Context
+		vd  *virtv2.VirtualDisk
+		pvc *corev1.PersistentVolumeClaim
+		svc *StorageClassServiceMock
+		sc  *storagev1.StorageClass
 	)
+
+	BeforeEach(func() {
+		ctx = context.TODO()
+
+		svc = &StorageClassServiceMock{
+			GetPersistentVolumeClaimFunc: func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return nil, nil
+			},
+		}
+
+		sc = &storagev1.StorageClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "sc",
+			},
+		}
+
+		vd = &virtv2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "vd",
+				Generation: 1,
+				UID:        "11111111-1111-1111-1111-111111111111",
+			},
+			Status: virtv2.VirtualDiskStatus{
+				StorageClassName: sc.Name,
+			},
+		}
+
+		supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+
+		pvc = &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: supgen.PersistentVolumeClaim().Name,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				StorageClassName: &sc.Name,
+			},
+		}
+	})
+
+	Context("PVC is already exists", func() {
+		BeforeEach(func() {
+			svc.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+				return pvc, nil
+			}
+		})
+
+		It("has existing StorageClass", func() {
+			svc.GetStorageClassFunc = func(_ context.Context, _ string) (*storagev1.StorageClass, error) {
+				return sc, nil
+			}
+
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionTrue, vdcondition.StorageClassReady, false)
+		})
+
+		It("has terminating StorageClass", func() {
+			svc.GetStorageClassFunc = func(_ context.Context, _ string) (*storagev1.StorageClass, error) {
+				sc.DeletionTimestamp = ptr.To(metav1.Now())
+				return sc, nil
+			}
+
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionFalse, vdcondition.StorageClassNotReady, true)
+		})
+
+		It("has non-existing StorageClass", func() {
+			svc.GetStorageClassFunc = func(_ context.Context, _ string) (*storagev1.StorageClass, error) {
+				return nil, nil
+			}
+
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionFalse, vdcondition.StorageClassNotReady, true)
+		})
+	})
+
+	Context("StorageClass is specified in the spec of virtual disk", func() {
+		BeforeEach(func() {
+			vd.Spec.PersistentVolumeClaim.StorageClass = &sc.Name
+		})
+
+		It("has allowed StorageClass", func() {
+			svc.IsStorageClassAllowedFunc = func(_ string) bool {
+				return true
+			}
+			svc.GetStorageClassFunc = func(_ context.Context, _ string) (*storagev1.StorageClass, error) {
+				return sc, nil
+			}
+
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionTrue, vdcondition.StorageClassReady, false)
+		})
+
+		It("has not allowed StorageClass", func() {
+			svc.IsStorageClassAllowedFunc = func(_ string) bool {
+				return false
+			}
+
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionFalse, vdcondition.StorageClassNotReady, true)
+		})
+
+		It("has terminating StorageClass", func() {
+			svc.IsStorageClassAllowedFunc = func(_ string) bool {
+				return true
+			}
+			svc.GetStorageClassFunc = func(_ context.Context, _ string) (*storagev1.StorageClass, error) {
+				sc.DeletionTimestamp = ptr.To(metav1.Now())
+				return sc, nil
+			}
+
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionFalse, vdcondition.StorageClassNotReady, true)
+		})
+
+		It("has non-existing StorageClass", func() {
+			svc.IsStorageClassAllowedFunc = func(_ string) bool {
+				return true
+			}
+			svc.GetStorageClassFunc = func(_ context.Context, _ string) (*storagev1.StorageClass, error) {
+				return nil, nil
+			}
+
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionFalse, vdcondition.StorageClassNotReady, true)
+		})
+	})
+
+	Context("StorageClass is specified in the module settings", func() {
+		It("has existing StorageClass", func() {
+			svc.GetModuleStorageClassFunc = func(_ context.Context) (*storagev1.StorageClass, error) {
+				return sc, nil
+			}
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionTrue, vdcondition.StorageClassReady, false)
+		})
+
+		It("has terminating StorageClass", func() {
+			svc.GetModuleStorageClassFunc = func(_ context.Context) (*storagev1.StorageClass, error) {
+				sc.DeletionTimestamp = ptr.To(metav1.Now())
+				return sc, nil
+			}
+
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionFalse, vdcondition.StorageClassNotReady, true)
+		})
+	})
+
+	Context("Default StorageClass is specified in the cluster", func() {
+		BeforeEach(func() {
+			svc.GetModuleStorageClassFunc = func(_ context.Context) (*storagev1.StorageClass, error) {
+				return nil, nil
+			}
+		})
+
+		It("has existing StorageClass", func() {
+			svc.GetDefaultStorageClassFunc = func(_ context.Context) (*storagev1.StorageClass, error) {
+				return sc, nil
+			}
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionTrue, vdcondition.StorageClassReady, false)
+		})
+
+		It("has terminating StorageClass", func() {
+			svc.GetDefaultStorageClassFunc = func(_ context.Context) (*storagev1.StorageClass, error) {
+				sc.DeletionTimestamp = ptr.To(metav1.Now())
+				return sc, nil
+			}
+
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).NotTo(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionFalse, vdcondition.StorageClassNotReady, true)
+		})
+	})
+
+	Context("Cannot determine StorageClass", func() {
+		BeforeEach(func() {
+			svc.GetModuleStorageClassFunc = func(_ context.Context) (*storagev1.StorageClass, error) {
+				return nil, nil
+			}
+			svc.GetDefaultStorageClassFunc = func(_ context.Context) (*storagev1.StorageClass, error) {
+				return nil, nil
+			}
+		})
+
+		It("cannot find StorageClass", func() {
+			h := NewStorageClassReadyHandler(svc)
+			res, err := h.Handle(ctx, vd)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.StorageClassName).To(BeEmpty())
+			ExpectStorageClassReadyCondition(vd, metav1.ConditionFalse, vdcondition.StorageClassNotReady, true)
+		})
+	})
 })
 
-type handlerTestArgs struct {
-	VirtualDisk                  *virtv2.VirtualDisk
-	StorageClassInExistedPVC     *string
-	StorageClassExistedInCluster *string
-	ExpectedCondition            metav1.Condition
-	ExpectedStorageClassInStatus string
-}
+func ExpectStorageClassReadyCondition(vd *virtv2.VirtualDisk, status metav1.ConditionStatus, reason vdcondition.StorageClassReadyReason, msgExists bool) {
+	ready, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
+	Expect(ready.Status).To(Equal(status))
+	Expect(ready.Reason).To(Equal(reason.String()))
+	Expect(ready.ObservedGeneration).To(Equal(vd.Generation))
 
-func newDiskServiceMock(existedStorageClass, pvcSC *string) *DiskServiceMock {
-	var diskServiceMock DiskServiceMock
-
-	diskServiceMock.GetPersistentVolumeClaimFunc = func(_ context.Context, _ *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-		return newPVC(pvcSC), nil
-	}
-
-	diskServiceMock.GetStorageClassFunc = func(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error) {
-		switch {
-		case existedStorageClass == nil:
-			return nil, nil
-		case storageClassName == nil:
-			return &storagev1.StorageClass{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: *existedStorageClass,
-				},
-			}, nil
-		case *storageClassName == *existedStorageClass:
-			return &storagev1.StorageClass{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: *existedStorageClass,
-				},
-			}, nil
-		default:
-			return nil, nil
-		}
-	}
-
-	return &diskServiceMock
-}
-
-func newVD(specSC *string, statusSC string) *virtv2.VirtualDisk {
-	return &virtv2.VirtualDisk{
-		Spec: virtv2.VirtualDiskSpec{
-			PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
-				StorageClass: specSC,
-			},
-		},
-		Status: virtv2.VirtualDiskStatus{
-			StorageClassName: statusSC,
-		},
-	}
-}
-
-func newPVC(sc *string) *corev1.PersistentVolumeClaim {
-	return &corev1.PersistentVolumeClaim{
-		Spec: corev1.PersistentVolumeClaimSpec{
-			StorageClassName: sc,
-		},
+	if msgExists {
+		Expect(ready.Message).ToNot(BeEmpty())
+	} else {
+		Expect(ready.Message).To(BeEmpty())
 	}
 }
