@@ -1,104 +1,3 @@
-
-{{/*
-
-# ===
-# 
-image: {{ $.ImageName }}-v1
-final: false
-fromImage: distroless
-git:
-  # Add liboverride as a global LD_PRELOAD.
-  - add: /images/{{ $.ImageName }}/liboverride
-    to: /etc
-    stageDependencies:
-      setup:
-      - 'ld.so.preload.in'
-    includePaths:
-    - ld.so.preload.in
-import:
-  # Copy qemu and libvirt binaries
-  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
-    add: /relocate
-    to: /
-    after: install
-
-  - image: {{ $.ImageName }}-liboverride-builder
-    add: /liboverride/
-    to: /liboverride
-    after: install
-    includePaths:
-    - liboverride.so
-
-  # After install stage.
-  # Add kubeivrt files from virt-artifact.
-  - image: virt-artifact
-    add: /kubevirt-config-files/
-    to: /
-    after: install
-    includePaths:
-    - .version
-  - image: virt-artifact
-    add: /kubevirt/cmd/{{ $.ImageName }}/
-    to: /etc/libvirt
-    after: install
-    includePaths:
-    - qemu.conf
-    - virtqemud.conf
-  - image: virt-artifact
-    add: /kubevirt/cmd/{{ $.ImageName }}/
-    to: /etc
-    after: install
-    includePaths:
-    - nsswitch.conf
-  - image: virt-artifact
-    add: /kubevirt-binaries/
-    to: /usr/bin
-    before: setup
-    includePaths:
-    - container-disk
-    - virt-freezer
-    - virt-launcher
-    - virt-launcher-monitor-orig
-    - virt-probe
-    - virt-tail
-  - image: virt-artifact
-    add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
-    to: /usr/bin
-    before: setup
-    includePaths:
-    - '*.sh'
-docker:
-  USER: 0
-
-# ===
-  # - image: {{ $.ImageName }}-liboverride-builder
-  #   add: /liboverride
-  #   to: /liboverride
-  #   after: setup
-  #   includePaths:
-  #   - liboverride.so
-# fromImage: {{ $.ImageName }}-prepared
-# git:
-#   # Add liboverride as a global LD_PRELOAD.
-#   - add: /images/{{ $.ImageName }}/liboverride
-#     to: /etc
-#     stageDependencies:
-#       setup:
-#       - 'ld.so.preload.in'
-#     includePaths:
-#     - ld.so.preload.in
-  # excludePaths:
-  # - scripts
-  #   # includePaths:
-  #   # - lib64
-  # - image: {{ $.ImageName }}-liboverride-builder
-  #   add: /liboverride/
-  #   to: /liboverride
-  #   after: install
-  #   includePaths:
-  #   - liboverride.so
-*/}}
-
 ---
 image: {{ $.ImageName }}
 fromImage: {{ $.ImageName }}-tmp
@@ -106,9 +5,9 @@ import:
   - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
     add: /relocate
     to: /
-    after: install
+    after: setup
     includePaths:
-    - ld.so.preload
+    - etc/ld.so.preload
 ---
 image: {{ $.ImageName }}-tmp
 final: false
@@ -119,199 +18,11 @@ import:
     to: /
     after: install
     excludePaths:
-    - ld.so.preload
+    - etc/ld.so.preload
 docker:
   USER: 0
 
 ---
-{{- $gitRepoName := "libvirt" }}
-{{- $version := get $.Version $gitRepoName }}
-
-image: {{ $.ImageName }}-prepared
-final: false
-fromImage: base-alt-p11
-import:
-# Before install stage.
-# Add bins from libvirt and qemu artifacts.
-- image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
-  add: /VBINS
-  to: /
-  before: install
-  includePaths:
-  - etc
-- image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
-  add: /VBINS
-  to: /
-  before: install
-  includePaths:
-  - usr
-
-- image: edk2
-  add: /FIRMWARE/
-  to: /usr/share/edk2/ovmf
-  # to: /usr/share/OVMF
-  before: install
-  includePaths:
-  - '*.fd'
-  - '*.bin'
-  - '*.efi'
-  - '*.iso'
-
-- image: edk2
-  add: /FIRMWARE/
-  to: /usr/share/qemu/firmware
-  before: install
-  includePaths:
-  - '*.json'
-
-# After install stage.
-# Add kubeivrt files from virt-artifact.
-- image: virt-artifact
-  add: /kubevirt-config-files/
-  to: /
-  after: install
-  includePaths:
-  - .version
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/
-  to: /etc/libvirt
-  after: install
-  includePaths:
-  - qemu.conf
-  - virtqemud.conf
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/
-  to: /etc
-  after: install
-  includePaths:
-  - nsswitch.conf
-- image: virt-artifact
-  add: /kubevirt-binaries/
-  to: /usr/bin
-  before: setup
-  includePaths:
-  - container-disk
-  - virt-freezer
-  - virt-launcher
-  - virt-launcher-monitor-orig
-  - virt-probe
-  - virt-tail
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
-  to: /usr/bin
-  before: setup
-  includePaths:
-  - '*.sh'
-git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    stageDependencies:
-      setup:
-      - '**/*'
-    includePaths:
-    - scripts
-shell:
-  beforeInstall:
-  # Install main packages.
-  - |
-    apt-get update && apt-get install --yes \
-    acl \
-    pcre \
-    procps \
-    ethtool \
-    nftables \
-    passt \
-    swtpm swtpm-tools \
-    xorriso \
-    dmidecode \
-    numactl \
-    hwclock \
-    libffi8 \
-    glibc-gconv-modules
-
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-  
-  - |
-    # Delete unnecessary locales
-    KEEP_LOCALES=("ru" "en_US" "en_GB")
-    EXCLUDE_PATTERN=$(printf "! -name %s " "${KEEP_LOCALES[@]}")
-    echo "Delete unnecessary locales"
-    find /usr/share/locale -mindepth 1 -maxdepth 1 -type d ${EXCLUDE_PATTERN} -exec rm -rf {} +
-
-    # delete docs
-    echo "Delete docs"
-    rm -rf /usr/share/doc/*
-
-  install:
-  # Create qemu group and user.
-  - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
-
-  # Link to dir OVMF
-  - |
-    mkdir -p /usr/share/OVMF
-
-    echo "Create symlinks for OVMF"
-    ln -sf /usr/share/edk2/ovmf/OVMF_CODE.fd         /usr/share/edk2/ovmf/OVMF_CODE.cc.fd
-    ln -sf /usr/share/edk2/ovmf/OVMF_CODE.cc.fd      /usr/share/OVMF/OVMF_CODE.cc.fd
-    
-    ln -s /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd /usr/share/OVMF
-    ln -s /usr/share/edk2/ovmf/OVMF_VARS.fd         /usr/share/OVMF
-    ln -s /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd /usr/share/OVMF
-    ln -s /usr/share/edk2/ovmf/UefiShell.iso        /usr/share/OVMF
-
-  # Create symlinc for libvirt
-  - |
-    convert_version() {
-      local version="$1"
-      IFS='.' read -r major minor patch <<< "$version"
-      printf "%d%03d\n" "$major" "$minor"
-    }
-
-    libvirt_version=$(convert_version {{ $version }})
-
-    echo "libvirt_version: $libvirt_version"
-
-    SYMLINC_LIST=$(cat <<EOF
-    /usr/local/lib64/libvirt.so.0.${libvirt_version}.0 /lib64/libvirt.so.0
-    /usr/local/lib64/libvirt.so.0 /lib64/libvirt.so
-    /usr/local/lib64/libvirt-qemu.so.0.${libvirt_version}.0 /lib64/libvirt-qemu.so.0
-    /usr/local/lib64/libvirt-qemu.so.0 /lib64/libvirt-qemu.so
-    /usr/local/lib64/libvirt-lxc.so.0.${libvirt_version}.0 /lib64/libvirt-lxc.so.0
-    /usr/local/lib64/libvirt-lxc.so.0 /lib64/libvirt-lxc.so
-    /usr/local/lib64/libvirt-admin.so.0.${libvirt_version}.0 /lib64/libvirt-admin.so.0
-    /usr/local/lib64/libvirt-admin.so.0 /lib64/libvirt-admin.so
-    EOF
-    )
-
-    while IFS= read -r LINE; do
-      echo "Create symlinc for $LINE"
-      TARGET=$(echo $LINE | awk -F' ' '{print $1}')
-      SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
-      ln -s $TARGET $SYMLINK
-    done <<< "$SYMLINC_LIST"
-    cd /
-
-  setup:
-  # Replace virt-launcher-monitor with the wrapper.
-  - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
-  - chmod +x /usr/bin/virt-launcher-monitor
-
-  - |
-    [[ ! -e /usr/bin/cp ]] && ln -s /bin/cp /usr/bin/cp
-  - mkdir -p /init/usr/bin && ln -s /usr/bin/container-disk /init/usr/bin/container-disk
-  
-# Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-launcher/BUILD.bazel
-#docker:
-#  ENTRYPOINT: ["/usr/bin/virt-launcher"]
-docker:
-  ENV:
-    LANG: ""
-    LC_ALL: POSIX
-
----
-# NEW relocate ----
-# /usr/bin/qemu-img /usr/bin/qemu-io /usr/bin/qemu-nbd
 
 {{- $gitRepoName := "libvirt" }}
 {{- $version := get $.Version $gitRepoName }}
@@ -522,8 +233,6 @@ shell:
     
     cd /
 
-    # cp -a /VBINS/* /relocate
-# =========
   - |
     convert_version() {
       local version="$1"
@@ -557,9 +266,8 @@ shell:
     done <<< "$SYMLINC_LIST"
     
     cd /
-  - |
 # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
-    mv /relocate/etc/ld.so.preload.in /relocate/etc/ld.so.preload
+  - mv /relocate/etc/ld.so.preload.in /relocate/etc/ld.so.preload
   - |
     cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
     chmod +x /relocate/usr/bin/virt-launcher-monitor
@@ -568,7 +276,6 @@ shell:
     cd /relocate/usr/bin
     ln -s container-disk ../../init/usr/bin/container-disk
     cd /
-    
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
