@@ -1212,7 +1212,7 @@ spec:
                             - sockets
                           properties:
                             coresPerSocket:
-                              description: Current number of the VM cores.
+                              description: Current number of the CPU cores under the hood.
                               type: integer
                             sockets:
                               description: Current number of the VM sockets.
