@@ -25,6 +25,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -92,7 +93,39 @@ func IsBlockDeviceReadOnly(vmName, blockDeviceId string) (bool, error) {
 	return roOpt == "ro", nil
 }
 
-var _ = Describe("Image hotplug", func() {
+type Counter struct {
+	Current  int
+	Expected int
+}
+
+type ReusableResources map[kc.Resource]*Counter
+
+// Useful when require to check the created resources in `REUSABLE` mode.
+//
+//	Static output option: `jsonpath='{.items[*].metadata.name}'`.
+func CheckReusableResources(resources ReusableResources, opts kc.GetOptions) {
+	GinkgoHelper()
+	opts.Output = "jsonpath='{.items[*].metadata.name}'"
+	for r, c := range resources {
+		res := kubectl.List(r, opts)
+		Expect(res.Error()).NotTo(HaveOccurred(), "failed to check the reusable resourse %q: %s", r, res.StdErr())
+		c.Current = len(strings.Split(res.StdOut(), " "))
+	}
+
+	isResourceCountExpected := false
+	for _, c := range resources {
+		if c.Current == c.Expected {
+			isResourceCountExpected = true
+		} else {
+			isResourceCountExpected = false
+		}
+	}
+	if isResourceCountExpected {
+		return
+	}
+}
+
+var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 	const (
 		viCount    = 2
 		cviCount   = 2
@@ -103,80 +136,43 @@ var _ = Describe("Image hotplug", func() {
 	)
 
 	var (
-		vmObj             virtv2.VirtualMachine
-		disksBefore       Disks
-		disksAfter        Disks
-		testCaseLabel     = map[string]string{"testcase": "image-hotplug"}
-		isoLabel          = "iso"
-		imageBlockDevices = make([]Image, 0)
+		vmObj         virtv2.VirtualMachine
+		disksBefore   Disks
+		disksAfter    Disks
+		testCaseLabel = map[string]string{"testcase": "image-hotplug"}
 	)
 
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImageHotplug, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
-		})
+	BeforeAll(func() {
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImageHotplug, "kustomization.yaml")
+		ns, err := kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+		conf.SetNamespace(ns)
 	})
 
-	Context("When virtualization resources are applied", func() {
+	Context("When the virtualization resources are applied", func() {
 		It("result should be succeeded", func() {
 			if config.IsReusable() {
-				vms := &virtv2.VirtualMachineList{}
-				err := GetObjects(virtv2.VirtualMachineResource, vms, kc.GetOptions{
+				CheckReusableResources(ReusableResources{
+					virtv2.VirtualMachineResource: &Counter{
+						Expected: vmCount,
+					},
+					virtv2.VirtualDiskResource: &Counter{
+						Expected: vdCount,
+					},
+					virtv2.VirtualImageResource: &Counter{
+						Expected: viCount,
+					},
+					virtv2.ClusterVirtualImageResource: &Counter{
+						Expected: cviCount,
+					},
+					virtv2.VirtualMachineBlockDeviceAttachmentResource: &Counter{
+						Expected: vmbdaCount,
+					},
+				}, kc.GetOptions{
 					Labels:         testCaseLabel,
 					Namespace:      conf.Namespace,
 					IgnoreNotFound: true,
 				})
-				Expect(err).NotTo(HaveOccurred(), "failed to check reusable `VirtualMachine`", err)
-
-				vds := &virtv2.VirtualDiskList{}
-				err = GetObjects(virtv2.VirtualDiskResource, vds, kc.GetOptions{
-					Labels:         testCaseLabel,
-					Namespace:      conf.Namespace,
-					IgnoreNotFound: true,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to check reusable `VirtualDisk`", err)
-
-				vis := &virtv2.VirtualImageList{}
-				err = GetObjects(virtv2.VirtualImageResource, vis, kc.GetOptions{
-					Labels:         testCaseLabel,
-					Namespace:      conf.Namespace,
-					IgnoreNotFound: true,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to check reusable `VirtualImages`", err)
-
-				cvis := &virtv2.ClusterVirtualImageList{}
-				err = GetObjects(virtv2.ClusterVirtualImageResource, cvis, kc.GetOptions{
-					Labels:         testCaseLabel,
-					IgnoreNotFound: true,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to check reusable `ClusterVirtualImages`", err)
-
-				vmbdas := &virtv2.VirtualMachineBlockDeviceAttachmentList{}
-				err = GetObjects(virtv2.VirtualMachineBlockDeviceAttachmentResource, vmbdas, kc.GetOptions{
-					Labels:         testCaseLabel,
-					IgnoreNotFound: true,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to check reusable `VirtualMachineBlockDeviceAttachments`", err)
-
-				if len(vms.Items) == vmCount &&
-					len(vds.Items) == vdCount &&
-					len(vis.Items) == viCount &&
-					len(cvis.Items) == cviCount &&
-					len(vmbdas.Items) == vmbdaCount {
-					fmt.Println("all reusable resources have been found")
-					return
-				}
-
-				if len(vms.Items) == 0 &&
-					len(vds.Items) == 0 &&
-					len(vis.Items) == 0 &&
-					len(cvis.Items) == 0 &&
-					len(vmbdas.Items) == 0 {
-					fmt.Println("no found reusable resources in `REUSABLE` mode")
-				}
 			}
 
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -185,10 +181,8 @@ var _ = Describe("Image hotplug", func() {
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 		})
-	})
 
-	Context("When virtual images are applied", func() {
-		It("checks the `VirtualImages` phase", func() {
+		It("checks the resources phase", func() {
 			By(fmt.Sprintf("`VirtualImages` should be in the %q phase", virtv2.ImageReady), func() {
 				WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,
@@ -196,27 +190,6 @@ var _ = Describe("Image hotplug", func() {
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-		})
-
-		It("retrieves `VirtualImages`", func() {
-			viObjs := &virtv2.VirtualImageList{}
-			err := GetObjects(virtv2.VirtualImageResource, viObjs, kc.GetOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-			})
-			Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualImages`: %s", err)
-
-			for _, viObj := range viObjs.Items {
-				imageBlockDevices = append(imageBlockDevices, Image{
-					Kind: viObj.Kind,
-					Name: viObj.Name,
-				})
-			}
-		})
-	})
-
-	Context("When cluster virtual images are applied", func() {
-		It("checks the `ClusterVirtualImages` phase", func() {
 			By(fmt.Sprintf("`ClusterVirtualImages` should be in the %q phase", virtv2.ImageReady), func() {
 				WaitPhaseByLabel(kc.ResourceCVI, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,
@@ -224,27 +197,6 @@ var _ = Describe("Image hotplug", func() {
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-		})
-
-		It("retrieves `ClusterVirtualImages`", func() {
-			cviObjs := &virtv2.ClusterVirtualImageList{}
-			err := GetObjects(virtv2.ClusterVirtualImageResource, cviObjs, kc.GetOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-			})
-			Expect(err).NotTo(HaveOccurred(), "failed to get `ClusterVirtualImages`: %s", err)
-
-			for _, cviObj := range cviObjs.Items {
-				imageBlockDevices = append(imageBlockDevices, Image{
-					Kind: cviObj.Kind,
-					Name: cviObj.Name,
-				})
-			}
-		})
-	})
-
-	Context("When the virtual disk is applied", func() {
-		It("checks the `VirtualDisk` phase", func() {
 			By(fmt.Sprintf("`VirtualDisk` should be in the %q phase", virtv2.DiskReady), func() {
 				WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 					Labels:    testCaseLabel,
@@ -252,11 +204,6 @@ var _ = Describe("Image hotplug", func() {
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-		})
-	})
-
-	Context("When the virtual machine is applied", func() {
-		It("checks the `VirtualMachine` status", func() {
 			By("`VirtualMachine` should be ready", func() {
 				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
@@ -266,32 +213,69 @@ var _ = Describe("Image hotplug", func() {
 			})
 		})
 
-		It("retrieves `VirtualMachine` object", func() {
-			vmObjs := &virtv2.VirtualMachineList{}
-			err := GetObjects(virtv2.VirtualMachineResource, vmObjs, kc.GetOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-			})
-			Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualMachines`: %s", err)
-			Expect(len(vmObjs.Items)).To(Equal(vmCount), "there is only %d `VirtualMachine` in this test case", vmCount)
-			vmObj = vmObjs.Items[0]
-		})
 	})
 
-	Context("When the virtual machine is ready", func() {
-		It("retrieves the disk count before attachment", func() {
+	Context("When the resources are ready to use", func() {
+		imageBlockDevices := make([]Image, 0, imgCount)
+
+		It("retrieves the test objects", func() {
+			By("`VirtualMachine`", func() {
+				vmObjs := &virtv2.VirtualMachineList{}
+				err := GetObjects(virtv2.VirtualMachineResource, vmObjs, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualMachines`: %s", err)
+				Expect(len(vmObjs.Items)).To(Equal(vmCount), "there is only %d `VirtualMachine` in this test case", vmCount)
+				vmObj = vmObjs.Items[0]
+			})
+			By("`VirtualImages`", func() {
+				viObjs := &virtv2.VirtualImageList{}
+				err := GetObjects(virtv2.VirtualImageResource, viObjs, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualImages`: %s", err)
+
+				for _, viObj := range viObjs.Items {
+					imageBlockDevices = append(imageBlockDevices, Image{
+						Kind: viObj.Kind,
+						Name: viObj.Name,
+					})
+				}
+			})
+			By("`ClusterVirtualImages`", func() {
+				cviObjs := &virtv2.ClusterVirtualImageList{}
+				err := GetObjects(virtv2.ClusterVirtualImageResource, cviObjs, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to get `ClusterVirtualImages`: %s", err)
+
+				for _, cviObj := range cviObjs.Items {
+					imageBlockDevices = append(imageBlockDevices, Image{
+						Kind: cviObj.Kind,
+						Name: cviObj.Name,
+					})
+				}
+			})
+		})
+
+		It("retrieves the disk count before the images attachment", func() {
 			Eventually(func() error {
 				return GetDisksMetadata(vmObj.Name, &disksBefore)
 			}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred(), "virtualMachine: %s", vmObj.Name)
 		})
 
-		It("attaches images into `VirtualMachine`", func() {
+		It("attaches the images into the `VirtualMachine`", func() {
 			for _, bd := range imageBlockDevices {
-				AttachBlockDevice(vmObj.Name, bd.Name, virtv2.VMBDAObjectRefKind(bd.Kind), testCaseLabel, conf.TestData.ImageHotplug)
+				By(bd.Name, func() {
+					AttachBlockDevice(vmObj.Name, bd.Name, virtv2.VMBDAObjectRefKind(bd.Kind), testCaseLabel, conf.TestData.ImageHotplug)
+				})
 			}
 		})
 
-		It("checks `VirtualMachine` and `VirtualMachineBlockDeviceAttachments` phases", func() {
+		It("checks the `VirtualMachine` and the `VirtualMachineBlockDeviceAttachments` phases", func() {
 			By(fmt.Sprintf("`VirtualMachineBlockDeviceAttachments` should be in the %q phase", virtv2.BlockDeviceAttachmentPhaseAttached), func() {
 				WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
 					Labels:    testCaseLabel,
@@ -323,7 +307,7 @@ var _ = Describe("Image hotplug", func() {
 			}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(diskCountBefore+imgCount), "comparing error: 'after' must be equal 'before + %d'", imgCount)
 		})
 
-		It("checks that `ISO` image is attached as `CD-ROM`", func() {
+		It("checks that the `ISO` image is attached as `CD-ROM`", func() {
 			var (
 				isoBlockDeviceName string
 				isolockDeviceCount int
@@ -339,14 +323,14 @@ var _ = Describe("Image hotplug", func() {
 					isolockDeviceCount += 1
 				}
 			}
-			Expect(isolockDeviceCount).To(BeNumerically("==", 1), "there is only one `ISO` block device in this case")
+			Expect(isolockDeviceCount).To(Equal(1), "there is only one `ISO` block device in this case")
 			isCdRom, err := IsBlockDeviceCdRom(vmObj.Name, isoBlockDeviceName)
 			Expect(err).NotTo(HaveOccurred(), "failed to get `BlockDeviceType` of %q: %s", isoBlockDeviceName, err)
-			Expect(isCdRom).Should(BeTrue(), "wrong type of block device: %s", isoBlockDeviceName)
+			Expect(isCdRom).Should(BeTrue(), "wrong type of the block device: %s", isoBlockDeviceName)
 		})
 
-		It("check that images are attached as `ReadOnly` devices", func() {
-			imgs := make(map[string]string, 0)
+		It("check that the images are attached as the `ReadOnly` devices", func() {
+			imgs := make(map[string]string, imgCount)
 
 			cviImgs := &virtv2.ClusterVirtualImageList{}
 			err := GetObjects(virtv2.ClusterVirtualImageResource, cviImgs, kc.GetOptions{
@@ -363,7 +347,7 @@ var _ = Describe("Image hotplug", func() {
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 			})
-			Expect(err).NotTo(HaveOccurred(), "failed to get `ClusterVirtualImages`: %s", err)
+			Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualImages`: %s", err)
 			for _, vi := range viImgs.Items {
 				diskName := fmt.Sprintf("vi-%s", vi.Name)
 				imgs[diskName] = ""
@@ -376,7 +360,7 @@ var _ = Describe("Image hotplug", func() {
 			Expect(err).NotTo(HaveOccurred(), "failed to get `InternalVirtulMachineInstance`: %s", err)
 			for _, disk := range intVirtVmi.Spec.Domain.Devices.Disks {
 				if _, ok := imgs[disk.Name]; ok {
-					if strings.HasSuffix(disk.Name, isoLabel) {
+					if strings.HasSuffix(disk.Name, "iso") {
 						imgs[disk.Name] = fmt.Sprintf("%s-%s", CdRomIdPrefix, disk.Name)
 					} else {
 						imgs[disk.Name] = fmt.Sprintf("%s_%s", DiskIdPrefix, disk.Serial)
@@ -387,16 +371,14 @@ var _ = Describe("Image hotplug", func() {
 			Expect(len(imgs)).To(Equal(imgCount), "there are only %d `blockDevices` in this case", imgCount)
 			for img, diskId := range imgs {
 				err := MountBlockDevice(vmObj.Name, diskId)
-				Expect(err).NotTo(HaveOccurred(), "failed to mount %q into `VirtualMachine`: %s", img, err)
+				Expect(err).NotTo(HaveOccurred(), "failed to mount %q into the `VirtualMachine`: %s", img, err)
 				isReadOnly, err := IsBlockDeviceReadOnly(vmObj.Name, diskId)
-				Expect(err).NotTo(HaveOccurred(), "failed to check `ReadOnly` status: %s", img)
-				Expect(isReadOnly).Should(BeTrue(), "mounted disk should be `ReadOnly`")
+				Expect(err).NotTo(HaveOccurred(), "failed to check the `ReadOnly` status: %s", img)
+				Expect(isReadOnly).Should(BeTrue(), "the mounted disk should be `ReadOnly`")
 			}
 		})
-	})
 
-	Context("When the virtual machine is ready", func() {
-		It("detaches images", func() {
+		It("detaches the images", func() {
 			res := kubectl.Delete(kc.DeleteOptions{
 				FilenameOption: kc.Filename,
 				Filename:       []string{fmt.Sprintf("%s/vmbda", conf.TestData.ImageHotplug)},
@@ -405,6 +387,7 @@ var _ = Describe("Image hotplug", func() {
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), "failed to delete `VirtualMachineBlockDeviceAttachments`: %s", res.StdErr())
 		})
+
 		It("compares the disk count after detachment", func() {
 			diskCountBefore := len(disksBefore.BlockDevices)
 			Expect(diskCountBefore).NotTo(BeZero(), "the disk count `before` should not be zero")
