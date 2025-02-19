@@ -112,8 +112,8 @@ shell:
   setup:
     # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
     - mv /etc/ld.so.preload.in /etc/ld.so.preload
-docker:
-  USER: 0
+# docker:
+#   USER: 0
 
 ---
 {{- $gitRepoName := "libvirt" }}
