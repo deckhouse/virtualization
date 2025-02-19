@@ -90,6 +90,8 @@ import:
     add: /relocate
     to: /
     after: install
+    excludePaths:
+    - scripts
   #   # includePaths:
   #   # - lib64
   # - image: {{ $.ImageName }}-liboverride-builder
@@ -537,8 +539,12 @@ shell:
   - |
     cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
     chmod +x /relocate/usr/bin/virt-launcher-monitor
+  - |
+    mkdir -p /relocate/init/usr/bin
+    cd /relocate/usr/bin
+    ln -s container-disk ../../init/usr/bin/container-disk
+    cd /
     
-    # ./reloclibs.sh -i "$LIST" -o /VBINS
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
