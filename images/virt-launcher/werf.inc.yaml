@@ -273,8 +273,9 @@ shell:
     chmod +x /relocate/usr/bin/virt-launcher-monitor
   - |
     mkdir -p /relocate/init/usr/bin
-    cd /relocate/usr/bin
-    ln -s container-disk ../../init/usr/bin/container-disk
+    cd /relocate
+    # cd /relocate/usr/bin
+    ln -s usr/bin/container-disk init/usr/bin/container-disk
     cd /
 
 ---
