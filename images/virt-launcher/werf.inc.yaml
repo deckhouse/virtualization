@@ -196,6 +196,7 @@ shell:
     ./relocate_binaries.sh -i "$LIST" -o /VBINS
 
     cp -a /VBINS/. /relocate
+    rm -rf /VBINS
     
     ./relocate_binaries.sh -i "{{ $binaries }}"          -o /relocate
     ./relocate_binaries.sh -i "{{ $binariesXorriso }}"   -o /relocate
