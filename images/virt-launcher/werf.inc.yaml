@@ -2,7 +2,7 @@
 image: {{ $.ImageName }}
 fromImage: {{ $.ImageName }}-prepared
 import:
-  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
+  - image: {{ $.ImageName }}-binaries
     add: /relocate
     to: /
     after: setup
@@ -16,7 +16,7 @@ image: {{ $.ImageName }}-prepared
 final: false
 fromImage: distroless
 import:
-  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
+  - image: {{ $.ImageName }}-binaries
     add: /relocate
     to: /
     after: install
@@ -48,7 +48,7 @@ docker:
 
 {{- $binariesLibffi8 := "/usr/lib64/libffi.so*" }}
 
-image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
+image: {{ $.ImageName }}-binaries
 final: false
 fromImage: base-alt-p11-binaries
 git:
