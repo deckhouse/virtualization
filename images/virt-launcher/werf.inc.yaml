@@ -8,10 +8,10 @@ import:
     after: setup
     includePaths:
     - etc/ld.so.preload
-shell:
-  setup:
-  - echo "Im here {{ $.ImageName }}"
-  - echo "Im here {{ $.ImageName }}"
+# shell:
+#   setup:
+#   - echo "Im here {{ $.ImageName }}"
+#   - echo "Im here {{ $.ImageName }}"
 ---
 image: {{ $.ImageName }}-prepared
 final: false
@@ -23,10 +23,10 @@ import:
     after: install
     excludePaths:
     - etc/ld.so.preload
-shell:
-  setup:
-  - echo "Im here {{ $.ImageName }}-prepared"
-  - echo "Im here {{ $.ImageName }}-prepared"
+# shell:
+#   setup:
+#   - echo "Im here {{ $.ImageName }}-prepared"
+#   - echo "Im here {{ $.ImageName }}-prepared"
 docker:
   USER: 0
 
@@ -233,13 +233,13 @@ shell:
     mkdir -p /relocate/usr/share/OVMF
 
     cd /relocate
-    ln -sf ./usr/share/edk2/ovmf/OVMF_CODE.fd        ./usr/share/edk2/ovmf/OVMF_CODE.cc.fd
-    ln -sf ./usr/share/edk2/ovmf/OVMF_CODE.cc.fd     ./usr/share/OVMF/OVMF_CODE.cc.fd
+    ln -sf usr/share/edk2/ovmf/OVMF_CODE.fd   usr/share/edk2/ovmf/OVMF_CODE.cc.fd
+    ln -sf ../edk2/ovmf/OVMF_CODE.cc.fd       usr/share/OVMF/OVMF_CODE.cc.fd
     
-    ln -s ./usr/share/edk2/ovmf/OVMF_CODE.secboot.fd ./usr/share/OVMF
-    ln -s ./usr/share/edk2/ovmf/OVMF_VARS.fd         ./usr/share/OVMF
-    ln -s ./usr/share/edk2/ovmf/OVMF_VARS.secboot.fd ./usr/share/OVMF
-    ln -s ./usr/share/edk2/ovmf/UefiShell.iso        ./usr/share/OVMF
+    ln -s ../edk2/ovmf/OVMF_CODE.secboot.fd   usr/share/OVMF
+    ln -s ../edk2/ovmf/OVMF_VARS.fd           usr/share/OVMF
+    ln -s ../edk2/ovmf/OVMF_VARS.secboot.fd   usr/share/OVMF
+    ln -s ../edk2/ovmf/UefiShell.iso          usr/share/OVMF
     
     cd /
 
@@ -255,14 +255,14 @@ shell:
     echo "libvirt_version: $libvirt_version"
 
     SYMLINC_LIST=$(cat <<EOF
-    libvirt.so.0.${libvirt_version}.0       ./lib64/libvirt.so.0
-    libvirt.so.0                            ./lib64/libvirt.so
-    libvirt-qemu.so.0.${libvirt_version}.0  ./lib64/libvirt-qemu.so.0
-    libvirt-qemu.so.0                       ./lib64/libvirt-qemu.so
-    libvirt-lxc.so.0.${libvirt_version}.0   ./lib64/libvirt-lxc.so.0
-    libvirt-lxc.so.0                        ./lib64/libvirt-lxc.so
-    libvirt-admin.so.0.${libvirt_version}.0 ./lib64/libvirt-admin.so.0
-    libvirt-admin.so.0                      ./lib64/libvirt-admin.so
+    libvirt.so.0.${libvirt_version}.0        lib64/libvirt.so.0
+    libvirt.so.0                             lib64/libvirt.so
+    libvirt-qemu.so.0.${libvirt_version}.0   lib64/libvirt-qemu.so.0
+    libvirt-qemu.so.0                        lib64/libvirt-qemu.so
+    libvirt-lxc.so.0.${libvirt_version}.0    lib64/libvirt-lxc.so.0
+    libvirt-lxc.so.0                         lib64/libvirt-lxc.so
+    libvirt-admin.so.0.${libvirt_version}.0  lib64/libvirt-admin.so.0
+    libvirt-admin.so.0                       lib64/libvirt-admin.so
     EOF
     )
 
@@ -272,7 +272,7 @@ shell:
       echo "Create symlinc for $LINE"
       TARGET=$(echo $LINE | awk -F' ' '{print $1}')
       SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
-      ln -s ./usr/local/lib64/$TARGET $SYMLINK
+      ln -s ../usr/local/lib64/$TARGET $SYMLINK
     done <<< "$SYMLINC_LIST"
     
     cd /
@@ -287,6 +287,8 @@ shell:
     cd /relocate
     ln -s usr/bin/container-disk ./init/usr/bin/container-disk
     cd /
+
+    touch /relocate/try1
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
