@@ -81,13 +81,7 @@ import:
     to: /
     after: install
     excludePaths:
-    - ld.so.preload
-  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
-    add: /relocate/etc
-    to: /
-    after: setup
-    includePaths:
-    - ld.so.preload
+
   # - image: {{ $.ImageName }}-liboverride-builder
   #   add: /liboverride
   #   to: /liboverride
@@ -114,10 +108,10 @@ import:
   #   after: install
   #   includePaths:
   #   - liboverride.so
-# shell:
-#   setup:
-#     # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
-#     - mv /etc/ld.so.preload.in /etc/ld.so.preload
+shell:
+  setup:
+    # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
+    - mv /etc/ld.so.preload.in /etc/ld.so.preload
 docker:
   USER: 0
 
@@ -555,8 +549,6 @@ shell:
     done <<< "$SYMLINC_LIST"
     
     cd /
-  - |
-    mv /relocate/etc/ld.so.preload.in /relocate/etc/ld.so.preload
   - |
     cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
     chmod +x /relocate/usr/bin/virt-launcher-monitor
