@@ -1,6 +1,6 @@
 ---
 image: {{ $.ImageName }}
-fromImage: {{ $.ImageName }}-tmp
+fromImage: {{ $.ImageName }}-prepared
 import:
   - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
     add: /relocate
@@ -9,7 +9,7 @@ import:
     includePaths:
     - etc/ld.so.preload
 ---
-image: {{ $.ImageName }}-tmp
+image: {{ $.ImageName }}-prepared
 final: false
 fromImage: distroless
 import:
