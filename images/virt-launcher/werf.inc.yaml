@@ -71,17 +71,7 @@ docker:
 */}}
 
 ---
-# Done
-# merge-qemu-libvirt-binaries contains /VBINS and /relocate
-image: {{ $.ImageName }}
-fromImage: distroless
-import:
-  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
-    add: /relocate
-    to: /
-    after: install
-    excludePaths:
-
+{{/*
   # - image: {{ $.ImageName }}-liboverride-builder
   #   add: /liboverride
   #   to: /liboverride
@@ -108,6 +98,18 @@ import:
   #   after: install
   #   includePaths:
   #   - liboverride.so
+*/}}
+
+# Done
+# merge-qemu-libvirt-binaries contains /VBINS and /relocate
+image: {{ $.ImageName }}
+fromImage: distroless
+import:
+  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
+    add: /relocate
+    to: /
+    after: install
+    excludePaths:
 shell:
   setup:
     # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
