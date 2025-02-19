@@ -90,8 +90,8 @@ import:
     add: /relocate
     to: /
     after: install
-    excludePaths:
-    - scripts
+  # excludePaths:
+  # - scripts
   #   # includePaths:
   #   # - lib64
   # - image: {{ $.ImageName }}-liboverride-builder
@@ -338,6 +338,13 @@ git:
     includePaths:
     - scripts
 import:
+- image: {{ $.ImageName }}-liboverride-builder
+  add: /liboverride/
+  to: /relocate/liboverride
+  after: install
+  includePaths:
+  - liboverride.so
+# libvirt and qemu
 - image: libvirt
   add: /BINS
   to: /libvirt-bins
