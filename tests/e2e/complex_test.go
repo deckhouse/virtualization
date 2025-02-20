@@ -69,7 +69,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
 		vmPodLabel         = map[string]string{"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher"}
 
-		cmdResult *executor.CMDResult
+		cmdResult executor.CMDResult
 		wg        sync.WaitGroup
 	)
 
@@ -404,7 +404,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("reboot VMs by ssh", func() {
 				// kubectl may not return control for too long, and we may miss the Stopped phase and get stuck without using goroutines.
 				wg.Add(1)
-				go RebootVirtualMachinesByDeletePods(vmPodLabel, cmdResult, &wg)
+				go RebootVirtualMachinesByDeletePods(vmPodLabel, &cmdResult, &wg)
 			})
 		})
 
