@@ -155,6 +155,12 @@ func (h ResizingHandler) ResizeNeeded(
 			v1alpha2.ReasonVDResizingNotAvailable,
 			"The virtual disk cannot be selected for resizing as it is currently snapshotting.",
 		)
+
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.ResizingNotAvailable).
+			Message("The virtual disk cannot be selected for resizing as it is currently snapshotting.")
+
 		return reconcile.Result{}, nil
 	}
 
