@@ -579,9 +579,7 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	}
 }
 
-func RebootVirtualMachinesByKillPods(labels map[string]string, cmdResult *executor.CMDResult, wg *sync.WaitGroup) {
-	GinkgoHelper()
-
+func RebootVirtualMachinesByDeletePods(labels map[string]string, cmdResult *executor.CMDResult, wg *sync.WaitGroup) {
 	cmdResult = kubectl.Delete(kc.DeleteOptions{
 		Namespace:      conf.Namespace,
 		IgnoreNotFound: true,

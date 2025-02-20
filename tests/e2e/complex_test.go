@@ -219,7 +219,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		)
 
 		Context("When VMs are ready", func() {
-			It("stop VMs by VMOP", func() {
+			It("stop VMs by VMOPs", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
@@ -244,7 +244,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 
 		Context("When stop VMOPs are applied", func() {
-			It("checks VMs and VMOPs phases", func() {
+			It("checks VMOPs phases", func() {
 				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
 					Labels:    testCaseLabel,
@@ -304,10 +304,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
-				var vms []string
-				for _, vm := range strings.Split(res.StdOut(), " ") {
-					vms = append(vms, vm)
-				}
+				vms := strings.Split(res.StdOut(), " ")
 
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
@@ -352,16 +349,13 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
-				var vms []string
-				for _, vm := range strings.Split(res.StdOut(), " ") {
-					vms = append(vms, vm)
-				}
+				vms := strings.Split(res.StdOut(), " ")
 
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
 
-		Context("When VMs are is ready", func() {
+		Context("When VMs are ready", func() {
 			It("reboot VMs by ssh", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -376,7 +370,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context("When VM reboot command sent by ssh", func() {
+		Context("When VM reboot command has been sent by ssh", func() {
 			It("checks VMs phases", func() {
 				By("Virtual machines should be stopped")
 				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
@@ -400,10 +394,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
-				var vms []string
-				for _, vm := range strings.Split(res.StdOut(), " ") {
-					vms = append(vms, vm)
-				}
+				vms := strings.Split(res.StdOut(), " ")
 
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
@@ -412,7 +403,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		Context("When VMs are is ready", func() {
 			It("reboot VMs by ssh", func() {
 				wg.Add(1)
-				go RebootVirtualMachinesByKillPods(vmPodLabel, cmdResult, &wg)
+				go RebootVirtualMachinesByDeletePods(vmPodLabel, cmdResult, &wg)
 			})
 		})
 
@@ -441,10 +432,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
-				var vms []string
-				for _, vm := range strings.Split(res.StdOut(), " ") {
-					vms = append(vms, vm)
-				}
+				vms := strings.Split(res.StdOut(), " ")
 
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
