@@ -625,10 +625,10 @@ index 0000000000..0e53df4907
 +}
 diff --git a/pkg/virt-handler/checksum-controller/checksum-controller.go b/pkg/virt-handler/checksum-controller/checksum-controller.go
 new file mode 100644
-index 0000000000..a747f0be28
+index 0000000000..7bf581cb80
 --- /dev/null
 +++ b/pkg/virt-handler/checksum-controller/checksum-controller.go
-@@ -0,0 +1,202 @@
+@@ -0,0 +1,203 @@
 +package checksum_controller
 +
 +import (
@@ -653,8 +653,8 @@ index 0000000000..a747f0be28
 +
 +const (
 +	controllerName            = "ChecksumController"
-+	AnnotationChecksum        = "virtualization.deckhouse.io/checksum"
-+	AnnotationChecksumApplied = "virtualization.deckhouse.io/checksum-applied"
++	AnnotationChecksum        = "integrity.virtualization.deckhouse.io/core-spec-checksum"
++	AnnotationChecksumApplied = "integrity.virtualization.deckhouse.io/core-spec-checksum-applied"
 +)
 +
 +type VMIChecksumGetter interface {
@@ -727,6 +727,7 @@ index 0000000000..a747f0be28
 +	}
 +	if !exist || !vmi.DeletionTimestamp.IsZero() {
 +		c.delete(key)
++		return nil
 +	}
 +	control, found := c.get(key)
 +	if !found {
