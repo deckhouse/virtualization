@@ -41,15 +41,19 @@ type Disks struct {
 	BlockDevices []BlockDevice `json:"blockdevices"`
 }
 
+type BlockDevices struct {
+	BlockDevices []BlockDevice `json:"blockdevices"`
+}
+
 type BlockDevice struct {
 	Name string `json:"name"`
 	Size string `json:"size"`
+	Type string `json:"type"`
 }
 
-func AttachVirtualDisk(virtualMachine, virtualDisk string, labels map[string]string) {
-	vmbdaFilePath := fmt.Sprintf("%s/vmbda/%s.yaml", conf.TestData.VmDiskAttachment, virtualMachine)
-	fmt.Println(vmbdaFilePath)
-	err := CreateVMBDAManifest(vmbdaFilePath, virtualMachine, virtualDisk, labels)
+func AttachBlockDevice(virtualMachine, blockDeviceName string, blockDeviceType virtv2.VMBDAObjectRefKind, labels map[string]string, testDataPath string) {
+	vmbdaFilePath := fmt.Sprintf("%s/vmbda/%s.yaml", testDataPath, blockDeviceName)
+	err := CreateVMBDAManifest(vmbdaFilePath, virtualMachine, blockDeviceName, blockDeviceType, labels)
 	Expect(err).NotTo(HaveOccurred(), err)
 
 	res := kubectl.Apply(kc.ApplyOptions{
@@ -60,21 +64,21 @@ func AttachVirtualDisk(virtualMachine, virtualDisk string, labels map[string]str
 	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 }
 
-func CreateVMBDAManifest(filePath, vmName, vdName string, labels map[string]string) error {
+func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceType virtv2.VMBDAObjectRefKind, labels map[string]string) error {
 	vmbda := &virtv2.VirtualMachineBlockDeviceAttachment{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: APIVersion,
 			Kind:       virtv2.VirtualMachineBlockDeviceAttachmentKind,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:   vmName,
+			Name:   blockDeviceName,
 			Labels: labels,
 		},
 		Spec: virtv2.VirtualMachineBlockDeviceAttachmentSpec{
 			VirtualMachineName: vmName,
 			BlockDeviceRef: virtv2.VMBDAObjectRef{
-				Kind: virtv2.VMBDAObjectRefKindVirtualDisk,
-				Name: vdName,
+				Kind: blockDeviceType,
+				Name: blockDeviceName,
 			},
 		},
 	}
@@ -120,13 +124,11 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 		disksAfter         Disks
 		vdAttach           string
 		vmName             string
-		vmbdaName          string
 	)
 
 	Context("Preparing the environment", func() {
 		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, nameSuffix)
 		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
-		vmbdaName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
 
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml")
@@ -194,7 +196,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 				}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred(), "virtualMachine: %s", vmName)
 			})
 			It("attaches virtual disk", func() {
-				AttachVirtualDisk(vmName, vdAttach, testCaseLabel)
+				AttachBlockDevice(vmName, vdAttach, virtv2.VMBDAObjectRefKindVirtualDisk, testCaseLabel, conf.TestData.VmDiskAttachment)
 			})
 			It("checks VM and VMBDA phases", func() {
 				By(fmt.Sprintf("VMBDA should be in %s phases", PhaseAttached))
@@ -233,9 +235,9 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 			})
 			It("detaches virtual disk", func() {
 				res := kubectl.Delete(kc.DeleteOptions{
-					Filename:  []string{vmbdaName},
-					Namespace: conf.Namespace,
-					Resource:  kc.ResourceVMBDA,
+					Filename:       []string{fmt.Sprintf("%s/vmbda", conf.TestData.VmDiskAttachment)},
+					FilenameOption: kc.Filename,
+					Namespace:      conf.Namespace,
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 			})
