@@ -30,7 +30,6 @@ env:
 on:
   workflow_dispatch:
     inputs:
-
       tag:
         description: "The module's tag, which must include the -dev postfix. For example: v1.21.1-dev"
         type: string

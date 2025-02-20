@@ -74,4 +74,3 @@ vmip:
   features:
     - summary: add new events
       pull_request: https://github.com/deckhouse/virtualization/pull/645
-
