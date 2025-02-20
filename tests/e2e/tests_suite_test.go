@@ -48,7 +48,6 @@ const (
 	PhaseReleased             = "Released"
 	PhaseSucceeded            = "Succeeded"
 	PhaseRunning              = "Running"
-	PhaseStopped              = "Stopped"
 	PhaseWaitForUserUpload    = "WaitForUserUpload"
 	PhaseWaitForFirstConsumer = "WaitForFirstConsumer"
 )
