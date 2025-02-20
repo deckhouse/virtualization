@@ -54,18 +54,19 @@ func TestHandlers(t *testing.T) {
 
 var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 	var (
-		ctx        context.Context
-		scheme     *runtime.Scheme
-		vi         *virtv2.VirtualImage
-		vs         *vsv1.VolumeSnapshot
-		sc         *storagev1.StorageClass
-		vdSnapshot *virtv2.VirtualDiskSnapshot
-		pvc        *corev1.PersistentVolumeClaim
-		pod        *corev1.Pod
-		settings   *dvcr.Settings
-		recorder   eventrecord.EventRecorderLogger
-		importer   *ImporterMock
-		stat       *StatMock
+		ctx         context.Context
+		scheme      *runtime.Scheme
+		vi          *virtv2.VirtualImage
+		vs          *vsv1.VolumeSnapshot
+		sc          *storagev1.StorageClass
+		vdSnapshot  *virtv2.VirtualDiskSnapshot
+		pvc         *corev1.PersistentVolumeClaim
+		pod         *corev1.Pod
+		settings    *dvcr.Settings
+		recorder    eventrecord.EventRecorderLogger
+		diskService *DiskMock
+		importer    *ImporterMock
+		stat        *StatMock
 	)
 
 	BeforeEach(func() {
@@ -106,6 +107,13 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 				return "N%"
 			},
 		}
+
+		diskService = &DiskMock{
+			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
+				return false, nil
+			},
+		}
+
 		settings = &dvcr.Settings{}
 
 		sc = &storagev1.StorageClass{
@@ -199,7 +207,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 					},
 				}).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, client, settings, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, settings, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -222,7 +230,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			pod.Status.Phase = corev1.PodPending
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -236,7 +244,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			pod.Status.Phase = corev1.PodPending
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -250,7 +258,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			pod.Status.Phase = corev1.PodRunning
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -266,7 +274,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 			pod.Status.Phase = corev1.PodSucceeded
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -287,7 +295,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot ContainerRegistry", func() {
 
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
