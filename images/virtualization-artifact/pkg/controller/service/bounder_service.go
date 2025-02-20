@@ -184,5 +184,6 @@ func (s BounderPodService) GetPodSettings(ownerRef *metav1.OwnerReference, sup *
 		InstallerLabels:      map[string]string{},
 		ResourceRequirements: &s.requirements,
 		PVCName:              sup.PersistentVolumeClaim().Name,
+		Finalizer:            s.protection.GetFinalizer(),
 	}
 }
