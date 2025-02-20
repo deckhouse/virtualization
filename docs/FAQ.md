@@ -5,11 +5,13 @@ weight: 70
 
 ## How to install an operating system in a virtual machine from an iso-image?
 
-Let's consider installing an operating system in a virtual machine from an iso-image, using Windows OS installation as an example.
+Let's consider installing an operating system in a virtual machine from an iso-image,
+using Windows OS installation as an example.
 
-To install the OS we will need an iso-image of Windows OS. We need to download it and publish it on some http-service available from the cluster.
+To install the OS we will need an iso-image of Windows OS.
+We need to download it and publish it on some http-service available from the cluster.
 
-1. Let's create an empty disk for OS installation:
+1. Create an empty disk for OS installation:
 
     ```yaml
     apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -23,7 +25,7 @@ To install the OS we will need an iso-image of Windows OS. We need to download i
         storageClassName: local-path
     ```
 
-1. Let's create resources with iso-images of Windows OS and virtio drivers:
+1. Create resources with iso-images of Windows OS and virtio drivers:
 
     ```yaml
     apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -36,7 +38,7 @@ To install the OS we will need an iso-image of Windows OS. We need to download i
         http:
           url: "http://example.com/win11.iso"
     ```
-    
+
     ```yaml
     apiVersion: virtualization.deckhouse.io/v1alpha2
     kind: ClusterVirtualImage
@@ -71,60 +73,245 @@ To install the OS we will need an iso-image of Windows OS. We need to download i
         size: 8Gi
       enableParavirtualization: true
       blockDeviceRefs:
+        - kind: VirtualDisk
+          name: win-disk
         - kind: ClusterVirtualImage
           name: win-11-iso
         - kind: ClusterVirtualImage
           name: win-virtio-iso
-        - kind: VirtualDisk
-          name: win-disk
     ```
 
-1. Once the resource is created, the virtual machine will be started. You need to connect to it and use the graphical wizard to add the `virtio` drivers and perform the OS installation.
+1. Once the resource is created, the virtual machine will be started.
+You need to connect to it and use the graphical wizard to add the `virtio` drivers
+and perform the OS installation.
 
     ```bash
     d8 v vnc -n default win-vm
     ```
 
-1. After the installation is complete, shut down the virtual machine.
+1. After the installation is complete, restart the virtual machine.
 
-1. Next, modify the `VirtualMachine` resource and apply the changes:
-
-    ```yaml
-    spec:
-      # ...
-      runPolicy: AlwaysOn
-      # ...
-      blockDeviceRefs:
-        # remove all ClusterVirtualImage resources with iso disks from this section
-        - kind: VirtualDisk
-          name: win-disk
-    ```
-
-1. After the changes, the virtual machine will start. To continue working with it, use the following command:
+1. To continue working with it, use the following command:
 
    ```bash
    d8 v vnc -n default win-vm
    ```
 
-## How to provide windows answer file(Sysprep)
+## How to provide windows answer file(Sysprep)?
 
-To provide Sysprep ability it's necessary to define in virtual machine with SysprepRef provisioning.
-Set answer files (typically named unattend.xml or autounattend.xml) to secret to perform unattended installations of Windows.
-You can also specify here other files in base64 format (customize.ps1, id_rsa.pub, ...) that you need to successfully execute scripts inside the answer file.
+To perform an unattended installation of Windows,
+create answer file (usually named unattend.xml or autounattend.xml).
+For example, let's take a file that allows you to:
 
-First, create sysprep secret:
+- Add English language and keyboard layout
+- Specify the location of the virtio drivers needed for the installation
+  (hence the order of disk devices in the VM specification is important)
+- Partition the disks for installing windows on a VM with EFI
+- Create an user with name *cloud* and the password *cloud* in the Administrators group
+- Create a non-privileged user with name *user* and the password *user*
 
-```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sysprep-config
-data:
-  unattend.xml: XXXx # base64 of answer file
-type: "provisioning.virtualization.deckhouse.io/sysprep"
+<details><summary><b>autounattend.xml</b></summary>
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<unattend xmlns="urn:schemas-microsoft-com:unattend" xmlns:wcm="http://schemas.microsoft.com/WMIConfig/2002/State">
+  <settings pass="offlineServicing"></settings>
+  <settings pass="windowsPE">
+    <component name="Microsoft-Windows-International-Core-WinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <SetupUILanguage>
+        <UILanguage>ru-EN</UILanguage>
+      </SetupUILanguage>
+      <InputLocale>0409:00000409;0419:00000419</InputLocale>
+      <SystemLocale>en-US</SystemLocale>
+      <UILanguage>ru-En</UILanguage>
+      <UserLocale>en-US</UserLocale>
+    </component>
+    <component name="Microsoft-Windows-PnpCustomizationsWinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <DriverPaths>
+        <PathAndCredentials wcm:keyValue="4b29ba63" wcm:action="add">
+          <Path>E:\amd64\w11</Path>
+        </PathAndCredentials>
+        <PathAndCredentials wcm:keyValue="25fe51ea" wcm:action="add">
+          <Path>E:\NetKVM\w11\amd64</Path>
+        </PathAndCredentials>
+      </DriverPaths>
+    </component>
+    <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <DiskConfiguration>
+        <Disk wcm:action="add">
+          <DiskID>0</DiskID> 
+          <WillWipeDisk>true</WillWipeDisk> 
+          <CreatePartitions>
+            <!-- Recovery partition -->
+            <CreatePartition wcm:action="add">
+              <Order>1</Order> 
+              <Type>Primary</Type> 
+              <Size>250</Size> 
+            </CreatePartition>
+            <!-- EFI system partition (ESP) -->
+            <CreatePartition wcm:action="add">
+              <Order>2</Order> 
+              <Type>EFI</Type> 
+              <Size>100</Size> 
+            </CreatePartition>
+            <!-- Microsoft reserved partition (MSR) -->
+            <CreatePartition wcm:action="add">
+              <Order>3</Order> 
+              <Type>MSR</Type> 
+              <Size>128</Size> 
+            </CreatePartition>
+            <!-- Windows partition -->
+            <CreatePartition wcm:action="add">
+              <Order>4</Order> 
+              <Type>Primary</Type> 
+              <Extend>true</Extend> 
+            </CreatePartition>
+          </CreatePartitions>
+          <ModifyPartitions>
+            <!-- Recovery partition -->
+            <ModifyPartition wcm:action="add">
+              <Order>1</Order> 
+              <PartitionID>1</PartitionID> 
+              <Label>Recovery</Label> 
+              <Format>NTFS</Format> 
+              <TypeID>de94bba4-06d1-4d40-a16a-bfd50179d6ac</TypeID> 
+            </ModifyPartition>
+            <!-- EFI system partition (ESP) -->
+            <ModifyPartition wcm:action="add">
+              <Order>2</Order>
+              <PartitionID>2</PartitionID>
+              <Label>System</Label>
+              <Format>FAT32</Format>
+            </ModifyPartition>
+            <!-- MSR partition does not need to be modified -->
+            <!-- Windows partition -->
+            <ModifyPartition wcm:action="add">
+              <Order>3</Order>
+              <PartitionID>4</PartitionID>
+              <Label>Windows</Label>
+              <Letter>C</Letter>
+              <Format>NTFS</Format>
+            </ModifyPartition>
+          </ModifyPartitions>
+        </Disk>
+        <WillShowUI>OnError</WillShowUI>
+      </DiskConfiguration>
+      <ImageInstall>
+        <OSImage>
+          <InstallTo>
+            <DiskID>0</DiskID>
+            <PartitionID>4</PartitionID>
+          </InstallTo>
+        </OSImage>
+      </ImageInstall>
+      <UserData>
+        <ProductKey>
+          <Key>VK7JG-NPHTM-C97JM-9MPGT-3V66T</Key>
+          <WillShowUI>OnError</WillShowUI>
+        </ProductKey>
+        <AcceptEula>true</AcceptEula>
+      </UserData>
+      <UseConfigurationSet>false</UseConfigurationSet>
+    </component>
+  </settings>
+  <settings pass="generalize"></settings>
+  <settings pass="specialize">
+    <component name="Microsoft-Windows-Deployment" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <RunSynchronous>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <Path>powershell.exe -NoProfile -Command "$xml = [xml]::new(); $xml.Load('C:\Windows\Panther\unattend.xml'); $sb = [scriptblock]::Create( $xml.unattend.Extensions.ExtractScript ); Invoke-Command -ScriptBlock $sb -ArgumentList $xml;"</Path>
+        </RunSynchronousCommand>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>2</Order>
+          <Path>powershell.exe -NoProfile -Command "Get-Content -LiteralPath 'C:\Windows\Setup\Scripts\Specialize.ps1' -Raw | Invoke-Expression;"</Path>
+        </RunSynchronousCommand>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>3</Order>
+          <Path>reg.exe load "HKU\DefaultUser" "C:\Users\Default\NTUSER.DAT"</Path>
+        </RunSynchronousCommand>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>4</Order>
+          <Path>powershell.exe -NoProfile -Command "Get-Content -LiteralPath 'C:\Windows\Setup\Scripts\DefaultUser.ps1' -Raw | Invoke-Expression;"</Path>
+        </RunSynchronousCommand>
+        <RunSynchronousCommand wcm:action="add">
+          <Order>5</Order>
+          <Path>reg.exe unload "HKU\DefaultUser"</Path>
+        </RunSynchronousCommand>
+      </RunSynchronous>
+    </component>
+  </settings>
+  <settings pass="auditSystem"></settings>
+  <settings pass="auditUser"></settings>
+  <settings pass="oobeSystem">
+    <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <InputLocale>0409:00000409;0419:00000419</InputLocale>
+      <SystemLocale>en-US</SystemLocale>
+      <UILanguage>ru-RU</UILanguage>
+      <UserLocale>en-US</UserLocale>
+    </component>
+    <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
+      <UserAccounts>
+        <LocalAccounts>
+          <LocalAccount wcm:action="add">
+            <Name>cloud</Name>
+            <DisplayName>cloud</DisplayName>
+            <Group>Administrators</Group>
+            <Password>
+              <Value>cloud</Value>
+              <PlainText>true</PlainText>
+            </Password>
+          </LocalAccount>
+          <LocalAccount wcm:action="add">
+            <Name>User</Name>
+            <DisplayName>user</DisplayName>
+            <Group>Users</Group>
+            <Password>
+              <Value>user</Value>
+              <PlainText>true</PlainText>
+            </Password>
+          </LocalAccount>
+        </LocalAccounts>
+      </UserAccounts>
+      <AutoLogon>
+        <Username>cloud</Username>
+        <Enabled>true</Enabled>
+        <LogonCount>1</LogonCount>
+        <Password>
+          <Value>cloud</Value>
+          <PlainText>true</PlainText>
+        </Password>
+      </AutoLogon>
+      <OOBE>
+        <ProtectYourPC>3</ProtectYourPC>
+        <HideEULAPage>true</HideEULAPage>
+        <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+        <HideOnlineAccountScreens>false</HideOnlineAccountScreens>
+      </OOBE>
+      <FirstLogonCommands>
+        <SynchronousCommand wcm:action="add">
+          <Order>1</Order>
+          <CommandLine>powershell.exe -NoProfile -Command "Get-Content -LiteralPath 'C:\Windows\Setup\Scripts\FirstLogon.ps1' -Raw | Invoke-Expression;"</CommandLine>
+        </SynchronousCommand>
+      </FirstLogonCommands>
+    </component>
+  </settings>
+</unattend>
 ```
 
-Then create a virtual machine with unattended installation:
+</details>
+
+Create a secret from this xml file:
+
+```bash
+d8 k create secret generic sysprep-config --type="provisioning.virtualization.deckhouse.io/sysprep" --from-file=./autounattend.xml
+```
+
+Then you can create a virtual machine that will use an answer file during installation.
+To provide the Windows virtual machine with the answer file,
+you need to specify provisioning with the type SysprepRef.
+You can also specify here other files in base64 format (customize.ps1, id_rsa.pub, ...)
+that you need to successfully execute scripts inside the answer file.
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -151,15 +338,15 @@ spec:
     size: 8Gi
   enableParavirtualization: true
   blockDeviceRefs:
+    - kind: VirtualDisk
+      name: win-disk
     - kind: ClusterVirtualImage
       name: win-11-iso
     - kind: ClusterVirtualImage
       name: win-virtio-iso
-    - kind: VirtualDisk
-      name: win-disk
 ```
 
-## How to redirect traffic to a virtual machine
+## How to redirect traffic to a virtual machine?
 
 Since the virtual machine runs in a Kubernetes cluster, the forwarding of network traffic to it is done similarly to the forwarding of traffic to the pods.
 
@@ -179,20 +366,20 @@ To do this, you just need to create a service with the required settings.
 
 1. In order to direct network traffic to port 80 of the virtual machine - let's create a service:
 
-```yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: svc-1
-spec:
-  ports:
-    - name: http
-      port: 8080
-      protocol: TCP
-      targetPort: 80
-  selector:
-    app: old
-```
+    ```yaml
+    apiVersion: v1
+    kind: Service
+    metadata:
+      name: svc-1
+    spec:
+      ports:
+        - name: http
+          port: 8080
+          protocol: TCP
+          targetPort: 80
+      selector:
+        app: old
+    ```
 
     We can change virtual machine label values on the fly, i.e. changing labels does not require restarting the virtual machine, which means that we can configure network traffic redirection from different services dynamically:
     
@@ -213,7 +400,7 @@ spec:
         app: new
     ```
     
-    By changing the labels on the virtual machine, we will redirect network traffic from the `svc-2` service to it
+    By changing the labels on the virtual machine, we will redirect network traffic from the `svc-2` service to it:
     
     ```yaml
     metadata:
@@ -221,37 +408,55 @@ spec:
         app: old
     ```
 
-## How to increase the DVCR size
+## How to increase the DVCR size?
 
 To increase the disk size for DVCR, you must set a larger size in the `virtualization` module configuration than the current size.
 
-1. Check the current dvcr size:
+1. Check the current DVCR size:
 
     ```shell
-    kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}''
-    #Output
+    d8 k get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
+    ```
+
+    Example output:
+    
+    ```console
     {“size”:“58G”,“storageClass”:“linstor-thick-data-r1”}
     ```
 
 1. Set the size:
 
     ```shell
-    kubectl patch mc virtualization \.
+    d8 k patch mc virtualization \
       --type merge -p '{“spec”: { “settings”: { “dvcr”: { “storage”: { “persistentVolumeClaim”: {“size”: “59G”}}}}}}''
-    
-    #Output
+    ```
+
+   Example output:
+
+    ```console
     moduleconfig.deckhouse.io/virtualization patched
     ```
 
 1. Check the resizing:
 
     ```shell
-    kubectl get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
-    #Output
+    d8 k get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
+    ```
+
+   Example output:
+
+    ```console
     {“size”:“59G”,“storageClass”:“linstor-thick-data-r1”}
-    
-    kubectl get pvc dvcr -n d8-virtualization
-    #Output
+
+1. Check the current status of the DVCR:
+
+    ```shell   
+    d8 k get pvc dvcr -n d8-virtualization
+    ```
+
+   Example output:
+
+    ```console
     NAME STATUS VOLUME                                    CAPACITY    ACCESS MODES   STORAGECLASS           AGE
     dvcr Bound  pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b  57617188Ki  RWO            linstor-thick-data-r1  7d
     ```
