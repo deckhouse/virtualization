@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/bounder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -88,39 +87,6 @@ func (s BounderPodService) CleanUp(ctx context.Context, sup *supplements.Generat
 	return s.CleanUpSupplements(ctx, sup)
 }
 
-func (s BounderPodService) DeletePod(ctx context.Context, obj ObjectKind, controllerName string) (bool, error) {
-	labelSelector := client.MatchingLabels{annotations.AppKubernetesManagedByLabel: controllerName}
-
-	podList := &corev1.PodList{}
-	if err := s.client.List(ctx, podList, labelSelector); err != nil {
-		return false, err
-	}
-
-	for _, pod := range podList.Items {
-		for _, ownerRef := range pod.OwnerReferences {
-			if ownerRef.Kind == obj.GroupVersionKind().Kind && ownerRef.Name == obj.GetName() && ownerRef.UID == obj.GetUID() {
-				err := s.protection.RemoveProtection(ctx, &pod)
-				if err != nil {
-					return false, err
-				}
-
-				err = s.client.Delete(ctx, &pod)
-				if err != nil {
-					if k8serrors.IsNotFound(err) {
-						return false, nil
-					}
-
-					return false, err
-				}
-
-				return true, nil
-			}
-		}
-	}
-
-	return false, nil
-}
-
 func (s BounderPodService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
 	pod, err := s.GetPod(ctx, sup)
 	if err != nil {
@@ -143,24 +109,6 @@ func (s BounderPodService) CleanUpSupplements(ctx context.Context, sup *suppleme
 	}
 
 	return hasDeleted, nil
-}
-
-func (s BounderPodService) Protect(ctx context.Context, pod *corev1.Pod) error {
-	err := s.protection.AddProtection(ctx, pod)
-	if err != nil {
-		return fmt.Errorf("failed to add protection for bounder's supplements: %w", err)
-	}
-
-	return nil
-}
-
-func (s BounderPodService) Unprotect(ctx context.Context, pod *corev1.Pod) error {
-	err := s.protection.RemoveProtection(ctx, pod)
-	if err != nil {
-		return fmt.Errorf("failed to remove protection for bounder's supplements: %w", err)
-	}
-
-	return nil
 }
 
 func (s BounderPodService) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
