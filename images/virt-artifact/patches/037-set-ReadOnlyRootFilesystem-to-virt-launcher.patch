@@ -70,7 +70,7 @@ index e112967eec..f954d90d94 100644
  		{Name: "public", MountPath: "/var/run/kubevirt"},
  		{Name: "ephemeral-disks", MountPath: "disk1"},
 diff --git a/pkg/virt-controller/services/template.go b/pkg/virt-controller/services/template.go
-index f607c24786..0dd9283a93 100644
+index f607c24786..e1bac784b5 100644
 --- a/pkg/virt-controller/services/template.go
 +++ b/pkg/virt-controller/services/template.go
 @@ -64,15 +64,24 @@ import (
@@ -139,7 +139,7 @@ index f607c24786..0dd9283a93 100644
  		},
  	}
  
-+	t.addEtcLibvirt(&pod)
++	t.addEtcLibvirtCopier(&pod)
 +
  	alignPodMultiCategorySecurity(&pod, t.clusterConfig.GetSELinuxLauncherType(), t.clusterConfig.DockerSELinuxMCSWorkaroundEnabled())
  
@@ -150,7 +150,7 @@ index f607c24786..0dd9283a93 100644
  
 +const compute = "compute"
 +
-+func (t *templateService) addEtcLibvirt(pod *k8sv1.Pod) {
++func (t *templateService) addEtcLibvirtCopier(pod *k8sv1.Pod) {
 +	if pod == nil {
 +		return
 +	}
