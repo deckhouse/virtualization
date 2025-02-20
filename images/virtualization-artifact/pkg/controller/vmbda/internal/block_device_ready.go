@@ -93,7 +93,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 
 		if vd.Status.Phase == virtv2.DiskReady {
 			diskReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-			if diskReadyCondition.Status != metav1.ConditionTrue {
+			if diskReadyCondition.Status != metav1.ConditionTrue && diskReadyCondition.ObservedGeneration == vd.Generation {
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).

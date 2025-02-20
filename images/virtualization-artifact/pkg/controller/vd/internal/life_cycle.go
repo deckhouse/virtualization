@@ -94,9 +94,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	dataSourceReady, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-	if dataSourceReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(dataSourceReady, vd) {
-		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
+	storageClassReadyCondition, ok := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
+	if !ok {
+		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
+	}
+
+	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue {
+		readyCB := conditions.
+			NewConditionBuilder(vdcondition.ReadyType).
 			Generation(vd.Generation).
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown)

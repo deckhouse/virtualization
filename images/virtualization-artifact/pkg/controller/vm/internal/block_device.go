@@ -489,7 +489,7 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 				continue
 			}
 			readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-			if readyCondition.Status == metav1.ConditionTrue {
+			if readyCondition.Status == metav1.ConditionTrue && readyCondition.ObservedGeneration == vd.Generation {
 				ready++
 			} else {
 				msg := fmt.Sprintf("Virtual disk %s is waiting for the underlying PVC to be bound", vd.Name)
