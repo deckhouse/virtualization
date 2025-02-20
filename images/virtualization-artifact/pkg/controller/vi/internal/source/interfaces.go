@@ -32,7 +32,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . Importer Uploader Stat Bounder Handler
+//go:generate moq -rm -out mock.go . Importer Uploader Stat Bounder Handler Disk
 
 type Importer interface {
 	step.CreatePodStepImporter
@@ -70,5 +70,9 @@ type Stat interface {
 type Bounder interface {
 	step.CreateBounderPodStepBounder
 	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
+}
+
+type Disk interface {
 	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 }
