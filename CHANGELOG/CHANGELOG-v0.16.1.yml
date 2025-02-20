@@ -1,0 +1,33 @@
+core:
+  fixes:
+    - summary: >-
+        add validatingadmissionpolicies and validatingadmissionpolicybindings to rbac for
+        virt-operator (required for kubernetes >=v1.30)
+      pull_request: https://github.com/deckhouse/virtualization/pull/749
+vdsnapshot:
+  fixes:
+    - summary: set the volume snapshot name to status
+      pull_request: https://github.com/deckhouse/virtualization/pull/778
+vi:
+  fixes:
+    - summary: add watcher for virtv2 virtual machines
+      pull_request: https://github.com/deckhouse/virtualization/pull/775
+    - summary: >-
+        fix the possible hanging on the Terminating state for the virtual image that was attached to
+        a virtual machine
+      pull_request: https://github.com/deckhouse/virtualization/pull/755
+    - summary: >-
+        fixed hang in Pending when creating an image from a snapshot, improved messages in
+        DatasourceReady condition
+      pull_request: https://github.com/deckhouse/virtualization/pull/721
+vm:
+  fixes:
+    - summary: >-
+        move the vm to a pending phase instead of starting it if it has invalid specs during
+        start/restart to prevent the use of outdated specifications
+      pull_request: https://github.com/deckhouse/virtualization/pull/678
+vmop:
+  fixes:
+    - summary: fixed resource hang in InProgress during Evict/Migrate operations
+      pull_request: https://github.com/deckhouse/virtualization/pull/758
+
