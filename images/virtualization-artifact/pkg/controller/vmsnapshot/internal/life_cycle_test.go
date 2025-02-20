@@ -55,11 +55,6 @@ var _ = Describe("LifeCycle handler", func() {
 						Type:   vdcondition.Ready.String(),
 						Status: metav1.ConditionTrue,
 					},
-					{
-						Type:   vdcondition.ResizingType.String(),
-						Status: metav1.ConditionFalse,
-						Reason: vdcondition.Resized.String(),
-					},
 				},
 			},
 		}
