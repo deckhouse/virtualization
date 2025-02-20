@@ -9,7 +9,7 @@ import:
     before: setup
 docker:
   ENV:
-    PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/lib64:/usr/lib64:/usr/local/lib64"
+    PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
     LANG: ""
     LC_ALL: POSIX
   USER: 64535
