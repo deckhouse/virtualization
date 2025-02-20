@@ -63,6 +63,8 @@ docker:
 
 {{- $binariesLibffi8 := "/usr/lib64/libffi.so*" }}
 
+{{- $binariesAttr := "/usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr" }}
+
 {{- $binariesSelinux := "/usr/bin/audit2allow /usr/bin/audit2why /usr/bin/chcat /usr/bin/secon /usr/bin/semodule_package /usr/bin/sestatus /usr/libexec/selinux/hll/pp /usr/sbin/fixfiles /usr/sbin/genhomedircon /usr/sbin/load_policy /usr/sbin/open_init_pty /usr/sbin/restorecon /usr/sbin/restorecon_xattr /usr/sbin/run_init /usr/sbin/semanage /usr/sbin/semodule /usr/sbin/sestatus /usr/sbin/setfiles /usr/sbin/setsebool /usr/sbin/unsetfiles" }}
 
 image: {{ $.ImageName }}-binaries
@@ -179,20 +181,21 @@ shell:
     libattr-devel libbsd-devel libsystemd-devel libjson-c-devel systemtap-sdt-devel libacl-devel glib2-devel \
     libgio-devel libxml2-devel libtirpc-devel libclocale libLLVMSPIRVLib-devel \
     acl \
+    attr \
+    dmidecode \
+    glibc-gconv-modules \
+    ethtool \
+    hwclock \
+    libffi8 \
+    nftables \
+    numactl \
+    passt \
     pcre \
     procps \
-    ethtool \
-    nftables \
-    passt \
-    swtpm swtpm-tools \
-    xorriso \
-    dmidecode \
-    numactl \
-    hwclock \
-    psmisc \
     policycoreutils \
-    libffi8 \
-    glibc-gconv-modules
+    psmisc \
+    swtpm swtpm-tools \
+    xorriso
 
     apt-get clean
 
@@ -204,7 +207,7 @@ shell:
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
-    echo "======Create var/log/libvirt======"
+    echo "=====Create var/log/libvirt======"
     mkdir -p /VBINS/var/log/libvirt
     
     rm -rf /VBINS/var/run
@@ -221,6 +224,7 @@ shell:
     rm -rf /VBINS
     
     ./relocate_binaries.sh -i "{{ $binaries }}"          -o /relocate
+    ./relocate_binaries.sh -i "{{ $binariesAttr }}"      -o /relocate
     ./relocate_binaries.sh -i "{{ $binariesXorriso }}"   -o /relocate
     ./relocate_binaries.sh -i "{{ $binariesEthtool }}"   -o /relocate
     ./relocate_binaries.sh -i "{{ $binariesPasst }}"     -o /relocate
