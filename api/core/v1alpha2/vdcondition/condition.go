@@ -112,8 +112,6 @@ const (
 	ResizingNotRequested ResizedReason = "NotRequested"
 	// InProgress indicates that the resize request has been detected and the operation is currently in progress.
 	InProgress ResizedReason = "InProgress"
-	// Resized indicates that the resize operation has been successfully completed.
-	Resized ResizedReason = "Resized"
 	// ResizingNotAvailable indicates that the resize operation is not available for now.
 	ResizingNotAvailable SnapshottingReason = "NotAvailable"
 
