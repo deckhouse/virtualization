@@ -50,12 +50,13 @@ type ReadyPersistentVolumeClaimStep struct {
 
 func NewReadyPersistentVolumeClaimStep(
 	pvc *corev1.PersistentVolumeClaim,
-	bounder CreateBounderPodStepBounder,
+	bounder ReadyPersistentVolumeClaimStepBounder,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 ) *ReadyPersistentVolumeClaimStep {
 	return &ReadyPersistentVolumeClaimStep{
 		pvc:      pvc,
+		bounder:  bounder,
 		recorder: recorder,
 		cb:       cb,
 	}
