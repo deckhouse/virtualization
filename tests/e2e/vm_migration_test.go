@@ -35,7 +35,7 @@ const (
 
 func MigrateVirtualMachines(label map[string]string, templatePath string, virtualMachines ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, templatePath, "migrations", virtv2.VMOPTypeMigrate, virtualMachines...)
+	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeMigrate, virtualMachines...)
 }
 
 var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators(), func() {

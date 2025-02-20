@@ -518,21 +518,43 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 
 func RebootVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, templatePath, "reboots", virtv2.VMOPTypeRestart, virtualMachines...)
+	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeRestart, virtualMachines...)
 }
 
 func StopVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, templatePath, "stops", virtv2.VMOPTypeStop, virtualMachines...)
+	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeStop, virtualMachines...)
 }
 
 func StartVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, templatePath, "starts", virtv2.VMOPTypeStart, virtualMachines...)
+	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeStart, virtualMachines...)
 }
 
-func CreateAndApplyVMOPs(label map[string]string, templatePath, subFolderPath string, vmopType virtv2.VMOPType, virtualMachines ...string) {
+func CreateAndApplyVMOPs(label map[string]string, templatePath string, vmopType virtv2.VMOPType, virtualMachines ...string) {
+	var subFolderPath string
+
+	switch vmopType {
+	case virtv2.VMOPTypeRestart:
+		subFolderPath = "restarts"
+	case virtv2.VMOPTypeStop:
+		subFolderPath = "stops"
+	case virtv2.VMOPTypeStart:
+		subFolderPath = "starts"
+	case virtv2.VMOPTypeMigrate:
+		subFolderPath = "migrations"
+	case virtv2.VMOPTypeEvict:
+		subFolderPath = "evicts"
+	}
+	Expect(subFolderPath).NotTo(BeEmpty())
+
 	opsFilesPath := fmt.Sprintf("%s/%s", templatePath, subFolderPath)
+	_, err := os.Stat(opsFilesPath)
+	if os.IsNotExist(err) {
+		err = os.Mkdir(opsFilesPath, os.ModePerm)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
 	for _, vm := range virtualMachines {
 		opFilePath := fmt.Sprintf("%s/%s.yaml", opsFilesPath, vm)
 		err := CreateVMOPManifest(vm, opFilePath, label, vmopType)
