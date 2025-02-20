@@ -402,6 +402,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 		Context("When VMs are is ready", func() {
 			It("reboot VMs by ssh", func() {
+				// kubectl may not return control for too long, and we may miss the Stopped phase and get stuck without using goroutines.
 				wg.Add(1)
 				go RebootVirtualMachinesByDeletePods(vmPodLabel, cmdResult, &wg)
 			})
