@@ -26,6 +26,49 @@ index de90ed3cbc..798bd2d74e 100644
  		emptyDirVolume("private"),
  		emptyDirVolume("public"),
  		emptyDirVolume("sockets"),
+diff --git a/pkg/virt-controller/services/rendervolumes_test.go b/pkg/virt-controller/services/rendervolumes_test.go
+index e112967eec..f954d90d94 100644
+--- a/pkg/virt-controller/services/rendervolumes_test.go
++++ b/pkg/virt-controller/services/rendervolumes_test.go
+@@ -342,6 +342,26 @@ func vmiDiskPath(volumeName string) string {
+ 
+ func defaultVolumes() []k8sv1.Volume {
+ 	return []k8sv1.Volume{
++		{
++			Name:         varRunVolumeName,
++			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
++		},
++		{
++			Name:         varLogVolumeName,
++			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
++		},
++		{
++			Name:         etcLibvirtVolumeName,
++			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
++		},
++		{
++			Name:         varLibLibvirtVolumeName,
++			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
++		},
++		{
++			Name:         varCacheLibvirtVolumeName,
++			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
++		},
+ 		{
+ 			Name:         "private",
+ 			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
+@@ -371,6 +391,11 @@ func defaultVolumeMounts() []k8sv1.VolumeMount {
+ 	hostToContainerPropagation := k8sv1.MountPropagationHostToContainer
+ 
+ 	return []k8sv1.VolumeMount{
++		{Name: varRunVolumeName, MountPath: varRun},
++		{Name: varLogVolumeName, MountPath: varLog},
++		{Name: etcLibvirtVolumeName, MountPath: etcLibvirt},
++		{Name: varLibLibvirtVolumeName, MountPath: varLibLibvirt},
++		{Name: varCacheLibvirtVolumeName, MountPath: varCacheLibvirt},
+ 		{Name: "private", MountPath: "/var/run/kubevirt-private"},
+ 		{Name: "public", MountPath: "/var/run/kubevirt"},
+ 		{Name: "ephemeral-disks", MountPath: "disk1"},
 diff --git a/pkg/virt-controller/services/template.go b/pkg/virt-controller/services/template.go
 index f607c24786..0dd9283a93 100644
 --- a/pkg/virt-controller/services/template.go
