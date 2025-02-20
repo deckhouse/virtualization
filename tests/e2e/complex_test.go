@@ -19,7 +19,6 @@ package e2e
 import (
 	"fmt"
 	"strings"
-	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,7 +26,6 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -197,7 +195,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Describe("External connection", func() {
-		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
+		Context("When VMs are ready", func() {
 			It("checks VMs external connectivity", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -213,11 +211,6 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Describe("Power state checks", func() {
-		var (
-			wg        sync.WaitGroup
-			cmdResult *executor.CMDResult
-		)
-
 		Context("When VMs are ready", func() {
 			It("stop VMs by VMOPs", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
@@ -227,15 +220,17 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
-				vms := strings.Split(res.StdOut(), " ")
-				var notAlwaysOnVMs []string
-				for _, vm := range vms {
-					vmObj := virtv2.VirtualMachine{}
-					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-					Expect(err).NotTo(HaveOccurred(), "%w", err)
+				var vmList virtv2.VirtualMachineList
+				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+				})
+				Expect(err).ShouldNot(HaveOccurred())
 
+				var notAlwaysOnVMs []string
+				for _, vmObj := range vmList.Items {
 					if vmObj.Spec.RunPolicy != virtv2.AlwaysOnPolicy {
-						notAlwaysOnVMs = append(notAlwaysOnVMs, vm)
+						notAlwaysOnVMs = append(notAlwaysOnVMs, vmObj.Name)
 					}
 				}
 
@@ -254,7 +249,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context(fmt.Sprintf("When VMs are in %s phases", PhaseStopped), func() {
+		Context(fmt.Sprintf("When VMs are in %s phases", virtv2.MachineStopped.String()), func() {
 			It("start VMs by VMOP", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -310,7 +305,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
+		Context("When VMs are ready", func() {
 			It("reboot VMs by VMOP", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -373,7 +368,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		Context("When VM reboot command has been sent by ssh", func() {
 			It("checks VMs phases", func() {
 				By("Virtual machines should be stopped")
-				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
+				WaitPhaseByLabel(kc.ResourceVM, virtv2.MachineStopped.String(), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -402,15 +397,14 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 		Context("When VMs are is ready", func() {
 			It("reboot VMs by ssh", func() {
-				wg.Add(1)
-				go RebootVirtualMachinesByDeletePods(vmPodLabel, cmdResult, &wg)
+				RebootVirtualMachinesByDeletePods(vmPodLabel)
 			})
 		})
 
 		Context("When VM reboot command sent by kill pods", func() {
 			It("checks VMs phases", func() {
 				By("Virtual machines should be stopped")
-				WaitPhaseByLabel(kc.ResourceVM, PhaseStopped, kc.WaitOptions{
+				WaitPhaseByLabel(kc.ResourceVM, virtv2.MachineStopped.String(), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -421,7 +415,6 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				wg.Wait()
 			})
 
 			It("checks VMs external connection after reboot", func() {
@@ -442,7 +435,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Describe("Migrations", func() {
 		skipConnectivityCheck := make(map[string]struct{})
 
-		Context(fmt.Sprintf("When VMs are in %s phases", PhaseRunning), func() {
+		Context("When VMs are ready", func() {
 			It("starts migrations", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
