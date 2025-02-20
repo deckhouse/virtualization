@@ -401,7 +401,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context("When VM reboot command sent by kill pods", func() {
+		Context("When VM reboot command sent by delete pods", func() {
 			It("checks VMs phases", func() {
 				By("Virtual machines should be stopped")
 				WaitPhaseByLabel(kc.ResourceVM, virtv2.MachineStopped.String(), kc.WaitOptions{
