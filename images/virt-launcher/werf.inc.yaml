@@ -196,6 +196,7 @@ shell:
     policycoreutils \
     psmisc \
     swtpm swtpm-tools \
+    su \
     msulogin \
     xorriso
 
