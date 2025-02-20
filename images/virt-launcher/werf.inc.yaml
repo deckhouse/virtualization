@@ -49,7 +49,7 @@ docker:
 
 {{- $binariesXorriso := "/usr/bin/xorriso /usr/bin/xorrecord /usr/bin/osirrox /usr/bin/xorriso-dd-target /usr/bin/xorrisofs" }}
 
-{{- $binariesEthtool := "/usr/sbin/ethlist /usr/sbin/ethtool" }}
+{{- $binariesEthtool := "/usr/sbin/ethlist /usr/sbin/ethtool /usr/sbin/iptables /usr/sbin/ip" }}
 
 {{- $binariesPasst := "/usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 usr/bin/qrap" }}
 
@@ -186,6 +186,7 @@ shell:
     glibc-gconv-modules \
     ethtool \
     hwclock \
+    iptables \
     libffi8 \
     nftables \
     numactl \
