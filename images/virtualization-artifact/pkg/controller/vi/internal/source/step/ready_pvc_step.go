@@ -27,7 +27,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -35,14 +37,20 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
+type ReadyPersistentVolumeClaimStepBounder interface {
+	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
+}
+
 type ReadyPersistentVolumeClaimStep struct {
 	pvc      *corev1.PersistentVolumeClaim
+	bounder  ReadyPersistentVolumeClaimStepBounder
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
 }
 
 func NewReadyPersistentVolumeClaimStep(
 	pvc *corev1.PersistentVolumeClaim,
+	bounder CreateBounderPodStepBounder,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 ) *ReadyPersistentVolumeClaimStep {
@@ -85,6 +93,11 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 	case corev1.ClaimBound:
 		log.Debug("Image is Ready")
 
+		err := s.cleanUpSupplements(ctx, vi)
+		if err != nil {
+			return nil, fmt.Errorf("clean up supplements: %w", err)
+		}
+
 		if vi.Status.Phase != virtv2.ImageReady {
 			s.recorder.Event(
 				vi,
@@ -123,4 +136,15 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 	default:
 		return nil, nil
 	}
+}
+
+func (s ReadyPersistentVolumeClaimStep) cleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage) error {
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+
+	_, err := s.bounder.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
