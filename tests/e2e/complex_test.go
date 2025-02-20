@@ -19,6 +19,7 @@ package e2e
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -26,6 +27,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
+	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -66,6 +68,9 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		testCaseLabel      = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
 		vmPodLabel         = map[string]string{"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher"}
+
+		cmdResult *executor.CMDResult
+		wg        sync.WaitGroup
 	)
 
 	Context("Preparing the environment", func() {
@@ -397,7 +402,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 		Context("When VMs are is ready", func() {
 			It("reboot VMs by ssh", func() {
-				RebootVirtualMachinesByDeletePods(vmPodLabel)
+				wg.Add(1)
+				go RebootVirtualMachinesByDeletePods(vmPodLabel, cmdResult, &wg)
 			})
 		})
 
@@ -415,6 +421,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
+				wg.Wait()
+				Expect(cmdResult.Error()).NotTo(HaveOccurred(), cmdResult.StdErr())
 			})
 
 			It("checks VMs external connection after reboot", func() {
