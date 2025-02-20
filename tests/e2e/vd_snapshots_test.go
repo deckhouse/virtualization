@@ -207,7 +207,6 @@ func GetVolumeSnapshotClassName(storageClass *storagev1.StorageClass) (string, e
 }
 
 func CheckFileSystemFrozen(vmName string) (bool, error) {
-	GinkgoHelper()
 	vmObj := virtv2.VirtualMachine{}
 	err := GetObject(kc.ResourceVM, vmName, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
 	if err != nil {
@@ -386,7 +385,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 				Eventually(func() error {
 					frozen, err := CheckFileSystemFrozen(vm.Name)
 					if frozen {
-						return errors.New("VM is frozen")
+						return errors.New("File system of the Virtual Machine is frozen")
 					}
 					return err
 				}).WithTimeout(
@@ -434,7 +433,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 				Eventually(func() error {
 					frozen, err := CheckFileSystemFrozen(vm.Name)
 					if frozen {
-						return errors.New("VM is frozen")
+						return errors.New("Filesystem of the Virtual Machine is frozen")
 					}
 					return err
 				}).WithTimeout(
@@ -520,7 +519,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 						return nil
 					}
 					if frozen {
-						return errors.New("VM is frozen")
+						return errors.New("Filesystem of the Virtual Machine is frozen")
 					}
 					return nil
 				}).WithTimeout(
