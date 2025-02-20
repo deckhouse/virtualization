@@ -79,7 +79,7 @@ weight: 70
     ```
 
 1. После создания ресурса виртуальная машина будет запущена.
-К ней необходимо подключиться, и с помощью графического установщика
+К ней необходимо подключиться и с помощью графического установщика
 выполнить установку ОС и драйверов `virtio`.
 
     Команда для подключения:
@@ -96,18 +96,18 @@ weight: 70
    d8 v vnc -n default win-vm
    ```
 
-## Как предоставить файл ответов Windows(Sysprep)
+## Как предоставить файл ответов Windows(Sysprep)?
 
 Чтобы выполнить автоматическую установку Windows,
 создайте файл ответов (обычно именуются unattend.xml или autounattend.xml).
-Для примера возьмем файл позволяющий:
+Для примера возьмем файл, позволяющий:
 
-- Добавить русский язык и раскладку
+- Добавить русский язык и раскладку;
 - Указать расположение virtio драйверов необходимых для установки
-  (поэтому важен порядок дисковых устройств в спецификации ВМ)
-- Разметить диски для установки windows на ВМ c EFI
-- Создать в группе администраторов пользователя *cloud* с паролем *cloud*
-- Создать непривилегированного пользователя *user* с паролем *user*
+  (поэтому важен порядок дисковых устройств в спецификации ВМ);
+- Разметить диски для установки windows на ВМ c EFI;
+- Создать в группе администраторов пользователя *cloud* с паролем *cloud*;
+- Создать непривилегированного пользователя *user* с паролем *user*.
 
 <details><summary><b>autounattend.xml</b></summary>
 
@@ -307,6 +307,7 @@ d8 k create secret generic sysprep-config --type="provisioning.virtualization.de
 ```
 
 Затем можно создать виртуальную машину, которая в процессе установки будет использовать файл ответов.
+
 Чтобы предоставить виртуальной машине Windows файл ответов, необходимо указать provisioning с типом SysprepRef.
 Вы также можете указать здесь другие файлы в формате base64 (customize.ps1, id_rsa.pub,...),
 необходимые для успешного выполнения скриптов внутри файла ответов.
@@ -344,9 +345,9 @@ spec:
       name: win-virtio-iso
 ```
 
-## Как перенаправить трафик на виртуальную машину
+## Как перенаправить трафик на виртуальную машину?
 
-Виртуальная машина функционирует в кластере Kubernetes, поэтому направление сетевого трафика осуществляется аналогично направлению трафика на поды:
+Виртуальная машина функционирует в кластере Kubernetes, поэтому направление сетевого трафика осуществляется аналогично направлению трафика на поды.
 
 1. Создайте сервис с требуемыми настройками.
 
@@ -405,15 +406,19 @@ spec:
         app: old
     ```
 
-## Как увеличить размер DVCR
+## Как увеличить размер DVCR?
 
 Чтобы увеличить размер диска для DVCR, необходимо установить больший размер в конфигурации модуля `virtualization`, чем текущий размер.
 
-1. Проверьте текущий размер dvcr:
+1. Проверьте текущий размер DVCR:
 
     ```shell
     d8 k get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
-    #Output
+    ```
+
+   Пример вывода:
+
+   ```txt
     {"size":"58G","storageClass":"linstor-thick-data-r1"}
     ```
 
@@ -421,9 +426,12 @@ spec:
 
     ```shell
     d8 k patch mc virtualization \
-      --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'
-    
-    #Output
+      --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'    
+    ```
+
+   Пример вывода:
+
+   ```txt
     moduleconfig.deckhouse.io/virtualization patched
     ```
 
@@ -431,11 +439,23 @@ spec:
 
     ```shell
     d8 k get mc virtualization -o jsonpath='{.spec.settings.dvcr.storage.persistentVolumeClaim}'
-    #Output
+    ```
+
+   Пример вывода:
+
+    ```txt
     {"size":"59G","storageClass":"linstor-thick-data-r1"}
-    
+    ``` 
+
+1. Проверьте текущее состояние DVCR:
+
+    ```shell
     d8 k get pvc dvcr -n d8-virtualization
-    #Output
+    ```
+
+   Пример вывода:
+
+    ```txt
     NAME STATUS VOLUME                                    CAPACITY    ACCESS MODES   STORAGECLASS           AGE
     dvcr Bound  pvc-6a6cedb8-1292-4440-b789-5cc9d15bbc6b  57617188Ki  RWO            linstor-thick-data-r1  7d
     ```
