@@ -59,7 +59,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	cb := conditions.NewConditionBuilder(vdcondition.ResizingType).Generation(vd.Generation)
 
 	defer func() {
-		if cb.Condition().Status == metav1.ConditionTrue {
+		if cb.Condition().Status != metav1.ConditionUnknown {
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 		} else {
 			conditions.RemoveCondition(vdcondition.ResizingType, &vd.Status.Conditions)
@@ -214,25 +214,18 @@ func (h ResizingHandler) ResizeNotNeeded(
 	resizingCondition metav1.Condition,
 	cb *conditions.ConditionBuilder,
 ) (reconcile.Result, error) {
-	switch resizingCondition.Reason {
-	case vdcondition.InProgress.String(), vdcondition.Resized.String():
+	if resizingCondition.Reason == vdcondition.InProgress.String() {
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
 			v1alpha2.ReasonVDResizingCompleted,
 			"The virtual disk resizing has completed",
 		)
-
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Resized).
-			Message("")
-	default:
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ResizingNotRequested).
-			Message("")
 	}
+
+	cb.
+		Status(metav1.ConditionUnknown).
+		Reason(conditions.ReasonUnknown)
 
 	return reconcile.Result{}, nil
 }
