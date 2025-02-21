@@ -1,39 +1,85 @@
+diff --git a/pkg/virt-launcher/virtwrap/util/file_cleaner.go b/pkg/virt-launcher/virtwrap/util/file_cleaner.go
+new file mode 100644
+index 0000000000..3d13818277
+--- /dev/null
++++ b/pkg/virt-launcher/virtwrap/util/file_cleaner.go
+@@ -0,0 +1,47 @@
++package util
++
++import (
++	"os"
++	"time"
++
++	"kubevirt.io/client-go/log"
++)
++
++func NewFileCleaner(files ...string) *FileCleaner {
++	return &FileCleaner{
++		files: files,
++	}
++}
++
++type FileCleaner struct {
++	files []string
++}
++
++func (fc *FileCleaner) WaitAndRemove(stopChan chan struct{}) {
++	fileMap := make(map[string]struct{}, len(fc.files))
++	for _, file := range fc.files {
++		fileMap[file] = struct{}{}
++	}
++
++	for {
++		select {
++		case <-stopChan:
++			return
++		default:
++			for f := range fileMap {
++				if err := os.Remove(f); err != nil {
++					if os.IsNotExist(err) {
++						continue
++					}
++					log.Log.Errorf("Error removing file %q: %v", f, err)
++				}
++				delete(fileMap, f)
++			}
++			if len(fileMap) == 0 {
++				return
++			}
++			log.Log.Info("Waiting for files to be removed, reconcile after 1s...")
++			time.Sleep(1 * time.Second)
++		}
++	}
++}
 diff --git a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
-index b342c034f7..be7afc8ade 100644
+index b342c034f7..5bb8bd9a17 100644
 --- a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
 +++ b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
-@@ -251,6 +251,17 @@ func (l LibvirtWrapper) StartVirtquemud(stopChan chan struct{}) {
+@@ -250,6 +250,13 @@ func (l LibvirtWrapper) StartVirtquemud(stopChan chan struct{}) {
+ 				log.Log.Reason(err).Error("failed to start virtqemud")
  				panic(err)
  			}
++			go func() {
++				const (
++					adminSock = "/var/run/libvirt/virtqemud-admin-sock"
++					roSock    = "/var/run/libvirt/virtqemud-sock-ro"
++				)
++				NewFileCleaner(adminSock, roSock).WaitAndRemove(stopChan)
++			}()
  
-+			const adminSock = "/var/run/libvirt/virtqemud-admin-sock"
-+			err = os.Remove(adminSock)
-+			if err != nil {
-+				log.Log.Reason(err).Errorf("failed to remove unnecessary socket %s", adminSock)
-+			}
-+			const roSock = "/var/run/libvirt/virtqemud-sock-ro"
-+			err = os.Remove(roSock)
-+			if err != nil {
-+				log.Log.Reason(err).Errorf("failed to remove unnecessary socket %s", roSock)
-+			}
-+
  			go func() {
  				defer close(exitChan)
- 				cmd.Wait()
-@@ -283,6 +294,17 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
+@@ -283,6 +290,14 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
  			panic(err)
  		}
  
-+		const adminSock = "/var/run/libvirt/virtlogd-admin-sock"
-+		err = os.Remove(adminSock)
-+		if err != nil {
-+			log.Log.Reason(err).Errorf("failed to remove unnecessary socket %s", adminSock)
-+		}
-+		const sock = "/var/run/libvirt/virtlogd-sock"
-+		err = os.Remove(sock)
-+		if err != nil {
-+			log.Log.Reason(err).Errorf("failed to remove unnecessary socket %s", sock)
-+		}
++		go func() {
++			const (
++				adminSock = "/var/run/libvirt/virtlogd-admin-sock"
++				sock      = "/var/run/libvirt/virtlogd-sock"
++			)
++			NewFileCleaner(adminSock, sock).WaitAndRemove(stopChan)
++		}()
 +
  		go func() {
  			logfile := fmt.Sprintf("/var/log/libvirt/qemu/%s.log", domainName)
