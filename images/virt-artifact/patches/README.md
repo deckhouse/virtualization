@@ -226,3 +226,14 @@ By default, the disk specification is immutable, but for backward compatibility,
 
 ##### Why this change?
 This update ensures compatibility with recent QEMU changes and prevents runtime errors by enforcing validation at the API level while preserving support for existing VMs through automatic serial number truncation.
+
+#### `037-set-ReadOnlyRootFilesystem-to-virt-launcher.patch`
+To enhance security, this patch enables ReadOnlyRootFilesystem for the virt-launcher compute pod.
+Since libvirt and QEMU require writable directories, five emptyDir volumes are added and mounted to:
+- /var/run
+- /var/log
+- /etc/libvirt
+- /var/lib/libvirt/
+- /var/cache/libvirt
+
+This ensures compatibility while maintaining a read-only root filesystem for improved isolation and security.
