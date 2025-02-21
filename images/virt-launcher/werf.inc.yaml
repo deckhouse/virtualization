@@ -89,6 +89,23 @@ git:
       - '**/*'
     includePaths:
     - scripts
+  # Add qemu and virtqemud configs
+  - add: /images/{{ $.ImageName }}
+    to: /relocate/etc/libvirt
+    stageDependencies:
+      setup:
+      - qemu.conf
+      - virtqemud.conf
+    includePaths:
+    - qemu.conf
+    - virtqemud.conf
+  - add: /images/{{ $.ImageName }}
+    to: /relocate/etc
+    stageDependencies:
+      setup:
+      - nsswitch.conf
+    includePaths:
+    - nsswitch.conf
 import:
 - image: {{ $.ImageName }}-liboverride-builder
   add: /liboverride
@@ -131,19 +148,21 @@ import:
   after: install
   includePaths:
   - .version
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/
-  to: /relocate/etc/libvirt
-  after: install
-  includePaths:
-  - qemu.conf
-  - virtqemud.conf
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/
-  to: /relocate/etc
-  after: install
-  includePaths:
-  - nsswitch.conf
+
+# - image: virt-artifact
+#   add: /kubevirt/cmd/{{ $.ImageName }}/
+#   to: /relocate/etc/libvirt
+#   after: install
+#   includePaths:
+#   - qemu.conf
+#   - virtqemud.conf
+# - image: virt-artifact
+#   add: /kubevirt/cmd/{{ $.ImageName }}/
+#   to: /relocate/etc
+#   after: install
+#   includePaths:
+#   - nsswitch.conf
+
 - image: virt-artifact
   add: /kubevirt-binaries/
   to: /relocate/usr/bin
