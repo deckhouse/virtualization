@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -45,7 +46,6 @@ type DiskMetaData struct {
 const (
 	DiskIdPrefix  = "scsi-0QEMU_QEMU_HARDDISK"
 	CdRomIdPrefix = "scsi-0QEMU_QEMU_CD-ROM_drive-ua"
-	diskCount     = 3
 )
 
 func WaitBlockDeviceRefsAttached(namespace string, vms ...string) {
@@ -69,15 +69,21 @@ func WaitBlockDeviceRefsAttached(namespace string, vms ...string) {
 
 func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, virtualDisks ...string) {
 	GinkgoHelper()
+	wg := &sync.WaitGroup{}
 	for _, vd := range virtualDisks {
-		diskObject := virtv2.VirtualDisk{}
-		err := GetObject(kc.ResourceVD, vd, &diskObject, kc.GetOptions{Namespace: config.Namespace})
-		Expect(err).NotTo(HaveOccurred(), err)
-		newValue := resource.NewQuantity(diskObject.Spec.PersistentVolumeClaim.Size.Value()+addedSize.Value(), resource.BinarySI)
-		mergePatch := fmt.Sprintf("{\"spec\":{\"persistentVolumeClaim\":{\"size\":\"%s\"}}}", newValue.String())
-		err = MergePatchResource(kc.ResourceVD, vd, mergePatch)
-		Expect(err).NotTo(HaveOccurred(), err)
+		wg.Add(1)
+		go func() {
+			diskObject := virtv2.VirtualDisk{}
+			err := GetObject(kc.ResourceVD, vd, &diskObject, kc.GetOptions{Namespace: config.Namespace})
+			Expect(err).NotTo(HaveOccurred(), err)
+			newValue := resource.NewQuantity(diskObject.Spec.PersistentVolumeClaim.Size.Value()+addedSize.Value(), resource.BinarySI)
+			mergePatch := fmt.Sprintf("{\"spec\":{\"persistentVolumeClaim\":{\"size\":\"%s\"}}}", newValue.String())
+			err = MergePatchResource(kc.ResourceVD, vd, mergePatch)
+			Expect(err).NotTo(HaveOccurred(), err)
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 func GetSizeFromObject(vdName, namespace string) (*resource.Quantity, error) {
@@ -178,24 +184,27 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 }
 
 var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), func() {
-	BeforeEach(func() {
+	const (
+		vmCount   = 1
+		diskCount = 3
+	)
+	var (
+		vmObj *virtv2.VirtualMachine
+	)
+	testCaseLabel := map[string]string{"testcase": "disk-resizing"}
+
+	BeforeAll(func() {
 		if cfg.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
 		}
+
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml")
+		ns, err := kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+		conf.SetNamespace(ns)
 	})
 
-	testCaseLabel := map[string]string{"testcase": "disk-resizing"}
-
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
-		})
-	})
-
-	Context("When resources are applied", func() {
+	Context("When the resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
 				Filename:       []string{conf.TestData.DiskResizing},
@@ -205,142 +214,170 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 		})
 	})
 
-	Context("When virtual images are applied", func() {
-		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When virtual disks are applied", func() {
-		It("checks VDs phases", func() {
-			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When virtual machines are applied", func() {
-		It("checks VMs phases", func() {
-			By("VMs should be ready")
-			WaitVmReady(kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When virtual machine block device attachments are applied", func() {
-		It("checks VMBDAs phases", func() {
-			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
-			WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Describe("Resizing", func() {
-		Context(fmt.Sprintf("When virtual machines are in %s phases", PhaseRunning), func() {
-			var (
-				vmDisksBefore VirtualMachineDisks
-				vmDisksAfter  VirtualMachineDisks
-				err           error
-			)
-			vmName := fmt.Sprintf("%s-vm-%s", namePrefix, testCaseLabel["testcase"])
-			It("get disks metadata before resizing", func() {
-				vmDisksBefore, err = GetVirtualMachineDisks(vmName, conf)
-				Expect(err).NotTo(HaveOccurred(), err)
-				Expect(len(vmDisksBefore)).Should(BeNumerically("==", diskCount))
-			})
-			It("resizes disks", func() {
-				res := kubectl.List(kc.ResourceVD, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
-
-				vds := strings.Split(res.StdOut(), " ")
-				addedSize := resource.NewQuantity(100*1024*1024, resource.BinarySI)
-				ResizeDisks(addedSize, conf, vds...)
-				By(fmt.Sprintf("VDs should be in the %q phase", virtv2.DiskResizing), func() {
-					WaitPhaseByLabel(virtv2.VirtualDiskResource, string(virtv2.DiskResizing), kc.WaitOptions{
-						Labels:    testCaseLabel,
-						Namespace: conf.Namespace,
-						Timeout:   MaxWaitTimeout,
-					})
-				})
-			})
-
-			It("checks VDs, VMs and VMBDA phases", func() {
-				By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-				WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
+	Context("When the virtual images are applied", func() {
+		It("checks `VirtualImages` phase", func() {
+			By(fmt.Sprintf("`VirtualImages` should be in the %q phases", virtv2.ImageReady), func() {
+				WaitPhaseByLabel(kc.ResourceVI, string(virtv2.ImageReady), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
+			})
+		})
+	})
 
-				By("VMs should be ready")
+	Context("When the virtual disks are applied", func() {
+		It("checks `VirtualDisks` phase", func() {
+			By(fmt.Sprintf("`VirtualDisks` should be in the %q phases", virtv2.DiskReady), func() {
+				WaitPhaseByLabel(kc.ResourceVD, string(virtv2.DiskReady), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+		})
+	})
+
+	Context("When the virtual machine are applied", func() {
+		It("checks `VirtualMachine` phase", func() {
+			By("`VirtualMachine` should be ready", func() {
 				WaitVmReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
+			})
+		})
 
-				By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
-				WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
+		It("retrieves the test objects", func() {
+			By("`VirtualMachine`", func() {
+				vmObjs := &virtv2.VirtualMachineList{}
+				err := GetObjects(virtv2.VirtualMachineResource, vmObjs, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to get `VirtualMachines`: %s", err)
+				Expect(vmObjs.Items).To(HaveLen(vmCount), "there is only %d `VirtualMachine` in this test case", vmCount)
+				vmObj = &vmObjs.Items[0]
+				Expect(vmObj).ShouldNot(BeNil(), "failed to retrieve `VirtualMachine` object: %+v", vmObjs)
+			})
+		})
+	})
+
+	Context("When the virtual machine block device attachment is applied", func() {
+		It("checks `VirtualMachineBlockDeviceAttachment` phase", func() {
+			By(fmt.Sprintf("`VirtualMachineBlockDeviceAttachment` should be in the %q phases", virtv2.BlockDeviceAttachmentPhaseAttached), func() {
+				WaitPhaseByLabel(kc.ResourceVMBDA, string(virtv2.BlockDeviceAttachmentPhaseAttached), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
+			})
+		})
+	})
 
-				By("BlockDeviceRefsStatus: disks should be attached")
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+	Describe("Resizing", func() {
+		Context("When the virtual machine is ready", func() {
+			var (
+				vmDisksBefore VirtualMachineDisks
+				vmDisksAfter  VirtualMachineDisks
+				err           error
+			)
+
+			It("obtains the disks metadata before resizing", func() {
+				vmDisksBefore, err = GetVirtualMachineDisks(vmObj.Name, conf)
+				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(vmDisksBefore).Should(HaveLen(diskCount))
+			})
+
+			It("resizes the disks", func() {
+				wg := &sync.WaitGroup{}
+				res := kubectl.List(kc.ResourceVD, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
-				Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
-				vms := strings.Split(res.StdOut(), " ")
-				WaitBlockDeviceRefsAttached(conf.Namespace, vms...)
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				vds := strings.Split(res.StdOut(), " ")
+				Expect(vds).Should(HaveLen(diskCount))
+				addedSize := resource.NewQuantity(100*1024*1024, resource.BinarySI)
+				wg.Add(2)
+				go func() {
+					By(fmt.Sprintf("`VirtualDisks` should be in the %q phase", virtv2.DiskResizing), func() {
+						WaitPhaseByLabel(virtv2.VirtualDiskResource, string(virtv2.DiskResizing), kc.WaitOptions{
+							Labels:    testCaseLabel,
+							Namespace: conf.Namespace,
+							Timeout:   MaxWaitTimeout,
+						})
+						wg.Done()
+					})
+				}()
+				go func() {
+					ResizeDisks(addedSize, conf, vds...)
+					wg.Done()
+				}()
+				wg.Wait()
 			})
 
-			It("get disks metadata after resizing", func() {
-				vmDisksAfter, err = GetVirtualMachineDisks(vmName, conf)
-				Expect(err).NotTo(HaveOccurred(), err)
-				Expect(len(vmDisksAfter)).Should(BeNumerically("==", diskCount))
+			It("checks `VirtualDisks`, `VirtualMachine` and `VirtualMachineBlockDeviceAttachment` phases", func() {
+				By(fmt.Sprintf("`VirtualDisks` should be in the %q phases", virtv2.DiskReady), func() {
+					WaitPhaseByLabel(kc.ResourceVD, string(virtv2.DiskReady), kc.WaitOptions{
+						Labels:    testCaseLabel,
+						Namespace: conf.Namespace,
+						Timeout:   MaxWaitTimeout,
+					})
+				})
+				By("`VirtualMachine` should be ready", func() {
+					WaitVmReady(kc.WaitOptions{
+						Labels:    testCaseLabel,
+						Namespace: conf.Namespace,
+						Timeout:   MaxWaitTimeout,
+					})
+				})
+				By(fmt.Sprintf("`VirtualMachineBlockDeviceAttachment` should be in the %q phases", virtv2.BlockDeviceAttachmentPhaseAttached), func() {
+					WaitPhaseByLabel(kc.ResourceVMBDA, string(virtv2.BlockDeviceAttachmentPhaseAttached), kc.WaitOptions{
+						Labels:    testCaseLabel,
+						Namespace: conf.Namespace,
+						Timeout:   MaxWaitTimeout,
+					})
+				})
+				By("`BlockDevices` from the status should be attached", func() {
+					WaitBlockDeviceRefsAttached(conf.Namespace, vmObj.Name)
+				})
 			})
 
-			It(fmt.Sprintf("compares disk size before and after resizing for %s", vmName), func() {
-				Expect(vmDisksBefore).NotTo(BeEmpty())
-				for disk := range vmDisksBefore {
-					By(fmt.Sprintf("Compare disks after resizing: %s", disk), func() {
+			It("obtains and compares the disks metadata after resizing", func() {
+				Eventually(func() error {
+					vmDisksAfter, err = GetVirtualMachineDisks(vmObj.Name, conf)
+					if err != nil {
+						return fmt.Errorf("failed to obtain disks metadata after resizing: %s", err)
+					}
+					if len(vmDisksAfter) != diskCount {
+						return fmt.Errorf("quantity of the disk should be %d", diskCount)
+					}
+					for disk := range vmDisksBefore {
 						sizeFromObjectBefore := vmDisksBefore[disk].SizeFromObject.Value()
 						sizeFromObjectAfter := vmDisksAfter[disk].SizeFromObject.Value()
-						Expect(sizeFromObjectBefore).Should(BeNumerically("<", sizeFromObjectAfter),
-							"size from objects before must be lower than size after: before: %d, after: %d",
-							sizeFromObjectBefore,
-							sizeFromObjectAfter,
-						)
+						if sizeFromObjectBefore >= sizeFromObjectAfter {
+							return fmt.Errorf(
+								"size from objects before must be lower than size after: before: %d, after: %d",
+								sizeFromObjectBefore,
+								sizeFromObjectAfter,
+							)
+						}
 						sizeByLsblkBefore := vmDisksBefore[disk].SizeByLsblk.Value()
 						sizeByLsblkAfter := vmDisksAfter[disk].SizeByLsblk.Value()
-						Expect(sizeByLsblkBefore).Should(BeNumerically("<", sizeByLsblkAfter),
-							"size by lsblk before must be lower than size after: before: %d, after: %d",
-							sizeByLsblkBefore,
-							sizeByLsblkAfter,
-						)
-					})
-				}
+						if sizeByLsblkBefore >= sizeByLsblkAfter {
+							return fmt.Errorf(
+								"size by lsblk before must be lower than size after: before: %d, after: %d",
+								sizeByLsblkBefore,
+								sizeByLsblkAfter,
+							)
+						}
+					}
+					return nil
+				}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
 			})
 		})
 	})
