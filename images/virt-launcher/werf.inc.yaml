@@ -255,7 +255,11 @@ shell:
   - |
     # glibc-gconv-modules
     cp -a /usr/lib64/gconv /relocate/usr/lib64
-  
+# Files for debug
+  - |
+    mkdir -p /relocate/etc
+    cp /etc/xattr.conf /relocate/etc
+
   - |
     mkdir -p /relocate/etc /relocate/root
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
@@ -326,6 +330,7 @@ shell:
     cd /relocate
     ln -s usr/bin/container-disk ./init/usr/bin/container-disk
     cd /
+
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
