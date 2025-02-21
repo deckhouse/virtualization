@@ -185,6 +185,7 @@ shell:
     attr \
     dmidecode \
     ethtool \
+    fdisk \
     glibc-gconv-modules \
     hwclock \
     iptables \
@@ -201,16 +202,10 @@ shell:
     su \
     msulogin \
     xorriso
-
-# dbg only
-  - |
-    apt-get install -y \
-    fdisk systemd
   
-  - |
     apt-get clean
 
-    mkdir -p /VBINS
+    mkdir -p /VBINS/var/{log/libvirt/qemu,run,lib/libvirt/qemu}
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
@@ -218,12 +213,6 @@ shell:
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
-    echo "=====Create var/log/libvirt======"
-    mkdir -p /VBINS/var/log/libvirt
-    mkdir -p /VBINS/var/lib/libvirt/qemu
-    mkdir -p /VBINS/var/run
-    
-    # rm -rf /VBINS/var/run
   setup:
   - |
     LIST="$(find /VBINS/usr/bin/ -type f)"
@@ -257,15 +246,12 @@ shell:
     ./relocate_binaries.sh -i "{{ $binariesLibffi8 }}"      -o /relocate
     ./relocate_binaries.sh -i "{{ $binariesSelinux }}"      -o /relocate
   
-  - |
-    mkdir -p /relocate/etc
+    mkdir -p /relocate/{etc,root}
 
     # glibc-gconv-modules
     cp -a /usr/lib64/gconv /relocate/usr/lib64
     cp /etc/xattr.conf /relocate/etc
 
-  - |
-    mkdir -p /relocate/etc /relocate/root
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
     echo "root:x:::::::" >> /relocate/etc/shadow
