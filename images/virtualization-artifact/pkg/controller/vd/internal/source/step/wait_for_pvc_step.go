@@ -53,7 +53,13 @@ func NewWaitForPVCStep(
 
 func (s WaitForPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
 	if s.pvc == nil {
-		return nil, nil
+		vd.Status.Phase = virtv2.DiskProvisioning
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.Provisioning).
+			Message("Waiting for the underlying PersistentVolumeClaim to be created by controller.")
+
+		return &reconcile.Result{}, nil
 	}
 
 	if s.pvc.Status.Phase == corev1.ClaimBound {
@@ -70,13 +76,13 @@ func (s WaitForPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reco
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.WaitingForFirstConsumer).
-			Message(fmt.Sprintf("Waiting for the PVC %s to be Bound.", s.pvc.Name))
+			Message("Awaiting the creation and scheduling of the VirtualMachine with the attached VirtualDisk.")
 	} else {
 		vd.Status.Phase = virtv2.DiskProvisioning
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
-			Message(fmt.Sprintf("Waiting for the PVC %s to be Bound.", s.pvc.Name))
+			Message(fmt.Sprintf("Waiting for the PersistentVolumeClaim %q to be Bound.", s.pvc.Name))
 	}
 
 	return &reconcile.Result{}, nil

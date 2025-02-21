@@ -65,10 +65,10 @@ func NewController(
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
-	scService := service.NewVirtualDiskStorageClassService(storageClassSettings)
+	scService := service.NewVirtualDiskStorageClassService(storageClassSettings, disk)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
-	blank := source.NewBlankDataSource(recorder, stat, disk, scService, mgr.GetClient())
+	blank := source.NewBlankDataSource(recorder, disk, mgr.GetClient())
 
 	sources := source.NewSources()
 	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, dvcr, scService, mgr.GetClient()))
@@ -78,7 +78,7 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		internal.NewStorageClassReadyHandler(recorder, disk),
+		internal.NewStorageClassReadyHandler(scService),
 		internal.NewDatasourceReadyHandler(recorder, blank, sources),
 		internal.NewLifeCycleHandler(recorder, blank, sources, mgr.GetClient()),
 		internal.NewSnapshottingHandler(disk),
