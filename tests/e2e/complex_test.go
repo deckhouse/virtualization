@@ -241,9 +241,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				StopVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, notAlwaysOnVMs...)
 			})
-		})
 
-		Context("When stop VMOPs are applied", func() {
 			It("checks VMOPs phases", func() {
 				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
@@ -278,9 +276,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				StartVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, notAlwaysOnVMs...)
 			})
-		})
 
-		Context("When start VMOPs are applied", func() {
 			It("checks VMs and VMOPs phases", func() {
 				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
@@ -323,9 +319,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				RebootVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
 			})
-		})
 
-		Context("When reboot VMOPs are applied", func() {
 			It("checks VMs and VMOPs phases", func() {
 				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
@@ -368,9 +362,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				RebootVirtualMachinesBySSH(vms...)
 			})
-		})
 
-		Context("When VM reboot command has been sent by ssh", func() {
 			It("checks VMs phases", func() {
 				By("Virtual machines should be stopped")
 				WaitPhaseByLabel(kc.ResourceVM, virtv2.MachineStopped.String(), kc.WaitOptions{
@@ -406,9 +398,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				wg.Add(1)
 				go RebootVirtualMachinesByDeletePods(vmPodLabel, &cmdResult, &wg)
 			})
-		})
 
-		Context("When VM reboot command sent by delete pods", func() {
 			It("checks VMs phases", func() {
 				By("Virtual machines should be stopped")
 				WaitPhaseByLabel(kc.ResourceVM, virtv2.MachineStopped.String(), kc.WaitOptions{
