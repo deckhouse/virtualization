@@ -35,9 +35,10 @@ const (
 	TypeAgentVersionNotSupported            Type = "AgentVersionNotSupported"
 	TypeConfigurationApplied                Type = "ConfigurationApplied"
 	TypeAwaitingRestartToApplyConfiguration Type = "AwaitingRestartToApplyConfiguration"
-	TypeFilesystemReady                     Type = "FilesystemReady"
-	TypeSizingPolicyMatched                 Type = "SizingPolicyMatched"
-	TypeSnapshotting                        Type = "Snapshotting"
+	// TypeFilesystemFrozen indicates whether the filesystem is currently frozen, a necessary condition for creating a snapshot.
+	TypeFilesystemFrozen    Type = "FilesystemFrozen"
+	TypeSizingPolicyMatched Type = "SizingPolicyMatched"
+	TypeSnapshotting        Type = "Snapshotting"
 )
 
 type Reason string
@@ -89,9 +90,8 @@ const (
 	ReasonVmIsRunning                    Reason = "VirtualMachineRunning"
 	ReasonInternalVirtualMachineError    Reason = "InternalVirtualMachineError"
 
-	ReasonFilesystemReady    Reason = "Ready"
-	ReasonFilesystemFrozen   Reason = "Frozen"
-	ReasonFilesystemNotReady Reason = "NotReady"
+	// 	ReasonFilesystemFrozen indicates that virtual machine's filesystem has been successfully frozen.
+	ReasonFilesystemFrozen Reason = "Frozen"
 
 	WaitingForTheSnapshotToStart Reason = "WaitingForTheSnapshotToStart"
 	ReasonSnapshottingInProgress Reason = "SnapshottingInProgress"

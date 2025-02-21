@@ -98,10 +98,10 @@ func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		return false
 	}
 
-	oldFSReady, _ := conditions.GetCondition(vmcondition.TypeFilesystemReady, oldVM.Status.Conditions)
-	newFSReady, _ := conditions.GetCondition(vmcondition.TypeFilesystemReady, newVM.Status.Conditions)
+	oldFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, oldVM.Status.Conditions)
+	newFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, newVM.Status.Conditions)
 
-	if oldFSReady.Reason != newFSReady.Reason {
+	if oldFSFrozen.Reason != newFSFrozen.Reason {
 		return true
 	}
 
