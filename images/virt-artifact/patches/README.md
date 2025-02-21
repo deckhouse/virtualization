@@ -226,3 +226,5 @@ By default, the disk specification is immutable, but for backward compatibility,
 
 ##### Why this change?
 This update ensures compatibility with recent QEMU changes and prevents runtime errors by enforcing validation at the API level while preserving support for existing VMs through automatic serial number truncation.
+
+#### `039-remove-unnecessary-libvirt-sockets.patch`
