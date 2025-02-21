@@ -439,7 +439,7 @@ $SRC_BASE/src/admin/libvirt-admin.conf to /etc/libvirt
 $SRC_BASE/src/logging/virtlogd.conf to /etc/libvirt
 # $SRC_BUILD/src/network/network.conf to /etc/libvirt
 # $SRC_BASE/src/lxc/lxc.conf to /etc/libvirt
-$SRC_BUILD/src/qemu/qemu.conf to /etc/libvirt
+# $SRC_BUILD/src/qemu/qemu.conf to /etc/libvirt
 $SRC_BASE/src/libvirt.conf to /etc/libvirt
 # $SRC_BASE/src/locking/libvirt_lockd.aug to /usr/share/augeas/lenses
 # $SRC_BASE/src/locking/libvirt_sanlock.aug to /usr/share/augeas/lenses
@@ -468,7 +468,7 @@ $SRC_BUILD/src/libvirtd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtlxcd.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtchd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtchd.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtqemud.conf to /etc/libvirt
+# $SRC_BUILD/src/virtqemud.conf to /etc/libvirt
 # $SRC_BUILD/src/virtqemud.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtvboxd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtvboxd.aug to /usr/share/augeas/lenses
