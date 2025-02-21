@@ -52,7 +52,7 @@ index 0000000000..3d13818277
 +	}
 +}
 diff --git a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
-index b342c034f7..5bb8bd9a17 100644
+index b342c034f7..7407ef8311 100644
 --- a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
 +++ b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
 @@ -250,6 +250,13 @@ func (l LibvirtWrapper) StartVirtquemud(stopChan chan struct{}) {
@@ -69,16 +69,15 @@ index b342c034f7..5bb8bd9a17 100644
  
  			go func() {
  				defer close(exitChan)
-@@ -283,6 +290,14 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
+@@ -283,6 +290,13 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
  			panic(err)
  		}
  
 +		go func() {
 +			const (
 +				adminSock = "/var/run/libvirt/virtlogd-admin-sock"
-+				sock      = "/var/run/libvirt/virtlogd-sock"
 +			)
-+			NewFileCleaner(adminSock, sock).WaitAndRemove(stopChan)
++			NewFileCleaner(adminSock).WaitAndRemove(stopChan)
 +		}()
 +
  		go func() {
