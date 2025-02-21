@@ -78,7 +78,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{}, fmt.Errorf("condition %s not found, but required", vdcondition.DatasourceReadyType)
 	}
 
-	if dataSourceReadyCondition.Status != metav1.ConditionTrue {
+	if dataSourceReadyCondition.Status != metav1.ConditionTrue || dataSourceReadyCondition.ObservedGeneration != vd.Generation {
 		return reconcile.Result{}, nil
 	}
 
@@ -107,6 +107,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	storageClassReadyCondition, ok := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 	if !ok {
 		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
+	}
+	if storageClassReadyCondition.ObservedGeneration != vd.Status.ObservedGeneration {
+		return reconcile.Result{Requeue: true}, fmt.Errorf(
+			"condition %s has obesrved generation %d lower than VirtualDisk observed generation %d",
+			vdcondition.StorageClassReadyType,
+			storageClassReadyCondition.ObservedGeneration,
+			vd.Generation,
+		)
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue {
