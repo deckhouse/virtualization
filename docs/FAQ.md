@@ -119,11 +119,11 @@ For example, let's take a file that allows you to:
   <settings pass="windowsPE">
     <component name="Microsoft-Windows-International-Core-WinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
       <SetupUILanguage>
-        <UILanguage>ru-EN</UILanguage>
+        <UILanguage>en-US</UILanguage>
       </SetupUILanguage>
-      <InputLocale>0409:00000409;0419:00000419</InputLocale>
+      <InputLocale>0409:00000409</InputLocale>
       <SystemLocale>en-US</SystemLocale>
-      <UILanguage>ru-En</UILanguage>
+      <UILanguage>en-US</UILanguage>
       <UserLocale>en-US</UserLocale>
     </component>
     <component name="Microsoft-Windows-PnpCustomizationsWinPE" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
@@ -245,9 +245,9 @@ For example, let's take a file that allows you to:
   <settings pass="auditUser"></settings>
   <settings pass="oobeSystem">
     <component name="Microsoft-Windows-International-Core" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
-      <InputLocale>0409:00000409;0419:00000419</InputLocale>
+      <InputLocale>0409:00000409</InputLocale>
       <SystemLocale>en-US</SystemLocale>
-      <UILanguage>ru-RU</UILanguage>
+      <UILanguage>en-US</UILanguage>
       <UserLocale>en-US</UserLocale>
     </component>
     <component name="Microsoft-Windows-Shell-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
