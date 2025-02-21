@@ -1,0 +1,15 @@
+kubevirt:
+  fixes:
+    - summary: >-
+        fix hotplug container disk mounter blocking the queue when virt-handler attempts to
+        reconcile ghost records
+      pull_request: https://github.com/deckhouse/virtualization/pull/717
+vd:
+  fixes:
+    - summary: fix resizing handler and cover it with unit tests
+      pull_request: https://github.com/deckhouse/virtualization/pull/685
+vm:
+  features:
+    - summary: VirtualMachine.Status.BlockDeviceRefs contains hotplugged images
+      pull_request: https://github.com/deckhouse/virtualization/pull/681
+
