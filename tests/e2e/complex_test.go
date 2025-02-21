@@ -423,7 +423,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				wg.Wait()
-				Expect(cmdResult.Error()).NotTo(HaveOccurred(), cmdResult.StdErr())
+				Expect(cmdResult.Error()).ShouldNot(HaveOccurred())
 			})
 
 			It("checks VMs external connection after reboot", func() {
