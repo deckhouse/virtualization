@@ -29,7 +29,7 @@ docker:
 
 {{- $binariesBash := "/usr/bin/sh /usr/bin/bash" }}
 
-{{- $binariesCommon := "/usr/bin/uname /usr/bin/nohup /usr/bin/sleep /usr/bin/rm /usr/bin/mv /usr/bin/cut /usr/bin/grep /usr/bin/openssl" }}
+{{- $binariesCommon := "/usr/bin/uname /usr/bin/nohup /usr/bin/sleep /usr/bin/rm /usr/bin/mv /usr/bin/cut /usr/bin/grep /usr/bin/openssl /usr/bin/cp" }}
 
 {{- $binariesAcl := "/usr/bin/chacl /usr/bin/getfacl /usr/bin/setfacl /usr/bin/chmod" }}
 
