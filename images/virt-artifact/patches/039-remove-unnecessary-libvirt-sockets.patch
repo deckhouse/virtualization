@@ -1,0 +1,40 @@
+diff --git a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
+index b342c034f7..be7afc8ade 100644
+--- a/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
++++ b/pkg/virt-launcher/virtwrap/util/libvirt_helper.go
+@@ -251,6 +251,17 @@ func (l LibvirtWrapper) StartVirtquemud(stopChan chan struct{}) {
+ 				panic(err)
+ 			}
+ 
++			const adminSock = "/var/run/libvirt/virtqemud-admin-sock"
++			err = os.Remove(adminSock)
++			if err != nil {
++				log.Log.Reason(err).Errorf("failed to remove unnecessary socket %s", adminSock)
++			}
++			const roSock = "/var/run/libvirt/virtqemud-sock-ro"
++			err = os.Remove(roSock)
++			if err != nil {
++				log.Log.Reason(err).Errorf("failed to remove unnecessary socket %s", roSock)
++			}
++
+ 			go func() {
+ 				defer close(exitChan)
+ 				cmd.Wait()
+@@ -283,6 +294,17 @@ func startVirtlogdLogging(stopChan chan struct{}, domainName string, nonRoot boo
+ 			panic(err)
+ 		}
+ 
++		const adminSock = "/var/run/libvirt/virtlogd-admin-sock"
++		err = os.Remove(adminSock)
++		if err != nil {
++			log.Log.Reason(err).Errorf("failed to remove unnecessary socket %s", adminSock)
++		}
++		const sock = "/var/run/libvirt/virtlogd-sock"
++		err = os.Remove(sock)
++		if err != nil {
++			log.Log.Reason(err).Errorf("failed to remove unnecessary socket %s", sock)
++		}
++
+ 		go func() {
+ 			logfile := fmt.Sprintf("/var/log/libvirt/qemu/%s.log", domainName)
+ 			if nonRoot {
