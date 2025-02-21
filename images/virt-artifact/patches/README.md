@@ -237,3 +237,14 @@ Since libvirt and QEMU require writable directories, five emptyDir volumes are a
 - /var/cache/libvirt
 
 This ensures compatibility while maintaining a read-only root filesystem for improved isolation and security.
+
+#### `038-remove-unnecessary-libvirt-sockets.patch`
+This patch removes unnecessary libvirt sockets after their creation to prevent unintended interactions.
+
+The following sockets are deleted:
+- `/var/run/libvirt/virtlogd-admin-sock`
+- `/var/run/libvirt/virtqemud-admin-sock`
+- `/var/run/libvirt/virtqemud-sock-ro`
+
+These sockets are not required for our setup, and their removal ensures a cleaner runtime environment without affecting libvirt’s core functionality.  
+
