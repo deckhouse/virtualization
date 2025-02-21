@@ -20,15 +20,12 @@ import (
 	"fmt"
 	"strings"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
 const (
@@ -38,41 +35,7 @@ const (
 
 func MigrateVirtualMachines(label map[string]string, templatePath string, virtualMachines ...string) {
 	GinkgoHelper()
-	migrationFilesPath := fmt.Sprintf("%s/migrations", templatePath)
-	for _, vm := range virtualMachines {
-		migrationFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
-		err := CreateMigrationManifest(vm, migrationFilePath, label)
-		Expect(err).NotTo(HaveOccurred(), err)
-		res := kubectl.Apply(kc.ApplyOptions{
-			Filename:       []string{migrationFilePath},
-			FilenameOption: kc.Filename,
-			Namespace:      conf.Namespace,
-		})
-		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-	}
-}
-
-func CreateMigrationManifest(vmName, filePath string, labels map[string]string) error {
-	vmop := &virtv2.VirtualMachineOperation{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: virtv2.SchemeGroupVersion.String(),
-			Kind:       virtv2.VirtualMachineOperationKind,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:   vmName,
-			Labels: labels,
-		},
-		Spec: virtv2.VirtualMachineOperationSpec{
-			Type:           virtv2.VMOPTypeEvict,
-			VirtualMachine: vmName,
-		},
-	}
-	err := WriteYamlObject(filePath, vmop)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeMigrate, virtualMachines...)
 }
 
 var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators(), func() {
