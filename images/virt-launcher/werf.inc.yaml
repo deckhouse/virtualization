@@ -90,7 +90,7 @@ git:
     includePaths:
     - scripts
   # Add qemu and virtqemud configs
-  - add: /images/{{ $.ImageName }}
+  - add: /images/{{ $.ImageName }}/configs
     to: /relocate/etc/libvirt
     stageDependencies:
       setup:
@@ -99,7 +99,7 @@ git:
     includePaths:
     - qemu.conf
     - virtqemud.conf
-  - add: /images/{{ $.ImageName }}
+  - add: /images/{{ $.ImageName }}/configs
     to: /relocate/etc
     stageDependencies:
       setup:
