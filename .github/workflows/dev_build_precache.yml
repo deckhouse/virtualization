@@ -31,7 +31,8 @@ defaults:
 jobs:
   build_branches:
     name: Build main
-    runs-on: ubuntu-latest
+    # runs-on: ubuntu-22.04
+    runs-on: [self-hosted, regular, selectel]
     strategy:
       matrix:
         branch: [main, pre-alpha]
@@ -39,6 +40,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           ref: ${{ matrix.branch }}
 
       - name: Set vars
@@ -53,9 +55,57 @@ jobs:
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
           echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
 
-      - name: Remove unwanted software
-        uses: ./.github/actions/remove-unwanted-software
+      # - name: Remove unwanted software
+      #   uses: ./.github/actions/remove-unwanted-software
 
-      - uses: deckhouse/modules-actions/setup@v1
+      # - uses: deckhouse/modules-actions/setup@v1
+      - uses: werf/actions/install@v1.2
+      - uses: imjasonh/setup-crane@v0.4
 
-      - uses: deckhouse/modules-actions/build@v1
+      - run: werf version
+        shell: bash
+        name: Print werf version
+        
+      - run: crane version
+        shell: bash
+        name: Print crane version
+
+      - run: werf cr login -u ${MODULES_REGISTRY_LOGIN} -p ${MODULES_REGISTRY_PASSWORD} ${MODULES_REGISTRY}
+        shell: bash
+        name: Werf login registry
+
+      # - uses: deckhouse/modules-actions/build@v1
+
+      - run: |
+              source "$(werf ci-env github --as-file)"
+              werf build --repo=${MODULES_MODULE_SOURCE}/${MODULES_MODULE_NAME} --save-build-report --build-report-path images_tags_werf.json
+              
+        shell: bash
+        name: Step 1 - Build images
+
+      - run: |
+              IMAGE_SRC="$(jq -r '.Images."bundle".DockerImageName' images_tags_werf.json)"
+              IMAGE_DST="$(jq -r '.Images.bundle.DockerRepo' images_tags_werf.json):${MODULES_MODULE_TAG}"
+              echo "✨ Bundle image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+              crane copy ${IMAGE_SRC} ${IMAGE_DST}
+              
+        shell: bash
+        name: Step 2 - Bundle image
+        
+      - run: |
+              IMAGE_SRC="$(jq -r '.Images."release-channel-version".DockerImageName' images_tags_werf.json)"
+              IMAGE_DST="$(jq -r '.Images."release-channel-version".DockerRepo' images_tags_werf.json)/release:${MODULES_MODULE_TAG}"
+              echo "✨ Release-channel image : Pushing ${IMAGE_SRC} to ${IMAGE_DST}"
+              crane copy ${IMAGE_SRC} ${IMAGE_DST}
+              
+        shell: bash
+        name: Step 3 - Release-channel image
+
+      - run: |
+              echo "✨ Register the module ${MODULES_MODULE_NAME}"
+              crane append \
+                --oci-empty-base \
+                --new_layer "" \
+                --new_tag "${MODULES_MODULE_SOURCE}:${MODULES_MODULE_NAME}"
+        shell: bash
+        name: Step 4 - Module registration
