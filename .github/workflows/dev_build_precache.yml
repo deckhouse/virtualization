@@ -58,7 +58,21 @@ jobs:
       # - name: Remove unwanted software
       #   uses: ./.github/actions/remove-unwanted-software
 
-      - uses: deckhouse/modules-actions/setup@v1
+      # - uses: deckhouse/modules-actions/setup@v1
+      - uses: werf/actions/install@v1.2
+      - uses: imjasonh/setup-crane@v0.4
+
+      - run: werf version
+        shell: bash
+        name: Print werf version
+        
+      - run: crane version
+        shell: bash
+        name: Print crane version
+
+      - run: werf cr login -u ${MODULES_REGISTRY_LOGIN} -p ${MODULES_REGISTRY_PASSWORD} ${MODULES_REGISTRY}
+        shell: bash
+        name: Werf login registry
 
       # - uses: deckhouse/modules-actions/build@v1
 
