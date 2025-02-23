@@ -31,7 +31,8 @@ defaults:
 jobs:
   build_branches:
     name: Build main
-    runs-on: ubuntu-22.04
+    # runs-on: ubuntu-22.04
+    runs-on: [self-hosted, regular, selectel]
     strategy:
       matrix:
         branch: [main, pre-alpha]
@@ -54,8 +55,8 @@ jobs:
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_ENV"
           echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
 
-      - name: Remove unwanted software
-        uses: ./.github/actions/remove-unwanted-software
+      # - name: Remove unwanted software
+      #   uses: ./.github/actions/remove-unwanted-software
 
       - uses: deckhouse/modules-actions/setup@v1
 
