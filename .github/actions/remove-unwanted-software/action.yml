@@ -76,6 +76,8 @@ runs:
     - name: Remove unwanted software
       shell: bash
       run: |
+        set -ex
+
         echo "Space available before cleanup"
         df -h /
 
