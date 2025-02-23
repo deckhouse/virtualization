@@ -31,7 +31,7 @@ defaults:
 jobs:
   build_branches:
     name: Build main
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       matrix:
         branch: [main, pre-alpha]
@@ -39,6 +39,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           ref: ${{ matrix.branch }}
 
       - name: Set vars
