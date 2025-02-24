@@ -26,7 +26,7 @@ shell:
   - mkdir -p /relocate/etc/{pki,ssl} /relocate/usr/{bin,sbin,share,lib,lib64}
   - |
     cd /relocate
-    for dir in {bin,sbin};do
+    for dir in {bin,sbin,lib,lib64};do
       ln -s usr/$dir $dir
     done
     cd /
