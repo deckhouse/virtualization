@@ -174,7 +174,7 @@ func (s ImporterService) DeletePod(ctx context.Context, obj ObjectKind, controll
 }
 
 func (s ImporterService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
-	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup)
+	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.ImporterPod())
 	if err != nil {
 		return false, err
 	}

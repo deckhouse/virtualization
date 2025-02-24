@@ -135,7 +135,7 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplement
 	if err != nil {
 		return false, err
 	}
-	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup)
+	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.UploaderPod())
 	if err != nil {
 		return false, err
 	}

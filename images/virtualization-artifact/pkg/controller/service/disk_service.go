@@ -28,7 +28,6 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
-	netv1 "k8s.io/api/networking/v1"
 	storev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -264,7 +263,7 @@ func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Ge
 			return false, err
 		}
 
-		networkPolicy, err := s.getNetworkPolicy(ctx, sup.DataVolume())
+		networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.DataVolume())
 		if err != nil {
 			return false, err
 		}
@@ -313,7 +312,7 @@ func (s DiskService) Protect(ctx context.Context, owner client.Object, dv *cdiv1
 	}
 
 	if dv != nil {
-		networkPolicy, err := s.getNetworkPolicy(ctx, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
+		networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for disk's supplements protection: %w", err)
 		}
@@ -336,7 +335,7 @@ func (s DiskService) Unprotect(ctx context.Context, dv *cdiv1.DataVolume) error 
 	}
 
 	if dv != nil {
-		networkPolicy, err := s.getNetworkPolicy(ctx, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
+		networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, types.NamespacedName{Namespace: dv.Namespace, Name: dv.Name})
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for removing disk's supplements protection: %w", err)
 		}
@@ -647,10 +646,6 @@ func (s DiskService) getStorageClass(ctx context.Context, storageClassName strin
 	}
 
 	return &sc, nil
-}
-
-func (s DiskService) getNetworkPolicy(ctx context.Context, name types.NamespacedName) (*netv1.NetworkPolicy, error) {
-	return object.FetchObject(ctx, name, s.client, &netv1.NetworkPolicy{})
 }
 
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")
