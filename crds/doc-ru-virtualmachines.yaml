@@ -679,14 +679,14 @@ spec:
                         cores:
                           description: Текущее количество ядер виртуальной машины.
                         requestedCores:
-                          description: Запрошенные ядра.
+                          description: Количество ядер CPU, запрошенных виртуальной машиной.
                         runtimeOverhead:
                           description: Накладные расходы на CPU во время выполнения.
                         topology:
-                          description: Информация по используемой топологии CPU.
+                          description: Информация о текущей топологии CPU.
                           properties:
                             coresPerSocket:
-                              description: Текущее количество ядер виртуальной машины.
+                              description: Количество ядер CPU на один сокет виртуальной машины.
                             sockets:
                               description: Текущее количество сокетов виртуальной машины.
                     memory:
