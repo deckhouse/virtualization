@@ -32,6 +32,7 @@ import (
 	sdsrepvolv1 "github.com/deckhouse/sds-replicated-volume/api/v1alpha1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
@@ -205,26 +206,20 @@ func GetVolumeSnapshotClassName(storageClass *storagev1.StorageClass) (string, e
 	return "", fmt.Errorf("cannot found `VolumeSnapshotClass` by provisioner %q", storageClass.Provisioner)
 }
 
-func CheckFilesystemReadyStatus(vmName string, status v1.ConditionStatus) (string, error) {
-	GinkgoHelper()
+func CheckFileSystemFrozen(vmName string) (bool, error) {
 	vmObj := virtv2.VirtualMachine{}
-	filesystemReadyConditionReason := ""
 	err := GetObject(kc.ResourceVM, vmName, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
 	if err != nil {
-		return "", fmt.Errorf("cannot get `VirtualMachine`: %q\nstderr: %s", vmName, err)
+		return false, fmt.Errorf("cannot get `VirtualMachine`: %q\nstderr: %s", vmName, err)
 	}
 
 	for _, condition := range vmObj.Status.Conditions {
-		if condition.Type == "FilesystemReady" {
-			if condition.Status != status {
-				return condition.Reason, fmt.Errorf("`FilesystemReady` status of %q is not %q: %s", vmName, status, condition.Reason)
-			} else {
-				filesystemReadyConditionReason = condition.Reason
-			}
+		if condition.Type == vmcondition.TypeFilesystemFrozen.String() {
+			return condition.Status == v1.ConditionTrue, nil
 		}
 	}
 
-	return filesystemReadyConditionReason, nil
+	return false, nil
 }
 
 var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(), func() {
@@ -388,7 +383,10 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 
 			for _, vm := range vmObjects.Items {
 				Eventually(func() error {
-					_, err := CheckFilesystemReadyStatus(vm.Name, v1.ConditionTrue)
+					frozen, err := CheckFileSystemFrozen(vm.Name)
+					if frozen {
+						return errors.New("File system of the Virtual Machine is frozen")
+					}
 					return err
 				}).WithTimeout(
 					filesystemReadyTimeout,
@@ -408,8 +406,8 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 						Expect(err).NotTo(HaveOccurred(), "%s", err)
 
 						Eventually(func() error {
-							reason, err := CheckFilesystemReadyStatus(vm.Name, v1.ConditionFalse)
-							if reason != "Frozen" {
+							frozen, err := CheckFileSystemFrozen(vm.Name)
+							if !frozen {
 								return fmt.Errorf("`Filesystem` should be frozen when controller is snapshotting the attached virtual disk")
 							}
 							return err
@@ -433,7 +431,10 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 
 			for _, vm := range vmObjects.Items {
 				Eventually(func() error {
-					_, err := CheckFilesystemReadyStatus(vm.Name, v1.ConditionTrue)
+					frozen, err := CheckFileSystemFrozen(vm.Name)
+					if frozen {
+						return errors.New("Filesystem of the Virtual Machine is frozen")
+					}
 					return err
 				}).WithTimeout(
 					filesystemReadyTimeout,
@@ -467,8 +468,8 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 						Expect(errs).To(BeEmpty(), "concurrent snapshotting error")
 
 						Eventually(func() error {
-							reason, err := CheckFilesystemReadyStatus(vm.Name, v1.ConditionFalse)
-							if reason != "Frozen" {
+							frozen, err := CheckFileSystemFrozen(vm.Name)
+							if !frozen {
 								return fmt.Errorf("`Filesystem` should be frozen when controller is snapshotting the attached virtual disk")
 							}
 							return err
@@ -499,22 +500,26 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 				Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
 
 				for _, snapshot := range vdSnapshots.Items {
+					Expect(snapshot.Status.Consistent).ToNot(BeNil())
 					Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
 				}
 			})
 		})
 
-		It("checks `FileSystemReady` status of VMs", func() {
-			By(fmt.Sprintf("Status should be %s", PhaseReady))
+		It("checks `FileSystemFrozen` status of VMs", func() {
+			By("Status should not be `Frozen`")
 			vmObjects := virtv2.VirtualMachineList{}
 			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: conf.Namespace})
 			Expect(err).NotTo(HaveOccurred(), "cannot get virtual machines\nstderr: %s", err)
 
 			for _, vm := range vmObjects.Items {
 				Eventually(func() error {
-					reason, err := CheckFilesystemReadyStatus(vm.Name, v1.ConditionTrue)
+					frozen, err := CheckFileSystemFrozen(vm.Name)
 					if err != nil {
-						return fmt.Errorf("vmName: %s\nstderr: %s\nreason: %s", vm.Name, err, reason)
+						return nil
+					}
+					if frozen {
+						return errors.New("Filesystem of the Virtual Machine is frozen")
 					}
 					return nil
 				}).WithTimeout(

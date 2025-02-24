@@ -54,9 +54,9 @@ func (s *SnapshotService) IsFrozen(vm *virtv2.VirtualMachine) bool {
 		return false
 	}
 
-	filesystemReady, _ := conditions.GetCondition(vmcondition.TypeFilesystemReady, vm.Status.Conditions)
+	filesystemFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
 
-	return filesystemReady.Status == metav1.ConditionFalse && filesystemReady.Reason == vmcondition.ReasonFilesystemFrozen.String()
+	return filesystemFrozen.Status == metav1.ConditionTrue && filesystemFrozen.Reason == vmcondition.ReasonFilesystemFrozen.String()
 }
 
 func (s *SnapshotService) CanFreeze(vm *virtv2.VirtualMachine) bool {
