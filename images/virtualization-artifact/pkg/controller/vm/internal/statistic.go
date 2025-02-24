@@ -186,16 +186,23 @@ func (h *StatisticHandler) getCurrentTopologyByKVVMI(kvvmi *virtv1.VirtualMachin
 		return virtv2.Topology{}
 	}
 
-	if kvvmi.Status.CurrentCPUTopology == nil {
-		cores := h.getCoresByKVVMI(kvvmi)
-		sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
-		return virtv2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
+	if kvvmi.Status.CurrentCPUTopology != nil {
+		return virtv2.Topology{
+			CoresPerSocket: int(kvvmi.Status.CurrentCPUTopology.Cores),
+			Sockets:        int(kvvmi.Status.CurrentCPUTopology.Sockets),
+		}
 	}
 
-	return virtv2.Topology{
-		CoresPerSocket: int(kvvmi.Status.CurrentCPUTopology.Cores),
-		Sockets:        int(kvvmi.Status.CurrentCPUTopology.Sockets),
+	if kvvmi.Spec.Domain.CPU != nil {
+		return virtv2.Topology{
+			CoresPerSocket: int(kvvmi.Spec.Domain.CPU.Cores),
+			Sockets:        int(kvvmi.Spec.Domain.CPU.Sockets),
+		}
 	}
+
+	cores := h.getCoresByKVVMI(kvvmi)
+	sockets, coresPerSocket := vm.CalculateCoresAndSockets(cores)
+	return virtv2.Topology{CoresPerSocket: coresPerSocket, Sockets: sockets}
 }
 
 func (h *StatisticHandler) syncPods(changed *virtv2.VirtualMachine, pod *corev1.Pod, pods *corev1.PodList) {

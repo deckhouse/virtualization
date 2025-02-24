@@ -20,12 +20,28 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
-	if vm.Spec.Disruptions == nil {
-		return virtv2.Manual
-	}
-	return vm.Spec.Disruptions.RestartApprovalMode
-}
+const (
+	// SocketsForUpTo32Cores represents the number of sockets required for configurations
+	// with up to 32 cores in total.
+	SocketsForUpTo32Cores = 2
+
+	// SocketsForUpTo64Cores represents the number of sockets required for configurations
+	// with up to 64 cores in total.
+	SocketsForUpTo64Cores = 4
+
+	// SocketsForMoreThan64Cores represents the number of sockets required for configurations
+	// with more than 64 cores in total.
+	SocketsForMoreThan64Cores = 8
+
+	// MaxCoresPerSocket defines the maximum number of cores that can be allocated to a single socket.
+	MaxCoresPerSocket = 16
+
+	// MaxCoresFor2Sockets defines the maximum number of cores that can be allocated across two sockets.
+	MaxCoresFor2Sockets = MaxCoresPerSocket * 2
+
+	// MaxCoresFor4Sockets defines the maximum number of cores that can be allocated across four sockets.
+	MaxCoresFor4Sockets = MaxCoresPerSocket * 4
+)
 
 // CalculateCoresAndSockets calculates the number of sockets and cores per socket needed to achieve
 // the desired total number of CPU cores.
@@ -35,17 +51,17 @@ func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket int) {
 		return 1, 1
 	}
 
-	if desiredCores <= 16 {
+	if desiredCores <= MaxCoresPerSocket {
 		return 1, desiredCores
 	}
 
 	switch {
-	case desiredCores > 16 && desiredCores <= 32:
-		sockets = 2
-	case desiredCores > 32 && desiredCores <= 64:
-		sockets = 4
+	case desiredCores <= MaxCoresFor2Sockets:
+		sockets = SocketsForUpTo32Cores
+	case desiredCores <= MaxCoresFor4Sockets:
+		sockets = SocketsForUpTo64Cores
 	default:
-		sockets = 8
+		sockets = SocketsForMoreThan64Cores
 	}
 
 	coresPerSocket = desiredCores / sockets
@@ -54,4 +70,11 @@ func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket int) {
 	}
 
 	return sockets, coresPerSocket
+}
+
+func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
+	if vm.Spec.Disruptions == nil {
+		return virtv2.Manual
+	}
+	return vm.Spec.Disruptions.RestartApprovalMode
 }
