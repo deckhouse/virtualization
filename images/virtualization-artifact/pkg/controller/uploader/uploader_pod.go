@@ -94,6 +94,7 @@ func (p *Pod) makeSpec() (*corev1.Pod, error) {
 			Name:      p.PodSettings.Name,
 			Namespace: p.PodSettings.Namespace,
 			Annotations: map[string]string{
+				annotations.AppLabel:     annotations.DVCRLabelValue,
 				annotations.AnnCreatedBy: "yes",
 			},
 			Labels: map[string]string{
