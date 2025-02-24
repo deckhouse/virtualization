@@ -32,6 +32,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	storagev1 "k8s.io/api/storage/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8snet "k8s.io/utils/net"
@@ -513,4 +514,100 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 			Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr()))
 		}
 	})
+}
+
+func RebootVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
+	GinkgoHelper()
+	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeRestart, virtualMachines...)
+}
+
+func StopVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
+	GinkgoHelper()
+	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeStop, virtualMachines...)
+}
+
+func StartVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
+	GinkgoHelper()
+	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeStart, virtualMachines...)
+}
+
+func CreateAndApplyVMOPs(label map[string]string, templatePath string, vmopType virtv2.VMOPType, virtualMachines ...string) {
+	var subFolderPath string
+
+	switch vmopType {
+	case virtv2.VMOPTypeRestart:
+		subFolderPath = "restarts"
+	case virtv2.VMOPTypeStop:
+		subFolderPath = "stops"
+	case virtv2.VMOPTypeStart:
+		subFolderPath = "starts"
+	case virtv2.VMOPTypeMigrate:
+		subFolderPath = "migrations"
+	case virtv2.VMOPTypeEvict:
+		subFolderPath = "evicts"
+	}
+	Expect(subFolderPath).NotTo(BeEmpty())
+
+	opsFilesPath := fmt.Sprintf("%s/%s", templatePath, subFolderPath)
+	_, err := os.Stat(opsFilesPath)
+	if os.IsNotExist(err) {
+		err = os.Mkdir(opsFilesPath, os.ModePerm)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	for _, vm := range virtualMachines {
+		opFilePath := fmt.Sprintf("%s/%s.yaml", opsFilesPath, vm)
+		err := CreateVMOPManifest(vm, opFilePath, label, vmopType)
+		Expect(err).NotTo(HaveOccurred(), err)
+		res := kubectl.Apply(kc.ApplyOptions{
+			Filename:       []string{opFilePath},
+			FilenameOption: kc.Filename,
+			Namespace:      conf.Namespace,
+		})
+		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+	}
+}
+
+func CreateVMOPManifest(vmName, filePath string, labels map[string]string, vmopType virtv2.VMOPType) error {
+	vmop := &virtv2.VirtualMachineOperation{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: virtv2.SchemeGroupVersion.String(),
+			Kind:       virtv2.VirtualMachineOperationKind,
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:   fmt.Sprintf("%s%s", vmName, strings.ToLower(string(vmopType))),
+			Labels: labels,
+		},
+		Spec: virtv2.VirtualMachineOperationSpec{
+			Type:           vmopType,
+			VirtualMachine: vmName,
+		},
+	}
+	err := helper.WriteYamlObject(filePath, vmop)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func RebootVirtualMachinesBySSH(virtualMachines ...string) {
+	GinkgoHelper()
+
+	cmd := "sudo reboot"
+
+	for _, vm := range virtualMachines {
+		ExecSshCommand(vm, cmd)
+	}
+}
+
+func RebootVirtualMachinesByDeletePods(labels map[string]string, cmdResult *executor.CMDResult, wg *sync.WaitGroup) {
+	cmdResult = kubectl.Delete(kc.DeleteOptions{
+		Namespace:      conf.Namespace,
+		IgnoreNotFound: true,
+		Resource:       kc.ResourcePod,
+		Labels:         labels,
+	})
+
+	wg.Done()
 }

@@ -40,6 +40,7 @@ const (
 
 func ExecSshCommand(vmName, cmd string) {
 	GinkgoHelper()
+
 	Eventually(func() error {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 			Namespace:   conf.Namespace,
