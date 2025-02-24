@@ -106,7 +106,7 @@ func (h *StatisticHandler) syncResources(changed *virtv2.VirtualMachine,
 
 			cores = h.getCoresByKVVMI(kvvmi)
 			coreFraction = h.getCoreFractionByKVVMI(kvvmi)
-			topology = h.getTopologyByKVVMI(kvvmi)
+			topology = h.getTopologyFromKVVMI(kvvmi)
 		}
 		resources = virtv2.ResourcesStatus{
 			CPU: virtv2.CPUStatus{
@@ -181,7 +181,7 @@ func (h *StatisticHandler) getCoreFractionByKVVMI(kvvmi *virtv1.VirtualMachineIn
 	return strconv.Itoa(int(cpuKVVMIRequest.MilliValue())*100/(h.getCoresByKVVMI(kvvmi)*1000)) + "%"
 }
 
-func (h *StatisticHandler) getTopologyByKVVMI(kvvmi *virtv1.VirtualMachineInstance) virtv2.Topology {
+func (h *StatisticHandler) getTopologyFromKVVMI(kvvmi *virtv1.VirtualMachineInstance) virtv2.Topology {
 	if kvvmi == nil {
 		return virtv2.Topology{}
 	}
