@@ -42,7 +42,7 @@ func MigrateVirtualMachines(label map[string]string, templatePath string, virtua
 	for _, vm := range virtualMachines {
 		migrationFilePath := fmt.Sprintf("%s/%s.yaml", migrationFilesPath, vm)
 		err := CreateMigrationManifest(vm, migrationFilePath, label)
-		Expect(err).NotTo(HaveOccurred(), err)
+		Expect(err).NotTo(HaveOccurred(), err.Error())
 		res := kubectl.Apply(kc.ApplyOptions{
 			Filename:       []string{migrationFilePath},
 			FilenameOption: kc.Filename,

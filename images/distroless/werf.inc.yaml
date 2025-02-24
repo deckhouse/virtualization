@@ -23,7 +23,13 @@ shell:
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
-  - mkdir -p /relocate/{usr,bin,sbin,etc} /relocate/etc/{pki,ssl} /relocate/usr/{bin,sbin,share}
+  - mkdir -p /relocate/etc/{pki,ssl} /relocate/usr/{bin,sbin,share,lib,lib64}
+  - |
+    cd /relocate
+    for dir in {bin,sbin};do
+      ln -s usr/$dir $dir
+    done
+    cd /
   - cp -pr /tmp /relocate
   - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /relocate/etc
   - cp -pr /usr/share/ca-certificates /relocate/usr/share

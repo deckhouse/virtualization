@@ -21,6 +21,8 @@ package source
 
 import (
 	"context"
+	"sync"
+
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -32,7 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sync"
 )
 
 // Ensure, that ImporterMock does implement Importer.
@@ -1944,5 +1945,77 @@ func (mock *HandlerMock) ValidateCalls() []struct {
 	mock.lockValidate.RLock()
 	calls = mock.calls.Validate
 	mock.lockValidate.RUnlock()
+	return calls
+}
+
+// Ensure, that DiskMock does implement Disk.
+// If this is not the case, regenerate this file with moq.
+var _ Disk = &DiskMock{}
+
+// DiskMock is a mock implementation of Disk.
+//
+//	func TestSomethingThatUsesDisk(t *testing.T) {
+//
+//		// make and configure a mocked Disk
+//		mockedDisk := &DiskMock{
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
+//				panic("mock out the CleanUpSupplements method")
+//			},
+//		}
+//
+//		// use mockedDisk in code that requires Disk
+//		// and then make assertions.
+//
+//	}
+type DiskMock struct {
+	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
+	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
+		CleanUpSupplements []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+		}
+	}
+	lockCleanUpSupplements sync.RWMutex
+}
+
+// CleanUpSupplements calls CleanUpSupplementsFunc.
+func (mock *DiskMock) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
+	if mock.CleanUpSupplementsFunc == nil {
+		panic("DiskMock.CleanUpSupplementsFunc: method is nil but Disk.CleanUpSupplements was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}{
+		Ctx: ctx,
+		Sup: sup,
+	}
+	mock.lockCleanUpSupplements.Lock()
+	mock.calls.CleanUpSupplements = append(mock.calls.CleanUpSupplements, callInfo)
+	mock.lockCleanUpSupplements.Unlock()
+	return mock.CleanUpSupplementsFunc(ctx, sup)
+}
+
+// CleanUpSupplementsCalls gets all the calls that were made to CleanUpSupplements.
+// Check the length with:
+//
+//	len(mockedDisk.CleanUpSupplementsCalls())
+func (mock *DiskMock) CleanUpSupplementsCalls() []struct {
+	Ctx context.Context
+	Sup *supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}
+	mock.lockCleanUpSupplements.RLock()
+	calls = mock.calls.CleanUpSupplements
+	mock.lockCleanUpSupplements.RUnlock()
 	return calls
 }
