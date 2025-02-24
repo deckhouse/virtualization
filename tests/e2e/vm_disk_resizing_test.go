@@ -73,6 +73,8 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, virtualDisks 
 	for _, vd := range virtualDisks {
 		wg.Add(1)
 		go func() {
+			defer GinkgoRecover()
+			defer wg.Done()
 			diskObject := virtv2.VirtualDisk{}
 			err := GetObject(kc.ResourceVD, vd, &diskObject, kc.GetOptions{Namespace: config.Namespace})
 			Expect(err).NotTo(HaveOccurred(), err)
@@ -80,7 +82,6 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, virtualDisks 
 			mergePatch := fmt.Sprintf("{\"spec\":{\"persistentVolumeClaim\":{\"size\":\"%s\"}}}", newValue.String())
 			err = MergePatchResource(kc.ResourceVD, vd, mergePatch)
 			Expect(err).NotTo(HaveOccurred(), err)
-			wg.Done()
 		}()
 	}
 	wg.Wait()
@@ -304,18 +305,20 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 				addedSize := resource.NewQuantity(100*1024*1024, resource.BinarySI)
 				wg.Add(2)
 				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
 					By(fmt.Sprintf("`VirtualDisks` should be in the %q phase", virtv2.DiskResizing), func() {
 						WaitPhaseByLabel(virtv2.VirtualDiskResource, string(virtv2.DiskResizing), kc.WaitOptions{
 							Labels:    testCaseLabel,
 							Namespace: conf.Namespace,
 							Timeout:   MaxWaitTimeout,
 						})
-						wg.Done()
 					})
 				}()
 				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
 					ResizeDisks(addedSize, conf, vds...)
-					wg.Done()
 				}()
 				wg.Wait()
 			})
