@@ -46,6 +46,8 @@ const (
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
 	GenericCPUModel = "kvm64"
+	// MaxCpuSockets defines the maximum number of CPU sockets allowed in the CPU topology
+	MaxCpuSockets = 8
 )
 
 type KVVMOptions struct {
@@ -235,9 +237,10 @@ func (b *KVVM) SetCpu(cores int, coreFraction string) error {
 	domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
 
 	socketsNeeded, coresNeeded := vm.CalculateCoresAndSockets(cores)
+
 	domainSpec.CPU.Cores = uint32(coresNeeded)
 	domainSpec.CPU.Sockets = uint32(socketsNeeded)
-	domainSpec.CPU.MaxSockets = uint32(8)
+	domainSpec.CPU.MaxSockets = uint32(MaxCpuSockets)
 	return nil
 }
 
