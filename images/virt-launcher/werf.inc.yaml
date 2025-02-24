@@ -233,8 +233,6 @@ shell:
     ./relocate_binaries.sh -i "{{ $binariesFs }}"           -o /relocate
     ./relocate_binaries.sh -i "{{ $binariesPid }}"          -o /relocate
     ./relocate_binaries.sh -i "{{ $binariesSysTools }}"     -o /relocate
-
-
     ./relocate_binaries.sh -i "{{ $binariesAttr }}"         -o /relocate
     ./relocate_binaries.sh -i "{{ $binariesXorriso }}"      -o /relocate
     ./relocate_binaries.sh -i "{{ $binariesEthtool }}"      -o /relocate
