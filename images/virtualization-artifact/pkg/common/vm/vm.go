@@ -44,7 +44,7 @@ func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket int) {
 		sockets = 2
 	case desiredCores > 32 && desiredCores <= 64:
 		sockets = 4
-	case desiredCores > 64:
+	default:
 		sockets = 8
 	}
 
