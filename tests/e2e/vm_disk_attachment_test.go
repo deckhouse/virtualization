@@ -54,7 +54,7 @@ type BlockDevice struct {
 func AttachBlockDevice(virtualMachine, blockDeviceName string, blockDeviceType virtv2.VMBDAObjectRefKind, labels map[string]string, testDataPath string) {
 	vmbdaFilePath := fmt.Sprintf("%s/vmbda/%s.yaml", testDataPath, blockDeviceName)
 	err := CreateVMBDAManifest(vmbdaFilePath, virtualMachine, blockDeviceName, blockDeviceType, labels)
-	Expect(err).NotTo(HaveOccurred(), err)
+	Expect(err).NotTo(HaveOccurred(), err.Error())
 
 	res := kubectl.Apply(kc.ApplyOptions{
 		Filename:       []string{vmbdaFilePath},

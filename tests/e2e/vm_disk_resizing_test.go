@@ -77,11 +77,11 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, virtualDisks 
 			defer wg.Done()
 			diskObject := virtv2.VirtualDisk{}
 			err := GetObject(kc.ResourceVD, vd, &diskObject, kc.GetOptions{Namespace: config.Namespace})
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred(), err.Error())
 			newValue := resource.NewQuantity(diskObject.Spec.PersistentVolumeClaim.Size.Value()+addedSize.Value(), resource.BinarySI)
 			mergePatch := fmt.Sprintf("{\"spec\":{\"persistentVolumeClaim\":{\"size\":\"%s\"}}}", newValue.String())
 			err = MergePatchResource(kc.ResourceVD, vd, mergePatch)
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred(), err.Error())
 		}()
 	}
 	wg.Wait()
@@ -127,7 +127,7 @@ func GetSizeByLsblk(vmName, diskIdPath string) (*resource.Quantity, error) {
 func GetDiskSize(vmName, vdName, diskIdPath string, config *cfg.Config, disk *DiskMetaData) {
 	GinkgoHelper()
 	sizeFromObject, err := GetSizeFromObject(vdName, config.Namespace)
-	Expect(err).NotTo(HaveOccurred(), err)
+	Expect(err).NotTo(HaveOccurred(), err.Error())
 	var sizeByLsblk *resource.Quantity
 	Eventually(func() error {
 		sizeByLsblk, err = GetSizeByLsblk(vmName, diskIdPath)
