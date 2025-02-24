@@ -40,28 +40,142 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var _ = Describe("SyncPowerStateHandler", func() {
+var _ = Describe("Test power actions with VMs", func() {
 	var (
-		scheme       *runtime.Scheme
-		ctx          context.Context
-		handler      *SyncPowerStateHandler
-		recorderMock *eventrecord.EventRecorderLoggerMock
-		fakeClient   client.Client
-		vmState      state.VirtualMachineState
-		vm           *virtv2.VirtualMachine
-		kvvm         *virtv1.VirtualMachine
-		kvvmi        *virtv1.VirtualMachineInstance
+		scheme                   *runtime.Scheme
+		ctx                      context.Context
+		handler                  *SyncPowerStateHandler
+		recorderMock             *eventrecord.EventRecorderLoggerMock
+		fakeClient               client.Client
+		vmState                  state.VirtualMachineState
+		vm                       *virtv2.VirtualMachine
+		kvvm                     *virtv1.VirtualMachine
+		kvvmi                    *virtv1.VirtualMachineInstance
+		vmPod                    *corev1.Pod
+		namespacedVirtualMachine types.NamespacedName
+	)
+
+	AfterEach(func() {
+		vm = nil
+		kvvm = nil
+		kvvmi = nil
+		vmPod = nil
+		fakeClient = nil
+		recorderMock = nil
+		vmState = nil
+		handler = nil
+		scheme = nil
+	})
+
+	setupTestEnvironment := func() {
+		fakeClient = fake.NewClientBuilder().
+			WithScheme(scheme).
+			WithObjects(vm, kvvm, kvvmi, vmPod).
+			WithStatusSubresource(vm, kvvm, kvvmi).
+			Build()
+
+		vmResource := service.NewResource(
+			types.NamespacedName{Namespace: namespacedVirtualMachine.Namespace, Name: namespacedVirtualMachine.Name},
+			fakeClient,
+			vmFactoryByVm(vm),
+			vmStatusGetter,
+		)
+
+		err := vmResource.Fetch(ctx)
+		if err != nil {
+			return
+		}
+
+		vmState = state.New(fakeClient, vmResource)
+		handler = NewSyncPowerStateHandler(fakeClient, recorderMock)
+	}
+
+	BeforeEach(func() {
+		scheme = setupScheme()
+		ctx = logger.ToContext(context.TODO(), slog.Default())
+		namespacedVirtualMachine = types.NamespacedName{
+			Namespace: "vm",
+			Name:      "ns",
+		}
+		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventfFunc: func(client.Object, string, string, string, ...interface{}) {},
+			WithLoggingFunc: func(logger eventrecord.InfoLogger) eventrecord.EventRecorderLogger {
+				return recorderMock
+			},
+		}
+
+		vm, kvvm, kvvmi, vmPod = createObjects(namespacedVirtualMachine)
+	})
+
+	It("should handle start", func() {
+		setupKVVMAnnotations(kvvm, annotations.AnnVmStartRequested)
+		setupTestEnvironment()
+
+		err := handler.start(ctx, vmState, kvvm, true)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Status.StateChangeRequests[0].Action).To(Equal(virtv1.StateChangeRequestAction("Start")))
+		Expect(kvvm.Annotations[annotations.AnnVmStartRequested]).To(Equal(""))
+	})
+
+	It("should handle restart", func() {
+		setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
+
+		setupTestEnvironment()
+
+		err := handler.restart(ctx, vmState, kvvm, kvvmi, true)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Status.StateChangeRequests[0].Action).To(Equal(virtv1.StateChangeRequestAction("Stop")))
+		Expect(kvvm.Status.StateChangeRequests[1].Action).To(Equal(virtv1.StateChangeRequestAction("Start")))
+		Expect(kvvm.Annotations[annotations.AnnVmRestartRequested]).To(Equal(""))
+	})
+
+	It("should add start annotation", func() {
+		kvvm = &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      namespacedVirtualMachine.Name,
+				Namespace: namespacedVirtualMachine.Namespace,
+				Annotations: map[string]string{
+					"initFoo": "initBar",
+				},
+			},
+			Spec: virtv1.VirtualMachineSpec{},
+		}
+
+		setupTestEnvironment()
+		err := handler.restart(ctx, vmState, kvvm, kvvmi, false)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(kvvm.Annotations[annotations.AnnVmStartRequested]).To(Equal("true"))
+	})
+})
+
+var _ = Describe("Test action getters for different run policy", func() {
+	var (
+		scheme                   *runtime.Scheme
+		ctx                      context.Context
+		handler                  *SyncPowerStateHandler
+		recorderMock             *eventrecord.EventRecorderLoggerMock
+		fakeClient               client.Client
+		vmState                  state.VirtualMachineState
+		vm                       *virtv2.VirtualMachine
+		kvvm                     *virtv1.VirtualMachine
+		kvvmi                    *virtv1.VirtualMachineInstance
+		vmPod                    *corev1.Pod
+		namespacedVirtualMachine types.NamespacedName
 	)
 
 	BeforeEach(func() {
 		scheme = setupScheme()
-
 		ctx = logger.ToContext(context.TODO(), slog.Default())
-		vm, kvvm, kvvmi = setupVirtualMachines()
+		namespacedVirtualMachine = types.NamespacedName{
+			Namespace: "vm",
+			Name:      "ns",
+		}
 
+		vm, kvvm, kvvmi, vmPod = createObjects(namespacedVirtualMachine)
 		fakeClient = fake.NewClientBuilder().
 			WithScheme(scheme).
-			WithObjects(vm, kvvm, kvvmi).
+			WithObjects(vm, kvvm, kvvmi, vmPod).
+			WithStatusSubresource(vm, kvvm, kvvmi).
 			Build()
 
 		recorderMock = &eventrecord.EventRecorderLoggerMock{
@@ -72,185 +186,208 @@ var _ = Describe("SyncPowerStateHandler", func() {
 		}
 
 		vmResource := service.NewResource(
-			types.NamespacedName{Namespace: "vm", Name: "ns"},
+			types.NamespacedName{Namespace: namespacedVirtualMachine.Namespace, Name: namespacedVirtualMachine.Name},
 			fakeClient,
 			vmFactoryByVm(vm),
 			vmStatusGetter,
 		)
-		_ = vmResource.Fetch(ctx)
+
+		err := vmResource.Fetch(ctx)
+		if err != nil {
+			return
+		}
 
 		vmState = state.New(fakeClient, vmResource)
 		handler = NewSyncPowerStateHandler(fakeClient, recorderMock)
 	})
 
+	AfterEach(func() {
+		vm = nil
+		kvvm = nil
+		kvvmi = nil
+		vmPod = nil
+		fakeClient = nil
+		recorderMock = nil
+		vmState = nil
+		handler = nil
+		scheme = nil
+	})
+
 	Context("handleManualPolicy", func() {
-		It("should handle start", func() {
+		It("should return start action", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVmStartRequested)
 
 			action := handler.handleManualPolicy(
-				ctx, vmState, kvvm, nil, true, virtv2.ManualPolicy, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
 			)
 
 			Expect(action).To(Equal(Start))
 		})
 
-		It("should handle stop", func() {
+		It("should return stop action", func() {
 			kvvmi.Status.Phase = virtv1.Succeeded
 
 			action := handler.handleManualPolicy(
-				ctx, vmState, kvvm, kvvmi, true, virtv2.ManualPolicy, powerstate.ShutdownInfo{PodCompleted: true},
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{PodCompleted: true},
 			)
 
 			Expect(action).To(Equal(Stop))
 		})
 
-		It("should handle restart", func() {
+		It("should return restart action", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
 			kvvmi.Status.Phase = virtv1.Running
 
 			action := handler.handleManualPolicy(
-				ctx, vmState, kvvm, kvvmi, true, virtv2.ManualPolicy, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
 
 			Expect(action).To(Equal(Restart))
 		})
 
-		It("should do nothing when conditions are not met", func() {
+		It("should return nothing action when conditions are not met", func() {
 			kvvmi.Status.Phase = virtv1.Running
 			action := handler.handleManualPolicy(
-				ctx, vmState, kvvm, kvvmi, false, virtv2.ManualPolicy, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
 			)
 			Expect(action).To(Equal(Nothing))
 		})
 	})
 
 	Context("handleAlwaysOnPolicy", func() {
-		It("should handle start when kvvmi is nil and configureation not applied", func() {
+		It("should return start action when kvvmi is nil and configureation not applied", func() {
 			action := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, nil, false, virtv2.AlwaysOnPolicy, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, nil, false, powerstate.ShutdownInfo{},
 			)
 			Expect(action).To(Equal(Nothing))
 		})
 
-		It("should handle start when kvvmi is nil and configureation applied", func() {
+		It("should return start action when kvvmi is nil and configureation applied", func() {
 			action := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, nil, true, virtv2.AlwaysOnPolicy, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
 			)
 			Expect(action).To(Equal(Start))
 		})
 
-		It("should handle when kvvmi is being deleted", func() {
+		It("should return nothing action when kvvmi is being deleted", func() {
 			kvvmi.DeletionTimestamp = &metav1.Time{}
 			action := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, kvvmi, true, virtv2.AlwaysOnPolicy, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
 
 			Expect(action).To(Equal(Nothing))
 		})
 
-		It("should handle restart when restart requested", func() {
+		It("should return restart action when restart requested", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
 			kvvmi.Status.Phase = virtv1.Running
 			action := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, kvvmi, true, virtv2.AlwaysOnPolicy, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
 			Expect(action).To(Equal(Restart))
 		})
 
-		It("should handle restart on succeeded or failed phase with pod completed", func() {
+		It("should return restart action when kvvmi on succeeded or failed phase with pod completed", func() {
 			kvvmi.Status.Phase = virtv1.Succeeded
 			shutdownInfo := powerstate.ShutdownInfo{PodCompleted: true, Reason: powerstate.GuestResetReason}
 			action := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, kvvmi, true, virtv2.AlwaysOnPolicy, shutdownInfo,
+				ctx, vmState, kvvm, kvvmi, true, shutdownInfo,
 			)
 			Expect(action).To(Equal(Restart))
 		})
 
-		It("should do nothing when no conditions are met", func() {
+		It("should return nothing action when no conditions are met", func() {
 			kvvmi.Status.Phase = virtv1.Running
 			action := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, kvvmi, true, virtv2.AlwaysOnPolicy, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
 			Expect(action).To(Equal(Nothing))
 		})
 	})
 
 	Context("handleAlwaysOnUnlessStoppedManuallyPolicy", func() {
-		var vmPod *corev1.Pod
-
-		BeforeEach(func() {
-			vmPod = &corev1.Pod{}
-		})
-
-		It("should check VM start when kvvmi is nil", func() {
-			action := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, nil, vmPod, true, virtv2.AlwaysOnUnlessStoppedManually, powerstate.ShutdownInfo{},
+		It("should return nothing action when kvvmi is nil", func() {
+			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
+				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
 			)
 
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Nothing))
 		})
 
-		It("should check VM start when kvvmi is being deleted", func() {
+		It("should return nothing when kvvmi is being deleted", func() {
 			kvvmi.DeletionTimestamp = &metav1.Time{}
-			action := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, vmPod, true, virtv2.AlwaysOnUnlessStoppedManually, powerstate.ShutdownInfo{},
+			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
+
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Nothing))
 		})
 
-		It("should handle restart when restart requested", func() {
+		It("should return restart action when restart requested", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
 			kvvmi.Status.Phase = virtv1.Running
-			action := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, vmPod, false, virtv2.AlwaysOnUnlessStoppedManually, powerstate.ShutdownInfo{},
+			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
+				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
 			)
+
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Restart))
 		})
 
-		It("should handle restart on succeeded phase with pod completed and guest reset reason", func() {
+		It("should return restart action on succeeded phase with pod completed and guest reset reason", func() {
 			kvvmi.Status.Phase = virtv1.Succeeded
 			shutdownInfo := powerstate.ShutdownInfo{PodCompleted: true, Reason: powerstate.GuestResetReason}
-			action := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, vmPod, true, virtv2.AlwaysOnUnlessStoppedManually, shutdownInfo,
+			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
+				ctx, vmState, kvvm, kvvmi, true, shutdownInfo,
 			)
+
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Restart))
 		})
 
-		It("should handle stop on succeeded phase with pod completed and no guest reset reason", func() {
+		It("should return stop action on succeeded phase with pod completed and no guest reset reason", func() {
 			kvvmi.Status.Phase = virtv1.Succeeded
 			shutdownInfo := powerstate.ShutdownInfo{PodCompleted: true}
-			action := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, vmPod, true, virtv2.AlwaysOnUnlessStoppedManually, shutdownInfo,
+			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
+				ctx, vmState, kvvm, kvvmi, true, shutdownInfo,
 			)
+
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Stop))
 		})
 
-		It("should handle restart for failed phase", func() {
+		It("should return restart action for failed phase", func() {
 			kvvmi.Status.Phase = virtv1.Failed
-			action := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, vmPod, false, virtv2.AlwaysOnUnlessStoppedManually, powerstate.ShutdownInfo{},
+			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
+				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
 			)
+
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Restart))
 		})
 
-		It("should do nothing when no conditions are met", func() {
+		It("should return nothing action when no conditions are met", func() {
 			kvvmi.Status.Phase = virtv1.Running
-			action := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, vmPod, true, virtv2.AlwaysOnUnlessStoppedManually, powerstate.ShutdownInfo{},
+			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
+
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Nothing))
 		})
 	})
 
 	Context("handleAlwaysOffPolicy", func() {
-		It("should handle stop when kvvmi exists", func() {
+		It("should return stop action when kvvmi exists", func() {
 			action := handler.handleAlwaysOffPolicy(
 				ctx, vmState, kvvmi,
 			)
 			Expect(action).To(Equal(Stop))
 		})
 
-		It("should do nothing when kvvmi is nil", func() {
+		It("should return nothing action when kvvmi is nil", func() {
 			action := handler.handleAlwaysOffPolicy(
 				ctx, vmState, nil,
 			)
@@ -267,11 +404,7 @@ func setupScheme() *runtime.Scheme {
 	return scheme
 }
 
-func setupVirtualMachines() (*virtv2.VirtualMachine, *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance) {
-	namespacedVirtualMachine := types.NamespacedName{
-		Namespace: "vm",
-		Name:      "ns",
-	}
+func createObjects(namespacedVirtualMachine types.NamespacedName) (*virtv2.VirtualMachine, *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, *corev1.Pod) {
 	vm := &virtv2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedVirtualMachine.Name,
@@ -294,7 +427,14 @@ func setupVirtualMachines() (*virtv2.VirtualMachine, *virtv1.VirtualMachine, *vi
 		},
 		Status: virtv1.VirtualMachineInstanceStatus{},
 	}
-	return vm, kvvm, kvvmi
+	vmPod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: namespacedVirtualMachine.Namespace,
+			Labels:    map[string]string{virtv1.VirtualMachineNameLabel: namespacedVirtualMachine.Name},
+		},
+	}
+	return vm, kvvm, kvvmi, vmPod
 }
 
 func setupKVVMAnnotations(kvvm *virtv1.VirtualMachine, key string) {

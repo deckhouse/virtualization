@@ -121,14 +121,22 @@ func AddRestartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.Vi
 }
 
 func AddStartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
+	var op string
+	if _, exists := kvvm.Annotations[annotations.AnnVmStartRequested]; !exists {
+		op = patch.PatchAddOp
+	} else {
+		op = patch.PatchReplaceOp
+	}
+
 	if kvvm.Annotations[annotations.AnnVmStartRequested] == "" {
 		jp := patch.NewJsonPatch(
-			patch.NewJsonPatchOperation(patch.PatchReplaceOp, fmt.Sprintf("/metadata/annotations/%s", escapeJSONPointer(annotations.AnnVmStartRequested)), "true"),
+			patch.NewJsonPatchOperation(op, fmt.Sprintf("/metadata/annotations/%s", escapeJSONPointer(annotations.AnnVmStartRequested)), "true"),
 		)
 		bytes, err := jp.Bytes()
 		if err != nil {
 			return err
 		}
+
 		err = cl.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, bytes))
 		if err != nil {
 			return err
