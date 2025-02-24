@@ -286,14 +286,14 @@ shell:
     echo "libvirt_version: $libvirt_version"
 
     SYMLINC_LIST=$(cat <<EOF
-    libvirt.so.0.${libvirt_version}.0        lib64/libvirt.so.0
-    libvirt.so.0                             lib64/libvirt.so
-    libvirt-qemu.so.0.${libvirt_version}.0   lib64/libvirt-qemu.so.0
-    libvirt-qemu.so.0                        lib64/libvirt-qemu.so
-    libvirt-lxc.so.0.${libvirt_version}.0    lib64/libvirt-lxc.so.0
-    libvirt-lxc.so.0                         lib64/libvirt-lxc.so
-    libvirt-admin.so.0.${libvirt_version}.0  lib64/libvirt-admin.so.0
-    libvirt-admin.so.0                       lib64/libvirt-admin.so
+    libvirt.so.0.${libvirt_version}.0        libvirt.so.0
+    libvirt.so.0                             libvirt.so
+    libvirt-qemu.so.0.${libvirt_version}.0   libvirt-qemu.so.0
+    libvirt-qemu.so.0                        libvirt-qemu.so
+    libvirt-lxc.so.0.${libvirt_version}.0    libvirt-lxc.so.0
+    libvirt-lxc.so.0                         libvirt-lxc.so
+    libvirt-admin.so.0.${libvirt_version}.0  libvirt-admin.so.0
+    libvirt-admin.so.0                       libvirt-admin.so
     EOF
     )
 
@@ -303,7 +303,7 @@ shell:
       echo "Create symlinc for $LINE"
       TARGET=$(echo $LINE | awk -F' ' '{print $1}')
       SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
-      ln -s ../usr/local/lib64/$TARGET $SYMLINK
+      ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
     done <<< "$SYMLINC_LIST"
     
     cd /
