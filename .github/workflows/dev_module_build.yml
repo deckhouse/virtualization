@@ -30,7 +30,7 @@ on:
       pr_number:
         description: |
           Pull request number, like 563, or leave empty and choose a branch
-          For branches main, pre-alpha, release-*, tag will be generated as branch name
+          For branches main, release-*, tag will be generated as branch name
         required: false
         type: number
   pull_request:
@@ -38,7 +38,6 @@ on:
   push:
     branches:
       - main
-      - pre-alpha
       - release-*
 
 defaults:
@@ -79,7 +78,7 @@ jobs:
       - name: Set vars
         id: modules_module_tag
         run: |
-          if [[ "${{ github.ref_name }}" == 'pre-alpha' || "${{ github.ref_name }}" == 'main' ]]; then
+          if [[ "${{ github.ref_name }}" == 'main' ]]; then
             MODULES_MODULE_TAG="${{ github.ref_name }}"
           elif [[ "${{ github.ref_name }}" =~ ^release-[0-9]+\.[0-9]+ ]]; then
             MODULES_MODULE_TAG="${{ github.ref_name }}"
@@ -88,7 +87,7 @@ jobs:
           elif [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
             MODULES_MODULE_TAG="pr${{ github.event.inputs.pr_number }}"
           else
-            echo "::error title=Module image tag is required::Can't detect module tag from workflow context. Dev build uses branch name as tag for pre-alpha, main and release branches, and PR number for builds from pull requests. Check workflow for correctness."
+            echo "::error title=Module image tag is required::Can't detect module tag from workflow context. Dev build uses branch name as tag for main and release branches, and PR number for builds from pull requests. Check workflow for correctness."
             exit 1
           fi
 
