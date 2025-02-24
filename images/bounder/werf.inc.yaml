@@ -1,3 +1,19 @@
 ---
 image: {{ $.ImageName }}
-from: {{ $.Images.BASE_SCRATCH }}
+fromImage: distroless
+import:
+  - image: {{ $.ImageName }}-binaries
+    add: /relocate
+    to: /
+    after: setup
+docker:
+  CMD: ["echo", "Hi, my name is Bounder. I’m here to fulfill my destiny… to mount PVCs and vanish into the void."]
+---
+{{- $binaries := "/usr/bin/echo" }}
+
+image: {{ $.ImageName }}-binaries
+final: false
+fromImage: base-alt-p11-binaries
+shell:
+  setup:
+    - ./relocate_binaries.sh -i "{{ $binaries }}" -o /relocate

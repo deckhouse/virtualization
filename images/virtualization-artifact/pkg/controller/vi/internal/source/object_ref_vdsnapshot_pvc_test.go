@@ -55,6 +55,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 		settings   *dvcr.Settings
 		recorder   eventrecord.EventRecorderLogger
 		importer   *ImporterMock
+		bounder    *BounderMock
 		stat       *StatMock
 	)
 
@@ -72,6 +73,11 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 		}
 
 		importer = &ImporterMock{
+			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
+				return false, nil
+			},
+		}
+		bounder = &BounderMock{
 			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
 				return false, nil
 			},
@@ -196,7 +202,7 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 			pvc.Status.Phase = corev1.ClaimBound
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, bounder, client, nil, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())

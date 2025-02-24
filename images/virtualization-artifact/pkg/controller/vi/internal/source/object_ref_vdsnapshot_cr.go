@@ -45,12 +45,14 @@ type ObjectRefVirtualDiskSnapshotCR struct {
 	stat         Stat
 	client       client.Client
 	dvcrSettings *dvcr.Settings
+	diskService  Disk
 	recorder     eventrecord.EventRecorderLogger
 }
 
 func NewObjectRefVirtualDiskSnapshotCR(
 	importer Importer,
 	statService Stat,
+	diskService Disk,
 	client client.Client,
 	dvcrSettings *dvcr.Settings,
 	recorder eventrecord.EventRecorderLogger,
@@ -60,6 +62,7 @@ func NewObjectRefVirtualDiskSnapshotCR(
 		client:       client,
 		recorder:     recorder,
 		stat:         statService,
+		diskService:  diskService,
 		dvcrSettings: dvcrSettings,
 	}
 }
@@ -85,7 +88,7 @@ func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *virtv2.Vi
 	}
 
 	return blockdevice.NewStepTakers[*virtv2.VirtualImage](
-		step.NewReadyContainerRegistryStep(pod, ds.importer, ds.stat, ds.recorder, cb),
+		step.NewReadyContainerRegistryStep(pod, ds.importer, ds.diskService, ds.stat, ds.recorder, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreatePersistentVolumeClaimStep(pvc, ds.recorder, ds.client, cb),
 		step.NewCreatePodStep(pod, ds.dvcrSettings, ds.recorder, ds.importer, ds.stat, cb),

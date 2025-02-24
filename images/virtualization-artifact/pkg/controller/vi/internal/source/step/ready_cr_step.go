@@ -36,6 +36,10 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
+type ReadyContainerRegistryStepDiskService interface {
+	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
+}
+
 type ReadyContainerRegistryStepImporter interface {
 	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 }
@@ -49,26 +53,29 @@ type ReadyContainerRegistryStepStat interface {
 }
 
 type ReadyContainerRegistryStep struct {
-	pod      *corev1.Pod
-	importer ReadyContainerRegistryStepImporter
-	stat     ReadyContainerRegistryStepStat
-	recorder eventrecord.EventRecorderLogger
-	cb       *conditions.ConditionBuilder
+	pod         *corev1.Pod
+	importer    ReadyContainerRegistryStepImporter
+	stat        ReadyContainerRegistryStepStat
+	diskService ReadyContainerRegistryStepDiskService
+	recorder    eventrecord.EventRecorderLogger
+	cb          *conditions.ConditionBuilder
 }
 
 func NewReadyContainerRegistryStep(
 	pod *corev1.Pod,
+	diskService ReadyContainerRegistryStepDiskService,
 	importer ReadyContainerRegistryStepImporter,
 	stat ReadyContainerRegistryStepStat,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 ) *ReadyContainerRegistryStep {
 	return &ReadyContainerRegistryStep{
-		pod:      pod,
-		importer: importer,
-		stat:     stat,
-		recorder: recorder,
-		cb:       cb,
+		pod:         pod,
+		importer:    importer,
+		diskService: diskService,
+		stat:        stat,
+		recorder:    recorder,
+		cb:          cb,
 	}
 }
 
@@ -143,6 +150,11 @@ func (s ReadyContainerRegistryStep) cleanUpSupplements(ctx context.Context, vi *
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 
 	_, err := s.importer.CleanUpSupplements(ctx, supgen)
+	if err != nil {
+		return err
+	}
+
+	_, err = s.diskService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return err
 	}
