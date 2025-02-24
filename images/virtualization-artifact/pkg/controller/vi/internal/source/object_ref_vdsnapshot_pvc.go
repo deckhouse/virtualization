@@ -80,7 +80,7 @@ func (ds ObjectRefVirtualDiskSnapshotPVC) Sync(ctx context.Context, vi *virtv2.V
 	}
 
 	return blockdevice.NewStepTakers[*virtv2.VirtualImage](
-		step.NewReadyPersistentVolumeClaimStep(pvc, ds.recorder, cb),
+		step.NewReadyPersistentVolumeClaimStep(pvc, ds.bounder, ds.recorder, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreatePersistentVolumeClaimStep(pvc, ds.recorder, ds.client, cb),
 		step.NewCreateBounderPodStep(pvc, ds.bounder, ds.client, ds.recorder, cb),

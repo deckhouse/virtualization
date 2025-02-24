@@ -42,7 +42,7 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, vmcondition.TypeFilesystemReady); update {
+	if update := addAllUnknown(changed, vmcondition.TypeFilesystemFrozen); update {
 		return reconcile.Result{Requeue: true}, nil
 	}
 
@@ -55,16 +55,19 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		return reconcile.Result{}, err
 	}
 
-	cb := conditions.NewConditionBuilder(vmcondition.TypeFilesystemReady).
+	cb := conditions.NewConditionBuilder(vmcondition.TypeFilesystemFrozen).
 		Status(metav1.ConditionUnknown).
 		Generation(changed.GetGeneration())
 
-	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
+	defer func() {
+		if cb.Condition().Status == metav1.ConditionTrue {
+			conditions.SetCondition(cb, &changed.Status.Conditions)
+		} else {
+			conditions.RemoveCondition(vmcondition.TypeFilesystemFrozen, &changed.Status.Conditions)
+		}
+	}()
 
 	if kvvmi == nil {
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonFilesystemNotReady).
-			Message("The virtual machine is not running.")
 		return reconcile.Result{}, nil
 	}
 
@@ -75,14 +78,12 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	if kvvmi.Status.FSFreezeStatus == "frozen" {
-		cb.Status(metav1.ConditionFalse).
+		cb.Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonFilesystemFrozen).
-			Message("The virtual machine is frozen.")
+			Message("File system of the Virtual Machine is frozen.")
 		return reconcile.Result{}, nil
 	}
 
-	cb.Status(metav1.ConditionTrue).
-		Reason(vmcondition.ReasonFilesystemReady)
 	return reconcile.Result{}, nil
 }
 

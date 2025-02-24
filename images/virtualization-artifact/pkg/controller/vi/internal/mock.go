@@ -161,7 +161,7 @@ var _ Sources = &SourcesMock{}
 //
 //		// make and configure a mocked Sources
 //		mockedSources := &SourcesMock{
-//			ChangedFunc: func(contextMoqParam context.Context, vi *virtv2.VirtualImage) bool {
+//			ChangedFunc: func(ctx context.Context, vi *virtv2.VirtualImage) bool {
 //				panic("mock out the Changed method")
 //			},
 //			CleanUpFunc: func(ctx context.Context, vd *virtv2.VirtualImage) (bool, error) {
@@ -178,7 +178,7 @@ var _ Sources = &SourcesMock{}
 //	}
 type SourcesMock struct {
 	// ChangedFunc mocks the Changed method.
-	ChangedFunc func(contextMoqParam context.Context, vi *virtv2.VirtualImage) bool
+	ChangedFunc func(ctx context.Context, vi *virtv2.VirtualImage) bool
 
 	// CleanUpFunc mocks the CleanUp method.
 	CleanUpFunc func(ctx context.Context, vd *virtv2.VirtualImage) (bool, error)
@@ -190,8 +190,8 @@ type SourcesMock struct {
 	calls struct {
 		// Changed holds details about calls to the Changed method.
 		Changed []struct {
-			// ContextMoqParam is the contextMoqParam argument value.
-			ContextMoqParam context.Context
+			// Ctx is the ctx argument value.
+			Ctx context.Context
 			// Vi is the vi argument value.
 			Vi *virtv2.VirtualImage
 		}
@@ -214,21 +214,21 @@ type SourcesMock struct {
 }
 
 // Changed calls ChangedFunc.
-func (mock *SourcesMock) Changed(contextMoqParam context.Context, vi *virtv2.VirtualImage) bool {
+func (mock *SourcesMock) Changed(ctx context.Context, vi *virtv2.VirtualImage) bool {
 	if mock.ChangedFunc == nil {
 		panic("SourcesMock.ChangedFunc: method is nil but Sources.Changed was just called")
 	}
 	callInfo := struct {
-		ContextMoqParam context.Context
-		Vi              *virtv2.VirtualImage
+		Ctx context.Context
+		Vi  *virtv2.VirtualImage
 	}{
-		ContextMoqParam: contextMoqParam,
-		Vi:              vi,
+		Ctx: ctx,
+		Vi:  vi,
 	}
 	mock.lockChanged.Lock()
 	mock.calls.Changed = append(mock.calls.Changed, callInfo)
 	mock.lockChanged.Unlock()
-	return mock.ChangedFunc(contextMoqParam, vi)
+	return mock.ChangedFunc(ctx, vi)
 }
 
 // ChangedCalls gets all the calls that were made to Changed.
@@ -236,12 +236,12 @@ func (mock *SourcesMock) Changed(contextMoqParam context.Context, vi *virtv2.Vir
 //
 //	len(mockedSources.ChangedCalls())
 func (mock *SourcesMock) ChangedCalls() []struct {
-	ContextMoqParam context.Context
-	Vi              *virtv2.VirtualImage
+	Ctx context.Context
+	Vi  *virtv2.VirtualImage
 } {
 	var calls []struct {
-		ContextMoqParam context.Context
-		Vi              *virtv2.VirtualImage
+		Ctx context.Context
+		Vi  *virtv2.VirtualImage
 	}
 	mock.lockChanged.RLock()
 	calls = mock.calls.Changed

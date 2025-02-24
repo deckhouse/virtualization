@@ -54,6 +54,7 @@ type PodSettings struct {
 	PriorityClassName    string
 	PVCName              string
 	NodePlacement        *provisioner.NodePlacement
+	Finalizer            string
 }
 
 // CreatePod creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
@@ -85,6 +86,9 @@ func (imp *Bounder) makeBounderPodSpec() (*corev1.Pod, error) {
 			Namespace: imp.PodSettings.Namespace,
 			Annotations: map[string]string{
 				annotations.AnnCreatedBy: "yes",
+			},
+			Finalizers: []string{
+				imp.PodSettings.Finalizer,
 			},
 			OwnerReferences: []metav1.OwnerReference{
 				imp.PodSettings.OwnerReference,

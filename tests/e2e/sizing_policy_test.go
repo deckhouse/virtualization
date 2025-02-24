@@ -61,9 +61,9 @@ func CompareVirtualMachineClassReadyStatus(vmName, expectedStatus string) {
 	GinkgoHelper()
 	vm := virtv2.VirtualMachine{}
 	err := GetObject(kc.ResourceVM, vmName, &vm, kc.GetOptions{Namespace: conf.Namespace})
-	Expect(err).NotTo(HaveOccurred(), err)
+	Expect(err).NotTo(HaveOccurred(), "%v", err)
 	status, err := GetConditionStatus(&vm, "VirtualMachineClassReady")
-	Expect(err).NotTo(HaveOccurred(), err)
+	Expect(err).NotTo(HaveOccurred(), "%v", err)
 	Expect(status).To(Equal(expectedStatus), fmt.Sprintf("VirtualMachineClassReady status should be '%s'", expectedStatus))
 }
 
