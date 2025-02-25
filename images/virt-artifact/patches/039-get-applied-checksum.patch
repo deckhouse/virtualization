@@ -625,10 +625,10 @@ index 0000000000..0e53df4907
 +}
 diff --git a/pkg/virt-handler/checksum-controller/checksum-controller.go b/pkg/virt-handler/checksum-controller/checksum-controller.go
 new file mode 100644
-index 0000000000..7bf581cb80
+index 0000000000..b06650cab7
 --- /dev/null
 +++ b/pkg/virt-handler/checksum-controller/checksum-controller.go
-@@ -0,0 +1,203 @@
+@@ -0,0 +1,208 @@
 +package checksum_controller
 +
 +import (
@@ -760,16 +760,21 @@ index 0000000000..7bf581cb80
 +
 +func (c *Controller) patchVMI(vmi *v1.VirtualMachineInstance, handlerSum, launcherSum string) error {
 +	patchset := patch.New()
-+	if vmi.Annotations[AnnotationChecksum] != handlerSum {
-+		patchset.AddOption(
-+			patch.WithReplace(fmt.Sprintf("/metadata/annotations/%s", EscapeJSONPointer(AnnotationChecksum)), handlerSum),
-+		)
++
++	addPatch := func(anno, needValue string) {
++		value, exist := vmi.Annotations[anno]
++		path := fmt.Sprintf("/metadata/annotations/%s", EscapeJSONPointer(anno))
++
++		if exist && value != needValue {
++			patchset.AddOption(patch.WithReplace(path, needValue))
++		} else if !exist {
++			patchset.AddOption(patch.WithAdd(path, needValue))
++		}
 +	}
-+	if vmi.Annotations[AnnotationChecksumApplied] != launcherSum {
-+		patchset.AddOption(
-+			patch.WithReplace(fmt.Sprintf("/metadata/annotations/%s", EscapeJSONPointer(AnnotationChecksumApplied)), launcherSum),
-+		)
-+	}
++
++	addPatch(AnnotationChecksum, handlerSum)
++	addPatch(AnnotationChecksumApplied, launcherSum)
++
 +	if patchset.IsEmpty() {
 +		return nil
 +	}
