@@ -28,6 +28,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
+	networkpolicy "github.com/deckhouse/virtualization-controller/pkg/common/network_policy"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/uploader"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -94,6 +95,11 @@ func (s UploaderService) Start(
 		return err
 	}
 
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, pod, s.protection.GetFinalizer())
+	if err != nil {
+		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
+	}
+
 	err = supplements.EnsureForPod(ctx, s.client, sup, pod, caBundle, s.dvcrSettings)
 	if err != nil {
 		return err
@@ -129,8 +135,12 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplement
 	if err != nil {
 		return false, err
 	}
+	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.UploaderPod())
+	if err != nil {
+		return false, err
+	}
 
-	err = s.protection.RemoveProtection(ctx, pod, svc, ing)
+	err = s.protection.RemoveProtection(ctx, pod, svc, ing, networkPolicy)
 	if err != nil {
 		return false, err
 	}
@@ -140,6 +150,14 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplement
 	if pod != nil {
 		haveDeleted = true
 		err = s.client.Delete(ctx, pod)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return false, err
+		}
+	}
+
+	if networkPolicy != nil {
+		haveDeleted = true
+		err = s.client.Delete(ctx, networkPolicy)
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return false, err
 		}
@@ -165,7 +183,12 @@ func (s UploaderService) CleanUpSupplements(ctx context.Context, sup *supplement
 }
 
 func (s UploaderService) Protect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
-	err := s.protection.AddProtection(ctx, pod, svc, ing)
+	networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod)
+	if err != nil {
+		return err
+	}
+
+	err = s.protection.AddProtection(ctx, pod, svc, ing, networkPolicy)
 	if err != nil {
 		return fmt.Errorf("failed to add protection for uploader's supplements: %w", err)
 	}
@@ -174,7 +197,12 @@ func (s UploaderService) Protect(ctx context.Context, pod *corev1.Pod, svc *core
 }
 
 func (s UploaderService) Unprotect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error {
-	err := s.protection.RemoveProtection(ctx, pod, svc, ing)
+	networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod)
+	if err != nil {
+		return err
+	}
+
+	err = s.protection.RemoveProtection(ctx, pod, svc, ing, networkPolicy)
 	if err != nil {
 		return fmt.Errorf("failed to remove protection for uploader's supplements: %w", err)
 	}

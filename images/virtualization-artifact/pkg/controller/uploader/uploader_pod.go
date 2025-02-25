@@ -97,6 +97,7 @@ func (p *Pod) makeSpec() (*corev1.Pod, error) {
 				annotations.AnnCreatedBy: "yes",
 			},
 			Labels: map[string]string{
+				annotations.AppLabel:             annotations.DVCRLabelValue,
 				annotations.UploaderServiceLabel: p.PodSettings.ServiceName,
 			},
 			OwnerReferences: []metav1.OwnerReference{
