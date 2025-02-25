@@ -104,7 +104,7 @@ func (s ImporterService) Start(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, pod)
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, pod, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
