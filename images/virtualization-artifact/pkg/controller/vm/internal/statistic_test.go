@@ -70,12 +70,18 @@ func TestStatisticHandler(t *testing.T) {
 			expect: func(vm *virtv2.VirtualMachine) error {
 				require.NotNil(t, vm)
 				res := vm.Status.Resources
-				require.Equal(t, res.CPU.Cores, 1)
-				require.Equal(t, res.CPU.CoreFraction, "50%")
-				require.Equal(t, res.CPU.RequestedCores.MilliValue(), int64(500))
-				require.Equal(t, res.CPU.RuntimeOverhead.MilliValue(), int64(0))
-				require.Equal(t, res.Memory.Size.Value(), int64(536870912))
-				require.Equal(t, res.Memory.RuntimeOverhead.Value(), int64(254803968))
+				require.Equal(t, 1, res.CPU.Cores)
+				require.Equal(t, "50%", res.CPU.CoreFraction)
+				require.Equal(t, int64(500), res.CPU.RequestedCores.MilliValue())
+				require.Equal(t, int64(0), res.CPU.RuntimeOverhead.MilliValue())
+
+				require.NotNil(t, res.CPU.Topology)
+				require.Equal(t, 1, res.CPU.Topology.CoresPerSocket)
+				require.Equal(t, 1, res.CPU.Topology.Sockets)
+
+				require.Equal(t, int64(536870912), res.Memory.Size.Value())
+				require.Equal(t, int64(254803968), res.Memory.RuntimeOverhead.Value())
+
 				return nil
 			},
 		},
