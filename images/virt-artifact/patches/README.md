@@ -237,3 +237,6 @@ Since libvirt and QEMU require writable directories, five emptyDir volumes are a
 - /var/cache/libvirt
 
 This ensures compatibility while maintaining a read-only root filesystem for improved isolation and security.
+
+#### `038-mount-containerdisk-always-readonly.patch`
+Changes the behavior so that the containerdisk is always mounted as read-only.
