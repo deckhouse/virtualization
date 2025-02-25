@@ -74,6 +74,11 @@ mkdir -p "${OUT_DIR}"
 
 function relocate_item() {
   local file=$1
+  
+  if [[ $file =~ ^(/lib|/lib64|/bin|/sbin) ]];then
+    file="/usr${file}"
+  fi
+  
   local new_place="${OUT_DIR}$(dirname ${file})"
 
   mkdir -p ${new_place}
