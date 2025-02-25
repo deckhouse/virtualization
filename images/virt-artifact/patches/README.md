@@ -237,3 +237,13 @@ Since libvirt and QEMU require writable directories, five emptyDir volumes are a
 - /var/cache/libvirt
 
 This ensures compatibility while maintaining a read-only root filesystem for improved isolation and security.
+
+#### `039-get-applied-checksum.patch`
+
+This patch introduces the GetAppliedChecksum() method in virt-launcher.
+
+virt-handler now tracks synchronized VMIs and computes their checksums. Periodically, it queries virt-launcher for the applied checksum. This ensures that we have two checksums:
+
+The last one sent for synchronization.
+The one actually applied.
+Storing these checksums in VMI annotations helps verify that spec changes were pushed by virt-handler and not by an attacker.
