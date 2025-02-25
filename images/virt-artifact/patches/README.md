@@ -238,7 +238,7 @@ Since libvirt and QEMU require writable directories, five emptyDir volumes are a
 
 This ensures compatibility while maintaining a read-only root filesystem for improved isolation and security.
 
-#### `038-get-applied-checksum.patch`
+#### `039-get-applied-checksum.patch`
 
 This patch introduces the GetAppliedChecksum() method in virt-launcher.
 
