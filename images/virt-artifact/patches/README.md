@@ -263,3 +263,6 @@ virt-handler now tracks synchronized VMIs and computes their checksums. Periodic
 The last one sent for synchronization.
 The one actually applied.
 Storing these checksums in VMI annotations helps verify that spec changes were pushed by virt-handler and not by an attacker.
+
+#### `039-mount-containerdisk-always-readonly.patch`
+Changes the behavior so that the containerdisk is always mounted as read-only.
