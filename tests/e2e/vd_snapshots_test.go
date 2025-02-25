@@ -433,7 +433,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 				Eventually(func() error {
 					frozen, err := CheckFileSystemFrozen(vm.Name)
 					if frozen {
-						return errors.New("filesystem of the Virtual Machine is not frozen")
+						return errors.New("filesystem of the Virtual Machine is frozen")
 					}
 					return err
 				}).WithTimeout(
