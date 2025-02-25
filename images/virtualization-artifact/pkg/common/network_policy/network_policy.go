@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 )
 
-func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object) error {
+func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object, finalizer string) error {
 	networkPolicy := netv1.NetworkPolicy{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "NetworkPolicy",
@@ -38,6 +38,7 @@ func CreateNetworkPolicy(ctx context.Context, c client.Client, obj metav1.Object
 			Name:            obj.GetName(),
 			Namespace:       obj.GetNamespace(),
 			OwnerReferences: obj.GetOwnerReferences(),
+			Finalizers:      []string{finalizer},
 		},
 		Spec: netv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{

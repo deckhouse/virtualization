@@ -132,7 +132,7 @@ func (s DiskService) Start(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv)
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
@@ -169,7 +169,7 @@ func (s DiskService) StartImmediate(
 		return err
 	}
 
-	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv)
+	err = networkpolicy.CreateNetworkPolicy(ctx, s.client, dv, s.protection.GetFinalizer())
 	if err != nil {
 		return fmt.Errorf("failed to create NetworkPolicy: %w", err)
 	}
