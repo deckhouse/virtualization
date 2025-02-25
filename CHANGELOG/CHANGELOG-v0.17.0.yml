@@ -1,0 +1,28 @@
+core:
+  fixes:
+    - summary: directories in root such as bin,sbin,etc linked to their respective counterparts in /usr
+      pull_request: https://github.com/deckhouse/virtualization/pull/789
+kubevirt:
+  fixes:
+    - summary: add limits for init container `etc-libvirt-init`
+      pull_request: https://github.com/deckhouse/virtualization/pull/793
+    - summary: >-
+        fix hotplug container disk mounter blocking the queue when virt-handler attempts to
+        reconcile ghost records
+      pull_request: https://github.com/deckhouse/virtualization/pull/717
+vd:
+  fixes:
+    - summary: fix resizing handler and cover it with unit tests
+      pull_request: https://github.com/deckhouse/virtualization/pull/685
+vi:
+  fixes:
+    - summary: bug fixes related to VirtualImage and VDSnapshot ObjectRef
+      pull_request: https://github.com/deckhouse/virtualization/pull/781
+vm:
+  features:
+    - summary: VirtualMachine.Status.BlockDeviceRefs contains hotplugged images
+      pull_request: https://github.com/deckhouse/virtualization/pull/681
+  fixes:
+    - summary: rename filesystemReady condition to filesystemFrozen
+      pull_request: https://github.com/deckhouse/virtualization/pull/714
+
