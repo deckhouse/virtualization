@@ -36,7 +36,7 @@ import (
 const deletionHandlerName = "DeletionHandler"
 
 type UnplugInterface interface {
-	CanUnplug(kvvm *virtv1.VirtualMachine, diskName string) bool
+	CanUnplug(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine, diskName, originalName, diskKind string) bool
 	UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualMachine, diskName string) error
 }
 type DeletionHandler struct {
@@ -89,7 +89,12 @@ func (h *DeletionHandler) cleanUp(ctx context.Context, vmbda *virtv2.VirtualMach
 		return err
 	}
 
-	if h.unplug.CanUnplug(kvvm, diskName) {
+	vm, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.VirtualMachineName}, h.client, &virtv2.VirtualMachine{})
+	if err != nil {
+		return err
+	}
+
+	if h.unplug.CanUnplug(kvvm, vm, diskName, vmbda.Spec.BlockDeviceRef.Name, vmbda.Spec.BlockDeviceRef.Kind.String()) {
 		h.log.Info("Unplug Virtual Disk", slog.String("diskName", diskName), slog.String("vm", kvvm.Name))
 		if err = h.unplug.UnplugDisk(ctx, kvvm, diskName); err != nil {
 			if strings.Contains(err.Error(), "does not exist") {
