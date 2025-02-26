@@ -19,6 +19,7 @@ package kvbuilder
 import (
 	"fmt"
 	"maps"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -519,7 +520,12 @@ func (b *KVVM) GetOSSettings() map[string]interface{} {
 	}
 }
 
-func (b *KVVM) SetNetworkInterface(name string) {
+func (b *KVVM) SetNetworkInterface(vm *virtv2.VirtualMachine, name string) {
+	hasMacvtap := strings.Contains(vm.GetAnnotations()[annotations.AnnAdditionalNetworkInterfaces], "macvtap")
+	if hasMacvtap {
+		return
+	}
+
 	devPreset := DeviceOptionsPresets.Find(b.opts.EnableParavirtualization)
 
 	net := virtv1.Network{
@@ -546,6 +552,98 @@ func (b *KVVM) SetNetworkInterface(name string) {
 			return v1.Name == v2.Name
 		}, true,
 	)
+}
+
+func (b *KVVM) SetMacvtapInterfaces(vm *virtv2.VirtualMachine) {
+	anis := vm.GetAnnotations()[annotations.AnnAdditionalNetworkInterfaces]
+	if anis == "" {
+		return
+	}
+
+	var networks []string
+
+	for _, network := range strings.Split(anis, ",") {
+		iname := strings.Split(network, ":")
+		if iname[1] == "macvtap" {
+			networks = append(networks, iname[0])
+		}
+	}
+
+	for _, network := range networks {
+		net := virtv1.Network{
+			Name: network,
+			NetworkSource: virtv1.NetworkSource{
+				Pod: &virtv1.PodNetwork{},
+			},
+		}
+		b.Resource.Spec.Template.Spec.Networks = array.SetArrayElem(
+			b.Resource.Spec.Template.Spec.Networks, net,
+			func(v1, v2 virtv1.Network) bool {
+				return v1.Name == v2.Name
+			}, true,
+		)
+
+		iface := virtv1.Interface{
+			Name: network,
+			Binding: &virtv1.PluginBinding{
+				Name: "macvtap",
+			},
+		}
+
+		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = array.SetArrayElem(
+			b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, iface,
+			func(v1, v2 virtv1.Interface) bool {
+				return v1.Name == v2.Name
+			}, true,
+		)
+	}
+}
+
+func (b *KVVM) SetMultusInterfaces(vm *virtv2.VirtualMachine) {
+	anis := vm.GetAnnotations()[annotations.AnnAdditionalNetworkInterfaces]
+	if anis == "" {
+		return
+	}
+
+	var networks []string
+
+	for _, network := range strings.Split(anis, ",") {
+		iname := strings.Split(network, ":")
+		if iname[1] == "multus" {
+			networks = append(networks, iname[0])
+		}
+	}
+
+	for _, network := range networks {
+		net := virtv1.Network{
+			Name: network,
+			NetworkSource: virtv1.NetworkSource{
+				Multus: &virtv1.MultusNetwork{
+					NetworkName: network,
+				},
+			},
+		}
+		b.Resource.Spec.Template.Spec.Networks = array.SetArrayElem(
+			b.Resource.Spec.Template.Spec.Networks, net,
+			func(v1, v2 virtv1.Network) bool {
+				return v1.Name == v2.Name
+			}, true,
+		)
+
+		iface := virtv1.Interface{
+			Name: network,
+			InterfaceBindingMethod: virtv1.InterfaceBindingMethod{
+				Bridge: &virtv1.InterfaceBridge{},
+			},
+		}
+
+		b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = array.SetArrayElem(
+			b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces, iface,
+			func(v1, v2 virtv1.Interface) bool {
+				return v1.Name == v2.Name
+			}, true,
+		)
+	}
 }
 
 func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) error {
