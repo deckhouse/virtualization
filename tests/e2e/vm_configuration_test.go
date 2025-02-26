@@ -99,7 +99,7 @@ func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, virtualM
 		By(fmt.Sprintf("Checking the number of processor cores %s changing", stage))
 		vmResource := virtv2.VirtualMachine{}
 		err := GetObject(kc.ResourceVM, vm, &vmResource, kc.GetOptions{Namespace: conf.Namespace})
-		Expect(err).NotTo(HaveOccurred(), err.Error())
+		Expect(err).NotTo(HaveOccurred(), "%v", err)
 		Expect(vmResource.Spec.CPU.Cores).To(Equal(requiredValue))
 		switch {
 		case approvalMode == ManualMode && stage == StageAfter:
@@ -285,7 +285,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 				vmResource := virtv2.VirtualMachine{}
 				err := GetObject(kc.ResourceVM, vms[0], &vmResource, kc.GetOptions{Namespace: conf.Namespace})
-				Expect(err).NotTo(HaveOccurred(), err.Error())
+				Expect(err).NotTo(HaveOccurred(), "%v", err)
 
 				oldCpuCores = vmResource.Spec.CPU.Cores
 				newCPUCores = 1 + (vmResource.Spec.CPU.Cores & 1)
