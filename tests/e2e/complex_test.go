@@ -217,7 +217,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	Describe("Power state checks", func() {
 		Context("When VMs are ready", func() {
-			It("stop VMs by VMOPs", func() {
+			It("stops VMs by VMOPs", func() {
 				var vmList virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -246,7 +246,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 
 		Context(fmt.Sprintf("When VMs are in %s phases", virtv2.MachineStopped.String()), func() {
-			It("start VMs by VMOP", func() {
+			It("starts VMs by VMOP", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
