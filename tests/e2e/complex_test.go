@@ -223,7 +223,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			notAlwaysOnVMStopVMs []string
 		)
 
-		Context("Verify that the virtual machines are stopping", func() {
+		Context("Verify that the virtual machines are stopping by VMOPs", func() {
 			It("stops VMs by VMOPs", func() {
 				var vmList virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
@@ -268,7 +268,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", virtv2.MachineStopped))
-				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
+				WaitResourcesByPhase(notAlwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -309,6 +309,76 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					}
 				}
 
+				StartVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, notAlwaysOnVMs...)
+			})
+
+			It("checks VMs and VMOPs phases", func() {
+				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
+				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By("Virtual machine agents should be ready")
+				WaitVmAgentReady(kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+		})
+
+		Context("Verify that the virtual machines are stopping by ssh", func() {
+			It("stops VMs by VMOPs", func() {
+				var vmList virtv2.VirtualMachineList
+				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+				})
+				Expect(err).ShouldNot(HaveOccurred())
+
+				alwaysOnVMs = []string{}
+				notAlwaysOnVMs = []string{}
+				for _, vmObj := range vmList.Items {
+					if vmObj.Spec.RunPolicy == virtv2.AlwaysOnPolicy {
+						alwaysOnVMs = append(alwaysOnVMs, vmObj.Name)
+					} else {
+						notAlwaysOnVMs = append(notAlwaysOnVMs, vmObj.Name)
+					}
+				}
+				var vms []string
+				vms = append(vms, alwaysOnVMs...)
+				vms = append(vms, notAlwaysOnVMs...)
+
+				StopVirtualMachinesBySSH(vms...)
+			})
+
+			It("checks VMs phases", func() {
+				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", virtv2.MachineStopped))
+				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By(fmt.Sprintf("AlwaysOn VMs should be in %s phases", virtv2.MachineRunning))
+				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineRunning), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+
+			It("Cleanup VMOPs", func() {
+				res := kubectl.Delete(kc.DeleteOptions{
+					Namespace:      conf.Namespace,
+					Labels:         testCaseLabel,
+					IgnoreNotFound: true,
+					Resource:       kc.ResourceVMOP,
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), "%v", res.StdErr())
+			})
+
+			It("start not AlwaysOn VMs", func() {
 				StartVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, notAlwaysOnVMs...)
 			})
 

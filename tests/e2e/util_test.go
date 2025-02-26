@@ -578,6 +578,16 @@ func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPT
 	}
 }
 
+func StopVirtualMachinesBySSH(virtualMachines ...string) {
+	GinkgoHelper()
+
+	cmd := "sudo poweroff"
+
+	for _, vm := range virtualMachines {
+		ExecSshCommand(vm, cmd)
+	}
+}
+
 func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	GinkgoHelper()
 
