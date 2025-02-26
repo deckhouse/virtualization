@@ -245,7 +245,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context(fmt.Sprintf("When VMs are in %s phases", virtv2.MachineStopped.String()), func() {
+		Context(fmt.Sprintf("When VMs are in %s phases", string(virtv2.MachineStopped)), func() {
 			It("starts VMs by VMOP", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -277,7 +277,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be ready")
+				By("Virtual machine agents should be ready")
 				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
@@ -307,7 +307,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be ready")
+				By("Virtual machine agents should be ready")
 				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
@@ -331,13 +331,13 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 
 			It("checks VMs phases", func() {
-				By("Virtual machines should be stopped")
-				WaitPhaseByLabel(kc.ResourceVM, virtv2.MachineStopped.String(), kc.WaitOptions{
+				By("Virtual machine should be stopped")
+				WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be ready")
+				By("Virtual machine agents should be ready")
 				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
@@ -355,12 +355,12 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 			It("checks VMs phases", func() {
 				By("Virtual machines should be stopped")
-				WaitPhaseByLabel(kc.ResourceVM, virtv2.MachineStopped.String(), kc.WaitOptions{
+				WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By("Virtual machines should be ready")
+				By("Virtual machine agents should be ready")
 				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,

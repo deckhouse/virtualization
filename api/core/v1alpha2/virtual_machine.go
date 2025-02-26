@@ -384,10 +384,6 @@ const (
 	MachineDegraded    MachinePhase = "Degraded"
 )
 
-func (p MachinePhase) String() string {
-	return string(p)
-}
-
 // VirtualMachineList contains a list of VirtualMachine
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualMachineList struct {
