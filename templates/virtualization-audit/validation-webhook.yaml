@@ -1,0 +1,40 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: virtualization-audit-admission-webhook
+webhooks:
+  - name: "vm.virtualization-audit.validate.d8-virtualization"
+    rules:
+      - apiGroups:   ["virtualization.deckhouse.io"]
+        apiVersions: ["v1alpha2"]
+        operations:  ["CREATE", "UPDATE"]
+        resources:   ["virtualmachines"]
+        scope:       "Namespaced"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-audit
+        path: /virtualmachine
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+  - name: "vi.virtualization-audit.validate.d8-virtualization"
+    rules:
+      - apiGroups: [ "virtualization.deckhouse.io" ]
+        apiVersions: [ "v1alpha2" ]
+        operations: [ "CREATE", "UPDATE" ]
+        resources: [ "virtualimages" ]
+        scope: "Namespaced"
+    clientConfig:
+      service:
+        namespace: d8-{{ .Chart.Name }}
+        name: virtualization-audit
+        path: /virtualimage
+        port: 443
+      caBundle: |
+        {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
+    admissionReviewVersions: [ "v1" ]
+    sideEffects: None
