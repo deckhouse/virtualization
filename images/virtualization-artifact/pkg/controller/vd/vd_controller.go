@@ -84,9 +84,9 @@ func NewController(
 		internal.NewSnapshottingHandler(disk),
 		internal.NewResizingHandler(recorder, disk),
 		internal.NewDeletionHandler(sources),
-		internal.NewAttacheeHandler(mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
 		internal.NewInUseHandler(mgr.GetClient()),
+		internal.NewProtectionHandler(),
 	)
 
 	vdController, err := controller.New(ControllerName, mgr, controller.Options{
