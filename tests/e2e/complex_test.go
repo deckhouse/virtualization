@@ -218,13 +218,6 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Describe("Power state checks", func() {
 		Context("When VMs are ready", func() {
 			It("stop VMs by VMOPs", func() {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-
 				var vmList virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
 					Labels:    testCaseLabel,
