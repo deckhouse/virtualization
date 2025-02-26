@@ -20,48 +20,29 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const (
-	// SocketsForUpTo32Cores represents the number of sockets required for configurations
-	// with up to 32 cores in total.
-	SocketsForUpTo32Cores = 2
-
-	// SocketsForUpTo64Cores represents the number of sockets required for configurations
-	// with up to 64 cores in total.
-	SocketsForUpTo64Cores = 4
-
-	// SocketsForMoreThan64Cores represents the number of sockets required for configurations
-	// with more than 64 cores in total.
-	SocketsForMoreThan64Cores = 8
-
-	// MaxCoresPerSocket defines the maximum number of cores that can be allocated to a single socket.
-	MaxCoresPerSocket = 16
-
-	// MaxCoresFor2Sockets defines the maximum number of cores that can be allocated across two sockets.
-	MaxCoresFor2Sockets = MaxCoresPerSocket * 2
-
-	// MaxCoresFor4Sockets defines the maximum number of cores that can be allocated across four sockets.
-	MaxCoresFor4Sockets = MaxCoresPerSocket * 4
-)
-
 // CalculateCoresAndSockets calculates the number of sockets and cores per socket needed to achieve
 // the desired total number of CPU cores.
 // The function tries to minimize the number of sockets while ensuring the desired core count.
+//
+// https://bugzilla.redhat.com/show_bug.cgi?id=1653453
+// The number of cores per socket and the growth of the number of sockets is chosen in such a way as
+// to have less impact on the performance of the virtual machine, as well as on compatibility with operating systems
 func CalculateCoresAndSockets(desiredCores int) (sockets, coresPerSocket int) {
 	if desiredCores < 1 {
 		return 1, 1
 	}
 
-	if desiredCores <= MaxCoresPerSocket {
+	if desiredCores <= 16 {
 		return 1, desiredCores
 	}
 
 	switch {
-	case desiredCores <= MaxCoresFor2Sockets:
-		sockets = SocketsForUpTo32Cores
-	case desiredCores <= MaxCoresFor4Sockets:
-		sockets = SocketsForUpTo64Cores
+	case desiredCores <= 32:
+		sockets = 2
+	case desiredCores <= 64:
+		sockets = 4
 	default:
-		sockets = SocketsForMoreThan64Cores
+		sockets = 8
 	}
 
 	coresPerSocket = desiredCores / sockets
