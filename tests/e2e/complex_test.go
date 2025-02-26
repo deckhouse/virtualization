@@ -200,7 +200,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Describe("External connection", func() {
-		Context("When VMs are ready", func() {
+		Context("When Virtual machine agents are ready", func() {
 			It("checks VMs external connectivity", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -216,7 +216,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Describe("Power state checks", func() {
-		Context("When VMs are ready", func() {
+		Context("When Virtual machine agents are ready", func() {
 			It("stops VMs by VMOPs", func() {
 				var vmList virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
@@ -388,7 +388,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Describe("Migrations", func() {
 		skipConnectivityCheck := make(map[string]struct{})
 
-		Context("When VMs are ready", func() {
+		Context("When Virtual machine agents are ready", func() {
 			It("starts migrations", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
