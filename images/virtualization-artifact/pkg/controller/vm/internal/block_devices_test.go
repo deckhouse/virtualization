@@ -48,116 +48,228 @@ func TestBlockDeviceHandler(t *testing.T) {
 	RunSpecs(t, "BlockDeviceHandler Suite")
 }
 
-var _ = Describe("func areVirtualDisksAllowedToUse", func() {
-	var h *BlockDeviceHandler
-	var vdFoo *virtv2.VirtualDisk
-	var vdBar *virtv2.VirtualDisk
-
-	blockDeviceHandlerMock := &BlockDeviceServiceMock{}
-	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
-		return 1, nil
+var _ = Describe("Test BlockDeviceReady condition", func() {
+	var namespacedName = types.NamespacedName{
+		Namespace: "ns",
+		Name:      "vm",
 	}
 
+	getVMWithOneVD := func(phase virtv2.MachinePhase) *virtv2.VirtualMachine {
+		return &virtv2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      namespacedName.Name,
+				Namespace: namespacedName.Namespace,
+			},
+			Spec: virtv2.VirtualMachineSpec{
+				BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+					{
+						Kind: virtv2.DiskDevice,
+						Name: "vd1",
+					},
+				},
+			},
+			Status: virtv2.VirtualMachineStatus{
+				Phase: phase,
+				BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+					{
+						Kind: virtv2.DiskDevice,
+						Name: "vd1",
+					},
+				},
+			},
+		}
+	}
+
+	getNotReadyVD := func() *virtv2.VirtualDisk {
+		return &virtv2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vd1",
+				Namespace: namespacedName.Namespace,
+			},
+			Status: virtv2.VirtualDiskStatus{
+				Conditions: []metav1.Condition{},
+			},
+		}
+	}
+
+	getNotAllowedReadyVD := func() *virtv2.VirtualDisk {
+		return &virtv2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vd1",
+				Namespace: namespacedName.Namespace,
+			},
+			Status: virtv2.VirtualDiskStatus{
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: "testPvc",
+				},
+				Phase: virtv2.DiskReady,
+				Conditions: []metav1.Condition{
+					{
+						Type:    vdcondition.ReadyType.String(),
+						Status:  metav1.ConditionTrue,
+						Reason:  string(vdcondition.Ready),
+						Message: "",
+					},
+				},
+				AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					{
+						Name: namespacedName.Name,
+					},
+				},
+			},
+		}
+	}
+
+	getAllowedReadyVD := func() *virtv2.VirtualDisk {
+		return &virtv2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vd1",
+				Namespace: namespacedName.Namespace,
+			},
+			Status: virtv2.VirtualDiskStatus{
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: "testPvc",
+				},
+				Phase: virtv2.DiskReady,
+				Conditions: []metav1.Condition{
+					{
+						Type:    vdcondition.ReadyType.String(),
+						Status:  metav1.ConditionTrue,
+						Reason:  vdcondition.Ready.String(),
+						Message: "",
+					},
+					{
+						Type:   vdcondition.InUseType.String(),
+						Status: metav1.ConditionTrue,
+						Reason: vdcondition.AttachedToVirtualMachine.String(),
+					},
+				},
+				AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					{
+						Name: namespacedName.Name,
+					},
+				},
+			},
+		}
+	}
+
+	var testCases = []struct {
+		vm       *virtv2.VirtualMachine
+		vd1      *virtv2.VirtualDisk
+		vd2      *virtv2.VirtualDisk
+		expected string
+	}{
+		{
+			vd1:      getNotReadyVD(),
+			vd2:      nil,
+			vm:       getVMWithOneVD(virtv2.MachinePending),
+			expected: "Waiting for block devices to become ready: 0/1.",
+		},
+		{
+			vd1:      getNotReadyVD(),
+			vd2:      nil,
+			vm:       getVMWithOneVD(virtv2.MachineRunning),
+			expected: "Waiting for block devices to become ready: 0/1.",
+		},
+		{
+			vd1:      getNotReadyVD(),
+			vd2:      nil,
+			vm:       getVMWithOneVD(virtv2.MachineStopped),
+			expected: "Waiting for block devices to become ready: 0/1.",
+		},
+		{
+			vd1:      getNotAllowedReadyVD(),
+			vd2:      nil,
+			vm:       getVMWithOneVD(virtv2.MachinePending),
+			expected: "Virtual disks cannot be used because they are being used for creating an image.",
+		},
+		{
+			vd1:      getNotAllowedReadyVD(),
+			vd2:      nil,
+			vm:       getVMWithOneVD(virtv2.MachineRunning),
+			expected: "Virtual disks cannot be used because they are being used for creating an image.",
+		},
+		{
+			vd1:      getNotAllowedReadyVD(),
+			vd2:      nil,
+			vm:       getVMWithOneVD(virtv2.MachineStopped),
+			expected: "Virtual disks cannot be used because they are being used for creating an image.",
+		},
+		{
+			vd1:      getAllowedReadyVD(),
+			vd2:      nil,
+			vm:       getVMWithOneVD(virtv2.MachinePending),
+			expected: "",
+		},
+		{
+			vd1:      getAllowedReadyVD(),
+			vd2:      nil,
+			vm:       getVMWithOneVD(virtv2.MachineRunning),
+			expected: "",
+		},
+		{
+			vd1:      getAllowedReadyVD(),
+			vd2:      nil,
+			vm:       getVMWithOneVD(virtv2.MachineStopped),
+			expected: "",
+		},
+	}
+
+	var (
+		ctx          context.Context
+		recorderMock *eventrecord.EventRecorderLoggerMock
+	)
+
 	BeforeEach(func() {
-		h = NewBlockDeviceHandler(nil, &eventrecord.EventRecorderLoggerMock{
-			EventFunc: func(_ client.Object, _, _, _ string) {},
-		}, blockDeviceHandlerMock)
-		vdFoo = &virtv2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Name: "vd-foo"},
-			Status: virtv2.VirtualDiskStatus{
-				Conditions: []metav1.Condition{
-					{
-						Type:   vdcondition.InUseType.String(),
-						Reason: vdcondition.AttachedToVirtualMachine.String(),
-						Status: metav1.ConditionTrue,
-					},
-				},
-			},
-		}
-		vdBar = &virtv2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Name: "vd-bar"},
-			Status: virtv2.VirtualDiskStatus{
-				Conditions: []metav1.Condition{
-					{
-						Type:   vdcondition.InUseType.String(),
-						Reason: vdcondition.AttachedToVirtualMachine.String(),
-						Status: metav1.ConditionTrue,
-					},
-				},
-			},
+		ctx = logger.ToContext(context.TODO(), slog.Default())
+
+		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(_ client.Object, _, _, _ string) {},
+			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
 		}
 	})
 
-	Context("VirtualDisk is not allowed", func() {
-		It("returns false", func() {
-			anyVd := &virtv2.VirtualDisk{
-				ObjectMeta: metav1.ObjectMeta{Name: "anyVd"},
-				Status: virtv2.VirtualDiskStatus{
-					Conditions: []metav1.Condition{
-						{
-							Type:   vdcondition.InUseType.String(),
-							Reason: conditions.ReasonUnknown.String(),
-							Status: metav1.ConditionUnknown,
-						},
+	okBlockDeviceServiceMock := &BlockDeviceServiceMock{
+		CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+			return 1, nil
+		},
+	}
+
+	scheme := apiruntime.NewScheme()
+	for _, f := range []func(*apiruntime.Scheme) error{
+		virtv2.AddToScheme,
+		virtv1.AddToScheme,
+		corev1.AddToScheme,
+	} {
+		err := f(scheme)
+		Expect(err).NotTo(HaveOccurred(), "failed to add scheme: %s", err)
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		Context("Test all combinations VD and VM",
+			func() {
+				It("Check blockDeviceReady condition message",
+					func() {
+						var fakeClient client.Client
+						if tc.vd2 == nil {
+							fakeClient = fake.NewClientBuilder().WithScheme(scheme).WithObjects(tc.vm, tc.vd1).Build()
+						}
+						vmResource := service.NewResource(namespacedName, fakeClient, vmFactoryByVm(tc.vm), vmStatusGetter)
+						err := vmResource.Fetch(ctx)
+						Expect(err).NotTo(HaveOccurred())
+						vmState := state.New(fakeClient, vmResource)
+						handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+						_, err = handler.Handle(ctx, vmState)
+						Expect(err).NotTo(HaveOccurred())
+
+						bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+						Expect(bdCond.Message).To(Equal(tc.expected))
 					},
-				},
-			}
-
-			vds := map[string]*virtv2.VirtualDisk{
-				vdFoo.Name: vdFoo,
-				vdBar.Name: vdBar,
-				anyVd.Name: anyVd,
-			}
-
-			allowed := h.areVirtualDisksAllowedToUse(vds)
-			Expect(allowed).To(BeFalse())
-		})
-	})
-
-	Context("VirtualDisk is used to create image", func() {
-		It("returns false", func() {
-			anyVd := &virtv2.VirtualDisk{
-				ObjectMeta: metav1.ObjectMeta{Name: "anyVd"},
-				Status: virtv2.VirtualDiskStatus{
-					Phase:  virtv2.DiskReady,
-					Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
-					Conditions: []metav1.Condition{
-						{
-							Type:   vdcondition.ReadyType.String(),
-							Reason: vdcondition.Ready.String(),
-							Status: metav1.ConditionTrue,
-						},
-						{
-							Type:   vdcondition.InUseType.String(),
-							Reason: vdcondition.UsedForImageCreation.String(),
-							Status: metav1.ConditionTrue,
-						},
-					},
-				},
-			}
-
-			vds := map[string]*virtv2.VirtualDisk{
-				vdFoo.Name: vdFoo,
-				vdBar.Name: vdBar,
-				anyVd.Name: anyVd,
-			}
-
-			allowed := h.areVirtualDisksAllowedToUse(vds)
-			Expect(allowed).To(BeFalse())
-		})
-	})
-
-	Context("VirtualDisk is allowed", func() {
-		It("returns true", func() {
-			vds := map[string]*virtv2.VirtualDisk{
-				vdFoo.Name: vdFoo,
-				vdBar.Name: vdBar,
-			}
-
-			allowed := h.areVirtualDisksAllowedToUse(vds)
-			Expect(allowed).To(BeTrue())
-		})
-	})
+				)
+			},
+		)
+	}
 })
 
 var _ = Describe("BlockDeviceHandler", func() {
@@ -196,7 +308,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 			Status:     virtv2.ClusterVirtualImageStatus{Phase: virtv2.ImageReady},
 		}
 		vdFoo = &virtv2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Name: "vd-foo"},
+			ObjectMeta: metav1.ObjectMeta{Name: "vd1-foo"},
 			Status: virtv2.VirtualDiskStatus{
 				Phase:  virtv2.DiskReady,
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
@@ -215,7 +327,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 			},
 		}
 		vdBar = &virtv2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Name: "vd-bar"},
+			ObjectMeta: metav1.ObjectMeta{Name: "vd1-bar"},
 			Status: virtv2.VirtualDiskStatus{
 				Phase:  virtv2.DiskReady,
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-bar"},
