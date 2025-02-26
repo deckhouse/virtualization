@@ -287,8 +287,6 @@ func WaitPhaseByLabel(resource kc.Resource, phase string, opts kc.WaitOptions) {
 
 func WaitByLabel(resource kc.Resource, opts kc.WaitOptions) {
 	GinkgoHelper()
-	wg := sync.WaitGroup{}
-	mu := sync.Mutex{}
 
 	res := kubectl.List(resource, kc.GetOptions{
 		ExcludedLabels: opts.ExcludedLabels,
@@ -299,6 +297,23 @@ func WaitByLabel(resource kc.Resource, opts kc.WaitOptions) {
 	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 	resources := strings.Split(res.StdOut(), " ")
+	WaitResources(resources, resource, opts)
+}
+
+func WaitResourcesByPhase(resources []string, resource kc.Resource, phase string, opts kc.WaitOptions) {
+	GinkgoHelper()
+	opts.For = fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
+	WaitResources(resources, resource, opts)
+}
+
+func WaitResources(resources []string, resource kc.Resource, opts kc.WaitOptions) {
+	GinkgoHelper()
+
+	var (
+		mu sync.Mutex
+		wg sync.WaitGroup
+	)
+
 	waitErr := make([]string, 0, len(resources))
 	waitOpts := kc.WaitOptions{
 		For:       opts.For,

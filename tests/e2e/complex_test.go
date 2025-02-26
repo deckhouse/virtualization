@@ -216,7 +216,14 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Describe("Power state checks", func() {
-		Context("When Virtual machine agents are ready", func() {
+		var (
+			alwaysOnVMs          []string
+			notAlwaysOnVMs       []string
+			alwaysOnVMStopVMOPs  []string
+			notAlwaysOnVMStopVMs []string
+		)
+
+		Context("Verify that the virtual machines are stopping", func() {
 			It("stops VMs by VMOPs", func() {
 				var vmList virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
@@ -225,27 +232,62 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 				Expect(err).ShouldNot(HaveOccurred())
 
-				var notAlwaysOnVMs []string
 				for _, vmObj := range vmList.Items {
-					if vmObj.Spec.RunPolicy != virtv2.AlwaysOnPolicy {
+					if vmObj.Spec.RunPolicy == virtv2.AlwaysOnPolicy {
+						alwaysOnVMs = append(alwaysOnVMs, vmObj.Name)
+						alwaysOnVMStopVMOPs = append(alwaysOnVMStopVMOPs, fmt.Sprintf("%s%s", vmObj.Name, strings.ToLower(string(virtv2.VMOPTypeStop))))
+					} else {
 						notAlwaysOnVMs = append(notAlwaysOnVMs, vmObj.Name)
+						notAlwaysOnVMStopVMs = append(notAlwaysOnVMStopVMs, fmt.Sprintf("%s%s", vmObj.Name, strings.ToLower(string(virtv2.VMOPTypeStop))))
 					}
 				}
+				var vms []string
+				vms = append(vms, alwaysOnVMs...)
+				vms = append(vms, notAlwaysOnVMs...)
 
-				StopVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, notAlwaysOnVMs...)
+				StopVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
 			})
 
 			It("checks VMOPs phases", func() {
-				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
-				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+				By(fmt.Sprintf("AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseFailed))
+				WaitResourcesByPhase(alwaysOnVMStopVMOPs, kc.ResourceVMOP, string(virtv2.VMOPPhaseFailed), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By(fmt.Sprintf("Not AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
+				WaitResourcesByPhase(notAlwaysOnVMStopVMs, kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By(fmt.Sprintf("AlwaysOn VMs should be in %s phases", virtv2.MachineRunning))
+				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineRunning), kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: conf.Namespace,
+					Timeout:   MaxWaitTimeout,
+				})
+				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", virtv2.MachineStopped))
+				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
+
+			// Failed VMOPs will be cause of problems
+			It("Cleanup VMOPs", func() {
+				res := kubectl.Delete(kc.DeleteOptions{
+					Namespace:      conf.Namespace,
+					Labels:         testCaseLabel,
+					IgnoreNotFound: true,
+					Resource:       kc.ResourceVMOP,
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), "%v", res.StdErr())
+			})
 		})
 
-		Context(fmt.Sprintf("When VMs are in %s phases", string(virtv2.MachineStopped)), func() {
+		Context("Verify that the virtual machines are starting", func() {
 			It("starts VMs by VMOP", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -286,7 +328,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context("When virtual machine agents are ready", func() {
+		Context("Verify that the virtual machines are restarting by VMOP", func() {
 			It("reboot VMs by VMOP", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -316,7 +358,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context("When virtual machine agents are ready", func() {
+		Context("Verify that the virtual machines are restarting by ssh", func() {
 			It("reboot VMs by ssh", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -346,7 +388,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context("When virtual machine agents are ready", func() {
+		Context("Verify that the virtual machines are restarting after deleting pods", func() {
 			It("reboot VMs by delete pods", func() {
 				// kubectl may not return control for too long, and we may miss the Stopped phase and get stuck without using goroutines.
 				wg.Add(1)
