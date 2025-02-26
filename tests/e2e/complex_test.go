@@ -248,7 +248,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				StopVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
 			})
 
-			It("checks VMOPs phases", func() {
+			It("checks VMOPs and VMs phases", func() {
 				By(fmt.Sprintf("AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseFailed))
 				WaitResourcesByPhase(alwaysOnVMStopVMOPs, kc.ResourceVMOP, string(virtv2.VMOPPhaseFailed), kc.WaitOptions{
 					Labels:    testCaseLabel,
