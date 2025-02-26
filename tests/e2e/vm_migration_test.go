@@ -97,8 +97,8 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("VMs should be ready")
-			WaitVmReady(kc.WaitOptions{
+			By("Virtual machine agents should be ready")
+			WaitVmAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -106,7 +106,7 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 		})
 	})
 
-	Context(fmt.Sprintf("When virtual machines are in %s phases", PhaseRunning), func() {
+	Context("When virtual machine agents are ready", func() {
 		It("starts migrations", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,

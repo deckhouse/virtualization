@@ -98,8 +98,8 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 
 	Context("When virtual machines are applied:", func() {
 		It("checks VMs phases", func() {
-			By("VMs should be ready")
-			WaitVmReady(kc.WaitOptions{
+			By("Virtual machine agents should be ready")
+			WaitVmAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -107,7 +107,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 		})
 	})
 
-	Context(fmt.Sprintf("When virtual machines in %s phase", PhaseRunning), func() {
+	Context("When virtual machine agents are ready", func() {
 		It("checks VMs `status.nodeName`", func() {
 			vmObjects := virtv2.VirtualMachineList{}
 			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{

@@ -152,8 +152,8 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("VMs should be ready")
-			WaitVmReady(kc.WaitOptions{
+			By("Virtual machine agents should be ready")
+			WaitVmAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -161,7 +161,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		})
 	})
 
-	Context(fmt.Sprintf("Label `VirtualMachines` in %s phase", PhaseRunning), func() {
+	Context("When virtual machine agents are ready", func() {
 		It(fmt.Sprintf("marks VMs with label %q", specialKeyValue), func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,

@@ -181,7 +181,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 	Context("When virtual machines are applied", func() {
 		It("should be ready", func() {
-			WaitVmReady(kc.WaitOptions{
+			WaitVmAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -193,7 +193,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		var oldCpuCores int
 		var newCPUCores int
 
-		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
+		Context("When virtual machine agents are ready", func() {
 			It("changes the number of processor cores", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
@@ -245,7 +245,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 					cmd := "sudo reboot"
 					ExecSshCommand(vm, cmd)
 				}
-				WaitVmReady(kc.WaitOptions{
+				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    manualLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -253,7 +253,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			})
 		})
 
-		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
+		Context("When virtual machine agents are ready", func() {
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    manualLabel,
@@ -312,7 +312,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 		Context("When virtual machine is restarted", func() {
 			It("should be ready", func() {
-				WaitVmReady(kc.WaitOptions{
+				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    automaticLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -320,7 +320,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			})
 		})
 
-		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
+		Context("When virtual machine agents are ready", func() {
 			It("checks that the number of processor cores was changed", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    automaticLabel,

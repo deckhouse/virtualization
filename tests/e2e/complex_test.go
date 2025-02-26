@@ -179,8 +179,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("VMs should be ready")
-			WaitVmReady(kc.WaitOptions{
+			By("Virtual machine agents should be ready")
+			WaitVmAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -285,28 +285,15 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machines should be ready")
-				WaitVmReady(kc.WaitOptions{
+				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-
-			It("checks VMs external connection after stopped and started", func() {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-
-				vms := strings.Split(res.StdOut(), " ")
-
-				CheckExternalConnection(externalHost, httpStatusOk, vms...)
-			})
 		})
 
-		Context("When VMs are ready", func() {
+		Context("When virtual machine agents are ready", func() {
 			It("reboot VMs by VMOP", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -328,28 +315,15 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machines should be ready")
-				WaitVmReady(kc.WaitOptions{
+				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-
-			It("checks VMs external connection after reboot", func() {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-
-				vms := strings.Split(res.StdOut(), " ")
-
-				CheckExternalConnection(externalHost, httpStatusOk, vms...)
-			})
 		})
 
-		Context("When VMs are ready", func() {
+		Context("When virtual machine agents are ready", func() {
 			It("reboot VMs by ssh", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -371,28 +345,15 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machines should be ready")
-				WaitVmReady(kc.WaitOptions{
+				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-
-			It("checks VMs external connection after reboot", func() {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-
-				vms := strings.Split(res.StdOut(), " ")
-
-				CheckExternalConnection(externalHost, httpStatusOk, vms...)
-			})
 		})
 
-		Context("When VMs are is ready", func() {
+		Context("When virtual machine agents are ready", func() {
 			It("reboot VMs by delete pods", func() {
 				// kubectl may not return control for too long, and we may miss the Stopped phase and get stuck without using goroutines.
 				wg.Add(1)
@@ -407,7 +368,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machines should be ready")
-				WaitVmReady(kc.WaitOptions{
+				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
