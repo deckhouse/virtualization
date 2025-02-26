@@ -28,16 +28,16 @@ shell:
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
-  - go build -v -a -o vm-route-forge cmd/vm-route-forge/main.go
+  - go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: distroless
 import:
 - image: vm-route-forge-builder
   add: /app/images/vm-route-forge/vm-route-forge
   to: /app/vm-route-forge
   after: install
 docker:
-  USER: "65532:65532"
+  USER: 64535
   WORKDIR: "/app"
   ENTRYPOINT: ["/app/vm-route-forge"]
