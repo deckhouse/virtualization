@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -532,44 +533,21 @@ func StartVirtualMachinesByVMOP(label map[string]string, templatePath string, vi
 }
 
 func CreateAndApplyVMOPs(label map[string]string, templatePath string, vmopType virtv2.VMOPType, virtualMachines ...string) {
-	var subFolderPath string
-
-	switch vmopType {
-	case virtv2.VMOPTypeRestart:
-		subFolderPath = "restarts"
-	case virtv2.VMOPTypeStop:
-		subFolderPath = "stops"
-	case virtv2.VMOPTypeStart:
-		subFolderPath = "starts"
-	case virtv2.VMOPTypeMigrate:
-		subFolderPath = "migrations"
-	case virtv2.VMOPTypeEvict:
-		subFolderPath = "evicts"
-	}
-	Expect(subFolderPath).NotTo(BeEmpty())
-
-	opsFilesPath := fmt.Sprintf("%s/%s", templatePath, subFolderPath)
-	_, err := os.Stat(opsFilesPath)
-	if os.IsNotExist(err) {
-		err = os.Mkdir(opsFilesPath, os.ModePerm)
-		Expect(err).NotTo(HaveOccurred())
-	}
-
 	for _, vm := range virtualMachines {
-		opFilePath := fmt.Sprintf("%s/%s.yaml", opsFilesPath, vm)
-		err := CreateVMOPManifest(vm, opFilePath, label, vmopType)
-		Expect(err).NotTo(HaveOccurred(), err)
-		res := kubectl.Apply(kc.ApplyOptions{
-			Filename:       []string{opFilePath},
-			FilenameOption: kc.Filename,
-			Namespace:      conf.Namespace,
-		})
-		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+		vmop, err := yaml.Marshal(GenerateVMOP(vm, label, vmopType))
+		Expect(err).NotTo(HaveOccurred())
+		var cmd strings.Builder
+		cmd.WriteString(fmt.Sprintf("-n %s create -f - <<EOF\n", conf.Namespace))
+		cmd.Write(vmop)
+		cmd.WriteString("EOF\n")
+
+		res := kubectl.RawCommand(cmd.String(), ShortWaitDuration)
+		Expect(res.Error()).NotTo(HaveOccurred(), "%v", res.StdErr())
 	}
 }
 
-func CreateVMOPManifest(vmName, filePath string, labels map[string]string, vmopType virtv2.VMOPType) error {
-	vmop := &virtv2.VirtualMachineOperation{
+func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
+	return &virtv2.VirtualMachineOperation{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: virtv2.SchemeGroupVersion.String(),
 			Kind:       virtv2.VirtualMachineOperationKind,
@@ -583,12 +561,6 @@ func CreateVMOPManifest(vmName, filePath string, labels map[string]string, vmopT
 			VirtualMachine: vmName,
 		},
 	}
-	err := helper.WriteYamlObject(filePath, vmop)
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func RebootVirtualMachinesBySSH(virtualMachines ...string) {
