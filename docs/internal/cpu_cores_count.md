@@ -1,13 +1,5 @@
 # Number of CPU cores
 
-## Problem
-
-In the current virtual machine (VM) configuration, the user can only specify the number of cores. This results in a VM with the number of sockets equal to the number of cores, where each socket contains one core. This causes issues for some operating systems, such as Windows, which support a limited number of sockets.
-
-## Goal
-
-Automatically calculate the number of sockets based on the number of cores to avoid OS limitations and improve VM configuration flexibility.
-
 ## Logic for calculating the number of sockets and cores
 
 For .spec.cpu.cores <= 16:
