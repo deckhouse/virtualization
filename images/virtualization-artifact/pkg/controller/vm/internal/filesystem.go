@@ -42,10 +42,6 @@ func (h *FilesystemHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, vmcondition.TypeFilesystemFrozen); update {
-		return reconcile.Result{Requeue: true}, nil
-	}
-
 	if isDeletion(changed) {
 		return reconcile.Result{}, nil
 	}
