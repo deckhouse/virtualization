@@ -16,7 +16,6 @@ import:
   excludePaths:
   - '**/dvcr-uploader'
   - '**/dvcr-importer'
-  after: install
 docker:
   USER: 64535
 ---
