@@ -31,10 +31,10 @@ index de90ed3cbc..992a449bcc 100644
  		emptyDirVolume("public"),
  		emptyDirVolume("sockets"),
 diff --git a/pkg/virt-controller/services/rendervolumes_test.go b/pkg/virt-controller/services/rendervolumes_test.go
-index e112967eec..ecb929829c 100644
+index e112967eec..4781a313d7 100644
 --- a/pkg/virt-controller/services/rendervolumes_test.go
 +++ b/pkg/virt-controller/services/rendervolumes_test.go
-@@ -342,6 +342,30 @@ func vmiDiskPath(volumeName string) string {
+@@ -342,6 +342,34 @@ func vmiDiskPath(volumeName string) string {
  
  func defaultVolumes() []k8sv1.Volume {
  	return []k8sv1.Volume{
@@ -62,10 +62,14 @@ index e112967eec..ecb929829c 100644
 +			Name:         tmpVolumeName,
 +			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
 +		},
++		{
++			Name:         varLibSWTPMLocalCAVolumeName,
++			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
++		},
  		{
  			Name:         "private",
  			VolumeSource: k8sv1.VolumeSource{EmptyDir: &k8sv1.EmptyDirVolumeSource{}},
-@@ -371,6 +395,12 @@ func defaultVolumeMounts() []k8sv1.VolumeMount {
+@@ -371,6 +399,13 @@ func defaultVolumeMounts() []k8sv1.VolumeMount {
  	hostToContainerPropagation := k8sv1.MountPropagationHostToContainer
  
  	return []k8sv1.VolumeMount{
@@ -75,6 +79,7 @@ index e112967eec..ecb929829c 100644
 +		{Name: varLibLibvirtVolumeName, MountPath: varLibLibvirt},
 +		{Name: varCacheLibvirtVolumeName, MountPath: varCacheLibvirt},
 +		{Name: tmpVolumeName, MountPath: tmp},
++		{Name: varLibSWTPMLocalCAVolumeName, MountPath: varLibSWTPMLocalCA},
  		{Name: "private", MountPath: "/var/run/kubevirt-private"},
  		{Name: "public", MountPath: "/var/run/kubevirt"},
  		{Name: "ephemeral-disks", MountPath: "disk1"},
@@ -192,7 +197,7 @@ index f607c24786..5f0956dad8 100644
  	var opts []NodeSelectorRendererOption
  	if vmi.IsCPUDedicated() {
 diff --git a/pkg/virt-controller/services/template_test.go b/pkg/virt-controller/services/template_test.go
-index c6a7f66a54..99376b4752 100644
+index c6a7f66a54..16c1e102bf 100644
 --- a/pkg/virt-controller/services/template_test.go
 +++ b/pkg/virt-controller/services/template_test.go
 @@ -458,7 +458,7 @@ var _ = Describe("Template", func() {
@@ -218,7 +223,7 @@ index c6a7f66a54..99376b4752 100644
  				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
  
 -				Expect(pod.Spec.Volumes).To(HaveLen(9))
-+				Expect(pod.Spec.Volumes).To(HaveLen(15))
++				Expect(pod.Spec.Volumes).To(HaveLen(16))
  				Expect(pod.Spec.Volumes).To(
  					ContainElements(
  						k8sv1.Volume{
@@ -227,7 +232,7 @@ index c6a7f66a54..99376b4752 100644
  							}}))
  
 -				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
-+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(14))
++				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(15))
  				Expect(pod.Spec.Containers[0].VolumeMounts).To(
  					ContainElements(
  						k8sv1.VolumeMount{
@@ -236,7 +241,7 @@ index c6a7f66a54..99376b4752 100644
  				Expect(hugepagesLimit.ToDec().ScaledValue(resource.Mega)).To(Equal(int64(64)))
  
 -				Expect(pod.Spec.Volumes).To(HaveLen(9))
-+				Expect(pod.Spec.Volumes).To(HaveLen(15))
++				Expect(pod.Spec.Volumes).To(HaveLen(16))
  				Expect(pod.Spec.Volumes).To(
  					ContainElements(
  						k8sv1.Volume{
@@ -245,7 +250,7 @@ index c6a7f66a54..99376b4752 100644
  							}}))
  
 -				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(8))
-+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(14))
++				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(15))
  				Expect(pod.Spec.Containers[0].VolumeMounts).To(
  					ContainElements(
  						k8sv1.VolumeMount{
@@ -255,12 +260,12 @@ index c6a7f66a54..99376b4752 100644
  				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Some mounts in manifest for 1st container")
 -				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(7), "7 mounts in manifest for 1st container")
 -				Expect(pod.Spec.Containers[0].VolumeMounts[6].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
-+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(13), "13 mounts in manifest for 1st container")
-+				Expect(pod.Spec.Containers[0].VolumeMounts[12].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
++				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(14), "14 mounts in manifest for 1st container")
++				Expect(pod.Spec.Containers[0].VolumeMounts[13].Name).To(Equal(volumeName), "1st mount in manifest for 1st container has correct name")
  
  				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
 -				Expect(pod.Spec.Volumes).To(HaveLen(8), "Found 8 volumes in manifest")
-+				Expect(pod.Spec.Volumes).To(HaveLen(14), "Found 14 volumes in manifest")
++				Expect(pod.Spec.Volumes).To(HaveLen(15), "Found 15 volumes in manifest")
  				Expect(pod.Spec.Volumes).To(
  					ContainElement(
  						k8sv1.Volume{
@@ -269,11 +274,11 @@ index c6a7f66a54..99376b4752 100644
  
  				Expect(pod.Spec.Containers[0].VolumeMounts).ToNot(BeEmpty(), "Found some mounts in manifest for 1st container")
 -				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(6), "Found 6 mounts in manifest for 1st container")
-+				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(12), "Found 11 mounts in manifest for 1st container")
++				Expect(pod.Spec.Containers[0].VolumeMounts).To(HaveLen(13), "Found 13 mounts in manifest for 1st container")
  
  				Expect(pod.Spec.Volumes).ToNot(BeEmpty(), "Found some volumes in manifest")
 -				Expect(pod.Spec.Volumes).To(HaveLen(9), "Found 9 volumes in manifest")
-+				Expect(pod.Spec.Volumes).To(HaveLen(15), "Found 14 volumes in manifest")
++				Expect(pod.Spec.Volumes).To(HaveLen(16), "Found 16 volumes in manifest")
  				Expect(pod.Spec.Volumes).To(
  					ContainElement(
  						k8sv1.Volume{
@@ -282,7 +287,7 @@ index c6a7f66a54..99376b4752 100644
  				Expect(err).ToNot(HaveOccurred())
  				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 -				Expect(pod.Spec.Volumes).To(HaveLen(8))
-+				Expect(pod.Spec.Volumes).To(HaveLen(14))
++				Expect(pod.Spec.Volumes).To(HaveLen(15))
  
  				oneMB := resource.MustParse("1Mi")
  				Expect(pod.Spec.Volumes).To(ContainElement(
@@ -291,7 +296,7 @@ index c6a7f66a54..99376b4752 100644
  					}))
  
 -				Expect(pod.Spec.Containers[0].VolumeMounts[6].MountPath).To(Equal(k6tconfig.DownwardMetricDisksDir))
-+				Expect(pod.Spec.Containers[0].VolumeMounts[12].MountPath).To(Equal(k6tconfig.DownwardMetricDisksDir))
++				Expect(pod.Spec.Containers[0].VolumeMounts[13].MountPath).To(Equal(k6tconfig.DownwardMetricDisksDir))
  			})
  
  			It("Should add 1Mi memory overhead", func() {
@@ -300,7 +305,7 @@ index c6a7f66a54..99376b4752 100644
  
  				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 -				Expect(pod.Spec.Volumes).To(HaveLen(8))
-+				Expect(pod.Spec.Volumes).To(HaveLen(14))
++				Expect(pod.Spec.Volumes).To(HaveLen(15))
  				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
  					Name: "configmap-volume",
  					VolumeSource: k8sv1.VolumeSource{
@@ -309,7 +314,7 @@ index c6a7f66a54..99376b4752 100644
  
  					Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 -					Expect(pod.Spec.Volumes).To(HaveLen(9))
-+					Expect(pod.Spec.Volumes).To(HaveLen(15))
++					Expect(pod.Spec.Volumes).To(HaveLen(16))
  					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
  						Name: "sysprep-configmap-volume",
  						VolumeSource: k8sv1.VolumeSource{
@@ -318,7 +323,7 @@ index c6a7f66a54..99376b4752 100644
  
  					Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 -					Expect(pod.Spec.Volumes).To(HaveLen(9))
-+					Expect(pod.Spec.Volumes).To(HaveLen(15))
++					Expect(pod.Spec.Volumes).To(HaveLen(16))
  
  					Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
  						Name: "sysprep-configmap-volume",
@@ -327,7 +332,7 @@ index c6a7f66a54..99376b4752 100644
  
  				Expect(pod.Spec.Volumes).ToNot(BeEmpty())
 -				Expect(pod.Spec.Volumes).To(HaveLen(8))
-+				Expect(pod.Spec.Volumes).To(HaveLen(14))
++				Expect(pod.Spec.Volumes).To(HaveLen(15))
  
  				Expect(pod.Spec.Volumes).To(ContainElement(k8sv1.Volume{
  					Name: "secret-volume",
