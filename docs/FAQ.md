@@ -359,12 +359,12 @@ Assume that:
 all:
   vars:
     ansible_ssh_common_args: '-o ProxyCommand=“d8 v port-forward --stdio=true %h %h %p”'
-    # default user for ssh access
+    # Default user for SSH access.
     ansible_user: cloud
-    # path to private key
+    # Path to private key.
     ansible_ssh_private_key_file: ./tmp/demo
   hosts:
-    # host name in the format <VM name>.<project name>
+    # Host name in the format <VM name>.<project name>.
     frontend.demo-app:
 ```
 To check the virtual machine's uptime, use the following command:
@@ -377,7 +377,7 @@ ansible -m shell -a “uptime” -i inventory.yaml all
 
 If you don't want to use the inventory file, you can pass all the parameters directly on the command line:
 
-````bash
+```bash
 ansible -m shell -a “uptime” \
   -i “frontend.demo-app,” \
   -e “ansible_ssh_common_args='-o ProxyCommand=\”d8 v port-forward --stdio=true %h %p %p\'"” \
@@ -385,8 +385,6 @@ ansible -m shell -a “uptime” \
   -e “ansible_ssh_private_key_file=./tmp/demo” \
   all
 ```
-
-Translated with DeepL.com (free version)
 
 ## How to redirect traffic to a virtual machine?
 
