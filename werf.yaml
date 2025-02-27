@@ -53,6 +53,9 @@ configVersion: 1
   {{- $_ := set $.Version $k $v}}
 {{- end }}
 
+# Dependencies for virt-launcher
+{{- $virtLauncherDependencies := (.Files.Get "cv/virt-launcher-dependencies.yaml" | fromYaml) -}}
+
 # Modules_images
 {{- define "module_image_template" }}
 
@@ -86,6 +89,7 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "Images" $Root.Images }}
   {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
   {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
+  {{- $_ := set $ctx "virtLauncherDependencies" $virtLauncherDependencies }}
   {{- $_ := set $ctx "Version" $Root.Version }}
 
   {{- include "module_image_template" $ctx }}
