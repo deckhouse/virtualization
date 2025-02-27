@@ -140,7 +140,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 
 	switch {
 	case vs == nil:
-		if vm != nil && vm.Status.Phase != virtv2.MachineStopped && !h.snapshotter.IsFrozen(vm) {
+		if vm != nil && vm.Status.Phase != virtv2.MachineStopped && !h.snapshotter.IsFrozen(vm) && !vdSnapshot.Spec.RequiredConsistency {
 			if h.snapshotter.CanFreeze(vm) {
 				log.Debug("Freeze the virtual machine to take a snapshot")
 
@@ -300,6 +300,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 					return reconcile.Result{}, err
 				}
 			}
+		default:
+			vdSnapshot.Status.Consistent = ptr.To(false)
 		}
 
 		vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseReady
