@@ -68,6 +68,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		testCaseLabel      = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
 		vmPodLabel         = map[string]string{"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher"}
+		alwaysOnLabel      = map[string]string{"alwaysOn": "complex-test"}
+		notAlwaysOnLabel   = map[string]string{"notAlwaysOn": "complex-test"}
 
 		cmdResult executor.CMDResult
 		wg        sync.WaitGroup
@@ -235,29 +237,29 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				for _, vmObj := range vmList.Items {
 					if vmObj.Spec.RunPolicy == virtv2.AlwaysOnPolicy {
 						alwaysOnVMs = append(alwaysOnVMs, vmObj.Name)
-						alwaysOnVMStopVMOPs = append(alwaysOnVMStopVMOPs, fmt.Sprintf("%s%s", vmObj.Name, strings.ToLower(string(virtv2.VMOPTypeStop))))
+						alwaysOnVMStopVMOPs = append(alwaysOnVMStopVMOPs, fmt.Sprintf("%s-%s", vmObj.Name, strings.ToLower(string(virtv2.VMOPTypeStop))))
 					} else {
 						notAlwaysOnVMs = append(notAlwaysOnVMs, vmObj.Name)
-						notAlwaysOnVMStopVMs = append(notAlwaysOnVMStopVMs, fmt.Sprintf("%s%s", vmObj.Name, strings.ToLower(string(virtv2.VMOPTypeStop))))
+						notAlwaysOnVMStopVMs = append(notAlwaysOnVMStopVMs, fmt.Sprintf("%s-%s", vmObj.Name, strings.ToLower(string(virtv2.VMOPTypeStop))))
 					}
 				}
-				var vms []string
-				vms = append(vms, alwaysOnVMs...)
-				vms = append(vms, notAlwaysOnVMs...)
 
-				StopVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
+				By("Trying to stop AlwaysOn VMs")
+				StopVirtualMachinesByVMOP(alwaysOnLabel, alwaysOnVMs...)
+				By("Trying to stop not AlwaysOn VMs")
+				StopVirtualMachinesByVMOP(notAlwaysOnLabel, notAlwaysOnVMs...)
 			})
 
 			It("checks VMOPs and VMs phases", func() {
 				By(fmt.Sprintf("AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseFailed))
 				WaitResourcesByPhase(alwaysOnVMStopVMOPs, kc.ResourceVMOP, string(virtv2.VMOPPhaseFailed), kc.WaitOptions{
-					Labels:    testCaseLabel,
+					Labels:    alwaysOnLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("Not AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitResourcesByPhase(notAlwaysOnVMStopVMs, kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
-					Labels:    testCaseLabel,
+					Labels:    notAlwaysOnLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
@@ -275,11 +277,10 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 			})
 
-			// Failed VMOPs will be cause of problems
-			It("Cleanup VMOPs", func() {
+			It("cleanup AlwaysOn VM VMOPs", func() {
 				res := kubectl.Delete(kc.DeleteOptions{
 					Namespace:      conf.Namespace,
-					Labels:         testCaseLabel,
+					Labels:         alwaysOnLabel,
 					IgnoreNotFound: true,
 					Resource:       kc.ResourceVMOP,
 				})
@@ -303,7 +304,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					}
 				}
 
-				StartVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, notAlwaysOnVMs...)
+				StartVirtualMachinesByVMOP(testCaseLabel, notAlwaysOnVMs...)
 			})
 
 			It("checks VMs and VMOPs phases", func() {
@@ -323,7 +324,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 
 		Context("Verify that the virtual machines are stopping by ssh", func() {
-			It("stops VMs by VMOPs", func() {
+			It("stops VMs by ssh", func() {
 				var vmList virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
 					Labels:    testCaseLabel,
@@ -362,18 +363,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 			})
 
-			It("Cleanup VMOPs", func() {
-				res := kubectl.Delete(kc.DeleteOptions{
-					Namespace:      conf.Namespace,
-					Labels:         testCaseLabel,
-					IgnoreNotFound: true,
-					Resource:       kc.ResourceVMOP,
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), "%v", res.StdErr())
-			})
-
 			It("start not AlwaysOn VMs", func() {
-				StartVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, notAlwaysOnVMs...)
+				CreateAndApplyVMOPsWithSuffix(testCaseLabel, "-after-ssh-stopping", virtv2.VMOPTypeStart, notAlwaysOnVMs...)
 			})
 
 			It("checks VMs and VMOPs phases", func() {
@@ -403,7 +394,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				vms := strings.Split(res.StdOut(), " ")
 
-				RebootVirtualMachinesByVMOP(testCaseLabel, conf.TestData.ComplexTest, vms...)
+				RebootVirtualMachinesByVMOP(testCaseLabel, vms...)
 			})
 
 			It("checks VMs and VMOPs phases", func() {

@@ -532,24 +532,28 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 	})
 }
 
-func RebootVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
+func RebootVirtualMachinesByVMOP(label map[string]string, virtualMachines ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeRestart, virtualMachines...)
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeRestart, virtualMachines...)
 }
 
-func StopVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
+func StopVirtualMachinesByVMOP(label map[string]string, virtualMachines ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeStop, virtualMachines...)
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeStop, virtualMachines...)
 }
 
-func StartVirtualMachinesByVMOP(label map[string]string, templatePath string, virtualMachines ...string) {
+func StartVirtualMachinesByVMOP(label map[string]string, virtualMachines ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, templatePath, virtv2.VMOPTypeStart, virtualMachines...)
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeStart, virtualMachines...)
 }
 
-func CreateAndApplyVMOPs(label map[string]string, templatePath string, vmopType virtv2.VMOPType, virtualMachines ...string) {
+func CreateAndApplyVMOPs(label map[string]string, vmopType virtv2.VMOPType, virtualMachines ...string) {
+	CreateAndApplyVMOPsWithSuffix(label, "", vmopType, virtualMachines...)
+}
+
+func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopType virtv2.VMOPType, virtualMachines ...string) {
 	for _, vm := range virtualMachines {
-		vmop, err := yaml.Marshal(GenerateVMOP(vm, label, vmopType))
+		vmop, err := yaml.Marshal(GenerateVMOPWithSuffix(vm, suffix, label, vmopType))
 		Expect(err).NotTo(HaveOccurred())
 		var cmd strings.Builder
 		cmd.WriteString(fmt.Sprintf("-n %s create -f - <<EOF\n", conf.Namespace))
@@ -568,7 +572,7 @@ func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPT
 			Kind:       virtv2.VirtualMachineOperationKind,
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Name:   fmt.Sprintf("%s%s", vmName, strings.ToLower(string(vmopType))),
+			Name:   fmt.Sprintf("%s-%s", vmName, strings.ToLower(string(vmopType))),
 			Labels: labels,
 		},
 		Spec: virtv2.VirtualMachineOperationSpec{
@@ -576,6 +580,12 @@ func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPT
 			VirtualMachine: vmName,
 		},
 	}
+}
+
+func GenerateVMOPWithSuffix(vmName, suffix string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
+	res := GenerateVMOP(vmName, labels, vmopType)
+	res.ObjectMeta.Name = fmt.Sprintf("%s%s", res.ObjectMeta.Name, suffix)
+	return res
 }
 
 func StopVirtualMachinesBySSH(virtualMachines ...string) {
