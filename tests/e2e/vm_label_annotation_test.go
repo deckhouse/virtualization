@@ -112,6 +112,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 	)
 	testCaseLabel := map[string]string{"testcase": "vm-label-annotation"}
 	specialKeyValue := map[string]string{specialKey: specialValue}
+	vmPodLabel := map[string]string{"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher"}
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
@@ -181,37 +182,40 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 		It("checks VMs and pods labels after VMs labeling", func() {
 			Eventually(func() error {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				var vms virtv2.VirtualMachineList
+				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
-				if res.Error() != nil {
-					return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+				if err != nil {
+					return err
 				}
 
-				vms := strings.Split(res.StdOut(), " ")
-				for _, vm := range vms {
-					vmObj := virtv2.VirtualMachine{}
-					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-					if err != nil {
-						return err
-					}
-					value, ok := vmObj.Labels[specialKey]
-					if !ok || value != specialValue {
-						return fmt.Errorf("vm label %q with value %q not found in %s", specialKey, specialValue, vmObj.Name)
-					}
+				var errors []error
 
-					activePod := GetActiveVirtualMachinePod(&vmObj)
-					vmPodObj := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
-					if err != nil {
-						return err
+				for _, vm := range vms.Items {
+					if !IsContainsLabelWithValue(&vm, specialKey, specialValue) {
+						errors = append(errors, fmt.Errorf("vm label %q with value %q was not found in %s", specialKey, specialValue, vm.Name))
 					}
-					value, ok = vmPodObj.Labels[specialKey]
-					if !ok || value != specialValue {
-						return fmt.Errorf("pod label %q with value %q not found in %s", specialKey, specialValue, vmPodObj.Name)
+				}
+
+				var pods v1.PodList
+				err = GetObjects(kc.ResourcePod, &pods, kc.GetOptions{
+					Labels:    vmPodLabel,
+					Namespace: conf.Namespace,
+				})
+				if err != nil {
+					return err
+				}
+
+				for _, pod := range pods.Items {
+					if !IsContainsLabelWithValue(&pod, specialKey, specialValue) {
+						errors = append(errors, fmt.Errorf("pod label %q with value %q was not found in %s", specialKey, specialValue, pod.Name))
 					}
+				}
+
+				if len(errors) > 0 {
+					return fmt.Errorf("%v", errors)
 				}
 
 				return nil
@@ -233,37 +237,40 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 		It("checks VMs and pods labels after VMs unlabeling", func() {
 			Eventually(func() error {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				var vms virtv2.VirtualMachineList
+				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
-				if res.Error() != nil {
-					return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+				if err != nil {
+					return err
 				}
 
-				vms := strings.Split(res.StdOut(), " ")
-				for _, vm := range vms {
-					vmObj := virtv2.VirtualMachine{}
-					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-					if err != nil {
-						return err
-					}
-					_, ok := vmObj.Labels[specialKey]
-					if ok {
-						return fmt.Errorf("vm label %q found in %s", specialKey, vmObj.Name)
-					}
+				var errors []error
 
-					activePod := GetActiveVirtualMachinePod(&vmObj)
-					vmPodObj := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
-					if err != nil {
-						return err
+				for _, vm := range vms.Items {
+					if IsContainsLabel(&vm, specialKey) {
+						errors = append(errors, fmt.Errorf("vm label %q was found in %s", specialKey, vm.Name))
 					}
-					_, ok = vmPodObj.Labels[specialKey]
-					if ok {
-						return fmt.Errorf("pod label %q found in %s", specialKey, vmPodObj.Name)
+				}
+
+				var pods v1.PodList
+				err = GetObjects(kc.ResourcePod, &pods, kc.GetOptions{
+					Labels:    vmPodLabel,
+					Namespace: conf.Namespace,
+				})
+				if err != nil {
+					return err
+				}
+
+				for _, pod := range pods.Items {
+					if IsContainsLabel(&pod, specialKey) {
+						errors = append(errors, fmt.Errorf("pod label %q was found in %s", specialKey, pod.Name))
 					}
+				}
+
+				if len(errors) > 0 {
+					return fmt.Errorf("%v", errors)
 				}
 
 				return nil
@@ -287,37 +294,40 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 		It("checks VMs and pods annotations after VMs annotating", func() {
 			Eventually(func() error {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				var vms virtv2.VirtualMachineList
+				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
-				if res.Error() != nil {
-					return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+				if err != nil {
+					return err
 				}
 
-				vms := strings.Split(res.StdOut(), " ")
-				for _, vm := range vms {
-					vmObj := virtv2.VirtualMachine{}
-					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-					if err != nil {
-						return err
-					}
-					value, ok := vmObj.Annotations[specialKey]
-					if !ok || value != specialValue {
-						return fmt.Errorf("vm annotation %q with value %q not found in %s", specialKey, specialValue, vmObj.Name)
-					}
+				var errors []error
 
-					activePod := GetActiveVirtualMachinePod(&vmObj)
-					vmPodObj := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
-					if err != nil {
-						return err
+				for _, vm := range vms.Items {
+					if !IsContainsAnnotationWithValue(&vm, specialKey, specialValue) {
+						errors = append(errors, fmt.Errorf("vm annotation %q with value %q was not found in %s", specialKey, specialValue, vm.Name))
 					}
-					value, ok = vmPodObj.Annotations[specialKey]
-					if !ok || value != specialValue {
-						return fmt.Errorf("pod annotation %q with value %q not found in %s", specialKey, specialValue, vmPodObj.Name)
+				}
+
+				var pods v1.PodList
+				err = GetObjects(kc.ResourcePod, &pods, kc.GetOptions{
+					Labels:    vmPodLabel,
+					Namespace: conf.Namespace,
+				})
+				if err != nil {
+					return err
+				}
+
+				for _, pod := range pods.Items {
+					if !IsContainsAnnotationWithValue(&pod, specialKey, specialValue) {
+						errors = append(errors, fmt.Errorf("pod annotation %q with value %q was not found in %s", specialKey, specialValue, pod.Name))
 					}
+				}
+
+				if len(errors) > 0 {
+					return fmt.Errorf("%v", errors)
 				}
 
 				return nil
@@ -339,37 +349,40 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 		It("checks VMs and pods annotations after VMs unannotating", func() {
 			Eventually(func() error {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+				var vms virtv2.VirtualMachineList
+				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
-				if res.Error() != nil {
-					return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+				if err != nil {
+					return err
 				}
 
-				vms := strings.Split(res.StdOut(), " ")
-				for _, vm := range vms {
-					vmObj := virtv2.VirtualMachine{}
-					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-					if err != nil {
-						return err
-					}
-					_, ok := vmObj.Annotations[specialKey]
-					if ok {
-						return fmt.Errorf("vm annotation %q found in %s", specialKey, vmObj.Name)
-					}
+				var errors []error
 
-					activePod := GetActiveVirtualMachinePod(&vmObj)
-					vmPodObj := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePod, &vmPodObj, kc.GetOptions{Namespace: conf.Namespace})
-					if err != nil {
-						return err
+				for _, vm := range vms.Items {
+					if IsContainsAnnotation(&vm, specialKey) {
+						errors = append(errors, fmt.Errorf("vm annotation %q was found in %s", specialKey, vm.Name))
 					}
-					_, ok = vmPodObj.Annotations[specialKey]
-					if ok {
-						return fmt.Errorf("pod annotation %q found in %s", specialKey, vmPodObj.Name)
+				}
+
+				var pods v1.PodList
+				err = GetObjects(kc.ResourcePod, &pods, kc.GetOptions{
+					Labels:    vmPodLabel,
+					Namespace: conf.Namespace,
+				})
+				if err != nil {
+					return err
+				}
+
+				for _, pod := range pods.Items {
+					if IsContainsAnnotation(&pod, specialKey) {
+						errors = append(errors, fmt.Errorf("pod annotation %q was found in %s", specialKey, pod.Name))
 					}
+				}
+
+				if len(errors) > 0 {
+					return fmt.Errorf("%v", errors)
 				}
 
 				return nil

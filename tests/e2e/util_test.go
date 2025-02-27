@@ -623,3 +623,23 @@ func RebootVirtualMachinesByDeletePods(labels map[string]string, cmdResult *exec
 
 	wg.Done()
 }
+
+func IsContainsAnnotation(obj client.Object, annotation string) bool {
+	_, ok := obj.GetAnnotations()[annotation]
+	return ok
+}
+
+func IsContainsAnnotationWithValue(obj client.Object, annotation, value string) bool {
+	val, ok := obj.GetAnnotations()[annotation]
+	return ok && val == value
+}
+
+func IsContainsLabel(obj client.Object, label string) bool {
+	_, ok := obj.GetLabels()[label]
+	return ok
+}
+
+func IsContainsLabelWithValue(obj client.Object, label, value string) bool {
+	val, ok := obj.GetLabels()[label]
+	return ok && val == value
+}
