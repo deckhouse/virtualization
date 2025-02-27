@@ -1,9 +1,21 @@
-.github/                        @universal-itengineer @nevermarine
-crds/                           @fl64 @z9r5 @goganat
-docs/                           @fl64 @z9r5 @goganat
-openapi/                        @fl64 @z9r5 @goganat
-images/                         @universal-itengineer @nevermarine
-images/kube-api-rewriter        @diafour
-images/vm-route-forge           @yaroslavborbat
-monitoring/                     @fl64
-tests/                          @hardcoretime
+*                                                         @fl64 @Isteb4k
+/.github/                                                 @universal-itengineer @nevermarine
+
+/crds/                                                    @fl64 @z9r5 @goganat
+/docs/                                                    @fl64 @z9r5 @goganat
+/openapi/                                                 @fl64 @z9r5 @goganat
+/monitoring/                                              @fl64 @Isteb4k
+/tests/                                                   @hardcoretime @danilrwx
+
+/images/                                                  @universal-itengineer @nevermarine
+/images/cdi-artifact/                                     @Isteb4k @yaroslavborbat
+/images/virt-artifact/                                    @yaroslavborbat @Isteb4k
+/images/dvcr-artifact/                                    @Isteb4k @yaroslavborbat
+/images/vm-route-forge/                                   @yaroslavborbat @diafour
+/images/kube-api-rewriter/                                @diafour @yaroslavborbat
+/images/virtualization-artifact/                          @Isteb4k @yaroslavborbat
+/images/virtualization-artifact/pkg/controller/vm/        @yaroslavborbat @Isteb4k
+/images/virtualization-artifact/pkg/controller/vmip/      @LopatinDmitr @Isteb4k
+/images/virtualization-artifact/pkg/controller/vmiplease/ @LopatinDmitr @Isteb4k
+
+*werf*                                                    @universal-itengineer @nevermarine
