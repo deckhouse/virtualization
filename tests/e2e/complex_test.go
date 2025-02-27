@@ -289,23 +289,17 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 		Context("Verify that the virtual machines are starting", func() {
 			It("starts VMs by VMOP", func() {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
+				var vms virtv2.VirtualMachineList
+				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
+					Labels:    testCaseLabel,
 				})
-				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-
-				vms := strings.Split(res.StdOut(), " ")
+				Expect(err).NotTo(HaveOccurred())
 
 				var notAlwaysOnVMs []string
-				for _, vm := range vms {
-					vmObj := virtv2.VirtualMachine{}
-					err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-					Expect(err).NotTo(HaveOccurred(), "%w", err)
-
-					if vmObj.Spec.RunPolicy != virtv2.AlwaysOnPolicy {
-						notAlwaysOnVMs = append(notAlwaysOnVMs, vm)
+				for _, vm := range vms.Items {
+					if vm.Spec.RunPolicy != virtv2.AlwaysOnPolicy {
+						notAlwaysOnVMs = append(notAlwaysOnVMs, vm.Name)
 					}
 				}
 
