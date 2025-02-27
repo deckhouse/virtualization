@@ -1,8 +1,8 @@
 diff --git a/pkg/virt-controller/services/rendervolumes.go b/pkg/virt-controller/services/rendervolumes.go
-index de90ed3cbc..2941b0b8c9 100644
+index de90ed3cbc..992a449bcc 100644
 --- a/pkg/virt-controller/services/rendervolumes.go
 +++ b/pkg/virt-controller/services/rendervolumes.go
-@@ -52,6 +52,12 @@ func NewVolumeRenderer(namespace string, ephemeralDisk string, containerDiskDir
+@@ -52,6 +52,13 @@ func NewVolumeRenderer(namespace string, ephemeralDisk string, containerDiskDir
  
  func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
  	volumeMounts := []k8sv1.VolumeMount{
@@ -12,10 +12,11 @@ index de90ed3cbc..2941b0b8c9 100644
 +		mountPath(varLibLibvirtVolumeName, varLibLibvirt),
 +		mountPath(varCacheLibvirtVolumeName, varCacheLibvirt),
 +		mountPath(tmpVolumeName, tmp),
++		mountPath(varLibSWTPMLocalCAVolumeName, varLibSWTPMLocalCA),
  		mountPath("private", util.VirtPrivateDir),
  		mountPath("public", util.VirtShareDir),
  		mountPath("ephemeral-disks", vr.ephemeralDiskDir),
-@@ -64,6 +70,12 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
+@@ -64,6 +71,13 @@ func (vr *VolumeRenderer) Mounts() []k8sv1.VolumeMount {
  
  func (vr *VolumeRenderer) Volumes() []k8sv1.Volume {
  	volumes := []k8sv1.Volume{
@@ -25,6 +26,7 @@ index de90ed3cbc..2941b0b8c9 100644
 +		emptyDirVolume(varLibLibvirtVolumeName),
 +		emptyDirVolume(varCacheLibvirtVolumeName),
 +		emptyDirVolume(tmpVolumeName),
++		emptyDirVolume(varLibSWTPMLocalCAVolumeName),
  		emptyDirVolume("private"),
  		emptyDirVolume("public"),
  		emptyDirVolume("sockets"),
@@ -77,10 +79,10 @@ index e112967eec..ecb929829c 100644
  		{Name: "public", MountPath: "/var/run/kubevirt"},
  		{Name: "ephemeral-disks", MountPath: "disk1"},
 diff --git a/pkg/virt-controller/services/template.go b/pkg/virt-controller/services/template.go
-index f607c24786..48906f2dd1 100644
+index f607c24786..5f0956dad8 100644
 --- a/pkg/virt-controller/services/template.go
 +++ b/pkg/virt-controller/services/template.go
-@@ -64,15 +64,26 @@ import (
+@@ -64,15 +64,28 @@ import (
  )
  
  const (
@@ -93,30 +95,32 @@ index f607c24786..48906f2dd1 100644
 -	virtExporter          = "virt-exporter"
 -	hotplugContainerDisks = "hotplug-container-disks"
 -	HotplugContainerDisk  = "hotplug-container-disk-"
-+	containerDisks            = "container-disks"
-+	hotplugDisks              = "hotplug-disks"
-+	hookSidecarSocks          = "hook-sidecar-sockets"
-+	varRun                    = "/var/run"
-+	virtBinDir                = "virt-bin-share-dir"
-+	hotplugDisk               = "hotplug-disk"
-+	virtExporter              = "virt-exporter"
-+	hotplugContainerDisks     = "hotplug-container-disks"
-+	HotplugContainerDisk      = "hotplug-container-disk-"
-+	varLog                    = "/var/log"
-+	etcLibvirt                = "/etc/libvirt"
-+	varLibLibvirt             = "/var/lib/libvirt/"
-+	varCacheLibvirt           = "/var/cache/libvirt"
-+	tmp                       = "/tmp"
-+	varLogVolumeName          = "var-log"
-+	etcLibvirtVolumeName      = "etc-libvirt"
-+	varLibLibvirtVolumeName   = "var-lib-libvirt"
-+	varCacheLibvirtVolumeName = "var-cache-libvirt"
-+	varRunVolumeName          = "var-run"
-+	tmpVolumeName             = "tmp"
++	containerDisks               = "container-disks"
++	hotplugDisks                 = "hotplug-disks"
++	hookSidecarSocks             = "hook-sidecar-sockets"
++	varRun                       = "/var/run"
++	virtBinDir                   = "virt-bin-share-dir"
++	hotplugDisk                  = "hotplug-disk"
++	virtExporter                 = "virt-exporter"
++	hotplugContainerDisks        = "hotplug-container-disks"
++	HotplugContainerDisk         = "hotplug-container-disk-"
++	varLog                       = "/var/log"
++	etcLibvirt                   = "/etc/libvirt"
++	varLibLibvirt                = "/var/lib/libvirt/"
++	varCacheLibvirt              = "/var/cache/libvirt"
++	tmp                          = "/tmp"
++	varLibSWTPMLocalCA           = "/var/lib/swtpm-localca"
++	varLogVolumeName             = "var-log"
++	etcLibvirtVolumeName         = "etc-libvirt"
++	varLibLibvirtVolumeName      = "var-lib-libvirt"
++	varCacheLibvirtVolumeName    = "var-cache-libvirt"
++	varRunVolumeName             = "var-run"
++	tmpVolumeName                = "tmp"
++	varLibSWTPMLocalCAVolumeName = "var-lib-swtpm-localca"
  )
  
  const KvmDevice = "devices.virtualization.deckhouse.io/kvm"
-@@ -301,7 +312,6 @@ func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
+@@ -301,7 +314,6 @@ func generateQemuTimeoutWithJitter(qemuTimeoutBaseSeconds int) string {
  
  func computePodSecurityContext(vmi *v1.VirtualMachineInstance, seccomp *k8sv1.SeccompProfile) *k8sv1.PodSecurityContext {
  	psc := &k8sv1.PodSecurityContext{}
@@ -124,7 +128,7 @@ index f607c24786..48906f2dd1 100644
  	if util.IsNonRootVMI(vmi) {
  		nonRootUser := int64(util.NonRootUID)
  		psc.RunAsUser = &nonRootUser
-@@ -573,6 +583,21 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
+@@ -573,6 +585,21 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
  		}
  
  	}
@@ -146,7 +150,7 @@ index f607c24786..48906f2dd1 100644
  	pod := k8sv1.Pod{
  		ObjectMeta: metav1.ObjectMeta{
  			GenerateName: "virt-launcher-" + domain + "-",
-@@ -639,6 +664,40 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
+@@ -639,6 +666,40 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
  	return &pod, nil
  }
  

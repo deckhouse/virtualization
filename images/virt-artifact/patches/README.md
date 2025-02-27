@@ -235,5 +235,6 @@ Since libvirt and QEMU require writable directories, five emptyDir volumes are a
 - /etc/libvirt
 - /var/lib/libvirt/
 - /var/cache/libvirt
+- /tmp
 
 This ensures compatibility while maintaining a read-only root filesystem for improved isolation and security.
