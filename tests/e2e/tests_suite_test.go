@@ -35,6 +35,7 @@ import (
 
 const (
 	Interval                  = 5 * time.Second
+	ShortTimeout              = 30 * time.Second
 	Timeout                   = 90 * time.Second
 	ShortWaitDuration         = 60 * time.Second
 	LongWaitDuration          = 300 * time.Second

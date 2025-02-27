@@ -19,6 +19,7 @@ package conditions
 import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type Conder interface {
@@ -51,6 +52,10 @@ func GetCondition(condType Stringer, conditions []metav1.Condition) (metav1.Cond
 	}
 
 	return metav1.Condition{}, false
+}
+
+func IsLastUpdated(condition metav1.Condition, obj client.Object) bool {
+	return condition.ObservedGeneration == obj.GetGeneration()
 }
 
 func NewConditionBuilder(conditionType Stringer) *ConditionBuilder {

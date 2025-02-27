@@ -29,9 +29,12 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
+
+const waitForPVCStep = "waitForPVC"
 
 type WaitForPVCStep struct {
 	pvc    *corev1.PersistentVolumeClaim
@@ -52,11 +55,23 @@ func NewWaitForPVCStep(
 }
 
 func (s WaitForPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogStep(waitForPVCStep))
+
 	if s.pvc == nil {
-		return nil, nil
+		vd.Status.Phase = virtv2.DiskProvisioning
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.Provisioning).
+			Message("Waiting for the underlying PersistentVolumeClaim to be created by controller.")
+
+		log.Debug("Waiting for the PVC to be created")
+
+		return &reconcile.Result{}, nil
 	}
 
 	if s.pvc.Status.Phase == corev1.ClaimBound {
+		log.Debug("PVC is already Bound")
+
 		return nil, nil
 	}
 
@@ -70,14 +85,16 @@ func (s WaitForPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reco
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.WaitingForFirstConsumer).
-			Message(fmt.Sprintf("Waiting for the PVC %s to be Bound.", s.pvc.Name))
+			Message("Awaiting the creation and scheduling of the VirtualMachine with the attached VirtualDisk.")
 	} else {
 		vd.Status.Phase = virtv2.DiskProvisioning
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
-			Message(fmt.Sprintf("Waiting for the PVC %s to be Bound.", s.pvc.Name))
+			Message(fmt.Sprintf("Waiting for the PersistentVolumeClaim %q to be Bound.", s.pvc.Name))
 	}
+
+	log.Debug("Waiting for the PVC to be Bound", "wffc", wffc)
 
 	return &reconcile.Result{}, nil
 }

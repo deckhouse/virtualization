@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,22 +18,18 @@ package source
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/blockdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -43,175 +39,46 @@ import (
 const blankDataSource = "blank"
 
 type BlankDataSource struct {
-	recorder            eventrecord.EventRecorderLogger
-	statService         *service.StatService
-	diskService         *service.DiskService
-	storageClassService *service.VirtualDiskStorageClassService
-	client              client.Client
+	diskService BlankDataSourceDiskService
+	recorder    eventrecord.EventRecorderLogger
+	client      client.Client
 }
 
-func NewBlankDataSource(
-	recorder eventrecord.EventRecorderLogger,
-	statService *service.StatService,
-	diskService *service.DiskService,
-	storageClassService *service.VirtualDiskStorageClassService,
-	client client.Client,
-) *BlankDataSource {
+func NewBlankDataSource(recorder eventrecord.EventRecorderLogger, diskService BlankDataSourceDiskService, client client.Client) *BlankDataSource {
 	return &BlankDataSource{
-		statService:         statService,
-		diskService:         diskService,
-		storageClassService: storageClassService,
-		client:              client,
-		recorder:            recorder,
+		diskService: diskService,
+		recorder:    recorder,
+		client:      client,
 	}
 }
 
 func (ds BlankDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	log, ctx := logger.GetDataSourceContext(ctx, blankDataSource)
+	log, ctx := logger.GetHandlerContext(ctx, blankDataSource)
 
-	condition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
-	dv, err := ds.diskService.GetDataVolume(ctx, supgen)
+	pvc, err := object.FetchObject(ctx, supgen.PersistentVolumeClaim(), ds.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
-		return reconcile.Result{}, err
-	}
-	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
-	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
-	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
-	sc, err := ds.storageClassService.GetStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
-	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
-		return reconcile.Result{}, err
+	if pvc != nil {
+		ctx = logger.ToContext(ctx, log.With("pvc.name", pvc.Name, "pvc.status.phase", pvc.Status.Phase))
 	}
 
-	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
-	var dvRunningCondition *cdiv1.DataVolumeCondition
-	if dv != nil {
-		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
-		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
-	}
+	return blockdevice.NewStepTakers[*virtv2.VirtualDisk](
+		step.NewReadyStep(ds.diskService, pvc, cb),
+		step.NewTerminatingStep(pvc),
+		step.NewCreateBlankPVCStep(pvc, ds.diskService, ds.client, cb),
+		step.NewWaitForPVCStep(pvc, ds.client, cb),
+	).Run(ctx, vd)
+}
 
-	switch {
-	case isDiskProvisioningFinished(condition):
-		log.Debug("Disk provisioning finished: clean up")
-
-		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
-
-		// Protect Ready Disk and underlying PVC.
-		err = ds.diskService.Protect(ctx, vd, nil, pvc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		err = ds.diskService.Unprotect(ctx, dv)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-
-		return CleanUpSupplements(ctx, vd, ds)
-	case object.AnyTerminating(dv, pvc):
-		log.Info("Waiting for supplements to be terminated")
-	case dv == nil:
-		log.Info("Start import to PVC")
-
-		vd.Status.Progress = "0%"
-
-		var diskSize resource.Quantity
-		diskSize, err = ds.getPVCSize(vd)
-		if err != nil {
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, err)
-
-			return reconcile.Result{}, err
-		}
-
-		source := ds.getSource()
-
-		var nodePlacement *provisioner.NodePlacement
-		nodePlacement, err = getNodePlacement(ctx, ds.client, vd)
-		if err != nil {
-			setPhaseConditionToFailed(cb, &vd.Status.Phase, fmt.Errorf("unexpected error: %w", err))
-			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
-		}
-
-		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(nodePlacement))
-
-		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
-			return reconcile.Result{}, err
-		}
-
-		vd.Status.Phase = virtv2.DiskProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Provisioning).
-			Message("PVC Provisioner not found: create the new one.")
-
-		return reconcile.Result{Requeue: true}, nil
-	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
-		vd.Status.Phase = virtv2.DiskPending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.QuotaExceeded).
-			Message(dvQuotaNotExceededCondition.Message)
-		return reconcile.Result{}, nil
-	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
-		vd.Status.Phase = virtv2.DiskPending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ImagePullFailed).
-			Message(dvRunningCondition.Message)
-		ds.recorder.Event(vd, corev1.EventTypeWarning, vdcondition.ImagePullFailed.String(), dvRunningCondition.Message)
-		return reconcile.Result{}, nil
-	case pvc == nil:
-		vd.Status.Phase = virtv2.DiskProvisioning
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Provisioning).
-			Message("PVC not found: waiting for creation.")
-		return reconcile.Result{Requeue: true}, nil
-	case ds.diskService.IsImportDone(dv, pvc):
-		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
-
-		vd.Status.Phase = virtv2.DiskReady
-		cb.
-			Status(metav1.ConditionTrue).
-			Reason(vdcondition.Ready).
-			Message("")
-
-		vd.Status.Progress = "100%"
-		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
-	default:
-		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
-
-		err = ds.diskService.CheckProvisioning(ctx, pvc)
-		if err != nil {
-			return reconcile.Result{}, setPhaseConditionFromProvisioningError(ctx, err, cb, vd, dv, ds.diskService, ds.client)
-		}
-
-		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(0, 100))
-		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
-
-		err = ds.diskService.Protect(ctx, vd, dv, pvc)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		sc, err := ds.diskService.GetStorageClass(ctx, pvc.Spec.StorageClassName)
-		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
-			return reconcile.Result{}, err
-		}
-		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, cb, ds.diskService); err != nil {
-			return reconcile.Result{}, err
-		}
-		return reconcile.Result{}, nil
-	}
-
-	return reconcile.Result{Requeue: true}, nil
+func (ds BlankDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) error {
+	return nil
 }
 
 func (ds BlankDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
@@ -225,36 +92,6 @@ func (ds BlankDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (
 	return requeue, nil
 }
 
-func (ds BlankDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
-
-	requeue, err := ds.diskService.CleanUpSupplements(ctx, supgen)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return reconcile.Result{Requeue: requeue}, nil
-}
-
-func (ds BlankDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) error {
-	return nil
-}
-
 func (ds BlankDataSource) Name() string {
 	return blankDataSource
-}
-
-func (ds BlankDataSource) getSource() *cdiv1.DataVolumeSource {
-	return &cdiv1.DataVolumeSource{
-		Blank: &cdiv1.DataVolumeBlankImage{},
-	}
-}
-
-func (ds BlankDataSource) getPVCSize(vd *virtv2.VirtualDisk) (resource.Quantity, error) {
-	pvcSize := vd.Spec.PersistentVolumeClaim.Size
-	if pvcSize == nil || pvcSize.IsZero() {
-		return resource.Quantity{}, errors.New("spec.persistentVolumeClaim.size should be set for blank virtual disk")
-	}
-
-	return *pvcSize, nil
 }
