@@ -28,6 +28,7 @@ import (
 
 var (
 	NamespaceFlag     string
+	YesFlag           bool
 	AllImagesFlag     bool
 	AllNamespacesFlag bool
 	RepoDir           = "/var/lib/registry/docker/registry/v2/repositories"
