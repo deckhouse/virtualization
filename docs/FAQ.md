@@ -346,7 +346,7 @@ spec:
       name: win-virtio-iso
 ```
 
-## How do I use ansible to provision virtual machines?
+## How to use Ansible to provision virtual machines?
 
 Ansible is an automation tool that allows you to perform tasks on remote servers via SSH. In this example, we will look at how to use Ansible to manage virtual machines in a demo-app project.
 Assume that:
