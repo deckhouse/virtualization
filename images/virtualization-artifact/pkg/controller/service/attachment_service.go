@@ -156,12 +156,8 @@ func (s AttachmentService) CanUnplug(kvvm *virtv1.VirtualMachine, blockDeviceNam
 	}
 
 	for _, volume := range kvvm.Spec.Template.Spec.Volumes {
-		if !volume.PersistentVolumeClaim.Hotpluggable {
-			continue
-		}
-
 		if kvapi.VolumeExists(volume, blockDeviceName) {
-			return true
+			return volume.PersistentVolumeClaim.Hotpluggable
 		}
 	}
 
