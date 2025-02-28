@@ -112,7 +112,6 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 	)
 	testCaseLabel := map[string]string{"testcase": "vm-label-annotation"}
 	specialKeyValue := map[string]string{specialKey: specialValue}
-	vmPodLabel := map[string]string{"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher"}
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
@@ -197,20 +196,16 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					if !IsContainsLabelWithValue(&vm, specialKey, specialValue) {
 						errors = append(errors, fmt.Errorf("vm label %q with value %q was not found in %s", specialKey, specialValue, vm.Name))
 					}
-				}
 
-				var pods v1.PodList
-				err = GetObjects(kc.ResourcePod, &pods, kc.GetOptions{
-					Labels:    vmPodLabel,
-					Namespace: conf.Namespace,
-				})
-				if err != nil {
-					return err
-				}
+					activePodName := GetActiveVirtualMachinePod(&vm)
+					vmPod := v1.Pod{}
+					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: conf.Namespace})
+					if err != nil {
+						return err
+					}
 
-				for _, pod := range pods.Items {
-					if !IsContainsLabelWithValue(&pod, specialKey, specialValue) {
-						errors = append(errors, fmt.Errorf("pod label %q with value %q was not found in %s", specialKey, specialValue, pod.Name))
+					if !IsContainsLabelWithValue(&vmPod, specialKey, specialValue) {
+						errors = append(errors, fmt.Errorf("vm pod label %q with value %q was not found in %s", specialKey, specialValue, vmPod.Name))
 					}
 				}
 
@@ -252,20 +247,16 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					if IsContainsLabel(&vm, specialKey) {
 						errors = append(errors, fmt.Errorf("vm label %q was found in %s", specialKey, vm.Name))
 					}
-				}
 
-				var pods v1.PodList
-				err = GetObjects(kc.ResourcePod, &pods, kc.GetOptions{
-					Labels:    vmPodLabel,
-					Namespace: conf.Namespace,
-				})
-				if err != nil {
-					return err
-				}
+					activePodName := GetActiveVirtualMachinePod(&vm)
+					vmPod := v1.Pod{}
+					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: conf.Namespace})
+					if err != nil {
+						return err
+					}
 
-				for _, pod := range pods.Items {
-					if IsContainsLabel(&pod, specialKey) {
-						errors = append(errors, fmt.Errorf("pod label %q was found in %s", specialKey, pod.Name))
+					if IsContainsLabel(&vmPod, specialKey) {
+						errors = append(errors, fmt.Errorf("vm pod label %q was found in %s", specialKey, vmPod.Name))
 					}
 				}
 
@@ -309,20 +300,16 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					if !IsContainsAnnotationWithValue(&vm, specialKey, specialValue) {
 						errors = append(errors, fmt.Errorf("vm annotation %q with value %q was not found in %s", specialKey, specialValue, vm.Name))
 					}
-				}
 
-				var pods v1.PodList
-				err = GetObjects(kc.ResourcePod, &pods, kc.GetOptions{
-					Labels:    vmPodLabel,
-					Namespace: conf.Namespace,
-				})
-				if err != nil {
-					return err
-				}
+					activePodName := GetActiveVirtualMachinePod(&vm)
+					vmPod := v1.Pod{}
+					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: conf.Namespace})
+					if err != nil {
+						return err
+					}
 
-				for _, pod := range pods.Items {
-					if !IsContainsAnnotationWithValue(&pod, specialKey, specialValue) {
-						errors = append(errors, fmt.Errorf("pod annotation %q with value %q was not found in %s", specialKey, specialValue, pod.Name))
+					if !IsContainsAnnotationWithValue(&vmPod, specialKey, specialValue) {
+						errors = append(errors, fmt.Errorf("vm pod annotation %q with value %q was not found in %s", specialKey, specialValue, vmPod.Name))
 					}
 				}
 
@@ -364,20 +351,16 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					if IsContainsAnnotation(&vm, specialKey) {
 						errors = append(errors, fmt.Errorf("vm annotation %q was found in %s", specialKey, vm.Name))
 					}
-				}
 
-				var pods v1.PodList
-				err = GetObjects(kc.ResourcePod, &pods, kc.GetOptions{
-					Labels:    vmPodLabel,
-					Namespace: conf.Namespace,
-				})
-				if err != nil {
-					return err
-				}
+					activePodName := GetActiveVirtualMachinePod(&vm)
+					vmPod := v1.Pod{}
+					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: conf.Namespace})
+					if err != nil {
+						return err
+					}
 
-				for _, pod := range pods.Items {
-					if IsContainsAnnotation(&pod, specialKey) {
-						errors = append(errors, fmt.Errorf("pod annotation %q was found in %s", specialKey, pod.Name))
+					if IsContainsAnnotation(&vmPod, specialKey) {
+						errors = append(errors, fmt.Errorf("vm pod annotation %q was found in %s", specialKey, vmPod.Name))
 					}
 				}
 
