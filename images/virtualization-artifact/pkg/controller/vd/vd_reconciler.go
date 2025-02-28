@@ -178,7 +178,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			mgr.GetRESTMapper(),
 			&virtv2.VirtualDisk{},
 		), predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
+			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldPVC, ok := e.ObjectOld.(*corev1.PersistentVolumeClaim)
