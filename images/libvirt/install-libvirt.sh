@@ -524,9 +524,9 @@ $SRC_BUILD/src/virtchd.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtchd-ro.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtchd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtqemud.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtqemud.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtqemud-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtqemud-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtqemud.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtqemud-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtqemud-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtvboxd.service to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtvboxd.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtvboxd-ro.socket to /usr/lib/systemd/system
