@@ -141,7 +141,7 @@ $SRC_BUILD/src/libvirt_storage_file_fs.so to /usr/lib64/libvirt/storage-file
 # $SRC_BUILD/src/libvirt_driver_ch.so to /usr/lib64/libvirt/connection-driver
 $SRC_BUILD/src/libvirt_driver_qemu.so to /usr/lib64/libvirt/connection-driver
 # $SRC_BUILD/src/libvirt_driver_vbox.so to /usr/lib64/libvirt/connection-driver
-# $SRC_BUILD/src/libvirtd to /usr/sbin
+$SRC_BUILD/src/libvirtd to /usr/sbin
 $SRC_BUILD/src/virtproxyd to /usr/sbin
 $SRC_BUILD/src/virtinterfaced to /usr/sbin
 $SRC_BUILD/src/virtlockd to /usr/sbin
@@ -450,7 +450,7 @@ $SRC_BASE/src/libvirt.conf to /etc/libvirt
 # $SRC_BASE/src/qemu/libvirtd_qemu.aug to /usr/share/augeas/lenses
 $SRC_BUILD/src/libvirtd.conf to /etc/libvirt
 # $SRC_BUILD/src/libvirtd.aug to /usr/share/augeas/lenses
-# $SRC_BUILD/src/virtproxyd.conf to /etc/libvirt
+$SRC_BUILD/src/virtproxyd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtproxyd.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtinterfaced.conf to /etc/libvirt
 # $SRC_BUILD/src/virtinterfaced.aug to /usr/share/augeas/lenses
@@ -474,17 +474,17 @@ $SRC_BUILD/src/libvirtd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtvboxd.aug to /usr/share/augeas/lenses
 $SRC_BASE/src/remote/virt-guest-shutdown.target to /usr/lib/systemd/system
 # $SRC_BUILD/src/libvirtd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-admin.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-tcp.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-tls.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd-admin.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd-tcp.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd-tls.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-tcp.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-tls.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd.service to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd-tcp.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd-tls.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtinterfaced.service to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtinterfaced.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtinterfaced-ro.socket to /usr/lib/systemd/system
