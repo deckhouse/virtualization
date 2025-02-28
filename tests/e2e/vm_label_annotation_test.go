@@ -190,11 +190,9 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					return err
 				}
 
-				var errors []error
-
 				for _, vm := range vms.Items {
 					if !IsContainsLabelWithValue(&vm, specialKey, specialValue) {
-						errors = append(errors, fmt.Errorf("vm label %q with value %q was not found in %s", specialKey, specialValue, vm.Name))
+						return fmt.Errorf("vm label %q with value %q was not found in %s", specialKey, specialValue, vm.Name)
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
@@ -205,12 +203,8 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					}
 
 					if !IsContainsLabelWithValue(&vmPod, specialKey, specialValue) {
-						errors = append(errors, fmt.Errorf("vm pod label %q with value %q was not found in %s", specialKey, specialValue, vmPod.Name))
+						return fmt.Errorf("vm pod label %q with value %q was not found in %s", specialKey, specialValue, vmPod.Name)
 					}
-				}
-
-				if len(errors) > 0 {
-					return fmt.Errorf("%v", errors)
 				}
 
 				return nil
@@ -241,11 +235,9 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					return err
 				}
 
-				var errors []error
-
 				for _, vm := range vms.Items {
 					if IsContainsLabel(&vm, specialKey) {
-						errors = append(errors, fmt.Errorf("vm label %q was found in %s", specialKey, vm.Name))
+						return fmt.Errorf("vm label %q was found in %s", specialKey, vm.Name)
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
@@ -256,12 +248,8 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					}
 
 					if IsContainsLabel(&vmPod, specialKey) {
-						errors = append(errors, fmt.Errorf("vm pod label %q was found in %s", specialKey, vmPod.Name))
+						return fmt.Errorf("vm pod label %q was found in %s", specialKey, vmPod.Name)
 					}
-				}
-
-				if len(errors) > 0 {
-					return fmt.Errorf("%v", errors)
 				}
 
 				return nil
@@ -294,11 +282,9 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					return err
 				}
 
-				var errors []error
-
 				for _, vm := range vms.Items {
 					if !IsContainsAnnotationWithValue(&vm, specialKey, specialValue) {
-						errors = append(errors, fmt.Errorf("vm annotation %q with value %q was not found in %s", specialKey, specialValue, vm.Name))
+						return fmt.Errorf("vm annotation %q with value %q was not found in %s", specialKey, specialValue, vm.Name)
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
@@ -309,12 +295,8 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					}
 
 					if !IsContainsAnnotationWithValue(&vmPod, specialKey, specialValue) {
-						errors = append(errors, fmt.Errorf("vm pod annotation %q with value %q was not found in %s", specialKey, specialValue, vmPod.Name))
+						return fmt.Errorf("vm pod annotation %q with value %q was not found in %s", specialKey, specialValue, vmPod.Name)
 					}
-				}
-
-				if len(errors) > 0 {
-					return fmt.Errorf("%v", errors)
 				}
 
 				return nil
@@ -345,11 +327,9 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					return err
 				}
 
-				var errors []error
-
 				for _, vm := range vms.Items {
 					if IsContainsAnnotation(&vm, specialKey) {
-						errors = append(errors, fmt.Errorf("vm annotation %q was found in %s", specialKey, vm.Name))
+						return fmt.Errorf("vm annotation %q was found in %s", specialKey, vm.Name)
 					}
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
@@ -360,12 +340,8 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 					}
 
 					if IsContainsAnnotation(&vmPod, specialKey) {
-						errors = append(errors, fmt.Errorf("vm pod annotation %q was found in %s", specialKey, vmPod.Name))
+						return fmt.Errorf("vm pod annotation %q was found in %s", specialKey, vmPod.Name)
 					}
-				}
-
-				if len(errors) > 0 {
-					return fmt.Errorf("%v", errors)
 				}
 
 				return nil
