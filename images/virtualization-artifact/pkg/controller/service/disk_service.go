@@ -97,32 +97,17 @@ func (s DiskService) Start(
 
 	sc, err := s.GetStorageClass(ctx, storageClass)
 	if err != nil {
-		return err
+		return fmt.Errorf("get storage class: %w", err)
 	}
 
-	var (
-		accessMode corev1.PersistentVolumeAccessMode
-		volumeMode corev1.PersistentVolumeMode
-	)
-
-	sprofile, err := s.GetStorageProfile(ctx, storageClass)
+	volumeMode, accessMode, err := s.GetVolumeAndAccessModes(ctx, sc)
 	if err != nil {
-		return err
-	}
-	storageCaps := s.parseStorageCapabilities(sprofile.Status)
-	accessMode = storageCaps.AccessMode
-	volumeMode = storageCaps.VolumeMode
-
-	if m, override := s.parseVolumeMode(sc); override {
-		volumeMode = m
-	}
-	if m, override := s.parseAccessMode(sc); override {
-		accessMode = m
+		return fmt.Errorf("get volume and access modes: %w", err)
 	}
 
-	dvBuilder.SetPVC(ptr.To(sprofile.GetName()), pvcSize, accessMode, volumeMode)
+	dvBuilder.SetPVC(storageClass, pvcSize, accessMode, volumeMode)
 
-	if s.parseImmediateBindingMode(sc) {
+	if s.isImmediateBindingMode(sc) {
 		dvBuilder.SetImmediate()
 	}
 
@@ -142,6 +127,37 @@ func (s DiskService) Start(
 	}
 
 	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
+}
+
+func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, sc *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+	if sc == nil {
+		return "", "", errors.New("storage class is nil")
+	}
+
+	var accessMode corev1.PersistentVolumeAccessMode
+	var volumeMode corev1.PersistentVolumeMode
+
+	storageProfile, err := s.GetStorageProfile(ctx, sc.Name)
+	if err != nil {
+		return "", "", fmt.Errorf("get storage profile: %w", err)
+	}
+
+	if storageProfile == nil {
+		return "", "", fmt.Errorf("storage profile %q not found: %w", sc.Name, ErrStorageProfileNotFound)
+	}
+
+	storageCaps := s.parseStorageCapabilities(storageProfile.Status)
+	accessMode = storageCaps.AccessMode
+	volumeMode = storageCaps.VolumeMode
+
+	if m, override := s.parseVolumeMode(sc); override {
+		volumeMode = m
+	}
+	if m, override := s.parseAccessMode(sc); override {
+		accessMode = m
+	}
+
+	return volumeMode, accessMode, nil
 }
 
 func (s DiskService) StartImmediate(
@@ -402,19 +418,8 @@ func (s DiskService) GetCapacity(pvc *corev1.PersistentVolumeClaim) string {
 	return ""
 }
 
-func (s DiskService) GetStorageProfile(ctx context.Context, storageClassName *string) (*cdiv1.StorageProfile, error) {
-	sc, err := s.GetStorageClass(ctx, storageClassName)
-	if err != nil {
-		return nil, err
-	}
-	var sp cdiv1.StorageProfile
-	if err = s.client.Get(ctx, types.NamespacedName{Name: sc.GetName()}, &sp); err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, ErrStorageProfileNotFound
-		}
-		return nil, err
-	}
-	return &sp, nil
+func (s DiskService) GetStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &cdiv1.StorageProfile{})
 }
 
 type StorageCapabilities struct {
@@ -478,7 +483,7 @@ func (s DiskService) parseAccessMode(sc *storev1.StorageClass) (corev1.Persisten
 	}
 }
 
-func (s DiskService) parseImmediateBindingMode(sc *storev1.StorageClass) bool {
+func (s DiskService) isImmediateBindingMode(sc *storev1.StorageClass) bool {
 	if sc == nil {
 		return false
 	}

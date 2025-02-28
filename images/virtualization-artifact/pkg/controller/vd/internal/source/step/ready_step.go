@@ -22,18 +22,18 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
+const readyStep = "ready"
+
 type ReadyStepDiskService interface {
 	GetCapacity(pvc *corev1.PersistentVolumeClaim) string
-	Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
 type ReadyStep struct {
@@ -55,8 +55,13 @@ func NewReadyStep(
 }
 
 func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogStep(readyStep))
+
 	if s.pvc == nil {
-		if vd.Status.Target.PersistentVolumeClaim != "" {
+		ready, _ := conditions.GetCondition(vdcondition.Ready, vd.Status.Conditions)
+		if ready.Status == metav1.ConditionTrue {
+			log.Debug("PVC is lost", ".status.target.pvc", vd.Status.Target.PersistentVolumeClaim)
+
 			vd.Status.Phase = virtv2.DiskLost
 			s.cb.
 				Status(metav1.ConditionFalse).
@@ -65,8 +70,12 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 			return &reconcile.Result{}, nil
 		}
 
+		log.Debug("PVC not created yet")
+
 		return nil, nil
 	}
+
+	vd.Status.Target.PersistentVolumeClaim = s.pvc.Name
 
 	switch s.pvc.Status.Phase {
 	case corev1.ClaimLost:
@@ -75,6 +84,8 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Lost).
 			Message(fmt.Sprintf("PersistentVolume %q not found.", s.pvc.Spec.VolumeName))
+
+		log.Debug("PVC is Lost")
 
 		return &reconcile.Result{}, nil
 	case corev1.ClaimBound:
@@ -85,15 +96,13 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 			Message("")
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = s.diskService.GetCapacity(s.pvc)
-		vd.Status.Target.PersistentVolumeClaim = s.pvc.Name
 
-		err := s.diskService.Protect(ctx, vd, nil, s.pvc)
-		if err != nil {
-			return nil, fmt.Errorf("protect: %w", err)
-		}
+		log.Debug("PVC is Bound")
 
 		return &reconcile.Result{}, nil
 	default:
+		log.Debug("PVC not bound yet")
+
 		return nil, nil
 	}
 }

@@ -99,8 +99,6 @@ const (
 	WaitingForFirstConsumer ReadyReason = "WaitingForFirstConsumer"
 	// ProvisioningFailed indicates that the provisioning process has failed.
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
-	// StorageClassNotReady indicates that the provisioning process pending because `StorageClass` not ready.
-	StorageClassNotReady ReadyReason = "StorageClassNotReady"
 	// Ready indicates that the import process is complete and the `VirtualDisk` is ready for use.
 	Ready ReadyReason = "Ready"
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualDisk` can no longer be used.
@@ -128,8 +126,8 @@ const (
 
 	// StorageClassReady indicates that the storage class is ready
 	StorageClassReady StorageClassReadyReason = "StorageClassReady"
-	// StorageClassNotFound indicates that the storage class is not ready
-	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
+	// StorageClassNotReady indicates that the storage class is not ready
+	StorageClassNotReady StorageClassReadyReason = "StorageClassNotReady"
 
 	// UsedForImageCreation indicates that the VirtualDisk is used for create image.
 	UsedForImageCreation InUseReason = "UsedForImageCreation"

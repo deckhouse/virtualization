@@ -19,13 +19,13 @@ package source
 import (
 	"context"
 	"log/slog"
-	"testing"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
@@ -33,29 +33,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-func TestHandlers(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Sources")
-}
-
-var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
+var _ = Describe("Blank", func() {
 	var (
-		ctx        context.Context
-		scheme     *runtime.Scheme
-		vd         *virtv2.VirtualDisk
-		vs         *vsv1.VolumeSnapshot
-		sc         *storagev1.StorageClass
-		vdSnapshot *virtv2.VirtualDiskSnapshot
-		pvc        *corev1.PersistentVolumeClaim
-		recorder   eventrecord.EventRecorderLogger
-		svc        *ObjectRefVirtualDiskSnapshotDiskServiceMock
+		ctx      context.Context
+		scheme   *runtime.Scheme
+		vd       *virtv2.VirtualDisk
+		sc       *storagev1.StorageClass
+		pvc      *corev1.PersistentVolumeClaim
+		recorder eventrecord.EventRecorderLogger
+		svc      *BlankDataSourceDiskServiceMock
 	)
 
 	BeforeEach(func() {
@@ -71,9 +65,12 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			EventFunc: func(_ client.Object, _, _, _ string) {},
 		}
 
-		svc = &ObjectRefVirtualDiskSnapshotDiskServiceMock{
+		svc = &BlankDataSourceDiskServiceMock{
+			GetVolumeAndAccessModesFunc: func(_ context.Context, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+				return *pvc.Spec.VolumeMode, pvc.Spec.AccessModes[0], nil
+			},
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
-				return "1Mi"
+				return vd.Spec.PersistentVolumeClaim.Size.String()
 			},
 		}
 
@@ -83,51 +80,35 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			},
 		}
 
-		pvc = &corev1.PersistentVolumeClaim{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "vd-vd-22222222-2222-2222-2222-222222222222",
-			},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				StorageClassName: &sc.Name,
-			},
-			Status: corev1.PersistentVolumeClaimStatus{
-				Phase: corev1.ClaimBound,
-			},
-		}
-
-		vs = &vsv1.VolumeSnapshot{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "vs",
-			},
-			Status: &vsv1.VolumeSnapshotStatus{
-				ReadyToUse: ptr.To(true),
-			},
-		}
-
-		vdSnapshot = &virtv2.VirtualDiskSnapshot{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "vd-snapshot",
-				UID:  "11111111-1111-1111-1111-111111111111",
-			},
-			Spec: virtv2.VirtualDiskSnapshotSpec{},
-			Status: virtv2.VirtualDiskSnapshotStatus{
-				Phase:              virtv2.VirtualDiskSnapshotPhaseReady,
-				VolumeSnapshotName: vs.Name,
-			},
-		}
-
 		vd = &virtv2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vd",
 				Generation: 1,
-				UID:        "22222222-2222-2222-2222-222222222222",
+				UID:        "11111111-1111-1111-1111-111111111111",
 			},
 			Spec: virtv2.VirtualDiskSpec{
-				DataSource: &virtv2.VirtualDiskDataSource{
-					Type: virtv2.DataSourceTypeObjectRef,
-					ObjectRef: &virtv2.VirtualDiskObjectRef{
-						Kind: virtv2.VirtualDiskObjectRefKindVirtualDiskSnapshot,
-						Name: vdSnapshot.Name,
+				PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
+					Size: ptr.To(resource.MustParse("10Mi")),
+				},
+			},
+			Status: virtv2.VirtualDiskStatus{
+				StorageClassName: sc.Name,
+			},
+		}
+
+		supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+
+		pvc = &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: supgen.PersistentVolumeClaim().Name,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec{
+				StorageClassName: &sc.Name,
+				VolumeMode:       ptr.To(corev1.PersistentVolumeBlock),
+				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+				Resources: corev1.VolumeResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceStorage: *vd.Spec.PersistentVolumeClaim.Size,
 					},
 				},
 			},
@@ -137,8 +118,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 	Context("VirtualDisk has just been created", func() {
 		It("must create PVC", func() {
 			var pvcCreated bool
-			vd.Status = virtv2.VirtualDiskStatus{}
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs).
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).
 				WithInterceptorFuncs(interceptor.Funcs{
 					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
 						_, ok := obj.(*corev1.PersistentVolumeClaim)
@@ -148,7 +128,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 					},
 				}).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
+			syncer := NewBlankDataSource(recorder, svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -157,10 +137,27 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			Expect(pvcCreated).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
-			Expect(vd.Status.SourceUID).ToNot(BeNil())
-			Expect(*vd.Status.SourceUID).ToNot(BeEmpty())
 			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
+			Expect(vd.Status.Progress).NotTo(BeEmpty())
 			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
+		})
+
+		It("checks size in spec", func() {
+			client := fake.NewClientBuilder().WithScheme(scheme).Build()
+			syncer := NewBlankDataSource(nil, nil, client)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).To(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
+		})
+
+		It("checks storage class is set in status", func() {
+			client := fake.NewClientBuilder().WithScheme(scheme).Build()
+			syncer := NewBlankDataSource(nil, nil, client)
+
+			res, err := syncer.Sync(ctx, vd)
+			Expect(err).To(HaveOccurred())
+			Expect(res.IsZero()).To(BeTrue())
 		})
 	})
 
@@ -170,7 +167,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
+			syncer := NewBlankDataSource(nil, nil, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -185,7 +182,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
+			syncer := NewBlankDataSource(nil, nil, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -201,7 +198,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			pvc.Status.Phase = corev1.ClaimBound
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
+			syncer := NewBlankDataSource(nil, svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -225,7 +222,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
+			syncer := NewBlankDataSource(nil, svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -241,7 +238,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 			vd.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshot(recorder, svc, client)
+			syncer := NewBlankDataSource(nil, svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -253,23 +250,3 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 		})
 	})
 })
-
-func ExpectStats(vd *virtv2.VirtualDisk) {
-	Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
-	Expect(vd.Status.Capacity).ToNot(BeEmpty())
-	Expect(vd.Status.Progress).ToNot(BeEmpty())
-	Expect(vd.Status.Phase).ToNot(BeEmpty())
-}
-
-func ExpectCondition(vd *virtv2.VirtualDisk, status metav1.ConditionStatus, reason vdcondition.ReadyReason, msgExists bool) {
-	ready, _ := conditions.GetCondition(vdcondition.Ready, vd.Status.Conditions)
-	Expect(ready.Status).To(Equal(status))
-	Expect(ready.Reason).To(Equal(reason.String()))
-	Expect(ready.ObservedGeneration).To(Equal(vd.Generation))
-
-	if msgExists {
-		Expect(ready.Message).ToNot(BeEmpty())
-	} else {
-		Expect(ready.Message).To(BeEmpty())
-	}
-}

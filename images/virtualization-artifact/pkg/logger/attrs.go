@@ -17,7 +17,6 @@ limitations under the License.
 package logger
 
 import (
-	"encoding/json"
 	"log/slog"
 )
 
@@ -26,9 +25,9 @@ const (
 	nameAttr       = "name"
 	namespaceAttr  = "namespace"
 	handlerAttr    = "handler"
-	dataSourceAttr = "ds"
 	controllerAttr = "controller"
 	collectorAttr  = "collector"
+	stepAttr       = "step"
 )
 
 func SlogErr(err error) slog.Attr {
@@ -43,10 +42,6 @@ func SlogNamespace(namespace string) slog.Attr {
 	return slog.String(namespaceAttr, namespace)
 }
 
-func SlogDataSource(handler string) slog.Attr {
-	return slog.String(dataSourceAttr, handler)
-}
-
 func SlogHandler(handler string) slog.Attr {
 	return slog.String(handlerAttr, handler)
 }
@@ -59,10 +54,6 @@ func SlogCollector(collector string) slog.Attr {
 	return slog.String(collectorAttr, collector)
 }
 
-func SlogTryJson(key string, i interface{}) slog.Attr {
-	bytes, err := json.Marshal(i)
-	if err == nil {
-		return slog.String(key, string(bytes))
-	}
-	return slog.Any(key, i)
+func SlogStep(step string) slog.Attr {
+	return slog.String(stepAttr, step)
 }

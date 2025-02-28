@@ -216,6 +216,13 @@ var _ = Describe("ObjectRef VirtualImageSnapshot PersistentVolumeClaim", func() 
 	Context("VirtualImage is lost", func() {
 		It("is lost when PVC is not found", func() {
 			vi.Status.Target.PersistentVolumeClaim = pvc.Name
+			vi.Status.Conditions = []metav1.Condition{
+				{
+					Type:   vicondition.ReadyType.String(),
+					Reason: vicondition.Ready.String(),
+					Status: metav1.ConditionTrue,
+				},
+			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
 			syncer := NewObjectRefVirtualDiskSnapshotPVC(importer, stat, nil, client, nil, recorder)

@@ -23,7 +23,6 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -66,8 +65,9 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 	log, _ := logger.GetDataSourceContext(ctx, "objectref")
 
 	if s.pvc == nil {
-		if vi.Status.Target.PersistentVolumeClaim != "" {
-			log.Warn("Image is Lost: underlying PVC not found")
+		ready, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+		if ready.Status == metav1.ConditionTrue {
+			log.Debug("PVC is lost", ".status.target.pvc", vi.Status.Target.PersistentVolumeClaim)
 
 			vi.Status.Phase = virtv2.ImageLost
 			s.cb.
@@ -79,6 +79,8 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 
 		return nil, nil
 	}
+
+	vi.Status.Target.PersistentVolumeClaim = s.pvc.Name
 
 	switch s.pvc.Status.Phase {
 	case corev1.ClaimLost:
@@ -116,8 +118,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 		vi.Status.Phase = virtv2.ImageReady
 		vi.Status.Progress = "100%"
 
-		var res resource.Quantity
-		res = s.pvc.Status.Capacity[corev1.ResourceStorage]
+		res := s.pvc.Status.Capacity[corev1.ResourceStorage]
 
 		intQ, ok := res.AsInt64()
 		if !ok {
@@ -130,8 +131,6 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 			Unpacked:      res.String(),
 			UnpackedBytes: strconv.FormatInt(intQ, 10),
 		}
-
-		vi.Status.Target.PersistentVolumeClaim = s.pvc.Name
 
 		return &reconcile.Result{}, nil
 	default:

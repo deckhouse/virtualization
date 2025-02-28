@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 
-	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -35,15 +34,6 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
-
-//go:generate moq -rm -out mock.go . ObjectRefVirtualDiskSnapshotDiskService
-
-type ObjectRefVirtualDiskSnapshotDiskService interface {
-	step.ReadyStepDiskService
-
-	GetVirtualDiskSnapshot(ctx context.Context, name, namespace string) (*virtv2.VirtualDiskSnapshot, error)
-	GetVolumeSnapshot(ctx context.Context, name, namespace string) (*vsv1.VolumeSnapshot, error)
-}
 
 type ObjectRefVirtualDiskSnapshot struct {
 	diskService ObjectRefVirtualDiskSnapshotDiskService
@@ -77,8 +67,8 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 	return blockdevice.NewStepTakers[*virtv2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
+		step.NewCreatePVCFromVDSnapshotStep(pvc, ds.recorder, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
-		step.NewCreatePVCStep(pvc, ds.recorder, ds.client, cb),
 	).Run(ctx, vd)
 }
 
