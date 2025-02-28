@@ -138,30 +138,118 @@ async function fetchReviewsForPR(prNumber) {
   }
 }
 
+async function fetchRequestedReviewersForPR(prNumber) {
+  try {
+    const { data } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers', {
+      owner: OWNER,
+      repo: REPO,
+      pull_number: prNumber,
+    });
+    return data;
+  } catch (error) {
+    console.error(`Error fetching requested reviewers for PR ${prNumber}:`, error);
+    return [];
+  }
+}
+
+const CHANGES_REQUESTED = "changes_requested"
+const REVIEW_REQUIRED = "review_required"
+const READY_TO_MERGE = "ready_to_merge"
+const STUCK = "stuck"
+
+function getPullRequestGroup(reviews, requestedReviewers) {
+  reviews = reviews.sort((a, b) => {
+    const dateA = new Date(a.submitted_at);
+    const dateB = new Date(b.submitted_at);
+    return dateA - dateB;
+  });
+
+  const requestedReviewersMap = new Map();
+  const changesRequestedMap = new Map();
+  const approvedMap = new Map();
+
+  requestedReviewers.users.forEach(requestedReviewer => {
+    const { id } = requestedReviewer;
+    requestedReviewersMap.set(id, requestedReviewer);
+  });
+
+  reviews.forEach(review => {
+    const { user, state } = review;
+
+    if (state === 'APPROVED') {
+      if (changesRequestedMap.has(user.id)) {
+        changesRequestedMap.delete(user.id);
+      }
+
+      approvedMap.set(user.id, review);
+    }
+
+    if (state === 'CHANGES_REQUESTED') {
+      if (approvedMap.has(user.id)) {
+        approvedMap.delete(user.id);
+      }
+
+      changesRequestedMap.set(user.id, review);
+    }
+  });
+
+  const now = new Date();
+  let areChangesRequested = false;
+
+  for (let [userId, changeRequested] of changesRequestedMap.entries()) {
+    // Skip if review is re-requested.
+    if (requestedReviewersMap.has(userId)) {
+      continue;
+    }
+
+    const submittedAt = new Date(changeRequested.submitted_at)
+    submittedAt.setDate(submittedAt.getDate() + 1);
+    if (now.getDay() !== 1 && submittedAt < now) {
+      return STUCK;
+    }
+
+    areChangesRequested = true;
+  }
+
+  if (areChangesRequested) {
+    return CHANGES_REQUESTED;
+  }
+
+  if (approvedMap.size > 0) {
+    return READY_TO_MERGE;
+  }
+
+  return REVIEW_REQUIRED;
+}
+
 async function generateSummary(prs) {
   const now = moment();
 
   const readyToMerge = [];
   const reviewRequired = [];
   const changesRequested = [];
+  const stuck = [];
 
   for (const pr of prs) {
     const reviews = await fetchReviewsForPR(pr.number);
-    const areChangesRequested = reviews.some(review => review.state === 'CHANGES_REQUESTED');
-    if (areChangesRequested) {
-      changesRequested.push(pr);
-      continue;
+    const requestedReviewers = await fetchRequestedReviewersForPR(pr.number);
+
+    const group = getPullRequestGroup(reviews, requestedReviewers);
+
+    switch (group) {
+      case CHANGES_REQUESTED:
+        changesRequested.push(pr);
+        break;
+      case READY_TO_MERGE:
+        readyToMerge.push(pr);
+        break;
+      case STUCK:
+        stuck.push(pr);
+        break;
+      default:
+        reviewRequired.push(pr);
+        break;
     }
-
-    const approvals = reviews.filter(review => review.state === 'APPROVED');
-    const isReadyToMerge = approvals.length >= MIN_APPROVALS_NUMBER;
-
-    if (isReadyToMerge) {
-      readyToMerge.push(pr);
-      continue;
-    }
-
-    reviewRequired.push(pr);
   }
 
   let summary = `## ${PROJECT} PRs ${now.format('YYYY-MM-DD')}\n\n`;
@@ -174,6 +262,11 @@ async function generateSummary(prs) {
   if (readyToMerge.length > 0) {
     const readyToMergePRsInfo = await Promise.all(readyToMerge.map(pr => formatForAssignees(pr)));
     summary += `### Ready to be merged\nWhy haven't they been merged yet? :thinking_face:\n\n${readyToMergePRsInfo.join('\n')}\n\n`;
+  }
+
+  if (stuck.length > 0) {
+    const stuckPRsInfo = await Promise.all(stuck.map(pr => formatForAssignees(pr)));
+    summary += `### Stuck in resolution\nWhy is there no resolution for the requested changes? :large_red_square:\n\n${stuckPRsInfo.join('\n')}\n\n`;
   }
 
   if (changesRequested.length > 0) {
@@ -204,6 +297,7 @@ async function run() {
   try {
     const prs = await fetchPullRequests();
     const summary = await generateSummary(prs);
+
     await sendSummaryToLoop(summary);
   } catch (error) {
     console.error('An error occurred:', error);
