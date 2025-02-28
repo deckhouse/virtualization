@@ -474,11 +474,11 @@ $SRC_BUILD/src/virtnwfilterd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtvboxd.aug to /usr/share/augeas/lenses
 $SRC_BASE/src/remote/virt-guest-shutdown.target to /usr/lib/systemd/system
 # $SRC_BUILD/src/libvirtd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-admin.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-tcp.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-tls.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-tcp.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-tls.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtproxyd.service to /usr/lib/systemd/system
 $SRC_BUILD/src/virtproxyd.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtproxyd-ro.socket to /usr/lib/systemd/system
