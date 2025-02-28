@@ -300,6 +300,11 @@ func WaitByLabel(resource kc.Resource, opts kc.WaitOptions) {
 	WaitResources(resources, resource, opts)
 }
 
+// Useful when require to async await resources with specified names.
+//
+// Do not use 'labels' or 'excluded labels' in opts; they will be ignored.
+//
+//	Static condition `wait --for`: `jsonpath={.status.phase}=phase`.
 func WaitResourcesByPhase(resources []string, resource kc.Resource, phase string, opts kc.WaitOptions) {
 	GinkgoHelper()
 	opts.For = fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
