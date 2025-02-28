@@ -167,8 +167,6 @@ binaries:
   - /usr/bin/chacl /usr/bin/getfacl /usr/bin/setfacl /usr/bin/chmod
   # Fs utils
   - /usr/sbin/fstrim /usr/sbin/fuser /usr/sbin/findfs
-  # Procps (System and process monitoring utilities)
-  - /usr/sbin/sysctl
   # Xorriso (Creates an image of an ISO9660 filesystem)
   # - /usr/bin/xorriso /usr/bin/xorrecord /usr/bin/osirrox /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
