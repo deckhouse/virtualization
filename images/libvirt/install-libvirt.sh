@@ -490,39 +490,39 @@ $SRC_BUILD/src/virtproxyd-tls.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtinterfaced-ro.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtinterfaced-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlockd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtlockd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtlockd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtlockd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtlockd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlogd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtlogd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtlogd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtlogd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtlogd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtnetworkd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnetworkd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnetworkd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnetworkd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnetworkd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnetworkd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnetworkd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtnodedevd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnodedevd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnodedevd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnodedevd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnodedevd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnodedevd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnodedevd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtnwfilterd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnwfilterd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnwfilterd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnwfilterd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnwfilterd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnwfilterd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnwfilterd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtsecretd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtsecretd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtsecretd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtsecretd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtsecretd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtsecretd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtsecretd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtstoraged.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtstoraged.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtstoraged-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtstoraged-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtstoraged.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtstoraged-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtstoraged-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlxcd.service to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlxcd.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlxcd-ro.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlxcd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtchd.service to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtchd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtchd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtchd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtchd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtchd-admin.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtqemud.service to /usr/lib/systemd/system
 $SRC_BUILD/src/virtqemud.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtqemud-ro.socket to /usr/lib/systemd/system
