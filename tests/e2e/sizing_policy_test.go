@@ -163,8 +163,8 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		})
 
 		It(fmt.Sprintf("checks VMs phases with %s label", existingVmClass), func() {
-			By("VMs should be ready")
-			WaitVmReady(kc.WaitOptions{
+			By("Virtual machine agents should be ready")
+			WaitVmAgentReady(kc.WaitOptions{
 				Labels:    existingVmClass,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -187,7 +187,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 			It("checks VM phase and condition status after changing", func() {
 				By("VM should be ready")
-				WaitVmReady(kc.WaitOptions{
+				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    notExistingVmClassChanging,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -226,7 +226,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 			It("checks VM phase and condition after creating", func() {
 				By("VM should be ready")
-				WaitVmReady(kc.WaitOptions{
+				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    notExistingVmClassCreating,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,

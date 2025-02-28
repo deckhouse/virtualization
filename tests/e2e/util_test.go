@@ -32,10 +32,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	storagev1 "k8s.io/api/storage/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -262,7 +264,7 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
-func WaitVmReady(opts kc.WaitOptions) {
+func WaitVmAgentReady(opts kc.WaitOptions) {
 	GinkgoHelper()
 	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
 	WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)
@@ -285,8 +287,6 @@ func WaitPhaseByLabel(resource kc.Resource, phase string, opts kc.WaitOptions) {
 
 func WaitByLabel(resource kc.Resource, opts kc.WaitOptions) {
 	GinkgoHelper()
-	wg := sync.WaitGroup{}
-	mu := sync.Mutex{}
 
 	res := kubectl.List(resource, kc.GetOptions{
 		ExcludedLabels: opts.ExcludedLabels,
@@ -297,6 +297,28 @@ func WaitByLabel(resource kc.Resource, opts kc.WaitOptions) {
 	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 	resources := strings.Split(res.StdOut(), " ")
+	WaitResources(resources, resource, opts)
+}
+
+// Useful when require to async await resources with specified names.
+//
+// Do not use 'labels' or 'excluded labels' in opts; they will be ignored.
+//
+//	Static condition `wait --for`: `jsonpath={.status.phase}=phase`.
+func WaitResourcesByPhase(resources []string, resource kc.Resource, phase string, opts kc.WaitOptions) {
+	GinkgoHelper()
+	opts.For = fmt.Sprintf("'jsonpath={.status.phase}=%s'", phase)
+	WaitResources(resources, resource, opts)
+}
+
+func WaitResources(resources []string, resource kc.Resource, opts kc.WaitOptions) {
+	GinkgoHelper()
+
+	var (
+		mu sync.Mutex
+		wg sync.WaitGroup
+	)
+
 	waitErr := make([]string, 0, len(resources))
 	waitOpts := kc.WaitOptions{
 		For:       opts.For,
@@ -513,4 +535,91 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 			Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr()))
 		}
 	})
+}
+
+func RebootVirtualMachinesByVMOP(label map[string]string, virtualMachines ...string) {
+	GinkgoHelper()
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeRestart, virtualMachines...)
+}
+
+func StopVirtualMachinesByVMOP(label map[string]string, virtualMachines ...string) {
+	GinkgoHelper()
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeStop, virtualMachines...)
+}
+
+func StartVirtualMachinesByVMOP(label map[string]string, virtualMachines ...string) {
+	GinkgoHelper()
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeStart, virtualMachines...)
+}
+
+func CreateAndApplyVMOPs(label map[string]string, vmopType virtv2.VMOPType, virtualMachines ...string) {
+	CreateAndApplyVMOPsWithSuffix(label, "", vmopType, virtualMachines...)
+}
+
+func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopType virtv2.VMOPType, virtualMachines ...string) {
+	for _, vm := range virtualMachines {
+		vmop, err := yaml.Marshal(GenerateVMOPWithSuffix(vm, suffix, label, vmopType))
+		Expect(err).NotTo(HaveOccurred())
+		var cmd strings.Builder
+		cmd.WriteString(fmt.Sprintf("-n %s create -f - <<EOF\n", conf.Namespace))
+		cmd.Write(vmop)
+		cmd.WriteString("EOF\n")
+
+		res := kubectl.RawCommand(cmd.String(), ShortWaitDuration)
+		Expect(res.Error()).NotTo(HaveOccurred(), "%v", res.StdErr())
+	}
+}
+
+func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
+	return &virtv2.VirtualMachineOperation{
+		TypeMeta: v1.TypeMeta{
+			APIVersion: virtv2.SchemeGroupVersion.String(),
+			Kind:       virtv2.VirtualMachineOperationKind,
+		},
+		ObjectMeta: v1.ObjectMeta{
+			Name:   fmt.Sprintf("%s-%s", vmName, strings.ToLower(string(vmopType))),
+			Labels: labels,
+		},
+		Spec: virtv2.VirtualMachineOperationSpec{
+			Type:           vmopType,
+			VirtualMachine: vmName,
+		},
+	}
+}
+
+func GenerateVMOPWithSuffix(vmName, suffix string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
+	res := GenerateVMOP(vmName, labels, vmopType)
+	res.ObjectMeta.Name = fmt.Sprintf("%s%s", res.ObjectMeta.Name, suffix)
+	return res
+}
+
+func StopVirtualMachinesBySSH(virtualMachines ...string) {
+	GinkgoHelper()
+
+	cmd := "sudo poweroff"
+
+	for _, vm := range virtualMachines {
+		ExecSshCommand(vm, cmd)
+	}
+}
+
+func RebootVirtualMachinesBySSH(virtualMachines ...string) {
+	GinkgoHelper()
+
+	cmd := "sudo reboot"
+
+	for _, vm := range virtualMachines {
+		ExecSshCommand(vm, cmd)
+	}
+}
+
+func RebootVirtualMachinesByDeletePods(labels map[string]string, cmdResult *executor.CMDResult, wg *sync.WaitGroup) {
+	cmdResult = kubectl.Delete(kc.DeleteOptions{
+		Namespace:      conf.Namespace,
+		IgnoreNotFound: true,
+		Resource:       kc.ResourcePod,
+		Labels:         labels,
+	})
+
+	wg.Done()
 }

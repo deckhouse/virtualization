@@ -162,8 +162,8 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
-			By("VMs should be ready")
-			WaitVmReady(kc.WaitOptions{
+			By("Virtual machine agents should be ready")
+			WaitVmAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -184,7 +184,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 	})
 
-	Context(fmt.Sprintf("When virtual machines in %s phase", PhaseRunning), func() {
+	Context("When virtual machine agents are ready", func() {
 		It("gets VMs and SVCs objects", func() {
 			vmA = virtv2.VirtualMachine{}
 			err = GetObject(kc.ResourceVM, aObjName, &vmA, kc.GetOptions{

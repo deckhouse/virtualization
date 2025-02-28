@@ -204,8 +204,8 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 			})
-			By("`VirtualMachine` should be ready", func() {
-				WaitVmReady(kc.WaitOptions{
+			By("`VirtualMachine` agent should be ready", func() {
+				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -284,7 +284,7 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 			})
 			By("`VirtualMachine` should be ready", func() {
-				WaitVmReady(kc.WaitOptions{
+				WaitVmAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
