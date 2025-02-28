@@ -1,21 +1,6 @@
-{{/*
-# ===
-# image: {{ $.ImageName }}
-# fromImage: {{ $.ImageName }}-prepared
-# import:
-#   - image: {{ $.ImageName }}-binaries
-#     add: /relocate
-#     to: /
-#     after: setup
-#     includePaths:
-#     - etc/ld.so.preload
-*/}}
-
 ---
 image: {{ $.ImageName }}
-# image: {{ $.ImageName }}-prepared
-final: false
-fromImage: distroless
+fromImage: {{ $.ImageName }}-prepared
 git:
   # Add liboverride as a global LD_PRELOAD.
   - add: /images/{{ $.ImageName }}/liboverride
@@ -25,13 +10,16 @@ git:
       - 'ld.so.preload'
     includePaths:
     - ld.so.preload
+
+---
+image: {{ $.ImageName }}-prepared
+final: false
+fromImage: distroless
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
     to: /
     after: install
-    # excludePaths:
-    # - etc/ld.so.preload
 docker:
   USER: 0
 
