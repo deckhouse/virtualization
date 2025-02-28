@@ -34,8 +34,8 @@ const (
 
 //go:generate moq -rm -out mock.go . EventRecorderLogger
 
-// infoLogger is local interface to use Info method from different loggers.
-type infoLogger interface {
+// InfoLogger is local interface to use Info method from different loggers.
+type InfoLogger interface {
 	Info(msg string, args ...any)
 }
 
@@ -53,7 +53,7 @@ type EventRecorderLogger interface {
 	// AnnotatedEventf is just like eventf, but with annotations attached
 	AnnotatedEventf(involved client.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{})
 
-	WithLogging(logger infoLogger) EventRecorderLogger
+	WithLogging(logger InfoLogger) EventRecorderLogger
 }
 
 // NewEventRecorderLogger implements EventRecorderLogger.
@@ -69,10 +69,10 @@ func NewEventRecorderLogger(recorderProducer recorderProducer, controllerName st
 type EventRecorderLoggerImpl struct {
 	controllerName   string
 	recorderProducer recorderProducer
-	logger           infoLogger
+	logger           InfoLogger
 }
 
-func (e *EventRecorderLoggerImpl) WithLogging(logger infoLogger) EventRecorderLogger {
+func (e *EventRecorderLoggerImpl) WithLogging(logger InfoLogger) EventRecorderLogger {
 	return &EventRecorderLoggerImpl{
 		controllerName:   e.controllerName,
 		recorderProducer: e.recorderProducer,
