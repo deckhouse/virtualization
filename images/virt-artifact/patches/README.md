@@ -1,10 +1,5 @@
 # Patches
 
-#### `001-bundle-extra-images.patch`
-
-Internal patch which adds `libguestfs`, `virt-exportserver` and `virt-exportproxy`
-to images bundle target.
-
 #### `005-prevent-permanent-patching-of-services.patch`
 
 Fix patching of Services during each reconcile:
