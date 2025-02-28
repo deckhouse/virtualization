@@ -151,7 +151,7 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 }
 
 func (s AttachmentService) CanUnplug(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine, blockDeviceName, originalName string, blockDeviceKind virtv2.VMBDAObjectRefKind) bool {
-	if blockDeviceName == "" || kvvm == nil || kvvm.Spec.Template == nil {
+	if blockDeviceName == "" || kvvm == nil || kvvm.Spec.Template == nil || vm == nil {
 		return false
 	}
 
