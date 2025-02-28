@@ -253,25 +253,21 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("checks VMOPs and VMs phases", func() {
 				By(fmt.Sprintf("AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseFailed))
 				WaitResourcesByPhase(alwaysOnVMStopVMOPs, kc.ResourceVMOP, string(virtv2.VMOPPhaseFailed), kc.WaitOptions{
-					Labels:    alwaysOnLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("Not AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitResourcesByPhase(notAlwaysOnVMStopVMs, kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
-					Labels:    notAlwaysOnLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("AlwaysOn VMs should be in %s phases", virtv2.MachineRunning))
 				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineRunning), kc.WaitOptions{
-					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", virtv2.MachineStopped))
 				WaitResourcesByPhase(notAlwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
-					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
@@ -351,13 +347,11 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("checks VMs phases", func() {
 				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", virtv2.MachineStopped))
 				WaitResourcesByPhase(notAlwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
-					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("AlwaysOn VMs should be in %s phases", virtv2.MachineRunning))
 				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineRunning), kc.WaitOptions{
-					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
