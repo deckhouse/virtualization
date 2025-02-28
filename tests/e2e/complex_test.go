@@ -350,7 +350,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 			It("checks VMs phases", func() {
 				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", virtv2.MachineStopped))
-				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
+				WaitResourcesByPhase(notAlwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
