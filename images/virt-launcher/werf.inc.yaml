@@ -176,6 +176,7 @@ binaries:
   - /usr/bin/ps /usr/bin/top
   # Xorriso (Creates an image of an ISO9660 filesystem)
   # - /usr/bin/xorriso /usr/bin/xorrecord /usr/bin/osirrox /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
+  - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
   # Ethtool
   - /usr/sbin/ethlist /usr/sbin/ethtool /usr/sbin/iptables /usr/sbin/ip /usr/sbin/bridge
   # Passt (User-mode networking daemons for virtual machines and namespaces)
