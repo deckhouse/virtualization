@@ -348,11 +348,13 @@ spec:
 
 ## How to use Ansible to provision virtual machines?
 
-Ansible is an automation tool that allows you to perform tasks on remote servers via SSH. In this example, we will look at how to use Ansible to manage virtual machines in a demo-app project.
-Assume that:
-- You have a frontend virtual machine in a demo-app project.
-- A configured cloud user for SSH access.
-- The SSH private key is stored in the ./tmp/demo file.
+[Ansible](https://docs.ansible.com/ansible/latest/index.html) is an automation tool that helps you to run tasks on remote servers via SSH. In this example, we will show you how to use Ansible to manage virtual machines in a demo-app project.
+
+The following assumptions will be used:
+
+- There is a frontend virtual machine in a demo-app project.
+- A cloud user is set up on the virtual machine for SSH access.
+- The SSH private key for the cloud user is stored in the ./tmp/demo file on the Ansible server.
 
 ```yaml
 ---
@@ -367,7 +369,7 @@ all:
     # Host name in the format <VM name>.<project name>.
     frontend.demo-app:
 ```
-To check the virtual machine's uptime, use the following command:
+To check the virtual machine's uptime value, use the following command:
 
 ```bash
 ansible -m shell -a “uptime” -i inventory.yaml all
@@ -375,7 +377,7 @@ ansible -m shell -a “uptime” -i inventory.yaml all
 # 12:01:20 up 2 days, 4:59, 0 users, load average: 0.00, 0.00, 0.00
 ```
 
-If you don't want to use the inventory file, you can pass all the parameters directly on the command line:
+If you prefer not to use the inventory file, you can specify and pass all the parameters directly in the command line:
 
 ```bash
 ansible -m shell -a “uptime” \
