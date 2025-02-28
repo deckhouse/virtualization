@@ -1,24 +1,37 @@
+{{/*
+# ===
+# image: {{ $.ImageName }}
+# fromImage: {{ $.ImageName }}-prepared
+# import:
+#   - image: {{ $.ImageName }}-binaries
+#     add: /relocate
+#     to: /
+#     after: setup
+#     includePaths:
+#     - etc/ld.so.preload
+*/}}
+
 ---
 image: {{ $.ImageName }}
-fromImage: {{ $.ImageName }}-prepared
-import:
-  - image: {{ $.ImageName }}-binaries
-    add: /relocate
-    to: /
-    after: setup
-    includePaths:
-    - etc/ld.so.preload
----
-image: {{ $.ImageName }}-prepared
+# image: {{ $.ImageName }}-prepared
 final: false
 fromImage: distroless
+git:
+  # Add liboverride as a global LD_PRELOAD.
+  - add: /images/{{ $.ImageName }}/liboverride
+    to: /etc
+    stageDependencies:
+      setup:
+      - 'ld.so.preload'
+    includePaths:
+    - ld.so.preload
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
     to: /
     after: install
-    excludePaths:
-    - etc/ld.so.preload
+    # excludePaths:
+    # - etc/ld.so.preload
 docker:
   USER: 0
 
@@ -198,14 +211,6 @@ image: {{ $.ImageName }}-binaries
 final: false
 fromImage: base-alt-p11-binaries
 git:
-  # Add liboverride as a global LD_PRELOAD.
-  - add: /images/{{ $.ImageName }}/liboverride
-    to: /relocate/etc
-    stageDependencies:
-      setup:
-      - 'ld.so.preload.in'
-    includePaths:
-    - ld.so.preload.in
   - add: /images/{{ $.ImageName }}
     to: /relocate
     stageDependencies:
@@ -385,7 +390,7 @@ shell:
     
     cd /
 # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
-  - mv /relocate/etc/ld.so.preload.in /relocate/etc/ld.so.preload
+  # - mv /relocate/etc/ld.so.preload.in /relocate/etc/ld.so.preload
   - |
     cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
     chmod +x /relocate/usr/bin/virt-launcher-monitor
