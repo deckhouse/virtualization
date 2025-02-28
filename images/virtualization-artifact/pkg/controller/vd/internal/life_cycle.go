@@ -100,7 +100,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue {
-		readyCB := conditions.
+		cb := conditions.
 			NewConditionBuilder(vdcondition.ReadyType).
 			Generation(vd.Generation).
 			Status(metav1.ConditionUnknown).
