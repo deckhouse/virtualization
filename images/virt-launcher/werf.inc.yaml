@@ -1,13 +1,14 @@
 ---
+# Add liboverride as a global LD_PRELOAD to configure liboverride globally.
+# It is done in the latest possible stage in the final image to not break
+# stapel commands with the "unsupported GLIBC version" error.
+# TODO Remove after adding patch to the libvirt.
 image: {{ $.ImageName }}
 fromImage: {{ $.ImageName }}-prepared
 git:
   # Add liboverride as a global LD_PRELOAD.
   - add: /images/{{ $.ImageName }}/liboverride
     to: /etc
-    stageDependencies:
-      setup:
-      - 'ld.so.preload'
     includePaths:
     - ld.so.preload
 
