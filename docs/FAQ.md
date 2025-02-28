@@ -356,6 +356,8 @@ The following assumptions will be used:
 - A cloud user is set up on the virtual machine for SSH access.
 - The SSH private key for the cloud user is stored in the ./tmp/demo file on the Ansible server.
 
+Ansible inventory file example:
+
 ```yaml
 ---
 all:
