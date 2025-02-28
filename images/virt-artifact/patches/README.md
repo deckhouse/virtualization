@@ -235,6 +235,25 @@ Since libvirt and QEMU require writable directories, five emptyDir volumes are a
 
 This ensures compatibility while maintaining a read-only root filesystem for improved isolation and security.
 
+#### `038-disable-unnecessary-libvirt-sockets.patch`
+
+This patch disables unnecessary libvirt sockets by running `virtqemud` and `virtlogd` with additional flags to prevent their creation. Specifically, we disable the admin and read-only servers:
+
+- `--no-admin-srv` and `--no-ro-srv` flags for `virtqemud`.
+- `--no-admin-srv` flag for `virtlogd`.
+
+By using these flags, the following sockets are not created in the first place:
+
+- `/var/run/libvirt/virtlogd-admin-sock`
+- `/var/run/libvirt/virtqemud-admin-sock`
+- `/var/run/libvirt/virtqemud-sock-ro`
+
+This ensures a cleaner runtime environment, reducing unnecessary components and preventing unintended interactions, without affecting libvirt's core functionality.
+
+##### Dependency
+
+This patch depends on the [001-disable-ro-and-admin-servers.patch](../../libvirt/patches/001-disable-ro-and-admin-servers.patch) for proper flag application to disable the relevant servers and prevent the creation of their associated sockets.
+
 #### `039-get-applied-checksum.patch`
 
 This patch introduces the GetAppliedChecksum() method in virt-launcher.

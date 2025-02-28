@@ -11,12 +11,17 @@ git:
   to: /
   includePaths:
   - install-libvirt.sh
+  - patches
+  excludePaths:
+    - patches/README.md
   stageDependencies:
+    install:
+      - '**/*'
     setup:
       - install-libvirt.sh
 shell:
   beforeInstall:
-  - | 
+  - |
     apt-get update && apt-get install --yes \
     binutils \
     dmidecode \
@@ -108,7 +113,7 @@ shell:
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
-  
+
     pip3 install black
 
   install:
@@ -124,6 +129,12 @@ shell:
     git clone --depth=1 --branch v{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
 
     cd {{ $gitRepoName }}-{{ $version }}
+
+
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 
     CFLAGS="-Wframe-larger-than=262144" meson setup build \
       -Dinit_script=systemd \
@@ -174,7 +185,7 @@ shell:
       ninja -C build -j$(nproc)
 
   setup:
-  - |    
+  - |
     /install-libvirt.sh --version-num "{{ $version }}" \
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
