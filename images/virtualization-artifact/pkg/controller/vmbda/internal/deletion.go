@@ -74,14 +74,14 @@ func (h *DeletionHandler) cleanUp(ctx context.Context, vmbda *virtv2.VirtualMach
 		return nil
 	}
 
-	var diskName string
+	var blockDeviceName string
 	switch vmbda.Spec.BlockDeviceRef.Kind {
 	case virtv2.VMBDAObjectRefKindVirtualDisk:
-		diskName = kvbuilder.GenerateVMDDiskName(vmbda.Spec.BlockDeviceRef.Name)
+		blockDeviceName = kvbuilder.GenerateVMDDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	case virtv2.VMBDAObjectRefKindVirtualImage:
-		diskName = kvbuilder.GenerateVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
+		blockDeviceName = kvbuilder.GenerateVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	case virtv2.VMBDAObjectRefKindClusterVirtualImage:
-		diskName = kvbuilder.GenerateCVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
+		blockDeviceName = kvbuilder.GenerateCVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	}
 
 	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.VirtualMachineName}, h.client, &virtv1.VirtualMachine{})
@@ -94,9 +94,9 @@ func (h *DeletionHandler) cleanUp(ctx context.Context, vmbda *virtv2.VirtualMach
 		return err
 	}
 
-	if h.unplug.CanUnplug(kvvm, vm, diskName, vmbda.Spec.BlockDeviceRef.Name, vmbda.Spec.BlockDeviceRef.Kind) {
-		h.log.Info("Unplug Virtual Disk", slog.String("diskName", diskName), slog.String("vm", kvvm.Name))
-		if err = h.unplug.UnplugDisk(ctx, kvvm, diskName); err != nil {
+	if h.unplug.CanUnplug(kvvm, vm, blockDeviceName, vmbda.Spec.BlockDeviceRef.Name, vmbda.Spec.BlockDeviceRef.Kind) {
+		h.log.Info("Unplug block device", slog.String("blockDeviceName", blockDeviceName), slog.String("vm", kvvm.Name))
+		if err = h.unplug.UnplugDisk(ctx, kvvm, blockDeviceName); err != nil {
 			if strings.Contains(err.Error(), "does not exist") {
 				return nil
 			}
