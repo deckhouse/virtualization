@@ -187,10 +187,6 @@ binaries:
   # Attr
   - /usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr
   # SELinux policy core utilities
-  # - /usr/bin/audit2allow /usr/bin/audit2why /usr/bin/chcat /usr/bin/secon /usr/bin/semodule_package /usr/bin/sestatus 
-  # - /usr/sbin/fixfiles /usr/sbin/genhomedircon /usr/sbin/load_policy /usr/sbin/open_init_pty 
-  # - /usr/sbin/restorecon /usr/sbin/restorecon_xattr /usr/sbin/run_init 
-  # - /usr/sbin/semanage /usr/sbin/semodule /usr/sbin/sestatus /usr/sbin/setfiles /usr/sbin/setsebool /usr/sbin/unsetfiles
   - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
 {{- end -}}
 
