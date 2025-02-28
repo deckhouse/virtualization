@@ -375,10 +375,7 @@ shell:
       SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
       ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
     done <<< "$SYMLINC_LIST"
-    
-    cd /
-# Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
-  # - mv /relocate/etc/ld.so.preload.in /relocate/etc/ld.so.preload
+
   - |
     cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
     chmod +x /relocate/usr/bin/virt-launcher-monitor
@@ -387,7 +384,6 @@ shell:
     mkdir -p /relocate/init/usr/bin
     cd /relocate
     ln -s usr/bin/container-disk ./init/usr/bin/container-disk
-    cd /
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
