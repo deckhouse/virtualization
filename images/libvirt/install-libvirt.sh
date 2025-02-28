@@ -486,9 +486,9 @@ $SRC_BUILD/src/virtproxyd-admin.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtproxyd-tcp.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtproxyd-tls.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtinterfaced.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtinterfaced.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtinterfaced-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtinterfaced-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtinterfaced.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtinterfaced-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtinterfaced-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlockd.service to /usr/lib/systemd/system
 $SRC_BUILD/src/virtlockd.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtlockd-admin.socket to /usr/lib/systemd/system
