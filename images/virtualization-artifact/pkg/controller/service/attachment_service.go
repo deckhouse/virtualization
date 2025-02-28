@@ -155,8 +155,8 @@ func (s AttachmentService) CanUnplug(kvvm *virtv1.VirtualMachine, vm *virtv2.Vir
 		return false
 	}
 
-	for _, specDisk := range vm.Spec.BlockDeviceRefs {
-		if specDisk.Name == originalName && specDisk.Kind.String() == blockDeviceKind.String() {
+	for _, statusDisk := range vm.Status.BlockDeviceRefs {
+		if statusDisk.Name == originalName && statusDisk.Kind.String() == blockDeviceKind.String() && !statusDisk.Hotplugged {
 			return false
 		}
 	}
