@@ -150,18 +150,16 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 	})
 }
 
-func (s AttachmentService) CanUnplug(kvvm *virtv1.VirtualMachine, vm *virtv2.VirtualMachine, blockDeviceName, originalName string, blockDeviceKind virtv2.VMBDAObjectRefKind) bool {
-	if blockDeviceName == "" || kvvm == nil || kvvm.Spec.Template == nil || vm == nil {
+func (s AttachmentService) CanUnplug(kvvm *virtv1.VirtualMachine, blockDeviceName string) bool {
+	if blockDeviceName == "" || kvvm == nil || kvvm.Spec.Template == nil {
 		return false
 	}
 
-	for _, statusDisk := range vm.Status.BlockDeviceRefs {
-		if statusDisk.Name == originalName && statusDisk.Kind.String() == blockDeviceKind.String() && !statusDisk.Hotplugged {
-			return false
-		}
-	}
-
 	for _, volume := range kvvm.Spec.Template.Spec.Volumes {
+		if !volume.PersistentVolumeClaim.Hotpluggable {
+			continue
+		}
+
 		if kvapi.VolumeExists(volume, blockDeviceName) {
 			return true
 		}
