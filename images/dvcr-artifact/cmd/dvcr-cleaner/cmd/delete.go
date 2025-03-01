@@ -81,12 +81,14 @@ func DeleteImage(imageType, imgsDir string, cmd *cobra.Command, args []string) e
 		return errors.New("flag `all` cannot be used with `imageName`")
 	}
 
-	confirm, err := Confirm()
-	if err != nil {
-		return fmt.Errorf("confirm is failed: %w", err)
-	}
-	if !confirm {
-		return nil
+	if !YesFlag {
+		confirm, err := Confirm()
+		if err != nil {
+			return fmt.Errorf("confirm is failed: %w", err)
+		}
+		if !confirm {
+			return nil
+		}
 	}
 
 	if len(args) != 0 {
@@ -145,5 +147,8 @@ func init() {
 	DeleteCmd.AddCommand(deleteCviCmd, deleteViCmd)
 	deleteViCmd.Flags().StringVarP(&NamespaceFlag, "namespace", "n", "default", "a namespace of VirtualImages")
 	deleteViCmd.Flags().BoolVar(&AllImagesFlag, "all", false, "delete all VirtualImages")
+	deleteViCmd.Flags().BoolVarP(&YesFlag, "yes", "y", false, "Auto confirm delete VirtualImages")
+
 	deleteCviCmd.Flags().BoolVar(&AllImagesFlag, "all", false, "delete all ClusterVirtualImages")
+	deleteCviCmd.Flags().BoolVarP(&YesFlag, "yes", "y", false, "Auto confirm delete ClusterVirtualImages")
 }
