@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -51,6 +52,7 @@ type Kubectl interface {
 	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
 	Delete(opts DeleteOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
+	LogStream(podName string, opts LogOptions) (*exec.Cmd, context.CancelFunc)
 	Wait(filepath string, opts WaitOptions) *executor.CMDResult
 	WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult
 	WaitResources(resource Resource, opts WaitOptions, name ...string) *executor.CMDResult
@@ -94,6 +96,14 @@ type GetOptions struct {
 	Labels         map[string]string
 	Namespace      string
 	Output         string
+}
+
+type LogOptions struct {
+	Container      string
+	ExcludedLabels []string
+	Follow         bool
+	Labels         map[string]string
+	Namespace      string
 }
 
 type WaitOptions struct {
@@ -217,6 +227,14 @@ func (k KubectlCMD) List(resource Resource, opts GetOptions) *executor.CMDResult
 	return k.ExecContext(ctx, cmd)
 }
 
+func (k KubectlCMD) LogStream(podName string, opts LogOptions) (*exec.Cmd, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	command := fmt.Sprintf("%s logs %s", k.cmd, podName)
+	command = k.logOptions(command, opts)
+	cmd := k.MakeCmdWithStart(ctx, command)
+	return cmd, cancel
+}
+
 func (k KubectlCMD) Wait(filepath string, opts WaitOptions) *executor.CMDResult {
 	cmd := k.waitOptions(fmt.Sprintf("%s wait -f %s", k.cmd, filepath), opts)
 	timeout := MediumTimeout
@@ -273,7 +291,7 @@ func (k KubectlCMD) PatchResource(resource Resource, name string, opts PatchOpti
 
 func (k KubectlCMD) addNamespace(cmd, ns string) string {
 	if ns != "" {
-		return fmt.Sprintf("%s -n %s", cmd, ns)
+		return fmt.Sprintf("%s --namespace %s", cmd, ns)
 	}
 	return cmd
 }
@@ -323,6 +341,20 @@ func (k KubectlCMD) addOutput(cmd, output string) string {
 func (k KubectlCMD) addIgnoreNotFound(cmd string, ignoreNotFound bool) string {
 	if ignoreNotFound {
 		return fmt.Sprintf("%s --ignore-not-found", cmd)
+	}
+	return cmd
+}
+
+func (k KubectlCMD) addContainer(cmd, containerName string) string {
+	if containerName != "" {
+		return fmt.Sprintf("%s --container %s", cmd, containerName)
+	}
+	return cmd
+}
+
+func (k KubectlCMD) addFollow(cmd string, follow bool) string {
+	if follow {
+		return fmt.Sprintf("%s --follow", cmd)
 	}
 	return cmd
 }
@@ -388,5 +420,13 @@ func (k KubectlCMD) patchOptions(cmd string, opts PatchOptions) string {
 	if opts.MergePatch != "" {
 		cmd = fmt.Sprintf("%s --type=merge --patch='%s'", cmd, opts.MergePatch)
 	}
+	return cmd
+}
+
+func (k KubectlCMD) logOptions(cmd string, opts LogOptions) string {
+	cmd = k.addContainer(cmd, opts.Container)
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
+	cmd = k.addFollow(cmd, opts.Follow)
 	return cmd
 }
