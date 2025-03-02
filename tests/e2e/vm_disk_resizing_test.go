@@ -189,9 +189,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 		vmCount   = 1
 		diskCount = 3
 	)
-	var (
-		vmObj *virtv2.VirtualMachine
-	)
+	var vmObj *virtv2.VirtualMachine
 	testCaseLabel := map[string]string{"testcase": "disk-resizing"}
 
 	BeforeAll(func() {

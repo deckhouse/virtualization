@@ -34,6 +34,7 @@ type Executor interface {
 	ExecWithSudo(cmd string) *CMDResult
 	ExecWithSudoContext(ctx context.Context, cmd string) *CMDResult
 	ExecuteContext(ctx context.Context, cmd string, stdout, stderr io.Writer) error
+	MakeCmdWithStart(ctx context.Context, command string) *exec.Cmd
 }
 
 func (e CMDExecutor) Exec(command string) *CMDResult {
@@ -77,6 +78,12 @@ func (e CMDExecutor) makeCMD(ctx context.Context, command string, stdout, stderr
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
+	cmd.Env = mergeEnvs(cmd.Environ(), e.env)
+	return cmd
+}
+
+func (e CMDExecutor) MakeCmdWithStart(ctx context.Context, command string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "bash", "-c", command)
 	cmd.Env = mergeEnvs(cmd.Environ(), e.env)
 	return cmd
 }
