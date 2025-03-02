@@ -128,6 +128,7 @@ type Config struct {
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	Namespace        string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
+	LogFilter        []string         `yaml:"logFilter"`
 	StorageClass     StorageClass
 }
 

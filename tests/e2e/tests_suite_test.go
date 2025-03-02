@@ -19,15 +19,19 @@ package e2e
 import (
 	"fmt"
 	"log"
+	"sync"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	el "github.com/deckhouse/virtualization/tests/e2e/errlogger"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -50,6 +54,8 @@ const (
 	PhaseRunning              = "Running"
 	PhaseWaitForUserUpload    = "WaitForUserUpload"
 	PhaseWaitForFirstConsumer = "WaitForFirstConsumer"
+	VirtualizationController  = "virtualization-controller"
+	VirtualizationNamespace   = "d8-virtualization"
 )
 
 var (
@@ -62,6 +68,7 @@ var (
 	namePrefix               string
 	defaultStorageClass      *storagev1.StorageClass
 	phaseByVolumeBindingMode string
+	logStreamByPod           map[string]*el.LogStream
 )
 
 func init() {
@@ -144,6 +151,84 @@ func TestTests(t *testing.T) {
 		log.Fatal(err)
 	}
 }
+
+var _ = BeforeSuite(func() {
+	startTime := time.Now()
+
+	pods := &corev1.PodList{}
+	err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{
+		Labels:    map[string]string{"app": VirtualizationController},
+		Namespace: VirtualizationNamespace,
+	})
+	Expect(err).NotTo(HaveOccurred(), "failed to obtain the `Virtualization-controller` pods")
+	Expect(pods.Items).ShouldNot(BeEmpty())
+
+	logStreamByPod = make(map[string]*el.LogStream, len(pods.Items))
+	for _, p := range pods.Items {
+		wg := &sync.WaitGroup{}
+		logStreamCmd, logStreamCancel := kubectl.LogStream(
+			p.Name,
+			kc.LogOptions{
+				Container: VirtualizationController,
+				Namespace: VirtualizationNamespace,
+				Follow:    true,
+			},
+		)
+
+		var containerStartedAt v1.Time
+		for _, s := range p.Status.ContainerStatuses {
+			if s.Name == VirtualizationController {
+				containerStartedAt = s.State.Running.StartedAt
+				Expect(containerStartedAt).ShouldNot(BeNil())
+			}
+		}
+
+		logStreamByPod[p.Name] = &el.LogStream{
+			Cancel:             logStreamCancel,
+			ContainerStartedAt: containerStartedAt,
+			LogStreamCmd:       logStreamCmd,
+			LogStreamWaitGroup: wg,
+			PodName:            p.Name,
+		}
+	}
+
+	for _, logStream := range logStreamByPod {
+		logStream.ConnectStderr()
+		logStream.ConnectStdout()
+		logStream.Start()
+
+		logStream.LogStreamWaitGroup.Add(3)
+		go logStream.ParseStderr()
+		go logStream.ParseStdout(conf.LogFilter, startTime)
+	}
+})
+
+var _ = AfterSuite(func() {
+	for _, logStream := range logStreamByPod {
+		logStream.Cancel()
+		go func() {
+			defer GinkgoRecover()
+			defer logStream.LogStreamWaitGroup.Done()
+			err := logStream.WaitCmd()
+			Expect(err).NotTo(HaveOccurred())
+		}()
+		logStream.LogStreamWaitGroup.Wait()
+	}
+	for pod, logStream := range logStreamByPod {
+		isRestarted, err := IsContainerRestarted(
+			pod,
+			VirtualizationController,
+			VirtualizationNamespace,
+			logStream.ContainerStartedAt,
+		)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(isRestarted).ShouldNot(BeTrue(),
+			"the container %q was restarted: %s",
+			VirtualizationController,
+			pod,
+		)
+	}
+})
 
 func Cleanup() []error {
 	cleanupErrs := make([]error, 0)
