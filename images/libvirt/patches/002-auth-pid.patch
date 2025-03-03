@@ -1,17 +1,8 @@
 diff --git a/src/remote/remote_daemon.c b/src/remote/remote_daemon.c
-index 522aad2177..62c2560ba4 100644
+index 522aad2177..e88f744660 100644
 --- a/src/remote/remote_daemon.c
 +++ b/src/remote/remote_daemon.c
-@@ -62,6 +62,8 @@
- 
- #include "virgdbus.h"
- 
-+#include "auth_pid.h"
-+
- VIR_LOG_INIT("daemon." DAEMON_NAME);
- 
- #ifndef SOCK_PREFIX
-@@ -724,6 +726,7 @@ daemonUsage(const char *argv0, bool privileged)
+@@ -724,6 +724,7 @@ daemonUsage(const char *argv0, bool privileged)
          { "-p | --pid-file <file>", N_("Change name of PID file") },
          { "-A | --no-admin-srv", N_("Disable admin server startup")},
          { "-R | --no-ro-srv", N_("Disable read-only server startup")},
@@ -19,7 +10,7 @@ index 522aad2177..62c2560ba4 100644
      };
  
      fprintf(stderr, "\n");
-@@ -811,6 +814,7 @@ int main(int argc, char **argv) {
+@@ -811,6 +812,7 @@ int main(int argc, char **argv) {
      
      bool no_admin_srv = false;
      bool no_ro_srv = false;
@@ -27,7 +18,7 @@ index 522aad2177..62c2560ba4 100644
  
      struct option opts[] = {
          { "verbose", no_argument, &verbose, 'v' },
-@@ -825,6 +829,7 @@ int main(int argc, char **argv) {
+@@ -825,6 +827,7 @@ int main(int argc, char **argv) {
          { "help", no_argument, NULL, 'h' },
          {"no-admin-srv", no_argument, NULL, 'A'},
          {"no-ro-srv", no_argument, NULL, 'R'},
@@ -35,7 +26,7 @@ index 522aad2177..62c2560ba4 100644
          { 0, 0, 0, 0 },
      };
  
-@@ -903,6 +908,13 @@ int main(int argc, char **argv) {
+@@ -903,6 +906,13 @@ int main(int argc, char **argv) {
          case 'R':
              no_ro_srv = true;
              break;
@@ -49,7 +40,7 @@ index 522aad2177..62c2560ba4 100644
              
          case '?':
          default:
-@@ -911,6 +923,8 @@ int main(int argc, char **argv) {
+@@ -911,6 +921,8 @@ int main(int argc, char **argv) {
          }
      }
  
@@ -58,14 +49,27 @@ index 522aad2177..62c2560ba4 100644
      if (optind != argc) {
          fprintf(stderr, "%s: unexpected, non-option, command line arguments\n",
                  argv[0]);
-diff --git a/src/rpc/auth_pid.c b/src/rpc/auth_pid.c
-new file mode 100644
-index 0000000000..1279ad07fb
---- /dev/null
-+++ b/src/rpc/auth_pid.c
-@@ -0,0 +1,11 @@
-+#include "auth_pid.h"
-+
+diff --git a/src/rpc/meson.build b/src/rpc/meson.build
+index 68aaf24b2a..a3497066ed 100644
+--- a/src/rpc/meson.build
++++ b/src/rpc/meson.build
+@@ -48,7 +48,7 @@ endif
+ rpc_gen_headers = []
+ rpc_gen_sources = []
+ 
+-foreach name : [ 'virnet', 'virkeepalive' ]
++foreach name : [ 'virnet', 'virkeepalive']
+   protocol_file = files('@0@protocol.x'.format(name))
+   header_file = '@0@protocol.h'.format(name)
+   source_file = '@0@protocol.c'.format(name)
+diff --git a/src/rpc/virnetsocket.c b/src/rpc/virnetsocket.c
+index e8fc2d5f7d..3ab017752a 100644
+--- a/src/rpc/virnetsocket.c
++++ b/src/rpc/virnetsocket.c
+@@ -105,6 +105,16 @@ struct _virNetSocket {
+ #endif
+ };
+ 
 +static int auth_pid = -1; 
 +
 +void SetAuthPid(int p) {
@@ -75,47 +79,11 @@ index 0000000000..1279ad07fb
 +int GetAuthPid(void) {
 +    return auth_pid;
 +}
-diff --git a/src/rpc/auth_pid.h b/src/rpc/auth_pid.h
-new file mode 100644
-index 0000000000..06251aa3d0
---- /dev/null
-+++ b/src/rpc/auth_pid.h
-@@ -0,0 +1,9 @@
-+#pragma once
 +
-+#ifndef AUTH_PID_H
-+#define AUTH_PID_H
-+
-+void SetAuthPid(int p);
-+int GetAuthPid(void);
-+
-+#endif
-diff --git a/src/rpc/meson.build b/src/rpc/meson.build
-index 68aaf24b2a..3dc1d211c5 100644
---- a/src/rpc/meson.build
-+++ b/src/rpc/meson.build
-@@ -48,7 +48,7 @@ endif
- rpc_gen_headers = []
- rpc_gen_sources = []
  
--foreach name : [ 'virnet', 'virkeepalive' ]
-+foreach name : [ 'virnet', 'virkeepalive', 'auth_pid' ]
-   protocol_file = files('@0@protocol.x'.format(name))
-   header_file = '@0@protocol.h'.format(name)
-   source_file = '@0@protocol.c'.format(name)
-diff --git a/src/rpc/virnetsocket.c b/src/rpc/virnetsocket.c
-index e8fc2d5f7d..3c8ba49141 100644
---- a/src/rpc/virnetsocket.c
-+++ b/src/rpc/virnetsocket.c
-@@ -48,6 +48,7 @@
- #include "virprobe.h"
- #include "virprocess.h"
- #include "virstring.h"
-+#include "auth_pid.h"
- 
- #if WITH_SSH2
- # include "virnetsshsession.h"
-@@ -2060,6 +2061,7 @@ int virNetSocketAccept(virNetSocket *sock, virNetSocket **clientsock)
+ static virClass *virNetSocketClass;
+ static void virNetSocketDispose(void *obj);
+@@ -2060,6 +2070,7 @@ int virNetSocketAccept(virNetSocket *sock, virNetSocket **clientsock)
      virSocketAddr localAddr = { 0 };
      virSocketAddr remoteAddr = { 0 };
      int ret = -1;
@@ -123,7 +91,7 @@ index e8fc2d5f7d..3c8ba49141 100644
  
      virObjectLock(sock);
  
-@@ -2086,6 +2088,21 @@ int virNetSocketAccept(virNetSocket *sock, virNetSocket **clientsock)
+@@ -2086,6 +2097,21 @@ int virNetSocketAccept(virNetSocket *sock, virNetSocket **clientsock)
          goto cleanup;
      }
  
@@ -145,3 +113,19 @@ index e8fc2d5f7d..3c8ba49141 100644
      if (!(*clientsock = virNetSocketNew(&localAddr,
                                          &remoteAddr,
                                          true,
+diff --git a/src/rpc/virnetsocket.h b/src/rpc/virnetsocket.h
+index fec84ca068..d03a017e3c 100644
+--- a/src/rpc/virnetsocket.h
++++ b/src/rpc/virnetsocket.h
+@@ -178,3 +178,11 @@ void virNetSocketUpdateIOCallback(virNetSocket *sock,
+ void virNetSocketRemoveIOCallback(virNetSocket *sock);
+ 
+ void virNetSocketClose(virNetSocket *sock);
++
++#ifndef AUTH_PID_H
++#define AUTH_PID_H
++
++void SetAuthPid(int p);
++int GetAuthPid(void);
++
++#endif
