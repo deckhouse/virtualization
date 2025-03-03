@@ -7,6 +7,10 @@ import:
     add: /relocate
     to: /
     after: install
+  - image: {{ $.ImageName }}-vmx-builder
+    add: /out/vmx
+    to: /usr/bin/vmx
+    after: setup
 docker:
   USER: 0
 
@@ -381,3 +385,28 @@ shell:
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
     cp -a etc/libvirt etc/libvirt-init
+
+---
+image: {{ $.ImageName }}-vmx-builder
+final: false
+from: {{ .Images.BASE_GOLANG_23_BOOKWORM }}
+git:
+  - add: /images/{{ $.ImageName }}/vmx
+    to: /src
+    stageDependencies:
+      install:
+        - go.mod
+        - go.sum
+      setup:
+        - "**/*.go"
+shell:
+  setup:
+    - mkdir /out
+    - cd /src
+    - |
+      export GO111MODULE=on
+      export GOOS=linux
+      export CGO_ENABLED=0
+      export GOARCH=amd64
+    - go build -ldflags="-s -w" -o /out/vmx ./cmd/vmx/main.go
+    - chown -R 64535:64535 /out

@@ -273,3 +273,15 @@ This patch modifies the behavior of domain reboot actions in virt-launcher by ov
 - Sends a QEMU agent command to override the reboot action, changing it from `reboot` to `shutdown`.
 - Logs shutdown events and writes them to `/dev/termination-log`.
 - Ensures that domain shutdown events are captured and processed correctly.
+
+#### 041-restrict-libvirt-socket-to-qemu.patch
+
+This patch enhances security by ensuring that `virtqemud` only accepts connections from its corresponding process. It achieves this by using the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable, which restricts access to the process ID (PID) of the `virt-launcher` process that started `virtqemud`.
+
+### Changes
+- Configures `virtqemud` to use the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable, restricting access to the `virt-launcher` process.
+- Ensures that `virtqemud` only accepts connections from the process that initiated it.
+- Prevents unauthorized processes from accessing the libvirt socket, reducing security risks and the potential for privilege escalation.
+
+### Dependency
+This patch depends on the [002-auth-pid-restriction.patch](../../libvirt/patches/002-auth-pid-restriction.patch) in libvirt, which introduces the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable to restrict socket access based on PID.
