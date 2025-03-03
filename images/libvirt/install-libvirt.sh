@@ -141,7 +141,7 @@ $SRC_BUILD/src/libvirt_storage_file_fs.so to /usr/lib64/libvirt/storage-file
 # $SRC_BUILD/src/libvirt_driver_ch.so to /usr/lib64/libvirt/connection-driver
 $SRC_BUILD/src/libvirt_driver_qemu.so to /usr/lib64/libvirt/connection-driver
 # $SRC_BUILD/src/libvirt_driver_vbox.so to /usr/lib64/libvirt/connection-driver
-# $SRC_BUILD/src/libvirtd to /usr/sbin
+$SRC_BUILD/src/libvirtd to /usr/sbin
 $SRC_BUILD/src/virtproxyd to /usr/sbin
 $SRC_BUILD/src/virtinterfaced to /usr/sbin
 $SRC_BUILD/src/virtlockd to /usr/sbin

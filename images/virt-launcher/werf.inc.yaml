@@ -157,22 +157,26 @@ binaries:
   - /usr/bin/mv
   - /usr/bin/cut
   - /usr/bin/grep
+  - /usr/bin/sync
   # Utilities for mount
   - /usr/bin/mount
   - /usr/bin/umount
+  - /usr/bin/findmnt
   # Blk utilites
   - /usr/sbin/blkid
   - /usr/sbin/blockdev
   # Openssl
   - /usr/bin/openssl
   # Acl utils
-  - /usr/bin/chacl /usr/bin/getfacl /usr/bin/setfacl /usr/bin/chmod
+  - /usr/bin/chacl /usr/bin/getfacl /usr/bin/setfacl /usr/bin/chmod /usr/bin/chown
   # Fs utils
   - /usr/sbin/fstrim /usr/sbin/fuser /usr/sbin/findfs
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
   # Ethtool
-  - /usr/sbin/ethlist /usr/sbin/ethtool /usr/sbin/iptables /usr/sbin/ip /usr/sbin/bridge
+  - /usr/sbin/ethlist /usr/sbin/ethtool /usr/sbin/iptables /usr/sbin/ip /usr/sbin/bridge /usr/sbin/nft
+  # Procps utils
+  - /usr/sbin/sysctl
   # Passt (User-mode networking daemons for virtual machines and namespaces)
   - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
   # Swtpm
@@ -291,7 +295,7 @@ shell:
 
     apt-get clean
 
-    mkdir -p /VBINS/var/{log/libvirt/qemu,run,lib/libvirt/qemu}
+    mkdir -p /VBINS/var/{log/libvirt/qemu,run/libvirt/qemu,lib/libvirt/qemu}
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
@@ -315,7 +319,7 @@ shell:
   - |
     ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
 
-    mkdir -p /relocate/{etc,root}
+    mkdir -p /relocate/{etc,root,var/run}
 
     # glibc-gconv-modules
     cp -a /usr/lib64/gconv /relocate/usr/lib64
@@ -334,8 +338,10 @@ shell:
     echo "Create symlinks for OVMF"
     mkdir -p /relocate/usr/share/OVMF
 
+    cd /relocate/usr/share/edk2/ovmf
+    ln -sf OVMF_CODE.fd   OVMF_CODE.cc.fd
+
     cd /relocate
-    ln -sf usr/share/edk2/ovmf/OVMF_CODE.fd   usr/share/edk2/ovmf/OVMF_CODE.cc.fd
     ln -sf ../edk2/ovmf/OVMF_CODE.cc.fd       usr/share/OVMF/OVMF_CODE.cc.fd
     
     ln -s ../edk2/ovmf/OVMF_CODE.secboot.fd   usr/share/OVMF
@@ -385,6 +391,9 @@ shell:
     mkdir -p /relocate/init/usr/bin
     cd /relocate
     ln -s usr/bin/container-disk ./init/usr/bin/container-disk
+  - |
+    cd /relocate
+    ln -s var/run run
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
