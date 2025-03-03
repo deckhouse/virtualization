@@ -59,12 +59,12 @@ index 522aad2177..bd76e667c4 100644
                  argv[0]);
 diff --git a/src/rpc/auth_pid.c b/src/rpc/auth_pid.c
 new file mode 100644
-index 0000000000..f16441f077
+index 0000000000..851cd5424c
 --- /dev/null
 +++ b/src/rpc/auth_pid.c
 @@ -0,0 +1,11 @@
 +#include "auth_pid.h"
-+auth_pid.c
++
 +int static auth_pid = -1; 
 +
 +void SetAuthPid(int p) {
@@ -92,10 +92,10 @@ index 0000000000..955d518ceb
 +#endif
 \ No newline at end of file
 diff --git a/src/rpc/meson.build b/src/rpc/meson.build
-index 68aaf24b2a..7d399684b6 100644
+index 68aaf24b2a..d0a17673e7 100644
 --- a/src/rpc/meson.build
 +++ b/src/rpc/meson.build
-@@ -45,10 +45,10 @@ if sasl_dep.found()
+@@ -45,8 +45,8 @@ if sasl_dep.found()
    rpc_sources += 'virnetsaslcontext.c'
  endif
  
@@ -104,11 +104,8 @@ index 68aaf24b2a..7d399684b6 100644
 +rpc_gen_headers = ['auth_pid.h']
 +rpc_gen_sources = ['auth_pid.c']
  
--foreach name : [ 'virnet', 'virkeepalive' ]
-+foreach name : [ 'virnet', 'virkeepalive']
+ foreach name : [ 'virnet', 'virkeepalive' ]
    protocol_file = files('@0@protocol.x'.format(name))
-   header_file = '@0@protocol.h'.format(name)
-   source_file = '@0@protocol.c'.format(name)
 diff --git a/src/rpc/virnetsocket.c b/src/rpc/virnetsocket.c
 index e8fc2d5f7d..89e5b99a56 100644
 --- a/src/rpc/virnetsocket.c
