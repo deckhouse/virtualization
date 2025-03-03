@@ -176,7 +176,7 @@ binaries:
   # Ethtool
   - /usr/sbin/ethlist /usr/sbin/ethtool /usr/sbin/iptables /usr/sbin/ip /usr/sbin/bridge /usr/sbin/nft
   # Procps utils
-  - /usr/sbin/sysctl /usr/bin/pgrep /usr/bin/pidwait /usr/bin/pkill /usr/bin/pmap /usr/bin/pwdx
+  - /usr/sbin/sysctl
   # Passt (User-mode networking daemons for virtual machines and namespaces)
   - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
   # Swtpm
@@ -319,7 +319,7 @@ shell:
   - |
     ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
 
-    mkdir -p /relocate/{etc,root}
+    mkdir -p /relocate/{etc,root,var/run}
 
     # glibc-gconv-modules
     cp -a /usr/lib64/gconv /relocate/usr/lib64
@@ -391,6 +391,9 @@ shell:
     mkdir -p /relocate/init/usr/bin
     cd /relocate
     ln -s usr/bin/container-disk ./init/usr/bin/container-disk
+  - |
+    cd /relocate
+    ln -s var/run run
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
