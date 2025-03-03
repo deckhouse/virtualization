@@ -7,6 +7,10 @@ import:
     add: /relocate
     to: /
     after: install
+  - image: {{ $.ImageName }}-vlctl-builder
+    add: /out/vlctl
+    to: /usr/bin/vlctl
+    after: setup
 imageSpec:
   config:
     user: 0
@@ -409,3 +413,27 @@ shell:
       echo 'go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller'
       go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller
       echo "Done"
+---
+image: {{ $.ImageName }}-vlctl-builder
+final: false
+from: {{ .Images.BASE_GOLANG_23_BOOKWORM }}
+git:
+  - add: /images/{{ $.ImageName }}/vlctl
+    to: /src
+    stageDependencies:
+      install:
+        - go.mod
+        - go.sum
+      setup:
+        - "**/*.go"
+shell:
+  setup:
+    - mkdir /out
+    - cd /src
+    - |
+      export GO111MODULE=on
+      export GOOS=linux
+      export CGO_ENABLED=0
+      export GOARCH=amd64
+    - go build -ldflags="-s -w" -o /out/vlctl ./cmd/vlctl/main.go
+    - chown -R 64535:64535 /out
