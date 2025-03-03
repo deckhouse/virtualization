@@ -27,6 +27,9 @@ weight: 40
 Примеры ресурсов для получения образов виртуальной машины:
 
 - [Ubuntu](https://cloud-images.ubuntu.com)
+- [Debian](https://cdimage.debian.org/images/cloud/)
+- [RockyLinux](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
+- [CentOS](https://cloud.centos.org/centos/7/images/)
 - [Alt Linux](https://ftp.altlinux.ru/pub/distributions/ALTLinux/platform/images/cloud/x86_64)
 - [Astra Linux](https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit)
 
@@ -460,7 +463,7 @@ spec:
   d8 k get nodes <node-name> -o json | jq '.metadata.labels | to_entries[] | select(.key | test("cpu-model")) | .key | split("/")[1]' -r
 
   Пример вывода:
-  
+
   ```console
   IvyBridge
   Nehalem
