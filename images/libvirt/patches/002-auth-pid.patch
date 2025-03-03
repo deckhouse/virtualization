@@ -59,13 +59,13 @@ index 522aad2177..bd76e667c4 100644
                  argv[0]);
 diff --git a/src/rpc/auth_pid.c b/src/rpc/auth_pid.c
 new file mode 100644
-index 0000000000..851cd5424c
+index 0000000000..4cabdb1e0d
 --- /dev/null
 +++ b/src/rpc/auth_pid.c
 @@ -0,0 +1,11 @@
 +#include "auth_pid.h"
 +
-+int static auth_pid = -1; 
++static int auth_pid = -1;
 +
 +void SetAuthPid(int p) {
 +    auth_pid = p;
