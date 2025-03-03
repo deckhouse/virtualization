@@ -334,8 +334,10 @@ shell:
     echo "Create symlinks for OVMF"
     mkdir -p /relocate/usr/share/OVMF
 
+    cd /relocate/usr/share/edk2/ovmf
+    ln -sf OVMF_CODE.fd   OVMF_CODE.cc.fd
+
     cd /relocate
-    ln -sf usr/share/edk2/ovmf/OVMF_CODE.fd   usr/share/edk2/ovmf/OVMF_CODE.cc.fd
     ln -sf ../edk2/ovmf/OVMF_CODE.cc.fd       usr/share/OVMF/OVMF_CODE.cc.fd
     
     ln -s ../edk2/ovmf/OVMF_CODE.secboot.fd   usr/share/OVMF
