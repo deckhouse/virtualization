@@ -139,42 +139,42 @@ For example, let's take a file that allows you to:
     <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
       <DiskConfiguration>
         <Disk wcm:action="add">
-          <DiskID>0</DiskID> 
-          <WillWipeDisk>true</WillWipeDisk> 
+          <DiskID>0</DiskID>
+          <WillWipeDisk>true</WillWipeDisk>
           <CreatePartitions>
             <!-- Recovery partition -->
             <CreatePartition wcm:action="add">
-              <Order>1</Order> 
-              <Type>Primary</Type> 
-              <Size>250</Size> 
+              <Order>1</Order>
+              <Type>Primary</Type>
+              <Size>250</Size>
             </CreatePartition>
             <!-- EFI system partition (ESP) -->
             <CreatePartition wcm:action="add">
-              <Order>2</Order> 
-              <Type>EFI</Type> 
-              <Size>100</Size> 
+              <Order>2</Order>
+              <Type>EFI</Type>
+              <Size>100</Size>
             </CreatePartition>
             <!-- Microsoft reserved partition (MSR) -->
             <CreatePartition wcm:action="add">
-              <Order>3</Order> 
-              <Type>MSR</Type> 
-              <Size>128</Size> 
+              <Order>3</Order>
+              <Type>MSR</Type>
+              <Size>128</Size>
             </CreatePartition>
             <!-- Windows partition -->
             <CreatePartition wcm:action="add">
-              <Order>4</Order> 
-              <Type>Primary</Type> 
-              <Extend>true</Extend> 
+              <Order>4</Order>
+              <Type>Primary</Type>
+              <Extend>true</Extend>
             </CreatePartition>
           </CreatePartitions>
           <ModifyPartitions>
             <!-- Recovery partition -->
             <ModifyPartition wcm:action="add">
-              <Order>1</Order> 
-              <PartitionID>1</PartitionID> 
-              <Label>Recovery</Label> 
-              <Format>NTFS</Format> 
-              <TypeID>de94bba4-06d1-4d40-a16a-bfd50179d6ac</TypeID> 
+              <Order>1</Order>
+              <PartitionID>1</PartitionID>
+              <Label>Recovery</Label>
+              <Format>NTFS</Format>
+              <TypeID>de94bba4-06d1-4d40-a16a-bfd50179d6ac</TypeID>
             </ModifyPartition>
             <!-- EFI system partition (ESP) -->
             <ModifyPartition wcm:action="add">
@@ -346,6 +346,50 @@ spec:
       name: win-virtio-iso
 ```
 
+## How to use Ansible to provision virtual machines?
+
+[Ansible](https://docs.ansible.com/ansible/latest/index.html) is an automation tool that helps you to run tasks on remote servers via SSH. In this example, we will show you how to use Ansible to manage virtual machines in a demo-app project.
+
+The following assumptions will be used:
+
+- There is a frontend virtual machine in a demo-app project.
+- A cloud user is set up on the virtual machine for SSH access.
+- The SSH private key for the cloud user is stored in the ./tmp/demo file on the Ansible server.
+
+Ansible inventory file example:
+
+```yaml
+---
+all:
+  vars:
+    ansible_ssh_common_args: '-o ProxyCommand=“d8 v port-forward --stdio=true %h %h %p”'
+    # Default user for SSH access.
+    ansible_user: cloud
+    # Path to private key.
+    ansible_ssh_private_key_file: ./tmp/demo
+  hosts:
+    # Host name in the format <VM name>.<project name>.
+    frontend.demo-app:
+```
+To check the virtual machine's uptime value, use the following command:
+
+```bash
+ansible -m shell -a “uptime” -i inventory.yaml all
+# frontend.demo-app | CHANGED | rc=0 >>
+# 12:01:20 up 2 days, 4:59, 0 users, load average: 0.00, 0.00, 0.00
+```
+
+If you prefer not to use the inventory file, you can specify and pass all the parameters directly in the command line:
+
+```bash
+ansible -m shell -a “uptime” \
+  -i “frontend.demo-app,” \
+  -e “ansible_ssh_common_args='-o ProxyCommand=\”d8 v port-forward --stdio=true %h %p %p\'"” \
+  -e “ansible_user=cloud” \
+  -e “ansible_ssh_private_key_file=./tmp/demo” \
+  all
+```
+
 ## How to redirect traffic to a virtual machine?
 
 Since the virtual machine runs in a Kubernetes cluster, the forwarding of network traffic to it is done similarly to the forwarding of traffic to the pods.
@@ -382,9 +426,9 @@ To do this, you just need to create a service with the required settings.
     ```
 
     We can change virtual machine label values on the fly, i.e. changing labels does not require restarting the virtual machine, which means that we can configure network traffic redirection from different services dynamically:
-    
+
     Let's imagine that we have created a new service and want to redirect traffic to our virtual machine from it:
-    
+
     ```yaml
     apiVersion: v1
     kind: Service
@@ -399,9 +443,9 @@ To do this, you just need to create a service with the required settings.
       selector:
         app: new
     ```
-    
+
     By changing the labels on the virtual machine, we will redirect network traffic from the `svc-2` service to it:
-    
+
     ```yaml
     metadata:
       labels:
@@ -419,7 +463,7 @@ To increase the disk size for DVCR, you must set a larger size in the `virtualiz
     ```
 
     Example output:
-    
+
     ```console
     {“size”:“58G”,“storageClass”:“linstor-thick-data-r1”}
     ```
@@ -450,7 +494,7 @@ To increase the disk size for DVCR, you must set a larger size in the `virtualiz
 
 1. Check the current status of the DVCR:
 
-    ```shell   
+    ```shell
     d8 k get pvc dvcr -n d8-virtualization
     ```
 

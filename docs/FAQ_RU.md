@@ -138,42 +138,42 @@ weight: 70
     <component name="Microsoft-Windows-Setup" processorArchitecture="amd64" publicKeyToken="31bf3856ad364e35" language="neutral" versionScope="nonSxS">
       <DiskConfiguration>
         <Disk wcm:action="add">
-          <DiskID>0</DiskID> 
-          <WillWipeDisk>true</WillWipeDisk> 
+          <DiskID>0</DiskID>
+          <WillWipeDisk>true</WillWipeDisk>
           <CreatePartitions>
             <!-- Recovery partition -->
             <CreatePartition wcm:action="add">
-              <Order>1</Order> 
-              <Type>Primary</Type> 
-              <Size>250</Size> 
+              <Order>1</Order>
+              <Type>Primary</Type>
+              <Size>250</Size>
             </CreatePartition>
             <!-- EFI system partition (ESP) -->
             <CreatePartition wcm:action="add">
-              <Order>2</Order> 
-              <Type>EFI</Type> 
-              <Size>100</Size> 
+              <Order>2</Order>
+              <Type>EFI</Type>
+              <Size>100</Size>
             </CreatePartition>
             <!-- Microsoft reserved partition (MSR) -->
             <CreatePartition wcm:action="add">
-              <Order>3</Order> 
-              <Type>MSR</Type> 
-              <Size>128</Size> 
+              <Order>3</Order>
+              <Type>MSR</Type>
+              <Size>128</Size>
             </CreatePartition>
             <!-- Windows partition -->
             <CreatePartition wcm:action="add">
-              <Order>4</Order> 
-              <Type>Primary</Type> 
-              <Extend>true</Extend> 
+              <Order>4</Order>
+              <Type>Primary</Type>
+              <Extend>true</Extend>
             </CreatePartition>
           </CreatePartitions>
           <ModifyPartitions>
             <!-- Recovery partition -->
             <ModifyPartition wcm:action="add">
-              <Order>1</Order> 
-              <PartitionID>1</PartitionID> 
-              <Label>Recovery</Label> 
-              <Format>NTFS</Format> 
-              <TypeID>de94bba4-06d1-4d40-a16a-bfd50179d6ac</TypeID> 
+              <Order>1</Order>
+              <PartitionID>1</PartitionID>
+              <Label>Recovery</Label>
+              <Format>NTFS</Format>
+              <TypeID>de94bba4-06d1-4d40-a16a-bfd50179d6ac</TypeID>
             </ModifyPartition>
             <!-- EFI system partition (ESP) -->
             <ModifyPartition wcm:action="add">
@@ -345,6 +345,53 @@ spec:
       name: win-virtio-iso
 ```
 
+## Как использовать Ansible для конфигурирования виртуальных машин?
+
+[Ansible](https://docs.ansible.com/ansible/latest/index.html) — это инструмент автоматизации, который позволяет выполнять задачи на удаленных серверах с использованием протокола SSH. В данном примере мы рассмотрим, как использовать Ansible для управления виртуальными машинами расположенных в проекте demo-app.
+
+В рамках примера предполагается, что:
+
+- У вас есть виртуальная машина с именем frontend в проекте demo-app.
+- На виртуальной машине создан пользователь cloud для доступа по SSH.
+- Приватный SSH-ключ пользователя хранится в файле ./tmp/demo на сервере Ansible.
+
+Пример inventory-файла:
+
+```yaml
+---
+all:
+  vars:
+    ansible_ssh_common_args: '-o ProxyCommand="d8 v port-forward --stdio=true %h %p"'
+    # Пользователь по умолчанию, для доступа по SSH.
+    ansible_user: cloud
+    # Путь к приватному ключу.
+    ansible_ssh_private_key_file: ./tmp/demo
+  hosts:
+    # Название узла в формате <название ВМ>.<название проекта>.
+    frontend.demo-app:
+
+```
+
+Чтобы проверить значение аптайма виртуальной машины, используйте следующую команду:
+
+```bash
+ansible -m shell -a "uptime" -i inventory.yaml all
+
+# frontend.demo-app | CHANGED | rc=0 >>
+# 12:01:20 up 2 days,  4:59,  0 users,  load average: 0.00, 0.00, 0.00
+```
+
+Если вы не хотите использовать файл inventory, можно передать все параметры прямо в командной строке:
+
+```bash
+ansible -m shell -a "uptime" \
+  -i "frontend.demo-app," \
+  -e "ansible_ssh_common_args='-o ProxyCommand=\"d8 v port-forward --stdio=true %h %p\"'" \
+  -e "ansible_user=cloud" \
+  -e "ansible_ssh_private_key_file=./tmp/demo" \
+  all
+```
+
 ## Как перенаправить трафик на виртуальную машину?
 
 Виртуальная машина функционирует в кластере Kubernetes, поэтому направление сетевого трафика осуществляется аналогично направлению трафика на поды.
@@ -381,6 +428,7 @@ spec:
     ```
 
    Можно изменять метки виртуальной машины без необходимости перезапуска, что позволяет настраивать перенаправление сетевого трафика между различными сервисами в реальном времени.
+   
    Предположим, что был создан новый сервис и требуется перенаправить трафик на виртуальную машину от этого сервиса:
 
     ```yaml
@@ -426,7 +474,7 @@ spec:
 
     ```shell
     d8 k patch mc virtualization \
-      --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'    
+      --type merge -p '{"spec": {"settings": {"dvcr": {"storage": {"persistentVolumeClaim": {"size":"59G"}}}}}}'
     ```
 
    Пример вывода:
@@ -445,7 +493,7 @@ spec:
 
     ```txt
     {"size":"59G","storageClass":"linstor-thick-data-r1"}
-    ``` 
+    ```
 
 1. Проверьте текущее состояние DVCR:
 
