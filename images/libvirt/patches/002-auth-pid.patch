@@ -92,17 +92,17 @@ index 0000000000..955d518ceb
 +#endif
 \ No newline at end of file
 diff --git a/src/rpc/meson.build b/src/rpc/meson.build
-index 68aaf24b2a..e44a0b4fcd 100644
+index 68aaf24b2a..b036338271 100644
 --- a/src/rpc/meson.build
 +++ b/src/rpc/meson.build
-@@ -31,6 +31,7 @@ used_sym_files += 'libvirt_socket.syms'
+@@ -29,6 +29,7 @@ libvirt_libs += [
+ used_sym_files += 'libvirt_socket.syms'
+ 
  rpc_sources = [
++  'auth_pid.c',
    'virnetmessage.c',
    'virkeepalive.c',
-+  'auth_pid.c'
  ]
- 
- if libssh_dep.found()
 diff --git a/src/rpc/virnetsocket.c b/src/rpc/virnetsocket.c
 index e8fc2d5f7d..89e5b99a56 100644
 --- a/src/rpc/virnetsocket.c
