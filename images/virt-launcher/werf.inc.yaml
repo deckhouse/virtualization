@@ -11,7 +11,6 @@ git:
     to: /etc
     includePaths:
     - ld.so.preload
-
 ---
 image: {{ $.ImageName }}-prepared
 final: false
@@ -299,7 +298,7 @@ shell:
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
-    
+
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
@@ -311,7 +310,7 @@ shell:
     ./relocate_binaries.sh -i "$LIST" -o /VBINS
 
     cp -a /VBINS/. /relocate
-    
+
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins}
 
@@ -328,12 +327,12 @@ shell:
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
     echo "root:x:::::::" >> /relocate/etc/shadow
-    
+
     echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /relocate/etc/passwd
     echo "qemu:x:107:" >> /relocate/etc/group
     mkdir -p /relocate/home/qemu
     chown -R 107:107 /relocate/home/qemu
-  
+
   - |
     echo "Create symlinks for OVMF"
     mkdir -p /relocate/usr/share/OVMF
@@ -343,12 +342,12 @@ shell:
 
     cd /relocate
     ln -sf ../edk2/ovmf/OVMF_CODE.cc.fd       usr/share/OVMF/OVMF_CODE.cc.fd
-    
+
     ln -s ../edk2/ovmf/OVMF_CODE.secboot.fd   usr/share/OVMF
     ln -s ../edk2/ovmf/OVMF_VARS.fd           usr/share/OVMF
     ln -s ../edk2/ovmf/OVMF_VARS.secboot.fd   usr/share/OVMF
     ln -s ../edk2/ovmf/UefiShell.iso          usr/share/OVMF
-    
+
     cd /
 
   - |
@@ -394,6 +393,11 @@ shell:
   - |
     cd /relocate
     ln -s var/run run
+
+  # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
+  # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
+  - |
+    cp -a etc/libvirt etc/libvirt-init
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
