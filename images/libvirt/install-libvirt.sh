@@ -397,7 +397,7 @@ $SRC_BASE/src/cpu_map/x86_Westmere.xml to /usr/share/libvirt/cpu_map
 # $SRC_BUILD/src/remote/libvirtd.logrotate to /etc/logrotate.d
 $SRC_BASE/src/remote/libvirtd.sysctl to /usr/lib/sysctl.d
 $SRC_BASE/src/remote/libvirtd.policy to /usr/share/polkit-1/actions
-# $SRC_BASE/src/remote/libvirtd.rules to /usr/share/polkit-1/rules.d
+$SRC_BASE/src/remote/libvirtd.rules to /usr/share/polkit-1/rules.d
 $SRC_BASE/src/remote/libvirtd.sasl to /etc/sasl2
 # $SRC_BUILD/src/network/default.xml to /etc/libvirt/qemu/networks
 # $SRC_BASE/src/network/libvirt.zone to /usr/lib/firewalld/zones
@@ -432,14 +432,14 @@ $SRC_BASE/src/remote/libvirtd.sasl to /etc/sasl2
 # $SRC_BASE/src/qemu/libvirt-qemu.sysusers.conf to /usr/lib/sysusers.d
 # $SRC_BASE/src/qemu/postcopy-migration.sysctl to /usr/lib/sysctl.d
 # $SRC_BASE/src/test/test-screenshot.png to /usr/share/libvirt
-$SRC_BASE/src/admin/libvirt-admin.conf to /etc/libvirt
+# $SRC_BASE/src/admin/libvirt-admin.conf to /etc/libvirt
 # $SRC_BUILD/src/locking/qemu-lockd.conf to /etc/libvirt
 # $SRC_BUILD/src/locking/qemu-sanlock.conf to /etc/libvirt
 # $SRC_BASE/src/locking/virtlockd.conf to /etc/libvirt
 $SRC_BASE/src/logging/virtlogd.conf to /etc/libvirt
-# $SRC_BUILD/src/network/network.conf to /etc/libvirt
+$SRC_BUILD/src/network/network.conf to /etc/libvirt
 # $SRC_BASE/src/lxc/lxc.conf to /etc/libvirt
-$SRC_BUILD/src/qemu/qemu.conf to /etc/libvirt
+# $SRC_BUILD/src/qemu/qemu.conf to /etc/libvirt
 $SRC_BASE/src/libvirt.conf to /etc/libvirt
 # $SRC_BASE/src/locking/libvirt_lockd.aug to /usr/share/augeas/lenses
 # $SRC_BASE/src/locking/libvirt_sanlock.aug to /usr/share/augeas/lenses
@@ -450,15 +450,15 @@ $SRC_BASE/src/libvirt.conf to /etc/libvirt
 # $SRC_BASE/src/qemu/libvirtd_qemu.aug to /usr/share/augeas/lenses
 $SRC_BUILD/src/libvirtd.conf to /etc/libvirt
 # $SRC_BUILD/src/libvirtd.aug to /usr/share/augeas/lenses
-# $SRC_BUILD/src/virtproxyd.conf to /etc/libvirt
+$SRC_BUILD/src/virtproxyd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtproxyd.aug to /usr/share/augeas/lenses
-# $SRC_BUILD/src/virtinterfaced.conf to /etc/libvirt
+$SRC_BUILD/src/virtinterfaced.conf to /etc/libvirt
 # $SRC_BUILD/src/virtinterfaced.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtnetworkd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtnetworkd.aug to /usr/share/augeas/lenses
-# $SRC_BUILD/src/virtnodedevd.conf to /etc/libvirt
+$SRC_BUILD/src/virtnodedevd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtnodedevd.aug to /usr/share/augeas/lenses
-# $SRC_BUILD/src/virtnwfilterd.conf to /etc/libvirt
+$SRC_BUILD/src/virtnwfilterd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtnwfilterd.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtsecretd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtsecretd.aug to /usr/share/augeas/lenses
@@ -468,62 +468,62 @@ $SRC_BUILD/src/libvirtd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtlxcd.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtchd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtchd.aug to /usr/share/augeas/lenses
-$SRC_BUILD/src/virtqemud.conf to /etc/libvirt
+# $SRC_BUILD/src/virtqemud.conf to /etc/libvirt
 # $SRC_BUILD/src/virtqemud.aug to /usr/share/augeas/lenses
 # $SRC_BUILD/src/virtvboxd.conf to /etc/libvirt
 # $SRC_BUILD/src/virtvboxd.aug to /usr/share/augeas/lenses
 $SRC_BASE/src/remote/virt-guest-shutdown.target to /usr/lib/systemd/system
 # $SRC_BUILD/src/libvirtd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-admin.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-tcp.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/libvirtd-tls.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-tcp.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/libvirtd-tls.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtproxyd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd-admin.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd-tcp.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtproxyd-tls.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd-tcp.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtproxyd-tls.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtinterfaced.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtinterfaced.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtinterfaced-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtinterfaced-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtinterfaced.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtinterfaced-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtinterfaced-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlockd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtlockd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtlockd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtlockd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtlockd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlogd.service to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlogd.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlogd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtnetworkd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnetworkd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnetworkd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnetworkd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnetworkd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnetworkd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnetworkd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtnodedevd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnodedevd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnodedevd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtnodedevd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnodedevd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnodedevd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtnodedevd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtnwfilterd.service to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtnwfilterd.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtnwfilterd-ro.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtnwfilterd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtsecretd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtsecretd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtsecretd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtsecretd-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtsecretd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtsecretd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtsecretd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtstoraged.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtstoraged.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtstoraged-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtstoraged-admin.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtstoraged.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtstoraged-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtstoraged-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlxcd.service to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlxcd.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlxcd-ro.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtlxcd-admin.socket to /usr/lib/systemd/system
 # $SRC_BUILD/src/virtchd.service to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtchd.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtchd-ro.socket to /usr/lib/systemd/system
-# $SRC_BUILD/src/virtchd-admin.socket to /usr/lib/systemd/system
-$SRC_BUILD/src/virtqemud.service to /usr/lib/systemd/system
+$SRC_BUILD/src/virtchd.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtchd-ro.socket to /usr/lib/systemd/system
+$SRC_BUILD/src/virtchd-admin.socket to /usr/lib/systemd/system
+# $SRC_BUILD/src/virtqemud.service to /usr/lib/systemd/system
 $SRC_BUILD/src/virtqemud.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtqemud-ro.socket to /usr/lib/systemd/system
 $SRC_BUILD/src/virtqemud-admin.socket to /usr/lib/systemd/system

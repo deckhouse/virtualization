@@ -1,98 +1,275 @@
 ---
+# Add liboverride as a global LD_PRELOAD to configure liboverride globally.
+# It is done in the latest possible stage in the final image to not break
+# stapel commands with the "unsupported GLIBC version" error.
+# TODO Remove after adding patch to the libvirt.
 image: {{ $.ImageName }}
 fromImage: {{ $.ImageName }}-prepared
 git:
   # Add liboverride as a global LD_PRELOAD.
   - add: /images/{{ $.ImageName }}/liboverride
     to: /etc
-    stageDependencies:
-      setup:
-      - 'ld.so.preload.in'
     includePaths:
-    - ld.so.preload.in
-import:
-  - image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
-    add: /VBINS
-    to: /usr
-    after: install
-    includePaths:
-    - lib64
-  - image: {{ $.ImageName }}-liboverride-builder
-    add: /liboverride/
-    to: /liboverride
-    after: install
-    includePaths:
-    - liboverride.so
-shell:
-  setup:
-    # Configure liboverride globally. It should be done in the last stage (setup) to not break stapel commands.
-    - mv /etc/ld.so.preload.in /etc/ld.so.preload
+    - ld.so.preload
 
 ---
+image: {{ $.ImageName }}-prepared
+final: false
+fromImage: distroless
+import:
+  - image: {{ $.ImageName }}-binaries
+    add: /relocate
+    to: /
+    after: install
+docker:
+  USER: 0
+
+---
+{{- define "virt-launcher-dependencies" -}}
+libs:
+  - libffi8
+  - libssh-devel
+  - libssh2-devel
+  - libcap-ng-devel
+  - libxfs-devel
+  - zlib-devel
+  - libcurl-devel
+  - libpci-devel
+  - libgvnc-devel
+  - libfdt-devel
+  - libpixman-devel
+  - libkeyutils-devel
+  - libuuid-devel
+  - libpam0-devel
+  - libtasn1-devel
+  - libslirp-devel
+  - libdrm-devel
+  - libxdp-devel
+  - libSDL2-devel
+  - libSDL2_image-devel
+  - libncursesw-devel
+  - libalsa-devel
+  - libpulseaudio-devel
+  - pipewire-libs
+  - pipewire-jack-libs-devel
+  - libsoundio-devel
+  - libcapstone-devel
+  - libsasl2-devel
+  - libjpeg-devel
+  - libpng-devel
+  - libxkbcommon-devel
+  - xkeyboard-config-devel
+  - libgtk+3-devel
+  - libvte
+  - libvte-devel
+  - libvte3-devel
+  - libvirglrenderer-devel
+  - libusb-devel
+  - liburing-devel
+  - libbpf-devel
+  - libspice-server-devel
+  - ceph-devel
+  - libnfs-devel
+  - libzstd-devel
+  - libseccomp-devel
+  - libgcrypt-devel
+  - libgnutls-devel
+  - libnettle-devel
+  - libudev-devel
+  - libmultipath-devel
+  - libblkio-devel
+  - libpmem-devel
+  - libdaxctl-devel
+  - libfuse3-devel
+  - rdma-core-devel
+  - libnuma-devel
+  - bzlib-devel
+  - liblzo2-devel
+  - libsnappy-devel
+  - libcacard-devel
+  - libusbredir-devel
+  - libepoxy-devel
+  - libgbm-devel
+  - libvitastor-devel
+  - libiscsi-devel
+  - libaio-devel
+  - libselinux-devel
+  - libqpl-devel
+  - libglusterfs11-api-devel
+  - libvdeplug-devel
+  - libpciaccess-devel
+  - libyajl-devel
+  - sanlock-devel
+  - libpcap-devel
+  - libnl-devel
+  - libparted-devel
+  - libdevmapper-devel
+  - libglusterfs-devel
+  - libaudit-devel
+  - libfuse-devel
+  - libnbd-devel
+  - libblkid-devel
+  - libp11-kit-devel
+  - libreadline-devel
+  - libattr-devel
+  - libbsd-devel
+  - libsystemd-devel
+  - libjson-c-devel
+  - systemtap-sdt-devel
+  - libacl-devel
+  - glib2-devel
+  - libgio-devel
+  - libxml2-devel
+  - libtirpc-devel
+  - libclocale
+  - libLLVMSPIRVLib-devel
+packages:
+  - acl
+  - attr
+  - dmidecode
+  - ethtool
+  - fdisk
+  - glibc-gconv-modules
+  - hwclock
+  - iptables
+  - libffi8
+  - nftables
+  - numactl
+  - openssl
+  - passt
+  - pcre
+  - procps
+  - policycoreutils
+  - psmisc
+  - swtpm swtpm-tools
+  - su
+  - msulogin
+  - xorriso
+binaries:
+  # GNU utilities
+  - /usr/bin/sh
+  - /usr/bin/bash
+  - /usr/bin/uname
+  - /usr/bin/nohup
+  - /usr/bin/sleep
+  - /usr/bin/cp
+  - /usr/bin/rm
+  - /usr/bin/mv
+  - /usr/bin/cut
+  - /usr/bin/grep
+  # Utilities for mount
+  - /usr/bin/mount
+  - /usr/bin/umount
+  # Blk utilites
+  - /usr/sbin/blkid
+  - /usr/sbin/blockdev
+  # Openssl
+  - /usr/bin/openssl
+  # Acl utils
+  - /usr/bin/chacl /usr/bin/getfacl /usr/bin/setfacl /usr/bin/chmod
+  # Fs utils
+  - /usr/sbin/fstrim /usr/sbin/fuser /usr/sbin/findfs
+  # Xorriso (Creates an image of an ISO9660 filesystem)
+  - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
+  # Ethtool
+  - /usr/sbin/ethlist /usr/sbin/ethtool /usr/sbin/iptables /usr/sbin/ip /usr/sbin/bridge
+  # Passt (User-mode networking daemons for virtual machines and namespaces)
+  - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
+  # Swtpm
+  - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
+  # Dmidecode
+  - /usr/sbin/biosdecode /usr/sbin/dmidecode /usr/sbin/ownership /usr/sbin/vpddecode
+  # Numactl
+  - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numademo /usr/bin/numastat
+  # Hwclock
+  - /usr/bin/clock_unsynced /etc/adjtime /usr/sbin/clock /usr/sbin/hwclock
+  # Libffi8
+  - "/usr/lib64/libffi.so*"
+  # Attr
+  - /usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr
+  # SELinux policy core utilities
+  - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
+{{- end -}}
+
+{{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
+
 {{- $gitRepoName := "libvirt" }}
 {{- $version := get $.Version $gitRepoName }}
 
-image: {{ $.ImageName }}-prepared
+image: {{ $.ImageName }}-binaries
 final: false
-fromImage: base-alt-p11
+fromImage: base-alt-p11-binaries
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /relocate
+    stageDependencies:
+      setup:
+      - '**/*'
+    includePaths:
+    - scripts
+  # Add qemu and virtqemud configs
+  - add: /images/{{ $.ImageName }}/configs
+    to: /relocate/etc/libvirt
+    stageDependencies:
+      setup:
+      - qemu.conf
+      - virtqemud.conf
+    includePaths:
+    - qemu.conf
+    - virtqemud.conf
+  - add: /images/{{ $.ImageName }}/configs
+    to: /relocate/etc
+    stageDependencies:
+      setup:
+      - nsswitch.conf
+    includePaths:
+    - nsswitch.conf
 import:
-# Before install stage.
-# Add bins from libvirt and qemu artifacts.
-- image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
-  add: /VBINS
-  to: /
-  before: install
+- image: {{ $.ImageName }}-liboverride-builder
+  add: /liboverride
+  to: /relocate/liboverride
+  after: setup
   includePaths:
-  - etc
-- image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
-  add: /VBINS
-  to: /
-  before: install
-  includePaths:
-  - usr
+  - liboverride.so
 
+# Libvirt and QEMU libraries and binaries
+- image: libvirt
+  add: /BINS
+  to: /libvirt-bins
+  before: install
+- image: qemu
+  add: /BINS
+  to: /qemu-bins
+  before: install
+
+# EDK2 (uefi firmware)
 - image: edk2
   add: /FIRMWARE/
-  to: /usr/share/edk2/ovmf
-  # to: /usr/share/OVMF
+  to: /relocate/usr/share/edk2/ovmf
   before: install
   includePaths:
   - '*.fd'
   - '*.bin'
   - '*.efi'
   - '*.iso'
-
 - image: edk2
   add: /FIRMWARE/
-  to: /usr/share/qemu/firmware
+  to: /relocate/usr/share/qemu/firmware
   before: install
   includePaths:
   - '*.json'
 
-# After install stage.
-# Add kubeivrt files from virt-artifact.
+# Import from virt artifact
 - image: virt-artifact
   add: /kubevirt-config-files/
   to: /
   after: install
   includePaths:
   - .version
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/
-  to: /etc/libvirt
-  after: install
-  includePaths:
-  - qemu.conf
-  - virtqemud.conf
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/
-  to: /etc
-  after: install
-  includePaths:
-  - nsswitch.conf
+
 - image: virt-artifact
   add: /kubevirt-binaries/
-  to: /usr/bin
+  to: /relocate/usr/bin
   before: setup
   includePaths:
   - container-disk
@@ -103,69 +280,71 @@ import:
   - virt-tail
 - image: virt-artifact
   add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
-  to: /usr/bin
+  to: /relocate/usr/bin
   before: setup
   includePaths:
   - '*.sh'
-git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    stageDependencies:
-      setup:
-      - '**/*'
-    includePaths:
-    - scripts
 shell:
-  beforeInstall:
-  # Install main packages.
+  install:
   - |
-    apt-get update && apt-get install --yes \
-    acl \
-    pcre \
-    procps \
-    ethtool \
-    nftables \
-    passt \
-    swtpm swtpm-tools \
-    xorriso \
-    dmidecode \
-    numactl \
-    hwclock \
-    libffi8 \
-    glibc-gconv-modules
+    apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+    apt-get clean
+
+    mkdir -p /VBINS/var/{log/libvirt/qemu,run,lib/libvirt/qemu}
+
+    echo "=====Copy libvirt binaries to temp folder======"
+    cp -a /libvirt-bins/. /VBINS/
+    
+    echo "=====Copy qemu binaries to temp folder======"
+    cp -a /qemu-bins/. /VBINS/
+
+    LIST="$(find /VBINS/usr/bin/ -type f)"
+    LIST+=" $(find /VBINS/usr/sbin/ -type f)"
+    LIST+=" /usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3"
+    LIST+=" /usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4"
+
+    ./relocate_binaries.sh -i "$LIST" -o /VBINS
+
+    cp -a /VBINS/. /relocate
+    
+    # Cleanup
+    rm -rf /{VBINS,qemu-bins,libvirt-bins}
+
+  setup:
+  - |
+    ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
+
+    mkdir -p /relocate/{etc,root}
+
+    # glibc-gconv-modules
+    cp -a /usr/lib64/gconv /relocate/usr/lib64
+    cp /etc/xattr.conf /relocate/etc
+
+    echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
+    echo "root:x:0:" >> /relocate/etc/group
+    echo "root:x:::::::" >> /relocate/etc/shadow
+    
+    echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /relocate/etc/passwd
+    echo "qemu:x:107:" >> /relocate/etc/group
+    mkdir -p /relocate/home/qemu
+    chown -R 107:107 /relocate/home/qemu
   
   - |
-    # Delete unnecessary locales
-    KEEP_LOCALES=("ru" "en_US" "en_GB")
-    EXCLUDE_PATTERN=$(printf "! -name %s " "${KEEP_LOCALES[@]}")
-    echo "Delete unnecessary locales"
-    find /usr/share/locale -mindepth 1 -maxdepth 1 -type d ${EXCLUDE_PATTERN} -exec rm -rf {} +
-
-    # delete docs
-    echo "Delete docs"
-    rm -rf /usr/share/doc/*
-
-  install:
-  # Create qemu group and user.
-  - groupadd --gid 107 qemu && useradd qemu --uid 107 --gid 107 --shell /bin/bash --create-home
-
-  # Link to dir OVMF
-  - |
-    mkdir -p /usr/share/OVMF
-
     echo "Create symlinks for OVMF"
-    ln -sf /usr/share/edk2/ovmf/OVMF_CODE.fd         /usr/share/edk2/ovmf/OVMF_CODE.cc.fd
-    ln -sf /usr/share/edk2/ovmf/OVMF_CODE.cc.fd /usr/share/OVMF/OVMF_CODE.cc.fd
-    
-    ln -s /usr/share/edk2/ovmf/OVMF_CODE.secboot.fd /usr/share/OVMF
-    ln -s /usr/share/edk2/ovmf/OVMF_VARS.fd         /usr/share/OVMF
-    ln -s /usr/share/edk2/ovmf/OVMF_VARS.secboot.fd /usr/share/OVMF
-    ln -s /usr/share/edk2/ovmf/UefiShell.iso        /usr/share/OVMF
+    mkdir -p /relocate/usr/share/OVMF
 
-  # Create symlinc for libvirt
+    cd /relocate
+    ln -sf usr/share/edk2/ovmf/OVMF_CODE.fd   usr/share/edk2/ovmf/OVMF_CODE.cc.fd
+    ln -sf ../edk2/ovmf/OVMF_CODE.cc.fd       usr/share/OVMF/OVMF_CODE.cc.fd
+    
+    ln -s ../edk2/ovmf/OVMF_CODE.secboot.fd   usr/share/OVMF
+    ln -s ../edk2/ovmf/OVMF_VARS.fd           usr/share/OVMF
+    ln -s ../edk2/ovmf/OVMF_VARS.secboot.fd   usr/share/OVMF
+    ln -s ../edk2/ovmf/UefiShell.iso          usr/share/OVMF
+    
+    cd /
+
   - |
     convert_version() {
       local version="$1"
@@ -178,105 +357,34 @@ shell:
     echo "libvirt_version: $libvirt_version"
 
     SYMLINC_LIST=$(cat <<EOF
-    /usr/local/lib64/libvirt.so.0.${libvirt_version}.0 /lib64/libvirt.so.0
-    /usr/local/lib64/libvirt.so.0 /lib64/libvirt.so
-    /usr/local/lib64/libvirt-qemu.so.0.${libvirt_version}.0 /lib64/libvirt-qemu.so.0
-    /usr/local/lib64/libvirt-qemu.so.0 /lib64/libvirt-qemu.so
-    /usr/local/lib64/libvirt-lxc.so.0.${libvirt_version}.0 /lib64/libvirt-lxc.so.0
-    /usr/local/lib64/libvirt-lxc.so.0 /lib64/libvirt-lxc.so
-    /usr/local/lib64/libvirt-admin.so.0.${libvirt_version}.0 /lib64/libvirt-admin.so.0
-    /usr/local/lib64/libvirt-admin.so.0 /lib64/libvirt-admin.so
+    libvirt.so.0.${libvirt_version}.0        libvirt.so.0
+    libvirt.so.0                             libvirt.so
+    libvirt-qemu.so.0.${libvirt_version}.0   libvirt-qemu.so.0
+    libvirt-qemu.so.0                        libvirt-qemu.so
+    libvirt-lxc.so.0.${libvirt_version}.0    libvirt-lxc.so.0
+    libvirt-lxc.so.0                         libvirt-lxc.so
+    libvirt-admin.so.0.${libvirt_version}.0  libvirt-admin.so.0
+    libvirt-admin.so.0                       libvirt-admin.so
     EOF
     )
+
+    cd /relocate
 
     while IFS= read -r LINE; do
       echo "Create symlinc for $LINE"
       TARGET=$(echo $LINE | awk -F' ' '{print $1}')
       SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
-      ln -s $TARGET $SYMLINK
+      ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
     done <<< "$SYMLINC_LIST"
-    cd /
-
-  setup:
-  # Replace virt-launcher-monitor with the wrapper.
-  - cp /scripts/virt-launcher-monitor-wrapper.sh /usr/bin/virt-launcher-monitor
-  - chmod +x /usr/bin/virt-launcher-monitor
 
   - |
-    [[ ! -e /usr/bin/cp ]] && ln -s /bin/cp /usr/bin/cp
-  - mkdir -p /init/usr/bin && ln -s /usr/bin/container-disk /init/usr/bin/container-disk
-  
-# Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-launcher/BUILD.bazel
-#docker:
-#  ENTRYPOINT: ["/usr/bin/virt-launcher"]
-docker:
-  ENV:
-    LANG: ""
-    LC_ALL: POSIX
-
----
-image: {{ $.ImageName }}-merge-qemu-libvirt-binaries
-final: false
-fromImage: base-alt-p11
-import:
-- image: libvirt
-  add: /BINS
-  to: /libvirt-bins
-  before: install
-- image: qemu
-  add: /BINS
-  to: /qemu-bins
-  before: install
-git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    stageDependencies:
-      setup:
-      - '**/*'
-    includePaths:
-    - reloclibs.sh
-shell:
-  install:
+    cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
+    chmod +x /relocate/usr/bin/virt-launcher-monitor
   - |
-    apt-get update && apt-get install -y tree \
-    glibc-utils \
-    libffi8 \
-    libssh-devel libssh2-devel \
-    libcap-ng-devel \
-    libxfs-devel zlib-devel libcurl-devel libpci-devel libgvnc-devel libfdt-devel \
-    libpixman-devel libkeyutils-devel libuuid-devel libpam0-devel libtasn1-devel libslirp-devel \
-    libdrm-devel libxdp-devel libSDL2-devel libSDL2_image-devel libncursesw-devel libalsa-devel \
-    libpulseaudio-devel pipewire-libs pipewire-jack-libs-devel libsoundio-devel \
-    libcapstone-devel libsasl2-devel libjpeg-devel libpng-devel libxkbcommon-devel xkeyboard-config-devel libgtk+3-devel \
-    libvte libvte-devel libvte3-devel libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel \
-    libspice-server-devel ceph-devel libnfs-devel libzstd-devel libseccomp-devel \
-    libgcrypt-devel libgnutls-devel libnettle-devel libudev-devel libmultipath-devel \
-    libblkio-devel libpmem-devel libdaxctl-devel libfuse3-devel rdma-core-devel libnuma-devel \
-    bzlib-devel liblzo2-devel libsnappy-devel libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel \
-    libvitastor-devel libiscsi-devel libaio-devel libselinux-devel libqpl-devel libglusterfs11-api-devel \
-    libvdeplug-devel libpciaccess-devel libyajl-devel sanlock-devel libpcap-devel libnl-devel libparted-devel libdevmapper-devel \
-    libglusterfs-devel libaudit-devel libfuse-devel libnbd-devel libblkid-devel libp11-kit-devel libreadline-devel \
-    libattr-devel libbsd-devel libsystemd-devel libjson-c-devel systemtap-sdt-devel libacl-devel glib2-devel \
-    libgio-devel libxml2-devel libtirpc-devel libclocale libLLVMSPIRVLib-devel
-
-    apt-get clean
-
-    mkdir -p /VBINS
-
-    echo "=====Copy libvirt binaries to temp folder======"
-    cp -a /libvirt-bins/. /VBINS/
-    
-    echo "=====Copy qemu binaries to temp folder======"
-    cp -a /qemu-bins/. /VBINS/
-    
-    rm -rf /VBINS/var/run
-  setup:
-  - |
-    LIST="$(find /VBINS/usr/bin/ -type f)"
-    LIST+=" $(find /VBINS/usr/sbin/ -type f)"
-    LIST+=" /usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3"
-    LIST+=" /usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4"
-    ./reloclibs.sh -i "$LIST" -o /VBINS
+    echo "Create symlinks for container-disk"
+    mkdir -p /relocate/init/usr/bin
+    cd /relocate
+    ln -s usr/bin/container-disk ./init/usr/bin/container-disk
 
 ---
 image: {{ $.ImageName }}-liboverride-builder
