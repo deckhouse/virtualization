@@ -394,8 +394,8 @@ shell:
     cd /relocate
     ln -s var/run run
 
-  # /etc/libvirt-init will be copied to /etc/libvirt at runtime. This is necessary because we configure libvirt during runtime and set readOnlyRootFilesystem.
-  # DON'T Move. In node-labeler.sh used /etc/libvirt.
+  # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
+  # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
     cp -a etc/libvirt etc/libvirt-init
 
