@@ -1,0 +1,8 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+nameSuffix: -migration-uefi
+resources:
+  - ../../base
+patches:
+  - path: vd.image.patch.yaml
+  - path: vm.bootloader.patch.yaml
