@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/kvapi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -150,14 +149,14 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 	})
 }
 
-func (s AttachmentService) CanUnplug(kvvm *virtv1.VirtualMachine, blockDeviceName string) bool {
-	if blockDeviceName == "" || kvvm == nil || kvvm.Spec.Template == nil {
+func (s AttachmentService) NeedUnplug(vm *virtv2.VirtualMachine, objectRef virtv2.VMBDAObjectRef) bool {
+	if vm == nil {
 		return false
 	}
 
-	for _, volume := range kvvm.Spec.Template.Spec.Volumes {
-		if kvapi.VolumeExists(volume, blockDeviceName) {
-			return volume.PersistentVolumeClaim.Hotpluggable
+	for _, bdRef := range vm.Status.BlockDeviceRefs {
+		if bdRef.Kind == virtv2.BlockDeviceKind(objectRef.Kind) && bdRef.Name == objectRef.Name {
+			return bdRef.Hotplugged
 		}
 	}
 
