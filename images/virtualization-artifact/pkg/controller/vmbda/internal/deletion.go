@@ -18,6 +18,8 @@ package internal
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"strings"
 
@@ -36,14 +38,12 @@ import (
 const deletionHandlerName = "DeletionHandler"
 
 type UnplugInterface interface {
-	CanUnplug(kvvm *virtv1.VirtualMachine, blockDeviceName string) bool
+	NeedUnplug(vm *virtv2.VirtualMachine, objectRef virtv2.VMBDAObjectRef) bool
 	UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualMachine, diskName string) error
 }
 type DeletionHandler struct {
 	unplug UnplugInterface
 	client client.Client
-
-	log *slog.Logger
 }
 
 func NewDeletionHandler(unplug UnplugInterface, client client.Client) *DeletionHandler {
@@ -54,13 +54,12 @@ func NewDeletionHandler(unplug UnplugInterface, client client.Client) *DeletionH
 }
 
 func (h *DeletionHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
-	h.log = logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
-
 	if vmbda.DeletionTimestamp != nil {
 		if err := h.cleanUp(ctx, vmbda); err != nil {
 			return reconcile.Result{}, err
 		}
-		h.log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineBlockDeviceAttachment")
+		log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
+		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineBlockDeviceAttachment")
 		controllerutil.RemoveFinalizer(vmbda, virtv2.FinalizerVMBDACleanup)
 		return reconcile.Result{}, nil
 	}
@@ -84,13 +83,24 @@ func (h *DeletionHandler) cleanUp(ctx context.Context, vmbda *virtv2.VirtualMach
 		blockDeviceName = kvbuilder.GenerateCVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	}
 
-	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.VirtualMachineName}, h.client, &virtv1.VirtualMachine{})
+	vm, err := object.FetchObject(ctx, types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.VirtualMachineName}, h.client, &virtv2.VirtualMachine{})
 	if err != nil {
-		return err
+		return fmt.Errorf("fetch vm: %w", err)
 	}
 
-	if h.unplug.CanUnplug(kvvm, vmbda.Spec.BlockDeviceRef.Name) {
-		h.log.Info("Unplug block device", slog.String("blockDeviceName", blockDeviceName), slog.String("vm", kvvm.Name))
+	if h.unplug.NeedUnplug(vm, vmbda.Spec.BlockDeviceRef) {
+		var kvvm *virtv1.VirtualMachine
+		kvvm, err = object.FetchObject(ctx, types.NamespacedName{Namespace: vmbda.GetNamespace(), Name: vmbda.Spec.VirtualMachineName}, h.client, &virtv1.VirtualMachine{})
+		if err != nil {
+			return fmt.Errorf("fetch intvirtvm: %w", err)
+		}
+
+		if kvvm == nil {
+			return errors.New("intvirtvm not found to unplug")
+		}
+
+		log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
+		log.Info("Unplug block device", slog.String("blockDeviceName", blockDeviceName), slog.String("vm", kvvm.Name))
 		if err = h.unplug.UnplugDisk(ctx, kvvm, blockDeviceName); err != nil {
 			if strings.Contains(err.Error(), "does not exist") {
 				return nil
