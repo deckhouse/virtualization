@@ -1,62 +1,53 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"log"
+	"context"
+	"log/slog"
 	"os"
 	"os/exec"
 	"time"
 )
 
-type LogMessage struct {
-	Msg       string `json:"msg"`
-	Level     string `json:"level"`
-	Component string `json:"component"`
-}
-
-// logMessage formats and prints structured logs
-func logMessage(msg, level, component string) {
-	logEntry := LogMessage{
-		Msg:       msg,
-		Level:     level,
-		Component: component,
-	}
-	jsonLog, _ := json.Marshal(logEntry)
-	fmt.Println(string(jsonLog))
-}
-
-// getRunningVM fetches the name of the running VM
-func getRunningVM() string {
+// getRunningVM fetches the name of the running VM in a loop until one is found
+func getRunningVM(ctx context.Context) string {
 	for {
-		out, err := exec.Command("virsh", "list", "--name").Output()
-		if err == nil {
-			vmName := string(out)
-			if len(vmName) > 0 {
-				return vmName
+		select {
+		case <-ctx.Done():
+			slog.Warn("Context cancelled while waiting for VM name")
+			return ""
+		default:
+			out, err := exec.Command("virsh", "list", "--name").Output()
+			if err == nil {
+				vmName := string(out)
+				if len(vmName) > 0 {
+					return vmName
+				}
 			}
+			time.Sleep(1 * time.Second)
 		}
-		time.Sleep(1 * time.Second)
 	}
 }
 
-// setDomainRebootAction sets the reboot action for the VM
+// setDomainRebootAction sets the reboot action to "shutdown" for the VM
 func setDomainRebootAction(vmName string) {
-	logMessage(fmt.Sprintf("Set reboot action to shutdown for domain %s", vmName), "info", "domain-monitor")
+	slog.Info("Setting reboot action to shutdown", "domain", vmName)
 	cmd := exec.Command("virsh", "qemu-monitor-command", vmName,
 		`{"execute": "set-action", "arguments":{"reboot":"shutdown"}}`)
+
 	if err := cmd.Run(); err != nil {
-		log.Printf("Failed to set reboot action: %v\n", err)
+		slog.Error("Failed to set reboot action", "error", err)
 	}
 }
 
-// monitorDomainEvents listens for domain shutdown events
+// monitorDomainEvents listens for domain shutdown events and logs them to /dev/termination-log
 func monitorDomainEvents(vmName string) {
-	logMessage(fmt.Sprintf("Monitor domain %s events", vmName), "info", "domain-monitor")
+	slog.Info("Monitoring domain events", "domain", vmName)
+
 	cmd := exec.Command("virsh", "qemu-monitor-event", "--domain", vmName, "--loop", "--event", "SHUTDOWN")
 	file, err := os.Create("/dev/termination-log")
 	if err != nil {
-		log.Fatalf("Failed to open termination log: %v\n", err)
+		slog.Error("Failed to open termination log", "error", err)
+		os.Exit(1)
 	}
 	defer file.Close()
 
@@ -64,35 +55,50 @@ func monitorDomainEvents(vmName string) {
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		log.Printf("Failed to monitor domain events: %v\n", err)
+		slog.Error("Failed to monitor domain events", "error", err)
 	}
 }
 
 func main() {
-	logMessage("Start domain monitor daemon", "info", "virt-launcher-monitor-wrapper")
+	// Setup structured logging
+	opts := &slog.HandlerOptions{
+		Level: slog.LevelInfo, // Adjust log level here if needed
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	slog.SetDefault(logger)
 
-	// Start domain monitor in a separate goroutine
+	slog.Info("Starting domain monitor daemon", "component", "virt-launcher-monitor-wrapper")
+
+	// Run the domain monitor in a separate goroutine
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	go func() {
-		vmName := getRunningVM()
+		vmName := getRunningVM(ctx)
+		if vmName == "" {
+			slog.Error("No VM detected, exiting domain monitor goroutine")
+			return
+		}
 		setDomainRebootAction(vmName)
 		monitorDomainEvents(vmName)
 	}()
 
-	// Check and execute the original `virt-launcher-monitor-orig` if present
+	// Check if the original `virt-launcher-monitor-orig` exists
 	origMonitorPath := "/usr/bin/virt-launcher-monitor-orig"
 	if _, err := os.Stat(origMonitorPath); os.IsNotExist(err) {
-		logMessage("Target /usr/bin/virt-launcher-monitor-orig is absent", "error", "virt-launcher-monitor-wrapper")
+		slog.Error("Missing original monitor binary", "path", origMonitorPath)
 		os.Exit(1)
 	}
 
-	logMessage("Exec original virt-launcher-monitor", "info", "virt-launcher-monitor-wrapper")
+	slog.Info("Executing original virt-launcher-monitor", "component", "virt-launcher-monitor-wrapper")
 
-	// Execute the original virt-launcher-monitor with passed arguments
+	// Execute the original `virt-launcher-monitor-orig` with passed arguments
 	cmd := exec.Command(origMonitorPath, os.Args[1:]...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		log.Fatalf("Failed to execute %s: %v\n", origMonitorPath, err)
+		slog.Error("Failed to execute original monitor", "error", err, "path", origMonitorPath)
+		os.Exit(1)
 	}
 }
