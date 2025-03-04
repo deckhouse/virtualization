@@ -159,6 +159,7 @@ type CPUSpec struct {
 	// +kubebuilder:validation:Format:=int32
 	// +kubebuilder:validation:Minimum=1
 	Cores int `json:"cores"`
+
 	// Guaranteed share of CPU that will be allocated to the VM. Specified as a percentage.
 	// +kubebuilder:default:="100%"
 	// +kubebuilder:validation:Enum:={"5%", "10%", "25%", "50%", "100%"}
@@ -353,6 +354,16 @@ type CPUStatus struct {
 	RequestedCores resource.Quantity `json:"requestedCores,omitempty"`
 	// runtime overhead.
 	RuntimeOverhead resource.Quantity `json:"runtimeOverhead,omitempty"`
+	// Topology with Cores count and Sockets count.
+	Topology Topology `json:"topology,omitempty"`
+}
+
+// Topology defines count of used CPU cores and sockets.
+type Topology struct {
+	// Current number of cores inside the VM.
+	CoresPerSocket int `json:"coresPerSocket"`
+	// Current number of cores inside the VM.
+	Sockets int `json:"sockets"`
 }
 
 // MemoryStatus defines statistics about the Memory resource usage.

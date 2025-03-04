@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
+	"github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -45,6 +46,8 @@ const (
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
 	GenericCPUModel = "kvm64"
+	// MaxCpuSockets defines the maximum number of CPU sockets allowed in the CPU topology
+	MaxCpuSockets = 8
 )
 
 type KVVMOptions struct {
@@ -232,10 +235,12 @@ func (b *KVVM) SetCpu(cores int, coreFraction string) error {
 	}
 	domainSpec.Resources.Requests[corev1.ResourceCPU] = *cpuRequest
 	domainSpec.Resources.Limits[corev1.ResourceCPU] = *cpuLimit
-	// https://bugzilla.redhat.com/show_bug.cgi?id=1653453
-	domainSpec.CPU.Cores = uint32(1)
-	domainSpec.CPU.Sockets = uint32(cores)
-	domainSpec.CPU.MaxSockets = uint32(cores)
+
+	socketsNeeded, coresNeeded := vm.CalculateCoresAndSockets(cores)
+
+	domainSpec.CPU.Cores = uint32(coresNeeded)
+	domainSpec.CPU.Sockets = uint32(socketsNeeded)
+	domainSpec.CPU.MaxSockets = uint32(MaxCpuSockets)
 	return nil
 }
 
