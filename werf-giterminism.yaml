@@ -6,6 +6,7 @@ config:
     - MODULES_MODULE_TAG
     - SOURCE_REPO
     - MODULE_EDITION
+    - DELVE_DEBUG
   stapel:
     mount:
       allowBuildDir: true

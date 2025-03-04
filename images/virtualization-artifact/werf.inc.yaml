@@ -24,6 +24,9 @@ mount:
   to: /go/pkg
 shell:
   install:
+  {{- if eq $.DELVE_DEBUG "true" }}
+  - go install github.com/go-delve/delve/cmd/dlv@latest
+  {{- end }}
   - cd /usr/local/go/src/virtualization-controller
   - go mod download
   setup:
