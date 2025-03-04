@@ -3,7 +3,7 @@ kind: VirtualMachine
 metadata:
   name: vm
 spec:
-  virtualMachineClassName: generic
+  virtualMachineClassName: affinity-discovery
   cpu:
     cores: 1
     coreFraction: 5%

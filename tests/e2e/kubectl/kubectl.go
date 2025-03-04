@@ -109,7 +109,7 @@ type PatchOptions struct {
 	Type       string
 	PatchFile  string
 	MergePatch string
-	JsonPatch  *JsonPatch
+	JsonPatch  []*JsonPatch
 }
 
 type JsonPatch struct {
@@ -127,7 +127,7 @@ func (p JsonPatch) String() string {
 	} else {
 		value = fmt.Sprintf("\"%s\"", p.Value)
 	}
-	return fmt.Sprintf("[{\"op\": \"%s\", \"path\": \"%s\", \"value\":%s}]", p.Op, p.Path, value)
+	return fmt.Sprintf("{\"op\": \"%s\", \"path\": \"%s\", \"value\":%s}", p.Op, p.Path, value)
 }
 
 type KubectlConf struct {
@@ -378,7 +378,12 @@ func (k KubectlCMD) patchOptions(cmd string, opts PatchOptions) string {
 		cmd = fmt.Sprintf("%s --patch-file=%s", cmd, opts.PatchFile)
 	}
 	if opts.JsonPatch != nil {
-		cmd = fmt.Sprintf("%s --type=json --patch='%s'", cmd, opts.JsonPatch.String())
+		patches := make([]string, len(opts.JsonPatch))
+		for i, p := range opts.JsonPatch {
+			patches[i] = p.String()
+		}
+		rawPatches := strings.Join(patches, ",")
+		cmd = fmt.Sprintf("%s --type=json --patch='[%s]'", cmd, rawPatches)
 	}
 	if opts.MergePatch != "" {
 		cmd = fmt.Sprintf("%s --type=merge --patch='%s'", cmd, opts.MergePatch)
