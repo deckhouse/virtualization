@@ -5,3 +5,5 @@ resources:
   - overlays/vm-b-not-a
   - overlays/vm-c-and-a
   - overlays/vm-d
+  - overlays/vm-node-affinity
+  - overlays/vm-node-selector
