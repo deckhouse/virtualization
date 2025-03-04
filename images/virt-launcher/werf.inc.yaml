@@ -382,3 +382,59 @@ shell:
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
     cp -a etc/libvirt etc/libvirt-init
+
+---
+image: {{ $.ImageName }}-liboverride-builder
+final: false
+fromImage: base-alt-p11
+git:
+  - add: /images/{{ $.ImageName }}/liboverride
+    to: /liboverride
+    includePaths:
+      - '*.c'
+    stageDependencies:
+      install:
+      - '*.c'
+shell:
+  beforeInstall:
+  # Install build packages. Pin only GCC to detect gcc updates later.
+  - |
+    apt-get update && apt-get install --yes \
+    autoconf \
+    automake \
+    libtool \
+    pkg-config \
+    make \
+    git \
+    perl-IPC-Cmd \
+    wget \
+    gcc==13-alt1 \
+    gcc-c++==13-alt1
+  - apt-get clean
+  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  install:
+  # Build liboverride.
+  - cd /liboverride
+  - gcc -shared -fPIC -DPIC -Wall -o liboverride.so override.c -ldl
+  - strip liboverride.so
+---
+image: {{ $.ImageName }}-gobuilder
+final: false
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+git:
+  - add: /images/{{ $.ImageName }}/node-labeller
+    to: /node-labeller
+    includePaths:
+      - '**/*'
+    stageDependencies:
+      install:
+      - '**/*'
+shell:
+  install:
+    - |
+      echo "Build additional binaries"
+      cd /node-labeller
+      mkdir -p /binaries
+      echo 'go build -ldflags="-s -w" -o /binaries/node-labeller.sh'
+      go build -ldflags="-s -w" -o /binaries/node-labeller.sh ./cmd/node-labeller
+      echo "Done"
