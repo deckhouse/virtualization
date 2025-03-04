@@ -34,7 +34,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Input existing tag, example v0.16.1. Image module tag in dev-registry will have suffix -dev. For example: v0.16.1-dev"
+        description: "Input existing tag, example v0.16.1. Image module tag in dev-registry will have suffix -dev. For example: v0.16.1-dev <----"
         type: string
         required: true
 
@@ -80,9 +80,28 @@ jobs:
 
       - name: Checkout specified tag
         run: git checkout tags/${{ github.event.inputs.tag }}
+      
 
-      - uses: deckhouse/modules-actions/setup@v1
+
+      - name: Login to PROD_REGISTRY
+        uses: deckhouse/modules-actions/setup@v1.2
+        with:
+          registry: ${{ vars.PROD_REGISTRY }}
+          registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+      - name: Login to DEV_REGISTRY
+        uses: deckhouse/modules-actions/setup@v1.2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: deckhouse/modules-actions/build@v1
+        uses: deckhouse/modules-actions/build@v1.2
+        with:
+          module_source: "$MODULES_MODULE_SOURCE"
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: $MODULES_MODULE_TAG
+          secondary_repo: "${{ vars.PROD_REGISTRY }}/${{ vars.PROD_MODULES_REGISTRY_LOGIN }}"
 
       - uses: deckhouse/modules-actions/deploy@v1
