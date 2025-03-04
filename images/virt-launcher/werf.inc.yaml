@@ -318,7 +318,10 @@ shell:
   - |
     ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
 
-    mkdir -p /relocate/{etc,root,var/run}
+    mkdir -p /relocate/{etc,root,var/run,var/log/swtpm/libvirt/qemu}
+    
+    # Copy additional config swtpm
+    cp -a /etc/{swtpm_setup.conf,swtpm-localca.conf,swtpm-localca.options} /relocate/etc/
 
     # glibc-gconv-modules
     cp -a /usr/lib64/gconv /relocate/usr/lib64
