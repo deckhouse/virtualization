@@ -3,13 +3,19 @@ image: {{ $.ImageName }}
 fromImage: distroless
 import:
 - image: {{ $.ImageName }}-bins
-  add: /tmp
-  to: /tmp
-  before: setup
-- image: {{ $.ImageName }}-bins
   add: /relocate
   to: /
   before: setup
+docker:
+  ENTRYPOINT: ["/usr/bin/cdi-controller", "-alsologtostderr"]
+  USER: 64535
+---
+{{- $binaries := "/usr/bin/cat /usr/bin/bash /usr/bin/echo /usr/bin/cdi-controller" }}
+
+image: {{ $.ImageName }}-bins
+final: false
+fromImage: base-alt-p11-binaries
+import:
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
@@ -17,16 +23,11 @@ import:
   - cdi-controller
   before: setup
 # Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-controller/BUILD.bazel
-docker:
-  ENTRYPOINT: ["/usr/bin/cdi-controller", "-alsologtostderr"]
-  USER: 64535
----
-{{- $binaries := "/usr/bin/cat /usr/bin/bash /usr/bin/echo" }}
-
-image: {{ $.ImageName }}-bins
-final: false
-fromImage: base-alt-p11-binaries
 shell:
-  beforeInstall:
+  setup:
+  - /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
+# tmp folder need for ready file
+# https://github.com/kubevirt/containerized-data-importer/blob/v1.60.3/pkg/operator/resources/namespaced/controller.go#L243
   - |
-    /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
+    mkdir -p /relocate/tmp
+    chown 64535:64535 /relocate/tmp
