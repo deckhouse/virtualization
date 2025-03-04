@@ -62,6 +62,7 @@ func NewAuditCommand() *cobra.Command {
 			srv, err := server.NewServer(
 				":"+opts.Port,
 				validators.NewVirtualImageWebhook(),
+				validators.NewVirtualMachineWebhook(),
 			)
 			if err != nil {
 				log.Fatal("failed to create server", log.Err(err))
