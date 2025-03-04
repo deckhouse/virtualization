@@ -129,6 +129,7 @@ packages:
   - ethtool
   - fdisk
   - glibc-gconv-modules
+  - gnutls-utils
   - hwclock
   - iptables
   - libffi8
@@ -157,6 +158,12 @@ binaries:
   - /usr/bin/cut
   - /usr/bin/grep
   - /usr/bin/sync
+  # Gnu utils (requared for swtpm)
+  - /usr/bin/certtool
+  - /usr/bin/gnutls-cli
+  - /usr/bin/ocsptool
+  - /usr/bin/p11tool
+  - /usr/bin/psktool
   # Utilities for mount
   - /usr/bin/mount
   - /usr/bin/umount
@@ -294,7 +301,9 @@ shell:
 
     apt-get clean
 
-    mkdir -p /VBINS/var/{log/libvirt/qemu,run/libvirt/qemu,lib/libvirt/qemu}
+    echo "Create folder hierarchy in VBINS"
+    mkdir -p /VBINS/{etc,root}
+    mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
@@ -317,15 +326,14 @@ shell:
   setup:
   - |
     ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
-
-    mkdir -p /relocate/{etc,root,var/run,var/log/swtpm/libvirt/qemu}
     
     # Copy additional config swtpm
     cp -a /etc/{swtpm_setup.conf,swtpm-localca.conf,swtpm-localca.options} /relocate/etc/
+    # Copy xattr config
+    cp -a /etc/xattr.conf /relocate/etc
 
     # glibc-gconv-modules
     cp -a /usr/lib64/gconv /relocate/usr/lib64
-    cp /etc/xattr.conf /relocate/etc
 
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
