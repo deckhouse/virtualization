@@ -163,9 +163,20 @@ func (h *BlockDeviceHandler) checkVDToReadyForUse(ctx context.Context, s state.V
 		if inUseCondition.Status != metav1.ConditionTrue ||
 			inUseCondition.Reason != vdcondition.AttachedToVirtualMachine.String() ||
 			inUseCondition.ObservedGeneration != vd.Generation {
+			var msg string
+			if len(vds) == 1 {
+				if inUseCondition.Reason == vdcondition.UsedForImageCreation.String() {
+					msg = fmt.Sprintf("Virtuak disk %q is in use for image creation.", vd.Name)
+				} else {
+					msg = fmt.Sprintf("Waiting for block device %q to be ready to use.", vd.Name)
+				}
+			} else {
+				msg = "Virtual disks cannot be used because they are being used for creating an image."
+			}
+
 			cb.Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonBlockDevicesNotReady).
-				Message("Virtual disks cannot be used because they are being used for creating an image.")
+				Message(msg)
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return ErrBlockDeviceNotReadyForUse
 		}
@@ -183,8 +194,12 @@ func (h *BlockDeviceHandler) checkVDToReady(s state.VirtualMachineState, bdState
 
 	if readyCount, canStartKVVM, warnings := h.countReadyBlockDevices(current, bdState, log); len(current.Spec.BlockDeviceRefs) != readyCount {
 		var reason vmcondition.Reason
-
-		msg := fmt.Sprintf("Waiting for block devices to become ready: %d/%d", readyCount, len(current.Spec.BlockDeviceRefs))
+		var msg string
+		if len(current.Spec.BlockDeviceRefs) == 1 {
+			msg = fmt.Sprintf("Waiting for block device %q to be ready", current.Spec.BlockDeviceRefs[0].Name)
+		} else {
+			msg = fmt.Sprintf("Waiting for block devices to be ready: %d/%d", readyCount, len(current.Spec.BlockDeviceRefs))
+		}
 		if len(warnings) > 0 {
 			msg = msg + "; " + strings.Join(warnings, "; ")
 		}
