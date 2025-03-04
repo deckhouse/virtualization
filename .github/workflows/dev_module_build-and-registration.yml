@@ -101,7 +101,8 @@ jobs:
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: $MODULES_MODULE_TAG
-          secondary_repo: "${{ vars.PROD_REGISTRY }}/${{ vars.PROD_MODULES_REGISTRY_LOGIN }}"
+          module_tag: ${{ github.event.inputs.tag }}-dev
+          secondary_repo: "registry.deckhouse.io/deckhouse/ee/modules/${{ vars.MODULE_NAME }}"
+          # secondary_repo: "registry-write.deckhouse.io/deckhouse/ee/modules/${{ vars.MODULE_NAME }}"
 
       - uses: deckhouse/modules-actions/deploy@v1
