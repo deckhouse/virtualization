@@ -27,13 +27,15 @@ binaries:
   - /usr/bin/qemu-img
   - /usr/bin/qemu-io
   - /usr/bin/qemu-nbd
-  # All nbd bins
+  # All nbd binaries
   - /usr/bin/nbd*
   # Mount
   - /usr/bin/mount /usr/bin/umount
+  # Block device binaries
+  - /usr/sbin/blockdev
   # Sqlite3
   - /usr/bin/sqldiff /usr/bin/sqlite3 /usr/bin/sqlite3_analyzer
-  # CDI bind
+  # CDI binaries
   - /usr/bin/cdi-containerimage-server /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
 {{- end -}}
 
