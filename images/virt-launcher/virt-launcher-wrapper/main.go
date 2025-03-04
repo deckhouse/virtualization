@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -25,22 +24,35 @@ import (
 )
 
 // getRunningVM fetches the name of the running VM in a loop until one is found
-func getRunningVM(ctx context.Context) string {
+//
+//	func getRunningVM(ctx context.Context) string {
+//		for {
+//			select {
+//			case <-ctx.Done():
+//				slog.Warn("Context cancelled while waiting for VM name")
+//				return ""
+//			default:
+//				out, err := exec.Command("virsh", "list", "--name").Output()
+//				if err == nil {
+//					vmName := string(out)
+//					if len(vmName) > 0 {
+//						return vmName
+//					}
+//				}
+//				time.Sleep(1 * time.Second)
+//			}
+//		}
+//	}
+func getRunningVM() string {
 	for {
-		select {
-		case <-ctx.Done():
-			slog.Warn("Context cancelled while waiting for VM name")
-			return ""
-		default:
-			out, err := exec.Command("virsh", "list", "--name").Output()
-			if err == nil {
-				vmName := string(out)
-				if len(vmName) > 0 {
-					return vmName
-				}
+		out, err := exec.Command("virsh", "list", "--name").Output()
+		if err == nil {
+			vmName := string(out)
+			if len(vmName) > 0 {
+				return vmName
 			}
-			time.Sleep(1 * time.Second)
 		}
+		time.Sleep(1 * time.Second)
 	}
 }
 
@@ -86,15 +98,22 @@ func main() {
 	slog.Info("Starting domain monitor daemon", "component", "virt-launcher-monitor-wrapper")
 
 	// Run the domain monitor in a separate goroutine
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	// ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
 
+	// go func() {
+	// 	vmName := getRunningVM(ctx)
+	// 	if vmName == "" {
+	// 		slog.Error("No VM detected, exiting domain monitor goroutine")
+	// 		return
+	// 	}
+	// 	setDomainRebootAction(vmName)
+	// 	monitorDomainEvents(vmName)
+	// }()
+
+	// Start domain monitor in a separate goroutine
 	go func() {
-		vmName := getRunningVM(ctx)
-		if vmName == "" {
-			slog.Error("No VM detected, exiting domain monitor goroutine")
-			return
-		}
+		vmName := getRunningVM()
 		setDomainRebootAction(vmName)
 		monitorDomainEvents(vmName)
 	}()
