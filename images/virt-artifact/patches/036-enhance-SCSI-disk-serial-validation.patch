@@ -121,3 +121,29 @@ index 393415c36c..cc09800afc 100644
  		if diskDevice.Shareable != nil {
  			if *diskDevice.Shareable {
  				if diskDevice.Cache == "" {
+diff --git a/pkg/virt-launcher/virtwrap/live-migration-source.go b/pkg/virt-launcher/virtwrap/live-migration-source.go
+index f580d06e52..10ee1a624b 100644
+--- a/pkg/virt-launcher/virtwrap/live-migration-source.go
++++ b/pkg/virt-launcher/virtwrap/live-migration-source.go
+@@ -30,6 +30,7 @@ import (
+ 	"libvirt.org/go/libvirtxml"
+ 
+ 	hostdisk "kubevirt.io/kubevirt/pkg/host-disk"
++	hwutil "kubevirt.io/kubevirt/pkg/util/hardware"
+ 	"kubevirt.io/kubevirt/pkg/util/migrations"
+ 
+ 	cmdv1 "kubevirt.io/kubevirt/pkg/handler-launcher-com/cmd/v1"
+@@ -239,6 +240,13 @@ func migratableDomXML(dom cli.VirDomain, vmi *v1.VirtualMachineInstance, domSpec
+ 		}
+ 	}
+ 
++	for i := range domcfg.Devices.Disks {
++		disk := &domcfg.Devices.Disks[i]
++		if disk.Target.Bus == "scsi" {
++			disk.Serial = hwutil.TruncateSCSIDiskSerial(disk.Serial)
++		}
++	}
++
+ 	return domcfg.Marshal()
+ }
+ 
