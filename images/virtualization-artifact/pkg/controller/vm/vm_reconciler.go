@@ -18,7 +18,6 @@ package vm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -37,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -225,7 +224,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVd.Status.Conditions)
 				newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVd.Status.Conditions)
 
-				if oldVd.Status.Phase != newVd.Status.Phase || oldInUseCondition.Status != newInUseCondition.Status {
+				if oldVd.Status.Phase != newVd.Status.Phase || oldInUseCondition != newInUseCondition {
 					return true
 				}
 
@@ -319,7 +318,7 @@ func (r *Reconciler) enqueueRequestsBlockDevice(cl client.Client, kind virtv2.Bl
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 
-	vm := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	vm := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vm.Fetch(ctx)
 	if err != nil {
@@ -333,43 +332,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	s := state.New(r.client, vm)
 
-	log.Debug("Start reconcile VM")
+	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+		return h.Handle(ctx, s)
+	})
+	rec.SetResourceUpdater(func(ctx context.Context) error {
+		return vm.Update(ctx)
+	})
 
-	var result reconcile.Result
-	var handlerErr error
-
-	for _, h := range r.handlers {
-		log.Debug("Run handler", logger.SlogHandler(h.Name()))
-
-		var res reconcile.Result
-		res, err = h.Handle(ctx, s)
-		if err != nil {
-			log.Error("The handler failed with an error", logger.SlogHandler(h.Name()), logger.SlogErr(err))
-			handlerErr = errors.Join(handlerErr, err)
-		}
-		result = service.MergeResults(result, res)
-	}
-
-	if handlerErr != nil {
-		err = r.updateVM(ctx, vm)
-		if err != nil {
-			log.Error("Failed to update VirtualMachine")
-		}
-		return reconcile.Result{}, handlerErr
-	}
-
-	err = r.updateVM(ctx, vm)
-	if err != nil {
-		log.Error("Failed to update VirtualMachine")
-		return reconcile.Result{}, err
-	}
-
-	log.Debug("Finished reconcile VM")
-	return result, nil
-}
-
-func (r *Reconciler) updateVM(ctx context.Context, vm *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) error {
-	return vm.Update(ctx)
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachine {

@@ -34,7 +34,8 @@ import:
     add: /src/kube-api-rewriter/kube-api-rewriter
     to: /app/kube-api-rewriter
     after: install
-docker:
-  USER: "65532:65532"
-  WORKDIR: "/app"
-  ENTRYPOINT: ["/app/kube-api-rewriter"]
+imageSpec:
+  config:
+    user: "65532:65532"
+    workingDir: "/app"
+    entrypoint: ["/app/kube-api-rewriter"]

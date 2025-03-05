@@ -8,7 +8,7 @@ spec:
     restartApprovalMode: Automatic
   runPolicy: AlwaysOn
   osType: Generic
-  bootloader: BIOS
+  bootloader: EFI
   cpu:
     coreFraction: 100%
     cores: 1

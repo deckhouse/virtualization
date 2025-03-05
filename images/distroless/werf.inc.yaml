@@ -7,12 +7,13 @@ import:
     add: /relocate
     to: /
     before: setup
-docker:
-  ENV:
-    PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-    LANG: ""
-    LC_ALL: POSIX
-  USER: 64535
+imageSpec:
+  config:
+    env:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      LANG: ""
+      LC_ALL: POSIX
+    user: 64535
 ---
 image: {{ $.ImageName }}-artifact
 fromImage: base-alt-p11-binaries

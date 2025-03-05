@@ -6,7 +6,8 @@ import:
     add: /usr/local/go/src/virtualization-controller/virtualization-api
     to: /app/virtualization-api
     after: install
-docker:
-  USER: 64535
-  WORKDIR: "/app"
-  ENTRYPOINT: ["/app/virtualization-api"]
+imageSpec:
+  config:
+    user: 64535
+    workingDir: "/app"
+    entrypoint: ["/app/virtualization-api"]

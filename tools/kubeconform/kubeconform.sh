@@ -78,6 +78,8 @@ if [[ ! -d schemas ]]; then
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/040-node-manager/crds/nodegroupconfiguration.yaml
   echo "  Certificate"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/101-cert-manager/crds/crd-certificates.yaml
+  echo "  GrafanaDashboardDefinition"
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/300-prometheus/crds/grafanadashboarddefinition.yaml
 
   # Transform CRDs to JSON schemas.
   export FILENAME_FORMAT='{kind}-{group}-{version}'

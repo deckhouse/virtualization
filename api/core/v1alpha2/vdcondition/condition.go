@@ -128,7 +128,31 @@ const (
 	StorageClassReady StorageClassReadyReason = "StorageClassReady"
 	// StorageClassNotReady indicates that the storage class is not ready
 	StorageClassNotReady StorageClassReadyReason = "StorageClassNotReady"
+)
 
+/*
+The status transitions of an 'InUse' condition depend on its current usage context:
+
+- If an image creation object (VI/CVI) is detected and its phase is `Pending` or `Provisioning`,
+the condition's reason is set to `UsedForImageCreation`.
+
+- If a VirtualMachine is detected and its phase is anything other than `Pending` or `Stopped`,
+the condition's reason is set to `AttachedToVirtualMachine`.
+
+- If the VirtualMachine is in the `Pending` phase:
+  - If any of the conditions `VirtualMachineIPAddressReady`, `ProvisioningReady`, or `VirtualMachineClassReady` are `False`,
+    the condition's reason is set to `NotInUse`.
+  - If all these conditions are `True`, the condition's reason is set to `AttachedToVirtualMachine`.
+
+- If the VirtualMachine is in the `Stopped` phase:
+  - If there is a state change in progress (indicating a restart) or if the Pod's phase is `Running`,
+    the condition's reason is set to `AttachedToVirtualMachine`.
+  - Otherwise, the condition's reason is set to `NotInUse`.
+
+- If both a VirtualMachine and an image are detected, it gives priority to the VirtualMachine and sets
+the `InUse` condition's reason to `AttachedToVirtualMachine`.
+*/
+const (
 	// UsedForImageCreation indicates that the VirtualDisk is used for create image.
 	UsedForImageCreation InUseReason = "UsedForImageCreation"
 	// AttachedToVirtualMachine indicates that the VirtualDisk is attached to VirtualMachine.

@@ -900,7 +900,7 @@ func schema_virtualization_api_core_v1alpha2_CPUStatus(ref common.ReferenceCallb
 					},
 					"topology": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Topology with Cores count and Sockets count",
+							Description: "Topology with Cores count and Sockets count.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.Topology"),
 						},
@@ -2017,7 +2017,7 @@ func schema_virtualization_api_core_v1alpha2_Topology(ref common.ReferenceCallba
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Statistics on used CPU topology.",
+				Description: "Topology defines count of used CPU cores and sockets.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"coresPerSocket": {

@@ -8,7 +8,7 @@ spec:
   dataSource:
     type: "HTTP"
     http:
-      url: "http://download.cirros-cloud.net/0.5.1/cirros-0.5.1-x86_64-disk.img"
+      url: "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/cirros/cirros-0.5.1.qcow2"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualDisk

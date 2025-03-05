@@ -103,8 +103,10 @@ jobs:
           # Select runner
           if echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/github/ubuntu"; then
             echo "RUNNER_TYPE=[\"ubuntu-22.04\"]" >> "$GITHUB_OUTPUT"
+          elif echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/self-hosted/regular"; then
+            echo "RUNNER_TYPE=[\"self-hosted\", \"regular\"]" >> "$GITHUB_OUTPUT"
           else
-            echo "RUNNER_TYPE=[\"self-hosted\", \"regular\", \"selectel\"]" >> "$GITHUB_OUTPUT"
+            echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
           fi
 
   show_dev_manifest:
@@ -247,6 +249,14 @@ jobs:
         if: ${{ !contains(needs.set_vars.outputs.runner_type, 'self-hosted') }}
         uses: ./.github/actions/remove-unwanted-software
 
-      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v1
+      - uses: deckhouse/modules-actions/build@v2
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE}}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: "$MODULES_MODULE_TAG"

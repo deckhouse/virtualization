@@ -1,8 +1,8 @@
 diff --git a/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go b/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
-index 228518871..55ce72b6c 100644
+index d510bbb57c..914f9a1034 100644
 --- a/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
 +++ b/pkg/virt-controller/watch/drain/disruptionbudget/disruptionbudget.go
-@@ -485,7 +485,10 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
+@@ -490,7 +490,10 @@ func (c *DisruptionBudgetController) createPDB(key string, vmi *virtv1.VirtualMa
  			OwnerReferences: []v1.OwnerReference{
  				*v1.NewControllerRef(vmi, virtv1.VirtualMachineInstanceGroupVersionKind),
  			},
@@ -15,12 +15,12 @@ index 228518871..55ce72b6c 100644
  		Spec: policyv1.PodDisruptionBudgetSpec{
  			MinAvailable: &minAvailable,
 diff --git a/pkg/virt-operator/resource/generate/components/serviceaccountnames.go b/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
-index 0948629bb..9aca3b3bd 100644
+index 0948629bb5..9aca3b3bd2 100644
 --- a/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
 +++ b/pkg/virt-operator/resource/generate/components/serviceaccountnames.go
 @@ -1,9 +1,9 @@
  package components
-
+ 
  const (
 -	ApiServiceAccountName         = "kubevirt-apiserver"
 -	ControllerServiceAccountName  = "kubevirt-controller"
@@ -32,34 +32,51 @@ index 0948629bb..9aca3b3bd 100644
 +	HandlerServiceAccountName     = "kubevirt-internal-virtualization-handler"
  	OperatorServiceAccountName    = "kubevirt-operator"
  )
+diff --git a/pkg/virt-operator/resource/generate/components/validatingadmissionpolicy.go b/pkg/virt-operator/resource/generate/components/validatingadmissionpolicy.go
+index 5fefec2304..a878bf1856 100644
+--- a/pkg/virt-operator/resource/generate/components/validatingadmissionpolicy.go
++++ b/pkg/virt-operator/resource/generate/components/validatingadmissionpolicy.go
+@@ -31,9 +31,9 @@ import (
+ )
+ 
+ const (
+-	validatingAdmissionPolicyBindingName = "kubevirt-node-restriction-binding"
+-	validatingAdmissionPolicyName        = "kubevirt-node-restriction-policy"
+-	nodeRestrictionAppLabelValue         = "kubevirt-node-restriction"
++	validatingAdmissionPolicyBindingName = "kubevirt-internal-virtualization-node-restriction-binding"
++	validatingAdmissionPolicyName        = "kubevirt-internal-virtualization-node-restriction-policy"
++	nodeRestrictionAppLabelValue         = "kubevirt-internal-virtualization-node-restriction"
+ 
+ 	NodeRestrictionErrModifySpec           = "this user cannot modify spec of node"
+ 	NodeRestrictionErrChangeMetadataFields = "this user can only change allowed metadata fields"
 diff --git a/pkg/virt-operator/resource/generate/components/webhooks.go b/pkg/virt-operator/resource/generate/components/webhooks.go
-index 2600f8f39..620449fa1 100644
+index 1f12d586fc..36cd1e17a3 100644
 --- a/pkg/virt-operator/resource/generate/components/webhooks.go
 +++ b/pkg/virt-operator/resource/generate/components/webhooks.go
-@@ -833,15 +833,15 @@ const VirtHandlerServiceName = "virt-handler"
-
+@@ -859,15 +859,15 @@ const VirtHandlerServiceName = "virt-handler"
+ 
  const VirtExportProxyServiceName = "virt-exportproxy"
-
+ 
 -const VirtAPIValidatingWebhookName = "virt-api-validator"
 +const VirtAPIValidatingWebhookName = "virt-internal-virtualization-api-validator"
-
+ 
  const VirtOperatorServiceName = "kubevirt-operator-webhook"
-
+ 
 -const VirtAPIMutatingWebhookName = "virt-api-mutator"
 +const VirtAPIMutatingWebhookName = "virt-internal-virtualization-api-mutator"
-
+ 
  const KubevirtOperatorWebhookServiceName = "kubevirt-operator-webhook"
-
+ 
 -const KubeVirtOperatorValidatingWebhookName = "virt-operator-validator"
 +const KubeVirtOperatorValidatingWebhookName = "virt-internal-virtualization-operator-validator"
-
+ 
  const VMSnapshotValidatePath = "/virtualmachinesnapshots-validate"
-
+ 
 diff --git a/pkg/virt-operator/resource/generate/rbac/apiserver.go b/pkg/virt-operator/resource/generate/rbac/apiserver.go
-index 932f7391e..76c79d452 100644
+index 99e8fe12dd..1707ba19da 100644
 --- a/pkg/virt-operator/resource/generate/rbac/apiserver.go
 +++ b/pkg/virt-operator/resource/generate/rbac/apiserver.go
-@@ -294,7 +294,7 @@ func newApiServerAuthDelegatorClusterRoleBinding(namespace string) *rbacv1.Clust
+@@ -307,7 +307,7 @@ func newApiServerAuthDelegatorClusterRoleBinding(namespace string) *rbacv1.Clust
  			Kind:       "ClusterRoleBinding",
  		},
  		ObjectMeta: metav1.ObjectMeta{
@@ -74,13 +91,13 @@ index a3c5addcd8..e4eadb48f3 100644
 +++ b/pkg/virt-operator/resource/generate/rbac/cluster.go
 @@ -36,8 +36,8 @@ import (
  )
-
+ 
  const (
 -	defaultClusterRoleName          = "kubevirt.io:default"
 -	instancetypeViewClusterRoleName = "instancetype.kubevirt.io:view"
 +	defaultClusterRoleName          = "kubevirt.internal.virtualization.deckhouse.io:default"
 +	instancetypeViewClusterRoleName = "instancetype.kubevirt.internal.virtualization.deckhouse.io:view"
-
+ 
  	apiVersion            = "version"
  	apiGuestFs            = "guestfs"
 @@ -178,7 +178,7 @@ func newAdminClusterRole() *rbacv1.ClusterRole {
@@ -111,7 +128,7 @@ index a3c5addcd8..e4eadb48f3 100644
  				virtv1.AppLabel: "",
  				"rbac.authorization.k8s.io/aggregate-to-view": "true",
 diff --git a/pkg/virt-operator/resource/generate/rbac/exportproxy.go b/pkg/virt-operator/resource/generate/rbac/exportproxy.go
-index 071ed91f9..ebc9f2adb 100644
+index 071ed91f90..ebc9f2adbd 100644
 --- a/pkg/virt-operator/resource/generate/rbac/exportproxy.go
 +++ b/pkg/virt-operator/resource/generate/rbac/exportproxy.go
 @@ -23,11 +23,12 @@ import (
@@ -119,20 +136,20 @@ index 071ed91f9..ebc9f2adb 100644
  	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
  	"k8s.io/apimachinery/pkg/runtime"
 +	"kubevirt.io/kubevirt/pkg/virt-operator/resource/generate/components"
-
+ 
  	virtv1 "kubevirt.io/api/core/v1"
  )
-
+ 
 -const ExportProxyServiceAccountName = "kubevirt-exportproxy"
 +const ExportProxyServiceAccountName = components.ExportProxyServiceAccountName
-
+ 
  func GetAllExportProxy(namespace string) []runtime.Object {
  	return []runtime.Object{
 diff --git a/pkg/virt-operator/resource/generate/rbac/operator.go b/pkg/virt-operator/resource/generate/rbac/operator.go
-index 4eca946a4..061135fd9 100644
+index 160083ac5b..c10a42d6f8 100644
 --- a/pkg/virt-operator/resource/generate/rbac/operator.go
 +++ b/pkg/virt-operator/resource/generate/rbac/operator.go
-@@ -435,7 +435,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
+@@ -428,7 +428,7 @@ func newOperatorRoleBinding(namespace string) *rbacv1.RoleBinding {
  			Kind:       "RoleBinding",
  		},
  		ObjectMeta: metav1.ObjectMeta{

@@ -147,7 +147,7 @@ func WaitResource(resource kc.Resource, name, waitFor string, timeout time.Durat
 	Expect(res.Error()).NotTo(HaveOccurred(), "wait failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
 }
 
-func PatchResource(resource kc.Resource, name string, patch *kc.JsonPatch) {
+func PatchResource(resource kc.Resource, name string, patch []*kc.JsonPatch) {
 	GinkgoHelper()
 	res := kubectl.PatchResource(resource, name, kc.PatchOptions{
 		Namespace: conf.Namespace,
@@ -611,17 +611,6 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	for _, vm := range virtualMachines {
 		ExecSshCommand(vm, cmd)
 	}
-}
-
-func RebootVirtualMachinesByDeletePods(labels map[string]string, cmdResult *executor.CMDResult, wg *sync.WaitGroup) {
-	cmdResult = kubectl.Delete(kc.DeleteOptions{
-		Namespace:      conf.Namespace,
-		IgnoreNotFound: true,
-		Resource:       kc.ResourcePod,
-		Labels:         labels,
-	})
-
-	wg.Done()
 }
 
 func IsContainsAnnotation(obj client.Object, annotation string) bool {

@@ -11,12 +11,15 @@ git:
   to: /
   includePaths:
   - install-qemu.sh
+  - patches
+  excludePaths:
+    - patches/README.md
   stageDependencies:
     setup:
       - install-qemu.sh
 shell:
   beforeInstall:
-  - | 
+  - |
     apt-get update && apt-get install -y \
     binutils \
     pkgconfig \
@@ -90,12 +93,12 @@ shell:
     libaio-devel libselinux-devel libqpl-devel \
     qemu-kvm-core shadow-utils sysvinit-utils libglusterfs11-api-devel hasher-provides-dev-kvm \
     filesystem libvdeplug-devel
-    
+
     apt-get clean
     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
     rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
     rpm -qa | sort > /packages.txt
-    
+
     mkdir -p /usr/libexec/ccache-wrappers
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
@@ -114,9 +117,14 @@ shell:
     export PYTHON="/usr/bin/python3"
 
     git clone --depth=1 --branch v{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
-    
+
     cd {{ $gitRepoName }}-{{ $version }}
-    
+
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
+
     ./configure \
       --target-list="x86_64-softmmu" \
       --with-pkgversion="-dvp" \

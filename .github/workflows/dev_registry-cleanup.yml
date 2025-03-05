@@ -38,7 +38,11 @@ jobs:
     name: Run cleanup
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - name: Cleanup
         run: |

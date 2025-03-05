@@ -9,6 +9,7 @@ import:
   - cdi-operator
   - csv-generator
   before: setup
-docker:
-  ENTRYPOINT: ["/usr/bin/cdi-operator"]
-  USER: 64535
+imageSpec:
+  config:
+    entrypoint: ["/usr/bin/cdi-operator"]
+    user: 64535

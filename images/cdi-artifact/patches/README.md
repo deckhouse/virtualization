@@ -97,3 +97,7 @@ To avoid errors, for LVM Thick, it's necessary to use `copy` cloning strategy (`
 A new condition, QuotaNotExceeded, has been added to the DataVolume resource to indicate that the project's quotas have not been exceeded.
 
 This patch includes an architectural assumption where the condition of the DataVolume resource is modified by an external controller. In the future, CDI usage is planned to be discontinued, making this assumption non-disruptive.
+
+#### `023-remove-upload-proxy-server-variables.patch`
+
+The CDI uploadproxy and serverproxy functionality is not used. Deployment of these images and deployments has been removed.

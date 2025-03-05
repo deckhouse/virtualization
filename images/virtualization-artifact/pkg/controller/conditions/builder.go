@@ -17,6 +17,8 @@ limitations under the License.
 package conditions
 
 import (
+	"time"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,7 +39,53 @@ func HasCondition(conditionType Stringer, conditions []metav1.Condition) bool {
 }
 
 func SetCondition(c Conder, conditions *[]metav1.Condition) {
-	meta.SetStatusCondition(conditions, c.Condition())
+	newCondition := c.Condition()
+	if conditions == nil {
+		return
+	}
+	existingCondition := FindStatusCondition(*conditions, newCondition.Type)
+	if existingCondition == nil {
+		if newCondition.LastTransitionTime.IsZero() {
+			newCondition.LastTransitionTime = metav1.NewTime(time.Now())
+		}
+		*conditions = append(*conditions, newCondition)
+		return
+	}
+
+	if existingCondition.Status != newCondition.Status {
+		existingCondition.Status = newCondition.Status
+		if !newCondition.LastTransitionTime.IsZero() {
+			existingCondition.LastTransitionTime = newCondition.LastTransitionTime
+		} else {
+			existingCondition.LastTransitionTime = metav1.NewTime(time.Now())
+		}
+	}
+
+	if existingCondition.Reason != newCondition.Reason {
+		existingCondition.Reason = newCondition.Reason
+		if !newCondition.LastTransitionTime.IsZero() &&
+			newCondition.LastTransitionTime.After(existingCondition.LastTransitionTime.Time) {
+			existingCondition.LastTransitionTime = newCondition.LastTransitionTime
+		}
+	}
+
+	if existingCondition.Message != newCondition.Message {
+		existingCondition.Message = newCondition.Message
+	}
+
+	if existingCondition.ObservedGeneration != newCondition.ObservedGeneration {
+		existingCondition.ObservedGeneration = newCondition.ObservedGeneration
+	}
+}
+
+func FindStatusCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
+		}
+	}
+
+	return nil
 }
 
 func RemoveCondition(conditionType Stringer, conditions *[]metav1.Condition) {
@@ -67,11 +115,12 @@ func NewConditionBuilder(conditionType Stringer) *ConditionBuilder {
 }
 
 type ConditionBuilder struct {
-	status        metav1.ConditionStatus
-	conditionType Stringer
-	reason        string
-	message       string
-	generation    int64
+	status             metav1.ConditionStatus
+	conditionType      Stringer
+	reason             string
+	message            string
+	generation         int64
+	lastTransitionTime metav1.Time
 }
 
 func (c *ConditionBuilder) Condition() metav1.Condition {
@@ -81,6 +130,7 @@ func (c *ConditionBuilder) Condition() metav1.Condition {
 		Reason:             c.reason,
 		Message:            c.message,
 		ObservedGeneration: c.generation,
+		LastTransitionTime: c.lastTransitionTime,
 	}
 }
 
@@ -105,6 +155,11 @@ func (c *ConditionBuilder) Message(msg string) *ConditionBuilder {
 
 func (c *ConditionBuilder) Generation(generation int64) *ConditionBuilder {
 	c.generation = generation
+	return c
+}
+
+func (c *ConditionBuilder) LastTransitionTime(lastTransitionTime time.Time) *ConditionBuilder {
+	c.lastTransitionTime = metav1.NewTime(lastTransitionTime)
 	return c
 }
 

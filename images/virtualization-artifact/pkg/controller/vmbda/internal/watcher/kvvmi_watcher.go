@@ -120,9 +120,8 @@ func (eh KVVMIEventHandler) getHotPluggedVolumeStatuses(obj client.Object) map[s
 
 	for _, vs := range kvvmi.Status.VolumeStatus {
 		if vs.HotplugVolume != nil {
-			var name string
-			name, ok = kvbuilder.GetOriginalDiskName(vs.Name)
-			if !ok {
+			name, kind := kvbuilder.GetOriginalDiskName(vs.Name)
+			if kind == "" {
 				slog.Default().Warn("VolumeStatus is not a Disk", "vsName", vs.Name, "name", kvvmi.Name, "ns", kvvmi.Namespace)
 				continue
 			}

@@ -15,6 +15,7 @@ import:
   - .version
   before: setup
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-api/BUILD.bazel
-docker:
-  ENTRYPOINT: ["/usr/bin/virt-api"]
-  USER: 64535
+imageSpec:
+  config:
+    entrypoint: ["/usr/bin/virt-api"]
+    user: 64535
