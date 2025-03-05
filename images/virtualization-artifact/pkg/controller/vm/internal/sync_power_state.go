@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -272,6 +273,21 @@ func (h *SyncPowerStateHandler) handleAlwaysOnUnlessStoppedManuallyPolicy(
 		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, virtv2.AlwaysOnUnlessStoppedManually) {
 			return Start, nil
 		}
+
+		if kvvm != nil {
+			lastAppliedSpec, err := kvbuilder.LoadLastAppliedSpec(kvvm)
+			if err != nil {
+				return Nothing, fmt.Errorf("load last applied spec: %w", err)
+			}
+
+			if lastAppliedSpec != nil && lastAppliedSpec.RunPolicy == virtv2.AlwaysOffPolicy && s.VirtualMachine().Current().Spec.RunPolicy == virtv2.AlwaysOnUnlessStoppedManually {
+				err = kvvmutil.AddStartAnnotation(ctx, h.client, kvvm)
+				if err != nil {
+					return Nothing, fmt.Errorf("add annotation to KVVM: %w", err)
+				}
+			}
+		}
+
 		return Nothing, nil
 	}
 
