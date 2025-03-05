@@ -24,7 +24,12 @@ There are different types of images:
 - **ISO image**: An installation image used for the initial installation of an operating system. Such images are released by OS vendors and are used for installation on physical and virtual servers.
 - **Preinstalled disk image**: Contains an already installed and configured operating system ready for use after the virtual machine is created. These images are offered by several vendors and can be provided in formats such as qcow2, raw, vmdk, and others.
 
-One of the resource examples for obtaining virtual machine images is [Ubuntu Cloud Images](https://cloud-images.ubuntu.com).
+Examples of resources for obtaining virtual machine images:
+
+- [Ubuntu](https://cloud-images.ubuntu.com)
+- [Debian](https://cdimage.debian.org/images/cloud/)
+- [RockyLinux](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
+- [CentOS](https://cloud.centos.org/centos/7/images/)
 
 Once a resource is created, the image type and size are automatically determined, and this information is reflected in the resource status.
 

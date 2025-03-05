@@ -99,7 +99,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 			return reconcile.Result{}, err
 		}
 
-		return CleanUp(ctx, cvi, ds)
+		_, err = CleanUp(ctx, cvi, ds)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	case object.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
@@ -214,15 +219,15 @@ func (ds HTTPDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualIma
 	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds HTTPDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
+func (ds HTTPDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	requeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
-		return reconcile.Result{}, err
+		return false, err
 	}
 
-	return reconcile.Result{Requeue: requeue}, nil
+	return requeue, nil
 }
 
 func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.ClusterVirtualImage) error {

@@ -33,7 +33,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmopcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmop"
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -44,17 +43,16 @@ const (
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
-	virtClient kubeclient.Client,
 	log *log.Logger,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
-	vmopSrv := service.NewVMOperationService(mgr.GetClient(), virtClient)
+	vmopSrv := service.NewVMOperationService(client)
 
 	handlers := []Handler{
 		internal.NewLifecycleHandler(recorder, vmopSrv),
 		internal.NewOperationHandler(recorder, vmopSrv),
-		internal.NewDeletionHandler(client),
+		internal.NewDeletionHandler(vmopSrv),
 	}
 
 	reconciler := NewReconciler(client, handlers...)

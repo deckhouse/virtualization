@@ -4,17 +4,18 @@ fromImage: distroless
 import:
 - image: {{ $.ImageName }}-builder
   add: /container-registry-binary
-  to: /bin
-  after: install
+  to: /usr/bin
+  before: setup
+  includePaths:
+  - registry
 # Registry configuration is stored in configmap: templates/dvcr/configmap.yaml
 - image: {{ $.ImageName }}-artifact-bins
-  add: /relocate/usr/bin
-  to: /usr/bin
-  includePaths:
-  - dvcr-cleaner
-  after: install
-docker:
-  USER: 64535
+  add: /relocate/usr/local/bin/dvcr-cleaner
+  to: /usr/local/bin/dvcr-cleaner
+  before: setup
+imageSpec:
+  config:
+    user: 64535
 ---
 {{- $version := "2.8.3" }}
 

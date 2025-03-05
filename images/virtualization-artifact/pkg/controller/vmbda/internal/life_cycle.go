@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -219,14 +220,31 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	_, err = h.attacher.CanHotPlug(ad, vm, kvvm)
-	blockDeviceLimitCondition, _ := conditions.GetCondition(vmbdacondition.DiskAttachmentCapacityAvailableType, vmbda.Status.Conditions)
 
 	switch {
-	case err == nil && blockDeviceLimitCondition.Status == metav1.ConditionTrue:
+	case err == nil:
+		blockDeviceLimitCondition, _ := conditions.GetCondition(vmbdacondition.DiskAttachmentCapacityAvailableType, vmbda.Status.Conditions)
+		if blockDeviceLimitCondition.Status != metav1.ConditionTrue {
+			log.Info("Virtual machine block device capacity reached")
+
+			vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmbdacondition.NotAttached).
+				Message("Virtual machine block device capacity reached.")
+			return reconcile.Result{}, nil
+		}
+
 		log.Info("Send attachment request")
 
 		err = h.attacher.HotPlugDisk(ctx, ad, vm, kvvm)
 		if err != nil {
+			if IsOutdatedRequestError(err) {
+				log.Debug("The server rejected our request, retry")
+
+				return reconcile.Result{RequeueAfter: time.Second}, nil
+			}
+
 			return reconcile.Result{}, err
 		}
 
@@ -253,15 +271,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmbda *virtv2.VirtualMachi
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.AttachmentRequestSent).
 			Message("Attachment request sent: attachment is in progress.")
-		return reconcile.Result{}, nil
-	case blockDeviceLimitCondition.Status != metav1.ConditionTrue:
-		log.Info("Virtual machine block device capacity reached")
-
-		vmbda.Status.Phase = virtv2.BlockDeviceAttachmentPhasePending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmbdacondition.NotAttached).
-			Message("Virtual machine block device capacity reached")
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err

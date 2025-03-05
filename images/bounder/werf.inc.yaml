@@ -2,18 +2,31 @@
 image: {{ $.ImageName }}
 fromImage: distroless
 import:
-  - image: {{ $.ImageName }}-binaries
-    add: /relocate
-    to: /
+  - image: {{ $.ImageName }}-cbuilder
+    add: /bins
+    to: /usr/local/bin
     after: setup
-docker:
-  CMD: ["echo", "Hi, my name is Bounder. I’m here to fulfill my destiny… to mount PVCs and vanish into the void."]
+imageSpec:
+  config:
+    cmd: ["hello_bounder"]
 ---
-{{- $binaries := "/usr/bin/echo" }}
-
-image: {{ $.ImageName }}-binaries
+image: {{ $.ImageName }}-cbuilder
 final: false
-fromImage: base-alt-p11-binaries
+from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+git:
+  - add: /images/{{ $.ImageName }}/static_binaries
+    to: /
+    stageDependencies:
+      install:
+        - '*.c'
 shell:
-  setup:
-    - ./relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
+  beforeInstall:
+  - |
+    apt-get update && apt-get install --yes gcc musl-dev musl-tools
+    apt-get clean
+  install:
+  - |    
+    echo "Building simple app that prints hello cdi"
+    mkdir -p /bins
+    musl-gcc -static -Os -o /bins/hello_bounder hello_bounder.c
+    strip /bins/hello_bounder

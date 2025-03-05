@@ -33,7 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -74,7 +74,7 @@ var _ = Describe("Test power actions with VMs", func() {
 			WithStatusSubresource(vm, kvvm, kvvmi).
 			Build()
 
-		vmResource := service.NewResource(
+		vmResource := reconciler.NewResource(
 			types.NamespacedName{Namespace: namespacedVirtualMachine.Namespace, Name: namespacedVirtualMachine.Name},
 			fakeClient,
 			vmFactoryByVm(vm),
@@ -104,7 +104,7 @@ var _ = Describe("Test power actions with VMs", func() {
 			},
 		}
 
-		vm, kvvm, kvvmi, vmPod = createObjects(namespacedVirtualMachine)
+		vm, kvvm, kvvmi, vmPod = createObjectsForPowerstateTest(namespacedVirtualMachine)
 	})
 
 	It("should handle start", func() {
@@ -171,7 +171,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			Name:      "ns",
 		}
 
-		vm, kvvm, kvvmi, vmPod = createObjects(namespacedVirtualMachine)
+		vm, kvvm, kvvmi, vmPod = createObjectsForPowerstateTest(namespacedVirtualMachine)
 		fakeClient = fake.NewClientBuilder().
 			WithScheme(scheme).
 			WithObjects(vm, kvvm, kvvmi, vmPod).
@@ -185,7 +185,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			},
 		}
 
-		vmResource := service.NewResource(
+		vmResource := reconciler.NewResource(
 			types.NamespacedName{Namespace: namespacedVirtualMachine.Namespace, Name: namespacedVirtualMachine.Name},
 			fakeClient,
 			vmFactoryByVm(vm),
@@ -255,52 +255,62 @@ var _ = Describe("Test action getters for different run policy", func() {
 	})
 
 	Context("handleAlwaysOnPolicy", func() {
-		It("should return start action when kvvmi is nil and configureation not applied", func() {
-			action := handler.handleAlwaysOnPolicy(
+		It("should return start action when kvvmi is nil and configuration not applied", func() {
+			kvvm.Annotations["initFoo"] = "initBar"
+			err := fakeClient.Update(context.TODO(), kvvm)
+			Expect(err).NotTo(HaveOccurred())
+
+			action, err := handler.handleAlwaysOnPolicy(
 				ctx, vmState, kvvm, nil, false, powerstate.ShutdownInfo{},
 			)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Nothing))
+			Expect(kvvm.Annotations[annotations.AnnVmStartRequested]).To(Equal("true"))
 		})
 
-		It("should return start action when kvvmi is nil and configureation applied", func() {
-			action := handler.handleAlwaysOnPolicy(
+		It("should return start action when kvvmi is nil and configuration applied", func() {
+			action, err := handler.handleAlwaysOnPolicy(
 				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
 			)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Start))
 		})
 
 		It("should return nothing action when kvvmi is being deleted", func() {
 			kvvmi.DeletionTimestamp = &metav1.Time{}
-			action := handler.handleAlwaysOnPolicy(
+			action, err := handler.handleAlwaysOnPolicy(
 				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
-
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Nothing))
 		})
 
 		It("should return restart action when restart requested", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
 			kvvmi.Status.Phase = virtv1.Running
-			action := handler.handleAlwaysOnPolicy(
+			action, err := handler.handleAlwaysOnPolicy(
 				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Restart))
 		})
 
 		It("should return restart action when kvvmi on succeeded or failed phase with pod completed", func() {
 			kvvmi.Status.Phase = virtv1.Succeeded
 			shutdownInfo := powerstate.ShutdownInfo{PodCompleted: true, Reason: powerstate.GuestResetReason}
-			action := handler.handleAlwaysOnPolicy(
+			action, err := handler.handleAlwaysOnPolicy(
 				ctx, vmState, kvvm, kvvmi, true, shutdownInfo,
 			)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Restart))
 		})
 
 		It("should return nothing action when no conditions are met", func() {
 			kvvmi.Status.Phase = virtv1.Running
-			action := handler.handleAlwaysOnPolicy(
+			action, err := handler.handleAlwaysOnPolicy(
 				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Nothing))
 		})
 	})
@@ -404,7 +414,7 @@ func setupScheme() *runtime.Scheme {
 	return scheme
 }
 
-func createObjects(namespacedVirtualMachine types.NamespacedName) (*virtv2.VirtualMachine, *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, *corev1.Pod) {
+func createObjectsForPowerstateTest(namespacedVirtualMachine types.NamespacedName) (*virtv2.VirtualMachine, *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, *corev1.Pod) {
 	vm := &virtv2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedVirtualMachine.Name,

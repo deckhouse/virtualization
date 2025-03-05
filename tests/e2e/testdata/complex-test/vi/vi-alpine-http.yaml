@@ -8,4 +8,4 @@ spec:
   dataSource:
     type: HTTP
     http:
-      url: https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/alpine/alpine-v3-20.qcow2
+      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/alpine/alpine-3-21-uefi-perf.qcow2

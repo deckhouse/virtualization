@@ -138,19 +138,6 @@ tasks:
         cd tools/kubeconform
         ./kubeconform.sh
 
-  cve:bin:
-    cmds:
-      - |
-        curl -LO https://github.com/aquasecurity/trivy/releases/download/v{{.TRIVY_VERSION}}/trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz
-        tar -zxvf trivy_{{.TRIVY_VERSION}}_Linux-64bit.tar.gz -C /opt/
-        mv /opt/trivy /usr/local/bin/trivy
-        chmod +x /usr/local/bin/trivy
-
-  cve:scan:
-    cmds:
-      - task: cve:bin
-      - tools/cve/scan-main.sh {{.REPORT_FILE_NAME}}
-
   dlv:virt-controller:build:
     desc: "Build image virt-controller with dlv"
     cmd: docker build -f ./images/virt-controller/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" .

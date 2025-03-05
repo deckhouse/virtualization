@@ -31,6 +31,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -147,7 +148,7 @@ func WaitResource(resource kc.Resource, name, waitFor string, timeout time.Durat
 	Expect(res.Error()).NotTo(HaveOccurred(), "wait failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
 }
 
-func PatchResource(resource kc.Resource, name string, patch *kc.JsonPatch) {
+func PatchResource(resource kc.Resource, name string, patch []*kc.JsonPatch) {
 	GinkgoHelper()
 	res := kubectl.PatchResource(resource, name, kc.PatchOptions{
 		Namespace: conf.Namespace,
@@ -596,7 +597,7 @@ func GenerateVMOPWithSuffix(vmName, suffix string, labels map[string]string, vmo
 func StopVirtualMachinesBySSH(virtualMachines ...string) {
 	GinkgoHelper()
 
-	cmd := "sudo poweroff"
+	cmd := "sudo nohup poweroff -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
 		ExecSshCommand(vm, cmd)
@@ -606,22 +607,11 @@ func StopVirtualMachinesBySSH(virtualMachines ...string) {
 func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	GinkgoHelper()
 
-	cmd := "sudo reboot"
+	cmd := "sudo nohup reboot -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
 		ExecSshCommand(vm, cmd)
 	}
-}
-
-func RebootVirtualMachinesByDeletePods(labels map[string]string, cmdResult *executor.CMDResult, wg *sync.WaitGroup) {
-	cmdResult = kubectl.Delete(kc.DeleteOptions{
-		Namespace:      conf.Namespace,
-		IgnoreNotFound: true,
-		Resource:       kc.ResourcePod,
-		Labels:         labels,
-	})
-
-	wg.Done()
 }
 
 func IsContainsAnnotation(obj client.Object, annotation string) bool {
@@ -642,4 +632,36 @@ func IsContainsLabel(obj client.Object, label string) bool {
 func IsContainsLabelWithValue(obj client.Object, label, value string) bool {
 	val, ok := obj.GetLabels()[label]
 	return ok && val == value
+}
+
+func IsContainerRestarted(podName, containerName, namespace string, startedAt v1.Time) (bool, error) {
+	podObj := &corev1.Pod{}
+	err := GetObject(kc.ResourcePod, podName, podObj, kc.GetOptions{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to obtain the pod object(this may be caused by restarting the pod: %s)", podName)
+	}
+	for _, cs := range podObj.Status.ContainerStatuses {
+		if cs.Name == containerName {
+			if cs.State.Running.StartedAt != startedAt {
+				return true, fmt.Errorf("the container %q was restarted: %s", containerName, podName)
+			} else {
+				return false, nil
+			}
+		}
+	}
+	return false, fmt.Errorf("failed to compare the `startedAt` field before and after the tests ran: %s", podName)
+}
+
+func SaveTestResources(labels map[string]string, additional string) {
+	cmdr := kubectl.Get("virtualization -A", kc.GetOptions{Output: "yaml", Labels: labels})
+	Expect(cmdr.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
+
+	additional = strings.ToLower(additional)
+	additional = strings.ReplaceAll(strings.ToLower(additional), " ", "_")
+	str := fmt.Sprintf("/tmp/e2e_failed__%s__%s.yaml", labels["testcase"], additional)
+
+	err := os.WriteFile(str, cmdr.StdOutBytes(), 0644)
+	Expect(err).NotTo(HaveOccurred())
 }

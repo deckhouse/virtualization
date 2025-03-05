@@ -106,6 +106,12 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		selectorB string
 	)
 
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
+	})
+
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml")
@@ -179,7 +185,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 				Command: "sleep",
 				Args:    []string{"10000"},
 			})
-			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+			Expect(res.Error()).NotTo(HaveOccurred())
 			WaitResource(kc.ResourcePod, CurlPod, waitFor, ShortWaitDuration)
 		})
 	})
@@ -190,23 +196,23 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			err = GetObject(kc.ResourceVM, aObjName, &vmA, kc.GetOptions{
 				Namespace: conf.Namespace,
 			})
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 			vmB = virtv2.VirtualMachine{}
 			err = GetObject(kc.ResourceVM, bObjName, &vmB, kc.GetOptions{
 				Namespace: conf.Namespace,
 			})
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 
 			svcA = corev1.Service{}
 			err = GetObject(kc.ResourceService, aObjName, &svcA, kc.GetOptions{
 				Namespace: conf.Namespace,
 			})
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 			svcB = corev1.Service{}
 			err = GetObject(kc.ResourceService, bObjName, &svcB, kc.GetOptions{
 				Namespace: conf.Namespace,
 			})
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("check ssh connection via `d8 v` to VMs", func() {
@@ -255,10 +261,12 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			selectorA = svcA.Spec.Selector["service"]
 			selectorB = svcB.Spec.Selector["service"]
 
-			PatchResource(kc.ResourceService, svcA.Name, &kc.JsonPatch{
-				Op:    "replace",
-				Path:  "/spec/selector/service",
-				Value: selectorB,
+			PatchResource(kc.ResourceService, svcA.Name, []*kc.JsonPatch{
+				{
+					Op:    "replace",
+					Path:  "/spec/selector/service",
+					Value: selectorB,
+				},
 			})
 		})
 
@@ -281,10 +289,12 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It(fmt.Sprintf("changes back selector in service %s", aObjName), func() {
-			PatchResource(kc.ResourceService, svcA.Name, &kc.JsonPatch{
-				Op:    "replace",
-				Path:  "/spec/selector/service",
-				Value: selectorA,
+			PatchResource(kc.ResourceService, svcA.Name, []*kc.JsonPatch{
+				{
+					Op:    "replace",
+					Path:  "/spec/selector/service",
+					Value: selectorA,
+				},
 			})
 		})
 

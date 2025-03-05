@@ -19,15 +19,19 @@ package e2e
 import (
 	"fmt"
 	"log"
+	"sync"
 	"testing"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	el "github.com/deckhouse/virtualization/tests/e2e/errlogger"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -50,18 +54,21 @@ const (
 	PhaseRunning              = "Running"
 	PhaseWaitForUserUpload    = "WaitForUserUpload"
 	PhaseWaitForFirstConsumer = "WaitForFirstConsumer"
+	VirtualizationController  = "virtualization-controller"
+	VirtualizationNamespace   = "d8-virtualization"
 )
 
 var (
-	conf                     *config.Config
-	mc                       *config.ModuleConfig
-	kustomize                *config.Kustomize
-	kubectl                  kc.Kubectl
-	d8Virtualization         d8.D8Virtualization
-	git                      gt.Git
-	namePrefix               string
-	defaultStorageClass      *storagev1.StorageClass
-	phaseByVolumeBindingMode string
+	conf                         *config.Config
+	mc                           *config.ModuleConfig
+	kustomize                    *config.Kustomize
+	kubectl                      kc.Kubectl
+	d8Virtualization             d8.D8Virtualization
+	git                          gt.Git
+	namePrefix                   string
+	defaultStorageClass          *storagev1.StorageClass
+	phaseByVolumeBindingMode     string
+	logStreamByV12nControllerPod = make(map[string]*el.LogStream, 0)
 )
 
 func init() {
@@ -113,6 +120,7 @@ func init() {
 		fmt.Sprintf("%s/%s", conf.TestData.VmLabelAnnotation, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.VmVersions, "kustomization.yaml"),
 	}
 	for _, filePath := range kustomizationFiles {
 		if err = kustomize.SetParams(filePath, conf.Namespace, namePrefix); err != nil {
@@ -144,6 +152,23 @@ func TestTests(t *testing.T) {
 		log.Fatal(err)
 	}
 }
+
+var _ = BeforeSuite(func() {
+	StartV12nControllerLogStream(logStreamByV12nControllerPod)
+})
+
+var _ = AfterSuite(func() {
+	errs := make([]error, 0)
+	checkErrs := CheckV12nControllerRestarts(logStreamByV12nControllerPod)
+	if len(checkErrs) != 0 {
+		errs = append(errs, checkErrs...)
+	}
+	stopErrs := StopV12nControllerLogStream(logStreamByV12nControllerPod)
+	if len(stopErrs) != 0 {
+		errs = append(errs, stopErrs...)
+	}
+	Expect(errs).Should(BeEmpty())
+})
 
 func Cleanup() []error {
 	cleanupErrs := make([]error, 0)
@@ -186,27 +211,116 @@ func Cleanup() []error {
 			continue
 		}
 	}
-
-	res = kubectl.Delete(kc.DeleteOptions{
-		IgnoreNotFound: true,
-		Labels:         map[string]string{"id": namePrefix},
-		Resource:       kc.ResourceCVI,
-	})
-	if res.Error() != nil {
-		cleanupErrs = append(
-			cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
-		)
-	}
-	res = kubectl.Delete(kc.DeleteOptions{
-		IgnoreNotFound: true,
-		Labels:         map[string]string{"id": namePrefix},
-		Resource:       kc.ResourceVMClass,
-	})
-	if res.Error() != nil {
-		cleanupErrs = append(
-			cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
-		)
+	
+	for _, r := range conf.CleanupResources {
+		res = kubectl.Delete(kc.DeleteOptions{
+			IgnoreNotFound: true,
+			Labels:         map[string]string{"id": namePrefix},
+			Resource: 		kc.Resource(r),
+		})
+		if res.Error() != nil {
+			cleanupErrs = append(
+				cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
+			)
+		}
 	}
 
 	return cleanupErrs
+}
+
+// This function is used to detect `v12n-controller` errors while the test suite is running.
+func StartV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) {
+	startTime := time.Now()
+
+	pods := &corev1.PodList{}
+	err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{
+		Labels:    map[string]string{"app": VirtualizationController},
+		Namespace: VirtualizationNamespace,
+	})
+	Expect(err).NotTo(HaveOccurred(), "failed to obtain the `Virtualization-controller` pods")
+	Expect(pods.Items).ShouldNot(BeEmpty())
+
+	for _, p := range pods.Items {
+		logStreamCmd, logStreamCancel := kubectl.LogStream(
+			p.Name,
+			kc.LogOptions{
+				Container: VirtualizationController,
+				Namespace: VirtualizationNamespace,
+				Follow:    true,
+			},
+		)
+
+		var containerStartedAt v1.Time
+		for _, s := range p.Status.ContainerStatuses {
+			if s.Name == VirtualizationController {
+				containerStartedAt = s.State.Running.StartedAt
+				Expect(containerStartedAt).ShouldNot(BeNil())
+			}
+		}
+
+		logStreamByPod[p.Name] = &el.LogStream{
+			Cancel:             logStreamCancel,
+			ContainerStartedAt: containerStartedAt,
+			LogStreamCmd:       logStreamCmd,
+			LogStreamWaitGroup: &sync.WaitGroup{},
+			PodName:            p.Name,
+		}
+	}
+
+	for _, logStream := range logStreamByPod {
+		logStream.ConnectStderr()
+		logStream.ConnectStdout()
+		logStream.Start()
+
+		logStream.LogStreamWaitGroup.Add(1)
+		go logStream.ParseStderr()
+		logStream.LogStreamWaitGroup.Add(1)
+		go logStream.ParseStdout(conf.LogFilter, conf.RegexpLogFilter, startTime)
+	}
+}
+
+func StopV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) []error {
+	mu := &sync.Mutex{}
+	errs := make([]error, 0)
+	for _, logStream := range logStreamByPod {
+		logStream.Cancel()
+		logStream.LogStreamWaitGroup.Add(1)
+		go func() {
+			defer GinkgoRecover()
+			defer logStream.LogStreamWaitGroup.Done()
+			warn, err := logStream.WaitCmd()
+			mu.Lock()
+			if err != nil {
+				errs = append(errs, err)
+			}
+			if warn != "" {
+				_, err := GinkgoWriter.Write([]byte(warn))
+				if err != nil {
+					errs = append(errs, err)
+				}
+			}
+			mu.Unlock()
+		}()
+		logStream.LogStreamWaitGroup.Wait()
+	}
+	return errs
+}
+
+func CheckV12nControllerRestarts(logStreamByPod map[string]*el.LogStream) []error {
+	errs := make([]error, 0)
+	for pod, logStream := range logStreamByPod {
+		isRestarted, err := IsContainerRestarted(
+			pod,
+			VirtualizationController,
+			VirtualizationNamespace,
+			logStream.ContainerStartedAt,
+		)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if isRestarted {
+			errs = append(errs, fmt.Errorf("the container %q was restarted: %s", VirtualizationController, pod))
+		}
+	}
+	return errs
 }

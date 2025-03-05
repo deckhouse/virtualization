@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -88,7 +88,7 @@ func TestStatisticHandler(t *testing.T) {
 	} {
 		t.Log("Start test", test.name)
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(test.getObjects()...).Build()
-		vm := service.NewResource(namespacedName, fakeClient, factory, statusGetter)
+		vm := reconciler.NewResource(namespacedName, fakeClient, factory, statusGetter)
 		if err := vm.Fetch(context.Background()); err != nil {
 			t.Fatalf("failed to fetch resource: %v", err)
 		}

@@ -1,27 +1,15 @@
 ---
-# Add liboverride as a global LD_PRELOAD to configure liboverride globally.
-# It is done in the latest possible stage in the final image to not break
-# stapel commands with the "unsupported GLIBC version" error.
-# TODO Remove after adding patch to the libvirt.
 image: {{ $.ImageName }}
-fromImage: {{ $.ImageName }}-prepared
-git:
-  # Add liboverride as a global LD_PRELOAD.
-  - add: /images/{{ $.ImageName }}/liboverride
-    to: /etc
-    includePaths:
-    - ld.so.preload
----
-image: {{ $.ImageName }}-prepared
-final: false
+final: true
 fromImage: distroless
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
     to: /
     after: install
-docker:
-  USER: 0
+imageSpec:
+  config:
+    user: 0
 
 ---
 {{- define "virt-launcher-dependencies" -}}
@@ -63,6 +51,7 @@ libs:
   - libvte-devel
   - libvte3-devel
   - libvirglrenderer-devel
+  - libdbus
   - libusb-devel
   - liburing-devel
   - libbpf-devel
@@ -116,12 +105,15 @@ libs:
   - libjson-c-devel
   - systemtap-sdt-devel
   - libacl-devel
+  - libtpms-devel libtpms
   - glib2-devel
   - libgio-devel
   - libxml2-devel
+  - libgcc1
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
+  - libswtpm-devel
 packages:
   - acl
   - attr
@@ -129,6 +121,7 @@ packages:
   - ethtool
   - fdisk
   - glibc-gconv-modules
+  - gnutls-utils
   - hwclock
   - iptables
   - libffi8
@@ -141,57 +134,30 @@ packages:
   - policycoreutils
   - psmisc
   - swtpm swtpm-tools
-  - su
   - msulogin
   - xorriso
 binaries:
   # GNU utilities
-  - /usr/bin/sh
-  - /usr/bin/bash
-  - /usr/bin/uname
-  - /usr/bin/nohup
-  - /usr/bin/sleep
   - /usr/bin/cp
-  - /usr/bin/rm
-  - /usr/bin/mv
-  - /usr/bin/cut
-  - /usr/bin/grep
-  - /usr/bin/sync
-  # Utilities for mount
-  - /usr/bin/mount
-  - /usr/bin/umount
-  - /usr/bin/findmnt
-  # Blk utilites
-  - /usr/sbin/blkid
-  - /usr/sbin/blockdev
+  - /usr/bin/sleep
+  # Gnu utils (requared for swtpm)
+  - /usr/bin/certtool
+  - /usr/bin/gnutls-cli
+  - /usr/bin/ocsptool
+  - /usr/bin/p11tool
+  - /usr/bin/psktool
   # Openssl
   - /usr/bin/openssl
-  # Acl utils
-  - /usr/bin/chacl /usr/bin/getfacl /usr/bin/setfacl /usr/bin/chmod /usr/bin/chown
-  # Fs utils
-  - /usr/sbin/fstrim /usr/sbin/fuser /usr/sbin/findfs
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
-  # Ethtool
-  - /usr/sbin/ethlist /usr/sbin/ethtool /usr/sbin/iptables /usr/sbin/ip /usr/sbin/bridge /usr/sbin/nft
-  # Procps utils
-  - /usr/sbin/sysctl
-  # Passt (User-mode networking daemons for virtual machines and namespaces)
-  - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
   # Swtpm
   - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
   # Dmidecode
-  - /usr/sbin/biosdecode /usr/sbin/dmidecode /usr/sbin/ownership /usr/sbin/vpddecode
+  - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numademo /usr/bin/numastat
   # Hwclock
-  - /usr/bin/clock_unsynced /etc/adjtime /usr/sbin/clock /usr/sbin/hwclock
-  # Libffi8
-  - "/usr/lib64/libffi.so*"
-  # Attr
-  - /usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr
-  # SELinux policy core utilities
-  - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
+  - /usr/sbin/hwclock
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
@@ -203,13 +169,6 @@ image: {{ $.ImageName }}-binaries
 final: false
 fromImage: base-alt-p11-binaries
 git:
-  - add: /images/{{ $.ImageName }}
-    to: /relocate
-    stageDependencies:
-      setup:
-      - '**/*'
-    includePaths:
-    - scripts
   # Add qemu and virtqemud configs
   - add: /images/{{ $.ImageName }}/configs
     to: /relocate/etc/libvirt
@@ -228,13 +187,6 @@ git:
     includePaths:
     - nsswitch.conf
 import:
-- image: {{ $.ImageName }}-liboverride-builder
-  add: /liboverride
-  to: /relocate/liboverride
-  after: setup
-  includePaths:
-  - liboverride.so
-
 # Libvirt and QEMU libraries and binaries
 - image: libvirt
   add: /BINS
@@ -278,23 +230,33 @@ import:
   - container-disk
   - virt-freezer
   - virt-launcher
-  - virt-launcher-monitor-orig
+  - virt-launcher-monitor
   - virt-probe
   - virt-tail
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
+- image: {{ $.ImageName }}-gobuilder
+  add: /binaries
   to: /relocate/usr/bin
   before: setup
   includePaths:
-  - '*.sh'
+  - node-labeller
+  - vlctl
+- image: {{ $.ImageName }}-cbuilder
+  add: /bins
+  to: /relocate/usr/bin
+  before: setup
+  includePaths:
+  - temp_pod
 shell:
-  install:
+  beforeInstall:
   - |
     apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
     apt-get clean
-
-    mkdir -p /VBINS/var/{log/libvirt/qemu,run/libvirt/qemu,lib/libvirt/qemu}
+  install:
+  - |
+    echo "Create folder hierarchy in VBINS"
+    mkdir -p /VBINS/{etc,root}
+    mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
@@ -302,15 +264,25 @@ shell:
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
-    LIST="$(find /VBINS/usr/bin/ -type f)"
-    LIST+=" $(find /VBINS/usr/sbin/ -type f)"
-    LIST+=" /usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3"
-    LIST+=" /usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4"
+    echo "find and copy additional libs"
+    FILES=$(find /VBINS/usr/bin/ -type f)
+    FILES+=" $(find /VBINS/usr/sbin/ -type f)"
+    
+    LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
+    LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
+    LIBS+=" /usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*"
+    LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s*"
 
-    ./relocate_binaries.sh -i "$LIST" -o /VBINS
+    echo "Relocate additional libs for files in /VBINS"
+    ./relocate_binaries.sh -i "$FILES" -o /VBINS
+    
+    echo "Relocate additional libs to /VBINS"
+    ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
     cp -a /VBINS/. /relocate
 
+    echo "Show libs after relocation in /relocate/usr/lib64"
+    ls -la /relocate/usr/lib64
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins}
 
@@ -318,11 +290,14 @@ shell:
   - |
     ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
 
-    mkdir -p /relocate/{etc,root,var/run}
+    echo "Copy additional config swtpm"
+    cp -a /etc/{swtpm_setup.conf,swtpm-localca.conf,swtpm-localca.options} /relocate/etc/
+    echo "Copy xattr config"
+    cp -a /etc/xattr.conf /relocate/etc
 
     # glibc-gconv-modules
-    cp -a /usr/lib64/gconv /relocate/usr/lib64
-    cp /etc/xattr.conf /relocate/etc
+    # This package contains helper modules necessary to convert data between various charsets
+    cp -a /usr/lib64/gconv /relocate/usr/lib64/gconv
 
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
@@ -382,16 +357,17 @@ shell:
       ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
     done <<< "$SYMLINC_LIST"
 
+    echo "List files in /relocate/usr/local/lib64"
+    ls -la usr/local/lib64
+  
   - |
-    cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
-    chmod +x /relocate/usr/bin/virt-launcher-monitor
-  - |
+    cd /relocate
+
     echo "Create symlinks for container-disk"
     mkdir -p /relocate/init/usr/bin
-    cd /relocate
     ln -s usr/bin/container-disk ./init/usr/bin/container-disk
-  - |
-    cd /relocate
+
+    echo "Create symlink for run -> var/run "
     ln -s var/run run
 
   # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
@@ -400,36 +376,64 @@ shell:
     cp -a etc/libvirt etc/libvirt-init
 
 ---
-image: {{ $.ImageName }}-liboverride-builder
+image: {{ $.ImageName }}-gobuilder
 final: false
-fromImage: base-alt-p11
+from: {{ .Images.BASE_GOLANG_23_BOOKWORM }}
 git:
-  - add: /images/{{ $.ImageName }}/liboverride
-    to: /liboverride
+  - add: /images/{{ $.ImageName }}/node-labeller
+    to: /node-labeller
     includePaths:
-      - '*.c'
+      - '**/*'
     stageDependencies:
       install:
-      - '*.c'
+      - '**/*'
+  - add: /images/{{ $.ImageName }}/vlctl
+    to: /src-vlctl
+    includePaths:
+      - '**/*'
+    stageDependencies:
+      install:
+      - '**/*'
+shell:
+  install:
+    - |
+      echo "install deps libvirt-dev"
+      apt-get update && apt-get install -y libvirt-dev
+      apt-get clean
+    - mkdir -p /binaries
+    - |
+      echo "Build node-labeller binaries"
+      cd /node-labeller
+      echo '== go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller =='
+      go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller
+      echo "Done"
+    - |
+      cd /src-vlctl
+      export GO111MODULE=on
+      export GOOS=linux
+      export CGO_ENABLED=0
+      export GOARCH=amd64
+      echo '== go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go =='
+      go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go
+      echo "Done"
+---
+image: {{ $.ImageName }}-cbuilder
+final: false
+from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+git:
+  - add: /images/{{ $.ImageName }}/static_binaries
+    to: /
+    stageDependencies:
+      install:
+        - '*.c'
 shell:
   beforeInstall:
-  # Install build packages. Pin only GCC to detect gcc updates later.
   - |
-    apt-get update && apt-get install --yes \
-    autoconf \
-    automake \
-    libtool \
-    pkg-config \
-    make \
-    git \
-    perl-IPC-Cmd \
-    wget \
-    gcc==13-alt1 \
-    gcc-c++==13-alt1
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+    apt-get update && apt-get install --yes gcc musl-dev musl-tools
+    apt-get clean
   install:
-  # Build liboverride.
-  - cd /liboverride
-  - gcc -shared -fPIC -DPIC -Wall -o liboverride.so override.c -ldl
-  - strip liboverride.so
+  - |    
+    echo "Building simple app that prints I'am temp pod"
+    mkdir -p /bins
+    musl-gcc -static -Os -o /bins/temp_pod temp_pod.c
+    strip /bins/temp_pod

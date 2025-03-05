@@ -126,6 +126,12 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		manualLabel    = map[string]string{"vm": "manual-conf"}
 	)
 
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
+	})
+
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml")
@@ -207,7 +213,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 				vmResource := virtv2.VirtualMachine{}
 				err := GetObject(kc.ResourceVM, vms[0], &vmResource, kc.GetOptions{Namespace: conf.Namespace})
-				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(err).NotTo(HaveOccurred())
 
 				oldCpuCores = vmResource.Spec.CPU.Cores
 				newCPUCores = 1 + (vmResource.Spec.CPU.Cores & 1)
@@ -242,7 +248,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 				vms := strings.Split(res.StdOut(), " ")
 				for _, vm := range vms {
-					cmd := "sudo reboot"
+					cmd := "sudo nohup reboot -f > /dev/null 2>&1 &"
 					ExecSshCommand(vm, cmd)
 				}
 				WaitVmAgentReady(kc.WaitOptions{

@@ -54,6 +54,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
+	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
@@ -73,6 +74,8 @@ const (
 	pprofBindAddrEnv                           = "PPROF_BIND_ADDRESS"
 	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
 	virtualMachineIPLeasesRetentionDurationEnv = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
+
+	FirmwareImageEnv = "FIRMWARE_IMAGE"
 )
 
 func main() {
@@ -110,12 +113,20 @@ func main() {
 	var metricsBindAddr string
 	flag.StringVar(&metricsBindAddr, "metrics-bind-address", getEnv(metricsBindAddrEnv, ":8080"), "metric bind address")
 
+	var firmwareImage string
+	flag.StringVar(&firmwareImage, "firmware-image", os.Getenv(FirmwareImageEnv), "Firmware image")
+
 	flag.Parse()
 
 	log := logger.NewLogger(logLevel, logOutput, logDebugVerbosity)
 	logger.SetDefaultLogger(log)
 
 	printVersion(log)
+
+	if firmwareImage == "" {
+		log.Error("firmware image is required")
+		os.Exit(1)
+	}
 
 	controllerNamespace, err := appconfig.GetRequiredEnvVar(podNamespaceEnv)
 	if err != nil {
@@ -261,7 +272,7 @@ func main() {
 	}
 
 	vmLogger := logger.NewControllerLogger(vm.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings); err != nil {
+	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -313,7 +324,7 @@ func main() {
 	}
 
 	vmopLogger := logger.NewControllerLogger(vmop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vmop.SetupController(ctx, mgr, virtClient, vmopLogger); err != nil {
+	if err = vmop.SetupController(ctx, mgr, vmopLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -323,6 +334,11 @@ func main() {
 	}
 
 	if err = mc.SetupWebhookWithManager(mgr); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	if err = workloadupdater.SetupController(ctx, mgr, log, firmwareImage); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

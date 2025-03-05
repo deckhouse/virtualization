@@ -18,24 +18,21 @@ package vmop
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/watcher"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
+
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
+}
 
 type Handler interface {
 	Handle(ctx context.Context, s state.VMOperationState) (reconcile.Result, error)
@@ -55,52 +52,21 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineOperation{}), &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return fmt.Errorf("error setting watch on VMOP: %w", err)
+	watchers := []Watcher{
+		watcher.NewVMOPWatcher(),
+		watcher.NewVMWatcher(),
+		watcher.NewMigrationWatcher(),
 	}
-	// Subscribe on VirtualMachines.
-	if err = ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, vm client.Object) []reconcile.Request {
-			c := mgr.GetClient()
-			vmops := &virtv2.VirtualMachineOperationList{}
-			if err := c.List(ctx, vmops, client.InNamespace(vm.GetNamespace())); err != nil {
-				return nil
-			}
-			var requests []reconcile.Request
-			for _, vmop := range vmops.Items {
-				if vmop.Spec.VirtualMachine == vm.GetName() && vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
-					requests = append(requests, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Namespace: vmop.GetNamespace(),
-							Name:      vmop.GetName(),
-						},
-					})
-					break
-				}
-			}
-			return requests
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVM := e.ObjectOld.(*virtv2.VirtualMachine)
-				newVM := e.ObjectNew.(*virtv2.VirtualMachine)
-				return oldVM.Status.Phase != newVM.Status.Phase || newVM.Status.MigrationState != nil
-			},
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	for _, w := range watchers {
+		if err := w.Watch(mgr, ctr); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	log := logger.FromContext(ctx)
-
-	vmop := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	vmop := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vmop.Fetch(ctx)
 	if err != nil {
@@ -111,34 +77,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	log.Info("Start reconcile VMOP", "namespacedName", req.String())
-
 	s := state.New(r.client, vmop)
-	var handlerErrs []error
 
-	var result reconcile.Result
-	for _, h := range r.handlers {
-		log.Debug("Run handler", "name", h.Name())
-		res, err := h.Handle(ctx, s)
-		if err != nil {
-			log.Error("Failed to handle VirtualMachineOperation", "err", err, "handler", h.Name())
-			handlerErrs = append(handlerErrs, err)
-		}
+	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+		return h.Handle(ctx, s)
+	})
+	rec.SetResourceUpdater(func(ctx context.Context) error {
+		vmop.Changed().Status.ObservedGeneration = vmop.Changed().Generation
 
-		result = service.MergeResults(result, res)
-	}
+		return vmop.Update(ctx)
+	})
 
-	err = vmop.Update(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	err = errors.Join(handlerErrs...)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return result, nil
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachineOperation {

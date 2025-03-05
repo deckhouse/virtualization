@@ -17,6 +17,11 @@ limitations under the License.
 package testutil
 
 import (
+	"context"
+	"log/slog"
+	"reflect"
+
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -25,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -41,9 +47,28 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 			return nil, err
 		}
 	}
-	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build(), nil
+	var newObjs []client.Object
+	for _, obj := range objs {
+		if reflect.ValueOf(obj).IsNil() {
+			continue
+		}
+		newObjs = append(newObjs, obj)
+	}
+	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...).Build(), nil
 }
 
 func NewNoOpLogger() *log.Logger {
 	return log.NewNop()
+}
+
+func NewNoOpSlogLogger() *slog.Logger {
+	return slog.New(log.NewNop().Handler())
+}
+
+func ToContext(ctx context.Context, log *log.Logger) context.Context {
+	return logr.NewContextWithSlogLogger(ctx, slog.New(log.Handler()))
+}
+
+func ContextBackgroundWithNoOpLogger() context.Context {
+	return ToContext(context.Background(), NewNoOpLogger())
 }

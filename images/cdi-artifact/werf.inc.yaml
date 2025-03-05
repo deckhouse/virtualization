@@ -63,9 +63,6 @@ shell:
     - echo ============== Build cdi-uploadproxy ===========
     - go build -ldflags="-s -w" -o /cdi-binaries/cdi-uploadproxy ./cmd/cdi-uploadproxy
 
-    - echo ============== Build cdi-uploadserver ===========
-    - CGO_ENABLED=1 go build -ldflags="-s -w" -o /cdi-binaries/cdi-uploadserver ./cmd/cdi-uploadserver
-
     - echo ============== Build cdi-importer ===========
     - CGO_ENABLED=1 go build -ldflags="-s -w" -o /cdi-binaries/cdi-importer ./cmd/cdi-importer
 
@@ -85,7 +82,29 @@ shell:
     - go build -ldflags="-s -w" -o /cdi-binaries/csv-generator ./tools/csv-generator
 
     - strip /cdi-binaries/*
-    - cp cmd/cdi-cloner/cloner_startup.sh /cdi-binaries
     - chmod +x /cdi-binaries/*
     - chown -R 64535:64535 /cdi-binaries/*
     - ls -la /cdi-binaries
+
+---
+image: {{ $.ImageName }}-cbuilder
+final: false
+from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+git:
+  - add: /images/{{ $.ImageName }}/static_binaries
+    to: /
+    stageDependencies:
+      install:
+        - '*.c'
+shell:
+  install:
+  - |
+    apt-get update && apt-get install --yes gcc musl-dev musl-tools
+    apt-get clean
+    
+    echo "Building simple app that prints hello cdi"
+    mkdir -p /bins
+    musl-gcc -static -Os -o /bins/hello hello.c
+    musl-gcc -static -Os -o /bins/printFile print_file_context.c
+    strip /bins/hello
+    strip /bins/printFile

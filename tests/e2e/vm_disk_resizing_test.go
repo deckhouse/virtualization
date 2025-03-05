@@ -189,9 +189,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 		vmCount   = 1
 		diskCount = 3
 	)
-	var (
-		vmObj *virtv2.VirtualMachine
-	)
+	var vmObj *virtv2.VirtualMachine
 	testCaseLabel := map[string]string{"testcase": "disk-resizing"}
 
 	BeforeAll(func() {
@@ -203,6 +201,12 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 		ns, err := kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 		conf.SetNamespace(ns)
+	})
+
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
 	})
 
 	Context("When the resources are applied", func() {
@@ -287,7 +291,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 
 			It("obtains the disks metadata before resizing", func() {
 				vmDisksBefore, err = GetVirtualMachineDisks(vmObj.Name, conf)
-				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(vmDisksBefore).Should(HaveLen(diskCount))
 			})
 

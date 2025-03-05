@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -47,10 +48,11 @@ type Kubectl interface {
 	Apply(opts ApplyOptions) *executor.CMDResult
 	Create(filepath string, opts CreateOptions) *executor.CMDResult
 	CreateResource(resource Resource, name string, opts CreateOptions) *executor.CMDResult
-	Get(filepath string, opts GetOptions) *executor.CMDResult
+	Get(resource string, opts GetOptions) *executor.CMDResult
 	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
 	Delete(opts DeleteOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
+	LogStream(podName string, opts LogOptions) (*exec.Cmd, context.CancelFunc)
 	Wait(filepath string, opts WaitOptions) *executor.CMDResult
 	WaitResource(resource Resource, name string, opts WaitOptions) *executor.CMDResult
 	WaitResources(resource Resource, opts WaitOptions, name ...string) *executor.CMDResult
@@ -96,6 +98,14 @@ type GetOptions struct {
 	Output         string
 }
 
+type LogOptions struct {
+	Container      string
+	ExcludedLabels []string
+	Follow         bool
+	Labels         map[string]string
+	Namespace      string
+}
+
 type WaitOptions struct {
 	ExcludedLabels []string
 	Labels         map[string]string
@@ -109,7 +119,7 @@ type PatchOptions struct {
 	Type       string
 	PatchFile  string
 	MergePatch string
-	JsonPatch  *JsonPatch
+	JsonPatch  []*JsonPatch
 }
 
 type JsonPatch struct {
@@ -125,9 +135,9 @@ func (p JsonPatch) String() string {
 		strings.HasPrefix(p.Value, "{") {
 		value = p.Value
 	} else {
-		value = fmt.Sprintf("\"%s\"", p.Value)
+		value = fmt.Sprintf("%q", p.Value)
 	}
-	return fmt.Sprintf("[{\"op\": \"%s\", \"path\": \"%s\", \"value\":%s}]", p.Op, p.Path, value)
+	return fmt.Sprintf(`{"op": %q, "path": %q, "value":%s}`, p.Op, p.Path, value)
 }
 
 type KubectlConf struct {
@@ -187,8 +197,8 @@ func (k KubectlCMD) CreateResource(resource Resource, name string, opts CreateOp
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) Get(filepath string, opts GetOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s get -f %s", k.cmd, filepath)
+func (k KubectlCMD) Get(resource string, opts GetOptions) *executor.CMDResult {
+	cmd := fmt.Sprintf("%s get %s", k.cmd, resource)
 	cmd = k.getOptions(cmd, opts)
 	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
 	defer cancel()
@@ -215,6 +225,14 @@ func (k KubectlCMD) List(resource Resource, opts GetOptions) *executor.CMDResult
 	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
 	defer cancel()
 	return k.ExecContext(ctx, cmd)
+}
+
+func (k KubectlCMD) LogStream(podName string, opts LogOptions) (*exec.Cmd, context.CancelFunc) {
+	ctx, cancel := context.WithCancel(context.Background())
+	command := fmt.Sprintf("%s logs %s", k.cmd, podName)
+	command = k.logOptions(command, opts)
+	cmd := k.MakeCmd(ctx, command)
+	return cmd, cancel
 }
 
 func (k KubectlCMD) Wait(filepath string, opts WaitOptions) *executor.CMDResult {
@@ -273,7 +291,7 @@ func (k KubectlCMD) PatchResource(resource Resource, name string, opts PatchOpti
 
 func (k KubectlCMD) addNamespace(cmd, ns string) string {
 	if ns != "" {
-		return fmt.Sprintf("%s -n %s", cmd, ns)
+		return fmt.Sprintf("%s --namespace %s", cmd, ns)
 	}
 	return cmd
 }
@@ -323,6 +341,20 @@ func (k KubectlCMD) addOutput(cmd, output string) string {
 func (k KubectlCMD) addIgnoreNotFound(cmd string, ignoreNotFound bool) string {
 	if ignoreNotFound {
 		return fmt.Sprintf("%s --ignore-not-found", cmd)
+	}
+	return cmd
+}
+
+func (k KubectlCMD) addContainer(cmd, containerName string) string {
+	if containerName != "" {
+		return fmt.Sprintf("%s --container %s", cmd, containerName)
+	}
+	return cmd
+}
+
+func (k KubectlCMD) addFollow(cmd string, follow bool) string {
+	if follow {
+		return fmt.Sprintf("%s --follow", cmd)
 	}
 	return cmd
 }
@@ -378,10 +410,23 @@ func (k KubectlCMD) patchOptions(cmd string, opts PatchOptions) string {
 		cmd = fmt.Sprintf("%s --patch-file=%s", cmd, opts.PatchFile)
 	}
 	if opts.JsonPatch != nil {
-		cmd = fmt.Sprintf("%s --type=json --patch='%s'", cmd, opts.JsonPatch.String())
+		patches := make([]string, len(opts.JsonPatch))
+		for i, p := range opts.JsonPatch {
+			patches[i] = p.String()
+		}
+		rawPatches := strings.Join(patches, ",")
+		cmd = fmt.Sprintf("%s --type=json --patch='[%s]'", cmd, rawPatches)
 	}
 	if opts.MergePatch != "" {
 		cmd = fmt.Sprintf("%s --type=merge --patch='%s'", cmd, opts.MergePatch)
 	}
+	return cmd
+}
+
+func (k KubectlCMD) logOptions(cmd string, opts LogOptions) string {
+	cmd = k.addContainer(cmd, opts.Container)
+	cmd = k.addNamespace(cmd, opts.Namespace)
+	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
+	cmd = k.addFollow(cmd, opts.Follow)
 	return cmd
 }

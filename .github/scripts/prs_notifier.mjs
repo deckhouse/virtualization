@@ -106,9 +106,10 @@ async function formatPRForReviewers(pr) {
     }
   }
 
-  // Add more reviewers from reviews.
   const reviews = await fetchReviewsForPR(pr.number);
-  for (const review of reviews) {
+  const { changesRequestedMap } = getChangesRequestedAndApproves(reviews);
+
+  for (let [, review] of changesRequestedMap) {
     if (uniqueLogins.has(review.user.login)) {
       continue;
     }
@@ -157,21 +158,16 @@ const REVIEW_REQUIRED = "review_required"
 const READY_TO_MERGE = "ready_to_merge"
 const STUCK = "stuck"
 
-function getPullRequestGroup(reviews, requestedReviewers) {
+function getChangesRequestedAndApproves(reviews) {
+  // Sort reviews by submitted_at date
   reviews = reviews.sort((a, b) => {
     const dateA = new Date(a.submitted_at);
     const dateB = new Date(b.submitted_at);
     return dateA - dateB;
   });
 
-  const requestedReviewersMap = new Map();
   const changesRequestedMap = new Map();
   const approvedMap = new Map();
-
-  requestedReviewers.users.forEach(requestedReviewer => {
-    const { id } = requestedReviewer;
-    requestedReviewersMap.set(id, requestedReviewer);
-  });
 
   reviews.forEach(review => {
     const { user, state } = review;
@@ -193,17 +189,30 @@ function getPullRequestGroup(reviews, requestedReviewers) {
     }
   });
 
+  return { changesRequestedMap, approvedMap };
+}
+
+function getPullRequestGroup(reviews, requestedReviewers) {
+  const requestedReviewersMap = new Map();
+
+  requestedReviewers.users.forEach(requestedReviewer => {
+    const { id } = requestedReviewer;
+    requestedReviewersMap.set(id, requestedReviewer);
+  });
+
+  const { changesRequestedMap, approvedMap } = getChangesRequestedAndApproves(reviews);
+
   const now = new Date();
   let areChangesRequested = false;
 
-  for (let [userId, changeRequested] of changesRequestedMap.entries()) {
+  for (let [userId, review] of changesRequestedMap.entries()) {
     // Skip if review is re-requested.
     if (requestedReviewersMap.has(userId)) {
       continue;
     }
 
-    const submittedAt = new Date(changeRequested.submitted_at)
-    submittedAt.setDate(submittedAt.getDate() + 1);
+    const submittedAt = new Date(review.submitted_at)
+    submittedAt.setTime(submittedAt.getTime() + 1.5 * 24 * 60 * 60 * 1000); // submittedAt + 1.5 days.
     if (now.getDay() !== 1 && submittedAt < now) {
       return STUCK;
     }

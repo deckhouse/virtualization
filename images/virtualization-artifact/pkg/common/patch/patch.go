@@ -19,6 +19,7 @@ package patch
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 const (
@@ -50,6 +51,18 @@ func NewJsonPatchOperation(op, path string, value interface{}) JsonPatchOperatio
 		Path:  path,
 		Value: value,
 	}
+}
+
+func WithAdd(path string, value interface{}) JsonPatchOperation {
+	return NewJsonPatchOperation(PatchAddOp, path, value)
+}
+
+func WithRemove(path string) JsonPatchOperation {
+	return NewJsonPatchOperation(PatchRemoveOp, path, nil)
+}
+
+func WithReplace(path string, value interface{}) JsonPatchOperation {
+	return NewJsonPatchOperation(PatchReplaceOp, path, value)
 }
 
 func (jp *JsonPatch) Operations() []JsonPatchOperation {
@@ -92,4 +105,10 @@ func (jp *JsonPatch) Bytes() ([]byte, error) {
 		return nil, fmt.Errorf("list of patches is empty")
 	}
 	return json.Marshal(jp.operations)
+}
+
+func EscapeJSONPointer(path string) string {
+	path = strings.ReplaceAll(path, "~", "~0")
+	path = strings.ReplaceAll(path, "/", "~1")
+	return path
 }

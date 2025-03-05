@@ -29,11 +29,13 @@ tasks:
     desc: "Remove cloned kubevirt git repo"
     cmds:
       - |
-        find . -type d -name __kubevirt_\* -depth 1
+        PATH_KUBEVIRT=$(find . -type d -name __kubevirt_\* -depth 1)
+        echo "$PATH_KUBEVIRT"
         read -p "Delete these directories? [y/N] " answer
 
         if [[ "${answer}" != "${answer#[Yy]}" ]] ; then
-          rm -rf __kubevirt_*
+          echo "remove $PATH_KUBEVIRT"
+          rm -rf $PATH_KUBEVIRT
         fi
 
   patch:new:

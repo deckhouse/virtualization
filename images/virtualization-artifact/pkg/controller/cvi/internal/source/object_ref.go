@@ -159,7 +159,12 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 			return reconcile.Result{}, err
 		}
 
-		return CleanUp(ctx, cvi, ds)
+		_, err = CleanUp(ctx, cvi, ds)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	case object.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
@@ -288,25 +293,25 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
+func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
 	viRefResult, err := ds.viOnPvcSyncer.CleanUp(ctx, cvi)
 	if err != nil {
-		return reconcile.Result{}, err
+		return false, err
 	}
 
 	vdRefResult, err := ds.vdSyncer.CleanUp(ctx, cvi)
 	if err != nil {
-		return reconcile.Result{}, err
+		return false, err
 	}
 
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
 	objRefRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
-		return reconcile.Result{}, err
+		return false, err
 	}
 
-	return service.MergeResults(viRefResult, vdRefResult, reconcile.Result{Requeue: objRefRequeue}), nil
+	return viRefResult || vdRefResult || objRefRequeue, nil
 }
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {

@@ -19,7 +19,7 @@ ENV GOOS=${TARGETOS:-linux}
 ENV GOARCH=${TARGETARCH:-amd64}
 ENV CGO_ENABLED=0
 
-RUN go build -gcflags "all=-N -l" -a -o virtualization-controller ./cmd/virtualization-controller
+RUN go build -tags EE -gcflags "all=-N -l" -a -o virtualization-controller ./cmd/virtualization-controller
 
 FROM busybox:1.36.1-glibc
 

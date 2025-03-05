@@ -103,6 +103,11 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 			}
 		}
 
+		if vm != nil && vm.Status.Phase == virtv2.MachinePending &&
+			(vm.Spec.RunPolicy == virtv2.AlwaysOnPolicy || vm.Spec.RunPolicy == virtv2.AlwaysOnUnlessStoppedManually) {
+			return virtv2.MachinePending
+		}
+
 		return virtv2.MachineStopped
 	},
 	// VirtualMachineStatusProvisioning indicates that cluster resources associated with the virtual machine
@@ -199,13 +204,13 @@ func getKVMIReadyReason(kvmiReason string) conditions.Stringer {
 
 var mapReasons = map[string]vmcondition.Reason{
 	// PodTerminatingReason indicates on the Ready condition on the VMI if the underlying pod is terminating
-	virtv1.PodTerminatingReason: vmcondition.ReasonPodTerminatingReason,
+	virtv1.PodTerminatingReason: vmcondition.ReasonPodTerminating,
 	// PodNotExistsReason indicates on the Ready condition on the VMI if the underlying pod does not exist
-	virtv1.PodNotExistsReason: vmcondition.ReasonPodNotExistsReason,
+	virtv1.PodNotExistsReason: vmcondition.ReasonPodNotExists,
 	// PodConditionMissingReason indicates on the Ready condition on the VMI if the underlying pod does not report a Ready condition
-	virtv1.PodConditionMissingReason: vmcondition.ReasonPodConditionMissingReason,
+	virtv1.PodConditionMissingReason: vmcondition.ReasonPodConditionMissing,
 	// GuestNotRunningReason indicates on the Ready condition on the VMI if the underlying guest VM is not running
-	virtv1.GuestNotRunningReason: vmcondition.ReasonGuestNotRunningReason,
+	virtv1.GuestNotRunningReason: vmcondition.ReasonGuestNotRunning,
 }
 
 func isPodStartedError(vm *virtv1.VirtualMachine) bool {
@@ -233,7 +238,6 @@ func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) b
 		virtv1.VirtualMachineStatusDataVolumeError,
 		virtv1.VirtualMachineStatusPvcNotFound,
 		virtv1.VirtualMachineStatusCrashLoopBackOff,
-		virtv1.VirtualMachineStatusUnschedulable,
 		virtv1.VirtualMachineStatusUnknown,
 	}, phase)
 }

@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strconv"
 
@@ -69,6 +70,7 @@ func GetConfig() (*Config, error) {
 	if err := conf.setEnvs(); err != nil {
 		return nil, err
 	}
+
 	return &conf, nil
 }
 
@@ -128,6 +130,9 @@ type Config struct {
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	Namespace        string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
+	LogFilter        []string         `yaml:"logFilter"`
+	CleanupResources []string         `yaml:"cleanupResources"`
+	RegexpLogFilter  []regexp.Regexp  `yaml:"regexpLogFilter"`
 	StorageClass     StorageClass
 }
 
@@ -144,6 +149,7 @@ type TestData struct {
 	VmLabelAnnotation     string `yaml:"vmLabelAnnotation"`
 	VmMigration           string `yaml:"vmMigration"`
 	VmDiskAttachment      string `yaml:"vmDiskAttachment"`
+	VmVersions            string `yaml:"vmVersions"`
 	VdSnapshots           string `yaml:"vdSnapshots"`
 	Sshkey                string `yaml:"sshKey"`
 	SshUser               string `yaml:"sshUser"`
@@ -276,7 +282,7 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 		return readErr
 	}
 
-	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
+	unmarshalErr := yamlv3.Unmarshal(data, &kustomizeFile)
 	if unmarshalErr != nil {
 		return unmarshalErr
 	}
@@ -308,7 +314,7 @@ func (k *Kustomize) GetNamespace(filePath string) (string, error) {
 		return "", fmt.Errorf("cannot get namespace from %s: %w", filePath, readErr)
 	}
 
-	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
+	unmarshalErr := yamlv3.Unmarshal(data, &kustomizeFile)
 	if unmarshalErr != nil {
 		return "", fmt.Errorf("cannot get namespace from %s: %w", filePath, unmarshalErr)
 	}
@@ -324,7 +330,7 @@ func (k *Kustomize) ExcludeResource(filePath, resourceName string) error {
 		return readErr
 	}
 
-	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
+	unmarshalErr := yamlv3.Unmarshal(data, &kustomizeFile)
 	if unmarshalErr != nil {
 		return unmarshalErr
 	}

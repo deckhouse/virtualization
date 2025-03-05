@@ -149,14 +149,14 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 	})
 }
 
-func (s AttachmentService) NeedUnplug(vm *virtv2.VirtualMachine, objectRef virtv2.VMBDAObjectRef) bool {
+func (s AttachmentService) IsAttached(vm *virtv2.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool {
 	if vm == nil {
 		return false
 	}
 
 	for _, bdRef := range vm.Status.BlockDeviceRefs {
-		if bdRef.Kind == virtv2.BlockDeviceKind(objectRef.Kind) && bdRef.Name == objectRef.Name {
-			return bdRef.Hotplugged
+		if bdRef.Kind == virtv2.BlockDeviceKind(vmbda.Spec.BlockDeviceRef.Kind) && bdRef.Name == vmbda.Spec.BlockDeviceRef.Name {
+			return bdRef.Hotplugged && bdRef.VirtualMachineBlockDeviceAttachmentName == vmbda.Name
 		}
 	}
 

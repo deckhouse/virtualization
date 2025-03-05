@@ -86,6 +86,12 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		testCaseLabel                  = map[string]string{"testcase": "sizing-policy"}
 	)
 
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
+	})
+
 	Context("Preparing the environment", func() {
 		vmNotValidSizingPolicyChanging = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVmClassChanging["vm"])
 		vmNotValidSizingPolicyCreating = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVmClassCreating["vm"])
@@ -182,7 +188,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("changes VMClassName in VM specification with existing VMClass", func() {
 				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":%q}}", vmClassDiscovery)
 				err := MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyChanging, mergePatch)
-				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("checks VM phase and condition status after changing", func() {
@@ -206,13 +212,13 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("changes VMClassName in VM specification with not existing VMClass which have correct prefix for creating", func() {
 				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":%q}}", vmClassDiscoveryCopy)
 				err := MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyCreating, mergePatch)
-				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(err).NotTo(HaveOccurred())
 			})
 
 			It("creates new `VirtualMachineClass`", func() {
 				vmClass := virtv2.VirtualMachineClass{}
 				err := GetObject(kc.ResourceVMClass, vmClassDiscovery, &vmClass, kc.GetOptions{})
-				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(err).NotTo(HaveOccurred())
 				vmClass.Name = vmClassDiscoveryCopy
 				vmClass.Labels = map[string]string{"id": namePrefix}
 				writeErr := WriteYamlObject(newVmClassFilePath, &vmClass)
@@ -249,13 +255,13 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			vms := strings.Split(res.StdOut(), " ")
 			vmClass := virtv2.VirtualMachineClass{}
 			err := GetObject(kc.ResourceVMClass, vmClassDiscovery, &vmClass, kc.GetOptions{})
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 
 			for _, vm := range vms {
 				By(fmt.Sprintf("Check virtual machine: %s", vm))
 				vmObj := virtv2.VirtualMachine{}
 				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
-				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(err).NotTo(HaveOccurred())
 				ValidateVirtualMachineByClass(&vmClass, &vmObj)
 			}
 		})

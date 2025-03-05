@@ -24,7 +24,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -57,11 +56,6 @@ func TestDatasourceReadyHandler_Handle(t *testing.T) {
 		handler := NewDatasourceReadyHandler(recorder, nil, nil)
 		_, err := handler.Handle(ctx, &vd)
 		require.NoError(t, err)
-
-		condition := vd.Status.Conditions[0]
-		require.Equal(t, vdcondition.DatasourceReadyType.String(), condition.Type)
-		require.Equal(t, metav1.ConditionUnknown, condition.Status)
-		require.Equal(t, conditions.ReasonUnknown.String(), condition.Reason)
 	})
 
 	t.Run("VirtualDisk with Blank DataSource", func(t *testing.T) {

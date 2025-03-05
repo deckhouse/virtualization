@@ -64,3 +64,8 @@ Successful
 k exec -it -n d8-virtualization dvcr-84c4bffc46-tkgvq -c dvcr -- dvcr-cleaner gc run
 ? Confirm? [y/N] y█
 ```
+
+https://github.com/distribution/distribution/issues/1803
+```bash
+k rollout restart deployment -n d8-virtualization dvcr
+```

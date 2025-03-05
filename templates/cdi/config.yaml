@@ -28,11 +28,8 @@ spec:
         memory: 60M
     imagePullSecrets:
     - name: virtualization-module-registry
-  {{- if .Values.global.modules.publicDomainTemplate }}
-    uploadProxyURLOverride: {{ include "helm_lib_module_public_domain" (list . "cdi-uploadproxy") }}
     featureGates:
     - HonorWaitForFirstConsumer
-  {{- end }}
   customizeComponents:
     flags:
       controller:
@@ -45,12 +42,6 @@ spec:
       - resourceType: Deployment
         resourceName: cdi-apiserver
         patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
-        type: json
-
-      # Turn off cdi-uploadproxy.
-      - resourceType: Deployment
-        resourceName: cdi-uploadproxy
-        patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
         type: json
 
     {{- if (include "helm_lib_ha_enabled" .) }}

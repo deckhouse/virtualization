@@ -22,6 +22,7 @@ env:
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   GO_VERSION: "1.22.7"
+  GOLANGCI_LINT_VERSION: "1.64.8"
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
 
 on:
@@ -34,7 +35,7 @@ on:
         required: false
         type: number
   pull_request:
-    types: [opened, reopened, synchronize, labeled, unlabeled]
+    types: [opened, reopened, synchronize, labeled]
   push:
     branches:
       - main
@@ -103,8 +104,10 @@ jobs:
           # Select runner
           if echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/github/ubuntu"; then
             echo "RUNNER_TYPE=[\"ubuntu-22.04\"]" >> "$GITHUB_OUTPUT"
+          elif echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/self-hosted/regular"; then
+            echo "RUNNER_TYPE=[\"self-hosted\", \"regular\"]" >> "$GITHUB_OUTPUT"
           else
-            echo "RUNNER_TYPE=[\"self-hosted\", \"regular\", \"selectel\"]" >> "$GITHUB_OUTPUT"
+            echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
           fi
 
   show_dev_manifest:
@@ -172,10 +175,85 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Run lint virtualization-controller
+      - name: Install golangci-lint
         run: |
-          task virtualization-controller:init
-          task virtualization-controller:lint:go
+          echo "Installing golangci-lint..."
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${{ env.GOLANGCI_LINT_VERSION}}
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          echo "golangci-lint v${{ env.GOLANGCI_LINT_VERSION}} installed successfully!"
+
+      - name: Lint all directories with golangci-lint
+        id: linters
+        # continue-on-error: true
+        shell: bash
+        run: |
+          # Find directories containing .golangci.yaml
+          mapfile -t config_dirs < <(find . -type f -name '.golangci.yaml' -printf '%h\0' | xargs -0 -n1 | sort -u)
+          count=${#config_dirs[@]}
+          echo "::notice title=Lint Setup::🔍 Found $count directories with linter configurations"
+
+          report=""
+          error_count=0
+          find_errors=0
+
+          for dir in "${config_dirs[@]}"; do
+            # echo "::group::📂 Linting directory: $dir"
+            # cd "$dir" || { echo "::error::Failed to access directory $dir"; exit 1; }
+
+            cd "$dir" || { echo "::error::Failed to access directory $dir"; continue; }
+            
+            # Run linter with multiple formats
+            
+            output=$(golangci-lint run --out-format=json 2>/dev/null | jq '{warning: .Report.Warnings, error: .Report.Error}' || true)
+            find_errors=$(echo $output | jq '.error | select(.!=null)' | wc -l)
+            
+            # Track errors
+            if [ $find_errors -ne 0 ]; then
+              error_count=$(( error_count + 1 ))
+              echo "::group::📂 Linting directory ❌: $dir"
+            else
+              echo "::group::📂 Linting directory ✅: $dir"
+            fi
+            
+            report_out_warning=$(echo $output | jq '.warning')
+            report_out_error=$(echo $output | jq '.error')
+
+            # Build report section
+            report+="\n\n### Directory: $dir\n"
+            report+="Find Errors: $find_errors\n"
+            report+="Output:\n\`\`\`\n$report_out_warning\n$report_out_error\n\`\`\`\n"
+            report+="---\n"
+
+            cd - &>/dev/null
+            
+            if [ $find_errors -ne 0 ]; then
+              echo -e "⚠️ Warnings:\n$report_out_warning"
+              echo -e "❌ Errors:\n$report_out_error\n"
+            else
+              echo -e "✅ All check passed\n"
+            fi
+
+            echo "::endgroup::"
+          done
+
+          echo "directory_count=$count" >> "$GITHUB_OUTPUT"
+
+          has_errors=$( [[ "$error_count" -gt 0 ]] && echo true || echo false)
+          echo "has_errors=$has_errors" >> "$GITHUB_OUTPUT"
+
+          if [ $error_count -gt 0 ]; then
+            exit 1
+          fi
+
+      - name: Final status check
+        if: always()
+        run: |
+          if ${{ steps.linters.outputs.has_errors }}; then
+            echo "::error::🔥 Lint errors found in $error_count directories. Check step 'Lint all directories with golangci-lint' for details."
+            exit 1
+          else
+            echo "::notice::✅ All linters passed successfully in ${{ steps.linters.outputs.directory_count }} directories"
+          fi
 
   lint_yaml:
     runs-on: ubuntu-latest
@@ -247,6 +325,244 @@ jobs:
         if: ${{ !contains(needs.set_vars.outputs.runner_type, 'self-hosted') }}
         uses: ./.github/actions/remove-unwanted-software
 
-      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v1
+      - uses: deckhouse/modules-actions/build@v2
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE}}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: "$MODULES_MODULE_TAG"
+
+  pull_request_info:
+    name: Get PR info
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    outputs:
+      labels: ${{ steps.pr_labels.outputs.labels }}
+    steps:
+      - name: Get PR labels
+        id: pr_labels
+        uses: actions/github-script@v6.4.1
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+            core.setOutput('labels', JSON.stringify(labels));
+
+  set_e2e_requirement_status:
+    name: Set 'waiting for e2e' commit status
+    needs:
+      - pull_request_info
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3.5.2
+      - name: Set commit status after e2e run
+        id: set_e2e_requirement_status
+        uses: actions/github-script@v6.4.1
+        env:
+          STATUS_TARGET_COMMIT: ${{ github.event.pull_request.head.sha }}
+          PR_LABELS: ${{ needs.pull_request_info.outputs.labels }}
+        with:
+          github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
+          script: |
+            const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
+            await e2eStatus.setInitialStatus({github, context, core});
+
+  cve_scan_on_pr:
+    name: Trivy images check
+    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
+    needs:
+      - set_vars
+      - dev_setup_build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/cve_scan@v2
+        with:
+          image: ${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}
+          tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          module_name: ${{ vars.MODULE_NAME }}
+          dd_url: ${{vars.DEFECTDOJO_HOST}}
+          dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
+          trivy_registry: ${{ vars.TRIVY_REGISTRY }}
+          trivy_registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          trivy_registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+          deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
+
+  skip_e2e:
+    if: ${{ github.event.label.name == 'skip/e2e' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip E2E tests
+        id: skip_e2e
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
+            e2eStatus.onLabeledForSkip({
+              github,
+              context,
+              core,
+              labeled: true,
+              commitSha: context.payload.pull_request.head.sha
+            })
+
+  run_e2e:
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'e2e/run' }}
+    name: Run E2E tests
+    runs-on: ubuntu-latest
+    needs:
+      - dev_setup_build
+      - set_e2e_requirement_status
+      - set_vars
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select user
+        id: select_user
+        uses: actions/github-script@v6
+        env:
+          KUBECONFIGS: ${{ secrets.K8S_CLUSTER_SECRET }}
+          USER_CLUSTER_LABELS: ${{ vars.USER_CLUSTER_LABELS }}
+        with:
+          script: |
+            const ci = require('./.github/scripts/js/ci');
+            let userClusterLabels;
+            try {
+              if (!process.env.USER_CLUSTER_LABELS || process.env.USER_CLUSTER_LABELS.trim() === '') {
+                throw new Error('USER_CLUSTER_LABELS is empty or not provided.');
+              }
+              userClusterLabels = JSON.parse(process.env.USER_CLUSTER_LABELS);
+            } catch (error) {
+              core.setFailed(`Failed to parse USER_CLUSTER_LABELS: ${error.message}`);
+              return;
+            }
+            const userId = await ci.getClusterUser({context, core, userClusterLabels});
+            const fs = require('fs');
+            const path = require('path');
+            const kubeconfigs = JSON.parse(process.env.KUBECONFIGS);
+            const kubeconfig = kubeconfigs.find(config => config.id === userId)?.kubeconfig;
+            if (!kubeconfig) {
+              core.setFailed(`No kubeconfig found for user with ID ${userId}.`);
+            } else {
+              core.info(`Found kubeconfig for user with ID ${userId}`);
+              const runnerTempDir = process.env['RUNNER_TEMP'];
+              const kubeconfigFile = path.join(runnerTempDir, `kubeconfig_${Date.now()}`);
+              fs.writeFileSync(kubeconfigFile, kubeconfig);
+              fs.chmodSync(kubeconfigFile, '600');
+              core.exportVariable('KUBECONFIG', kubeconfigFile)
+            }
+
+      - name: Install Deckhouse-cli
+        run: |
+          echo "Install d8"
+          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+          bash d8-install.sh
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install ginkgo
+        working-directory: ./tests/e2e/
+        run: |
+          echo "Install ginkgo"
+          GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
+          go install "github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}"
+
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - name: Checkout cluster to revision
+        env:
+          v12n_tag: pr${{ github.event.pull_request.number }}
+        working-directory: ./tests/e2e/
+        run: |
+          task checkout-to-mpo
+
+      - name: Download dependencies
+        working-directory: ./tests/e2e/
+        run: |
+          echo "Download dependencies"
+          go mod download
+
+      - name: Run E2E
+        id: e2e-tests
+        working-directory: ./tests/e2e/
+        run: |
+          task run -v
+
+      - name: Remove label
+        if: ${{ always() }}
+        id: remove-label
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
+          script: |
+            const issueNumber = context.issue.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const labelToRemove = 'e2e/run';
+
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner,
+              repo,
+              issue_number: issueNumber,
+            });
+
+            if (labels.some(label => label.name === labelToRemove)) {
+              await github.rest.issues.removeLabel({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                name: labelToRemove,
+              });
+              console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
+            } else {
+              console.log(`Label '${labelToRemove}' not found on PR #${issueNumber}`);
+            }
+
+      - name: Cleanup E2E resources on cancel
+        if: always() && steps.e2e-tests.outcome == 'cancelled'
+        id: e2e-tests-cleanup
+        working-directory: ./tests/e2e/
+        run: |
+          task cleanup
+
+  update_comment_on_finish:
+    name: Update comment on finish
+    needs:
+      - run_e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3.5.2
+
+      - name: Set commit status after e2e run and remove label
+        if: ${{ always() }}
+        id: set_e2e_requirement_status
+        uses: actions/github-script@v6.4.1
+        env:
+          JOB_STATUS: ${{ job.status }}
+          STATUS_TARGET_COMMIT: ${{ github.event.pull_request.head.sha }}
+        with:
+          github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
+          script: |
+            const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
+
+            await e2eStatus.setStatusAfterE2eRun({github, context, core});

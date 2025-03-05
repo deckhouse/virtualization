@@ -3,38 +3,64 @@ image: {{ $.ImageName }}
 fromImage: distroless
 import:
 - image: {{ $.ImageName }}-bins
-  add: /relocate/usr/bin
-  to: /bin
-  before: setup
-- image: {{ $.ImageName }}-bins
-  add: /relocate/usr/sbin
-  to: /sbin
-  before: setup
-- image: {{ $.ImageName }}-bins
   add: /relocate
   to: /
   before: setup
-  excludePaths:
-  - usr/sbin
-  - usr/bin
+imageSpec:
+  config:
+    entrypoint: ["/usr/bin/cloner-startup"]
+    user: 64535
+---
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+binaries:
+- /usr/bin/cloner-startup
+- /usr/bin/hello
+- /usr/bin/cdi-cloner
+{{- end -}}
+
+{{ $virtCDIClonerDependencies := include "$name" . | fromYaml }}
+
+image: {{ $.ImageName }}-bins
+final: false
+fromImage: base-alt-p11-binaries
+import:
+- image: {{ $.ImageName }}-gobuild
+  add: /cdi-binaries
+  to: /usr/bin
+  includePaths:
+  - cloner-startup
+  before: install
+- image: cdi-artifact-cbuilder
+  add: /bins
+  to: /usr/bin
+  before: install
+  includePaths:
+  - hello
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
   - cdi-cloner
-  - cloner_startup.sh
-  before: setup
-# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-cloner/BUILD.bazel
-docker:
-  ENTRYPOINT: ["/usr/bin/cloner_startup.sh"]
-  USER: 64535
----
-{{- $binaries := "/usr/bin/sh /usr/bin/bash /usr/sbin/blockdev /usr/bin/mount /usr/bin/umount /usr/sbin/fsck /usr/sbin/blkid /usr/sbin/mkfs /usr/sbin/mkfs.ext4 /usr/sbin/mkfs.xfs /usr/sbin/dumpe2fs /usr/sbin/xfs_io /usr/sbin/xfs_growfs /usr/sbin/resize2fs" }}
-
-image: {{ $.ImageName }}-bins
-final: false
-fromImage: base-alt-p11-binaries
+  before: install
+# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.60.3/cmd/cdi-cloner/BUILD.bazel
 shell:
-  beforeInstall:
+  install:
   - |
-    /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
+    /relocate_binaries.sh -i "{{ $virtCDIClonerDependencies.binaries | join " " }}" -o /relocate
+---
+image: {{ $.ImageName }}-gobuild
+final: false
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+git:
+  - add: /images/{{ $.ImageName }}/cloner-startup
+    to: /app
+    stageDependencies:
+      install:
+        - '**/*'
+shell:
+  install:
+    - |
+      mkdir -p /cdi-binaries
+      cd /app
+      go build -ldflags="-s -w" -o /cdi-binaries/cloner-startup ./cmd/cloner-startup

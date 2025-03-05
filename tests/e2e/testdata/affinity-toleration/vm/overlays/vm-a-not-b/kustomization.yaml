@@ -6,7 +6,6 @@ resources:
 patches:
   - path: vm.affinity.patch.yaml
   - path: vm.tolerations.patch.yaml
-  - path: vm.vmclass.patch.yaml
 labels:
   - includeSelectors: true
     pairs:

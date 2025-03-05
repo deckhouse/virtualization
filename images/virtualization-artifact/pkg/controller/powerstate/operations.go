@@ -18,6 +18,7 @@ package powerstate
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -36,6 +37,9 @@ func StartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine) e
 	jp, err := BuildPatch(kvvm,
 		kvv1.VirtualMachineStateChangeRequest{Action: kvv1.StartRequest})
 	if err != nil {
+		if errors.Is(err, ErrChangesAlreadyExist) {
+			return nil
+		}
 		return err
 	}
 	return cl.Status().Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, jp), &client.SubResourcePatchOptions{})
@@ -70,6 +74,9 @@ func RestartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine,
 		kvv1.VirtualMachineStateChangeRequest{Action: kvv1.StopRequest, UID: &kvvmi.UID},
 		kvv1.VirtualMachineStateChangeRequest{Action: kvv1.StartRequest})
 	if err != nil {
+		if errors.Is(err, ErrChangesAlreadyExist) {
+			return nil
+		}
 		return err
 	}
 

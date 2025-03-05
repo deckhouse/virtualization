@@ -1,0 +1,6 @@
+golang.org/x/sys v0.25.0 h1:r+8e+loiHxRqhXVl6ML1nO3l1+oFoWbnlu2Ehimmi34=
+golang.org/x/sys v0.25.0/go.mod h1:/VUhepiaJMQUp4+oa/7Zr1D23ma6VTLIYjOOTFZPUcA=
+libvirt.org/go/libvirt v1.11001.0 h1:QJgpslxY7qkpXZIDxdMHpkDl7FfhgQJwqRTGBbg/S8E=
+libvirt.org/go/libvirt v1.11001.0/go.mod h1:1WiFE8EjZfq+FCVog+rvr1yatKbKZ9FaFMZgEqxEJqQ=
+libvirt.org/go/libvirtxml v1.11000.1 h1:xbqKCYJRr3QPamY0PKE/exAGgTCosH5s4vB6NPXGcFY=
+libvirt.org/go/libvirtxml v1.11000.1/go.mod h1:7Oq2BLDstLr/XtoQD8Fr3mfDNrzlI3utYKySXF2xkng=

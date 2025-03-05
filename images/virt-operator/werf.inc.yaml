@@ -6,7 +6,6 @@ import:
   add: /kubevirt-binaries/
   to: /usr/bin
   includePaths:
-  - 'virtctl'
   - csv-generator
   - virt-operator
   before: setup
@@ -17,6 +16,7 @@ import:
   - .version
   before: setup
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/cmd/virt-operator/BUILD.bazel
-docker:
-  USER: 64535
-  ENTRYPOINT: ["/usr/bin/virt-operator"]
+imageSpec:
+  config:
+    user: 64535
+    entrypoint: ["/usr/bin/virt-operator"]

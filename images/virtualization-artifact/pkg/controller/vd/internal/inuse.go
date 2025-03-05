@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,13 +37,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-type reasonString struct {
-	value string
-}
-
-func (rs reasonString) String() string {
-	return rs.value
-}
+var imagePhasesUsingDisk = []virtv2.ImagePhase{virtv2.ImageProvisioning, virtv2.ImagePending}
 
 type InUseHandler struct {
 	client client.Client
@@ -65,131 +60,54 @@ func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 		inUseCondition = cb.Condition()
 	}
 
+	err := h.updateAttachedVirtualMachines(ctx, vd)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	usedByVM, usedByImage := false, false
 
-	var vms virtv2.VirtualMachineList
-	err := h.client.List(ctx, &vms, &client.ListOptions{
-		Namespace: vd.GetNamespace(),
-	})
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error getting virtual machines: %w", err)
-	}
+	if inUseCondition.Reason != vdcondition.UsedForImageCreation.String() {
+		usedByVM = h.checkUsageByVM(vd)
 
-	for _, vm := range vms.Items {
-		if h.isVDAttachedToVM(vd.GetName(), vm) {
-			if vm.Status.Phase != virtv2.MachineStopped {
-				usedByVM = isVMCanStart(vm.Status.Conditions)
-
-				if usedByVM {
-					break
-				}
-			} else {
-				kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, h.client, &virtv1.VirtualMachine{})
-				if err != nil {
-					return reconcile.Result{}, fmt.Errorf("error getting kvvms: %w", err)
-				}
-
-				if kvvm != nil && kvvm.Status.StateChangeRequests != nil {
-					usedByVM = true
-					break
-				}
-
-				podList := corev1.PodList{}
-				err = h.client.List(ctx, &podList, &client.ListOptions{
-					Namespace:     vm.GetNamespace(),
-					LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
-				})
-				if err != nil {
-					return reconcile.Result{}, fmt.Errorf("unable to list virt-launcher Pod for VM %q: %w", vm.GetName(), err)
-				}
-
-				for _, pod := range podList.Items {
-					if pod.Status.Phase == corev1.PodRunning {
-						usedByVM = true
-						break
-					}
-				}
+		if !usedByVM {
+			usedByImage, err = h.checkImageUsage(ctx, vd)
+			if err != nil {
+				return reconcile.Result{}, err
 			}
 		}
-	}
-
-	var vis virtv2.VirtualImageList
-	err = h.client.List(ctx, &vis, &client.ListOptions{
-		Namespace: vd.GetNamespace(),
-	})
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error getting virtual images: %w", err)
-	}
-
-	allowedPhases := []virtv2.ImagePhase{virtv2.ImageProvisioning, virtv2.ImagePending}
-
-	for _, vi := range vis.Items {
-		if slices.Contains(allowedPhases, vi.Status.Phase) &&
-			vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
-			vi.Spec.DataSource.ObjectRef != nil &&
-			vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind &&
-			vi.Spec.DataSource.ObjectRef.Name == vd.Name {
-			usedByImage = true
-			break
+	} else {
+		usedByImage, err = h.checkImageUsage(ctx, vd)
+		if err != nil {
+			return reconcile.Result{}, err
 		}
-	}
 
-	var cvis virtv2.ClusterVirtualImageList
-	err = h.client.List(ctx, &cvis, &client.ListOptions{})
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("error getting cluster virtual images: %w", err)
-	}
-	for _, cvi := range cvis.Items {
-		if slices.Contains(allowedPhases, cvi.Status.Phase) &&
-			cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
-			cvi.Spec.DataSource.ObjectRef != nil &&
-			cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind &&
-			cvi.Spec.DataSource.ObjectRef.Name == vd.Name {
-			usedByImage = true
+		if !usedByImage {
+			usedByVM = h.checkUsageByVM(vd)
 		}
 	}
 
 	cb := conditions.NewConditionBuilder(vdcondition.InUseType)
 	switch {
-	case usedByVM && inUseCondition.Status != metav1.ConditionTrue:
-		cb.
-			Generation(vd.Generation).
+	case usedByVM:
+		cb.Generation(vd.Generation).
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.AttachedToVirtualMachine).
-			Message("")
-		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return reconcile.Result{}, nil
-	case usedByImage && inUseCondition.Status != metav1.ConditionTrue:
-		cb.
-			Generation(vd.Generation).
+			Message("").
+			LastTransitionTime(time.Now())
+	case usedByImage:
+		cb.Generation(vd.Generation).
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.UsedForImageCreation).
-			Message("")
-		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return reconcile.Result{}, nil
+			Message("").
+			LastTransitionTime(time.Now())
 	default:
-		setNotInUse := false
-
-		if inUseCondition.Reason == vdcondition.AttachedToVirtualMachine.String() && !usedByVM {
-			setNotInUse = true
-		}
-
-		if inUseCondition.Reason == vdcondition.UsedForImageCreation.String() && !usedByImage {
-			setNotInUse = true
-		}
-
-		if setNotInUse {
-			cb.Generation(vd.Generation).Status(metav1.ConditionFalse).Reason(vdcondition.NotInUse).Message("")
-			conditions.SetCondition(cb, &vd.Status.Conditions)
-			// TODO redesign the handler's operation to change the logic for updating the Reason on the fly without intermediate switching to False and remove the requeue.
-			return reconcile.Result{Requeue: true}, nil
-		}
+		cb.Generation(vd.Generation).
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.NotInUse).
+			Message("")
 	}
 
-	cb.Generation(vd.Generation).
-		Status(inUseCondition.Status).
-		Message(inUseCondition.Message).
-		Reason(reasonString{inUseCondition.Reason})
 	conditions.SetCondition(cb, &vd.Status.Conditions)
 	return reconcile.Result{}, nil
 }
@@ -204,10 +122,11 @@ func (h InUseHandler) isVDAttachedToVM(vdName string, vm virtv2.VirtualMachine) 
 	return false
 }
 
-func isVMCanStart(conditions []metav1.Condition) bool {
+func canStartVM(conditions []metav1.Condition) bool {
 	critConditions := []string{
 		vmcondition.TypeIPAddressReady.String(),
 		vmcondition.TypeClassReady.String(),
+		vmcondition.TypeProvisioningReady.String(),
 	}
 
 	for _, c := range conditions {
@@ -217,4 +136,194 @@ func isVMCanStart(conditions []metav1.Condition) bool {
 	}
 
 	return true
+}
+
+func (h InUseHandler) checkImageUsage(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+	// If disk is not ready, it cannot be used for create image
+	if vd.Status.Phase != virtv2.DiskReady {
+		return false, nil
+	}
+
+	usedByImage, err := h.checkUsageByVI(ctx, vd)
+	if err != nil {
+		return false, err
+	}
+	if !usedByImage {
+		usedByImage, err = h.checkUsageByCVI(ctx, vd)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return usedByImage, nil
+}
+
+func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *virtv2.VirtualDisk) error {
+	var vms virtv2.VirtualMachineList
+	err := h.client.List(ctx, &vms, &client.ListOptions{
+		Namespace: vd.GetNamespace(),
+	})
+	if err != nil {
+		return fmt.Errorf("error getting virtual machines: %w", err)
+	}
+
+	usageMap, err := h.getVirtualMachineUsageMap(ctx, vd, vms)
+	if err != nil {
+		return err
+	}
+
+	h.updateAttachedVirtualMachinesStatus(vd, usageMap)
+	return nil
+}
+
+func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *virtv2.VirtualDisk, vms virtv2.VirtualMachineList) (map[string]bool, error) {
+	usageMap := make(map[string]bool)
+
+	for _, vm := range vms.Items {
+		if !h.isVDAttachedToVM(vd.GetName(), vm) {
+			continue
+		}
+
+		switch vm.Status.Phase {
+		case "":
+			usageMap[vm.GetName()] = false
+		case virtv2.MachinePending:
+			usageMap[vm.GetName()] = canStartVM(vm.Status.Conditions)
+		case virtv2.MachineStopped:
+			vmIsActive, err := h.isVMActive(ctx, vm)
+			if err != nil {
+				return nil, err
+			}
+
+			usageMap[vm.GetName()] = vmIsActive
+		default:
+			usageMap[vm.GetName()] = true
+		}
+	}
+
+	return usageMap, nil
+}
+
+func (h InUseHandler) isVMActive(ctx context.Context, vm virtv2.VirtualMachine) (bool, error) {
+	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, h.client, &virtv1.VirtualMachine{})
+	if err != nil {
+		return false, fmt.Errorf("error getting kvvms: %w", err)
+	}
+	if kvvm != nil && kvvm.Status.StateChangeRequests != nil {
+		return true, nil
+	}
+
+	podList := corev1.PodList{}
+	err = h.client.List(ctx, &podList, &client.ListOptions{
+		Namespace:     vm.GetNamespace(),
+		LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
+	})
+	if err != nil {
+		return false, fmt.Errorf("unable to list virt-launcher Pod for VM %q: %w", vm.GetName(), err)
+	}
+
+	for _, pod := range podList.Items {
+		if pod.Status.Phase == corev1.PodRunning {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *virtv2.VirtualDisk, usageMap map[string]bool) {
+	var currentlyMountedVM string
+	for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
+		if attachedVM.Mounted {
+			currentlyMountedVM = attachedVM.Name
+			break
+		}
+	}
+
+	attachedVMs := make([]virtv2.AttachedVirtualMachine, 0, len(usageMap))
+	setAnyToTrue := false
+
+	if used, exists := usageMap[currentlyMountedVM]; exists && used {
+		for key := range usageMap {
+			if key == currentlyMountedVM {
+				attachedVMs = append(attachedVMs, virtv2.AttachedVirtualMachine{
+					Name:    key,
+					Mounted: true,
+				})
+			} else {
+				attachedVMs = append(attachedVMs, virtv2.AttachedVirtualMachine{
+					Name:    key,
+					Mounted: false,
+				})
+			}
+		}
+	} else {
+		for key, value := range usageMap {
+			if !setAnyToTrue && value {
+				attachedVMs = append(attachedVMs, virtv2.AttachedVirtualMachine{
+					Name:    key,
+					Mounted: true,
+				})
+				setAnyToTrue = true
+			} else {
+				attachedVMs = append(attachedVMs, virtv2.AttachedVirtualMachine{
+					Name:    key,
+					Mounted: false,
+				})
+			}
+		}
+	}
+
+	vd.Status.AttachedToVirtualMachines = attachedVMs
+}
+
+func (h InUseHandler) checkUsageByVM(vd *virtv2.VirtualDisk) bool {
+	for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
+		if attachedVM.Mounted {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (h InUseHandler) checkUsageByVI(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+	var vis virtv2.VirtualImageList
+	err := h.client.List(ctx, &vis, &client.ListOptions{
+		Namespace: vd.GetNamespace(),
+	})
+	if err != nil {
+		return false, fmt.Errorf("error getting virtual images: %w", err)
+	}
+
+	for _, vi := range vis.Items {
+		if slices.Contains(imagePhasesUsingDisk, vi.Status.Phase) &&
+			vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
+			vi.Spec.DataSource.ObjectRef != nil &&
+			vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind &&
+			vi.Spec.DataSource.ObjectRef.Name == vd.Name {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (h InUseHandler) checkUsageByCVI(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+	var cvis virtv2.ClusterVirtualImageList
+	err := h.client.List(ctx, &cvis, &client.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("error getting cluster virtual images: %w", err)
+	}
+	for _, cvi := range cvis.Items {
+		if slices.Contains(imagePhasesUsingDisk, cvi.Status.Phase) &&
+			cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
+			cvi.Spec.DataSource.ObjectRef != nil &&
+			cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualDiskKind &&
+			cvi.Spec.DataSource.ObjectRef.Name == vd.Name {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

@@ -41,6 +41,12 @@ const (
 // - guest-reset — reboot was issued inside the VM
 // - guest-shutdown — poweroff was issued inside the VM
 // - empty string means VM is still Running or was exited without event.
+// Shutdown termination message
+// {"event":"SHUTDOWN","details":"{\"guest\":true,\"reason\":\"guest-shutdown\"}"}
+// {"event":"SHUTDOWN","details":"{\"guest\":false,\"reason\":\"host-signal\"}"}
+// Reset termination message
+// {"event":"SHUTDOWN","details":"{\"guest\":true,\"reason\":\"guest-reset\"}"}
+// {"event":"SHUTDOWN","details":"{\"guest\":false,\"reason\":\"host-signal\"}"}
 func ShutdownReason(kvvmi *kvv1.VirtualMachineInstance, kvPods *corev1.PodList) ShutdownInfo {
 	if kvvmi == nil || kvvmi.Status.Phase != kvv1.Succeeded {
 		return ShutdownInfo{}

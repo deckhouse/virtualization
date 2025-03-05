@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 )
 
 func FetchObject[T client.Object](ctx context.Context, key types.NamespacedName, client client.Client, obj T, opts ...client.GetOption) (T, error) {
@@ -151,4 +152,33 @@ func AnyTerminating(objs ...client.Object) bool {
 
 func NamespacedName(obj client.Object) types.NamespacedName {
 	return types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}
+}
+
+func EnsureAnnotation(ctx context.Context, cl client.Client, obj client.Object, annoKey, annoValue string) error {
+	op := patch.PatchAddOp
+	if value, exists := obj.GetAnnotations()[annoKey]; exists {
+		if value == annoValue {
+			return nil
+		}
+		op = patch.PatchReplaceOp
+	}
+	jsonOp := patch.NewJsonPatchOperation(op, fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(annoKey)), annoValue)
+	bytes, err := patch.NewJsonPatch(jsonOp).Bytes()
+	if err != nil {
+		return err
+	}
+
+	return cl.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
+}
+
+func RemoveAnnotation(ctx context.Context, cl client.Client, obj client.Object, annoKey string) error {
+	if _, exist := obj.GetAnnotations()[annoKey]; !exist {
+		return nil
+	}
+	jsonOp := patch.WithRemove(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(annoKey)))
+	bytes, err := patch.NewJsonPatch(jsonOp).Bytes()
+	if err != nil {
+		return err
+	}
+	return cl.Patch(ctx, obj, client.RawPatch(types.JSONPatchType, bytes))
 }

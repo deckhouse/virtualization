@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -94,21 +95,26 @@ type PodSettings struct {
 	Finalizer            string
 }
 
-// CreatePod creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
+// GetOrCreatePod creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
 // name, etc. A nil secret means the endpoint credentials are not passed to the
 // importer pod.
-func (imp *Importer) CreatePod(ctx context.Context, client client.Client) (*corev1.Pod, error) {
+func (imp *Importer) GetOrCreatePod(ctx context.Context, c client.Client) (*corev1.Pod, error) {
 	pod, err := imp.makeImporterPodSpec()
 	if err != nil {
 		return nil, err
 	}
 
-	err = client.Create(ctx, pod)
-	if err != nil {
-		return nil, err
+	err = c.Create(ctx, pod)
+	if err == nil {
+		return pod, nil
 	}
 
-	return pod, nil
+	if k8serrors.IsAlreadyExists(err) {
+		err = c.Get(ctx, client.ObjectKeyFromObject(pod), pod)
+		return pod, err
+	}
+
+	return nil, err
 }
 
 // makeImporterPodSpec creates and return the importer pod spec based on the passed-in endpoint, secret and pvc.
@@ -168,8 +174,8 @@ func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 		Name:            common.ImporterContainerName,
 		Image:           imp.PodSettings.Image,
 		ImagePullPolicy: corev1.PullPolicy(imp.PodSettings.PullPolicy),
-		Command:         []string{"sh"},
-		Args:            []string{"/importer_entrypoint.sh", "-v=" + imp.EnvSettings.Verbose},
+		Command:         []string{"/usr/local/bin/dvcr-importer"},
+		Args:            []string{"-v=" + imp.EnvSettings.Verbose},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "metrics",

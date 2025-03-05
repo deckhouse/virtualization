@@ -876,7 +876,7 @@ index d0d1ea0378..68213c6456 100644
 +	return "", errors.New("error getting the checksum")
 +}
 diff --git a/pkg/virt-handler/vm.go b/pkg/virt-handler/vm.go
-index 1ff0209578..2d36473623 100644
+index ce689368a8..0e8825cfd2 100644
 --- a/pkg/virt-handler/vm.go
 +++ b/pkg/virt-handler/vm.go
 @@ -37,6 +37,7 @@ import (
@@ -1187,6 +1187,19 @@ index cddee4f199..6744cb2913 100644
 +func (l *LibvirtDomainManager) GetAppliedVMIChecksum() string {
 +	return l.checksum.Get()
 +}
+diff --git a/pkg/virt-operator/resource/generate/rbac/handler.go b/pkg/virt-operator/resource/generate/rbac/handler.go
+index 2640f61826..5d9a7b6279 100644
+--- a/pkg/virt-operator/resource/generate/rbac/handler.go
++++ b/pkg/virt-operator/resource/generate/rbac/handler.go
+@@ -78,7 +78,7 @@ func newHandlerClusterRole() *rbacv1.ClusterRole {
+ 					"virtualmachineinstances",
+ 				},
+ 				Verbs: []string{
+-					"update", "list", "watch",
++					"update", "list", "watch", "patch",
+ 				},
+ 			},
+ 			{
 diff --git a/pkg/vsock/system/v1/system.pb.go b/pkg/vsock/system/v1/system.pb.go
 index 6f743628c7..2c47c64162 100644
 --- a/pkg/vsock/system/v1/system.pb.go

@@ -19,11 +19,11 @@ package config
 import (
 	"fmt"
 
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 )
 
 var kustomize *Kustomize

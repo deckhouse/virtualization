@@ -3,30 +3,53 @@ image: {{ $.ImageName }}
 fromImage: distroless
 import:
 - image: {{ $.ImageName }}-bins
-  add: /tmp
-  to: /tmp
-  before: setup
-- image: {{ $.ImageName }}-bins
   add: /relocate
   to: /
   before: setup
+imageSpec:
+  config:
+    entrypoint: ["/usr/bin/cdi-controller", "-alsologtostderr"]
+    user: 64535
+---
+{{- define "cdi-controller-deps" -}}
+binaries:
+  - /usr/bin/cdi-controller
+  - /usr/sbin/blockdev
+packages:
+  - tar
+{{- end -}}
+
+{{ $cdiClonerDependencies := include "cdi-controller-deps" . | fromYaml }}
+
+image: {{ $.ImageName }}-bins
+final: false
+fromImage: base-alt-p11-binaries
+import:
+- image: cdi-artifact-cbuilder
+  add: /bins
+  to: /relocate/usr/bin
+  after: setup
+  includePaths:
+  - printFile
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
   - cdi-controller
   before: setup
-# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-controller/BUILD.bazel
-docker:
-  ENTRYPOINT: ["/usr/bin/cdi-controller", "-alsologtostderr"]
-  USER: 64535
----
-{{- $binaries := "/usr/bin/cat /usr/bin/bash /usr/bin/echo" }}
-
-image: {{ $.ImageName }}-bins
-final: false
-fromImage: base-alt-p11-binaries
+# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.60.3/cmd/cdi-controller/BUILD.bazel
 shell:
-  beforeInstall:
+  install:
   - |
-    /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
+    apt-get update && apt-get install --yes \
+      {{ $cdiClonerDependencies.packages | join " " }}
+  - |
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  setup:
+  - /relocate_binaries.sh -i "{{ $cdiClonerDependencies.binaries | join " " }}" -o /relocate
+# tmp folder need for ready file
+# https://github.com/kubevirt/containerized-data-importer/blob/v1.60.3/pkg/operator/resources/namespaced/controller.go#L243
+  - |
+    mkdir -p /relocate/{tmp,var/run/certs/cdi-uploadserver-signer,var/run/certs/cdi-uploadserver-client-signer}
+    chown -R 64535:64535 /relocate/

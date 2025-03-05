@@ -65,6 +65,29 @@ const reactToComment = async ({github, context, comment_id, content}) => {
 	});
 };
 module.exports.reactToComment = reactToComment;
+
+const checkUserClusterLabel = async ({prLabels, userClusterLabels}) => {
+    const userLabelsInPR = prLabels
+        .map(label => label.name)
+        .filter(labelName => userClusterLabels[labelName]);
+    return userLabelsInPR;
+};
+module.exports.checkUserClusterLabel = checkUserClusterLabel;
+
+const getClusterUser = async ({context, core, userClusterLabels}) => {
+  const prLabels = context.payload.pull_request.labels;
+  let userLabelsInPR = await checkUserClusterLabel({prLabels, userClusterLabels});
+  if (userLabelsInPR.length === 0) {
+    core.info('No user labels found in PR, using PR author\'s cluster');
+    const prAuthorId = context.payload.pull_request.user.id;
+    core.info(`PR author: ${prAuthorId}`);
+    return prAuthorId.toString();
+  } else if (userLabelsInPR.length > 1) {
+    return core.setFailed(`Error: PR has multiple user labels: ${userLabelsInPR.join(', ')}`);
+  }
+  return userClusterLabels[userLabelsInPR].id
+};
+module.exports.getClusterUser = getClusterUser;
   
 /**
  * Start workflow using workflow_dispatch event.
