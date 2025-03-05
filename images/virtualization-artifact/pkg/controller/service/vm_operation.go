@@ -22,6 +22,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -187,9 +188,9 @@ func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineO
 	return vmopcondition.ReasonCompleted(conditions.ReasonUnknown)
 }
 
-func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (bool, error) {
+func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (complete bool, failed bool, err error) {
 	if vmop == nil || vm == nil {
-		return false, nil
+		return false, false, nil
 	}
 
 	vmopType := vmop.Spec.Type
@@ -197,35 +198,48 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 
 	switch vmopType {
 	case virtv2.VMOPTypeStart:
-		return vmPhase == virtv2.MachineRunning, nil
+		return vmPhase == virtv2.MachineRunning, false, nil
 	case virtv2.VMOPTypeStop:
-		return vmPhase == virtv2.MachineStopped, nil
+		return vmPhase == virtv2.MachineStopped, false, nil
 	case virtv2.VMOPTypeRestart:
 		kvvmi, err := s.getKVVMI(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 
 		return kvvmi != nil && vmPhase == virtv2.MachineRunning &&
-			s.isAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, vmop), nil
+			s.isAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, vmop), false, nil
 	case virtv2.VMOPTypeEvict, virtv2.VMOPTypeMigrate:
 		kvvmi, err := s.getKVVMI(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
 		if err != nil {
-			return false, err
+			return false, false, err
 		}
 		if kvvmi == nil {
-			return false, nil
+			return false, true, nil
 		}
 		if s.isAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, vmop) {
-			return true, nil
+			return true, false, nil
 		}
 		migrationState := kvvmi.Status.MigrationState
-		return migrationState != nil &&
-			migrationState.EndTimestamp != nil &&
-			s.isAfterSignalSentOrCreation(migrationState.EndTimestamp.Time, vmop), nil
+
+		migrationComplete := migrationState != nil && migrationState.EndTimestamp != nil && s.isAfterSignalSentOrCreation(migrationState.EndTimestamp.Time, vmop)
+
+		if migrationComplete {
+			return true, false, nil
+		}
+
+		migrationInProgress, err := s.migrationInProgress(ctx, vmop)
+		if err != nil {
+			return false, false, err
+		}
+		if migrationInProgress {
+			return true, false, nil
+		}
+
+		return false, true, nil
 
 	default:
-		return false, nil
+		return false, false, nil
 	}
 }
 
@@ -247,4 +261,24 @@ func (s VMOperationService) IsFinalState(vmop *virtv2.VirtualMachineOperation) b
 	return vmop.Status.Phase == virtv2.VMOPPhaseCompleted ||
 		vmop.Status.Phase == virtv2.VMOPPhaseFailed ||
 		vmop.Status.Phase == virtv2.VMOPPhaseTerminating
+}
+
+func (s VMOperationService) migrationInProgress(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
+	migrations := &virtv1.VirtualMachineInstanceMigrationList{}
+	if err := s.client.List(ctx, migrations,
+		client.InNamespace(vmop.GetNamespace()),
+		client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(map[string]string{
+			virtv1.MigrationSelectorLabel: vmop.Spec.VirtualMachine,
+		})},
+	); err != nil {
+		return false, fmt.Errorf("error listing virtual machine migrations: %w", err)
+	}
+
+	for _, mig := range migrations.Items {
+		if !mig.IsFinal() {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

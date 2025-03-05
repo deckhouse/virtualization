@@ -89,6 +89,10 @@ spec:
 {{- include "helm_lib_module_image" (list . "kubeApiRewriter") | toJson -}}
 {{- end -}}
 
+{{- define "kube_api_rewriter.kubeconfig_for_kubevirt_client_env" -}}
+- name: KUBECONFIG_FOR_KUBEVIRT_CLIENT
+  value: /kubeconfig.local/kube-api-rewriter.kubeconfig
+{{- end }}
 
 {{- define "kube_api_rewriter.kubeconfig_env" -}}
 - name: KUBECONFIG

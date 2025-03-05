@@ -48,7 +48,6 @@ var (
 	AddToScheme = SchemeBuilder.AddToScheme
 )
 
-// TODO: move types virtv2 to pkg/apiserver/api/install
 func addKnownTypes(scheme *runtime.Scheme) error {
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&VirtualMachineConsole{},
@@ -59,6 +58,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineFreeze{},
 		&VirtualMachineUnfreeze{},
 		&VirtualMachineMigrate{},
+		&VirtualMachineMigrateCancel{},
 		&virtv2.VirtualMachine{},
 		&virtv2.VirtualMachineList{},
 	)

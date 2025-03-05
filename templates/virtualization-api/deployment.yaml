@@ -64,6 +64,7 @@ spec:
     spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-api")) | nindent 6 }}
       containers:
+        {{- include "kube_api_rewriter.sidecar_container" . | nindent 8 }}
         - name: virtualization-api
           args:
             - --kubevirt-cabundle=/etc/virt-api/certificates/ca.crt
@@ -81,6 +82,8 @@ spec:
             - --service-account-name=virtualization-api
             - --service-account-namespace=d8-{{ .Chart.Name }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationApi") }}
+          env:
+            {{- include "kube_api_rewriter.kubeconfig_for_kubevirt_client_env" . | nindent 12 }}
           imagePullPolicy: Always
           volumeMounts:
             - mountPath: /etc/virtualziation-api/certificates
@@ -92,6 +95,7 @@ spec:
             - mountPath: /etc/virt-api/certificates
               name:  kubevirt-virt-api-certs
               readOnly: true
+            {{- include "kube_api_rewriter.kubeconfig_volume_mount" . | nindent 12 }}
           ports:
             - containerPort: 8443
               name: apiserver
@@ -127,3 +131,4 @@ spec:
             defaultMode: 420
             optional: true
             secretName: virtualization-api-proxy-tls
+        {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 8 }}

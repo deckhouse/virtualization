@@ -182,7 +182,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *vi
 		Generation(changed.GetGeneration())
 
 	// Check for complete.
-	isComplete, err := h.vmopSrv.IsComplete(ctx, changed, vm)
+	isComplete, isFailed, err := h.vmopSrv.IsComplete(ctx, changed, vm)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("check if operation is complete: %w", err)
 	}
@@ -195,6 +195,17 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *vi
 				Reason(vmopcondition.ReasonOperationCompleted).
 				Status(metav1.ConditionTrue).
 				Message(""),
+			&changed.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+	if isFailed {
+		changed.Status.Phase = virtv2.VMOPPhaseFailed
+		h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
+		conditions.SetCondition(
+			completedCond.
+				Reason(vmopcondition.ReasonOperationFailed).
+				Status(metav1.ConditionTrue).
+				Message("Operation was sent, but the virtual machine will not be able to reach the desired state."),
 			&changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}

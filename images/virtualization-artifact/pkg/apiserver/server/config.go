@@ -20,11 +20,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/api"
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
@@ -41,6 +47,8 @@ type Config struct {
 	Kubevirt            vmrest.KubevirtApiServerConfig
 	ProxyClientCertFile string
 	ProxyClientKeyFile  string
+
+	KubevirtClientKubeconfig string
 }
 
 func (c Config) Validate() error {
@@ -68,6 +76,9 @@ func (c Config) Validate() error {
 	}
 	if c.Rest == nil {
 		err = errors.Join(err, fmt.Errorf(".Rest is required. %w", ErrConfigInvalid))
+	}
+	if c.KubevirtClientKubeconfig == "" {
+		err = errors.Join(err, fmt.Errorf(".KubevirtClientKubeconfig is required. %w", ErrConfigInvalid))
 	}
 	return err
 }
@@ -98,12 +109,18 @@ func (c Config) Complete() (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	kubevirtClient, err := c.kubevirtClient()
+	if err != nil {
+		return nil, err
+	}
+
 	if err = api.Install(vmInformer.Lister(),
 		genericServer,
 		c.Kubevirt,
 		proxyCertManager,
 		crd,
 		virtclient.VirtualizationV1alpha2(),
+		kubevirtClient,
 	); err != nil {
 		return nil, err
 	}
@@ -113,4 +130,33 @@ func (c Config) Complete() (*Server, error) {
 		genericServer,
 		proxyCertManager,
 	), nil
+}
+
+func (c *Config) kubevirtClient() (client.Client, error) {
+	scheme := apiruntime.NewScheme()
+	for _, f := range []func(*apiruntime.Scheme) error{
+		virtv1.AddToScheme,
+	} {
+		err := f(scheme)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	b, err := os.ReadFile(c.KubevirtClientKubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	clientCfg, err := clientcmd.NewClientConfigFromBytes(b)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := clientCfg.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	cfg.ContentType = apiruntime.ContentTypeJSON
+	cfg.NegotiatedSerializer = clientgoscheme.Codecs.WithoutConversion()
+
+	return client.New(cfg, client.Options{Scheme: scheme})
 }
