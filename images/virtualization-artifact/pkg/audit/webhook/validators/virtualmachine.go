@@ -20,15 +20,18 @@ import (
 	"net/http"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook"
 )
 
-func NewVirtualMachineWebhook() *VirtualMachineWebhook {
-	return &VirtualMachineWebhook{}
+func NewVirtualMachineWebhook(client client.Client) *VirtualMachineWebhook {
+	return &VirtualMachineWebhook{client}
 }
 
-type VirtualMachineWebhook struct{}
+type VirtualMachineWebhook struct {
+	client client.Client
+}
 
 func (m *VirtualMachineWebhook) Path() string {
 	return "/virtualmachine"
