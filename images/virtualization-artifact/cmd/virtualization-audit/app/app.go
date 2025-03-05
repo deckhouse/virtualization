@@ -17,8 +17,14 @@ limitations under the License.
 package app
 
 import (
+	virtv1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/api/resource/v1alpha2"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/server"
@@ -59,10 +65,15 @@ func NewAuditCommand() *cobra.Command {
 		Short: "",
 		Long:  long,
 		RunE: func(c *cobra.Command, args []string) error {
+			client, err := newClient()
+			if err != nil {
+				log.Fatal("failed to create k8s client", log.Err(err))
+			}
+
 			srv, err := server.NewServer(
 				":"+opts.Port,
-				validators.NewVirtualImageWebhook(),
-				validators.NewVirtualMachineWebhook(),
+				validators.NewVirtualImageWebhook(client),
+				validators.NewVirtualMachineWebhook(client),
 			)
 			if err != nil {
 				log.Fatal("failed to create server", log.Err(err))
@@ -73,4 +84,33 @@ func NewAuditCommand() *cobra.Command {
 	}
 	opts.Flags(cmd.Flags())
 	return cmd
+}
+
+func newClient() (client.Client, error) {
+	scheme := runtime.NewScheme()
+
+	err := v1alpha2.AddToScheme(scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	err = corev1.AddToScheme(scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	err = virtv1.AddToScheme(scheme)
+	if err != nil {
+		return nil, err
+	}
+
+	kubeCfg, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return client.New(
+		kubeCfg,
+		client.Options{Scheme: scheme},
+	)
 }
