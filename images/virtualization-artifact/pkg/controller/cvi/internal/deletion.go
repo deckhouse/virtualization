@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -43,16 +44,16 @@ func (h DeletionHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
 	if cvi.DeletionTimestamp != nil {
-		result, err := h.sources.CleanUp(ctx, cvi)
+		requeue, err := h.sources.CleanUp(ctx, cvi)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		if !result.IsZero() {
-			return result, nil
+		if requeue {
+			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 
-		log.Info("Deletion observed: remove cleanup finalizer from clusterVirtualImage")
+		log.Info("Deletion observed: remove cleanup finalizer from ClusterVirtualImage")
 		controllerutil.RemoveFinalizer(cvi, virtv2.FinalizerCVICleanup)
 		return reconcile.Result{}, nil
 	}

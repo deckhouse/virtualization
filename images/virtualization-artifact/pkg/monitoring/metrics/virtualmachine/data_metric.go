@@ -43,10 +43,12 @@ type dataMetric struct {
 	MemoryRuntimeOverhead               float64
 	AwaitingRestartToApplyConfiguration bool
 	ConfigurationApplied                bool
+	AgentReady                          bool
 	RunPolicy                           virtv2.RunPolicy
 	Pods                                []virtv2.VirtualMachinePod
 	Labels                              map[string]string
 	Annotations                         map[string]string
+	firmwareUpToDate                    bool
 }
 
 // DO NOT mutate VirtualMachine!
@@ -61,6 +63,8 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 	var (
 		awaitingRestartToApplyConfiguration bool
 		configurationApplied                bool
+		agentReady                          bool
+		firmwareUpToDate                    bool
 	)
 	if cond, found := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration,
 		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
@@ -69,6 +73,14 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 	if cond, found := conditions.GetCondition(vmcondition.TypeConfigurationApplied,
 		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
 		configurationApplied = true
+	}
+	if cond, found := conditions.GetCondition(vmcondition.TypeAgentReady,
+		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
+		agentReady = true
+	}
+	if cond, found := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate,
+		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
+		firmwareUpToDate = true
 	}
 	pods := make([]virtv2.VirtualMachinePod, len(vm.Status.VirtualMachinePods))
 	for i, pod := range vm.Status.VirtualMachinePods {
@@ -90,6 +102,7 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		MemoryRuntimeOverhead:               float64(res.Memory.RuntimeOverhead.Value()),
 		AwaitingRestartToApplyConfiguration: awaitingRestartToApplyConfiguration,
 		ConfigurationApplied:                configurationApplied,
+		AgentReady:                          agentReady,
 		RunPolicy:                           vm.Spec.RunPolicy,
 		Pods:                                pods,
 		Labels: promutil.WrapPrometheusLabels(vm.GetLabels(), "label", func(key, value string) bool {
@@ -98,6 +111,7 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		Annotations: promutil.WrapPrometheusLabels(vm.GetAnnotations(), "annotation", func(key, _ string) bool {
 			return strings.HasPrefix(key, "kubectl.kubernetes.io")
 		}),
+		firmwareUpToDate: firmwareUpToDate,
 	}
 }
 

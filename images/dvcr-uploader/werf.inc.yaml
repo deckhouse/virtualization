@@ -7,16 +7,10 @@ import:
   to: /
   after: install
   excludePaths:
-  - '*/dvcr-importer'
-  - '*/dvcr-cleaner'
-git:
-- add: /images/dvcr-artifact/build
-  to: /
-  includePaths:
-    - uploader_entrypoint.sh
-  stageDependencies:
-    setup: ['*']
-docker:
-  WORKDIR: "/"
-  CMD: ["/usr/local/bin/dvcr-uploader"]
-  USER: 64535
+  - '**/dvcr-importer'
+  - '**/dvcr-cleaner'
+imageSpec:
+  config:
+    workingDir: "/"
+    cmd: ["/usr/local/bin/dvcr-uploader"]
+    user: 64535

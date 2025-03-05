@@ -22,6 +22,7 @@ import (
 	"path"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -68,20 +69,23 @@ type PodSettings struct {
 	NodePlacement        *provisioner.NodePlacement
 }
 
-// Create creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
+// GetOrCreate creates and returns a pointer to a pod which is created based on the passed-in endpoint, secret
 // name, etc. A nil secret means the endpoint credentials are not passed to the uploader pod.
-func (p *Pod) Create(ctx context.Context, client client.Client) (*corev1.Pod, error) {
+func (p *Pod) GetOrCreate(ctx context.Context, c client.Client) (*corev1.Pod, error) {
 	pod, err := p.makeSpec()
 	if err != nil {
 		return nil, err
 	}
 
-	err = client.Create(ctx, pod)
-	if err != nil {
-		return nil, err
+	err = c.Create(ctx, pod)
+	if err == nil {
+		return pod, nil
 	}
-
-	return pod, nil
+	if k8serrors.IsAlreadyExists(err) {
+		err = c.Get(ctx, client.ObjectKeyFromObject(pod), pod)
+		return pod, err
+	}
+	return nil, err
 }
 
 func (p *Pod) makeSpec() (*corev1.Pod, error) {
@@ -138,8 +142,8 @@ func (p *Pod) makeUploaderContainerSpec() *corev1.Container {
 		Name:            common.UploaderContainerName,
 		Image:           p.PodSettings.Image,
 		ImagePullPolicy: corev1.PullPolicy(p.PodSettings.PullPolicy),
-		Command:         []string{"sh"},
-		Args:            []string{"/uploader_entrypoint.sh", "-v=" + p.Settings.Verbose},
+		Command:         []string{"/usr/local/bin/dvcr-uploader"},
+		Args:            []string{"-v=" + p.Settings.Verbose},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "metrics",

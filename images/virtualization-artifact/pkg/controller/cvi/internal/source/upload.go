@@ -108,7 +108,12 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 			return reconcile.Result{}, err
 		}
 
-		return CleanUp(ctx, cvi, ds)
+		_, err = CleanUp(ctx, cvi, ds)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	case object.AnyTerminating(pod, svc, ing):
 		cvi.Status.Phase = virtv2.ImagePending
 
@@ -243,15 +248,10 @@ func (ds UploadDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
+func (ds UploadDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
-	requeue, err := ds.uploaderService.CleanUp(ctx, supgen)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return reconcile.Result{Requeue: requeue}, nil
+	return ds.uploaderService.CleanUp(ctx, supgen)
 }
 
 func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.ClusterVirtualImage) error {

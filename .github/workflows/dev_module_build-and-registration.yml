@@ -53,7 +53,7 @@ concurrency:
 
 jobs:
   deploy-dev:
-    runs-on: [self-hosted, regular, selectel]
+    runs-on: [self-hosted, large]
     name: Deploy dev
     steps:
       - name: PRINT VARS
@@ -81,8 +81,22 @@ jobs:
       - name: Checkout specified tag
         run: git checkout tags/${{ github.event.inputs.tag }}
 
-      - uses: deckhouse/modules-actions/setup@v1
-      - if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: deckhouse/modules-actions/build@v1
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/deploy@v1
+      - if: ${{ github.event.inputs.enableBuild == 'true' }}
+        uses: deckhouse/modules-actions/build@v2
+        with:
+          module_source: "$MODULES_MODULE_SOURCE"
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: "$MODULES_MODULE_TAG"
+
+      - uses: deckhouse/modules-actions/deploy@v2
+        with:
+          module_source: "$MODULES_MODULE_SOURCE"
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: "$MODULES_MODULE_TAG"
+          release_channel: ${{ github.event.inputs.version }}

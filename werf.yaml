@@ -1,5 +1,13 @@
 project: virtualization
 configVersion: 1
+build:
+  imageSpec:
+    author: "Deckhouse <contact@deckhouse.io>"
+    clearHistory: true
+    config:
+      clearWerfLabels: true
+      removeLabels:
+        - /.*/
 
 {{ $_ := set . "Images" dict }}
 
@@ -162,6 +170,7 @@ git:
     includePaths:
       - charts
       - crds
+      - cv
       - docs
       - hooks
       - openapi
@@ -170,6 +179,7 @@ git:
       - Chart.yaml
       - .helmignore
     excludePaths:
+      - cv/README.md
       - hooks/lib/tests
       - hooks/test*
 ---

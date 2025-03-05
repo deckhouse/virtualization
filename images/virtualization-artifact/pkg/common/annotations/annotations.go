@@ -76,6 +76,10 @@ const (
 	// AnnVmRestartRequested is an annotation on KVVM that represents a request to restart a virtual machine.
 	AnnVmRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
 
+	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
+	AnnVMOPWorkloadUpdate                 = AnnAPIGroupV + "/workload-update"
+	AnnVMOPWorkloadUpdateImage            = AnnAPIGroupV + "/workload-update-image"
+	AnnVMOPWorkloadUpdateNodePlacementSum = AnnAPIGroupV + "/workload-update-node-placement-sum"
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 
@@ -88,6 +92,13 @@ const (
 	AppKubernetesManagedByLabel = "app.kubernetes.io/managed-by"
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
+
+	// AnnVersionsGroup is the internal APIGroup for virtualization-controller.
+	AnnVersionsGroup = "versions." + AnnAPIGroupV
+	// AnnQemuVersion is a pod annotation indicating qemu version.
+	AnnQemuVersion = AnnVersionsGroup + "/qemu-version"
+	// AnnLibvirtVersion is a pod annotation indicating libvirt version.
+	AnnLibvirtVersion = AnnVersionsGroup + "/libvirt-version"
 
 	// AppLabel is the app name label.
 	AppLabel = "app"

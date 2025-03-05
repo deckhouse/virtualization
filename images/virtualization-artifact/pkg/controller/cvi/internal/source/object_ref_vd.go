@@ -90,7 +90,12 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 			return reconcile.Result{}, err
 		}
 
-		return CleanUp(ctx, cvi, ds)
+		_, err = CleanUp(ctx, cvi, ds)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	case object.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
@@ -205,13 +210,8 @@ func (ds ObjectRefVirtualDisk) Sync(ctx context.Context, cvi *virtv2.ClusterVirt
 	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
-	importerRequeue, err := ds.importerService.DeletePod(ctx, cvi, controllerName)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return reconcile.Result{Requeue: importerRequeue}, nil
+func (ds ObjectRefVirtualDisk) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+	return ds.importerService.DeletePod(ctx, cvi, controllerName)
 }
 
 func (ds ObjectRefVirtualDisk) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {
@@ -242,11 +242,16 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.Cluster
 	}
 
 	inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-	if inUseCondition.Status == metav1.ConditionTrue &&
-		inUseCondition.Reason == vdcondition.UsedForImageCreation.String() &&
-		inUseCondition.ObservedGeneration == vd.Generation {
-		return nil
+	if inUseCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(inUseCondition, vd) {
+		return NewVirtualDiskNotReadyForUseError(vd.Name)
 	}
 
-	return NewVirtualDiskNotAllowedForUseError(vd.Name)
+	switch inUseCondition.Reason {
+	case vdcondition.UsedForImageCreation.String():
+		return nil
+	case vdcondition.AttachedToVirtualMachine.String():
+		return NewVirtualDiskAttachedToVirtualMachineError(vd.Name)
+	default:
+		return NewVirtualDiskNotReadyForUseError(vd.Name)
+	}
 }

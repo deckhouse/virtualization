@@ -137,6 +137,24 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 			&changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
+	if isMigration(changed) {
+		// Fail if there is at least one other migration in progress.
+		found, err = h.vmopSrv.OtherMigrationsAreInProgress(ctx, changed)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if found {
+			changed.Status.Phase = virtv2.VMOPPhaseFailed
+			h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, "Other Migrations are in progress")
+			conditions.SetCondition(
+				completedCond.
+					Reason(vmopcondition.ReasonOtherMigrationInProgress).
+					Status(metav1.ConditionFalse).
+					Message("Other Migrations are in progress"),
+				&changed.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
+	}
 
 	// Fail if VirtualMachineOperation is not applicable for run policy.
 	if !h.vmopSrv.IsApplicableForRunPolicy(changed, vm.Spec.RunPolicy) {
@@ -182,12 +200,23 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *vi
 		Generation(changed.GetGeneration())
 
 	// Check for complete.
-	isComplete, err := h.vmopSrv.IsComplete(ctx, changed, vm)
+	isComplete, failureMessage, err := h.vmopSrv.IsComplete(ctx, changed, vm)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("check if operation is complete: %w", err)
 	}
 
 	if isComplete {
+		if failureMessage != "" {
+			changed.Status.Phase = virtv2.VMOPPhaseFailed
+			h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonErrVMOPFailed, "VirtualMachineOperation failed")
+			conditions.SetCondition(
+				completedCond.
+					Reason(vmopcondition.ReasonOperationFailed).
+					Status(metav1.ConditionFalse).
+					Message(failureMessage),
+				&changed.Status.Conditions)
+			return reconcile.Result{}, nil
+		}
 		changed.Status.Phase = virtv2.VMOPPhaseCompleted
 		h.recorder.Event(changed, corev1.EventTypeNormal, virtv2.ReasonVMOPSucceeded, "VirtualMachineOperation succeeded")
 		conditions.SetCondition(

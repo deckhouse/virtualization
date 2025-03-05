@@ -105,7 +105,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 			return reconcile.Result{}, err
 		}
 
-		return CleanUp(ctx, cvi, ds)
+		_, err = CleanUp(ctx, cvi, ds)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	case object.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
@@ -218,15 +223,10 @@ func (ds RegistryDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtua
 	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds RegistryDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
+func (ds RegistryDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
 	supgen := supplements.NewGenerator(annotations.CVIShortName, cvi.Name, ds.controllerNamespace, cvi.UID)
 
-	requeue, err := ds.importerService.CleanUp(ctx, supgen)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return reconcile.Result{Requeue: requeue}, nil
+	return ds.importerService.CleanUp(ctx, supgen)
 }
 
 func (ds RegistryDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {

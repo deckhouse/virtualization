@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -49,7 +50,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		}
 
 		if requeue {
-			return reconcile.Result{Requeue: true}, nil
+			return reconcile.Result{RequeueAfter: time.Second}, nil
 		}
 
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualDisk")

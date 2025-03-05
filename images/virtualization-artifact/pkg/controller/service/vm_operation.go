@@ -23,6 +23,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -31,21 +32,17 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
-	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
 )
 
 type VMOperationService struct {
-	client     client.Client
-	virtClient kubeclient.Client
+	client client.Client
 }
 
-func NewVMOperationService(client client.Client, virtClient kubeclient.Client) VMOperationService {
+func NewVMOperationService(client client.Client) VMOperationService {
 	return VMOperationService{
-		client:     client,
-		virtClient: virtClient,
+		client: client,
 	}
 }
 
@@ -66,7 +63,18 @@ func (s VMOperationService) Do(ctx context.Context, vmop *virtv2.VirtualMachineO
 	case virtv2.VMOPTypeRestart:
 		return s.DoRestart(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine, vmop.Spec.Force)
 	case virtv2.VMOPTypeEvict, virtv2.VMOPTypeMigrate:
-		return s.DoEvict(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
+		return s.DoEvict(ctx, vmop)
+	default:
+		return fmt.Errorf("unexpected operation type %q: %w", vmop.Spec.Type, common.ErrUnknownValue)
+	}
+}
+
+func (s VMOperationService) Cancel(ctx context.Context, vmop *virtv2.VirtualMachineOperation) error {
+	switch vmop.Spec.Type {
+	case virtv2.VMOPTypeStart, virtv2.VMOPTypeStop, virtv2.VMOPTypeRestart:
+		return fmt.Errorf("unsupported operation type %q", vmop.Spec.Type)
+	case virtv2.VMOPTypeEvict, virtv2.VMOPTypeMigrate:
+		return s.deleteMigration(ctx, vmop)
 	default:
 		return fmt.Errorf("unexpected operation type %q: %w", vmop.Spec.Type, common.ErrUnknownValue)
 	}
@@ -96,12 +104,11 @@ func (s VMOperationService) DoRestart(ctx context.Context, vmNamespace, vmName s
 	return kvvmutil.AddRestartAnnotation(ctx, s.client, kvvm)
 }
 
-func (s VMOperationService) DoEvict(ctx context.Context, vmNamespace, vmName string) error {
-	err := s.virtClient.VirtualMachines(vmNamespace).Migrate(ctx, vmName, v1alpha2.VirtualMachineMigrate{})
-	if err != nil {
-		return fmt.Errorf(`failed to migrate virtual machine "%s/%s": %w`, vmNamespace, vmName, err)
+func (s VMOperationService) DoEvict(ctx context.Context, vmop *virtv2.VirtualMachineOperation) error {
+	if vmop == nil {
+		return fmt.Errorf("vmop cannot be nil")
 	}
-	return nil
+	return s.createMigration(ctx, vmop)
 }
 
 func (s VMOperationService) IsAllowedForVM(vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) bool {
@@ -170,6 +177,23 @@ func (s VMOperationService) OtherVMOPIsInProgress(ctx context.Context, vmop *vir
 	return false, nil
 }
 
+func (s VMOperationService) OtherMigrationsAreInProgress(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
+	if !vmopIsMigrate(vmop) {
+		return false, nil
+	}
+	migList := &virtv1.VirtualMachineInstanceMigrationList{}
+	err := s.client.List(ctx, migList, client.InNamespace(vmop.GetNamespace()))
+	if err != nil {
+		return false, err
+	}
+	for _, mig := range migList.Items {
+		if !mig.IsFinal() && mig.Spec.VMIName == vmop.Spec.VirtualMachine {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineOperation) vmopcondition.ReasonCompleted {
 	if vmop == nil || vmop.Spec.Type == "" {
 		return vmopcondition.ReasonCompleted(conditions.ReasonUnknown)
@@ -187,9 +211,9 @@ func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineO
 	return vmopcondition.ReasonCompleted(conditions.ReasonUnknown)
 }
 
-func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (bool, error) {
+func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (bool, string, error) {
 	if vmop == nil || vm == nil {
-		return false, nil
+		return false, "", nil
 	}
 
 	vmopType := vmop.Spec.Type
@@ -197,35 +221,51 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 
 	switch vmopType {
 	case virtv2.VMOPTypeStart:
-		return vmPhase == virtv2.MachineRunning, nil
+		return vmPhase == virtv2.MachineRunning, "", nil
 	case virtv2.VMOPTypeStop:
-		return vmPhase == virtv2.MachineStopped, nil
+		return vmPhase == virtv2.MachineStopped, "", nil
 	case virtv2.VMOPTypeRestart:
 		kvvmi, err := s.getKVVMI(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 
 		return kvvmi != nil && vmPhase == virtv2.MachineRunning &&
-			s.isAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, vmop), nil
+			s.isAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, vmop), "", nil
 	case virtv2.VMOPTypeEvict, virtv2.VMOPTypeMigrate:
+		mig, err := s.GetMigration(ctx, vmop)
+		if err != nil {
+			return false, "", err
+		}
+		if mig != nil {
+			switch mig.Status.Phase {
+			case virtv1.MigrationSucceeded:
+				return true, "", nil
+			case virtv1.MigrationFailed:
+				return true, fmt.Sprintf("Migration failed: %s", mig.Status.MigrationState.FailureReason), nil
+			default:
+				return false, "", nil
+			}
+		}
 		kvvmi, err := s.getKVVMI(ctx, vmop.GetNamespace(), vmop.Spec.VirtualMachine)
 		if err != nil {
-			return false, err
+			return false, "", err
 		}
 		if kvvmi == nil {
-			return false, nil
-		}
-		if s.isAfterSignalSentOrCreation(kvvmi.GetCreationTimestamp().Time, vmop) {
-			return true, nil
+			return false, "Migration failed because the virtual machine is currently not running.", nil
 		}
 		migrationState := kvvmi.Status.MigrationState
-		return migrationState != nil &&
-			migrationState.EndTimestamp != nil &&
-			s.isAfterSignalSentOrCreation(migrationState.EndTimestamp.Time, vmop), nil
+		if migrationState != nil && migrationState.EndTimestamp != nil && s.isAfterSignalSentOrCreation(migrationState.EndTimestamp.Time, vmop) {
+			reason := ""
+			if migrationState.Failed {
+				reason = fmt.Sprintf("Migration failed: %s", migrationState.FailureReason)
+			}
+			return true, reason, nil
+		}
+		return true, "Migration was canceled", nil
 
 	default:
-		return false, nil
+		return false, "", nil
 	}
 }
 
@@ -240,11 +280,61 @@ func (s VMOperationService) isAfterSignalSentOrCreation(timestamp time.Time, vmo
 }
 
 func (s VMOperationService) IsFinalState(vmop *virtv2.VirtualMachineOperation) bool {
-	if vmop == nil {
-		return false
-	}
-
-	return vmop.Status.Phase == virtv2.VMOPPhaseCompleted ||
+	return vmop != nil && (vmop.Status.Phase == virtv2.VMOPPhaseCompleted ||
 		vmop.Status.Phase == virtv2.VMOPPhaseFailed ||
-		vmop.Status.Phase == virtv2.VMOPPhaseTerminating
+		vmop.Status.Phase == virtv2.VMOPPhaseTerminating)
+}
+
+func (s VMOperationService) GetMigration(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (*virtv1.VirtualMachineInstanceMigration, error) {
+	return object.FetchObject(ctx, types.NamespacedName{
+		Name:      migrationName(vmop),
+		Namespace: vmop.GetNamespace(),
+	}, s.client, &virtv1.VirtualMachineInstanceMigration{})
+}
+
+func (s VMOperationService) deleteMigration(ctx context.Context, vmop *virtv2.VirtualMachineOperation) error {
+	mig, err := s.GetMigration(ctx, vmop)
+	if err != nil {
+		return err
+	}
+	if mig == nil {
+		return nil
+	}
+	return s.client.Delete(ctx, mig)
+}
+
+func (s VMOperationService) createMigration(ctx context.Context, vmop *virtv2.VirtualMachineOperation) error {
+	return s.client.Create(ctx, &virtv1.VirtualMachineInstanceMigration{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: virtv1.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachineInstanceMigration",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: vmop.GetNamespace(),
+			Name:      migrationName(vmop),
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion:         virtv2.SchemeGroupVersion.String(),
+					Kind:               virtv2.VirtualMachineOperationKind,
+					Name:               vmop.GetName(),
+					UID:                vmop.GetUID(),
+					BlockOwnerDeletion: ptr.To(true),
+					Controller:         ptr.To(true),
+				},
+			},
+		},
+		Spec: virtv1.VirtualMachineInstanceMigrationSpec{
+			VMIName: vmop.Spec.VirtualMachine,
+		},
+	})
+}
+
+const vmopPrefix = "vmop-"
+
+func migrationName(vmop *virtv2.VirtualMachineOperation) string {
+	return fmt.Sprintf("%s%s", vmopPrefix, vmop.GetName())
+}
+
+func vmopIsMigrate(vmop *virtv2.VirtualMachineOperation) bool {
+	return vmop != nil && (vmop.Spec.Type == virtv2.VMOPTypeMigrate || vmop.Spec.Type == virtv2.VMOPTypeEvict)
 }

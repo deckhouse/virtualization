@@ -145,7 +145,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineAddVolume":           schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineConsole":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineFreeze":              schema_virtualization_api_subresources_v1alpha2_VirtualMachineFreeze(ref),
-		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineMigrate":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineMigrate(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachinePortForward":         schema_virtualization_api_subresources_v1alpha2_VirtualMachinePortForward(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineRemoveVolume":        schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveVolume(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineUnfreeze":            schema_virtualization_api_subresources_v1alpha2_VirtualMachineUnfreeze(ref),
@@ -900,7 +899,7 @@ func schema_virtualization_api_core_v1alpha2_CPUStatus(ref common.ReferenceCallb
 					},
 					"topology": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Topology with Cores count and Sockets count",
+							Description: "Topology with Cores count and Sockets count.",
 							Default:     map[string]interface{}{},
 							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.Topology"),
 						},
@@ -2017,7 +2016,7 @@ func schema_virtualization_api_core_v1alpha2_Topology(ref common.ReferenceCallba
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "Statistics on used CPU topology.",
+				Description: "Topology defines count of used CPU cores and sockets.",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"coresPerSocket": {
@@ -5184,6 +5183,13 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus"),
 						},
 					},
+					"firmwareVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Firmware version.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"phase", "nodeName", "virtualMachineIPAddressName", "ipAddress"},
 			},
@@ -5379,46 +5385,6 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineFreeze(ref co
 		},
 		Dependencies: []string{
 			"k8s.io/apimachinery/pkg/apis/meta/v1.Duration"},
-	}
-}
-
-func schema_virtualization_api_subresources_v1alpha2_VirtualMachineMigrate(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Type: []string{"object"},
-				Properties: map[string]spec.Schema{
-					"kind": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"apiVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"dryRun": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 }
 

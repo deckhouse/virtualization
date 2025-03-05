@@ -1,0 +1,17 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: vm
+spec:
+  bootloader: EFI
+  virtualMachineClassName: generic
+  cpu:
+    cores: 1
+    coreFraction: 5%
+  memory:
+    size: 256Mi
+  disruptions:
+    restartApprovalMode: Manual
+  blockDeviceRefs:
+    - kind: VirtualImage
+      name: vi-alpine-http

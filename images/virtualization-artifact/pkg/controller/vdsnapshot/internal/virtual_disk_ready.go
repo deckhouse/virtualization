@@ -84,7 +84,7 @@ func (h VirtualDiskReadyHandler) Handle(ctx context.Context, vdSnapshot *virtv2.
 	switch vd.Status.Phase {
 	case virtv2.DiskReady:
 		snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
-		if snapshotting.Status != metav1.ConditionTrue {
+		if snapshotting.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(snapshotting, vd) {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.VirtualDiskNotReadyForSnapshotting).

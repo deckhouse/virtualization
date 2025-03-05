@@ -84,7 +84,12 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 			return reconcile.Result{}, err
 		}
 
-		return CleanUp(ctx, cvi, ds)
+		_, err = CleanUp(ctx, cvi, ds)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	case object.IsTerminating(pod):
 		cvi.Status.Phase = virtv2.ImagePending
 
@@ -199,13 +204,8 @@ func (ds ObjectRefVirtualImageOnPvc) Sync(ctx context.Context, cvi *virtv2.Clust
 	return reconcile.Result{Requeue: true}, nil
 }
 
-func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
-	importerRequeue, err := ds.importerService.DeletePod(ctx, cvi, controllerName)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return reconcile.Result{Requeue: importerRequeue}, nil
+func (ds ObjectRefVirtualImageOnPvc) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+	return ds.importerService.DeletePod(ctx, cvi, controllerName)
 }
 
 func (ds ObjectRefVirtualImageOnPvc) getEnvSettings(cvi *virtv2.ClusterVirtualImage, sup *supplements.Generator) *importer.Settings {

@@ -6,4 +6,4 @@ spec:
   dataSource:
     type: "HTTP"
     http:
-      url: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+      url: "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img"

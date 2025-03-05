@@ -76,4 +76,6 @@
 - name: PPROF_BIND_ADDRESS
   value: ":8081"
 {{- end }}
+- name: FIRMWARE_IMAGE
+  value: {{ include "helm_lib_module_image" (list . "virtLauncher") }}
 {{- end }}

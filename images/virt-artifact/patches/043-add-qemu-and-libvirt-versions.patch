@@ -1,0 +1,48 @@
+diff --git a/pkg/virt-controller/watch/vm.go b/pkg/virt-controller/watch/vm.go
+index 0b4ab053d8..876366aeff 100644
+--- a/pkg/virt-controller/watch/vm.go
++++ b/pkg/virt-controller/watch/vm.go
+@@ -27,6 +27,7 @@ import (
+ 	"maps"
+ 	"math"
+ 	"math/rand"
++	"os"
+ 	"strconv"
+ 	"strings"
+ 	"time"
+@@ -124,6 +125,16 @@ const (
+ 
+ const defaultMaxCrashLoopBackoffDelaySeconds = 300
+ 
++const (
++	libvirtAnn = "versions.virtualization.deckhouse.io/libvirt-version"
++	qemuAnn    = "versions.virtualization.deckhouse.io/qemu-version"
++)
++
++var (
++	libvirtVersion = os.Getenv("LIBVIRT_VERSION")
++	qemuVersion    = os.Getenv("QEMU_VERSION")
++)
++
+ func NewVMController(vmiInformer cache.SharedIndexInformer,
+ 	vmInformer cache.SharedIndexInformer,
+ 	dataVolumeInformer cache.SharedIndexInformer,
+@@ -1849,6 +1860,18 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
+ 		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
+ 	}
+ 
++	if vmi.Annotations == nil {
++		vmi.Annotations = make(map[string]string)
++	}
++
++	if libvirtVersion != "" {
++		vmi.Annotations[libvirtAnn] = libvirtVersion
++	}
++
++	if qemuVersion != "" {
++		vmi.Annotations[qemuAnn] = qemuVersion
++	}
++
+ 	return vmi
+ }
+ 

@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -49,17 +48,20 @@ func NewDatasourceReadyHandler(recorder eventrecord.EventRecorderLogger, blank s
 }
 
 func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	if vd.DeletionTimestamp != nil {
+		conditions.RemoveCondition(vdcondition.DatasourceReadyType, &vd.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
+	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	if source.IsDiskProvisioningFinished(readyCondition) {
+		conditions.RemoveCondition(vdcondition.DatasourceReadyType, &vd.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
 	cb := conditions.NewConditionBuilder(vdcondition.DatasourceReadyType).Generation(vd.Generation)
 
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
-
-	if vd.DeletionTimestamp != nil {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
-		return reconcile.Result{}, nil
-	}
 
 	var ds source.Handler
 	if vd.Spec.DataSource == nil {
@@ -84,7 +86,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDContainerRegistrySecretNotFound,
+			virtv2.ReasonVDContainerRegistrySecretNotFound,
 			"Container registry secret not found",
 		)
 

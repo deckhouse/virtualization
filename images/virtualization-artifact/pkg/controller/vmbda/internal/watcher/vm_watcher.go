@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -100,5 +101,27 @@ func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 	oldRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, oldVM.Status.Conditions)
 	newRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, newVM.Status.Conditions)
 
-	return newRunningCondition.Status != oldRunningCondition.Status
+	if newRunningCondition.Status != oldRunningCondition.Status {
+		return true
+	}
+
+	return w.hasBlockDeviceAttachmentChanges(oldVM, newVM)
+}
+
+func (w VirtualMachineWatcher) hasBlockDeviceAttachmentChanges(oldVM, newVM *virtv2.VirtualMachine) bool {
+	var oldVMBDA []virtv2.BlockDeviceStatusRef
+	for _, bdRef := range oldVM.Status.BlockDeviceRefs {
+		if bdRef.VirtualMachineBlockDeviceAttachmentName != "" {
+			oldVMBDA = append(oldVMBDA, bdRef)
+		}
+	}
+
+	var newVMBDA []virtv2.BlockDeviceStatusRef
+	for _, bdRef := range newVM.Status.BlockDeviceRefs {
+		if bdRef.VirtualMachineBlockDeviceAttachmentName != "" {
+			newVMBDA = append(newVMBDA, bdRef)
+		}
+	}
+
+	return !reflect.DeepEqual(oldVMBDA, newVMBDA)
 }

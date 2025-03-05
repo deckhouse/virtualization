@@ -28,7 +28,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
@@ -46,8 +45,6 @@ const (
 
 	// GenericCPUModel specifies the base CPU model for Features and Discovery CPU model types.
 	GenericCPUModel = "kvm64"
-	// MaxCpuSockets defines the maximum number of CPU sockets allowed in the CPU topology
-	MaxCpuSockets = 8
 )
 
 type KVVMOptions struct {
@@ -240,7 +237,7 @@ func (b *KVVM) SetCpu(cores int, coreFraction string) error {
 
 	domainSpec.CPU.Cores = uint32(coresNeeded)
 	domainSpec.CPU.Sockets = uint32(socketsNeeded)
-	domainSpec.CPU.MaxSockets = uint32(MaxCpuSockets)
+	domainSpec.CPU.MaxSockets = uint32(socketsNeeded)
 	return nil
 }
 
@@ -449,7 +446,7 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) error {
 	switch osType {
 	case virtv2.Windows:
 		// Need for `029-use-OFVM_CODE-for-linux.patch`
-		b.SetKVVMIAnnotation(annotations.AnnOsType, string(virtv2.Windows))
+		// b.SetKVVMIAnnotation(annotations.AnnOsType, string(virtv2.Windows))
 
 		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
 			Type: "q35",

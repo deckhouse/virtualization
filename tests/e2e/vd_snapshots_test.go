@@ -30,7 +30,6 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	sdsrepvolv1 "github.com/deckhouse/sds-replicated-volume/api/v1alpha1"
-
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
@@ -237,6 +236,12 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 		hasNoConsumerLabel             = map[string]string{"hasNoConsumer": "vd-snapshots"}
 		vmAutomaticWithHotplug         = map[string]string{"vm": "automatic-with-hotplug"}
 	)
+
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel)
+		}
+	})
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {

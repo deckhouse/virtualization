@@ -10,8 +10,218 @@ import (
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sync"
 )
+
+// Ensure, that HandlerMock does implement Handler.
+// If this is not the case, regenerate this file with moq.
+var _ Handler = &HandlerMock{}
+
+// HandlerMock is a mock implementation of Handler.
+//
+//	func TestSomethingThatUsesHandler(t *testing.T) {
+//
+//		// make and configure a mocked Handler
+//		mockedHandler := &HandlerMock{
+//			CleanUpFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+//				panic("mock out the CleanUp method")
+//			},
+//			NameFunc: func() string {
+//				panic("mock out the Name method")
+//			},
+//			SyncFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+//				panic("mock out the Sync method")
+//			},
+//			ValidateFunc: func(ctx context.Context, vd *virtv2.VirtualDisk) error {
+//				panic("mock out the Validate method")
+//			},
+//		}
+//
+//		// use mockedHandler in code that requires Handler
+//		// and then make assertions.
+//
+//	}
+type HandlerMock struct {
+	// CleanUpFunc mocks the CleanUp method.
+	CleanUpFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+
+	// NameFunc mocks the Name method.
+	NameFunc func() string
+
+	// SyncFunc mocks the Sync method.
+	SyncFunc func(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
+
+	// ValidateFunc mocks the Validate method.
+	ValidateFunc func(ctx context.Context, vd *virtv2.VirtualDisk) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// CleanUp holds details about calls to the CleanUp method.
+		CleanUp []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Vd is the vd argument value.
+			Vd *virtv2.VirtualDisk
+		}
+		// Name holds details about calls to the Name method.
+		Name []struct {
+		}
+		// Sync holds details about calls to the Sync method.
+		Sync []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Vd is the vd argument value.
+			Vd *virtv2.VirtualDisk
+		}
+		// Validate holds details about calls to the Validate method.
+		Validate []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Vd is the vd argument value.
+			Vd *virtv2.VirtualDisk
+		}
+	}
+	lockCleanUp  sync.RWMutex
+	lockName     sync.RWMutex
+	lockSync     sync.RWMutex
+	lockValidate sync.RWMutex
+}
+
+// CleanUp calls CleanUpFunc.
+func (mock *HandlerMock) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+	if mock.CleanUpFunc == nil {
+		panic("HandlerMock.CleanUpFunc: method is nil but Handler.CleanUp was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Vd  *virtv2.VirtualDisk
+	}{
+		Ctx: ctx,
+		Vd:  vd,
+	}
+	mock.lockCleanUp.Lock()
+	mock.calls.CleanUp = append(mock.calls.CleanUp, callInfo)
+	mock.lockCleanUp.Unlock()
+	return mock.CleanUpFunc(ctx, vd)
+}
+
+// CleanUpCalls gets all the calls that were made to CleanUp.
+// Check the length with:
+//
+//	len(mockedHandler.CleanUpCalls())
+func (mock *HandlerMock) CleanUpCalls() []struct {
+	Ctx context.Context
+	Vd  *virtv2.VirtualDisk
+} {
+	var calls []struct {
+		Ctx context.Context
+		Vd  *virtv2.VirtualDisk
+	}
+	mock.lockCleanUp.RLock()
+	calls = mock.calls.CleanUp
+	mock.lockCleanUp.RUnlock()
+	return calls
+}
+
+// Name calls NameFunc.
+func (mock *HandlerMock) Name() string {
+	if mock.NameFunc == nil {
+		panic("HandlerMock.NameFunc: method is nil but Handler.Name was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockName.Lock()
+	mock.calls.Name = append(mock.calls.Name, callInfo)
+	mock.lockName.Unlock()
+	return mock.NameFunc()
+}
+
+// NameCalls gets all the calls that were made to Name.
+// Check the length with:
+//
+//	len(mockedHandler.NameCalls())
+func (mock *HandlerMock) NameCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockName.RLock()
+	calls = mock.calls.Name
+	mock.lockName.RUnlock()
+	return calls
+}
+
+// Sync calls SyncFunc.
+func (mock *HandlerMock) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	if mock.SyncFunc == nil {
+		panic("HandlerMock.SyncFunc: method is nil but Handler.Sync was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Vd  *virtv2.VirtualDisk
+	}{
+		Ctx: ctx,
+		Vd:  vd,
+	}
+	mock.lockSync.Lock()
+	mock.calls.Sync = append(mock.calls.Sync, callInfo)
+	mock.lockSync.Unlock()
+	return mock.SyncFunc(ctx, vd)
+}
+
+// SyncCalls gets all the calls that were made to Sync.
+// Check the length with:
+//
+//	len(mockedHandler.SyncCalls())
+func (mock *HandlerMock) SyncCalls() []struct {
+	Ctx context.Context
+	Vd  *virtv2.VirtualDisk
+} {
+	var calls []struct {
+		Ctx context.Context
+		Vd  *virtv2.VirtualDisk
+	}
+	mock.lockSync.RLock()
+	calls = mock.calls.Sync
+	mock.lockSync.RUnlock()
+	return calls
+}
+
+// Validate calls ValidateFunc.
+func (mock *HandlerMock) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
+	if mock.ValidateFunc == nil {
+		panic("HandlerMock.ValidateFunc: method is nil but Handler.Validate was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Vd  *virtv2.VirtualDisk
+	}{
+		Ctx: ctx,
+		Vd:  vd,
+	}
+	mock.lockValidate.Lock()
+	mock.calls.Validate = append(mock.calls.Validate, callInfo)
+	mock.lockValidate.Unlock()
+	return mock.ValidateFunc(ctx, vd)
+}
+
+// ValidateCalls gets all the calls that were made to Validate.
+// Check the length with:
+//
+//	len(mockedHandler.ValidateCalls())
+func (mock *HandlerMock) ValidateCalls() []struct {
+	Ctx context.Context
+	Vd  *virtv2.VirtualDisk
+} {
+	var calls []struct {
+		Ctx context.Context
+		Vd  *virtv2.VirtualDisk
+	}
+	mock.lockValidate.RLock()
+	calls = mock.calls.Validate
+	mock.lockValidate.RUnlock()
+	return calls
+}
 
 // Ensure, that BlankDataSourceDiskServiceMock does implement BlankDataSourceDiskService.
 // If this is not the case, regenerate this file with moq.

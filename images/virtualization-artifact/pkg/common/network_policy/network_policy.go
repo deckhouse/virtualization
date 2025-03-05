@@ -63,6 +63,6 @@ func GetNetworkPolicy(ctx context.Context, client client.Client, name types.Name
 	return object.FetchObject(ctx, name, client, &netv1.NetworkPolicy{})
 }
 
-func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, obj metav1.Object) (*netv1.NetworkPolicy, error) {
+func GetNetworkPolicyFromObject(ctx context.Context, client client.Client, obj client.Object) (*netv1.NetworkPolicy, error) {
 	return object.FetchObject(ctx, types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, client, &netv1.NetworkPolicy{})
 }

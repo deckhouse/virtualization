@@ -24,26 +24,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VMOperationState interface {
-	VirtualMachineOperation() *service.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
+	VirtualMachineOperation() *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
 	VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, error)
 }
 
-func New(c client.Client, vmop *service.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]) VMOperationState {
+func New(c client.Client, vmop *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]) VMOperationState {
 	return &state{client: c, vmop: vmop}
 }
 
 type state struct {
 	client client.Client
-	vmop   *service.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
+	vmop   *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
 	vm     *virtv2.VirtualMachine
 }
 
-func (s *state) VirtualMachineOperation() *service.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus] {
+func (s *state) VirtualMachineOperation() *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus] {
 	return s.vmop
 }
 
