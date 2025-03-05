@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -65,6 +66,13 @@ type BlockDeviceHandler struct {
 	vdProtection  *service.ProtectionService
 }
 
+var (
+	ErrBlockDeviceLimitExceeded       = errors.New("block device limit exceeded")
+	ErrConflictedVirtualDisksDetected = errors.New("conflicted virtual disks detected")
+	ErrBlockDeviceNotReady            = errors.New("block device not ready")
+	ErrBlockDeviceNotReadyForUse      = errors.New("block device not ready for use")
+)
+
 func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameBlockDeviceHandler))
 
@@ -74,14 +82,14 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
-	if update := addAllUnknown(changed, vmcondition.TypeBlockDevicesReady); update {
-		return reconcile.Result{Requeue: true}, nil
+	_, ok := conditions.GetCondition(vdcondition.InUseType, changed.Status.Conditions)
+	if !ok {
+		cb := conditions.NewConditionBuilder(vdcondition.InUseType).
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Generation(changed.Generation)
+		conditions.SetCondition(cb, &changed.Status.Conditions)
 	}
-
-	//nolint:staticcheck
-	mgr := conditions.NewManager(changed.Status.Conditions)
-	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
-		Generation(current.GetGeneration())
 
 	bdState := NewBlockDeviceState(s)
 	err := bdState.Reload(ctx)
@@ -97,27 +105,138 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, fmt.Errorf("unable to add block devices finalizers: %w", err)
 	}
 
-	// Get number of connected block devices.
-	// If it's greater than the limit, then set the condition to false.
-	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVm(ctx, changed)
-	if err != nil {
+	if err = h.checkBlockDeviceLimit(ctx, changed); err != nil {
+		if errors.Is(err, ErrBlockDeviceLimitExceeded) {
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 
-	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonBlockDeviceLimitExceeded).
-			Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, changed.Name))
-		mgr.Update(cb.Condition())
-		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{}, nil
+	if err = h.updateStatusBlockDeviceRefs(ctx, s, bdState, log); err != nil {
+		if errors.Is(err, ErrConflictedVirtualDisksDetected) {
+			return reconcile.Result{Requeue: true}, nil
+		}
+		return reconcile.Result{}, err
 	}
+
+	if err = h.checkVDToReady(s, bdState, log); err != nil {
+		if errors.Is(err, ErrBlockDeviceNotReady) {
+			return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
+		}
+
+		return reconcile.Result{}, err
+	}
+
+	if err = h.checkVDToReadyForUse(ctx, s); err != nil {
+		if errors.Is(err, ErrBlockDeviceNotReadyForUse) {
+			return reconcile.Result{}, nil
+		}
+
+		return reconcile.Result{}, err
+	}
+
+	h.syncBlockDeviceReadyCondition(changed)
+	return reconcile.Result{}, nil
+}
+
+func (h *BlockDeviceHandler) syncBlockDeviceReadyCondition(vm *virtv2.VirtualMachine) {
+	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
+		Generation(vm.Generation)
+	cb.Status(metav1.ConditionTrue).
+		Reason(vmcondition.ReasonBlockDevicesReady).
+		Message("")
+	conditions.SetCondition(cb, &vm.Status.Conditions)
+}
+
+func (h *BlockDeviceHandler) checkVDToReadyForUse(ctx context.Context, s state.VirtualMachineState) error {
+	vm := s.VirtualMachine().Changed()
+	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
+		Generation(vm.Generation)
+
+	vds, err := s.VirtualDisksByName(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, vd := range vds {
+		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+		if inUseCondition.Status != metav1.ConditionTrue ||
+			inUseCondition.Reason != vdcondition.AttachedToVirtualMachine.String() ||
+			inUseCondition.ObservedGeneration != vd.Generation {
+			var msg string
+			if len(vds) == 1 {
+				if inUseCondition.Reason == vdcondition.UsedForImageCreation.String() {
+					msg = fmt.Sprintf("Virtuak disk %q is in use for image creation.", vd.Name)
+				} else {
+					msg = fmt.Sprintf("Waiting for block device %q to be ready to use.", vd.Name)
+				}
+			} else {
+				msg = "Virtual disks cannot be used because they are being used for creating an image."
+			}
+
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonBlockDevicesNotReady).
+				Message(msg)
+			conditions.SetCondition(cb, &vm.Status.Conditions)
+			return ErrBlockDeviceNotReadyForUse
+		}
+	}
+
+	return nil
+}
+
+func (h *BlockDeviceHandler) checkVDToReady(s state.VirtualMachineState, bdState BlockDevicesState, log *slog.Logger) error {
+	current := s.VirtualMachine().Current()
+	changed := s.VirtualMachine().Changed()
+
+	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
+		Generation(changed.Generation)
+
+	if readyCount, canStartKVVM, warnings := h.countReadyBlockDevices(current, bdState, log); len(current.Spec.BlockDeviceRefs) != readyCount {
+		var reason vmcondition.Reason
+		var msg string
+		if len(current.Spec.BlockDeviceRefs) == 1 {
+			msg = fmt.Sprintf("Waiting for block device %q to be ready", current.Spec.BlockDeviceRefs[0].Name)
+		} else {
+			msg = fmt.Sprintf("Waiting for block devices to be ready: %d/%d", readyCount, len(current.Spec.BlockDeviceRefs))
+		}
+		if len(warnings) > 0 {
+			msg = msg + "; " + strings.Join(warnings, "; ")
+		}
+		msg += "."
+
+		if !canStartKVVM {
+			reason = vmcondition.ReasonBlockDevicesNotReady
+		} else {
+			reason = vmcondition.ReasonWaitingForProvisioningToPVC
+		}
+
+		log.Info(msg, "actualReady", readyCount, "expectedReady", len(current.Spec.BlockDeviceRefs))
+
+		h.recorder.Event(changed, corev1.EventTypeNormal, reason.String(), msg)
+		cb.Status(metav1.ConditionFalse).
+			Reason(reason).
+			Message(msg)
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+		return ErrBlockDeviceNotReady
+	}
+
+	return nil
+}
+
+func (h *BlockDeviceHandler) updateStatusBlockDeviceRefs(
+	ctx context.Context,
+	s state.VirtualMachineState,
+	bdState BlockDevicesState,
+	log *slog.Logger,
+) error {
+	current := s.VirtualMachine().Current()
+	changed := s.VirtualMachine().Changed()
 
 	// Get hot plugged BlockDeviceRefs from vmbdas.
 	vmbdaStatusRefs, err := h.getBlockDeviceStatusRefsFromVMBDA(ctx, s)
 	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("failed to get hotplugged block devices: %w", err)
+		return fmt.Errorf("failed to get hotplugged block devices: %w", err)
 	}
 
 	// Get BlockDeviceRefs from spec.
@@ -129,7 +248,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	kvvmi, err := s.KVVMI(ctx)
 	if err != nil {
-		return reconcile.Result{}, err
+		return err
 	}
 
 	// Sync BlockDeviceRefs in the status with KVVMI volumes.
@@ -148,72 +267,37 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	// Update the BlockDevicesReady condition if there are conflicted virtual disks.
 	if conflictWarning != "" {
 		log.Info(fmt.Sprintf("Conflicted virtual disks: %s", conflictWarning))
-
-		mgr.Update(cb.Status(metav1.ConditionFalse).
+		cd := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDevicesNotReady).
-			Message(conflictWarning).Condition())
-		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{Requeue: true}, nil
+			Message(conflictWarning).
+			Generation(changed.Generation)
+		conditions.SetCondition(cd, &changed.Status.Conditions)
+		return ErrConflictedVirtualDisksDetected
 	}
 
-	// Update the BlockDevicesReady condition.
-	if readyCount, canStartKVVM, warnings := h.countReadyBlockDevices(current, bdState, log); len(current.Spec.BlockDeviceRefs) != readyCount {
-		var reason vmcondition.Reason
-
-		msg := fmt.Sprintf("Waiting for block devices to become ready: %d/%d", readyCount, len(current.Spec.BlockDeviceRefs))
-		if len(warnings) > 0 {
-			msg = msg + "; " + strings.Join(warnings, "; ")
-		}
-		msg += "."
-
-		if !canStartKVVM {
-			reason = vmcondition.ReasonBlockDevicesNotReady
-		} else {
-			reason = vmcondition.ReasonWaitingForProvisioningToPVC
-		}
-
-		log.Info(msg, "actualReady", readyCount, "expectedReady", len(current.Spec.BlockDeviceRefs))
-
-		h.recorder.Event(changed, corev1.EventTypeNormal, reason.String(), msg)
-		mgr.Update(cb.Status(metav1.ConditionFalse).
-			Reason(reason).
-			Message(msg).
-			Condition())
-		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
-	}
-
-	vds, err := s.VirtualDisksByName(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if !h.areVirtualDisksAllowedToUse(vds) {
-		mgr.Update(cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonBlockDevicesNotReady).
-			Message("Virtual disks cannot be used because they are being used for creating an image.").Condition())
-		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{}, nil
-	}
-
-	mgr.Update(cb.Status(metav1.ConditionTrue).
-		Reason(vmcondition.ReasonBlockDevicesReady).
-		Condition())
-	changed.Status.Conditions = mgr.Generate()
-	return reconcile.Result{}, nil
+	return nil
 }
 
-func (h *BlockDeviceHandler) areVirtualDisksAllowedToUse(vds map[string]*virtv2.VirtualDisk) bool {
-	for _, vd := range vds {
-		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-		if inUseCondition.Status != metav1.ConditionTrue ||
-			inUseCondition.Reason != vdcondition.AttachedToVirtualMachine.String() ||
-			inUseCondition.ObservedGeneration != vd.Generation {
-			return false
-		}
+func (h *BlockDeviceHandler) checkBlockDeviceLimit(ctx context.Context, vm *virtv2.VirtualMachine) error {
+	// Get number of connected block devices.
+	// If it's greater than the limit, then set the condition to false.
+	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVm(ctx, vm)
+	if err != nil {
+		return err
 	}
 
-	return true
+	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
+		cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonBlockDeviceLimitExceeded).
+			Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, vm.Name)).
+			Generation(vm.Generation)
+
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return ErrBlockDeviceLimitExceeded
+	}
+
+	return nil
 }
 
 func (h *BlockDeviceHandler) Name() string {
