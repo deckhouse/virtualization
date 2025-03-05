@@ -17,18 +17,28 @@ limitations under the License.
 package validators
 
 import (
+	"context"
+	"fmt"
+	"log/slog"
 	"net/http"
 
 	admissionv1 "k8s.io/api/admission/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	virtv1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewVirtualImageWebhook() *VirtualImageWebhook {
-	return &VirtualImageWebhook{}
+func NewVirtualImageWebhook(client client.Client) *VirtualImageWebhook {
+	return &VirtualImageWebhook{client}
 }
 
-type VirtualImageWebhook struct{}
+type VirtualImageWebhook struct {
+	client client.Client
+}
 
 func (m *VirtualImageWebhook) Path() string {
 	return "/virtualimage"
@@ -42,6 +52,27 @@ func (m *VirtualImageWebhook) Validate(ar *admissionv1.AdmissionReview) *admissi
 	response := &admissionv1.AdmissionResponse{
 		AuditAnnotations: map[string]string{},
 	}
+
+	obj, err := object.FetchObject(
+		context.Background(),
+		types.NamespacedName{Name: ar.Request.Name, Namespace: ar.Request.Namespace},
+		m.client,
+		&virtv1.VirtualImage{},
+	)
+	if err != nil {
+		log.Error("fail to fetch object", log.Err(err))
+	}
+
+	fmt.Printf("%#v\n\n", obj)
+
+	log.Warn(
+		"virtualimage",
+		slog.String("name", obj.Name),
+		slog.String("namespace", obj.Namespace),
+		slog.String("storage", string(obj.Spec.Storage)),
+		slog.String("dataSourceType", string(obj.Spec.DataSource.Type)),
+		slog.String("storageClass", *obj.Spec.PersistentVolumeClaim.StorageClass),
+	)
 
 	response.AuditAnnotations["some"] = "value"
 

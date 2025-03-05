@@ -143,6 +143,14 @@ tasks:
     desc: "Push image virtualization-api with dlv"
     cmd: ./hack/dlv.sh push apiserver --image="$DLV_IMAGE"
 
+  dlv:build:audit:
+    desc: "Build image virtualization-audit with dlv"
+    cmd: ./hack/dlv.sh build audit --image="$DLV_IMAGE"
+
+  dlv:build-push:audit:
+    desc: "Push image virtualization-audit with dlv"
+    cmd: ./hack/dlv.sh push audit --image="$DLV_IMAGE"
+
   _ensure:kubectl:
     desc: "Ensure kubectl is installed"
     internal: true
