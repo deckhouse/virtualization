@@ -288,12 +288,17 @@ import:
   - virt-launcher-monitor-orig
   - virt-probe
   - virt-tail
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
+# - image: virt-artifact
+#   add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
+#   to: /relocate/usr/bin
+#   before: setup
+#   includePaths:
+#   - '*.sh'
+# test via go virt wrapper
+- image: {{ $.ImageName }}-gobuilder
+  add: /binaries
   to: /relocate/usr/bin
   before: setup
-  includePaths:
-  - '*.sh'
 shell:
   install:
   - |
@@ -444,3 +449,24 @@ shell:
   - cd /liboverride
   - gcc -shared -fPIC -DPIC -Wall -o liboverride.so override.c -ldl
   - strip liboverride.so
+---
+image: {{ $.ImageName }}-gobuilder
+final: false
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+git:
+  - add: /images/{{ $.ImageName }}/node-labeller
+    to: /node-labeller
+    includePaths:
+      - '**/*'
+    stageDependencies:
+      install:
+      - '**/*'
+shell:
+  install:
+    - |
+      echo "Build additional binaries"
+      cd /node-labeller
+      mkdir -p /binaries
+      echo 'go build -ldflags="-s -w" -o /binaries/node-labeller.sh'
+      go build -ldflags="-s -w" -o /binaries/node-labeller.sh
+      echo "Done"
