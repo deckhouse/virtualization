@@ -159,9 +159,9 @@ weight: 50
 
 Примеры ресурсов для получения образов виртуальной машины:
 
-- **Ubuntu**: <https://cloud-images.ubuntu.com>.
-- **Alt Linux**: <https://ftp.altlinux.ru/pub/distributions/ALTLinux/platform/images/cloud/x86_64>.
-- **Astra Linux**: <https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit>.
+- [Ubuntu](https://cloud-images.ubuntu.com)
+- [Alt Linux](https://ftp.altlinux.ru/pub/distributions/ALTLinux/platform/images/cloud/x86_64)
+- [Astra Linux](https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit)
 
 После создания ресурса, тип и размер образа определяются автоматически и эта информация отражается в статусе ресурса.
 

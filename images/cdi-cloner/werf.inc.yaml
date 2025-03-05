@@ -3,20 +3,9 @@ image: {{ $.ImageName }}
 fromImage: distroless
 import:
 - image: {{ $.ImageName }}-bins
-  add: /relocate/usr/bin
-  to: /bin
-  before: setup
-- image: {{ $.ImageName }}-bins
-  add: /relocate/usr/sbin
-  to: /sbin
-  before: setup
-- image: {{ $.ImageName }}-bins
   add: /relocate
   to: /
   before: setup
-  excludePaths:
-  - usr/sbin
-  - usr/bin
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin

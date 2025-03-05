@@ -1,19 +1,6 @@
 ---
-# Add liboverride as a global LD_PRELOAD to configure liboverride globally.
-# It is done in the latest possible stage in the final image to not break
-# stapel commands with the "unsupported GLIBC version" error.
-# TODO Remove after adding patch to the libvirt.
 image: {{ $.ImageName }}
-fromImage: {{ $.ImageName }}-prepared
-git:
-  # Add liboverride as a global LD_PRELOAD.
-  - add: /images/{{ $.ImageName }}/liboverride
-    to: /etc
-    includePaths:
-    - ld.so.preload
----
-image: {{ $.ImageName }}-prepared
-final: false
+final: true
 fromImage: distroless
 import:
   - image: {{ $.ImageName }}-binaries
@@ -129,6 +116,7 @@ packages:
   - ethtool
   - fdisk
   - glibc-gconv-modules
+  - gnutls-utils
   - hwclock
   - iptables
   - libffi8
@@ -157,6 +145,13 @@ binaries:
   - /usr/bin/cut
   - /usr/bin/grep
   - /usr/bin/sync
+  - /usr/bin/mknod
+  # Gnu utils (requared for swtpm)
+  - /usr/bin/certtool
+  - /usr/bin/gnutls-cli
+  - /usr/bin/ocsptool
+  - /usr/bin/p11tool
+  - /usr/bin/psktool
   # Utilities for mount
   - /usr/bin/mount
   - /usr/bin/umount
@@ -203,13 +198,6 @@ image: {{ $.ImageName }}-binaries
 final: false
 fromImage: base-alt-p11-binaries
 git:
-  - add: /images/{{ $.ImageName }}
-    to: /relocate
-    stageDependencies:
-      setup:
-      - '**/*'
-    includePaths:
-    - scripts
   # Add qemu and virtqemud configs
   - add: /images/{{ $.ImageName }}/configs
     to: /relocate/etc/libvirt
@@ -228,13 +216,6 @@ git:
     includePaths:
     - nsswitch.conf
 import:
-- image: {{ $.ImageName }}-liboverride-builder
-  add: /liboverride
-  to: /relocate/liboverride
-  after: setup
-  includePaths:
-  - liboverride.so
-
 # Libvirt and QEMU libraries and binaries
 - image: libvirt
   add: /BINS
@@ -278,7 +259,7 @@ import:
   - container-disk
   - virt-freezer
   - virt-launcher
-  - virt-launcher-monitor-orig
+  - virt-launcher-monitor
   - virt-probe
   - virt-tail
 - image: virt-artifact
@@ -294,7 +275,9 @@ shell:
 
     apt-get clean
 
-    mkdir -p /VBINS/var/{log/libvirt/qemu,run/libvirt/qemu,lib/libvirt/qemu}
+    echo "Create folder hierarchy in VBINS"
+    mkdir -p /VBINS/{etc,root}
+    mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
@@ -318,11 +301,13 @@ shell:
   - |
     ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
 
-    mkdir -p /relocate/{etc,root,var/run}
+    echo "Copy additional config swtpm"
+    cp -a /etc/{swtpm_setup.conf,swtpm-localca.conf,swtpm-localca.options} /relocate/etc/
+    echo "Copy xattr config"
+    cp -a /etc/xattr.conf /relocate/etc
 
     # glibc-gconv-modules
     cp -a /usr/lib64/gconv /relocate/usr/lib64
-    cp /etc/xattr.conf /relocate/etc
 
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
@@ -383,53 +368,16 @@ shell:
     done <<< "$SYMLINC_LIST"
 
   - |
-    cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
-    chmod +x /relocate/usr/bin/virt-launcher-monitor
-  - |
+    cd /relocate
+
     echo "Create symlinks for container-disk"
     mkdir -p /relocate/init/usr/bin
-    cd /relocate
     ln -s usr/bin/container-disk ./init/usr/bin/container-disk
-  - |
-    cd /relocate
+
+    echo "Create symlink for run -> var/run "
     ln -s var/run run
 
   # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
     cp -a etc/libvirt etc/libvirt-init
-
----
-image: {{ $.ImageName }}-liboverride-builder
-final: false
-fromImage: base-alt-p11
-git:
-  - add: /images/{{ $.ImageName }}/liboverride
-    to: /liboverride
-    includePaths:
-      - '*.c'
-    stageDependencies:
-      install:
-      - '*.c'
-shell:
-  beforeInstall:
-  # Install build packages. Pin only GCC to detect gcc updates later.
-  - |
-    apt-get update && apt-get install --yes \
-    autoconf \
-    automake \
-    libtool \
-    pkg-config \
-    make \
-    git \
-    perl-IPC-Cmd \
-    wget \
-    gcc==13-alt1 \
-    gcc-c++==13-alt1
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-  install:
-  # Build liboverride.
-  - cd /liboverride
-  - gcc -shared -fPIC -DPIC -Wall -o liboverride.so override.c -ldl
-  - strip liboverride.so

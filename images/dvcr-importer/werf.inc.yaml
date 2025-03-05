@@ -7,8 +7,8 @@ import:
   to: /
   after: install
   excludePaths:
-  - '*/dvcr-uploader'
-  - '*/dvcr-cleaner'
+  - '**/dvcr-uploader'
+  - '**/dvcr-cleaner'
 git:
 - add: /images/dvcr-artifact/build
   to: /

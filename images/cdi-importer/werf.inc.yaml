@@ -1,28 +1,66 @@
 ---
 image: {{ $.ImageName }}
-fromImage: base-alt-p11
+fromImage: distroless
+import:
+- image: {{ $.ImageName }}-bins
+  add: /relocate
+  to: /
+  before: setup
+# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-importer/BUILD.bazel
+docker:
+  ENTRYPOINT: ["/usr/bin/cdi-importer", "-alsologtostderr"]
+  USER: 64535
+
+---
+{{- define "cdi-importer-deps" -}}
+packages:
+  - qemu-img
+  - sqlite3
+  - libnbd
+  - nbd-client
+  - nbd-server
+binaries:
+  - /usr/bin/sh
+  - /usr/bin/rm
+  - /usr/bin/grep
+  # Qemu-img
+  - /usr/bin/qemu-img
+  - /usr/bin/qemu-io
+  - /usr/bin/qemu-nbd
+  # All nbd binaries
+  - /usr/bin/nbd*
+  # Mount
+  - /usr/bin/mount /usr/bin/umount
+  # Block device binaries
+  - /usr/sbin/blockdev
+  # Sqlite3
+  - /usr/bin/sqldiff /usr/bin/sqlite3 /usr/bin/sqlite3_analyzer
+  # CDI binaries
+  - /usr/bin/cdi-containerimage-server /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
+{{- end -}}
+
+{{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
+
+image: {{ $.ImageName }}-bins
+final: false
+fromImage: base-alt-p11-binaries
 import:
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
+  before: setup
   includePaths:
   - cdi-containerimage-server
   - cdi-image-size-detection
   - cdi-importer
   - cdi-source-update-poller
-  before: setup
 shell:
   install:
   - |
     apt-get update && apt-get install --yes \
-    qemu-img==9.1.2-alt1 \
-    sqlite3==3.46.0-alt1 \
-    libnbd==1.19.11-alt1 \
-    nbd-client==3.26.1-alt1 \
-    nbd-server==3.26.1-alt1
+      {{ $cdiImporterDependencies.packages | join " " }}
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-importer/BUILD.bazel
-docker:
-  ENTRYPOINT: ["/usr/bin/cdi-importer", "-alsologtostderr"]
-  USER: 64535
+  setup:
+  - |
+    /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate

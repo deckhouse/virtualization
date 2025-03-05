@@ -52,17 +52,17 @@ func GenerateCVMIDiskName(name string) string {
 	return CVMIDiskPrefix + name
 }
 
-func GetOriginalDiskName(prefixedName string) (string, bool) {
+func GetOriginalDiskName(prefixedName string) (string, virtv2.BlockDeviceKind) {
 	switch {
 	case strings.HasPrefix(prefixedName, VMDDiskPrefix):
-		return strings.TrimPrefix(prefixedName, VMDDiskPrefix), true
+		return strings.TrimPrefix(prefixedName, VMDDiskPrefix), virtv2.DiskDevice
 	case strings.HasPrefix(prefixedName, VMIDiskPrefix):
-		return strings.TrimPrefix(prefixedName, VMIDiskPrefix), true
+		return strings.TrimPrefix(prefixedName, VMIDiskPrefix), virtv2.ImageDevice
 	case strings.HasPrefix(prefixedName, CVMIDiskPrefix):
-		return strings.TrimPrefix(prefixedName, CVMIDiskPrefix), true
+		return strings.TrimPrefix(prefixedName, CVMIDiskPrefix), virtv2.ClusterImageDevice
 	}
 
-	return prefixedName, false
+	return prefixedName, ""
 }
 
 func GenerateSerialFromObject(obj metav1.Object) string {
