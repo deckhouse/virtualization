@@ -51,6 +51,7 @@ func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVirtualMachinePod(m)
 	s.updateMetricVirtualMachineLabels(m)
 	s.updateMetricVirtualMachineAnnotations(m)
+	s.updateMetricVirtualMachineAgentReady(m)
 }
 
 func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
@@ -121,6 +122,10 @@ func (s *scraper) updateMetricVirtualMachineAwaitingRestartToApplyConfiguration(
 func (s *scraper) updateMetricVirtualMachineConfigurationApplied(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationApplied,
 		common.BoolFloat64(m.ConfigurationApplied), m)
+}
+
+func (s *scraper) updateMetricVirtualMachineAgentReady(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineAgentReady, common.BoolFloat64(m.AgentReady), m)
 }
 
 func (s *scraper) updateMetricVirtualMachineConfigurationRunPolicy(m *dataMetric) {

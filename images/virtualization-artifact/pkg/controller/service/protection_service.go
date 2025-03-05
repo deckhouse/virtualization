@@ -18,10 +18,12 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -130,4 +132,30 @@ func MakeOwnerReference(owner client.Object) metav1.OwnerReference {
 		Name:       owner.GetName(),
 		UID:        owner.GetUID(),
 	}
+}
+
+func GetPatchOwnerReferences(ownerReferences []metav1.OwnerReference) (client.Patch, error) {
+	data, err := json.Marshal(map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"ownerReferences": ownerReferences,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return client.RawPatch(types.MergePatchType, data), nil
+}
+
+func GetPatchFinalizers(finalizers []string) (client.Patch, error) {
+	data, err := json.Marshal(map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"finalizers": finalizers,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return client.RawPatch(types.MergePatchType, data), nil
 }

@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -71,7 +72,7 @@ var _ = Describe("InUseHandler", func() {
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		})
 
 		It("must set condition generation equal resource generation", func() {
@@ -202,7 +203,7 @@ var _ = Describe("InUseHandler", func() {
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
-			Expect(cond.Status).To(Equal(metav1.ConditionUnknown))
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
 		})
 	})
 
@@ -337,6 +338,7 @@ var _ = Describe("InUseHandler", func() {
 					Namespace: "default",
 				},
 				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachineStarting,
 					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
 						{
 							Kind: virtv2.DiskDevice,
@@ -362,6 +364,7 @@ var _ = Describe("InUseHandler", func() {
 
 	Context("when VirtualDisk is used by VirtualMachine after create image", func() {
 		It("must set status True and reason AllowedForVirtualMachineUsage", func() {
+			startTime := metav1.Time{Time: time.Now()}
 			vd := &virtv2.VirtualDisk{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vd",
@@ -370,9 +373,10 @@ var _ = Describe("InUseHandler", func() {
 				Status: virtv2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{
 						{
-							Type:   vdcondition.InUseType.String(),
-							Reason: conditions.ReasonUnknown.String(),
-							Status: metav1.ConditionUnknown,
+							Type:               vdcondition.InUseType.String(),
+							Reason:             vdcondition.UsedForImageCreation.String(),
+							Status:             metav1.ConditionTrue,
+							LastTransitionTime: startTime,
 						},
 					},
 				},
@@ -384,6 +388,7 @@ var _ = Describe("InUseHandler", func() {
 					Namespace: "default",
 				},
 				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
 					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
 						{
 							Kind: virtv2.DiskDevice,
@@ -404,6 +409,7 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond).ToNot(BeNil())
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vdcondition.AttachedToVirtualMachine.String()))
+			Expect(cond.LastTransitionTime).ToNot(Equal(startTime))
 		})
 	})
 
@@ -418,8 +424,8 @@ var _ = Describe("InUseHandler", func() {
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),
-							Reason: conditions.ReasonUnknown.String(),
-							Status: metav1.ConditionUnknown,
+							Reason: vdcondition.AttachedToVirtualMachine.String(),
+							Status: metav1.ConditionTrue,
 						},
 					},
 				},
@@ -482,7 +488,7 @@ var _ = Describe("InUseHandler", func() {
 
 			result, err := handler.Handle(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(ctrl.Result{Requeue: true}))
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())
@@ -514,7 +520,7 @@ var _ = Describe("InUseHandler", func() {
 
 			result, err := handler.Handle(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(ctrl.Result{Requeue: true}))
+			Expect(result).To(Equal(ctrl.Result{}))
 
 			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
 			Expect(cond).ToNot(BeNil())

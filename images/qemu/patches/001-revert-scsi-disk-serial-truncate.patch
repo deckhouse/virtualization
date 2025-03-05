@@ -1,0 +1,26 @@
+diff --git a/hw/scsi/scsi-disk.c b/hw/scsi/scsi-disk.c
+index 7f13b05..655815c 100644
+--- a/hw/scsi/scsi-disk.c
++++ b/hw/scsi/scsi-disk.c
+@@ -2563,20 +2563,9 @@ static void scsi_realize(SCSIDevice *dev, Error **errp)
+     if (!s->vendor) {
+         s->vendor = g_strdup("QEMU");
+     }
+-    if (s->serial && strlen(s->serial) > MAX_SERIAL_LEN) {
+-        error_setg(errp, "The serial number can't be longer than %d characters",
+-                   MAX_SERIAL_LEN);
+-        return;
+-    }
+     if (!s->device_id) {
+         if (s->serial) {
+-            if (strlen(s->serial) > MAX_SERIAL_LEN_FOR_DEVID) {
+-                error_setg(errp, "The serial number can't be longer than %d "
+-                           "characters when it is also used as the default for "
+-                           "device_id", MAX_SERIAL_LEN_FOR_DEVID);
+-                return;
+-            }
+-            s->device_id = g_strdup(s->serial);
++	    s->device_id = g_strdup_printf("%.20s", s->serial);
+         } else {
+             const char *str = blk_name(s->qdev.conf.blk);
+             if (str && *str) {

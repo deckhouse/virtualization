@@ -138,8 +138,8 @@ func (p *Pod) makeUploaderContainerSpec() *corev1.Container {
 		Name:            common.UploaderContainerName,
 		Image:           p.PodSettings.Image,
 		ImagePullPolicy: corev1.PullPolicy(p.PodSettings.PullPolicy),
-		Command:         []string{"sh"},
-		Args:            []string{"/uploader_entrypoint.sh", "-v=" + p.Settings.Verbose},
+		Command:         []string{"/usr/local/bin/dvcr-uploader"},
+		Args:            []string{"-v=" + p.Settings.Verbose},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "metrics",

@@ -11,10 +11,6 @@
   value: {{ include "helm_lib_module_image" (list . "cdiImporter") }}
 - name: APISERVER_IMAGE
   value: {{ include "helm_lib_module_image" (list . "cdiApiserver") }}
-- name: UPLOAD_SERVER_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "cdiUploadserver") }}
-- name: UPLOAD_PROXY_IMAGE
-  value: {{ include "helm_lib_module_image" (list . "cdiUploadproxy") }}
 {{- end }}
 
 {{- define "cdi_operator_resources" }}

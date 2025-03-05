@@ -1,3 +1,4 @@
+{{- if (.Values.global.enabledModules | has "operator-prometheus-crd") }}
 ---
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: ScrapeConfig
@@ -17,3 +18,5 @@ spec:
   staticConfigs:
     - targets: ['virtualization-controller-metrics.d8-{{ .Chart.Name }}.svc.{{ .Values.global.discovery.clusterDomain }}.:8080']
   metricsPath: '/metrics'
+
+{{- end }}

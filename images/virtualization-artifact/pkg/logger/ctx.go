@@ -30,7 +30,12 @@ func ToContext(ctx context.Context, l *slog.Logger) context.Context {
 
 // FromContext returns logger from context.
 func FromContext(ctx context.Context) *slog.Logger {
-	return logr.FromContextAsSlogLogger(ctx)
+	if l := logr.FromContextAsSlogLogger(ctx); l != nil {
+		return l
+	}
+	missingLogger := slog.Default().With(slog.String("logger", "missing_from_context"))
+	missingLogger.Warn("Logger was not found in context, using default")
+	return missingLogger
 }
 
 func GetDataSourceContext(ctx context.Context, ds string) (*slog.Logger, context.Context) {

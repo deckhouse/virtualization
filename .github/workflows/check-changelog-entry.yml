@@ -1,0 +1,65 @@
+# Copyright 2024 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Check Changelog entry
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+# Cancel in-progress jobs for the same PR (pull_request_target event) or for the same branch (push event).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changelog:
+    name: Check Changelog entry
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3.5.2
+      - name: Check Changelog entry
+        id: entry-check
+        uses: deckhouse/changelog-action@v2.3.0
+        with:
+          validate_only: true
+          allowed_sections: |
+            api
+            vm
+            vmop
+            vmbda
+            vmclass
+            vmip
+            vmipl
+            vdsnapshot
+            vmsnapshot
+            vmrestore
+            disks
+            vd
+            images
+            vi
+            cvi
+            core
+            api-service:low
+            vm-route-forge:low
+            kubevirt:low
+            kube-api-rewriter:low
+            cdi:low
+            dvcr:low
+            module
+            observability
+            ci:low
+            docs
+            network

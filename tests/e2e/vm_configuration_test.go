@@ -242,7 +242,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 				vms := strings.Split(res.StdOut(), " ")
 				for _, vm := range vms {
-					cmd := "sudo reboot"
+					cmd := "sudo reboot -f"
 					ExecSshCommand(vm, cmd)
 				}
 				WaitVmAgentReady(kc.WaitOptions{

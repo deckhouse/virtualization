@@ -29,12 +29,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineClassState interface {
-	VirtualMachineClass() *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
+	VirtualMachineClass() *reconciler.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
 	VirtualMachines(ctx context.Context) ([]virtv2.VirtualMachine, error)
 	Nodes(ctx context.Context) ([]corev1.Node, error)
 	AvailableNodes(nodes []corev1.Node) ([]corev1.Node, error)
@@ -43,14 +43,14 @@ type VirtualMachineClassState interface {
 type state struct {
 	controllerNamespace string
 	client              client.Client
-	vmClass             *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
+	vmClass             *reconciler.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]
 }
 
-func New(c client.Client, controllerNamespace string, vmClass *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]) VirtualMachineClassState {
+func New(c client.Client, controllerNamespace string, vmClass *reconciler.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus]) VirtualMachineClassState {
 	return &state{client: c, controllerNamespace: controllerNamespace, vmClass: vmClass}
 }
 
-func (s *state) VirtualMachineClass() *service.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus] {
+func (s *state) VirtualMachineClass() *reconciler.Resource[*virtv2.VirtualMachineClass, virtv2.VirtualMachineClassStatus] {
 	return s.vmClass
 }
 

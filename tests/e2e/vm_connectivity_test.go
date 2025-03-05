@@ -255,10 +255,12 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			selectorA = svcA.Spec.Selector["service"]
 			selectorB = svcB.Spec.Selector["service"]
 
-			PatchResource(kc.ResourceService, svcA.Name, &kc.JsonPatch{
-				Op:    "replace",
-				Path:  "/spec/selector/service",
-				Value: selectorB,
+			PatchResource(kc.ResourceService, svcA.Name, []*kc.JsonPatch{
+				{
+					Op:    "replace",
+					Path:  "/spec/selector/service",
+					Value: selectorB,
+				},
 			})
 		})
 
@@ -281,10 +283,12 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It(fmt.Sprintf("changes back selector in service %s", aObjName), func() {
-			PatchResource(kc.ResourceService, svcA.Name, &kc.JsonPatch{
-				Op:    "replace",
-				Path:  "/spec/selector/service",
-				Value: selectorA,
+			PatchResource(kc.ResourceService, svcA.Name, []*kc.JsonPatch{
+				{
+					Op:    "replace",
+					Path:  "/spec/selector/service",
+					Value: selectorA,
+				},
 			})
 		})
 

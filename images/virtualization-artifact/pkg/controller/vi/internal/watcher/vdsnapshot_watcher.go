@@ -80,7 +80,7 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, obj cli
 
 	for _, vi := range vis.Items {
 		if !isSnapshotDataSource(vi.Spec.DataSource, vdSnapshot.Name) {
-			w.logger.Error("vd list by vd snapshot returns unexpected resources, please report a bug")
+			w.logger.Error("vi list by vd snapshot returns unexpected resources, please report a bug")
 			continue
 		}
 

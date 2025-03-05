@@ -263,3 +263,18 @@ virt-handler now tracks synchronized VMIs and computes their checksums. Periodic
 The last one sent for synchronization.
 The one actually applied.
 Storing these checksums in VMI annotations helps verify that spec changes were pushed by virt-handler and not by an attacker.
+
+#### `040-set-reboot-policy.patch`
+
+This patch modifies the behavior of domain reboot actions in virt-launcher by overriding the default reboot policy.
+
+### Changes Introduced:
+- Registers a QEMU monitor shutdown event callback to handle shutdown events.
+- Sends a QEMU agent command to override the reboot action, changing it from `reboot` to `shutdown`.
+- Logs shutdown events and writes them to `/dev/termination-log`.
+- Ensures that domain shutdown events are captured and processed correctly.
+
+#### `041-rename-node-labeller-virt-launcher-init.patch`
+
+This patch modifies init container args in virt-launcher images from node-labeller.sh to node-labeller. 
+This bash script has been rewritten to golang.

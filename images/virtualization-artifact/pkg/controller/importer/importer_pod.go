@@ -168,8 +168,8 @@ func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 		Name:            common.ImporterContainerName,
 		Image:           imp.PodSettings.Image,
 		ImagePullPolicy: corev1.PullPolicy(imp.PodSettings.PullPolicy),
-		Command:         []string{"sh"},
-		Args:            []string{"/importer_entrypoint.sh", "-v=" + imp.EnvSettings.Verbose},
+		Command:         []string{"/usr/local/bin/dvcr-importer"},
+		Args:            []string{"-v=" + imp.EnvSettings.Verbose},
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "metrics",

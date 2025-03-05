@@ -18,10 +18,8 @@ package vi
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -36,10 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -66,9 +64,7 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	log := logger.FromContext(ctx)
-
-	vi := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	vi := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vi.Fetch(ctx)
 	if err != nil {
@@ -79,45 +75,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	var requeue bool
+	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+		return h.Handle(ctx, vi.Changed())
+	})
+	rec.SetResourceUpdater(func(ctx context.Context) error {
+		vi.Changed().Status.ObservedGeneration = vi.Changed().Generation
 
-	log.Debug("Start vi reconciliation")
+		return vi.Update(ctx)
+	})
 
-	var handlerErrs []error
-
-	for _, h := range r.handlers {
-		log.Debug("Run handler", logger.SlogHandler(h.Name()))
-		var res reconcile.Result
-		res, err = h.Handle(ctx, vi.Changed())
-		if err != nil {
-			log.Error("Failed to handle vi", logger.SlogErr(err), logger.SlogHandler(h.Name()))
-			handlerErrs = append(handlerErrs, err)
-		}
-
-		requeue = requeue || res.Requeue
-	}
-
-	vi.Changed().Status.ObservedGeneration = vi.Changed().Generation
-
-	err = vi.Update(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	err = errors.Join(handlerErrs...)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if requeue {
-		log.Debug("Requeue vi reconciliation")
-		return reconcile.Result{
-			RequeueAfter: 2 * time.Second,
-		}, nil
-	}
-
-	log.Debug("Finished vi reconciliation")
-	return reconcile.Result{}, nil
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
@@ -229,7 +197,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 				oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVD.Status.Conditions)
 				newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVD.Status.Conditions)
 
-				if oldVD.Status.Phase != newVD.Status.Phase || len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) || oldInUseCondition.Status != newInUseCondition.Status {
+				if oldVD.Status.Phase != newVD.Status.Phase || len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) || oldInUseCondition != newInUseCondition {
 					return true
 				}
 

@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -49,15 +50,25 @@ func NewStatsHandler(stat *service.StatService, importer *service.ImporterServic
 func (h StatsHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	sinceCreation := time.Since(vd.CreationTimestamp.Time).Truncate(time.Second)
 
-	datasourceReady, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-	if datasourceReady.Status == metav1.ConditionTrue && vd.Status.Stats.CreationDuration.WaitingForDependencies == nil {
+	isDatasourceReady := false
+	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	if source.IsDiskProvisioningFinished(readyCondition) {
+		isDatasourceReady = true
+	} else {
+		datasourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+		isDatasourceReady = datasourceReadyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(datasourceReadyCondition, vd)
+	}
+
+	if isDatasourceReady &&
+		vd.Status.Stats.CreationDuration.WaitingForDependencies == nil {
 		vd.Status.Stats.CreationDuration.WaitingForDependencies = &metav1.Duration{
 			Duration: sinceCreation,
 		}
 	}
 
-	ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	if ready.Status == metav1.ConditionTrue && vd.Status.Stats.CreationDuration.TotalProvisioning == nil {
+	if readyCondition.Status == metav1.ConditionTrue &&
+		conditions.IsLastUpdated(readyCondition, vd) &&
+		vd.Status.Stats.CreationDuration.TotalProvisioning == nil {
 		duration := sinceCreation
 
 		if vd.Status.Stats.CreationDuration.WaitingForDependencies != nil {
