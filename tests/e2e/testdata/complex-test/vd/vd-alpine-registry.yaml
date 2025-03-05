@@ -9,4 +9,4 @@ spec:
     containerImage:
       image: docker.io/fl64/alpine-3-20:latest
   persistentVolumeClaim:
-    size: 260Mi
+    size: 370Mi

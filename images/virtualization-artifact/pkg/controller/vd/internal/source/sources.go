@@ -103,7 +103,7 @@ func CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk, c Supplemen
 	return reconcile.Result{}, nil
 }
 
-func isDiskProvisioningFinished(c metav1.Condition) bool {
+func IsDiskProvisioningFinished(c metav1.Condition) bool {
 	return c.Reason == vdcondition.Ready.String() || c.Reason == vdcondition.Lost.String()
 }
 

@@ -45,11 +45,11 @@ func (v *CpuCountValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.War
 	switch {
 	case cores <= 16:
 		return nil, nil
-	case cores <= 32 && cores%2 != 0:
+	case cores > 16 && cores <= 32 && cores%2 != 0:
 		return nil, fmt.Errorf("the requested number of cores must be a multiple of 2")
-	case cores <= 64 && cores%4 != 0:
+	case cores > 32 && cores <= 64 && cores%4 != 0:
 		return nil, fmt.Errorf("the requested number of cores must be a multiple of 4")
-	case cores%8 != 0:
+	case cores > 64 && cores%8 != 0:
 		return nil, fmt.Errorf("the requested number of cores must be a multiple of 8")
 	}
 

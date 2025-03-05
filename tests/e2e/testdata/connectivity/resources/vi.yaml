@@ -1,10 +1,10 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: jammy-server-cloudimg-amd64
+  name: noble-server-cloudimg-amd64
 spec:
   storage: ContainerRegistry
   dataSource:
     type: "HTTP"
     http:
-      url: https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/ubuntu/jammy-server-cloudimg-amd64.img
+      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/noble-server-cloudimg-amd64.img

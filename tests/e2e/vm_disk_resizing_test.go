@@ -189,9 +189,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 		vmCount   = 1
 		diskCount = 3
 	)
-	var (
-		vmObj *virtv2.VirtualMachine
-	)
+	var vmObj *virtv2.VirtualMachine
 	testCaseLabel := map[string]string{"testcase": "disk-resizing"}
 
 	BeforeAll(func() {
@@ -287,7 +285,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 
 			It("obtains the disks metadata before resizing", func() {
 				vmDisksBefore, err = GetVirtualMachineDisks(vmObj.Name, conf)
-				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(vmDisksBefore).Should(HaveLen(diskCount))
 			})
 

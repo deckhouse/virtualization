@@ -176,7 +176,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 			vms := strings.Split(res.StdOut(), " ")
 			err := AddLabel(kc.ResourceVM, specialKeyValue, vms...)
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("checks VMs and pods labels after VMs labeling", func() {
@@ -221,7 +221,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 			vms := strings.Split(res.StdOut(), " ")
 			err := RemoveLabel(kc.ResourceVM, specialKeyValue, vms...)
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("checks VMs and pods labels after VMs unlabeling", func() {
@@ -268,7 +268,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 			vms := strings.Split(res.StdOut(), " ")
 			err := AddAnnotation(kc.ResourceVM, specialKeyValue, vms...)
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("checks VMs and pods annotations after VMs annotating", func() {
@@ -313,7 +313,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 			vms := strings.Split(res.StdOut(), " ")
 			err := RemoveAnnotation(kc.ResourceVM, specialKeyValue, vms...)
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("checks VMs and pods annotations after VMs unannotating", func() {

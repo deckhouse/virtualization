@@ -69,6 +69,7 @@ func GetConfig() (*Config, error) {
 	if err := conf.setEnvs(); err != nil {
 		return nil, err
 	}
+
 	return &conf, nil
 }
 
@@ -128,6 +129,7 @@ type Config struct {
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	Namespace        string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
+	LogFilter        []string         `yaml:"logFilter"`
 	StorageClass     StorageClass
 }
 

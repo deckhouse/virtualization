@@ -22,14 +22,15 @@ import (
 	"fmt"
 	"strings"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	virtv1 "kubevirt.io/api/core/v1"
+
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	virtv1 "kubevirt.io/api/core/v1"
 )
 
 type Image struct {
@@ -108,7 +109,7 @@ func CheckReusableResources(resources ReusableResources, opts kc.GetOptions) {
 	opts.Output = "jsonpath='{.items[*].metadata.name}'"
 	for r, c := range resources {
 		res := kubectl.List(r, opts)
-		Expect(res.Error()).NotTo(HaveOccurred(), "failed to check the reusable resourse %q: %s", r, res.StdErr())
+		Expect(res.Error()).NotTo(HaveOccurred(), "failed to check the reusable resources %q: %s", r, res.StdErr())
 		c.Current = len(strings.Split(res.StdOut(), " "))
 	}
 
@@ -212,7 +213,6 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 				})
 			})
 		})
-
 	})
 
 	Context("When the resources are ready to use", func() {

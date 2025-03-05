@@ -1,0 +1,27 @@
+diff --git a/pkg/virt-operator/resource/generate/components/daemonsets.go b/pkg/virt-operator/resource/generate/components/daemonsets.go
+index 8fa14e93b5..001fd05bcd 100644
+--- a/pkg/virt-operator/resource/generate/components/daemonsets.go
++++ b/pkg/virt-operator/resource/generate/components/daemonsets.go
+@@ -52,7 +52,6 @@ func RenderPrHelperContainer(image string, pullPolicy corev1.PullPolicy) corev1.
+ }
+ 
+ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVersion, prHelperVersion, sidecarShimVersion, productName, productVersion, productComponent, image, launcherImage, prHelperImage, sidecarShimImage string, pullPolicy corev1.PullPolicy, imagePullSecrets []corev1.LocalObjectReference, migrationNetwork *string, verbosity string, extraEnv map[string]string, enablePrHelper bool) (*appsv1.DaemonSet, error) {
+-
+ 	deploymentName := VirtHandlerName
+ 	imageName := fmt.Sprintf("%s%s", imagePrefix, deploymentName)
+ 	env := operatorutil.NewEnvVarMap(extraEnv)
+@@ -123,7 +122,7 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+ 			Image: launcherImage,
+ 			Name:  "virt-launcher",
+ 			Args: []string{
+-				"node-labeller.sh",
++				"node-labeller",
+ 			},
+ 			SecurityContext: &corev1.SecurityContext{
+ 				Privileged: pointer.Bool(true),
+@@ -350,5 +349,4 @@ func NewHandlerDaemonSet(namespace, repository, imagePrefix, version, launcherVe
+ 		pod.Containers = append(pod.Containers, RenderPrHelperContainer(prHelperImage, pullPolicy))
+ 	}
+ 	return daemonset, nil
+-
+ }

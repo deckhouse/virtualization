@@ -110,7 +110,7 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 	}
 
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)

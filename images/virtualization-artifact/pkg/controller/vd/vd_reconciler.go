@@ -18,10 +18,7 @@ package vd
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"reflect"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,10 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -63,9 +60,7 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	log := logger.FromContext(ctx)
-
-	vd := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	vd := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vd.Fetch(ctx)
 	if err != nil {
@@ -76,47 +71,17 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	log.Debug("Start vd reconciliation")
+	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+		return h.Handle(ctx, vd.Changed())
+	})
+	rec.SetResourceUpdater(func(ctx context.Context) error {
+		vd.Changed().Status.ObservedGeneration = vd.Changed().Generation
 
-	var requeue bool
+		return vd.Update(ctx)
+	})
 
-	var handlerErrs []error
-
-	for _, h := range r.handlers {
-		log.Debug("Run handler", logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
-
-		var res reconcile.Result
-		res, err = h.Handle(ctx, vd.Changed())
-		if err != nil {
-			log.Error("Failed to handle vd", logger.SlogErr(err), logger.SlogHandler(reflect.TypeOf(h).Elem().Name()))
-			handlerErrs = append(handlerErrs, err)
-		}
-
-		// TODO: merger.
-		requeue = requeue || res.Requeue
-	}
-
-	vd.Changed().Status.ObservedGeneration = vd.Changed().Generation
-
-	err = vd.Update(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	err = errors.Join(handlerErrs...)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if requeue {
-		log.Debug("Requeue vd reconciliation")
-		return reconcile.Result{
-			RequeueAfter: 2 * time.Second,
-		}, nil
-	}
-
-	log.Debug("Finished vd reconciliation")
-	return reconcile.Result{}, nil
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {

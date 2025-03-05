@@ -92,13 +92,3 @@ type VirtualMachineFreeze struct {
 type VirtualMachineUnfreeze struct {
 	metav1.TypeMeta `json:",inline"`
 }
-
-// +genclient
-// +genclient:readonly
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-// +k8s:conversion-gen:explicit-from=net/url.Values
-
-type VirtualMachineMigrate struct {
-	metav1.TypeMeta `json:",inline"`
-	DryRun          []string `json:"dryRun,omitempty"`
-}
