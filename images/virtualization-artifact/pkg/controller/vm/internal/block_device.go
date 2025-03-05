@@ -188,10 +188,11 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, err
 	}
 
-	if !h.areVirtualDisksAllowedToUse(vds) {
+	allowedVdCount := h.areVirtualDisksAllowedToUse(vds)
+	if len(vds) != allowedVdCount {
 		mgr.Update(cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDevicesNotReady).
-			Message("Virtual disks cannot be used because they are being used for creating an image.").Condition())
+			Message(fmt.Sprintf("Waiting for virtual disks to become allowed for use: %d/%d", allowedVdCount, len(vds))).Condition())
 		changed.Status.Conditions = mgr.Generate()
 		return reconcile.Result{}, nil
 	}
@@ -203,17 +204,18 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 	return reconcile.Result{}, nil
 }
 
-func (h *BlockDeviceHandler) areVirtualDisksAllowedToUse(vds map[string]*virtv2.VirtualDisk) bool {
+func (h *BlockDeviceHandler) areVirtualDisksAllowedToUse(vds map[string]*virtv2.VirtualDisk) int {
+	var allowedCount int
 	for _, vd := range vds {
 		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-		if inUseCondition.Status != metav1.ConditionTrue ||
-			inUseCondition.Reason != vdcondition.AttachedToVirtualMachine.String() ||
-			inUseCondition.ObservedGeneration != vd.Generation {
-			return false
+		if inUseCondition.Status == metav1.ConditionTrue &&
+			inUseCondition.Reason == vdcondition.AttachedToVirtualMachine.String() &&
+			inUseCondition.ObservedGeneration == vd.Generation {
+			allowedCount++
 		}
 	}
 
-	return true
+	return allowedCount
 }
 
 func (h *BlockDeviceHandler) Name() string {
@@ -404,7 +406,7 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 			if readyCondition.Status == metav1.ConditionTrue {
 				ready++
 			} else {
-				msg := fmt.Sprintf("virtual disk %s is waiting for the it's pvc to be bound", vd.Name)
+				msg := fmt.Sprintf("Virtual disk %s is waiting for the underlying PVC to be bound", vd.Name)
 				warnings = append(warnings, msg)
 			}
 		}
