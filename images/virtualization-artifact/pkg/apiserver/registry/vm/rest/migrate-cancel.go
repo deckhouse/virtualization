@@ -54,7 +54,8 @@ func (r MigrateCancelREST) Create(ctx context.Context, name string, opts runtime
 	}
 	namespace := genericreq.NamespaceValue(ctx)
 
-	// rewrite label kubevirt.internal.virtualization.deckhouse.io/vmi-name: linux-vm-01
+	// We are using kube-api-rewriter, so the final label for the search will look like this:
+	// kubevirt.internal.virtualization.deckhouse.io/vmi-name: linux-vm-01
 	migrations := &virtv1.VirtualMachineInstanceMigrationList{}
 	if err := r.kubevirtClient.List(ctx, migrations,
 		client.InNamespace(namespace),
