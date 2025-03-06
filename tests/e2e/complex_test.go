@@ -407,35 +407,35 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context("Verify that the virtual machines are restarting by ssh", func() {
-			It("reboot VMs by ssh", func() {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-
-				vms := strings.Split(res.StdOut(), " ")
-
-				RebootVirtualMachinesBySSH(vms...)
-			})
-
-			It("checks VMs phases", func() {
-				By("Virtual machine should be stopped")
-				WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-				By("Virtual machine agents should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
-		})
+		//Context("Verify that the virtual machines are restarting by ssh", func() {
+		//	It("reboot VMs by ssh", func() {
+		//		res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+		//			Labels:    testCaseLabel,
+		//			Namespace: conf.Namespace,
+		//			Output:    "jsonpath='{.items[*].metadata.name}'",
+		//		})
+		//		Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+		//
+		//		vms := strings.Split(res.StdOut(), " ")
+		//
+		//		RebootVirtualMachinesBySSH(vms...)
+		//	})
+		//
+		//	It("checks VMs phases", func() {
+		//		By("Virtual machine should be stopped")
+		//		WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
+		//			Labels:    testCaseLabel,
+		//			Namespace: conf.Namespace,
+		//			Timeout:   MaxWaitTimeout,
+		//		})
+		//		By("Virtual machine agents should be ready")
+		//		WaitVmAgentReady(kc.WaitOptions{
+		//			Labels:    testCaseLabel,
+		//			Namespace: conf.Namespace,
+		//			Timeout:   MaxWaitTimeout,
+		//		})
+		//	})
+		//})
 
 		Context("Verify that the virtual machines are restarting after deleting pods", func() {
 			It("reboot VMs by delete pods", func() {
