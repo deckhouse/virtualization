@@ -326,10 +326,10 @@ shell:
   setup:
   - |
     ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
-    
-    # Copy additional config swtpm
+
+    echo "Copy additional config swtpm"
     cp -a /etc/{swtpm_setup.conf,swtpm-localca.conf,swtpm-localca.options} /relocate/etc/
-    # Copy xattr config
+    echo "Copy xattr config"
     cp -a /etc/xattr.conf /relocate/etc
 
     # glibc-gconv-modules
@@ -397,12 +397,13 @@ shell:
     cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
     chmod +x /relocate/usr/bin/virt-launcher-monitor
   - |
+    cd /relocate
+    
     echo "Create symlinks for container-disk"
     mkdir -p /relocate/init/usr/bin
-    cd /relocate
     ln -s usr/bin/container-disk ./init/usr/bin/container-disk
-  - |
-    cd /relocate
+    
+    echo "Create symlink for run -> var/run "
     ln -s var/run run
 
   # /etc/libvirt-init will be copied back into /etc/libvirt at runtime. This is necessary because we configure libvirt to mount /etc/libvirt and set readOnlyRootFilesystem for other directories.
