@@ -613,17 +613,6 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	}
 }
 
-func RebootVirtualMachinesByDeletePods(labels map[string]string, cmdResult *executor.CMDResult, wg *sync.WaitGroup) {
-	cmdResult = kubectl.Delete(kc.DeleteOptions{
-		Namespace:      conf.Namespace,
-		IgnoreNotFound: true,
-		Resource:       kc.ResourcePod,
-		Labels:         labels,
-	})
-
-	wg.Done()
-}
-
 func IsContainsAnnotation(obj client.Object, annotation string) bool {
 	_, ok := obj.GetAnnotations()[annotation]
 	return ok
