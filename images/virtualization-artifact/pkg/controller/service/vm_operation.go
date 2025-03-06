@@ -188,7 +188,7 @@ func (s VMOperationService) InProgressReasonForType(vmop *virtv2.VirtualMachineO
 	return vmopcondition.ReasonCompleted(conditions.ReasonUnknown)
 }
 
-func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (complete bool, failed bool, err error) {
+func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (complete, failed bool, err error) {
 	if vmop == nil || vm == nil {
 		return false, false, nil
 	}
