@@ -27,7 +27,6 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -67,12 +66,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel      = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
-		vmPodLabel         = map[string]string{"kubevirt.internal.virtualization.deckhouse.io": "virt-launcher"}
 		alwaysOnLabel      = map[string]string{"alwaysOn": "complex-test"}
 		notAlwaysOnLabel   = map[string]string{"notAlwaysOn": "complex-test"}
-
-		cmdResult executor.CMDResult
-		wg        sync.WaitGroup
 	)
 
 	Context("Preparing the environment", func() {
@@ -409,6 +404,21 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 		Context("Verify that the virtual machines are restarting by ssh", func() {
 			It("reboot VMs by ssh", func() {
+				wg := &sync.WaitGroup{}
+
+				By("Virtual machines should be stopped", func() {
+					wg.Add(1)
+					go func() {
+						defer GinkgoRecover()
+						defer wg.Done()
+						WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
+							Labels:    testCaseLabel,
+							Namespace: conf.Namespace,
+							Timeout:   MaxWaitTimeout,
+						})
+					}()
+				})
+
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
@@ -419,46 +429,52 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				vms := strings.Split(res.StdOut(), " ")
 
 				RebootVirtualMachinesBySSH(vms...)
-			})
 
-			It("checks VMs phases", func() {
-				By("Virtual machine should be stopped")
-				WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
+				By("Virtual machines agent should be ready", func() {
+					WaitVmAgentReady(kc.WaitOptions{
+						Labels:    testCaseLabel,
+						Namespace: conf.Namespace,
+						Timeout:   MaxWaitTimeout,
+					})
 				})
-				By("Virtual machine agents should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
+				wg.Wait()
 			})
 		})
 
-		Context("Verify that the virtual machines are restarting after deleting pods", func() {
-			It("reboot VMs by delete pods", func() {
-				// kubectl may not return control for too long, and we may miss the Stopped phase and get stuck without using goroutines.
-				wg.Add(1)
-				go RebootVirtualMachinesByDeletePods(vmPodLabel, &cmdResult, &wg)
-			})
+		Context("Verify that the virtual machines are restarting after deleting their pods", func() {
+			It("reboots the VMs by deleting their pods", func() {
+				wg := &sync.WaitGroup{}
 
-			It("checks VMs phases", func() {
-				By("Virtual machines should be stopped")
-				WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
+				By("Virtual machines should be stopped", func() {
+					wg.Add(1)
+					go func() {
+						defer GinkgoRecover()
+						defer wg.Done()
+						WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
+							Labels:    testCaseLabel,
+							Namespace: conf.Namespace,
+							Timeout:   MaxWaitTimeout,
+						})
+					}()
 				})
-				By("Virtual machine agents should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
+
+				res := kubectl.Delete(kc.DeleteOptions{
+					IgnoreNotFound: true,
+					Labels:         testCaseLabel,
+					Namespace:      conf.Namespace,
+					Resource:       kc.ResourcePod,
 				})
+				Expect(res.Error()).NotTo(HaveOccurred())
+
+				By("Virtual machines agent should be ready", func() {
+					WaitVmAgentReady(kc.WaitOptions{
+						Labels:    testCaseLabel,
+						Namespace: conf.Namespace,
+						Timeout:   MaxWaitTimeout,
+					})
+				})
+
 				wg.Wait()
-				Expect(cmdResult.Error()).ShouldNot(HaveOccurred())
 			})
 
 			It("checks VMs external connection after reboot", func() {
