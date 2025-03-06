@@ -233,7 +233,7 @@ func (s VMOperationService) IsComplete(ctx context.Context, vmop *virtv2.Virtual
 			return false, false, err
 		}
 		if migrationInProgress {
-			return true, false, nil
+			return false, false, nil
 		}
 
 		return false, true, nil
