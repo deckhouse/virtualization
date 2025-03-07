@@ -79,4 +79,14 @@ shell:
   setup:
   - |
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
+---
+image: kubevirt-{{ $.ImageName }}
+final: false
+fromImage: base-alt-p11
+git:
+- add: /images/{{ $.ImageName }}/kubvirt-edk2
+  to: /FIRMWARE
+  stageDependencies:
+    setup:
+      - '**/*'
 

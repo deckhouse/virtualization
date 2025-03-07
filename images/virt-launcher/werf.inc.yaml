@@ -254,7 +254,18 @@ import:
   before: install
 
 # EDK2 (uefi firmware)
-- image: edk2
+{{/*
+# - image: edk2
+#   add: /FIRMWARE/
+#   to: /relocate/usr/share/edk2/ovmf
+#   before: install
+#   includePaths:
+#   - '*.fd'
+#   - '*.bin'
+#   - '*.efi'
+#   - '*.iso'
+*/}}
+- image: kubevirt-edk2
   add: /FIRMWARE/
   to: /relocate/usr/share/edk2/ovmf
   before: install
