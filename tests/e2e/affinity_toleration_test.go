@@ -34,7 +34,7 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-func IsVmMigratable(vmObj *virtv2.VirtualMachine) {
+func ExpectVirtualMachineIsMigratable(vmObj *virtv2.VirtualMachine) {
 	GinkgoHelper()
 	for _, c := range vmObj.Status.Conditions {
 		if c.Type == string(vmcondition.TypeMigratable) {
@@ -264,7 +264,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 			By("Change affinity to anti-affinity when the `VirtualMachines` are runnning: `vm-a` and `vm-c` should be running on the different nodes", func() {
 				wg := &sync.WaitGroup{}
 
-				IsVmMigratable(vmObjC)
+				ExpectVirtualMachineIsMigratable(vmObjC)
 				p, err := GenerateVirtualMachineAndPodAntiAffinityPatch(vmKey, nodeLabelKey, metav1.LabelSelectorOpIn, []string{vmA[vmKey]})
 				Expect(err).NotTo(HaveOccurred(), "failed to generate the `VirtualMachineAndPodAntiAffinity` patch")
 				jsonPatchAdd := &kc.JsonPatch{
@@ -326,7 +326,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 					Namespace: conf.Namespace,
 				})
 
-				IsVmMigratable(updatedVmObjC)
+				ExpectVirtualMachineIsMigratable(updatedVmObjC)
 				p, err := GenerateVirtualMachineAndPodAffinityPatch(vmKey, nodeLabelKey, metav1.LabelSelectorOpIn, []string{vmA[vmKey]})
 				Expect(err).NotTo(HaveOccurred(), "failed to generate the `VirtualMachineAndPodAffinity` patch")
 				jsonPatchAdd := &kc.JsonPatch{
@@ -394,9 +394,9 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 			By("Sets the `spec.nodeSelector` with the `status.nodeSelector` value", func() {
 				vmObj, err = GetVirtualMachineObjByLabel(conf.Namespace, vmNodeSelector)
 				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
-				IsVmMigratable(vmObj)
+				ExpectVirtualMachineIsMigratable(vmObj)
 				sourceNode = vmObj.Status.Node
-				Expect(sourceNode).ShouldNot(Equal(""), "the `vm.status.nodeName` should have a value")
+				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
 				mergePatch := fmt.Sprintf(`{"spec":{"nodeSelector":{%q:%q}}}`, nodeLabelKey, sourceNode)
 				err = MergePatchResource(kc.ResourceVM, vmObj.Name, mergePatch)
 				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeSelector)
@@ -427,7 +427,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 				Expect(updatedVmObj.Status.MigrationState).Should(BeNil())
 
 				sourceNode := updatedVmObj.Status.Node
-				Expect(sourceNode).ShouldNot(Equal(""), "the `vm.status.nodeName` should have a value")
+				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
 
 				targetNode, err = DefineTargetNode(sourceNode, workerNodeLabel)
 				Expect(err).NotTo(HaveOccurred())
@@ -483,9 +483,9 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 			By("Sets the `spec.affinity.nodeAffinity` with the `status.nodeSelector` value", func() {
 				vmObj, err = GetVirtualMachineObjByLabel(conf.Namespace, vmNodeAffinity)
 				Expect(err).NotTo(HaveOccurred())
-				IsVmMigratable(vmObj)
+				ExpectVirtualMachineIsMigratable(vmObj)
 				sourceNode = vmObj.Status.Node
-				Expect(sourceNode).ShouldNot(Equal(""), "the `vm.status.nodeName` should have a value")
+				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
 
 				p, err := GenerateNodeAffinityPatch(nodeLabelKey, corev1.NodeSelectorOpIn, []string{sourceNode})
 				Expect(err).NotTo(HaveOccurred())
@@ -519,7 +519,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 				Expect(updatedVmObj.Status.MigrationState).Should(BeNil())
 
 				sourceNode = updatedVmObj.Status.Node
-				Expect(sourceNode).ShouldNot(Equal(""), "the `vm.status.nodeName` should have a value")
+				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
 
 				targetNode, err = DefineTargetNode(sourceNode, workerNodeLabel)
 				Expect(err).NotTo(HaveOccurred())
