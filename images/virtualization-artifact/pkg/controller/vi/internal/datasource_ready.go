@@ -101,6 +101,12 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualIm
 			Reason(vicondition.VirtualDiskNotReadyForUse).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return reconcile.Result{}, nil
+	case errors.As(err, &source.VirtualDiskAttachedToVirtualMachineError{}):
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.VirtualDiskAttachedToVirtualMachine).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err
 	}

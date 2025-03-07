@@ -103,7 +103,7 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 			}
 		}
 
-		if vm.Status.Phase == virtv2.MachinePending &&
+		if vm != nil && vm.Status.Phase == virtv2.MachinePending &&
 			(vm.Spec.RunPolicy == virtv2.AlwaysOnPolicy || vm.Spec.RunPolicy == virtv2.AlwaysOnUnlessStoppedManually) {
 			return virtv2.MachinePending
 		}

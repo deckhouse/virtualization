@@ -73,8 +73,22 @@ func (e VirtualDiskNotReadyForUseError) Error() string {
 	return fmt.Sprintf("the VirtualDisk %s not ready for use", e.name)
 }
 
-func NewVirtualDiskNotAllowedForUseError(name string) error {
+func NewVirtualDiskNotReadyForUseError(name string) error {
 	return VirtualDiskNotReadyForUseError{
+		name: name,
+	}
+}
+
+type VirtualDiskAttachedToVirtualMachineError struct {
+	name string
+}
+
+func (e VirtualDiskAttachedToVirtualMachineError) Error() string {
+	return fmt.Sprintf("the VirtualDisk %s attached to VirtualMachine", e.name)
+}
+
+func NewVirtualDiskAttachedToVirtualMachineError(name string) error {
+	return VirtualDiskAttachedToVirtualMachineError{
 		name: name,
 	}
 }
