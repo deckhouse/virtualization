@@ -158,6 +158,7 @@ binaries:
   - /usr/bin/cut
   - /usr/bin/grep
   - /usr/bin/sync
+  - /usr/bin/mknod
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
   - /usr/bin/gnutls-cli
