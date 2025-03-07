@@ -397,7 +397,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 				IsVmMigratable(vmObj)
 				sourceNode = vmObj.Status.Node
 				Expect(sourceNode).ShouldNot(Equal(""), "the `vm.status.nodeName` should have a value")
-				mergePatch := fmt.Sprintf("{\"spec\":{\"nodeSelector\":{\"%s\":\"%s\"}}}", nodeLabelKey, sourceNode)
+				mergePatch := fmt.Sprintf(`{"spec":{"nodeSelector":{%q:%q}}}`, nodeLabelKey, sourceNode)
 				err = MergePatchResource(kc.ResourceVM, vmObj.Name, mergePatch)
 				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeSelector)
 			})
@@ -449,7 +449,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 						return nil
 					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
 				}()
-				mergePatch := fmt.Sprintf("{\"spec\":{\"nodeSelector\":{\"%s\":\"%s\"}}}", nodeLabelKey, targetNode)
+				mergePatch := fmt.Sprintf(`{"spec":{"nodeSelector":{%q:%q}}}`, nodeLabelKey, targetNode)
 				err = MergePatchResource(kc.ResourceVM, vmObj.Name, mergePatch)
 				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeSelector)
 				wg.Wait()
@@ -489,7 +489,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 
 				p, err := GenerateNodeAffinityPatch(nodeLabelKey, corev1.NodeSelectorOpIn, []string{sourceNode})
 				Expect(err).NotTo(HaveOccurred())
-				mergePatch := fmt.Sprintf("{\"spec\":{\"affinity\":%s}}", p)
+				mergePatch := fmt.Sprintf(`{"spec":{"affinity":%s}}`, p)
 				err = MergePatchResource(kc.ResourceVM, vmObj.Name, mergePatch)
 				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeAffinity)
 			})
@@ -544,7 +544,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 						return nil
 					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
 				}()
-				mergePatch := fmt.Sprintf("{\"spec\":{\"affinity\":%s}}", p)
+				mergePatch := fmt.Sprintf(`{"spec":{"affinity":%s}}`, p)
 				err = MergePatchResource(kc.ResourceVM, vmObj.Name, mergePatch)
 				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeAffinity)
 				wg.Wait()

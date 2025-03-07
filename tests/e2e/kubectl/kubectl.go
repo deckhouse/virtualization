@@ -125,9 +125,9 @@ func (p JsonPatch) String() string {
 		strings.HasPrefix(p.Value, "{") {
 		value = p.Value
 	} else {
-		value = fmt.Sprintf("\"%s\"", p.Value)
+		value = fmt.Sprintf("%q", p.Value)
 	}
-	return fmt.Sprintf("{\"op\": \"%s\", \"path\": \"%s\", \"value\":%s}", p.Op, p.Path, value)
+	return fmt.Sprintf(`{"op": %q, "path": %q, "value":%s}`, p.Op, p.Path, value)
 }
 
 type KubectlConf struct {
