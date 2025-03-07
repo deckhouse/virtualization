@@ -280,7 +280,7 @@ func (h *SyncPowerStateHandler) handleAlwaysOnUnlessStoppedManuallyPolicy(
 				return Nothing, fmt.Errorf("load last applied spec: %w", err)
 			}
 
-			if lastAppliedSpec != nil && lastAppliedSpec.RunPolicy == virtv2.AlwaysOffPolicy && s.VirtualMachine().Current().Spec.RunPolicy == virtv2.AlwaysOnUnlessStoppedManually {
+			if lastAppliedSpec != nil && lastAppliedSpec.RunPolicy == virtv2.AlwaysOffPolicy {
 				err = kvvmutil.AddStartAnnotation(ctx, h.client, kvvm)
 				if err != nil {
 					return Nothing, fmt.Errorf("add annotation to KVVM: %w", err)

@@ -255,7 +255,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 	})
 
 	Context("handleAlwaysOnPolicy", func() {
-		It("should return start action when kvvmi is nil and configureation not applied", func() {
+		It("should return start action when kvvmi is nil and configuration not applied", func() {
 			kvvm.Annotations["initFoo"] = "initBar"
 			err := fakeClient.Update(context.TODO(), kvvm)
 			Expect(err).NotTo(HaveOccurred())
@@ -268,7 +268,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			Expect(kvvm.Annotations[annotations.AnnVmStartRequested]).To(Equal("true"))
 		})
 
-		It("should return start action when kvvmi is nil and configureation applied", func() {
+		It("should return start action when kvvmi is nil and configuration applied", func() {
 			action, err := handler.handleAlwaysOnPolicy(
 				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
 			)
