@@ -126,6 +126,7 @@ $SRC_BUILD/contrib/elf2dmp/elf2dmp to /usr/bin
 $SRC_BUILD/qemu-edid to /usr/bin
 $SRC_BUILD/contrib/vhost-user-gpu/vhost-user-gpu to /usr/libexec
 $SRC_BUILD/qemu-bridge-helper to /usr/libexec
+$SRC_BUILD/qemu-kvm to /usr/libexec
 $SRC_BUILD/qemu-pr-helper to /usr/bin
 $SRC_BUILD/qemu-vmsr-helper to /usr/bin
 $SRC_BUILD/pc-bios/edk2-i386-code.fd to /usr/share/qemu
