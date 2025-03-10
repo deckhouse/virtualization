@@ -17,8 +17,6 @@ limitations under the License.
 package app
 
 import (
-	"errors"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/tools/cache"
@@ -85,14 +83,6 @@ func run(c *cobra.Command, opts Options) error {
 	if err != nil {
 		log.Error("failed to create core shared factory", log.Err(err))
 		return err
-	}
-
-	if virtSharedInformerFactory == nil {
-		return errors.New("virt factory nil")
-	}
-
-	if coreSharedInformerFactory == nil {
-		return errors.New("core factory nil")
 	}
 
 	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
