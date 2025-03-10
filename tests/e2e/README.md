@@ -17,6 +17,23 @@ Some utilities should be installed to run e2e tests:
 
 Integration tests require a running Deckhouse cluster with the virtualization module installed.
 
+### Permissions
+
+When adding a new set of integration tests, ensure that the test user has the necessary RBAC permissions to access and manipulate the required resources. The test user should have permissions to:
+
+- Create, read, update and delete test resources
+- Access cluster-wide resources if needed
+- Execute commands in pods
+- Access node resources if required by the tests
+
+Add appropriate ClusterRole/Role and ClusterRoleBinding/RoleBinding resources to grant the required permissions.
+
+You can check the permissions for the corresponding service account using `kubectl auth can-i` commands, for example:
+
+```
+kubectl auth can-i --as=virt-e2e-sa ...
+```
+
 ### Default StorageClass
 
 Default storage class should be set in the cluster. Annotate a StorageClass with
