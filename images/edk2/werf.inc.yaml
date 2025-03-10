@@ -51,7 +51,7 @@ shell:
     nasm acpica libssl-devel libdwarf-devel libuuid-devel bison flex \
     dosfstools mtools genisoimage binutils-devel \
     qemu-kvm-core \
-    iasl \
+    iasl seabios \
     python3-modules-sqlite3 python3-module-virt-firmware libuuid-devel \
     qemu-img xorriso libssl-devel \
     bc zlib-devel perl-PathTools perl-IPC-Cmd perl-JSON
@@ -68,7 +68,9 @@ shell:
     cd {{ $gitRepoName }}-{{ $version }}
     git submodule update --init --recursive
 
-    # Set env edk
+  setup:
+  - |
+    cd {{ $gitRepoName }}-{{ $version }}
     export EDK_TOOLS_PATH=$(pwd)/BaseTools
     export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
 
@@ -76,8 +78,6 @@ shell:
     ln /usr/bin/python3 /usr/bin/python
     make -C BaseTools -j$(nproc) 2>&1 > /dev/null
 
-  setup:
-  - |
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
 ---
 image: kubevirt-{{ $.ImageName }}
