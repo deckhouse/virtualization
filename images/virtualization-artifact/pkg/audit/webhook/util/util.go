@@ -22,8 +22,9 @@ import (
 	"io"
 	"net/http"
 
-	virtv1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	admissionv1 "k8s.io/api/admission/v1"
+
+	virtv1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func GetAdmissionReview(r *http.Request) (*admissionv1.AdmissionReview, error) {
@@ -44,7 +45,7 @@ func GetAdmissionReview(r *http.Request) (*admissionv1.AdmissionReview, error) {
 	return ar, err
 }
 
-func GetVMFromAdmissionReview(ar *admissionv1.AdmissionReview) (new *virtv1.VirtualMachine, old *virtv1.VirtualMachine, err error) {
+func GetVMFromAdmissionReview(ar *admissionv1.AdmissionReview) (new, old *virtv1.VirtualMachine, err error) {
 	new = &virtv1.VirtualMachine{}
 	err = json.Unmarshal(ar.Request.Object.Raw, new)
 	if err != nil {
