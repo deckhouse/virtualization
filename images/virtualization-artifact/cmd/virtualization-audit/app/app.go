@@ -83,12 +83,16 @@ func run(c *cobra.Command, opts Options) error {
 
 	coreSharedInformerFactory, err := informer.CoreInformerFactory(kubeCfg)
 	if err != nil {
-		log.Error("failed to create virtualization shared factory", log.Err(err))
+		log.Error("failed to create core shared factory", log.Err(err))
 		return err
 	}
 
-	if coreSharedInformerFactory == nil || virtSharedInformerFactory == nil {
-		return errors.New("factory nil")
+	if virtSharedInformerFactory == nil {
+		return errors.New("virt factory nil")
+	}
+
+	if coreSharedInformerFactory == nil {
+		return errors.New("core factory nil")
 	}
 
 	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
@@ -98,7 +102,7 @@ func run(c *cobra.Command, opts Options) error {
 	go nodeInformer.Run(c.Context().Done())
 
 	// Ensure cache is up-to-date
-	ok := cache.WaitForCacheSync(c.Context().Done(), vmInformer.HasSynced)
+	ok := cache.WaitForCacheSync(c.Context().Done(), nodeInformer.HasSynced, vmInformer.HasSynced)
 	if !ok {
 		return nil
 	}

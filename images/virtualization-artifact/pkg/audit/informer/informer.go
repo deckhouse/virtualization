@@ -45,7 +45,7 @@ func VirtualizationInformerFactory(config *rest.Config) (virtInformers.SharedInf
 func CoreInformerFactory(config *rest.Config) (informers.SharedInformerFactory, error) {
 	client, err := kubernetes.NewForConfig(config)
 	if err == nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to construct lister client: %w", err)
 	}
 
 	return informers.NewSharedInformerFactory(client, defaultResync), nil
