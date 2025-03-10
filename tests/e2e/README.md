@@ -28,6 +28,12 @@ When adding a new set of integration tests, ensure that the test user has the ne
 
 Add appropriate ClusterRole/Role and ClusterRoleBinding/RoleBinding resources to grant the required permissions.
 
+You can check the permissions for the corresponding service account using `kubectl auth can-i` commands, for example:
+
+```
+kubectl auth can-i --as=virt-e2e-sa ...
+```
+
 ### Default StorageClass
 
 Default storage class should be set in the cluster. Annotate a StorageClass with
