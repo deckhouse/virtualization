@@ -17,16 +17,13 @@ limitations under the License.
 package app
 
 import (
-	virtv1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/resource/v1alpha2"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/informer"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/server"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook/validators"
 )
@@ -64,53 +61,49 @@ func NewAuditCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Short: "",
 		Long:  long,
-		RunE: func(c *cobra.Command, args []string) error {
-			client, err := newClient()
-			if err != nil {
-				log.Fatal("failed to create k8s client", log.Err(err))
-			}
-
-			srv, err := server.NewServer(
-				":"+opts.Port,
-				validators.NewVirtualImageWebhook(client),
-				validators.NewVirtualMachineWebhook(client),
-			)
-			if err != nil {
-				log.Fatal("failed to create server", log.Err(err))
-			}
-
-			return srv.Run(c.Context(), server.WithTLS(opts.Certfile, opts.Keyfile))
-		},
+		RunE:  func(c *cobra.Command, args []string) error { return run(c, opts) },
 	}
 	opts.Flags(cmd.Flags())
 	return cmd
 }
 
-func newClient() (client.Client, error) {
-	scheme := runtime.NewScheme()
-
-	err := v1alpha2.AddToScheme(scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	err = corev1.AddToScheme(scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	err = virtv1.AddToScheme(scheme)
-	if err != nil {
-		return nil, err
-	}
-
+func run(c *cobra.Command, opts Options) error {
 	kubeCfg, err := config.GetConfig()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return client.New(
-		kubeCfg,
-		client.Options{Scheme: scheme},
+	virtSharedInformerFactory, err := informer.VirtualizationInformerFactory(kubeCfg)
+	if err != nil {
+		log.Error("failed to create virtualization shared factory", log.Err(err))
+		return err
+	}
+
+	coreSharedInformerFactory, err := informer.CoreInformerFactory(kubeCfg)
+	if err != nil {
+		log.Error("failed to create virtualization shared factory", log.Err(err))
+		return err
+	}
+
+	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
+	go vmInformer.Run(c.Context().Done())
+
+	nodeInformer := coreSharedInformerFactory.Core().V1().Nodes().Informer()
+	go nodeInformer.Run(c.Context().Done())
+
+	// Ensure cache is up-to-date
+	ok := cache.WaitForCacheSync(c.Context().Done(), vmInformer.HasSynced)
+	if !ok {
+		return nil
+	}
+
+	srv, err := server.NewServer(
+		":"+opts.Port,
+		validators.NewVirtualMachineWebhook(vmInformer.GetIndexer(), nodeInformer.GetIndexer()),
 	)
+	if err != nil {
+		log.Fatal("failed to create server", log.Err(err))
+	}
+
+	return srv.Run(c.Context(), server.WithTLS(opts.Certfile, opts.Keyfile))
 }

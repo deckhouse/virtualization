@@ -17,20 +17,28 @@ limitations under the License.
 package validators
 
 import (
+	"log/slog"
 	"net/http"
 
 	admissionv1 "k8s.io/api/admission/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/cache"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook/util"
 )
 
-func NewVirtualMachineWebhook(client client.Client) *VirtualMachineWebhook {
-	return &VirtualMachineWebhook{client}
+func NewVirtualMachineWebhook(vmInformer cache.Indexer, nodeInformer cache.Indexer) *VirtualMachineWebhook {
+	return &VirtualMachineWebhook{
+		vmInformer:   vmInformer,
+		nodeInformer: vmInformer,
+	}
 }
 
 type VirtualMachineWebhook struct {
-	client client.Client
+	vmInformer   cache.Indexer
+	nodeInformer cache.Indexer
 }
 
 func (m *VirtualMachineWebhook) Path() string {
@@ -42,11 +50,46 @@ func (m *VirtualMachineWebhook) Handler() http.Handler {
 }
 
 func (m *VirtualMachineWebhook) Validate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	response := &admissionv1.AdmissionResponse{
-		AuditAnnotations: map[string]string{},
+	new, _, err := util.GetVMFromAdmissionReview(ar)
+	if err != nil {
+		log.Error("fail to get vm from admissionReviea", log.Err(err))
 	}
 
-	response.AuditAnnotations["some"] = "value"
+	nodeObj, exist, err := m.nodeInformer.Get(new.Status.Node)
+	if err != nil {
+		log.Error("fail to get node from informer", log.Err(err))
+	}
 
-	return response
+	node, ok := nodeObj.(corev1.Node)
+	if exist && ok {
+		addresses := ""
+
+		for i, r := range node.Status.Addresses {
+			addresses += r.Address
+			if i != len(node.Status.Addresses)-1 {
+				addresses += ","
+			}
+		}
+
+		log.Warn("Node", slog.String("addresses", addresses))
+	}
+
+	log.Warn(
+		"VirtualMachine",
+		slog.String("UID", string(new.UID)),
+		slog.String("Name", new.Name),
+		slog.String("Namespace", new.Namespace),
+		slog.String("VirtualMachineOS", new.Status.GuestOSInfo.Name),
+	)
+
+	// 	obj, exist, err := m.vmInformer.Get(types.NamespacedName{Name: ar.Request.Name, Namespace: ar.Request.Namespace})
+	// if err != nil {
+	// 	log.Error("fail to get VirtualMachine from informer", log.Err(err))
+	// }
+
+	return &admissionv1.AdmissionResponse{
+		AuditAnnotations: map[string]string{
+			"some": "value",
+		},
+	}
 }

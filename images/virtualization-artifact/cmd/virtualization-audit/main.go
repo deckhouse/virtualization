@@ -21,11 +21,13 @@ import (
 	"os"
 
 	"github.com/deckhouse/virtualization-controller/cmd/virtualization-audit/app"
-	"github.com/deckhouse/virtualization-controller/pkg/audit/signal"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
 
 func main() {
-	ctx := signal.SetupSignalHandler()
+	// Setup context to gracefully handle termination.
+	ctx := signals.SetupSignalHandler()
+
 	cmd := app.NewAuditCommand()
 	if err := cmd.ExecuteContext(ctx); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
