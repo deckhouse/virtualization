@@ -17,6 +17,8 @@ limitations under the License.
 package app
 
 import (
+	"errors"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/tools/cache"
@@ -51,8 +53,8 @@ func NewOptions() Options {
 
 func (o *Options) Flags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.Port, "secure-port", "8443", "The port to listen on")
-	fs.StringVar(&o.Certfile, "tls-cert-file", "/etc/virtulization-audit/certificate/tls.crt", "Path to TLS certificate")
-	fs.StringVar(&o.Keyfile, "tls-private-key-file", "/etc/virtulization-audit/certificate/tls.key", "Path to TLS key")
+	fs.StringVar(&o.Certfile, "tls-cert-file", "/etc/virtualization-audit/certificate/tls.crt", "Path to TLS certificate")
+	fs.StringVar(&o.Keyfile, "tls-private-key-file", "/etc/virtualization-audit/certificate/tls.key", "Path to TLS key")
 	fs.Uint8VarP(&o.Verbose, "verbose", "v", 1, "verbose output")
 }
 
@@ -88,18 +90,23 @@ func run(c *cobra.Command, opts Options) error {
 	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
 	go vmInformer.Run(c.Context().Done())
 
+	vdInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualDisks().Informer()
+	go vdInformer.Run(c.Context().Done())
+
 	nodeInformer := coreSharedInformerFactory.Core().V1().Nodes().Informer()
 	go nodeInformer.Run(c.Context().Done())
 
-	// Ensure cache is up-to-date
-	ok := cache.WaitForCacheSync(c.Context().Done(), nodeInformer.HasSynced, vmInformer.HasSynced)
-	if !ok {
-		return nil
+	if !cache.WaitForCacheSync(c.Context().Done(), nodeInformer.HasSynced, vmInformer.HasSynced, vdInformer.HasSynced) {
+		return errors.New("failed to wait for caches to sync")
 	}
 
 	srv, err := server.NewServer(
 		":"+opts.Port,
-		validators.NewVirtualMachineWebhook(vmInformer.GetIndexer(), nodeInformer.GetIndexer()),
+		validators.NewVirtualMachineWebhook(validators.NewVirtualMachineWebhookOptions{
+			VMInformer:   vmInformer.GetIndexer(),
+			NodeInformer: nodeInformer.GetIndexer(),
+			VDInformer:   vdInformer.GetIndexer(),
+		}),
 	)
 	if err != nil {
 		log.Fatal("failed to create server", log.Err(err))
