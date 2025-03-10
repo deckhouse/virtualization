@@ -207,10 +207,10 @@ build_shell() {
 
 
 enroll() {
-  virt-fw-vars --input  $FIRMWARE/OVMF_VARS.fd \
-              --output  $FIRMWARE/OVMF_VARS.secboot.fd \
-              --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
-              --secure-boot 
+  # virt-fw-vars --input  $FIRMWARE/OVMF_VARS.fd \
+  #             --output  $FIRMWARE/OVMF_VARS.secboot.fd \
+  #             --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
+  #             --secure-boot 
 
   virt-fw-vars --input  $FIRMWARE/OVMF.inteltdx.fd \
               --output  $FIRMWARE/OVMF.inteltdx.secboot.fd \
