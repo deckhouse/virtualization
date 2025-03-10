@@ -176,6 +176,10 @@ packages:
   - msulogin
   - xorriso
 binaries:
+  # test
+  - /usr/bin/ls
+  - /usr/bin/ps
+  - /usr/bin/cat
   # GNU utilities
   - /usr/bin/sh
   - /usr/bin/bash
