@@ -94,10 +94,9 @@ webhooks:
     admissionReviewVersions: [ "v1" ]
     sideEffects: None
   - name: "component-deletion.virtualization-audit.validate.d8-virtualization"
-    objectSelector:
-      namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: d8-virtualization
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: d8-virtualization
     rules:
       - apiGroups: [ "" ]
         apiVersions: [ "v1" ]
