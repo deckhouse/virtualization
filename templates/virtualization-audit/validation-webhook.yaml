@@ -72,47 +72,47 @@ webhooks:
         {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
     admissionReviewVersions: [ "v1" ]
     sideEffects: None
-  - name: "vmstate.virtualization-audit.validate.d8-virtualization"
-    objectSelector:
-      matchExpressions:
-        - key: "vm.kubevirt.internal.virtualization.deckhouse.io/name"
-          operator: Exists
-    rules:
-      - apiGroups: [ "" ]
-        apiVersions: [ "v1" ]
-        operations: [ "CREATE" ]
-        resources: [ "pods" ]
-        scope: "Namespaced"
-    clientConfig:
-      service:
-        namespace: d8-{{ .Chart.Name }}
-        name: virtualization-audit
-        path: /virtualmachinestate
-        port: 443
-      caBundle: |
-        {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
-    admissionReviewVersions: [ "v1" ]
-    sideEffects: None
-  - name: "component-deletion.virtualization-audit.validate.d8-virtualization"
-    namespaceSelector:
-      matchLabels:
-        kubernetes.io/metadata.name: d8-virtualization
-    rules:
-      - apiGroups: [ "" ]
-        apiVersions: [ "v1" ]
-        operations: [ "CREATE", "DELETE" ]
-        resources: [ "pods" ]
-        scope: "Namespaced"
-    clientConfig:
-      service:
-        namespace: d8-{{ .Chart.Name }}
-        name: virtualization-audit
-        path: /component-deletion
-        port: 443
-      caBundle: |
-        {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
-    admissionReviewVersions: [ "v1" ]
-    sideEffects: None
+  # - name: "vmstate.virtualization-audit.validate.d8-virtualization"
+  #   objectSelector:
+  #     matchExpressions:
+  #       - key: "vm.kubevirt.internal.virtualization.deckhouse.io/name"
+  #         operator: Exists
+  #   rules:
+  #     - apiGroups: [ "" ]
+  #       apiVersions: [ "v1" ]
+  #       operations: [ "CREATE" ]
+  #       resources: [ "pods" ]
+  #       scope: "Namespaced"
+  #   clientConfig:
+  #     service:
+  #       namespace: d8-{{ .Chart.Name }}
+  #       name: virtualization-audit
+  #       path: /virtualmachinestate
+  #       port: 443
+  #     caBundle: |
+  #       {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
+  #   admissionReviewVersions: [ "v1" ]
+  #   sideEffects: None
+  # - name: "component-deletion.virtualization-audit.validate.d8-virtualization"
+  #   namespaceSelector:
+  #     matchLabels:
+  #       kubernetes.io/metadata.name: d8-virtualization
+  #   rules:
+  #     - apiGroups: [ "" ]
+  #       apiVersions: [ "v1" ]
+  #       operations: [ "CREATE", "DELETE" ]
+  #       resources: [ "pods" ]
+  #       scope: "Namespaced"
+  #   clientConfig:
+  #     service:
+  #       namespace: d8-{{ .Chart.Name }}
+  #       name: virtualization-audit
+  #       path: /component-deletion
+  #       port: 443
+  #     caBundle: |
+  #       {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
+  #   admissionReviewVersions: [ "v1" ]
+  #   sideEffects: None
   # - name: "mc.virtualization-audit.validate.d8-virtualization"
   #   rules:
   #     - apiGroups: [ "deckhouse.io" ]
