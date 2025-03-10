@@ -51,7 +51,7 @@ shell:
     nasm acpica libssl-devel libdwarf-devel libuuid-devel bison flex \
     dosfstools mtools genisoimage binutils-devel \
     qemu-kvm-core \
-    iasl seabios \
+    iasl asl seabios \
     python3-modules-sqlite3 python3-module-virt-firmware libuuid-devel \
     qemu-img xorriso libssl-devel \
     bc zlib-devel perl-PathTools perl-IPC-Cmd perl-JSON
