@@ -20,8 +20,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/deckhouse/virtualization-controller/cmd/virtualization-audit/app"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+
+	"github.com/deckhouse/virtualization-controller/cmd/virtualization-audit/app"
 )
 
 func main() {
