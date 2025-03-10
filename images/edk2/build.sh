@@ -122,6 +122,8 @@ echo "run source edksetup.sh"
 source ./edksetup.sh BaseTools
 source ./edksetup.sh
 
+python3 CryptoPkg/Library/OpensslLib/configure.py
+
 build_iso() {
   dir="$1"
   UEFI_SHELL_BINARY=${dir}/Shell.efi
@@ -156,12 +158,17 @@ build_iso() {
     -o "$ISO_IMAGE" "$UEFI_SHELL_IMAGE"
 }
 
+prep() {
+  build -a X64 -p MdeModulePkg/MdeModulePkg.dsc -t GCC5 -b RELEASE
+}
+
 # Build with SB and SMM; exclude UEFI shell.
 build_ovmf() {
   echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
   build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
   cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
   cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
+  rm -rf Build/*
 }
 
 # Build with SB and SMM with secure boot; exclude UEFI shell.
@@ -169,11 +176,13 @@ build_ovmf_secboot() {
   echo_dbg "build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
   build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
   cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.secboot.fd
+  rm -rf Build/*
 }
 
 # Build AmdSev and IntelTdx variants
 build_ovmf_amdsev() {
   touch OvmfPkg/AmdSev/Grub/grub.efi
+  python3 CryptoPkg/Library/OpensslLib/configure.py
 
   echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc"
   build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/AmdSev/AmdSevX64.dsc
@@ -182,6 +191,7 @@ build_ovmf_amdsev() {
   echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc"
   build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc
   cp -p Build/IntelTdx/*/FV/OVMF.fd $FIRMWARE/OVMF.inteltdx.fd
+  rm -rf Build/*
 }
 
 # Build ovmf (x64) shell iso with EnrollDefaultKeys
@@ -192,6 +202,7 @@ build_shell() {
 
   cp -p Build/Shell/*/X64/ShellPkg/Application/Shell/Shell/OUTPUT/Shell.efi $FIRMWARE/
   cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+  rm -rf Build/*
 }
 
 
@@ -212,10 +223,12 @@ no_enroll() {
   cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd  
 }
 
+prep 2>&1 > /dev/null
 build_ovmf 2>&1 > /dev/null
 build_ovmf_secboot 2>&1 > /dev/null
 build_ovmf_amdsev 2>&1 > /dev/null
 build_shell 2>&1 > /dev/null
 
 build_iso $FIRMWARE
-no_enroll
+enroll
+# no_enroll
