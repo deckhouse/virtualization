@@ -75,7 +75,7 @@ webhooks:
   - name: "vmstate.virtualization-audit.validate.d8-virtualization"
     objectSelector:
       matchExpressions:
-        - key: "vm.kubevirt.internal.virtualization.deckhouse.io/name" 
+        - key: "vm.kubevirt.internal.virtualization.deckhouse.io/name"
           operator: Exists
     rules:
       - apiGroups: [ "" ]
@@ -113,20 +113,20 @@ webhooks:
         {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
     admissionReviewVersions: [ "v1" ]
     sideEffects: None
-  - name: "mc.virtualization-audit.validate.d8-virtualization"
-    rules:
-      - apiGroups: [ "deckhouse.io" ]
-        apiVersions: [ "v1alpha1" ]
-        operations: [ "CREATE", "UPDATE", "DELETE" ]
-        resources: [ "moduleconfigs" ]
-        scope: "Cluster"
-    clientConfig:
-      service:
-        namespace: d8-{{ .Chart.Name }}
-        name: virtualization-audit
-        path: /moduleconfig
-        port: 443
-      caBundle: |
-        {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
-    admissionReviewVersions: [ "v1" ]
-    sideEffects: None
+  # - name: "mc.virtualization-audit.validate.d8-virtualization"
+  #   rules:
+  #     - apiGroups: [ "deckhouse.io" ]
+  #       apiVersions: [ "v1alpha1" ]
+  #       operations: [ "CREATE", "UPDATE", "DELETE" ]
+  #       resources: [ "moduleconfigs" ]
+  #       scope: "Cluster"
+  #   clientConfig:
+  #     service:
+  #       namespace: d8-{{ .Chart.Name }}
+  #       name: virtualization-audit
+  #       path: /moduleconfig
+  #       port: 443
+  #     caBundle: |
+  #       {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
+  #   admissionReviewVersions: [ "v1" ]
+  #   sideEffects: None
