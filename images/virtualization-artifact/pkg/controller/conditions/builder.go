@@ -172,3 +172,11 @@ func (c *ConditionBuilder) Clone() *ConditionBuilder {
 func (c *ConditionBuilder) GetType() Stringer {
 	return c.conditionType
 }
+
+func (c *ConditionBuilder) SetAllUnknown() *ConditionBuilder {
+	c.
+		Status(metav1.ConditionUnknown).
+		Reason(ReasonUnknown).
+		Message("")
+	return c
+}

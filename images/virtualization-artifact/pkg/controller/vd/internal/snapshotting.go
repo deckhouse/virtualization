@@ -41,33 +41,24 @@ func NewSnapshottingHandler(diskService *service.DiskService) *SnapshottingHandl
 func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vdcondition.SnapshottingType).Generation(vd.Generation)
 
-	defer func() {
-		if cb.Condition().Status == metav1.ConditionTrue {
-			conditions.SetCondition(cb, &vd.Status.Conditions)
-		} else {
-			conditions.RemoveCondition(vdcondition.SnapshottingType, &vd.Status.Conditions)
-		}
-	}()
-
 	if vd.DeletionTimestamp != nil {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
+		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
-	readyCondition, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	if !ok || readyCondition.Status != metav1.ConditionTrue || readyCondition.ObservedGeneration != vd.Generation {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
+	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	switch {
+	case readyCondition.ObservedGeneration != vd.Generation || readyCondition.Status == metav1.ConditionUnknown:
+		conditions.SetCondition(cb.SetAllUnknown(), &vd.Status.Conditions)
+		return reconcile.Result{}, nil
+	case readyCondition.Status == metav1.ConditionFalse:
+		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
 	vdSnapshots, err := h.diskService.ListVirtualDiskSnapshots(ctx, vd.Namespace)
 	if err != nil {
+		conditions.SetCondition(cb.SetAllUnknown(), &vd.Status.Conditions)
 		return reconcile.Result{}, err
 	}
 
@@ -80,17 +71,13 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 			continue
 		}
 
-		resizing, ok := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
-
-		if ok && (resizing.ObservedGeneration != vd.Generation || resizing.Status == metav1.ConditionUnknown) {
-			return reconcile.Result{Requeue: true}, nil
-		}
-
-		if resizing.Status == metav1.ConditionTrue && resizing.ObservedGeneration == vd.Generation {
+		resizing, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
+		if resizing.Status == metav1.ConditionTrue {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.SnapshottingNotAvailable).
 				Message("The virtual disk cannot be selected for snapshotting as it is currently resizing.")
+			conditions.SetCondition(cb, &vd.Status.Conditions)
 			return reconcile.Result{}, nil
 		}
 
@@ -98,6 +85,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.Snapshotting).
 			Message("The virtual disk is selected for taking a snapshot.")
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -105,5 +93,6 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 		Status(metav1.ConditionUnknown).
 		Reason(conditions.ReasonUnknown).
 		Message("")
+	conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 	return reconcile.Result{}, nil
 }
