@@ -390,7 +390,12 @@ shell:
     echo "Create symlinks for OVMF"
     mkdir -p /relocate/usr/share/OVMF
 
+    echo "cd to /relocate/usr/share/edk2/ovmf"
     cd /relocate/usr/share/edk2/ovmf
+    
+    echo "show files"
+    ls -lah
+    
     ln -sf OVMF_CODE.fd   OVMF_CODE.cc.fd
 
     cd /relocate
@@ -402,6 +407,7 @@ shell:
     ln -s ../edk2/ovmf/UefiShell.iso          usr/share/OVMF
 
     cd /
+    echo "Successful create symlinks"
 
   - |
     convert_version() {
