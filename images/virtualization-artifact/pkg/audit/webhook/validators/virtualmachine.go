@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook/util"
 )
 
-func NewVirtualMachineWebhook(vmInformer cache.Indexer, nodeInformer cache.Indexer) *VirtualMachineWebhook {
+func NewVirtualMachineWebhook(vmInformer, nodeInformer cache.Indexer) *VirtualMachineWebhook {
 	return &VirtualMachineWebhook{
 		vmInformer:   vmInformer,
 		nodeInformer: vmInformer,
