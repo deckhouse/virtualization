@@ -206,6 +206,7 @@ shell:
       --disable-xen-pci-passthrough \ 
       --enable-attr \ 
       --enable-blkio \ 
+      --enable-brlapi \
       --enable-cap-ng \ 
       --enable-capstone \ 
       --enable-coroutine-pool \ 
@@ -213,11 +214,18 @@ shell:
       --enable-dbus-display \ 
       --enable-debug-info \ 
       --enable-fdt=system \ 
+      --enable-fuse \
       --enable-gio \ 
       --enable-gnutls \ 
       --enable-guest-agent \ 
       --enable-iconv \ 
       --enable-kvm \ 
+      --enable-libdaxctl \
+      --enable-libdw \
+      --enable-libkeyutils \
+      --enable-libnfs \
+      --enable-linux-io-uring \
+      --enable-linux-user \
       --enable-libusb \ 
       --enable-libudev \ 
       --enable-linux-aio \ 
@@ -225,7 +233,8 @@ shell:
       --enable-lzo \ 
       --enable-malloc-trim \ 
       --enable-modules \ 
-      --enable-mpath \ 
+      --enable-mpath \
+      --enable-multiprocess \ 
       --enable-numa \ 
       --enable-opengl \ 
       --enable-pa \ 
