@@ -1,0 +1,64 @@
+From bb7ef76c9fb5a6f59e533e4ba0d66a8fe08931cb Mon Sep 17 00:00:00 2001
+From: Nikita Korolev <nikita.korolev@flant.com>
+Date: Tue, 11 Mar 2025 15:24:48 +0300
+Subject: [PATCH] remove UPLOAD_PROXY_IMAGE and UPLOAD_SERVER_IMAGE
+
+Signed-off-by: Nikita Korolev <nikita.korolev@flant.com>
+---
+ pkg/operator/resources/operator/operator.go | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
+
+diff --git a/pkg/operator/resources/operator/operator.go b/pkg/operator/resources/operator/operator.go
+index ff803b39f..3f4a76a1e 100644
+--- a/pkg/operator/resources/operator/operator.go
++++ b/pkg/operator/resources/operator/operator.go
+@@ -365,6 +365,7 @@ func createCRD(args *FactoryArgs) []client.Object {
+ 		createCDIListCRD(),
+ 	}
+ }
++
+ func createCDIListCRD() *extv1.CustomResourceDefinition {
+ 	crd := extv1.CustomResourceDefinition{}
+ 	_ = k8syaml.NewYAMLToJSONDecoder(strings.NewReader(resources.CDICRDs["cdi"])).Decode(&crd)
+@@ -401,14 +402,6 @@ func createOperatorEnvVar(operatorVersion, deployClusterResources, operatorImage
+ 			Name:  "APISERVER_IMAGE",
+ 			Value: apiServerImage,
+ 		},
+-		{
+-			Name:  "UPLOAD_SERVER_IMAGE",
+-			Value: uploadServerImage,
+-		},
+-		{
+-			Name:  "UPLOAD_PROXY_IMAGE",
+-			Value: uploadProxyImage,
+-		},
+ 		{
+ 			Name:  "VERBOSITY",
+ 			Value: verbosity,
+@@ -523,7 +516,6 @@ _The CDI Operator does not support updates yet._
+ 			Name:      "cdioperator." + data.CsvVersion,
+ 			Namespace: data.Namespace,
+ 			Annotations: map[string]string{
+-
+ 				"capabilities": "Full Lifecycle",
+ 				"categories":   "Storage,Virtualization",
+ 				"alm-examples": `
+@@ -605,7 +597,6 @@ _The CDI Operator does not support updates yet._
+ 				StrategySpecRaw: json.RawMessage(strategySpecJSONBytes),
+ 			},
+ 			CustomResourceDefinitions: csvv1.CustomResourceDefinitions{
+-
+ 				Owned: []csvv1.CRDDescription{
+ 					{
+ 						Name:        "cdis.cdi.kubevirt.io",
+@@ -621,7 +612,6 @@ _The CDI Operator does not support updates yet._
+ 							},
+ 						},
+ 						SpecDescriptors: []csvv1.SpecDescriptor{
+-
+ 							{
+ 								Description:  "The ImageRegistry to use for the CDI components.",
+ 								DisplayName:  "ImageRegistry",
+-- 
+2.44.0
+
