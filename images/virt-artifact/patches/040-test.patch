@@ -1,0 +1,43 @@
+diff --git a/pkg/service/service.go b/pkg/service/service.go
+index 2929c48395..cefbabc704 100644
+--- a/pkg/service/service.go
++++ b/pkg/service/service.go
+@@ -81,7 +81,7 @@ func Setup(service Service) {
+ 	service.AddFlags()
+ 
+ 	// set new default verbosity, was set to 0 by glog
+-	flag.Set("v", "2")
++	// flag.Set("v", "2")
+ 
+ 	flag.Parse()
+ }
+diff --git a/pkg/virt-api/api.go b/pkg/virt-api/api.go
+index 9202809911..9d2a61853a 100644
+--- a/pkg/virt-api/api.go
++++ b/pkg/virt-api/api.go
+@@ -1064,6 +1064,12 @@ func (app *virtAPIApp) startTLS(informerFactory controller.KubeInformerFactory)
+ }
+ 
+ func (app *virtAPIApp) Run() {
++	log.Log.Info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa")
++	log.Log.Info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa")
++	log.Log.Info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa")
++	log.Log.Info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa")
++	log.Log.Info("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAa")
++
+ 	host, err := os.Hostname()
+ 	if err != nil {
+ 		panic(fmt.Errorf("unable to get hostname: %v", err))
+diff --git a/pkg/virt-api/rest/subresource.go b/pkg/virt-api/rest/subresource.go
+index 6a3e2b4143..cc60ed7b91 100644
+--- a/pkg/virt-api/rest/subresource.go
++++ b/pkg/virt-api/rest/subresource.go
+@@ -1255,7 +1255,7 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
+ 	dryRunOption := app.getDryRunOption(volumeRequest)
+ 	log.Log.Object(vm).V(4).Infof(patchingVMFmt, string(patchBytes))
+ 	if err := app.statusUpdater.PatchStatus(vm, types.JSONPatchType, patchBytes, &k8smetav1.PatchOptions{DryRun: dryRunOption}); err != nil {
+-		log.Log.Object(vm).Errorf("unable to patch vm status: %v", err)
++		log.Log.Object(vm).With("patch", string(patchBytes)).With("remove", volumeRequest.RemoveVolumeOptions.Name).Errorf("unable to patch vm status: %v", err)
+ 		if errors.IsInvalid(err) {
+ 			if statErr, ok := err.(*errors.StatusError); ok {
+ 				return statErr
