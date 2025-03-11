@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
@@ -37,5 +38,6 @@ type Sources interface {
 
 type DiskService interface {
 	GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error)
+	GetStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error)
 	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }

@@ -129,7 +129,7 @@ shell:
 ---
 image: python-dependencies
 from: {{ .Images.BASE_ALT_P11 }}
-fromCacheVersion: "2024-11-07.1"
+fromCacheVersion: "2025-03-14.3"
 git:
   - add: /lib/python/requirements.txt
     to: /requirements.txt

@@ -22,8 +22,12 @@ import (
 	"reflect"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+	storev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
@@ -35,18 +39,20 @@ import (
 
 type Validator struct {
 	logger *log.Logger
+	client client.Client
 }
 
-func NewValidator(logger *log.Logger) *Validator {
+func NewValidator(logger *log.Logger, client client.Client) *Validator {
 	return &Validator{
 		logger: logger.With("webhook", "validator"),
+		client: client,
 	}
 }
 
-func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	vi, ok := obj.(*virtv2.VirtualImage)
 	if !ok {
-		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
+		return nil, fmt.Errorf("expected a new VirtualImage but got a %T", obj)
 	}
 
 	if strings.Contains(vi.Name, ".") {
@@ -57,18 +63,23 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 		return nil, fmt.Errorf("the VirtualImage name %q is too long: it must be no more than %d characters", vi.Name, blockdevice.MaxVirtualImageNameLen)
 	}
 
-	if vi.Spec.Storage == virtv2.StorageKubernetes {
-		warnings := admission.Warnings{
-			fmt.Sprintf("Using the `%s` storage type is deprecated. It is recommended to use `%s` instead.",
-				virtv2.StorageKubernetes, virtv2.StoragePersistentVolumeClaim),
-		}
+	warnings, err := v.validateStorageClass(ctx, vi)
+	if err != nil {
+		return nil, err
+	}
+	if len(warnings) != 0 {
 		return warnings, nil
 	}
 
 	return nil, nil
 }
 
-func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	var (
+		warnings admission.Warnings = make([]string, 0)
+		err      error
+	)
+
 	oldVI, ok := oldObj.(*virtv2.VirtualImage)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualImage but got a %T", newObj)
@@ -81,10 +92,16 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 
 	v.logger.Info("Validating VirtualImage")
 
-	var warnings admission.Warnings
-
 	if oldVI.Generation == newVI.Generation {
 		return nil, nil
+	}
+
+	scWarnings, err := v.validateStorageClass(ctx, newVI)
+	if err != nil {
+		return nil, err
+	}
+	if len(warnings) != 0 {
+		warnings = append(warnings, scWarnings...)
 	}
 
 	ready, _ := conditions.GetCondition(vicondition.ReadyType, newVI.Status.Conditions)
@@ -99,7 +116,7 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	}
 
 	if strings.Contains(newVI.Name, ".") {
-		warnings = append(warnings, fmt.Sprintf(" the VirtualImage name %q is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another image with valid name to avoid problems with future updates.", newVI.Name))
+		warnings = append(warnings, fmt.Sprintf("the VirtualImage name %q is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another image with valid name to avoid problems with future updates.", newVI.Name))
 	}
 
 	if len(newVI.Name) > blockdevice.MaxVirtualImageNameLen {
@@ -113,4 +130,37 @@ func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admissi
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
+}
+
+func (v *Validator) validateStorageClass(ctx context.Context, vi *virtv2.VirtualImage) (admission.Warnings, error) {
+	if vi.Spec.PersistentVolumeClaim != (virtv2.VirtualImagePersistentVolumeClaim{}) {
+		switch vi.Spec.Storage {
+		case virtv2.StoragePersistentVolumeClaim:
+			scFromSpec := vi.Spec.PersistentVolumeClaim.StorageClass
+			sc := &storev1.StorageClass{}
+			err := v.client.Get(ctx, client.ObjectKey{Name: *scFromSpec}, sc, &client.GetOptions{})
+			if err != nil {
+				return admission.Warnings{}, fmt.Errorf("failed to obtain the `StorageClass` %s", *scFromSpec)
+			}
+			scProfile := &cdiv1.StorageProfile{}
+			err = v.client.Get(ctx, client.ObjectKey{Name: sc.Name}, scProfile, &client.GetOptions{})
+			if err != nil {
+				return admission.Warnings{}, fmt.Errorf("failed to obtain the `StorageProfile` %s", *scFromSpec)
+			}
+			if len(scProfile.Status.ClaimPropertySets) == 0 {
+				return admission.Warnings{}, fmt.Errorf("failed to validate the `PersistentVolumeMode` of the `StorageProfile`: %s", sc.Name)
+			}
+			if *scProfile.Status.ClaimPropertySets[0].VolumeMode == corev1.PersistentVolumeFilesystem {
+				return admission.Warnings{}, fmt.Errorf("a `StorageClass` with the `PersistentVolumeFilesystem` mode cannot be used currently")
+			}
+		case virtv2.StorageKubernetes:
+			warnings := admission.Warnings{
+				fmt.Sprintf("Using the `%s` storage type is deprecated. It is recommended to use `%s` instead.",
+					virtv2.StorageKubernetes, virtv2.StoragePersistentVolumeClaim),
+			}
+			return warnings, nil
+		}
+	}
+
+	return admission.Warnings{}, nil
 }

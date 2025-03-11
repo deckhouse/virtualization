@@ -96,10 +96,24 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 
 	switch {
 	case sc != nil:
-		cb.
-			Status(metav1.ConditionTrue).
-			Reason(vicondition.StorageClassReady).
-			Message("")
+		scProfile, err := h.service.GetStorageProfile(ctx, sc.Name)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if len(scProfile.Status.ClaimPropertySets) == 0 {
+			return reconcile.Result{}, fmt.Errorf("failed to validate the `PersistentVolumeMode` of the `StorageProfile`: %s", sc.Name)
+		}
+		if *scProfile.Status.ClaimPropertySets[0].VolumeMode == corev1.PersistentVolumeFilesystem {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vicondition.StorageClassNotReady).
+				Message("a `StorageClass` with the `PersistentVolumeFilesystem` mode cannot be used for `VirtualImages` currently")
+		} else {
+			cb.
+				Status(metav1.ConditionTrue).
+				Reason(vicondition.StorageClassReady).
+				Message("")
+		}
 	case hasNoStorageClassInSpec:
 		h.recorder.Event(
 			vi,

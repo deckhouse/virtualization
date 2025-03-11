@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -107,6 +108,20 @@ func newDiskServiceMock(existedStorageClass *string) *DiskServiceMock {
 
 	diskServiceMock.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 		return nil, nil
+	}
+
+	diskServiceMock.GetStorageProfileFunc = func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+		persistentVolumeBlock := corev1.PersistentVolumeBlock
+		return &cdiv1.StorageProfile{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: *existedStorageClass,
+			},
+			Status: cdiv1.StorageProfileStatus{
+				ClaimPropertySets: []cdiv1.ClaimPropertySet{
+					{VolumeMode: &persistentVolumeBlock},
+				},
+			},
+		}, nil
 	}
 
 	diskServiceMock.GetStorageClassFunc = func(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error) {
