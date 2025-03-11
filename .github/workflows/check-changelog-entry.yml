@@ -16,7 +16,7 @@ name: Check Changelog entry
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, milestoned, demilestoned]
+    types: [opened, synchronize, reopened, edited]
 
 # Cancel in-progress jobs for the same PR (pull_request_target event) or for the same branch (push event).
 concurrency:
