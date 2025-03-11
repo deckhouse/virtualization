@@ -42,13 +42,6 @@ spec:
         patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
         type: json
 
-      # Turn off cdi-uploadproxy.
-      - resourceType: Deployment
-        resourceName: cdi-uploadproxy
-        patch: '[{"op":"remove","path":"/"}]'
-        # patch: '[{"op":"replace","path":"/spec/replicas","value":0}]'
-        type: json
-
     {{- if (include "helm_lib_ha_enabled" .) }}
       - resourceType: Deployment
         resourceName: cdi-apiserver
