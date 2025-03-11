@@ -4,57 +4,57 @@
 # It is done in the latest possible stage in the final image to not break
 # stapel commands with the "unsupported GLIBC version" error.
 # TODO Remove after adding patch to the libvirt.
-{{/*
-
-# image: {{ $.ImageName }}
-# fromImage: {{ $.ImageName }}-prepared
-# git:
-#   # Add liboverride as a global LD_PRELOAD.
-#   - add: /images/{{ $.ImageName }}/liboverride
-#     to: /etc
-#     includePaths:
-#     - ld.so.preload
-# ---
-# image: {{ $.ImageName }}-prepared
-# final: false
-# fromImage: distroless
-# import:
-#   - image: {{ $.ImageName }}-binaries
-#     add: /relocate
-#     to: /
-#     after: install
-# docker:
-#   USER: 0
-*/}}
 
 
-# image: {{ $.ImageName }}-prepared
 image: {{ $.ImageName }}
-from: quay.io/kubevirt/virt-launcher:v1.3.1
+fromImage: {{ $.ImageName }}-prepared
+git:
+  # Add liboverride as a global LD_PRELOAD.
+  - add: /images/{{ $.ImageName }}/liboverride
+    to: /etc
+    includePaths:
+    - ld.so.preload
+---
+image: {{ $.ImageName }}-prepared
+final: false
+fromImage: distroless
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
-    to: /relocate
-    before: install
-shell:
-  install:
-  - |
-    echo "replace binaries"
-    cp -f /relocate/usr/bin/container-disk               /usr/bin
-    cp -f /relocate/usr/bin/virt-freezer                 /usr/bin
-    cp -f /relocate/usr/bin/virt-launcher                /usr/bin
-    cp -f /relocate/usr/bin/virt-launcher-monitor-orig   /usr/bin
-    cp -f /relocate/usr/bin/virt-probe                   /usr/bin
-    cp -f /relocate/usr/bin/virt-tail                    /usr/bin
-
-    cp -a /etc/libvirt /etc/libvirt-init
-    
-    echo "replace ovmf on our UEFI"
-    cp -af /relocate/usr/share/edk2/ovmf/. /usr/share/edk2/ovmf/.
-    rm -rf /relocate
+    to: /
+    after: install
 docker:
   USER: 0
 
+
+{{/*
+# # image: {{ $.ImageName }}-prepared
+# image: {{ $.ImageName }}
+# from: quay.io/kubevirt/virt-launcher:v1.3.1
+# import:
+#   - image: {{ $.ImageName }}-binaries
+#     add: /relocate
+#     to: /relocate
+#     before: install
+# shell:
+#   install:
+#   - |
+#     echo "replace binaries"
+#     cp -f /relocate/usr/bin/container-disk               /usr/bin
+#     cp -f /relocate/usr/bin/virt-freezer                 /usr/bin
+#     cp -f /relocate/usr/bin/virt-launcher                /usr/bin
+#     cp -f /relocate/usr/bin/virt-launcher-monitor-orig   /usr/bin
+#     cp -f /relocate/usr/bin/virt-probe                   /usr/bin
+#     cp -f /relocate/usr/bin/virt-tail                    /usr/bin
+
+#     cp -a /etc/libvirt /etc/libvirt-init
+    
+#     echo "replace ovmf on our UEFI"
+#     cp -af /relocate/usr/share/edk2/ovmf/. /usr/share/edk2/ovmf/.
+#     rm -rf /relocate
+# docker:
+#   USER: 0
+*/}}
 
 ---
 {{- define "virt-launcher-dependencies" -}}
