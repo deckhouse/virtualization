@@ -56,8 +56,10 @@ const (
 	ClusterImageNotReady DatasourceReadyReason = "ClusterImageNotReady"
 	// VirtualDiskNotReady indicates that the `VirtualDisk` datasource is not ready, which prevents the import process from starting.
 	VirtualDiskNotReady DatasourceReadyReason = "VirtualDiskNotReady"
-	// VirtualDiskInUseInRunningVirtualMachine indicates that the `VirtualDisk` attached to running `VirtualMachine`
-	VirtualDiskInUseInRunningVirtualMachine DatasourceReadyReason = "VirtualDiskInUseInRunningVirtualMachine"
+	// VirtualDiskNotReadyForUse indicates that the `VirtualDisk` not ready for use, which prevents the import process from starting.
+	VirtualDiskNotReadyForUse DatasourceReadyReason = "VirtualDiskNotReadyForUse"
+	// VirtualDiskAttachedToVirtualMachine indicates that the `VirtualDisk` attached to `VirtualMachine`.
+	VirtualDiskAttachedToVirtualMachine DatasourceReadyReason = "VirtualDiskAttachedToVirtualMachine"
 
 	// WaitForUserUpload indicates that the `ClusterVirtualImage` is waiting for the user to upload a datasource for the import process to continue.
 	WaitForUserUpload ReadyReason = "WaitForUserUpload"

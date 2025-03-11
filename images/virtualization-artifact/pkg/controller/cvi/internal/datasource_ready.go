@@ -89,11 +89,17 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *virtv2.ClusterV
 			Reason(cvicondition.VirtualDiskNotReady).
 			Message(service.CapitalizeFirstLetter(err.Error()))
 		return reconcile.Result{}, nil
-	case errors.As(err, &source.VirtualDiskNotAllowedForUseError{}):
+	case errors.As(err, &source.VirtualDiskNotReadyForUseError{}):
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(cvicondition.VirtualDiskInUseInRunningVirtualMachine).
-			Message(service.CapitalizeFirstLetter(err.Error()))
+			Reason(cvicondition.VirtualDiskNotReadyForUse).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		return reconcile.Result{}, nil
+	case errors.As(err, &source.VirtualDiskAttachedToVirtualMachineError{}):
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.VirtualDiskAttachedToVirtualMachine).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err
