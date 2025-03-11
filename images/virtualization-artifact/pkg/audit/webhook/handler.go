@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook/util"
 )
 
-type validator func(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse
+type validator func(ar *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error)
 
 func NewAuditWebhookHandler(validate validator) http.Handler {
 	return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
@@ -39,16 +39,6 @@ func NewAuditWebhookHandler(validate validator) http.Handler {
 			return
 		}
 
-		log.Info(
-			"new request",
-			slog.String("UID", string(review.Request.UID)),
-			slog.String("name", review.Request.Name),
-			slog.String("namespace", review.Request.Namespace),
-			slog.String("kind", review.Request.Kind.Kind),
-			slog.String("resource", review.Request.Resource.Resource),
-			slog.String("operation", string(review.Request.Operation)),
-		)
-
 		response := admissionv1.AdmissionReview{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: admissionv1.SchemeGroupVersion.String(),
@@ -56,7 +46,19 @@ func NewAuditWebhookHandler(validate validator) http.Handler {
 			},
 		}
 
-		reviewResponse := validate(review)
+		reviewResponse, err := validate(review)
+		if err != nil {
+			log.Error(
+				"fail to validate",
+				log.Err(err),
+				slog.String("UID", string(review.Request.UID)),
+				slog.String("name", review.Request.Name),
+				slog.String("namespace", review.Request.Namespace),
+				slog.String("kind", review.Request.Kind.Kind),
+				slog.String("resource", review.Request.Resource.Resource),
+				slog.String("operation", string(review.Request.Operation)),
+			)
+		}
 
 		if reviewResponse != nil {
 			response.Response = reviewResponse
