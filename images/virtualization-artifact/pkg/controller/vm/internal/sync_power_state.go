@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -132,7 +133,10 @@ func (h *SyncPowerStateHandler) syncPowerState(
 	case virtv2.AlwaysOffPolicy:
 		vmAction = h.handleAlwaysOffPolicy(ctx, s, kvvmi)
 	case virtv2.AlwaysOnPolicy:
-		vmAction = h.handleAlwaysOnPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
+		vmAction, err = h.handleAlwaysOnPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
+		if err != nil {
+			return err
+		}
 	case virtv2.AlwaysOnUnlessStoppedManually:
 		vmAction, err = h.handleAlwaysOnUnlessStoppedManuallyPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
 		if err != nil {
@@ -212,28 +216,33 @@ func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(
 	kvvmi *virtv1.VirtualMachineInstance,
 	isConfigurationApplied bool,
 	shutdownInfo powerstate.ShutdownInfo,
-) VMAction {
+) (VMAction, error) {
 	if kvvmi == nil {
 		if isConfigurationApplied {
 			h.recordStartEventf(ctx, s.VirtualMachine().Current(), "Start initiated "+
 				"by controller for AlwaysOn policy")
-			return Start
+			return Start, nil
 		}
 
-		return Nothing
+		err := kvvmutil.AddStartAnnotation(ctx, h.client, kvvm)
+		if err != nil {
+			return Nothing, fmt.Errorf("add annotation to KVVM: %w", err)
+		}
+
+		return Nothing, nil
 	}
 
 	if kvvmi.DeletionTimestamp != nil {
 		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, virtv2.AlwaysOnPolicy) {
-			return Start
+			return Start, nil
 		}
-		return Nothing
+		return Nothing, nil
 	}
 
 	if kvvm.Annotations[annotations.AnnVmRestartRequested] == "true" && kvvmi.Status.Phase == virtv1.Running {
 		h.recordRestartEventf(ctx, s.VirtualMachine().Current(), "Restart initiated "+
 			"by VirtualMachineOparation for AlwaysOn runPolicy")
-		return Restart
+		return Restart, nil
 	}
 
 	if kvvmi.Status.Phase == virtv1.Succeeded || kvvmi.Status.Phase == virtv1.Failed {
@@ -241,15 +250,15 @@ func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(
 			if shutdownInfo.Reason == powerstate.GuestResetReason {
 				h.recordRestartEventf(ctx, s.VirtualMachine().Current(), "Restart initiated by inside "+
 					"the guest VirtualMachine for AlwaysOn runPolicy")
-				return Restart
+				return Restart, nil
 			}
 		}
 		h.recordRestartEventf(ctx, s.VirtualMachine().Current(), "Restart initiated by controller "+
 			"after stopping from inside the guest VirtualMachine for AlwaysOn runPolicy")
-		return Restart
+		return Restart, nil
 	}
 
-	return Nothing
+	return Nothing, nil
 }
 
 func (h *SyncPowerStateHandler) handleAlwaysOnUnlessStoppedManuallyPolicy(
@@ -264,6 +273,21 @@ func (h *SyncPowerStateHandler) handleAlwaysOnUnlessStoppedManuallyPolicy(
 		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, virtv2.AlwaysOnUnlessStoppedManually) {
 			return Start, nil
 		}
+
+		if kvvm != nil {
+			lastAppliedSpec, err := kvbuilder.LoadLastAppliedSpec(kvvm)
+			if err != nil {
+				return Nothing, fmt.Errorf("load last applied spec: %w", err)
+			}
+
+			if lastAppliedSpec != nil && lastAppliedSpec.RunPolicy == virtv2.AlwaysOffPolicy {
+				err = kvvmutil.AddStartAnnotation(ctx, h.client, kvvm)
+				if err != nil {
+					return Nothing, fmt.Errorf("add annotation to KVVM: %w", err)
+				}
+			}
+		}
+
 		return Nothing, nil
 	}
 
