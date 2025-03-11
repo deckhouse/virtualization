@@ -1,64 +1,96 @@
-From bb7ef76c9fb5a6f59e533e4ba0d66a8fe08931cb Mon Sep 17 00:00:00 2001
-From: Nikita Korolev <nikita.korolev@flant.com>
-Date: Tue, 11 Mar 2025 15:24:48 +0300
-Subject: [PATCH] remove UPLOAD_PROXY_IMAGE and UPLOAD_SERVER_IMAGE
-
-Signed-off-by: Nikita Korolev <nikita.korolev@flant.com>
----
- pkg/operator/resources/operator/operator.go | 12 +-----------
- 1 file changed, 1 insertion(+), 11 deletions(-)
-
-diff --git a/pkg/operator/resources/operator/operator.go b/pkg/operator/resources/operator/operator.go
-index ff803b39f..3f4a76a1e 100644
---- a/pkg/operator/resources/operator/operator.go
-+++ b/pkg/operator/resources/operator/operator.go
-@@ -365,6 +365,7 @@ func createCRD(args *FactoryArgs) []client.Object {
- 		createCDIListCRD(),
+diff --git a/cmd/cdi-controller/controller.go b/cmd/cdi-controller/controller.go
+index 5a43020c9..06c3f7117 100644
+--- a/cmd/cdi-controller/controller.go
++++ b/cmd/cdi-controller/controller.go
+@@ -111,9 +111,9 @@ func init() {
  	}
- }
-+
- func createCDIListCRD() *extv1.CustomResourceDefinition {
- 	crd := extv1.CustomResourceDefinition{}
- 	_ = k8syaml.NewYAMLToJSONDecoder(strings.NewReader(resources.CDICRDs["cdi"])).Decode(&crd)
-@@ -401,14 +402,6 @@ func createOperatorEnvVar(operatorVersion, deployClusterResources, operatorImage
- 			Name:  "APISERVER_IMAGE",
- 			Value: apiServerImage,
+ 	importerImage = getRequiredEnvVar("IMPORTER_IMAGE")
+ 	clonerImage = getRequiredEnvVar("CLONER_IMAGE")
+-	uploadServerImage = getRequiredEnvVar("UPLOADSERVER_IMAGE")
++	// uploadServerImage = getRequiredEnvVar("UPLOADSERVER_IMAGE")
+ 	ovirtPopulatorImage = getRequiredEnvVar("OVIRT_POPULATOR_IMAGE")
+-	uploadProxyServiceName = getRequiredEnvVar("UPLOADPROXY_SERVICE")
++	// uploadProxyServiceName = getRequiredEnvVar("UPLOADPROXY_SERVICE")
+ 	installerLabels = map[string]string{}
+ 
+ 	pullPolicy = common.DefaultPullPolicy
+@@ -204,7 +204,7 @@ func start() {
+ 		LeaderElectionResourceLock: "leases",
+ 		Cache:                      getCacheOptions(apiClient, namespace),
+ 		Scheme:                     scheme,
+-		Metrics:                    metricsserver.Options{
++		Metrics: metricsserver.Options{
+ 			BindAddress: metricsBindAddress,
  		},
--		{
--			Name:  "UPLOAD_SERVER_IMAGE",
--			Value: uploadServerImage,
--		},
--		{
--			Name:  "UPLOAD_PROXY_IMAGE",
--			Value: uploadProxyImage,
--		},
- 		{
- 			Name:  "VERBOSITY",
- 			Value: verbosity,
-@@ -523,7 +516,6 @@ _The CDI Operator does not support updates yet._
- 			Name:      "cdioperator." + data.CsvVersion,
- 			Namespace: data.Namespace,
- 			Annotations: map[string]string{
--
- 				"capabilities": "Full Lifecycle",
- 				"categories":   "Storage,Virtualization",
- 				"alm-examples": `
-@@ -605,7 +597,6 @@ _The CDI Operator does not support updates yet._
- 				StrategySpecRaw: json.RawMessage(strategySpecJSONBytes),
- 			},
- 			CustomResourceDefinitions: csvv1.CustomResourceDefinitions{
--
- 				Owned: []csvv1.CRDDescription{
- 					{
- 						Name:        "cdis.cdi.kubevirt.io",
-@@ -621,7 +612,6 @@ _The CDI Operator does not support updates yet._
- 							},
- 						},
- 						SpecDescriptors: []csvv1.SpecDescriptor{
--
- 							{
- 								Description:  "The ImageRegistry to use for the CDI components.",
- 								DisplayName:  "ImageRegistry",
--- 
-2.44.0
-
+ 	}
+diff --git a/pkg/operator/resources/cluster/factory.go b/pkg/operator/resources/cluster/factory.go
+index 0155b9ca7..ea92568c0 100644
+--- a/pkg/operator/resources/cluster/factory.go
++++ b/pkg/operator/resources/cluster/factory.go
+@@ -41,12 +41,12 @@ type factoryFunc func(*FactoryArgs) []client.Object
+ type factoryFuncMap map[string]factoryFunc
+ 
+ var staticFactoryFunctions = factoryFuncMap{
+-	"apiserver-rbac":   createStaticAPIServerResources,
+-	"controller-rbac":  createControllerResources,
+-	"crd-resources":    createCRDResources,
+-	"uploadproxy-rbac": createUploadProxyResources,
+-	"cronjob-rbac":     createCronJobResources,
+-	"aggregate-roles":  createAggregateClusterRoles,
++	"apiserver-rbac":  createStaticAPIServerResources,
++	"controller-rbac": createControllerResources,
++	"crd-resources":   createCRDResources,
++	// "uploadproxy-rbac": createUploadProxyResources,
++	"cronjob-rbac":    createCronJobResources,
++	"aggregate-roles": createAggregateClusterRoles,
+ }
+ 
+ var dynamicFactoryFunctions = factoryFuncMap{
+@@ -117,7 +117,7 @@ func createResourceGroup(funcMap factoryFuncMap, group string, args *FactoryArgs
+ func GetClusterRolePolicyRules() []rbacv1.PolicyRule {
+ 	result := getAPIServerClusterPolicyRules()
+ 	result = append(result, getControllerClusterPolicyRules()...)
+-	result = append(result, getUploadProxyClusterPolicyRules()...)
++	// result = append(result, getUploadProxyClusterPolicyRules()...)
+ 	result = append(result, getCronJobClusterPolicyRules()...)
+ 	return result
+ }
+diff --git a/pkg/operator/resources/namespaced/factory.go b/pkg/operator/resources/namespaced/factory.go
+index 7faec9016..1e0c79f6d 100644
+--- a/pkg/operator/resources/namespaced/factory.go
++++ b/pkg/operator/resources/namespaced/factory.go
+@@ -38,8 +38,8 @@ type FactoryArgs struct {
+ 	ClonerImage            string `required:"true" split_words:"true"`
+ 	OvirtPopulatorImage    string `required:"true" split_words:"true"`
+ 	APIServerImage         string `required:"true" envconfig:"apiserver_image"`
+-	UploadProxyImage       string `required:"true" split_words:"true"`
+-	UploadServerImage      string `required:"true" split_words:"true"`
++	UploadProxyImage       string `required:"false" split_words:"true"`
++	UploadServerImage      string `required:"false" split_words:"true"`
+ 	Verbosity              string `required:"true"`
+ 	PullPolicy             string `required:"true" split_words:"true"`
+ 	ImagePullSecrets       []corev1.LocalObjectReference
+@@ -59,10 +59,10 @@ type namespaceHaver interface {
+ }
+ 
+ var factoryFunctions = map[string]factoryFunc{
+-	"apiserver":   createAPIServerResources,
+-	"controller":  createControllerResources,
+-	"uploadproxy": createUploadProxyResources,
+-	"cronjob":     createCronJobResources,
++	"apiserver":  createAPIServerResources,
++	"controller": createControllerResources,
++	// "uploadproxy": createUploadProxyResources,
++	"cronjob": createCronJobResources,
+ }
+ 
+ // CreateAllResources creates all namespaced resources
+@@ -107,7 +107,7 @@ func assignNamspaceIfMissing(resource client.Object, namespace string) {
+ func GetRolePolicyRules() []rbacv1.PolicyRule {
+ 	result := getAPIServerNamespacedRules()
+ 	result = append(result, getControllerNamespacedRules()...)
+-	result = append(result, getUploadProxyNamespacedRules()...)
++	// result = append(result, getUploadProxyNamespacedRules()...)
+ 	result = append(result, GetPrometheusNamespacedRules()...)
+ 	return result
+ }
