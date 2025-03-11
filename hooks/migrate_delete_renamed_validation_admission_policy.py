@@ -41,7 +41,7 @@ class MigrateDeleteRenamedVAPResources(Hook):
             "afterHelm": 5,
             "kubernetes": [
                 {
-                    "name": self.SNAPSHOT_NAME,
+                    "name": self.POLICY_SNAPSHOT_NAME,
                     "apiVersion": "admissionregistration.k8s.io/v1",
                     "kind": "ValidatingAdmissionPolicy",
                     "nameSelector": {
@@ -52,7 +52,7 @@ class MigrateDeleteRenamedVAPResources(Hook):
                             "matchNames": [self.namespace]
                         }
                     },
-                    "includeSnapshotsFrom": [self.SNAPSHOT_NAME],
+                    "group": "all",
                     "jqFilter": '{"name": .metadata.name, "kind": .kind, "labels": .metadata.labels}',
                     "queue": f"/modules/{self.module_name}/vap-resources",
                     "keepFullObjectsInMemory": False,
@@ -60,7 +60,7 @@ class MigrateDeleteRenamedVAPResources(Hook):
                     "executeHookOnEvent": []
                 },
                 {
-                    "name": self.SNAPSHOT_NAME,
+                    "name": self.BINDING_SNAPSHOT_NAME,
                     "apiVersion": "admissionregistration.k8s.io/v1",
                     "kind": "ValidatingAdmissionPolicyBinding",
                     "nameSelector": {
@@ -71,7 +71,7 @@ class MigrateDeleteRenamedVAPResources(Hook):
                             "matchNames": [self.namespace]
                         }
                     },
-                    "includeSnapshotsFrom": [self.SNAPSHOT_NAME],
+                    "group": "all",
                     "jqFilter": '{"name": .metadata.name, "kind": .kind, "labels": .metadata.labels}',
                     "queue": f"/modules/{self.module_name}/vap-resources",
                     "keepFullObjectsInMemory": False,
