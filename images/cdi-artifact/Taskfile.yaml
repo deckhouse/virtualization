@@ -29,11 +29,11 @@ tasks:
     desc: "Remove cloned CDI git repo"
     cmds:
       - |
-        find . -type d -name __containerized-data-importer_\* -depth 1
+        path=$(find . -type d -name __containerized-data-importer_\* -depth 1)
         read -p "Delete these directories? [y/N] " answer
 
         if [[ "${answer}" != "${answer#[Yy]}" ]] ; then
-          rm -rf __cdi_*
+          rm -rf ${path}
         fi
 
   patch:new:
