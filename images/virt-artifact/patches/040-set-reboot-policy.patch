@@ -1,0 +1,207 @@
+diff --git a/pkg/virt-launcher/notify-client/client.go b/pkg/virt-launcher/notify-client/client.go
+index 5da5f68103..a1e200de35 100644
+--- a/pkg/virt-launcher/notify-client/client.go
++++ b/pkg/virt-launcher/notify-client/client.go
+@@ -3,6 +3,7 @@ package eventsclient
+ import (
+ 	"context"
+ 	"fmt"
++	"os"
+ 	"path/filepath"
+ 	"sync"
+ 	"time"
+@@ -528,6 +529,39 @@ func (n *Notifier) StartDomainNotifier(
+ 		}
+ 	}
+ 
++	domainQemuMonitorEventShutdownCallback := func(_ *libvirt.Connect, _ *libvirt.Domain, event *libvirt.DomainQemuMonitorEvent) {
++
++		type Result struct {
++			Event   string `json:"event"`
++			Details string `json:"details"`
++		}
++
++		log.Log.Infof("Domain Qemu Monitor Shutdown event received")
++
++		f, err := os.OpenFile("/dev/termination-log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
++		if err != nil {
++			log.Log.Reason(err).Error("Failed to open /dev/termination-log")
++			return
++		}
++		defer f.Close()
++
++		r := Result{
++			Event:   event.Event,
++			Details: event.Details,
++		}
++
++		b, err := json.Marshal(r)
++		if err != nil {
++			log.Log.Reason(err).Errorf("Failed to marshal result to JSON. event: %s, details: %s", event.Event, event.Details)
++			return
++		}
++		b = append(b, '\n')
++
++		if _, err = f.Write(b); err != nil {
++			log.Log.Reason(err).Error("Failed to write to termination-log")
++		}
++	}
++
+ 	err := domainConn.DomainEventLifecycleRegister(domainEventLifecycleCallback)
+ 	if err != nil {
+ 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
+@@ -567,6 +601,15 @@ func (n *Notifier) StartDomainNotifier(
+ 		log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
+ 		return err
+ 	}
++	for _, event := range []string{
++		"SHUTDOWN",
++	} {
++		err = domainConn.DomainQemuMonitorEventRegister(event, domainQemuMonitorEventShutdownCallback)
++		if err != nil {
++			log.Log.Reason(err).Errorf("failed to register event callback with libvirt")
++			return err
++		}
++	}
+ 
+ 	log.Log.Infof("Registered libvirt event notify callback")
+ 	return nil
+diff --git a/pkg/virt-launcher/virtwrap/cli/libvirt.go b/pkg/virt-launcher/virtwrap/cli/libvirt.go
+index 2ae00bc802..9991862746 100644
+--- a/pkg/virt-launcher/virtwrap/cli/libvirt.go
++++ b/pkg/virt-launcher/virtwrap/cli/libvirt.go
+@@ -65,6 +65,9 @@ type Connection interface {
+ 	GetDomainStats(statsTypes libvirt.DomainStatsTypes, l *stats.DomainJobInfo, flags libvirt.ConnectGetAllDomainStatsFlags) ([]*stats.DomainStats, error)
+ 	GetQemuVersion() (string, error)
+ 	GetSEVInfo() (*api.SEVNodeParameters, error)
++
++	DomainQemuMonitorEventRegister(event string, callback libvirt.DomainQemuMonitorEventCallback) (err error)
++	QemuMonitorCommand(command string, domainName string) (string, error)
+ }
+ 
+ type Stream interface {
+@@ -92,6 +95,7 @@ type LibvirtConnection struct {
+ 	domainEventMigrationIterationCallbacks      []libvirt.DomainEventMigrationIterationCallback
+ 	agentEventCallbacks                         []libvirt.DomainEventAgentLifecycleCallback
+ 	domainDeviceMemoryDeviceSizeChangeCallbacks []libvirt.DomainEventMemoryDeviceSizeChangeCallback
++	domainQemuMonitorEventCallbacks             []qemuMonitorEventRegister
+ }
+ 
+ func (s *VirStream) Write(p []byte) (n int, err error) {
+@@ -195,6 +199,29 @@ func (l *LibvirtConnection) DomainEventMemoryDeviceSizeChangeRegister(callback l
+ 	return
+ }
+ 
++type qemuMonitorEventRegister struct {
++	event    string
++	callback libvirt.DomainQemuMonitorEventCallback
++}
++
++func (l *LibvirtConnection) DomainQemuMonitorEventRegister(event string, callback libvirt.DomainQemuMonitorEventCallback) (err error) {
++	if err = l.reconnectIfNecessary(); err != nil {
++		return
++	}
++	l.domainQemuMonitorEventCallbacks = append(l.domainQemuMonitorEventCallbacks, qemuMonitorEventRegister{
++		event:    event,
++		callback: callback,
++	})
++	err = l.domainQemuMonitorEventRegister(event, callback)
++	l.checkConnectionLost(err)
++	return
++}
++
++func (l *LibvirtConnection) domainQemuMonitorEventRegister(event string, callback libvirt.DomainQemuMonitorEventCallback) (err error) {
++	_, err = l.Connect.DomainQemuMonitorEventRegister(nil, event, callback, libvirt.CONNECT_DOMAIN_QEMU_MONITOR_EVENT_REGISTER_NOCASE)
++	return
++}
++
+ func (l *LibvirtConnection) DomainEventDeregister(registrationID int) error {
+ 	return l.Connect.DomainEventDeregister(registrationID)
+ }
+@@ -252,6 +279,19 @@ func (l *LibvirtConnection) QemuAgentCommand(command string, domainName string)
+ 	return result, err
+ }
+ 
++func (l *LibvirtConnection) QemuMonitorCommand(command string, domainName string) (string, error) {
++	if err := l.reconnectIfNecessary(); err != nil {
++		return "", err
++	}
++	domain, err := l.Connect.LookupDomainByName(domainName)
++	if err != nil {
++		return "", err
++	}
++	defer domain.Free()
++	result, err := domain.QemuMonitorCommand(command, libvirt.DOMAIN_QEMU_MONITOR_COMMAND_DEFAULT)
++	return result, err
++}
++
+ func (l *LibvirtConnection) GetAllDomainStats(statsTypes libvirt.DomainStatsTypes, flags libvirt.ConnectGetAllDomainStatsFlags) ([]libvirt.DomainStats, error) {
+ 	if err := l.reconnectIfNecessary(); err != nil {
+ 		return nil, err
+@@ -461,6 +501,10 @@ func (l *LibvirtConnection) reconnectIfNecessary() (err error) {
+ 			log.Log.Info("Re-registered domain memory device size change callback")
+ 			_, err = l.Connect.DomainEventMemoryDeviceSizeChangeRegister(nil, callback)
+ 		}
++		for _, reg := range l.domainQemuMonitorEventCallbacks {
++			log.Log.Info("Re-registered domain qemu monitor events callback")
++			err = l.domainQemuMonitorEventRegister(reg.event, reg.callback)
++		}
+ 
+ 		log.Log.Error("Re-registered domain and agent callbacks for new connection")
+ 
+diff --git a/pkg/virt-launcher/virtwrap/live-migration-target.go b/pkg/virt-launcher/virtwrap/live-migration-target.go
+index 8658fcfbc7..ff22f14a40 100644
+--- a/pkg/virt-launcher/virtwrap/live-migration-target.go
++++ b/pkg/virt-launcher/virtwrap/live-migration-target.go
+@@ -180,7 +180,6 @@ func (l *LibvirtDomainManager) prepareMigrationTarget(
+ 	if err != nil {
+ 		return fmt.Errorf("executing custom preStart hooks failed: %v", err)
+ 	}
+-
+ 	if shouldBlockMigrationTargetPreparation(vmi) {
+ 		return fmt.Errorf("Blocking preparation of migration target in order to satisfy a functional test condition")
+ 	}
+diff --git a/pkg/virt-launcher/virtwrap/manager.go b/pkg/virt-launcher/virtwrap/manager.go
+index 6744cb2913..c6e675d1b8 100644
+--- a/pkg/virt-launcher/virtwrap/manager.go
++++ b/pkg/virt-launcher/virtwrap/manager.go
+@@ -181,6 +181,8 @@ type LibvirtDomainManager struct {
+ 	domainStatsCache *virtcache.TimeDefinedCache[*stats.DomainStats]
+ 
+ 	checksum syncobject.SyncObject[string]
++
++	rebootShutdownPolicyWasSet bool
+ }
+ 
+ type pausedVMIs struct {
+@@ -1178,6 +1180,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
+ 		logger.Info("Domain unpaused.")
+ 	}
+ 
++	if err := l.setRebootShutdownPolicy(dom); err != nil {
++		return nil, fmt.Errorf("failed to set reboot shutdown policy: %v", err)
++	}
++
+ 	oldSpec, err := getDomainSpec(dom)
+ 	if err != nil {
+ 		logger.Reason(err).Error("Parsing domain XML failed.")
+@@ -2390,3 +2396,19 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
+ func (l *LibvirtDomainManager) GetAppliedVMIChecksum() string {
+ 	return l.checksum.Get()
+ }
++
++func (l *LibvirtDomainManager) setRebootShutdownPolicy(dom cli.VirDomain) error {
++	if l.rebootShutdownPolicyWasSet {
++		return nil
++	}
++	name, err := dom.GetName()
++	if err != nil {
++		return err
++	}
++	_, err = l.virConn.QemuMonitorCommand(`{"execute": "set-action", "arguments":{"reboot":"shutdown"}}`, name)
++	if err != nil {
++		return err
++	}
++	l.rebootShutdownPolicyWasSet = true
++	return nil
++}

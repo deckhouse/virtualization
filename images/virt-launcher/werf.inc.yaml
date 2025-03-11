@@ -211,13 +211,6 @@ image: {{ $.ImageName }}-binaries
 final: false
 fromImage: base-alt-p11-binaries
 git:
-  - add: /images/{{ $.ImageName }}
-    to: /relocate
-    stageDependencies:
-      setup:
-      - '**/*'
-    includePaths:
-    - scripts
   # Add qemu and virtqemud configs
   - add: /images/{{ $.ImageName }}/configs
     to: /relocate/etc/libvirt
@@ -286,7 +279,7 @@ import:
   - container-disk
   - virt-freezer
   - virt-launcher
-  - virt-launcher-monitor-orig
+  - virt-launcher-monitor
   - virt-probe
   - virt-tail
 - image: virt-artifact
@@ -395,15 +388,12 @@ shell:
     done <<< "$SYMLINC_LIST"
 
   - |
-    cp /relocate/scripts/virt-launcher-monitor-wrapper.sh /relocate/usr/bin/virt-launcher-monitor
-    chmod +x /relocate/usr/bin/virt-launcher-monitor
-  - |
     cd /relocate
-    
+
     echo "Create symlinks for container-disk"
     mkdir -p /relocate/init/usr/bin
     ln -s usr/bin/container-disk ./init/usr/bin/container-disk
-    
+
     echo "Create symlink for run -> var/run "
     ln -s var/run run
 
