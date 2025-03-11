@@ -34,35 +34,35 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type NewVirtualMachineWebhookOptions struct {
+type NewPortForwardWebhookOptions struct {
 	VMInformer   cache.Indexer
 	VDInformer   cache.Indexer
 	NodeInformer cache.Indexer
 }
 
-func NewVirtualMachineWebhook(options NewVirtualMachineWebhookOptions) *VirtualMachineWebhook {
-	return &VirtualMachineWebhook{
+func NewPortForwardWebhook(options NewPortForwardWebhookOptions) *PortForwardWebhook {
+	return &PortForwardWebhook{
 		vmInformer:   options.VMInformer,
 		nodeInformer: options.NodeInformer,
 		vdInformer:   options.VDInformer,
 	}
 }
 
-type VirtualMachineWebhook struct {
+type PortForwardWebhook struct {
 	vmInformer   cache.Indexer
 	vdInformer   cache.Indexer
 	nodeInformer cache.Indexer
 }
 
-func (m *VirtualMachineWebhook) Path() string {
-	return "/virtualmachine"
+func (m *PortForwardWebhook) Path() string {
+	return "/portforward"
 }
 
-func (m *VirtualMachineWebhook) Handler() http.Handler {
+func (m *PortForwardWebhook) Handler() http.Handler {
 	return webhook.NewAuditWebhookHandler(m.Validate)
 }
 
-func (m *VirtualMachineWebhook) Validate(ar *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+func (m *PortForwardWebhook) Validate(ar *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
 	response := &admissionv1.AdmissionResponse{
 		AuditAnnotations: map[string]string{
 			"node-network-address": "unknown",
@@ -105,7 +105,7 @@ func (m *VirtualMachineWebhook) Validate(ar *admissionv1.AdmissionReview) (*admi
 	return response, nil
 }
 
-func (m *VirtualMachineWebhook) getVM(ar *admissionv1.AdmissionReview) (*v1alpha2.VirtualMachine, error) {
+func (m *PortForwardWebhook) getVM(ar *admissionv1.AdmissionReview) (*v1alpha2.VirtualMachine, error) {
 	if len(ar.Request.Object.Raw) > 0 {
 		vm, _, err := util.GetVMFromAdmissionReview(ar)
 		if err != nil {
@@ -123,7 +123,7 @@ func (m *VirtualMachineWebhook) getVM(ar *admissionv1.AdmissionReview) (*v1alpha
 	return vm, nil
 }
 
-func (m *VirtualMachineWebhook) getVMFromInformer(ar *admissionv1.AdmissionReview) (*v1alpha2.VirtualMachine, error) {
+func (m *PortForwardWebhook) getVMFromInformer(ar *admissionv1.AdmissionReview) (*v1alpha2.VirtualMachine, error) {
 	vmObj, exist, err := m.vmInformer.GetByKey(ar.Request.Namespace + "/" + ar.Request.Name)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -140,7 +140,7 @@ func (m *VirtualMachineWebhook) getVMFromInformer(ar *admissionv1.AdmissionRevie
 	return vm, nil
 }
 
-func (m *VirtualMachineWebhook) fillVDInfo(response *admissionv1.AdmissionResponse, vm *v1alpha2.VirtualMachine) error {
+func (m *PortForwardWebhook) fillVDInfo(response *admissionv1.AdmissionResponse, vm *v1alpha2.VirtualMachine) error {
 	storageClasses := []string{}
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -171,7 +171,7 @@ func (m *VirtualMachineWebhook) fillVDInfo(response *admissionv1.AdmissionRespon
 	return nil
 }
 
-func (m *VirtualMachineWebhook) fillNodeInfo(response *admissionv1.AdmissionResponse, vm *v1alpha2.VirtualMachine) error {
+func (m *PortForwardWebhook) fillNodeInfo(response *admissionv1.AdmissionResponse, vm *v1alpha2.VirtualMachine) error {
 	nodeObj, exist, err := m.nodeInformer.GetByKey(vm.Status.Node)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)
@@ -185,10 +185,12 @@ func (m *VirtualMachineWebhook) fillNodeInfo(response *admissionv1.AdmissionResp
 	}
 
 	addresses := []string{}
-	for _, addr := range node.Status.Addresses {
-		if addr.Type != corev1.NodeHostName && addr.Address != "" {
-			addresses = append(addresses, addr.Address)
+	for _, r := range node.Status.Addresses {
+		if r.Type == corev1.NodeHostName {
+			continue
 		}
+
+		addresses = append(addresses, r.Address)
 	}
 
 	if len(addresses) != 0 {
