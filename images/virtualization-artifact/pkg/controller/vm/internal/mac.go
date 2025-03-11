@@ -35,32 +35,32 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
-const nameMACAMHandler = "MACAMHandler"
+const nameMACHandler = "MACHandler"
 
-type MACAM interface {
+type MACManager interface {
 	IsBound(vmName string, vmmac *virtv2.VirtualMachineMACAddress) bool
 	CheckMACAddressAvailableForBinding(vmmac *virtv2.VirtualMachineMACAddress) error
 	CreateMACAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
 }
 
-func NewMACAMHandler(macam MACAM, cl client.Client, recorder eventrecord.EventRecorderLogger) *MACAMHandler {
-	return &MACAMHandler{
-		macam:      macam,
+func NewMACHandler(mac MACManager, cl client.Client, recorder eventrecord.EventRecorderLogger) *MACHandler {
+	return &MACHandler{
+		mac:        mac,
 		client:     cl,
 		recorder:   recorder,
 		protection: service.NewProtectionService(cl, virtv2.FinalizerMACAddressProtection),
 	}
 }
 
-type MACAMHandler struct {
-	macam      MACAM
+type MACHandler struct {
+	mac        MACManager
 	client     client.Client
 	recorder   eventrecord.EventRecorderLogger
 	protection *service.ProtectionService
 }
 
-func (h *MACAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler(nameMACAMHandler))
+func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(nameMACHandler))
 
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
@@ -91,7 +91,7 @@ func (h *MACAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	}
 
 	// 1. OK: already bound.
-	if h.macam.IsBound(current.GetName(), macAddress) {
+	if h.mac.IsBound(current.GetName(), macAddress) {
 		mgr.Update(cb.Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonMACAddressReady).
 			Condition())
@@ -108,12 +108,12 @@ func (h *MACAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 
 	cb.Status(metav1.ConditionFalse)
 
-	// 2. MAC address not found: create if possible or wait for the MAC address.
+	// 2. MACManager address not found: create if possible or wait for the MACManager address.
 	if macAddress == nil {
 		cb.Reason(vmcondition.ReasonMACAddressNotReady)
 		if current.Spec.VirtualMachineMACAddress != "" {
-			log.Info(fmt.Sprintf("The requested MAC address (%s) for the virtual machine not found: waiting for the MAC address", current.Spec.VirtualMachineMACAddress))
-			cb.Message(fmt.Sprintf("The requested MAC address (%s) for the virtual machine not found: waiting for the MAC address", current.Spec.VirtualMachineMACAddress))
+			log.Info(fmt.Sprintf("The requested MACManager address (%s) for the virtual machine not found: waiting for the MACManager address", current.Spec.VirtualMachineMACAddress))
+			cb.Message(fmt.Sprintf("The requested MACManager address (%s) for the virtual machine not found: waiting for the MACManager address", current.Spec.VirtualMachineMACAddress))
 			mgr.Update(cb.Condition())
 			changed.Status.Conditions = mgr.Generate()
 			return reconcile.Result{}, nil
@@ -122,13 +122,13 @@ func (h *MACAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 		cb.Message(fmt.Sprintf("VirtualMachineMACAddress %q not found: it may be in the process of being created", current.GetName()))
 		mgr.Update(cb.Condition())
 		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{}, h.macam.CreateMACAddress(ctx, changed, h.client)
+		return reconcile.Result{}, h.mac.CreateMACAddress(ctx, changed, h.client)
 	}
 
-	// 3. Check if possible to bind virtual machine with the found MAC address.
-	err = h.macam.CheckMACAddressAvailableForBinding(macAddress)
+	// 3. Check if possible to bind virtual machine with the found MACManager address.
+	err = h.mac.CheckMACAddressAvailableForBinding(macAddress)
 	if err != nil {
-		log.Info("MAC address is not available to be bound", "err", err, "vmmacName", current.Spec.VirtualMachineMACAddress)
+		log.Info("MACManager address is not available to be bound", "err", err, "vmmacName", current.Spec.VirtualMachineMACAddress)
 		reason := vmcondition.ReasonMACAddressNotAvailable
 		mgr.Update(cb.Reason(reason).Message(err.Error()).Condition())
 		changed.Status.Conditions = mgr.Generate()
@@ -136,9 +136,9 @@ func (h *MACAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 		return reconcile.Result{}, nil
 	}
 
-	// 4. MAC address exist and attached to another VirtualMachine
+	// 4. MACManager address exist and attached to another VirtualMachine
 	if macAddress.Status.VirtualMachine != "" && macAddress.Status.VirtualMachine != changed.Name {
-		msg := fmt.Sprintf("The requested MAC address (%s) attached to VirtualMachine '%s': waiting for the MAC address", current.Spec.VirtualMachineMACAddress, macAddress.Status.VirtualMachine)
+		msg := fmt.Sprintf("The requested MACManager address (%s) attached to VirtualMachine '%s': waiting for the MACManager address", current.Spec.VirtualMachineMACAddress, macAddress.Status.VirtualMachine)
 		log.Info(msg)
 		mgr.Update(cb.Reason(vmcondition.ReasonMACAddressNotReady).
 			Message(msg).Condition())
@@ -146,15 +146,15 @@ func (h *MACAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 		return reconcile.Result{}, nil
 	}
 
-	// 5. MAC address exists and available for binding with virtual machine: waiting for the MAC address.
-	log.Info("Waiting for the MAC address to be bound to VM", "vmmacName", current.Spec.VirtualMachineMACAddress)
+	// 5. MACManager address exists and available for binding with virtual machine: waiting for the MACManager address.
+	log.Info("Waiting for the MACManager address to be bound to VM", "vmmacName", current.Spec.VirtualMachineMACAddress)
 	mgr.Update(cb.Reason(vmcondition.ReasonMACAddressNotReady).
-		Message("MAC address not bound: waiting for the MAC address").Condition())
+		Message("MACManager address not bound: waiting for the MACManager address").Condition())
 	changed.Status.Conditions = mgr.Generate()
 
 	return reconcile.Result{}, nil
 }
 
-func (h *MACAMHandler) Name() string {
-	return nameMACAMHandler
+func (h *MACHandler) Name() string {
+	return nameMACHandler
 }

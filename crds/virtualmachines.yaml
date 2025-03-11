@@ -1301,6 +1301,10 @@ spec:
           jsonPath: .status.ipAddress
           name: IPAddress
           type: string
+        - description: The MAC address of the virtual machine.
+          jsonPath: .status.macAddress
+          name: MACAddress
+          type: string
         - description: Time of resource creation.
           jsonPath: .metadata.creationTimestamp
           name: Age

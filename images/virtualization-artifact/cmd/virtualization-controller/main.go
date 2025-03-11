@@ -38,6 +38,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
@@ -70,12 +71,11 @@ const (
 	logLevelEnv               = "LOG_LEVEL"
 	logOutputEnv              = "LOG_OUTPUT"
 
-	metricsBindAddrEnv                          = "METRICS_BIND_ADDRESS"
-	podNamespaceEnv                             = "POD_NAMESPACE"
-	pprofBindAddrEnv                            = "PPROF_BIND_ADDRESS"
-	virtualMachineCIDRsEnv                      = "VIRTUAL_MACHINE_CIDRS"
-	virtualMachineIPLeasesRetentionDurationEnv  = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
-	virtualMachineMACLeasesRetentionDurationEnv = "VIRTUAL_MACHINE_MAC_LEASES_RETENTION_DURATION"
+	metricsBindAddrEnv                         = "METRICS_BIND_ADDRESS"
+	podNamespaceEnv                            = "POD_NAMESPACE"
+	pprofBindAddrEnv                           = "PPROF_BIND_ADDRESS"
+	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
+	virtualMachineIPLeasesRetentionDurationEnv = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
 
 	virtualMachineMACAddressPrefixEnv = "VIRTUAL_MACHINE_MAC_ADDRESS_PREFIX"
 )
@@ -212,12 +212,6 @@ func main() {
 		virtualMachineIPLeasesRetentionDuration = "10m"
 	}
 
-	virtualMachineMACLeasesRetentionDuration := os.Getenv(virtualMachineMACLeasesRetentionDurationEnv)
-	if virtualMachineMACLeasesRetentionDuration == "" {
-		log.Info("virtualMachineMACLeasesRetentionDuration not found - set default value 1 day")
-		virtualMachineMACLeasesRetentionDuration = "24h"
-	}
-
 	virtualMachineMACAddressPrefix := os.Getenv(virtualMachineMACAddressPrefixEnv)
 	if virtualMachineMACAddressPrefix == "" {
 		log.Info("virtualMachineMACAddressPrefixEnv not found - the MAC address prefix will be generated from the cluster UID")
@@ -345,7 +339,7 @@ func main() {
 	}
 
 	vmmacleaseLogger := logger.NewControllerLogger(vmmaclease.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vmmaclease.NewController(ctx, mgr, vmmacleaseLogger, virtualMachineMACLeasesRetentionDuration); err != nil {
+	if _, err = vmmaclease.NewController(ctx, mgr, vmmacleaseLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

@@ -132,12 +132,10 @@ spec:
                   type: string
                   enum:
                     - "Bound"
-                    - "Released"
                   description: |
                     Represents the current state of issued MAC address lease.
 
                     * Bound - the MAC address lease is bound to MAC address.
-                    * Released - the IP address lease is available for binding.
                 observedGeneration:
                   type: integer
                   description: |

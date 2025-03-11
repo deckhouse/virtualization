@@ -28,13 +28,13 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewMACAM() *MACAM {
-	return &MACAM{}
+func NewMACManager() *MACManager {
+	return &MACManager{}
 }
 
-type MACAM struct{}
+type MACManager struct{}
 
-func (m MACAM) IsBound(vmName string, vmmac *virtv2.VirtualMachineMACAddress) bool {
+func (m MACManager) IsBound(vmName string, vmmac *virtv2.VirtualMachineMACAddress) bool {
 	if vmmac == nil {
 		return false
 	}
@@ -46,7 +46,7 @@ func (m MACAM) IsBound(vmName string, vmmac *virtv2.VirtualMachineMACAddress) bo
 	return vmmac.Status.VirtualMachine == vmName
 }
 
-func (m MACAM) CheckMACAddressAvailableForBinding(vmmac *virtv2.VirtualMachineMACAddress) error {
+func (m MACManager) CheckMACAddressAvailableForBinding(vmmac *virtv2.VirtualMachineMACAddress) error {
 	if vmmac == nil {
 		return errors.New("cannot to bind with empty MAC address")
 	}
@@ -54,7 +54,7 @@ func (m MACAM) CheckMACAddressAvailableForBinding(vmmac *virtv2.VirtualMachineMA
 	return nil
 }
 
-func (m MACAM) CreateMACAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error {
+func (m MACManager) CreateMACAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error {
 	ownerRef := metav1.NewControllerRef(vm, vm.GroupVersionKind())
 	return client.Create(ctx, &virtv2.VirtualMachineMACAddress{
 		ObjectMeta: metav1.ObjectMeta{

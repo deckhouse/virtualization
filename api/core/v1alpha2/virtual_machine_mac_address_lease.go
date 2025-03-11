@@ -67,6 +67,5 @@ type VirtualMachineMACAddressLeaseStatus struct {
 type VirtualMachineMACAddressLeasePhase string
 
 const (
-	VirtualMachineMACAddressLeasePhaseBound    VirtualMachineMACAddressLeasePhase = "Bound"
-	VirtualMachineMACAddressLeasePhaseReleased VirtualMachineMACAddressLeasePhase = "Released"
+	VirtualMachineMACAddressLeasePhaseBound VirtualMachineMACAddressLeasePhase = "Bound"
 )

@@ -40,17 +40,10 @@ func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *log.Logger,
-	retentionDurationStr string,
 ) (controller.Controller, error) {
-	retentionDuration, err := time.ParseDuration(retentionDurationStr)
-	if err != nil {
-		log.Error("Failed to parse retention duration", "err", err)
-		return nil, err
-	}
-
 	handlers := []Handler{
 		internal.NewProtectionHandler(),
-		internal.NewRetentionHandler(retentionDuration),
+		internal.NewRetentionHandler(),
 		internal.NewLifecycleHandler(),
 	}
 

@@ -35,9 +35,6 @@ func (r BoundReason) String() string {
 }
 
 const (
-	// Released is a BoundReason indicating the MAC address lease has been released.
-	Released BoundReason = "Released"
-
 	// Bound is a BoundReason indicating the MAC address lease is successfully bound.
 	Bound BoundReason = "Bound"
 )
