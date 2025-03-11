@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 
 	admissionv1 "k8s.io/api/admission/v1"
@@ -44,9 +45,6 @@ func NewVirtualMachineWebhook(options NewVirtualMachineWebhookOptions) *VirtualM
 		vmInformer:   options.VMInformer,
 		nodeInformer: options.NodeInformer,
 		vdInformer:   options.VDInformer,
-		response: &admissionv1.AdmissionResponse{
-			AuditAnnotations: map[string]string{},
-		},
 	}
 }
 
@@ -54,7 +52,6 @@ type VirtualMachineWebhook struct {
 	vmInformer   cache.Indexer
 	vdInformer   cache.Indexer
 	nodeInformer cache.Indexer
-	response     *admissionv1.AdmissionResponse
 }
 
 func (m *VirtualMachineWebhook) Path() string {
@@ -65,34 +62,47 @@ func (m *VirtualMachineWebhook) Handler() http.Handler {
 	return webhook.NewAuditWebhookHandler(m.Validate)
 }
 
-func (m *VirtualMachineWebhook) Validate(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-	vm, err := m.getVM(ar)
-	if err != nil {
-		log.Error("fail to get vm from admission review", log.Err(err))
-		return m.response
+func (m *VirtualMachineWebhook) Validate(ar *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
+	response := &admissionv1.AdmissionResponse{
+		AuditAnnotations: map[string]string{
+			"node-network-address": "unknown",
+			"virtualmachine-uid":   "unknown",
+			"virtualmachine-os":    "unknown",
+			"storageclasses":       "unknown",
+			"qemu-version":         "unknown",
+			"libvirt-version":      "unknown",
+		},
 	}
 
-	if len(vm.Status.BlockDeviceRefs) > 0 {
-		if err := m.fillVDInfo(vm); err != nil {
+	vm, err := m.getVM(ar)
+	if err != nil {
+		return response, fmt.Errorf("fail to get vm from admission review: %w", err)
+	}
+
+	if len(vm.Spec.BlockDeviceRefs) > 0 {
+		if err := m.fillVDInfo(response, vm); err != nil {
 			log.Error("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := m.fillNodeInfo(vm); err != nil {
+		if err := m.fillNodeInfo(response, vm); err != nil {
 			log.Error("fail to fill node info", log.Err(err))
 		}
 	}
 
-	m.response.AuditAnnotations["virtualmachine-uid"] = string(vm.UID)
-	m.response.AuditAnnotations["virtualmachine-os"] = vm.Status.GuestOSInfo.Name
+	response.AuditAnnotations["virtualmachine-uid"] = string(vm.UID)
+	response.AuditAnnotations["virtualmachine-os"] = vm.Status.GuestOSInfo.Name
+	// TODO: Populate these fields from the node
+	// m.response.AuditAnnotations["qemu-version"] = ""
+	// m.response.AuditAnnotations["libvirt-version"] = ""
 
 	log.Info(
 		"VirtualMachine",
-		slog.Any("AuditAnnotations", m.response.AuditAnnotations),
+		slog.Any("AuditAnnotations", response.AuditAnnotations),
 	)
 
-	return m.response
+	return response, nil
 }
 
 func (m *VirtualMachineWebhook) getVM(ar *admissionv1.AdmissionReview) (*v1alpha2.VirtualMachine, error) {
@@ -110,8 +120,9 @@ func (m *VirtualMachineWebhook) getVM(ar *admissionv1.AdmissionReview) (*v1alpha
 		return nil, fmt.Errorf("fail to get vm from informer: %w", err)
 	}
 
-	return vm, err
+	return vm, nil
 }
+
 func (m *VirtualMachineWebhook) getVMFromInformer(ar *admissionv1.AdmissionReview) (*v1alpha2.VirtualMachine, error) {
 	vmObj, exist, err := m.vmInformer.GetByKey(ar.Request.Namespace + "/" + ar.Request.Name)
 	if err != nil {
@@ -129,53 +140,62 @@ func (m *VirtualMachineWebhook) getVMFromInformer(ar *admissionv1.AdmissionRevie
 	return vm, nil
 }
 
-func (m *VirtualMachineWebhook) fillVDInfo(vm *v1alpha2.VirtualMachine) error {
-	storageClasses := make([]string, len(vm.Spec.BlockDeviceRefs))
+func (m *VirtualMachineWebhook) fillVDInfo(response *admissionv1.AdmissionResponse, vm *v1alpha2.VirtualMachine) error {
+	storageClasses := []string{}
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
+		if bd.Kind != v1alpha2.VirtualDiskKind {
+			continue
+		}
+
 		vdObj, exist, err := m.vdInformer.GetByKey(vm.Namespace + "/" + bd.Name)
 		if err != nil {
-			return fmt.Errorf("fail to get node from informer: %w", err)
+			return fmt.Errorf("fail to get virtual disk from informer: %w", err)
 		}
 		if !exist {
-			return errors.New("vmObj not exist")
+			continue
 		}
 
 		vd, ok := vdObj.(*v1alpha2.VirtualDisk)
 		if !ok {
-			return errors.New("fail to convert vmObj to vm")
+			return errors.New("fail to convert vdObj to vd")
 		}
 
 		storageClasses = append(storageClasses, vd.Status.StorageClassName)
 	}
 
-	m.response.AuditAnnotations["storageclasses"] = strings.Join(storageClasses, ",")
+	if len(storageClasses) != 0 {
+		response.AuditAnnotations["storageclasses"] = strings.Join(slices.Compact(storageClasses), ",")
+	}
 
 	return nil
 }
 
-func (m *VirtualMachineWebhook) fillNodeInfo(vm *v1alpha2.VirtualMachine) error {
+func (m *VirtualMachineWebhook) fillNodeInfo(response *admissionv1.AdmissionResponse, vm *v1alpha2.VirtualMachine) error {
 	nodeObj, exist, err := m.nodeInformer.GetByKey(vm.Status.Node)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)
 	}
 	if !exist {
-		return errors.New("nodeObj not exist")
+		return nil
 	}
 	node, ok := nodeObj.(*corev1.Node)
 	if !ok {
 		return errors.New("fail to convert nodeObj to node")
 	}
 
-	addresses := ""
-	for i, r := range node.Status.Addresses {
-		addresses += r.Address
-		if i != len(node.Status.Addresses)-1 {
-			addresses += ","
+	addresses := []string{}
+	for _, r := range node.Status.Addresses {
+		if r.Type == corev1.NodeHostName {
+			continue
 		}
+
+		addresses = append(addresses, r.Address)
 	}
 
-	m.response.AuditAnnotations["node-network-address"] = addresses
+	if len(addresses) != 0 {
+		response.AuditAnnotations["node-network-address"] = strings.Join(slices.Compact(addresses), ",")
+	}
 
 	return nil
 }

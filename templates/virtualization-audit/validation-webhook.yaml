@@ -21,40 +21,40 @@ webhooks:
         {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
-  - name: "portforward.virtualization-audit.validate.d8-virtualization"
-    rules:
-      - apiGroups:   ["virtualization.deckhouse.io"]
-        apiVersions: ["v1alpha2"]
-        operations:  ["UPDATE"]
-        resources:   ["virtualmachines/portforward"]
-        scope:       "Namespaced"
-    clientConfig:
-      service:
-        namespace: d8-{{ .Chart.Name }}
-        name: virtualization-audit
-        path: /portforward
-        port: 443
-      caBundle: |
-        {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
-    admissionReviewVersions: ["v1"]
-    sideEffects: None
-  - name: "vmop.virtualization-audit.validate.d8-virtualization"
-    rules:
-      - apiGroups: [ "virtualization.deckhouse.io" ]
-        apiVersions: [ "v1alpha2" ]
-        operations: [ "CREATE" ]
-        resources: [ "virtualmachineoperations" ]
-        scope: "Namespaced"
-    clientConfig:
-      service:
-        namespace: d8-{{ .Chart.Name }}
-        name: virtualization-audit
-        path: /virtualmachineoperation
-        port: 443
-      caBundle: |
-        {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
-    admissionReviewVersions: [ "v1" ]
-    sideEffects: None
+  # - name: "portforward.virtualization-audit.validate.d8-virtualization"
+  #   rules:
+  #     - apiGroups:   ["virtualization.deckhouse.io"]
+  #       apiVersions: ["v1alpha2"]
+  #       operations:  ["UPDATE"]
+  #       resources:   ["virtualmachines/portforward"]
+  #       scope:       "Namespaced"
+  #   clientConfig:
+  #     service:
+  #       namespace: d8-{{ .Chart.Name }}
+  #       name: virtualization-audit
+  #       path: /portforward
+  #       port: 443
+  #     caBundle: |
+  #       {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
+  #   admissionReviewVersions: ["v1"]
+  #   sideEffects: None
+  # - name: "vmop.virtualization-audit.validate.d8-virtualization"
+  #   rules:
+  #     - apiGroups: [ "virtualization.deckhouse.io" ]
+  #       apiVersions: [ "v1alpha2" ]
+  #       operations: [ "CREATE" ]
+  #       resources: [ "virtualmachineoperations" ]
+  #       scope: "Namespaced"
+  #   clientConfig:
+  #     service:
+  #       namespace: d8-{{ .Chart.Name }}
+  #       name: virtualization-audit
+  #       path: /virtualmachineoperation
+  #       port: 443
+  #     caBundle: |
+  #       {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
+  #   admissionReviewVersions: [ "v1" ]
+  #   sideEffects: None
   # - name: "vmstate.virtualization-audit.validate.d8-virtualization"
   #   objectSelector:
   #     matchExpressions:
