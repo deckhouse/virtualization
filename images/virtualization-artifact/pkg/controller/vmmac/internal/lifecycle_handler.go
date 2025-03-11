@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
+	"github.com/deckhouse/virtualization-controller/pkg/common/mac"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/util"
@@ -44,8 +45,8 @@ func NewLifecycleHandler() *LifecycleHandler {
 func (h LifecycleHandler) Handle(ctx context.Context, state state.VMMACState) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(LifecycleHandlerName))
 
-	mac := state.VirtualMachineMAC()
-	macStatus := &mac.Status
+	machineMAC := state.VirtualMachineMAC()
+	macStatus := &machineMAC.Status
 
 	vm, err := state.VirtualMachine(ctx)
 	if err != nil {
@@ -53,12 +54,12 @@ func (h LifecycleHandler) Handle(ctx context.Context, state state.VMMACState) (r
 	}
 
 	conditionBound := conditions.NewConditionBuilder(vmmaccondition.BoundType).
-		Generation(mac.GetGeneration()).
+		Generation(machineMAC.GetGeneration()).
 		Reason(conditions.ReasonUnknown).
 		Status(metav1.ConditionUnknown)
 
 	conditionAttach := conditions.NewConditionBuilder(vmmaccondition.AttachedType).
-		Generation(mac.GetGeneration()).
+		Generation(machineMAC.GetGeneration()).
 		Reason(conditions.ReasonUnknown).
 		Status(metav1.ConditionUnknown)
 
@@ -100,9 +101,9 @@ func (h LifecycleHandler) Handle(ctx context.Context, state state.VMMACState) (r
 		conditionAttach.Status(metav1.ConditionTrue).
 			Reason(vmmaccondition.Attached)
 
-	case util.IsBoundLease(lease, mac):
+	case util.IsBoundLease(lease, machineMAC):
 		macStatus.Phase = virtv2.VirtualMachineMACAddressPhaseBound
-		macStatus.Address = ip.LeaseNameToIP(lease.Name)
+		macStatus.Address = mac.LeaseNameToAddress(lease.Name)
 		conditionBound.Status(metav1.ConditionTrue).
 			Reason(vmmaccondition.Bound)
 
@@ -115,7 +116,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, state state.VMMACState) (r
 			Message(fmt.Sprintf("VirtualMachineMACAddressLease %s is bound to another VirtualMachineMACAddress resource",
 				lease.Name))
 
-	case lease.Spec.VirtualMachineMACAddressRef.Namespace != mac.Namespace:
+	case lease.Spec.VirtualMachineMACAddressRef.Namespace != machineMAC.Namespace:
 		macStatus.Phase = virtv2.VirtualMachineMACAddressPhasePending
 		conditionBound.Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseAlreadyExists).
@@ -135,7 +136,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, state state.VMMACState) (r
 
 	log.Debug("Set VirtualMachineMAC phase", "phase", macStatus.Phase)
 
-	macStatus.ObservedGeneration = mac.GetGeneration()
+	macStatus.ObservedGeneration = machineMAC.GetGeneration()
 	if !needRequeue {
 		return reconcile.Result{}, nil
 	} else {

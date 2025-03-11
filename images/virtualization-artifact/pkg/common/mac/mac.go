@@ -29,7 +29,7 @@ type AllocatedMACs map[string]*virtv2.VirtualMachineMACAddressLease
 
 // AddressToLeaseName generate the Virtual Machine MAC Address Lease's name from the MAC address
 func AddressToLeaseName(address string) string {
-	return macPrefix + strings.ReplaceAll(address, ":", "-")
+	return macPrefix + strings.ReplaceAll(strings.ToLower(address), ":", "-")
 }
 
 // LeaseNameToAddress generate the MAC address from the Virtual Machine MAC Address Lease's name

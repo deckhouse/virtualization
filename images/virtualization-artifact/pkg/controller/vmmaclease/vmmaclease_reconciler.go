@@ -124,21 +124,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 		result = service.MergeResults(result, res)
 	}
+	// fixme dlopatin
+	if !reflect.DeepEqual(lease.Current().Spec, lease.Changed().Spec) {
+		leaseStatus := lease.Changed().Status.DeepCopy()
+		err = r.client.Update(ctx, lease.Changed())
+		if err != nil {
+			log.Error("Failed to update VirtualMachineMACAddressLease", "err", err)
+			handlerErrs = append(handlerErrs, err)
+		}
+		lease.Changed().Status = *leaseStatus
+	}
+
+	err = lease.Update(ctx)
+
+	handlerErrs = append(handlerErrs, err)
 
 	if s.ShouldDeletion() {
 		err = r.client.Delete(ctx, lease.Changed())
-	} else {
-		if !reflect.DeepEqual(lease.Current().Spec, lease.Changed().Spec) {
-			leaseStatus := lease.Changed().Status.DeepCopy()
-			err = r.client.Update(ctx, lease.Changed())
-			if err != nil {
-				log.Error("Failed to update VirtualMachineMACAddressLease", "err", err)
-				handlerErrs = append(handlerErrs, err)
-			}
-			lease.Changed().Status = *leaseStatus
-		}
-
-		err = lease.Update(ctx)
 	}
 
 	err = errors.Join(handlerErrs...)

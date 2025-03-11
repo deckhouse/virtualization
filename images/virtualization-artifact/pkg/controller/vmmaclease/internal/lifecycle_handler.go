@@ -25,7 +25,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaclcondition"
 )
 
@@ -59,12 +58,6 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMMACLeaseSta
 		leaseStatus.Phase = virtv2.VirtualMachineMACAddressLeasePhaseBound
 		cb.Status(metav1.ConditionTrue).
 			Reason(vmmaclcondition.Bound)
-		conditions.SetCondition(cb, &leaseStatus.Conditions)
-	} else {
-		leaseStatus.Phase = virtv2.VirtualMachineMACAddressLeasePhaseReleased
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmiplcondition.Released).
-			Message("VirtualMachineMACAddress lease is not used by any VirtualMachineMACAddress")
 		conditions.SetCondition(cb, &leaseStatus.Conditions)
 	}
 
