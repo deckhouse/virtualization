@@ -35,7 +35,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -58,34 +57,25 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	condition, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vdcondition.ResizingType).Generation(vd.Generation)
 
-	defer func() {
-		if cb.Condition().Status != metav1.ConditionUnknown {
-			conditions.SetCondition(cb, &vd.Status.Conditions)
-		} else {
-			conditions.RemoveCondition(vdcondition.ResizingType, &vd.Status.Conditions)
-		}
-	}()
-
 	if vd.DeletionTimestamp != nil {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
+		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
-	readyCondition, ok := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	if !ok || readyCondition.Status != metav1.ConditionTrue || readyCondition.ObservedGeneration != vd.Status.ObservedGeneration {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
+	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	switch {
+	case readyCondition.ObservedGeneration != vd.Generation || readyCondition.Status == metav1.ConditionUnknown:
+		conditions.SetCondition(cb.SetAllUnknown(), &vd.Status.Conditions)
+		return reconcile.Result{}, nil
+	case readyCondition.Status == metav1.ConditionFalse:
+		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
 	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
 	pvc, err := h.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
+		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, err
 	}
 
@@ -94,6 +84,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown).
 			Message("Underlying PersistentVolumeClaim not found: resizing is not possible.")
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -102,6 +93,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown).
 			Message("Underlying PersistentVolumeClaim not bound: resizing is not possible.")
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -123,6 +115,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.InProgress).
 			Message(pvcResizing.Message)
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -137,22 +130,18 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 func (h ResizingHandler) ResizeNeeded(
 	ctx context.Context,
-	vd *v1alpha2.VirtualDisk,
+	vd *virtv2.VirtualDisk,
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
 	log *slog.Logger,
 ) (reconcile.Result, error) {
-	snapshotting, ok := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
+	snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 
-	if ok && (snapshotting.Status == metav1.ConditionUnknown || snapshotting.ObservedGeneration != vd.Generation) {
-		return reconcile.Result{Requeue: true}, nil
-	}
-
-	if snapshotting.Status == metav1.ConditionTrue {
+	if snapshotting.Status == metav1.ConditionTrue && snapshotting.ObservedGeneration == vd.Generation {
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDResizingNotAvailable,
+			virtv2.ReasonVDResizingNotAvailable,
 			"The virtual disk cannot be selected for resizing as it is currently snapshotting.",
 		)
 
@@ -161,6 +150,7 @@ func (h ResizingHandler) ResizeNeeded(
 			Reason(vdcondition.ResizingNotAvailable).
 			Message("The virtual disk cannot be selected for resizing as it is currently snapshotting.")
 
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -172,6 +162,7 @@ func (h ResizingHandler) ResizeNeeded(
 	switch storageClassReadyCondition.Status {
 	case metav1.ConditionTrue:
 		if vd.Spec.PersistentVolumeClaim.Size == nil {
+			conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 			return reconcile.Result{}, errors.New("PersistentVolumeClaim does not have a size")
 		}
 
@@ -182,6 +173,9 @@ func (h ResizingHandler) ResizeNeeded(
 					Status(metav1.ConditionFalse).
 					Reason(vdcondition.ResizingNotAvailable).
 					Message(fmt.Sprintf("Disk resizing is not allowed: %s.", err.Error()))
+				conditions.SetCondition(cb, &vd.Status.Conditions)
+			} else {
+				conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 			}
 			return reconcile.Result{}, err
 		}
@@ -189,7 +183,7 @@ func (h ResizingHandler) ResizeNeeded(
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDResizingStarted,
+			virtv2.ReasonVDResizingStarted,
 			"The virtual disk resizing has started",
 		)
 
@@ -200,23 +194,22 @@ func (h ResizingHandler) ResizeNeeded(
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.InProgress).
 			Message("The virtual disk resizing has started.")
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 	case metav1.ConditionFalse:
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ResizingNotAvailable).
 			Message("Disk resizing is not allowed: Storage class is not ready")
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 	case metav1.ConditionUnknown:
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
+		conditions.SetCondition(cb.SetAllUnknown(), &vd.Status.Conditions)
 	}
 
 	return reconcile.Result{}, nil
 }
 
 func (h ResizingHandler) ResizeNotNeeded(
-	vd *v1alpha2.VirtualDisk,
+	vd *virtv2.VirtualDisk,
 	resizingCondition metav1.Condition,
 	cb *conditions.ConditionBuilder,
 ) (reconcile.Result, error) {
@@ -224,15 +217,12 @@ func (h ResizingHandler) ResizeNotNeeded(
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDResizingCompleted,
+			virtv2.ReasonVDResizingCompleted,
 			"The virtual disk resizing has completed",
 		)
 	}
 
-	cb.
-		Status(metav1.ConditionUnknown).
-		Reason(conditions.ReasonUnknown)
-
+	conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 	return reconcile.Result{}, nil
 }
 
