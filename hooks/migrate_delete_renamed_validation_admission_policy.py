@@ -29,7 +29,6 @@ class MigrateDeleteRenamedVAPResources(Hook):
 
     def __init__(self, module_name: str):
         self.module_name = module_name
-        self.namespace = common.NAMESPACE
         self.vapolicy_name = "kubevirt-node-restriction-policy"
         self.vapolicy_binding_name = "kubevirt-node-restriction-binding"
         self.managed_by_label = "app.kubernetes.io/managed-by"
@@ -47,11 +46,6 @@ class MigrateDeleteRenamedVAPResources(Hook):
                     "nameSelector": {
                         "matchNames": [self.vapolicy_name]
                     },
-                    "namespace": {
-                        "nameSelector": {
-                            "matchNames": [self.namespace]
-                        }
-                    },
                     "group": "all",
                     "jqFilter": '{"name": .metadata.name, "kind": .kind, "labels": .metadata.labels}',
                     "queue": f"/modules/{self.module_name}/vap-resources",
@@ -65,11 +59,6 @@ class MigrateDeleteRenamedVAPResources(Hook):
                     "kind": "ValidatingAdmissionPolicyBinding",
                     "nameSelector": {
                         "matchNames": [self.vapolicy_binding_name]
-                    },
-                    "namespace": {
-                        "nameSelector": {
-                            "matchNames": [self.namespace]
-                        }
                     },
                     "group": "all",
                     "jqFilter": '{"name": .metadata.name, "kind": .kind, "labels": .metadata.labels}',
@@ -94,9 +83,8 @@ class MigrateDeleteRenamedVAPResources(Hook):
                         # Delete
                         name = s["filterResult"]["name"]
                         kind = s["filterResult"]["kind"]
-                        print(f"Delete deprecated {kind} {self.namespace}/{name}.")
+                        print(f"Delete deprecated {kind} {name}.")
                         ctx.kubernetes.delete(kind=kind,
-                                          namespace=self.namespace,
                                           name=name)
             if found_deprecated == 0:
                 print("No deprecated resources found, migration not required.")
