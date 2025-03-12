@@ -1,0 +1,189 @@
+diff --git a/cmd/cdi-controller/controller.go b/cmd/cdi-controller/controller.go
+index 5a43020c9..06c3f7117 100644
+--- a/cmd/cdi-controller/controller.go
++++ b/cmd/cdi-controller/controller.go
+@@ -111,9 +111,9 @@ func init() {
+ 	}
+ 	importerImage = getRequiredEnvVar("IMPORTER_IMAGE")
+ 	clonerImage = getRequiredEnvVar("CLONER_IMAGE")
+-	uploadServerImage = getRequiredEnvVar("UPLOADSERVER_IMAGE")
++	// uploadServerImage = getRequiredEnvVar("UPLOADSERVER_IMAGE")
+ 	ovirtPopulatorImage = getRequiredEnvVar("OVIRT_POPULATOR_IMAGE")
+-	uploadProxyServiceName = getRequiredEnvVar("UPLOADPROXY_SERVICE")
++	// uploadProxyServiceName = getRequiredEnvVar("UPLOADPROXY_SERVICE")
+ 	installerLabels = map[string]string{}
+ 
+ 	pullPolicy = common.DefaultPullPolicy
+@@ -204,7 +204,7 @@ func start() {
+ 		LeaderElectionResourceLock: "leases",
+ 		Cache:                      getCacheOptions(apiClient, namespace),
+ 		Scheme:                     scheme,
+-		Metrics:                    metricsserver.Options{
++		Metrics: metricsserver.Options{
+ 			BindAddress: metricsBindAddress,
+ 		},
+ 	}
+diff --git a/pkg/controller/config-controller.go b/pkg/controller/config-controller.go
+index d786bdfd2..3e8b75df6 100644
+--- a/pkg/controller/config-controller.go
++++ b/pkg/controller/config-controller.go
+@@ -94,9 +94,9 @@ func (r *CDIConfigReconciler) Reconcile(_ context.Context, req reconcile.Request
+ 		return reconcile.Result{}, err
+ 	}
+ 
+-	if err := r.reconcileUploadProxy(config); err != nil {
+-		return reconcile.Result{}, err
+-	}
++	// if err := r.reconcileUploadProxy(config); err != nil {
++	// 	return reconcile.Result{}, err
++	// }
+ 
+ 	if err := r.reconcileStorageClass(config); err != nil {
+ 		return reconcile.Result{}, err
+@@ -324,7 +324,7 @@ func buildPemFromCert(matchingCert *x509.Certificate, allCerts []*x509.Certifica
+ 	}
+ 
+ 	if matchingCert.Issuer.CommonName != matchingCert.Subject.CommonName && !matchingCert.IsCA {
+-		//lookup issuer recursively, if not found a blank is returned.
++		// lookup issuer recursively, if not found a blank is returned.
+ 		chain, err := findCertByHostName(matchingCert.Issuer.CommonName, allCerts)
+ 		if err != nil {
+ 			return "", err
+@@ -477,7 +477,7 @@ func (r *CDIConfigReconciler) reconcileDefaultPodResourceRequirements(config *cd
+ 
+ func (r *CDIConfigReconciler) reconcileFilesystemOverhead(config *cdiv1.CDIConfig) error {
+ 	var globalOverhead cdiv1.Percent = common.DefaultGlobalOverhead
+-	var perStorageConfig = make(map[string]cdiv1.Percent)
++	perStorageConfig := make(map[string]cdiv1.Percent)
+ 
+ 	log := r.log.WithName("CDIconfig").WithName("FilesystemOverhead")
+ 
+@@ -640,7 +640,8 @@ func (r *CDIConfigReconciler) createProxyConfigMap(cmName, cert string) *v1.Conf
+ 	return &v1.ConfigMap{
+ 		ObjectMeta: metav1.ObjectMeta{
+ 			Name:      cmName,
+-			Namespace: r.cdiNamespace},
++			Namespace: r.cdiNamespace,
++		},
+ 		Data: map[string]string{common.ImportProxyConfigMapKey: cert},
+ 	}
+ }
+diff --git a/pkg/operator/controller/callbacks.go b/pkg/operator/controller/callbacks.go
+index e4a50713f..d72331a62 100644
+--- a/pkg/operator/controller/callbacks.go
++++ b/pkg/operator/controller/callbacks.go
+@@ -58,9 +58,9 @@ func addReconcileCallbacks(r *ReconcileCDI) {
+ 	r.reconciler.AddCallback(&appsv1.Deployment{}, reconcilePvcMutatingWebhook)
+ 	r.reconciler.AddCallback(&extv1.CustomResourceDefinition{}, reconcileSetConfigAuthority)
+ 	r.reconciler.AddCallback(&extv1.CustomResourceDefinition{}, reconcileHandleOldVersion)
+-	if r.haveRoutes {
+-		r.reconciler.AddCallback(&appsv1.Deployment{}, reconcileRoute)
+-	}
++	// if r.haveRoutes {
++	// 	r.reconciler.AddCallback(&appsv1.Deployment{}, reconcileRoute)
++	// }
+ }
+ 
+ func isControllerDeployment(d *appsv1.Deployment) bool {
+diff --git a/pkg/operator/controller/cruft.go b/pkg/operator/controller/cruft.go
+index 150335648..7572a3ff2 100644
+--- a/pkg/operator/controller/cruft.go
++++ b/pkg/operator/controller/cruft.go
+@@ -21,7 +21,6 @@ import (
+ 	"fmt"
+ 	"reflect"
+ 
+-	routev1 "github.com/openshift/api/route/v1"
+ 	secv1 "github.com/openshift/api/security/v1"
+ 
+ 	appsv1 "k8s.io/api/apps/v1"
+@@ -115,12 +114,12 @@ func reconcileRemainingRelationshipLabels(args *callbacks.ReconcileCallbackArgs)
+ 				Namespace: namespace,
+ 			},
+ 		},
+-		&routev1.Route{
+-			ObjectMeta: metav1.ObjectMeta{
+-				Name:      uploadProxyRouteName,
+-				Namespace: namespace,
+-			},
+-		},
++		// &routev1.Route{
++		// 	ObjectMeta: metav1.ObjectMeta{
++		// 		Name:      uploadProxyRouteName,
++		// 		Namespace: namespace,
++		// 	},
++		// },
+ 		&secv1.SecurityContextConstraints{
+ 			ObjectMeta: metav1.ObjectMeta{
+ 				Name: sccName,
+diff --git a/pkg/operator/resources/cluster/factory.go b/pkg/operator/resources/cluster/factory.go
+index 0155b9ca7..ea92568c0 100644
+--- a/pkg/operator/resources/cluster/factory.go
++++ b/pkg/operator/resources/cluster/factory.go
+@@ -41,12 +41,12 @@ type factoryFunc func(*FactoryArgs) []client.Object
+ type factoryFuncMap map[string]factoryFunc
+ 
+ var staticFactoryFunctions = factoryFuncMap{
+-	"apiserver-rbac":   createStaticAPIServerResources,
+-	"controller-rbac":  createControllerResources,
+-	"crd-resources":    createCRDResources,
+-	"uploadproxy-rbac": createUploadProxyResources,
+-	"cronjob-rbac":     createCronJobResources,
+-	"aggregate-roles":  createAggregateClusterRoles,
++	"apiserver-rbac":  createStaticAPIServerResources,
++	"controller-rbac": createControllerResources,
++	"crd-resources":   createCRDResources,
++	// "uploadproxy-rbac": createUploadProxyResources,
++	"cronjob-rbac":    createCronJobResources,
++	"aggregate-roles": createAggregateClusterRoles,
+ }
+ 
+ var dynamicFactoryFunctions = factoryFuncMap{
+@@ -117,7 +117,7 @@ func createResourceGroup(funcMap factoryFuncMap, group string, args *FactoryArgs
+ func GetClusterRolePolicyRules() []rbacv1.PolicyRule {
+ 	result := getAPIServerClusterPolicyRules()
+ 	result = append(result, getControllerClusterPolicyRules()...)
+-	result = append(result, getUploadProxyClusterPolicyRules()...)
++	// result = append(result, getUploadProxyClusterPolicyRules()...)
+ 	result = append(result, getCronJobClusterPolicyRules()...)
+ 	return result
+ }
+diff --git a/pkg/operator/resources/namespaced/factory.go b/pkg/operator/resources/namespaced/factory.go
+index 7faec9016..1e0c79f6d 100644
+--- a/pkg/operator/resources/namespaced/factory.go
++++ b/pkg/operator/resources/namespaced/factory.go
+@@ -38,8 +38,8 @@ type FactoryArgs struct {
+ 	ClonerImage            string `required:"true" split_words:"true"`
+ 	OvirtPopulatorImage    string `required:"true" split_words:"true"`
+ 	APIServerImage         string `required:"true" envconfig:"apiserver_image"`
+-	UploadProxyImage       string `required:"true" split_words:"true"`
+-	UploadServerImage      string `required:"true" split_words:"true"`
++	UploadProxyImage       string `required:"false" split_words:"true"`
++	UploadServerImage      string `required:"false" split_words:"true"`
+ 	Verbosity              string `required:"true"`
+ 	PullPolicy             string `required:"true" split_words:"true"`
+ 	ImagePullSecrets       []corev1.LocalObjectReference
+@@ -59,10 +59,10 @@ type namespaceHaver interface {
+ }
+ 
+ var factoryFunctions = map[string]factoryFunc{
+-	"apiserver":   createAPIServerResources,
+-	"controller":  createControllerResources,
+-	"uploadproxy": createUploadProxyResources,
+-	"cronjob":     createCronJobResources,
++	"apiserver":  createAPIServerResources,
++	"controller": createControllerResources,
++	// "uploadproxy": createUploadProxyResources,
++	"cronjob": createCronJobResources,
+ }
+ 
+ // CreateAllResources creates all namespaced resources
+@@ -107,7 +107,7 @@ func assignNamspaceIfMissing(resource client.Object, namespace string) {
+ func GetRolePolicyRules() []rbacv1.PolicyRule {
+ 	result := getAPIServerNamespacedRules()
+ 	result = append(result, getControllerNamespacedRules()...)
+-	result = append(result, getUploadProxyNamespacedRules()...)
++	// result = append(result, getUploadProxyNamespacedRules()...)
+ 	result = append(result, GetPrometheusNamespacedRules()...)
+ 	return result
+ }
