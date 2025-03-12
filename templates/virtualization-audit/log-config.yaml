@@ -22,7 +22,7 @@ spec:
     type: Memory
     whenFull: Block
   socket:
-    address: virtualization-audit-svc.audit-proxy:5140
+    address: virtualization-audit.d8-virtualization:443
     encoding:
       codec: JSON
     tcp:
