@@ -64,6 +64,11 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	switch {
+	// This check will be triggered if any of the following conditions are met:
+	// 1) The condition status is equal to 'Unknown'.
+	// 2) The observedGeneration of the condition is less than the generation of the VirtualDisk,
+	//    indicating that the state was set in previous reconciliation cycles.
+	// 3) The condition does not exist.
 	case readyCondition.ObservedGeneration != vd.Generation || readyCondition.Status == metav1.ConditionUnknown:
 		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
