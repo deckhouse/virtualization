@@ -16,8 +16,16 @@ package main
 import (
 	"fmt"
 	"log/slog"
-	"node-labeller/pkg/helpers"
 	"os"
+
+	"node-labeller/pkg/helpers"
+
+	"libvirt.org/go/libvirt"
+)
+
+const (
+	virtType = "qemu"
+	outDir   = "/var/lib/kubevirt-node-labeller"
 )
 
 func main() {
@@ -33,68 +41,124 @@ func main() {
 	}
 
 	kvmMinor := helpers.GetKVMMinor()
-	virtType := "qemu"
 
 	if !helpers.FileExists("/dev/kvm") && kvmMinor != "" {
 		if err := helpers.CreateKVMDevice(kvmMinor); err != nil {
 			logger.Error("Failed to create /dev/kvm device", "error", err)
+			os.Exit(1)
 		}
 	}
 
 	if helpers.FileExists("/dev/kvm") {
 		if err := helpers.SetPermissionsRW("/dev/kvm"); err != nil {
 			logger.Error("Failed to set permissions for /dev/kvm", "error", err)
+			os.Exit(1)
 		}
-		virtType = "kvm"
 	}
 
-	//QEMU requires RW access to query SEV capabilities
+	// QEMU requires RW access to query SEV capabilities
 	if helpers.FileExists("/dev/sev") {
 		if err := helpers.SetPermissionsRW("/dev/sev"); err != nil {
 			logger.Error("Failed to set permissions for /dev/sev", "error", err)
+			os.Exit(1)
 		}
 	}
 
 	slog.Info("Start virtqemud daemon")
 	if err := helpers.StartVirtqemud(); err != nil {
 		logger.Error("Failed to start virtqemud", "error", err)
-		return
+		os.Exit(1)
 	}
 
-	outDir := "/var/lib/kubevirt-node-labeller"
+	// Connect to libvirt
+	conn, err := libvirt.NewConnect("qemu:///system")
+	if err != nil {
+		logger.Error("Failed to connect to libvirt", "error", err)
+		return
+	}
+	defer conn.Close()
+
+	// outDir := "/var/lib/kubevirt-node-labeller"
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		logger.Error("Failed to create output directory", "path", outDir, "error", err)
-		return
+		os.Exit(1)
 	}
 
 	slog.Info("Execute virsh domcapabilities")
-	domCapsPath := fmt.Sprintf("%s/virsh_domcapabilities.xml", outDir)
-	err := helpers.RunCommandToFile("virsh", []string{
-		"domcapabilities", "--machine", machine, "--arch", arch, "--virttype", virtType,
-	}, domCapsPath)
+	// Get domain capabilities
+	domCaps, err := conn.GetDomainCapabilities("", arch, "", virtType, 0)
 	if err != nil {
-		logger.Error("Failed to retrieve virsh domcapabilities", "error", err)
+		logger.Error("Failed to retrieve domain capabilities", "error", err)
 		return
 	}
 
-	// hypervisor-cpu-baseline command only works on x86_64
+	// Save domcapabilities.xml
+	domCapsPath := fmt.Sprintf("%s/virsh_domcapabilities.xml", outDir)
+	if err := os.WriteFile(domCapsPath, []byte(domCaps), 0o644); err != nil {
+		logger.Error("Failed to write domain capabilities", "error", err)
+		os.Exit(1)
+	}
+
+	// hypervisor-cpu-baseline only for x86_64
 	if arch == "x86_64" {
-		supportedFeaturesPath := fmt.Sprintf("%s/supported_features.xml", outDir)
-		err = helpers.RunPipelineToFile([][]string{
-			{"virsh", "domcapabilities", "--machine", machine, "--arch", arch, "--virttype", virtType},
-			{"virsh", "hypervisor-cpu-baseline", "--features", "/dev/stdin", "--machine", machine, "--arch", arch,
-				"--virttype", virtType},
-		}, supportedFeaturesPath)
+		featuresXML, err := conn.GetCapabilities()
 		if err != nil {
 			logger.Error("Failed to retrieve supported CPU features", "error", err)
+			os.Exit(1)
+		} else {
+			supportedFeaturesPath := fmt.Sprintf("%s/supported_features.xml", outDir)
+			if err := os.WriteFile(supportedFeaturesPath, []byte(featuresXML), 0o644); err != nil {
+				logger.Error("Failed to write supported features", "error", err)
+				os.Exit(1)
+			}
 		}
 	}
 
-	slog.Info("Execute virsh capabilities")
-	capabilitiesPath := fmt.Sprintf("%s/capabilities.xml", outDir)
-	err = helpers.RunCommandToFile("virsh", []string{"capabilities"}, capabilitiesPath)
+	// Get host capabilities
+	hostCaps, err := conn.GetCapabilities()
 	if err != nil {
-		logger.Error("Failed to retrieve virsh capabilities", "error", err)
+		logger.Error("Failed to retrieve host capabilities", "error", err)
+		os.Exit(1)
 	}
+
+	// Save capabilities.xml
+	capabilitiesPath := fmt.Sprintf("%s/capabilities.xml", outDir)
+	if err := os.WriteFile(capabilitiesPath, []byte(hostCaps), 0o644); err != nil {
+		logger.Error("Failed to write capabilities", "error", err)
+		os.Exit(1)
+	}
+
+	// domCapsPath := fmt.Sprintf("%s/virsh_domcapabilities.xml", outDir)
+	// err := helpers.RunCommandToFile("virsh", []string{
+	// 	"domcapabilities", "--machine", machine, "--arch", arch, "--virttype", virtType,
+	// }, domCapsPath)
+	// if err != nil {
+	// 	logger.Error("Failed to retrieve virsh domcapabilities", "error", err)
+	// 	os.Exit(1)
+	// }
+
+	// // hypervisor-cpu-baseline command only works on x86_64
+	// if arch == "x86_64" {
+	// 	supportedFeaturesPath := fmt.Sprintf("%s/supported_features.xml", outDir)
+	// 	err = helpers.RunPipelineToFile([][]string{
+	// 		{"virsh", "domcapabilities", "--machine", machine, "--arch", arch, "--virttype", virtType},
+	// 		{
+	// 			"virsh", "hypervisor-cpu-baseline", "--features", "/dev/stdin", "--machine", machine, "--arch", arch,
+	// 			"--virttype", virtType,
+	// 		},
+	// 	}, supportedFeaturesPath)
+	// 	if err != nil {
+	// 		logger.Error("Failed to retrieve supported CPU features", "error", err)
+	// 		os.Exit(1)
+	// 	}
+	// }
+
+	// slog.Info("Execute virsh capabilities")
+	// capabilitiesPath := fmt.Sprintf("%s/capabilities.xml", outDir)
+	// err = helpers.RunCommandToFile("virsh", []string{"capabilities"}, capabilitiesPath)
+	// if err != nil {
+	// 	logger.Error("Failed to retrieve virsh capabilities", "error", err)
+	// 	os.Exit(1)
+	// }
 	slog.Info(fmt.Sprintf("Virsh capabilities saved to %s", capabilitiesPath))
 }
