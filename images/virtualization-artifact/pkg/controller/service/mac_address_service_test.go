@@ -64,7 +64,7 @@ var _ = Describe("MACAddressService", func() {
 			Expect(err).To(Equal(ErrMACAddressAlreadyExist))
 		})
 
-		It("should return error for a MAC address out of prefix range", func() {
+		It("should return error for a MAC address out of oui range", func() {
 			err := service.IsAvailableAddress("00:11:22:33:44:55", allocatedMACs)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(Equal(ErrMACAddressOutOfRange))
@@ -77,31 +77,31 @@ var _ = Describe("MACAddressService", func() {
 	})
 
 	Context("AllocateNewAddress", func() {
-		It("should allocate a new unique MAC address with format prefix xx:xx:xx:xx", func() {
+		It("should allocate a new unique MAC address with format oui xx:xx:xx:xx", func() {
 			address, err := service.AllocateNewAddress(allocatedMACs)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(address).To(HavePrefix("f6:e1:74:94"))
 		})
 
-		It("should allocate a new unique MAC address with format prefix xx-xx-xx-xx", func() {
+		It("should allocate a new unique MAC address with format oui xx-xx-xx-xx", func() {
 			service := NewMACAddressService("f6-e1-74-94")
 			address, err := service.AllocateNewAddress(allocatedMACs)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(address).To(HavePrefix("f6:e1:74:94"))
 		})
 
-		It("should allocate a new unique MAC address with format prefix xxxxxxxx", func() {
+		It("should allocate a new unique MAC address with format oui xxxxxxxx", func() {
 			service := NewMACAddressService("f6e17494")
 			address, err := service.AllocateNewAddress(allocatedMACs)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(address).To(HavePrefix("f6:e1:74:94"))
 		})
 
-		It("should return an error when MAC addresses prefix wrong", func() {
+		It("should return an error when MAC addresses oui wrong", func() {
 			service := NewMACAddressService("f6e1749")
 			_, err := service.AllocateNewAddress(allocatedMACs)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(Equal("wrong format MAC address prefix"))
+			Expect(err.Error()).To(Equal("wrong format MAC address oui"))
 		})
 
 		It("should return an error when no MAC addresses are available", func() {

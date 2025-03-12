@@ -32,9 +32,9 @@
   value: "true"
 - name: VIRTUAL_MACHINE_CIDRS
   value: {{ join "," .Values.virtualization.virtualMachineCIDRs | quote }}
-{{- if and (hasKey .Values.virtualization "network") (hasKey .Values.virtualization.network "macAddress") (hasKey .Values.virtualization.network.macAddress "prefix") }}
-- name: VIRTUAL_MACHINE_MAC_ADDRESS_PREFIX
-value: {{ .Values.virtualization.network.macAddress.prefix }}
+{{- if and (hasKey .Values.virtualization "network") (hasKey .Values.virtualization.network "macAddress") (hasKey .Values.virtualization.network.macAddress "oui") }}
+- name: VIRTUAL_MACHINES_MAC_ADDRESS_OUI
+value: {{ .Values.virtualization.network.macAddress.oui }}
 {{- end }}
 {{- if (hasKey .Values.virtualization "virtualImages") }}
 - name: VIRTUAL_IMAGE_STORAGE_CLASS

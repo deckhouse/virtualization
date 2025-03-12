@@ -30,19 +30,14 @@ import (
 const MaxCount int = 65536
 
 type MACAddressService struct {
-	prefix string
+	oui string
 }
 
 func NewMACAddressService(
-	prefix string,
+	oui string,
 ) *MACAddressService {
-	if prefix == "" {
-		//todo dlopatin add generate from cluster uid
-		prefix = "f6:e1:74:94"
-	}
-
 	return &MACAddressService{
-		prefix: prefix,
+		oui: oui,
 	}
 }
 
@@ -56,28 +51,28 @@ func (s MACAddressService) IsAvailableAddress(address string, allocatedMACs mac.
 		return ErrMACAddressAlreadyExist
 	}
 
-	if address[:11] == s.prefix {
+	if address[:11] == s.oui {
 		return nil
 	}
 
 	return ErrMACAddressOutOfRange
 }
 
-func formatPrefix(prefix string) (string, error) {
+func formatOUI(prefix string) (string, error) {
 	prefix = strings.TrimSpace(prefix)
 
 	re := regexp.MustCompile(`(?i)([0-9A-Fa-f]{2})`)
 	matches := re.FindAllString(prefix, -1)
 
 	if len(matches) != 4 {
-		return "", fmt.Errorf("wrong format MAC address prefix")
+		return "", fmt.Errorf("wrong format MAC address oui")
 	}
 
 	return fmt.Sprintf("%s:%s:%s:%s", matches[0], matches[1], matches[2], matches[3]), nil
 }
 
 func (s MACAddressService) AllocateNewAddress(allocatedMACs mac.AllocatedMACs) (string, error) {
-	prefix, err := formatPrefix(s.prefix)
+	prefix, err := formatOUI(s.oui)
 	if err != nil {
 		return "", err
 	}
@@ -88,11 +83,9 @@ func (s MACAddressService) AllocateNewAddress(allocatedMACs mac.AllocatedMACs) (
 
 	for retry < maxRetries {
 		genAddress := fmt.Sprintf("%s:%02X:%02X", prefix, r.Intn(256), r.Intn(256))
-
 		if _, ok := allocatedMACs[genAddress]; !ok {
 			return genAddress, nil
 		}
-
 		retry++
 	}
 

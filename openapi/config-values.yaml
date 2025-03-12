@@ -231,10 +231,10 @@ properties:
           description: |
             Configuring MAC address for virtual machines.
           properties:
-            prefix:
+            oui:
               type: string
               description: |
-                MAC address prefix for virtual machines.
+                MAC address oui for virtual machines.
                 Supported formats: xx-xx-xx-xx, xx:xx:xx:xx, xxxxxxxx.
   logLevel:
     type: string
