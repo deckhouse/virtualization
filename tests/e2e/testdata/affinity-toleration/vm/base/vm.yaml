@@ -3,6 +3,7 @@ kind: VirtualMachine
 metadata:
   name: vm
 spec:
+  bootloader: EFI
   virtualMachineClassName: affinity-discovery
   cpu:
     cores: 1

@@ -3,6 +3,7 @@ kind: VirtualMachine
 metadata:
   name: vm
 spec:
+  bootloader: EFI
   blockDeviceRefs:
     - kind: VirtualDisk
       name: vd
