@@ -29,6 +29,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	kvmCharDeviceMajorVersion = 10
+)
+
 func GetArch() string {
 	switch runtime.GOARCH {
 	case "arm64":
@@ -96,7 +100,7 @@ func CreateKVMDevice(minor string) error {
 		slog.Error(fmt.Sprintf("unexpected value, expect int, take %v", minor))
 		return err
 	}
-	return CreateCharDevice("/dev/kvm", 10, m)
+	return CreateCharDevice("/dev/kvm", kvmCharDeviceMajorVersion, m)
 }
 
 func SetPermissionsRW(path string) error {
