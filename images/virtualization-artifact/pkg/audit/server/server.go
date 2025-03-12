@@ -17,9 +17,9 @@ limitations under the License.
 package server
 
 import (
+	"bufio"
 	"context"
-	"errors"
-	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
 	"time"
@@ -37,77 +37,66 @@ type endpointer interface {
 }
 
 func NewServer(addr string, regs ...endpointer) (Server, error) {
-	mux := http.NewServeMux()
-	for _, endpoint := range regs {
-		mux.Handle(endpoint.Path(), endpoint.Handler())
-	}
-
-	listener, err := defaultListener(addr)
-	if err != nil {
-		return nil, err
-	}
-
-	srv := httpServer{
-		gracefulShutdownTimeout: 10 * time.Second,
-		listener:                listener,
-		server: &http.Server{
-			Handler:           mux,
-			MaxHeaderBytes:    1 << 20,
-			IdleTimeout:       90 * time.Second,
-			ReadHeaderTimeout: 32 * time.Second,
-		},
-	}
-
-	return &srv, nil
+	return &tcpServer{
+		gracefulShutdownTimeout: 5 * time.Second,
+		addr:                    addr,
+		listener:                nil,
+	}, nil
 }
 
-type httpServer struct {
+type tcpServer struct {
 	gracefulShutdownTimeout time.Duration
-	server                  *http.Server
 	listener                net.Listener
+	addr                    string
 }
 
-func (s *httpServer) Run(ctx context.Context, opts ...Option) error {
-	serverShutdown := make(chan struct{})
-	go func() {
-		<-ctx.Done()
-		log.Info("shutting down server")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), s.gracefulShutdownTimeout)
-		defer cancel()
-		if err := s.server.Shutdown(shutdownCtx); err != nil {
-			log.Error("error shutting down server", log.Err(err))
-		}
-		close(serverShutdown)
-	}()
-
-	log.Info("starting server")
-	o := options{}
-	for _, opt := range opts {
-		opt.Apply(&o)
-	}
-
-	var err error
-	if o.TLS != nil {
-		err = s.server.ServeTLS(s.listener, o.TLS.CertFile, o.TLS.KeyFile)
-	} else {
-		err = s.server.Serve(s.listener)
-	}
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
+	listener, err := net.Listen("tcp", s.addr)
+	if err != nil {
 		return err
 	}
+	defer listener.Close()
 
-	<-serverShutdown
-	return nil
+	// Accept connections in a loop that respects context cancellation
+	go func() {
+		<-ctx.Done()
+		listener.Close()
+	}()
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			// Check if server is shutting down
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+				log.Error("Error accepting connection", log.Err(err))
+				continue
+			}
+		}
+
+		// Handle each connection in its own goroutine
+		go handleConnection(ctx, conn)
+	}
 }
 
-func defaultListener(addr string) (net.Listener, error) {
-	if addr == "" || addr == "0" {
-		return nil, nil
+func handleConnection(ctx context.Context, conn net.Conn) {
+	defer conn.Close()
+
+	log.Info("New connection", slog.String("remote", conn.RemoteAddr().String()))
+
+	scanner := bufio.NewScanner(conn)
+	for scanner.Scan() {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			log.Info("LINE", log.RawJSON("JSON", string(scanner.Bytes())))
+		}
 	}
 
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return nil, fmt.Errorf("error listening on %s: %w", addr, err)
+	if err := scanner.Err(); err != nil {
+		log.Error("Scanner error", log.Err(err))
 	}
-	return ln, nil
 }
