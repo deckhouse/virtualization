@@ -28,6 +28,7 @@ shell:
     gcc-c++ \
     git \
     gettext \
+    perl-Locale-Msgfmt \
     bash-completion \
     clang \
     ccache \
@@ -131,10 +132,10 @@ shell:
     cd {{ $gitRepoName }}-{{ $version }}
 
 
-    for p in /patches/*.patch ; do
-      echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-    done
+    # for p in /patches/*.patch ; do
+    #   echo -n "Apply ${p} ... "
+    #   git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    # done
 
     CFLAGS="-Wframe-larger-than=262144" meson setup build \
       -Dinit_script=systemd \

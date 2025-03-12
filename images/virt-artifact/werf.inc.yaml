@@ -37,6 +37,7 @@ shell:
     - git clone --depth 1 --branch v{{ $version }} https://github.com/kubevirt/kubevirt.git /kubevirt
     - cd /kubevirt
     - |
+      echo "apply patches"
       for p in /patches/*.patch ; do
         echo -n "Apply ${p} ... "
         git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
