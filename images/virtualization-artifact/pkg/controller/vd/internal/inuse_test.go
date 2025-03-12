@@ -60,12 +60,50 @@ var _ = Describe("InUseHandler", func() {
 				},
 				Status: virtv2.VirtualDiskStatus{
 					Conditions: []metav1.Condition{},
+					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						{
+							Name:    "test-vm",
+							Mounted: false,
+						},
+						{
+							Name:    "test-vm2",
+							Mounted: true,
+						},
+						{
+							Name:    "test-vm3",
+							Mounted: false,
+						},
+					},
 				},
 			}
 
 			vm := &virtv2.VirtualMachine{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-vm",
+					Namespace: "default",
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+			}
+
+			vm2 := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm2",
 					Namespace: "default",
 				},
 				Spec: virtv2.VirtualMachineSpec{
@@ -87,7 +125,31 @@ var _ = Describe("InUseHandler", func() {
 				},
 			}
 
-			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vm).Build()
+			vm3 := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm3",
+					Namespace: "default",
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+			}
+
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vm, vm2, vm3).Build()
 			handler = &InUseHandler{client: k8sClient}
 
 			result, err := handler.Handle(ctx, vd)
@@ -99,9 +161,16 @@ var _ = Describe("InUseHandler", func() {
 			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
 			Expect(cond.Reason).To(Equal(vdcondition.AttachedToVirtualMachine.String()))
 
-			Expect(len(vd.Status.AttachedToVirtualMachines)).To(Equal(1))
-			Expect(vd.Status.AttachedToVirtualMachines[0].Name).To(Equal("test-vm"))
-			Expect(vd.Status.AttachedToVirtualMachines[0].Mounted).To(BeTrue())
+			Expect(len(vd.Status.AttachedToVirtualMachines)).To(Equal(3))
+
+			found := false
+			for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
+				if attachedVM.Name == "test-vm2" && attachedVM.Mounted {
+					found = true
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "Expected to find 'test-vm' with Mounted true in AttachedToVirtualMachines")
 		})
 
 		It("should correctly update status for a disk used by a stopped VM", func() {

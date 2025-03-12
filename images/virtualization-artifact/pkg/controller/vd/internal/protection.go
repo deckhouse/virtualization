@@ -26,8 +26,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type ProtectionHandler struct {
-}
+type ProtectionHandler struct{}
 
 func NewProtectionHandler() *ProtectionHandler {
 	return &ProtectionHandler{}
