@@ -2,7 +2,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-ubuntu-2204-iso
+  name: cvi-ubuntu-2404-iso
 spec:
   dataSource:
     type: HTTP
