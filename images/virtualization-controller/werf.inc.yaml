@@ -6,7 +6,17 @@ import:
     add: /usr/local/go/src/virtualization-controller/virtualization-controller
     to: /app/virtualization-controller
     after: install
+{{- if eq $.DELVE_DEBUG "true" }}
+  - image: virtualization-artifact
+    add: /go/bin/dlv
+    to:  /app/dlv
+    after: install
+{{- end }}
 docker:
   USER: 64535
   WORKDIR: "/app"
+{{- if eq $.DELVE_DEBUG "true" }}
+  ENTRYPOINT: ["./dlv", "--listen=:2345", "--headless=true", "--continue", "--log=true", "--log-output=debugger,debuglineerr,gdbwire,lldbout,rpc", "--accept-multiclient", "--api-version=2", "exec", "./virtualization-controller", "--"]
+{{- else }}
   ENTRYPOINT: ["/app/virtualization-controller"]
+{{- end }}

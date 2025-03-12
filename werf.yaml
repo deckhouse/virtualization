@@ -46,6 +46,10 @@ configVersion: 1
 # Edition module settings
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
 
+# Delve debag
+{{- $_ := set . "DELVE_DEBUG" (env "DELVE_DEBUG" "false") }}
+
+
 # Component versions
 {{ $_ := set . "Version" dict }}
 {{- $versions_ctx := (.Files.Get "cv/version_map.yml" | fromYaml) }}
@@ -86,6 +90,7 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "Images" $Root.Images }}
   {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
   {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
+  {{- $_ := set $ctx "DELVE_DEBUG" $Root.DELVE_DEBUG }}
   {{- $_ := set $ctx "Version" $Root.Version }}
 
   {{- include "module_image_template" $ctx }}
