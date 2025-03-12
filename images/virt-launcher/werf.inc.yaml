@@ -263,8 +263,9 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
+# - image: virt-artifact
+- image: {{ $.ImageName }}-gobuilder
+  add: /binaries
   to: /relocate/usr/bin
   before: setup
   includePaths:
