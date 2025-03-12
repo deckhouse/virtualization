@@ -100,7 +100,7 @@ tasks:
       - d8
     cmds:
       - |
-        ginkgo -v --timeout 2h\
+        ginkgo -v \
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}"
           {{end}}
