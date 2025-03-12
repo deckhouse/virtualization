@@ -65,7 +65,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	switch {
 	case readyCondition.ObservedGeneration != vd.Generation || readyCondition.Status == metav1.ConditionUnknown:
-		conditions.SetCondition(cb.SetAllUnknown(), &vd.Status.Conditions)
+		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	case readyCondition.Status == metav1.ConditionFalse:
 		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
@@ -202,7 +202,7 @@ func (h ResizingHandler) ResizeNeeded(
 			Message("Disk resizing is not allowed: Storage class is not ready")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 	case metav1.ConditionUnknown:
-		conditions.SetCondition(cb.SetAllUnknown(), &vd.Status.Conditions)
+		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 	}
 
 	return reconcile.Result{}, nil
