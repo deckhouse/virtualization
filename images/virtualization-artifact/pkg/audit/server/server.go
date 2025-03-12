@@ -27,6 +27,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
+// "k8s.io/apiserver/pkg/apis/audit"
 type Server interface {
 	Run(ctx context.Context, opts ...Option) error
 }
@@ -63,6 +64,8 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 		listener.Close()
 	}()
 
+	log.Info("Server started", slog.String("address", s.addr))
+
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -92,6 +95,7 @@ func handleConnection(ctx context.Context, conn net.Conn) {
 		case <-ctx.Done():
 			return
 		default:
+
 			log.Info("LINE", log.RawJSON("JSON", string(scanner.Bytes())))
 		}
 	}
