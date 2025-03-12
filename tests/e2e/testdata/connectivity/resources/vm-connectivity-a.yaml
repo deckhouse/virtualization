@@ -10,7 +10,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: jammy-server-cloudimg-amd64
+      name: noble-server-cloudimg-amd64
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachine
