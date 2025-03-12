@@ -42,7 +42,7 @@ spec:
                       status:
                         description: |
                           Статус условия. Возможные значения: `True`, `False`, `Unknown`.
-                      type:'
+                      type:
                         description: Тип условия.
                 phase:
                   description: |

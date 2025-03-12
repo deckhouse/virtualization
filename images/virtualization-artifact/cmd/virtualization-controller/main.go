@@ -77,7 +77,7 @@ const (
 	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
 	virtualMachineIPLeasesRetentionDurationEnv = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
 
-	virtualMachineMACAddressPrefixEnv = "VIRTUAL_MACHINE_MAC_ADDRESS_PREFIX"
+	virtualMachineMACAddressOUIEnv = "VIRTUAL_MACHINES_MAC_ADDRESS_OUI"
 )
 
 func main() {
@@ -212,9 +212,10 @@ func main() {
 		virtualMachineIPLeasesRetentionDuration = "10m"
 	}
 
-	virtualMachineMACAddressPrefix := os.Getenv(virtualMachineMACAddressPrefixEnv)
-	if virtualMachineMACAddressPrefix == "" {
-		log.Info("virtualMachineMACAddressPrefixEnv not found - the MAC address prefix will be generated from the cluster UID")
+	virtualMachineMACAddressOUI := os.Getenv(virtualMachineMACAddressOUIEnv)
+	if virtualMachineMACAddressOUI == "" {
+		log.Info("virtualMachineMACAddressOUIEnv, but required")
+		os.Exit(1)
 	}
 
 	// Create a new Manager to provide shared dependencies and start components
@@ -333,7 +334,7 @@ func main() {
 	}
 
 	vmmacLogger := logger.NewControllerLogger(vmmac.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, virtualMachineMACAddressPrefix); err != nil {
+	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, virtualMachineMACAddressOUI); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

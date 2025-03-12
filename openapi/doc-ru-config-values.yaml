@@ -140,10 +140,10 @@ properties:
         description: |
           Настройка MAC-адреса для виртуальных машин.
         properties:
-          prefix:
+          oui:
             type: string
             description: |
-              Префикс MAC-адреса для виртуальных машин.
+              OUI MAC-адреса для виртуальных машин.
               Поддерживаемые форматы: xx-xx-xx-xx, xx:xx:xx:xx, xxxxxxx.
   logLevel:
     type: string

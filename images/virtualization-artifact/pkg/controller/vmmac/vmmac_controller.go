@@ -41,10 +41,10 @@ func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *log.Logger,
-	macAddressPrefix string,
+	macAddressOUI string,
 ) (controller.Controller, error) {
 	recorder := mgr.GetEventRecorderFor(ControllerName)
-	macService := service.NewMACAddressService(macAddressPrefix)
+	macService := service.NewMACAddressService(macAddressOUI)
 
 	handlers := []Handler{
 		internal.NewProtectionHandler(mgr.GetClient()),
