@@ -1,0 +1,32 @@
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLoggingConfig
+metadata:
+  name: virtualization-audit
+spec:
+  destinationRefs:
+  - to-virtualization-audit
+  file:
+    include:
+      - /var/log/kube-audit/audit.log
+  type: File
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLogDestination
+metadata:
+  name: to-virtualization-audit
+spec:
+  buffer:
+    memory:
+      maxEvents: 4096
+    type: Memory
+    whenFull: Block
+  socket:
+    address: virtualization-audit-svc.audit-proxy:5140
+    encoding:
+      codec: JSON
+    tcp:
+      verifyCertificate: false
+      verifyHostname: false
+    mode: TCP
+  type: Socket
