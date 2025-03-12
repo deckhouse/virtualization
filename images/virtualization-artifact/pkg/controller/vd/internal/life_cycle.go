@@ -28,7 +28,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -77,7 +76,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDStorageClassWasDeleted,
+			virtv2.ReasonVDStorageClassWasDeleted,
 			"Spec changes are detected: import process is restarted by controller",
 		)
 
@@ -96,7 +95,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 
 	storageClassReadyCondition, ok := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 	if !ok {
-		return reconcile.Result{Requeue: true}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
+		return reconcile.Result{}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
 	}
 
 	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue {
