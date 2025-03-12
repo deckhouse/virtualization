@@ -7,4 +7,4 @@ spec:
   dataSource:
     type: HTTP
     http:
-      url: https://0e773854-6b4e-4e76-a65b-d9d81675451a.selstorage.ru/ubuntu/ubuntu-22.04.3-live-server-amd64.iso
+      url: https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/ubuntu-24.04.2-live-server-amd64.iso
