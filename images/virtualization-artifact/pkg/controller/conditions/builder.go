@@ -173,7 +173,7 @@ func (c *ConditionBuilder) GetType() Stringer {
 	return c.conditionType
 }
 
-func (c *ConditionBuilder) SetAllUnknown() *ConditionBuilder {
+func (c *ConditionBuilder) SetUnknown() *ConditionBuilder {
 	c.
 		Status(metav1.ConditionUnknown).
 		Reason(ReasonUnknown).

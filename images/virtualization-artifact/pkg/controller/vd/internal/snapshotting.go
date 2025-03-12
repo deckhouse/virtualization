@@ -49,7 +49,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	switch {
 	case readyCondition.ObservedGeneration != vd.Generation || readyCondition.Status == metav1.ConditionUnknown:
-		conditions.SetCondition(cb.SetAllUnknown(), &vd.Status.Conditions)
+		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	case readyCondition.Status == metav1.ConditionFalse:
 		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
@@ -58,7 +58,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 
 	vdSnapshots, err := h.diskService.ListVirtualDiskSnapshots(ctx, vd.Namespace)
 	if err != nil {
-		conditions.SetCondition(cb.SetAllUnknown(), &vd.Status.Conditions)
+		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 		return reconcile.Result{}, err
 	}
 
