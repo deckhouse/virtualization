@@ -48,7 +48,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	switch {
-	case readyCondition.ObservedGeneration != vd.Generation || readyCondition.Status == metav1.ConditionUnknown:
+	case !conditions.IsLastUpdated(readyCondition, vd) || readyCondition.Status == metav1.ConditionUnknown:
 		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	case readyCondition.Status == metav1.ConditionFalse:
@@ -72,7 +72,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 		}
 
 		resizing, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
-		if resizing.Status == metav1.ConditionTrue && resizing.ObservedGeneration == vd.Generation {
+		if resizing.Status == metav1.ConditionTrue && conditions.IsLastUpdated(resizing, vd) {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.SnapshottingNotAvailable).

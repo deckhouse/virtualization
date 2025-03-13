@@ -69,7 +69,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	// 2) The observedGeneration of the condition is less than the generation of the VirtualDisk,
 	//    indicating that the state was set in previous reconciliation cycles.
 	// 3) The condition does not exist.
-	case readyCondition.ObservedGeneration != vd.Generation || readyCondition.Status == metav1.ConditionUnknown:
+	case !conditions.IsLastUpdated(readyCondition, vd) || readyCondition.Status == metav1.ConditionUnknown:
 		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	case readyCondition.Status == metav1.ConditionFalse:
@@ -142,7 +142,7 @@ func (h ResizingHandler) ResizeNeeded(
 ) (reconcile.Result, error) {
 	snapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, vd.Status.Conditions)
 
-	if snapshotting.Status == metav1.ConditionTrue && snapshotting.ObservedGeneration == vd.Generation {
+	if snapshotting.Status == metav1.ConditionTrue && conditions.IsLastUpdated(snapshotting, vd) {
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
@@ -160,7 +160,7 @@ func (h ResizingHandler) ResizeNeeded(
 	}
 
 	storageClassReadyCondition, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
-	if storageClassReadyCondition.ObservedGeneration != vd.Generation {
+	if !conditions.IsLastUpdated(storageClassReadyCondition, vd) {
 		storageClassReadyCondition.Status = metav1.ConditionUnknown
 	}
 

@@ -52,7 +52,7 @@ func (h StatsHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 	datasourceReady, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 	if datasourceReady.Status == metav1.ConditionTrue &&
 		vd.Status.Stats.CreationDuration.WaitingForDependencies == nil &&
-		datasourceReady.ObservedGeneration == vd.Generation {
+		conditions.IsLastUpdated(datasourceReady, vd) {
 		vd.Status.Stats.CreationDuration.WaitingForDependencies = &metav1.Duration{
 			Duration: sinceCreation,
 		}
@@ -60,7 +60,7 @@ func (h StatsHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (recon
 
 	ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if ready.Status == metav1.ConditionTrue &&
-		ready.ObservedGeneration == vd.Generation &&
+		conditions.IsLastUpdated(ready, vd) &&
 		vd.Status.Stats.CreationDuration.TotalProvisioning == nil {
 		duration := sinceCreation
 
