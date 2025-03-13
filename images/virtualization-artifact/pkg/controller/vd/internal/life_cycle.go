@@ -56,11 +56,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 			Reason: conditions.ReasonUnknown.String(),
 		}
 
-		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Generation(vd.Generation)
-		conditions.SetCondition(cb, &vd.Status.Conditions)
+		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 	}
 
 	if vd.DeletionTimestamp != nil {
@@ -93,12 +90,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	storageClassReadyCondition, ok := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
-	if !ok {
-		return reconcile.Result{}, fmt.Errorf("condition %s not found", vdcondition.StorageClassReadyType)
-	}
-
-	if readyCondition.Status != metav1.ConditionTrue && storageClassReadyCondition.Status != metav1.ConditionTrue {
+	dataSourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+	if readyCondition.Status != metav1.ConditionTrue && dataSourceReadyCondition.Status != metav1.ConditionTrue {
 		cb := conditions.
 			NewConditionBuilder(vdcondition.ReadyType).
 			Generation(vd.Generation).

@@ -49,15 +49,18 @@ func NewDatasourceReadyHandler(recorder eventrecord.EventRecorderLogger, blank s
 }
 
 func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	if readyCondition.Status == metav1.ConditionTrue {
+		conditions.RemoveCondition(vdcondition.ReadyType, &vd.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
 	cb := conditions.NewConditionBuilder(vdcondition.DatasourceReadyType).Generation(vd.Generation)
 
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	if vd.DeletionTimestamp != nil {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
+		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -114,4 +117,12 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 	default:
 		return reconcile.Result{}, fmt.Errorf("validation failed for data source %s: %w", ds.Name(), err)
 	}
+}
+
+func IsDataSourceReady(vd *virtv2.VirtualDisk) bool {
+	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	datasourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+
+	return (readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, vd)) ||
+		(datasourceReadyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(datasourceReadyCondition, vd))
 }
