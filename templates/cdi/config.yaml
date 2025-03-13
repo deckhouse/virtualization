@@ -28,6 +28,8 @@ spec:
         memory: 60M
     imagePullSecrets:
     - name: virtualization-module-registry
+    featureGates:
+    - HonorWaitForFirstConsumer
   customizeComponents:
     flags:
       controller:
