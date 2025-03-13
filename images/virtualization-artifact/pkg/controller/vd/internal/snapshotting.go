@@ -41,24 +41,25 @@ func NewSnapshottingHandler(diskService *service.DiskService) *SnapshottingHandl
 func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vdcondition.SnapshottingType).Generation(vd.Generation)
 
+	defer func() {
+		if cb.Condition().Status != metav1.ConditionUnknown {
+			conditions.SetCondition(cb, &vd.Status.Conditions)
+		} else {
+			conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
+		}
+	}()
+
 	if vd.DeletionTimestamp != nil {
-		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	switch {
-	case !conditions.IsLastUpdated(readyCondition, vd) || readyCondition.Status == metav1.ConditionUnknown:
-		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
-		return reconcile.Result{}, nil
-	case readyCondition.Status == metav1.ConditionFalse:
-		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
+	if !conditions.IsLastUpdated(readyCondition, vd) || readyCondition.Status != metav1.ConditionTrue {
 		return reconcile.Result{}, nil
 	}
 
 	vdSnapshots, err := h.diskService.ListVirtualDiskSnapshots(ctx, vd.Namespace)
 	if err != nil {
-		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 		return reconcile.Result{}, err
 	}
 
@@ -77,7 +78,6 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.SnapshottingNotAvailable).
 				Message("The virtual disk cannot be selected for snapshotting as it is currently resizing.")
-			conditions.SetCondition(cb, &vd.Status.Conditions)
 			return reconcile.Result{}, nil
 		}
 
@@ -85,10 +85,8 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.Snapshotting).
 			Message("The virtual disk is selected for taking a snapshot.")
-		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
-	conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 	return reconcile.Result{}, nil
 }
