@@ -19,12 +19,15 @@ package server
 import (
 	"bufio"
 	"context"
+	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"k8s.io/apiserver/pkg/apis/audit"
 )
 
 // "k8s.io/apiserver/pkg/apis/audit"
@@ -84,6 +87,10 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 	}
 }
 
+type logMessage struct {
+	Message string `json:"message"`
+}
+
 func handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
@@ -95,8 +102,21 @@ func handleConnection(ctx context.Context, conn net.Conn) {
 		case <-ctx.Done():
 			return
 		default:
+			line := scanner.Bytes()
 
-			log.Info("LINE", log.RawJSON("JSON", string(scanner.Bytes())))
+			var message logMessage
+			if err := json.Unmarshal(line, &message); err != nil {
+				log.Error("error parsing JSON", log.Err(err))
+				continue
+			}
+
+			var event audit.Event
+			if err := json.Unmarshal([]byte(message.Message), &event); err != nil {
+				log.Error("Error parsing JSON", log.Err(err))
+				continue
+			}
+
+			fmt.Printf("EVENT: %#v\n", event)
 		}
 	}
 
