@@ -54,7 +54,7 @@ func NewResizingHandler(recorder eventrecord.EventRecorderLogger, diskService Di
 func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler("resizing"))
 
-	condition, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
+	resizingCondition, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vdcondition.ResizingType).Generation(vd.Generation)
 
 	if vd.DeletionTimestamp != nil {
@@ -129,7 +129,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		return h.ResizeNeeded(ctx, vd, pvc, cb, log)
 	} else {
 		// Expected disk size is NOT GREATER THAN expected pvc size: no resize needed since downsizing is not possible, and resizing to the same value makes no sense.
-		return h.ResizeNotNeeded(vd, condition, cb)
+		return h.ResizeNotNeeded(vd, resizingCondition, cb)
 	}
 }
 
