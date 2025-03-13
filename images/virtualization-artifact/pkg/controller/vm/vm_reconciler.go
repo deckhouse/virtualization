@@ -23,6 +23,7 @@ import (
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -336,35 +337,44 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	log.Debug("Start reconcile VM")
 
 	var result reconcile.Result
-	var handlerErr error
+	var errs error
 
 	for _, h := range r.handlers {
 		log.Debug("Run handler", logger.SlogHandler(h.Name()))
 
 		var res reconcile.Result
 		res, err = h.Handle(ctx, s)
-		if err != nil {
+		switch {
+		case err == nil: // OK.
+		case k8serrors.IsConflict(err):
+			log.Debug("The handler failed with an error", logger.SlogHandler(h.Name()), logger.SlogErr(err))
+			result.Requeue = true
+		default:
 			log.Error("The handler failed with an error", logger.SlogHandler(h.Name()), logger.SlogErr(err))
-			handlerErr = errors.Join(handlerErr, err)
+			errs = errors.Join(errs, err)
 		}
+
 		result = service.MergeResults(result, res)
 	}
 
-	if handlerErr != nil {
-		err = r.updateVM(ctx, vm)
-		if err != nil {
-			log.Error("Failed to update VirtualMachine")
-		}
-		return reconcile.Result{}, handlerErr
+	err = r.updateVM(ctx, vm)
+	switch {
+	case err == nil: // OK.
+	case k8serrors.IsConflict(err):
+		log.Debug("Failed to update VirtualMachine", logger.SlogErr(err))
+		result.Requeue = true
+	default:
+		log.Error("Failed to update VirtualMachine", logger.SlogErr(err))
+		errs = errors.Join(errs, err)
 	}
 
-	err = r.updateVM(ctx, vm)
-	if err != nil {
-		log.Error("Failed to update VirtualMachine")
-		return reconcile.Result{}, err
+	if errs != nil {
+		log.Error("Reconciling has been finished with error", logger.SlogErr(errs))
+		return reconcile.Result{}, errs
 	}
 
 	log.Debug("Finished reconcile VM")
+
 	return result, nil
 }
 

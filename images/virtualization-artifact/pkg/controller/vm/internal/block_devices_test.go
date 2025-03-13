@@ -343,7 +343,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 	})
 })
 
-var _ = Describe("BlockDeviceHandler Handle", func() {
+var _ = Describe("Capacity check", func() {
 	var (
 		ctx          context.Context
 		recorderMock *eventrecord.EventRecorderLoggerMock
@@ -359,17 +359,6 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 	})
 
 	Context("Handle call result based on the number of connected block devices", func() {
-		okBlockDeviceServiceMock := &BlockDeviceServiceMock{
-			CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
-				return 1, nil
-			},
-		}
-		erroredBlockDeviceServiceMock := &BlockDeviceServiceMock{
-			CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
-				return 17, nil
-			},
-		}
-
 		scheme := apiruntime.NewScheme()
 		for _, f := range []func(*apiruntime.Scheme) error{
 			virtv2.AddToScheme,
@@ -383,6 +372,16 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 		namespacedName := types.NamespacedName{
 			Namespace: "ns",
 			Name:      "vm",
+		}
+
+		kvvm := &virtv1.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      namespacedName.Name,
+				Namespace: namespacedName.Namespace,
+			},
+			Spec: virtv1.VirtualMachineSpec{
+				Template: &virtv1.VirtualMachineInstanceTemplateSpec{},
+			},
 		}
 
 		vm := &virtv2.VirtualMachine{
@@ -403,12 +402,18 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 			},
 		}
 
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm).Build()
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm).Build()
 		vmResource := service.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
 		_ = vmResource.Fetch(ctx)
 		vmState := state.New(fakeClient, vmResource)
 
 		It("Should be ok because fewer than 16 devices are connected", func() {
+			okBlockDeviceServiceMock := &BlockDeviceServiceMock{
+				CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+					return 1, nil
+				},
+			}
+
 			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).To(BeNil())
@@ -419,6 +424,12 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 			Expect(readyCondition.Reason).To(Equal(vmcondition.ReasonBlockDevicesReady.String()))
 		})
 		It("There might be an issue since 16 or more devices are connected.", func() {
+			erroredBlockDeviceServiceMock := &BlockDeviceServiceMock{
+				CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+					return 17, nil
+				},
+			}
+
 			handler := NewBlockDeviceHandler(fakeClient, recorderMock, erroredBlockDeviceServiceMock)
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).To(BeNil())
@@ -508,6 +519,17 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 
 			cviTarget := "sdb"
 			viTarget := "sdc"
+
+			kvvm := &virtv1.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedVirtualMachine.Name,
+					Namespace: namespacedVirtualMachine.Namespace,
+				},
+				Spec: virtv1.VirtualMachineSpec{
+					Template: &virtv1.VirtualMachineInstanceTemplateSpec{},
+				},
+			}
+
 			kvvmi := &virtv1.VirtualMachineInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      namespacedVirtualMachine.Name,
@@ -563,7 +585,7 @@ var _ = Describe("BlockDeviceHandler Handle", func() {
 				},
 			}
 
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvmi, vi, cvi, vmbdaVi, vmbdaCvi).Build()
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm, kvvmi, vi, cvi, vmbdaVi, vmbdaCvi).Build()
 			vmResource := service.NewResource(namespacedVirtualMachine, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
 			_ = vmResource.Fetch(ctx)
 			vmState := state.New(fakeClient, vmResource)
