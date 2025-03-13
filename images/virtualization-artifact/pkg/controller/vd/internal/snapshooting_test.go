@@ -95,7 +95,7 @@ var _ = Describe("SnapshottingHandler Handle", func() {
 				Type:   vdcondition.ReadyType.String(),
 				Status: metav1.ConditionUnknown,
 			},
-			IsExpectCondition:     true,
+			IsExpectCondition:     false,
 			ExpectConditionStatus: metav1.ConditionUnknown,
 		}),
 		Entry("not vd snapshots", SnapshottingHandlerTestHandlerArgs{
