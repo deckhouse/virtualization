@@ -26,8 +26,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"k8s.io/apiserver/pkg/apis/audit"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 // "k8s.io/apiserver/pkg/apis/audit"
