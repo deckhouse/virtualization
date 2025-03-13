@@ -72,7 +72,7 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 		}
 
 		resizing, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
-		if resizing.Status == metav1.ConditionTrue && resizing.ObservedGeneration == vdSnapshot.Generation {
+		if resizing.Status == metav1.ConditionTrue && resizing.ObservedGeneration == vd.Generation {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.SnapshottingNotAvailable).
