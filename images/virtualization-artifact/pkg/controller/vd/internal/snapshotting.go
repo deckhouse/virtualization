@@ -89,10 +89,6 @@ func (h SnapshottingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk)
 		return reconcile.Result{}, nil
 	}
 
-	cb.
-		Status(metav1.ConditionUnknown).
-		Reason(conditions.ReasonUnknown).
-		Message("")
 	conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 	return reconcile.Result{}, nil
 }
