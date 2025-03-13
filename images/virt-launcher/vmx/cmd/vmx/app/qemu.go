@@ -25,9 +25,8 @@ import (
 
 func NewQemuCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "qemu",
-		Short:         "qemu commands",
-		SilenceErrors: true,
+		Use:   "qemu",
+		Short: "qemu commands",
 	}
 
 	cmd.AddCommand(NewQemuVersionCommand())
