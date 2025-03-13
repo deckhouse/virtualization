@@ -107,11 +107,6 @@ func run(c *cobra.Command, opts Options) error {
 			NodeInformer: nodeInformer.GetIndexer(),
 			VDInformer:   vdInformer.GetIndexer(),
 		}),
-		validators.NewPortForwardWebhook(validators.NewPortForwardWebhookOptions{
-			VMInformer:   vmInformer.GetIndexer(),
-			NodeInformer: nodeInformer.GetIndexer(),
-			VDInformer:   vdInformer.GetIndexer(),
-		}),
 	)
 	if err != nil {
 		log.Fatal("failed to create server", log.Err(err))

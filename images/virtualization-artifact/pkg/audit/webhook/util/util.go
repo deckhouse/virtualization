@@ -21,10 +21,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	admissionv1 "k8s.io/api/admission/v1"
-
-	virtv1 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func GetAdmissionReview(r *http.Request) (*admissionv1.AdmissionReview, error) {
@@ -45,20 +44,18 @@ func GetAdmissionReview(r *http.Request) (*admissionv1.AdmissionReview, error) {
 	return ar, err
 }
 
-func GetVMFromAdmissionReview(ar *admissionv1.AdmissionReview) (new, old *virtv1.VirtualMachine, err error) {
-	new = &virtv1.VirtualMachine{}
-	err = json.Unmarshal(ar.Request.Object.Raw, new)
+// RemoveAllQueryParams removes all query parameters from the given URI.
+//
+// @param uri The URI string from which query parameters need to be removed.
+//
+// @return A string representing the URI without query parameters, or an error if the URI parsing fails.
+func RemoveAllQueryParams(uri string) (string, error) {
+	parsedURL, err := url.Parse(uri)
 	if err != nil {
-		return nil, nil, err
+		return "", fmt.Errorf("failed to parse URI: %w", err)
 	}
 
-	if ar.Request.Operation == admissionv1.Update {
-		old = &virtv1.VirtualMachine{}
-		err = json.Unmarshal(ar.Request.OldObject.Raw, old)
-		if err != nil {
-			return nil, nil, err
-		}
-	}
+	parsedURL.RawQuery = ""
 
-	return new, old, nil
+	return parsedURL.String(), nil
 }

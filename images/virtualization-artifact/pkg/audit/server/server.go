@@ -20,10 +20,8 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
-	"fmt"
 	"log/slog"
 	"net"
-	"net/http"
 	"time"
 
 	"k8s.io/apiserver/pkg/apis/audit"
@@ -37,22 +35,22 @@ type Server interface {
 }
 
 type endpointer interface {
-	Handler() http.Handler
-	Path() string
+	IsMatched(*audit.Event) bool
+	Log(*audit.Event) error
 }
 
 func NewServer(addr string, regs ...endpointer) (Server, error) {
 	return &tcpServer{
 		gracefulShutdownTimeout: 5 * time.Second,
 		addr:                    addr,
-		listener:                nil,
+		eventLoggers:            regs,
 	}, nil
 }
 
 type tcpServer struct {
 	gracefulShutdownTimeout time.Duration
-	listener                net.Listener
 	addr                    string
+	eventLoggers            []endpointer
 }
 
 func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
@@ -84,7 +82,7 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 		}
 
 		// Handle each connection in its own goroutine
-		go handleConnection(ctx, conn)
+		go s.handleConnection(ctx, conn)
 	}
 }
 
@@ -92,7 +90,7 @@ type logMessage struct {
 	Message string `json:"message"`
 }
 
-func handleConnection(ctx context.Context, conn net.Conn) {
+func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
 	log.Info("New connection", slog.String("remote", conn.RemoteAddr().String()))
@@ -117,7 +115,12 @@ func handleConnection(ctx context.Context, conn net.Conn) {
 				continue
 			}
 
-			fmt.Printf("EVENT: %#v\n", event)
+			for _, eventLogger := range s.eventLoggers {
+				if eventLogger.IsMatched(&event) {
+					eventLogger.Log(&event)
+					break
+				}
+			}
 		}
 	}
 

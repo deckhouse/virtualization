@@ -20,16 +20,15 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"slices"
 	"strings"
+	"time"
 
-	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apiserver/pkg/apis/audit"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook/util"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -54,29 +53,63 @@ type VirtualMachineWebhook struct {
 	nodeInformer cache.Indexer
 }
 
-func (m *VirtualMachineWebhook) Path() string {
-	return "/virtualmachine"
-}
-
-func (m *VirtualMachineWebhook) Handler() http.Handler {
-	return webhook.NewAuditWebhookHandler(m.Validate)
-}
-
-func (m *VirtualMachineWebhook) Validate(ar *admissionv1.AdmissionReview) (*admissionv1.AdmissionResponse, error) {
-	response := &admissionv1.AdmissionResponse{
-		AuditAnnotations: map[string]string{
-			"node-network-address": "unknown",
-			"virtualmachine-uid":   "unknown",
-			"virtualmachine-os":    "unknown",
-			"storageclasses":       "unknown",
-			"qemu-version":         "unknown",
-			"libvirt-version":      "unknown",
-		},
+func (m *VirtualMachineWebhook) IsMatched(event *audit.Event) bool {
+	if event.ObjectRef.Resource != "virtualmachines" || event.Stage != audit.StageResponseComplete {
+		return false
 	}
 
-	vm, err := m.getVM(ar)
+	uri := fmt.Sprintf("/apis/virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines/%s", event.ObjectRef.Namespace, event.ObjectRef.Name)
+	if (event.Verb == "update" || event.Verb == "patch" || event.Verb == "delete") && uri == event.RequestURI {
+		return true
+	}
+
+	uriWithoutQueryParams, err := util.RemoveAllQueryParams(event.RequestURI)
 	if err != nil {
-		return response, fmt.Errorf("fail to get vm from admission review: %w", err)
+		log.Error("failed to remove query params from URI", err.Error(), slog.String("uri", event.RequestURI))
+		return false
+	}
+
+	createURI := "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines"
+	if event.Verb == "create" && createURI == uriWithoutQueryParams {
+		return true
+	}
+
+	return false
+}
+
+func (m *VirtualMachineWebhook) Log(event *audit.Event) error {
+	response := map[string]string{
+		"type":           "Manage VM",
+		"level":          string(event.Level),
+		"name":           "unknown",
+		"datetime":       event.RequestReceivedTimestamp.Format(time.RFC3339),
+		"uid":            string(event.AuditID),
+		"requestSubject": event.User.Username,
+
+		"action-type":          event.Verb,
+		"node-network-address": "unknown",
+		"virtualmachine-uid":   "unknown",
+		"virtualmachine-os":    "unknown",
+		"storageclasses":       "unknown",
+		"qemu-version":         "unknown",
+		"libvirt-version":      "unknown",
+
+		"operation-result": event.Annotations["authorization.k8s.io/decision"],
+	}
+
+	switch event.Verb {
+	case "create":
+		response["name"] = "VM creation"
+	case "update", "patch":
+		response["name"] = "VM update"
+	case "delete":
+		response["level"] = "warn"
+		response["name"] = "VM deletion"
+	}
+
+	vm, err := m.getVMFromInformer(event)
+	if err != nil {
+		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
@@ -91,40 +124,20 @@ func (m *VirtualMachineWebhook) Validate(ar *admissionv1.AdmissionReview) (*admi
 		}
 	}
 
-	response.AuditAnnotations["virtualmachine-uid"] = string(vm.UID)
-	response.AuditAnnotations["virtualmachine-os"] = vm.Status.GuestOSInfo.Name
-	// TODO: Populate these fields from the node
-	// m.response.AuditAnnotations["qemu-version"] = ""
-	// m.response.AuditAnnotations["libvirt-version"] = ""
+	response["virtualmachine-uid"] = string(vm.UID)
+	response["virtualmachine-os"] = vm.Status.GuestOSInfo.Name
 
-	log.Info(
-		"VirtualMachine",
-		slog.Any("AuditAnnotations", response.AuditAnnotations),
-	)
+	logSlice := []any{}
+	for k, v := range response {
+		logSlice = append(logSlice, slog.String(k, v))
+	}
+	log.Info("VirtualMachine", logSlice...)
 
-	return response, nil
+	return nil
 }
 
-func (m *VirtualMachineWebhook) getVM(ar *admissionv1.AdmissionReview) (*v1alpha2.VirtualMachine, error) {
-	if len(ar.Request.Object.Raw) > 0 {
-		vm, _, err := util.GetVMFromAdmissionReview(ar)
-		if err != nil {
-			return nil, fmt.Errorf("fail to get vm from admission review: %w", err)
-		}
-
-		return vm, err
-	}
-
-	vm, err := m.getVMFromInformer(ar)
-	if err != nil {
-		return nil, fmt.Errorf("fail to get vm from informer: %w", err)
-	}
-
-	return vm, nil
-}
-
-func (m *VirtualMachineWebhook) getVMFromInformer(ar *admissionv1.AdmissionReview) (*v1alpha2.VirtualMachine, error) {
-	vmObj, exist, err := m.vmInformer.GetByKey(ar.Request.Namespace + "/" + ar.Request.Name)
+func (m *VirtualMachineWebhook) getVMFromInformer(event *audit.Event) (*v1alpha2.VirtualMachine, error) {
+	vmObj, exist, err := m.vmInformer.GetByKey(event.ObjectRef.Namespace + "/" + event.ObjectRef.Name)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
 	}
@@ -140,7 +153,7 @@ func (m *VirtualMachineWebhook) getVMFromInformer(ar *admissionv1.AdmissionRevie
 	return vm, nil
 }
 
-func (m *VirtualMachineWebhook) fillVDInfo(response *admissionv1.AdmissionResponse, vm *v1alpha2.VirtualMachine) error {
+func (m *VirtualMachineWebhook) fillVDInfo(response map[string]string, vm *v1alpha2.VirtualMachine) error {
 	storageClasses := []string{}
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -165,13 +178,13 @@ func (m *VirtualMachineWebhook) fillVDInfo(response *admissionv1.AdmissionRespon
 	}
 
 	if len(storageClasses) != 0 {
-		response.AuditAnnotations["storageclasses"] = strings.Join(slices.Compact(storageClasses), ",")
+		response["storageclasses"] = strings.Join(slices.Compact(storageClasses), ",")
 	}
 
 	return nil
 }
 
-func (m *VirtualMachineWebhook) fillNodeInfo(response *admissionv1.AdmissionResponse, vm *v1alpha2.VirtualMachine) error {
+func (m *VirtualMachineWebhook) fillNodeInfo(response map[string]string, vm *v1alpha2.VirtualMachine) error {
 	nodeObj, exist, err := m.nodeInformer.GetByKey(vm.Status.Node)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)
@@ -192,7 +205,7 @@ func (m *VirtualMachineWebhook) fillNodeInfo(response *admissionv1.AdmissionResp
 	}
 
 	if len(addresses) != 0 {
-		response.AuditAnnotations["node-network-address"] = strings.Join(slices.Compact(addresses), ",")
+		response["node-network-address"] = strings.Join(slices.Compact(addresses), ",")
 	}
 
 	return nil
