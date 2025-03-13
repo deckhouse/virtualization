@@ -14,19 +14,6 @@ require (
 	sigs.k8s.io/controller-runtime v0.17.2
 )
 
-// TODO: delete this replaces after fixing https://github.com/golang/go/issues/66403.
-replace (
-	github.com/cilium/proxy => github.com/cilium/proxy v0.0.0-20231202123106-38b645b854f3
-	github.com/markbates/safe => github.com/markbates/safe v1.0.1
-	k8s.io/api => k8s.io/api v0.29.2
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.29.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.29.2
-	k8s.io/apiserver => k8s.io/apiserver v0.29.2
-	k8s.io/code-generator => k8s.io/code-generator v0.29.2
-	k8s.io/component-base => k8s.io/component-base v0.29.2
-	k8s.io/kms => k8s.io/kms v0.29.2
-)
-
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

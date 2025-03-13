@@ -5,6 +5,7 @@ use (
 	./images/hooks
 	./images/kube-api-rewriter
 	./images/virtualization-artifact
+	./images/vm-route-forge
 	./tests/e2e
 	./tests/performance/shatal
 )

@@ -5,7 +5,7 @@ go 1.22.7
 require (
 	github.com/cilium/cilium v1.15.10
 	github.com/cilium/ebpf v0.16.0
-	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
+	github.com/deckhouse/virtualization/api v0.15.0
 	github.com/go-logr/logr v1.4.2
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
@@ -15,24 +15,6 @@ require (
 	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.2
 	sigs.k8s.io/controller-runtime v0.17.2
-)
-
-replace github.com/deckhouse/virtualization/api => ./../../api
-
-// TODO: delete this replaces after fixing https://github.com/golang/go/issues/66403.
-replace (
-	github.com/cilium/proxy => github.com/cilium/proxy v0.0.0-20231202123106-38b645b854f3
-	github.com/markbates/safe => github.com/markbates/safe v1.0.1
-	github.com/youmark/pkcs8 => github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d
-	k8s.io/api => k8s.io/api v0.29.2
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.29.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.29.2
-	k8s.io/apiserver => k8s.io/apiserver v0.29.2
-	k8s.io/code-generator => k8s.io/code-generator v0.29.2
-	k8s.io/component-base => k8s.io/component-base v0.29.2
-	k8s.io/kms => k8s.io/kms v0.29.2
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.17.2
-	sigs.k8s.io/controller-tools => sigs.k8s.io/controller-tools v0.11.4
 )
 
 require (
