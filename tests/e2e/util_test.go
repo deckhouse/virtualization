@@ -31,6 +31,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -631,4 +632,24 @@ func IsContainsLabel(obj client.Object, label string) bool {
 func IsContainsLabelWithValue(obj client.Object, label, value string) bool {
 	val, ok := obj.GetLabels()[label]
 	return ok && val == value
+}
+
+func IsContainerRestarted(podName, containerName, namespace string, startedAt v1.Time) (bool, error) {
+	podObj := &corev1.Pod{}
+	err := GetObject(kc.ResourcePod, podName, podObj, kc.GetOptions{
+		Namespace: namespace,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to obtain the pod object(this may be caused by restarting the pod: %s)", podName)
+	}
+	for _, cs := range podObj.Status.ContainerStatuses {
+		if cs.Name == containerName {
+			if cs.State.Running.StartedAt != startedAt {
+				return true, fmt.Errorf("the container %q was restarted: %s", containerName, podName)
+			} else {
+				return false, nil
+			}
+		}
+	}
+	return false, fmt.Errorf("failed to compare the `startedAt` field before and after the tests ran: %s", podName)
 }
