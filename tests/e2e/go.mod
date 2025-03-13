@@ -4,7 +4,7 @@ go 1.22.7
 
 require (
 	github.com/deckhouse/sds-replicated-volume/api v0.0.0-20241109122839-a1ae840eb5db
-	github.com/deckhouse/virtualization/api v0.0.0-20240923080356-bb5809dba578
+	github.com/deckhouse/virtualization/api v0.15.0
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.0.0
 	github.com/onsi/ginkgo/v2 v2.20.0
 	github.com/onsi/gomega v1.34.1
@@ -13,7 +13,7 @@ require (
 	k8s.io/apimachinery v0.31.0
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6
 	kubevirt.io/api v1.3.1
-	sigs.k8s.io/controller-runtime v0.19.0
+	sigs.k8s.io/controller-runtime v0.17.0
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -64,5 +64,3 @@ require (
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
-
-replace github.com/deckhouse/virtualization/api => ./../../api

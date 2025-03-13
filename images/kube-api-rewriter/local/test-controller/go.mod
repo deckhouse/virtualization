@@ -3,7 +3,7 @@ module kube-api-rewriter-test-controller
 go 1.21
 
 require (
-	github.com/deckhouse/virtualization/api v0.0.0-20240417135227-efb465e54575 // main 23.04.2024
+	github.com/deckhouse/virtualization/api v0.15.0
 	github.com/go-logr/logr v1.4.1
 	go.uber.org/zap v1.26.0
 	k8s.io/api v0.29.2
@@ -13,8 +13,6 @@ require (
 	kubevirt.io/api v1.0.0
 	sigs.k8s.io/controller-runtime v0.17.2
 )
-
-// replace github.com/deckhouse/virtualization/api => ./../../../../api
 
 // TODO: delete this replaces after fixing https://github.com/golang/go/issues/66403.
 replace (

@@ -1,0 +1,12 @@
+go 1.22.10
+
+use (
+	./api
+	./images/hooks
+	./images/kube-api-rewriter
+	./images/virtualization-artifact
+	./tests/e2e
+	./tests/performance/shatal
+)
+
+replace github.com/deckhouse/virtualization/api v0.15.0 => ./api
