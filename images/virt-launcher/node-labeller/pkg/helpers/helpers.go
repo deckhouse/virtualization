@@ -17,7 +17,6 @@ limitations under the License.
 package helpers
 
 import (
-	"bytes"
 	"fmt"
 	"log/slog"
 	"os"
@@ -42,7 +41,6 @@ func GetArch() string {
 	case "s390x":
 		return "s390x"
 	default:
-		slog.Any("Architecture doesn't support %s", runtime.GOARCH)
 		return ""
 	}
 }
@@ -56,7 +54,6 @@ func GetMachineType(arch string) string {
 	case "x86_64":
 		return "q35"
 	default:
-		slog.Info("Unsupported architecture", "arch", arch)
 		return "" // Unsupported architecture, exit gracefully
 	}
 }
@@ -64,7 +61,6 @@ func GetMachineType(arch string) string {
 func GetKVMMinor() string {
 	data, err := os.ReadFile("/proc/misc")
 	if err != nil {
-		slog.Error("Failed to read /proc/misc", "error", err)
 		return ""
 	}
 
@@ -114,7 +110,7 @@ func StartVirtqemud() error {
 
 func FileExists(path string) bool {
 	_, err := os.Stat(path)
-	return err == nil
+	return os.IsNotExist(err)
 }
 
 func RunCommand(cmd string, args []string) (string, error) {
@@ -128,41 +124,4 @@ func RunCommand(cmd string, args []string) (string, error) {
 func RunCommandWithError(cmd string, args []string) error {
 	_, err := RunCommand(cmd, args)
 	return err
-}
-
-func RunCommandToFile(cmd string, args []string, outputPath string) error {
-	slog.Info(fmt.Sprintf("Run command %s %v", cmd, args))
-	cmdExec := exec.Command(cmd, args...)
-	outBytes, err := cmdExec.Output()
-	if err != nil {
-		return fmt.Errorf("error running %s: %w", cmd, err)
-	}
-	return os.WriteFile(outputPath, outBytes, 0o644)
-}
-
-func RunPipelineToFile(commands [][]string, outputPath string) error {
-	var outputBuffer bytes.Buffer
-	var inputPipe *bytes.Buffer
-
-	for i, cmdArgs := range commands {
-		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-
-		// If not first command, use previous output as input
-		if i > 0 {
-			cmd.Stdin = inputPipe
-		}
-
-		// Capture output
-		var outBuffer bytes.Buffer
-		cmd.Stdout = &outBuffer
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("command failed: %v - error: %w", cmdArgs, err)
-		}
-
-		// Set new input for next command
-		inputPipe = &outBuffer
-		outputBuffer = outBuffer
-	}
-
-	return os.WriteFile(outputPath, outputBuffer.Bytes(), 0o644)
 }
