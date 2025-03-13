@@ -108,7 +108,7 @@ func StartVirtqemud() error {
 	return RunCommandWithError("virtqemud", []string{"-d"})
 }
 
-func FileExists(path string) bool {
+func FileNotExists(path string) bool {
 	_, err := os.Stat(path)
 	return os.IsNotExist(err)
 }

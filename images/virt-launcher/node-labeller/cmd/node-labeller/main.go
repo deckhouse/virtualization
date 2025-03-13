@@ -42,14 +42,14 @@ func main() {
 
 	kvmMinor := helpers.GetKVMMinor()
 
-	if !helpers.FileExists("/dev/kvm") && kvmMinor != "" {
+	if helpers.FileNotExists("/dev/kvm") && kvmMinor != "" {
 		if err := helpers.CreateKVMDevice(kvmMinor); err != nil {
 			logger.Error("Failed to create /dev/kvm device", "error", err)
 			os.Exit(1)
 		}
 	}
 
-	if helpers.FileExists("/dev/kvm") {
+	if helpers.FileNotExists("/dev/kvm") {
 		if err := helpers.SetPermissionsRW("/dev/kvm"); err != nil {
 			logger.Error("Failed to set permissions for /dev/kvm", "error", err)
 			os.Exit(1)
@@ -57,7 +57,7 @@ func main() {
 	}
 
 	// QEMU requires RW access to query SEV capabilities
-	if helpers.FileExists("/dev/sev") {
+	if helpers.FileNotExists("/dev/sev") {
 		if err := helpers.SetPermissionsRW("/dev/sev"); err != nil {
 			logger.Error("Failed to set permissions for /dev/sev", "error", err)
 			os.Exit(1)
