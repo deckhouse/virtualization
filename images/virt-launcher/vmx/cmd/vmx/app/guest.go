@@ -135,11 +135,10 @@ func NewGuestPingCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ping [domainname]",
 		Short: "Ping guest agent",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			domainName := args[0]
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			baseOpts := BaseOptionsFromCommand(cmd)
-			return runGuestPingCommand(baseOpts, domainName, timeout)
+			return runGuestPingCommand(baseOpts, timeout)
 		},
 	}
 
@@ -148,7 +147,7 @@ func NewGuestPingCommand() *cobra.Command {
 	return cmd
 }
 
-func runGuestPingCommand(opts BaseOptions, domainName string, timeout int32) error {
+func runGuestPingCommand(opts BaseOptions, timeout int32) error {
 	if err := opts.Validate(); err != nil {
 		return err
 	}
@@ -158,7 +157,15 @@ func runGuestPingCommand(opts BaseOptions, domainName string, timeout int32) err
 		return fmt.Errorf("failed to create client: %w", err)
 	}
 
-	err = client.GuestPing(domainName, timeout)
+	domain, exist, err := client.GetDomain()
+	if err != nil {
+		return fmt.Errorf("failed to get domain: %w", err)
+	}
+	if !exist {
+		return fmt.Errorf("domain does not exist")
+	}
+
+	err = client.GuestPing(domain.Spec.Name, timeout)
 	if err != nil {
 		return fmt.Errorf("failed to ping: %w", err)
 	}
