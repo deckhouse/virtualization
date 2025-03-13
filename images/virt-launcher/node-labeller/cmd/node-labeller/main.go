@@ -29,73 +29,73 @@ const (
 )
 
 func main() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
 	arch := helpers.GetArch()
-	slog.Info(fmt.Sprintf("Get arch %s", arch))
+	logger.Info(fmt.Sprintf("Get arch %s", arch))
 	machine := helpers.GetMachineType(arch)
 	if machine == "" {
-		slog.Info("Unsupported architecture, exit gracefully")
+		logger.Info("Unsupported architecture, exit gracefully")
 		return
 	}
 
 	kvmMinor := helpers.GetKVMMinor()
 
-	if helpers.FileNotExists("/dev/kvm") && kvmMinor != "" {
-		if err := helpers.CreateKVMDevice(kvmMinor); err != nil {
-			logger.Error("Failed to create /dev/kvm device", "error", err)
+	if _, err := os.Stat("/dev/kvm"); err != nil {
+		if os.IsNotExist(err) {
+			if err := helpers.CreateKVMDevice(kvmMinor); err != nil {
+				logger.Error("Failed to create /dev/kvm device", slog.String("error", err.Error()))
+				os.Exit(1)
+			}
+		} else {
+			logger.Error("Failed to check /dev/kvm device", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 	}
 
-	if helpers.FileNotExists("/dev/kvm") {
-		if err := helpers.SetPermissionsRW("/dev/kvm"); err != nil {
-			logger.Error("Failed to set permissions for /dev/kvm", "error", err)
-			os.Exit(1)
-		}
+	if err := helpers.SetPermissionsRW("/dev/kvm"); err != nil {
+		logger.Error("Failed to set permissions for /dev/kvm", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
 	// QEMU requires RW access to query SEV capabilities
-	if helpers.FileNotExists("/dev/sev") {
-		if err := helpers.SetPermissionsRW("/dev/sev"); err != nil {
-			logger.Error("Failed to set permissions for /dev/sev", "error", err)
-			os.Exit(1)
-		}
+	if err := helpers.SetPermissionsRW("/dev/sev"); err != nil {
+		logger.Error("Failed to set permissions for /dev/sev", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
-	slog.Info("Start virtqemud daemon")
+	logger.Info("Start virtqemud daemon")
 	if err := helpers.StartVirtqemud(); err != nil {
-		logger.Error("Failed to start virtqemud", "error", err)
+		logger.Error("Failed to start virtqemud", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
 	// Connect to libvirt
 	conn, err := libvirt.NewConnect("qemu:///system")
 	if err != nil {
-		logger.Error("Failed to connect to libvirt", "error", err)
+		logger.Error("Failed to connect to libvirt", slog.String("error", err.Error()))
 		return
 	}
 	defer conn.Close()
 
-	// outDir := "/var/lib/kubevirt-node-labeller"
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		logger.Error("Failed to create output directory", "path", outDir, "error", err)
+		logger.Error("Failed to create output directory", "path", outDir, slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	slog.Info("Execute virsh domcapabilities")
+	logger.Info("Execute virsh domcapabilities")
 	// Get domain capabilities
 	domCaps, err := conn.GetDomainCapabilities("", arch, "", virtType, 0)
 	if err != nil {
-		logger.Error("Failed to retrieve domain capabilities", "error", err)
+		logger.Error("Failed to retrieve domain capabilities", slog.String("error", err.Error()))
 		return
 	}
 
 	// Save domcapabilities.xml
 	domCapsPath := fmt.Sprintf("%s/virsh_domcapabilities.xml", outDir)
 	if err := os.WriteFile(domCapsPath, []byte(domCaps), 0o644); err != nil {
-		logger.Error("Failed to write domain capabilities", "error", err)
+		logger.Error("Failed to write domain capabilities", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
@@ -103,12 +103,12 @@ func main() {
 	if arch == "x86_64" {
 		featuresXML, err := conn.GetCapabilities()
 		if err != nil {
-			logger.Error("Failed to retrieve supported CPU features", "error", err)
+			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
 			os.Exit(1)
 		} else {
 			supportedFeaturesPath := fmt.Sprintf("%s/supported_features.xml", outDir)
 			if err := os.WriteFile(supportedFeaturesPath, []byte(featuresXML), 0o644); err != nil {
-				logger.Error("Failed to write supported features", "error", err)
+				logger.Error("Failed to write supported features", slog.String("error", err.Error()))
 				os.Exit(1)
 			}
 		}
@@ -117,7 +117,7 @@ func main() {
 	// Get host capabilities
 	hostCaps, err := conn.GetCapabilities()
 	if err != nil {
-		logger.Error("Failed to retrieve host capabilities", "error", err)
+		logger.Error("Failed to retrieve host capabilities", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
@@ -128,5 +128,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	slog.Info(fmt.Sprintf("Virsh capabilities saved to %s", capabilitiesPath))
+	logger.Info(fmt.Sprintf("Virsh capabilities saved to %s", capabilitiesPath))
 }
