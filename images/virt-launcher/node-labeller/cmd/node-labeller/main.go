@@ -39,6 +39,7 @@ func main() {
 		logger.Info("Unsupported architecture, exit gracefully")
 		return
 	}
+	logger.Info("Get", "arch", arch)
 
 	kvmMinor := helpers.GetKVMMinor()
 
@@ -65,7 +66,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info("Start virtqemud daemon")
+	logger.Info("Start virtqemud as daemon")
 	if err := helpers.StartVirtqemud(); err != nil {
 		logger.Error("Failed to start virtqemud", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -77,6 +78,7 @@ func main() {
 		logger.Error("Failed to connect to libvirt", slog.String("error", err.Error()))
 		return
 	}
+	logger.Info("Succesfull connected to qemu:///system")
 	defer conn.Close()
 
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
@@ -84,8 +86,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info("Execute virsh domcapabilities")
-	// Get domain capabilities
+	logger.Info("Get domain capabilities")
 	domCaps, err := conn.GetDomainCapabilities("", arch, "", virtType, 0)
 	if err != nil {
 		logger.Error("Failed to retrieve domain capabilities", slog.String("error", err.Error()))
@@ -98,6 +99,7 @@ func main() {
 		logger.Error("Failed to write domain capabilities", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
+	logger.Info(fmt.Sprintf("Domcapabilities saved to %s", domCapsPath))
 
 	// hypervisor-cpu-baseline only for x86_64
 	if arch == "x86_64" {
@@ -111,6 +113,7 @@ func main() {
 				logger.Error("Failed to write supported features", slog.String("error", err.Error()))
 				os.Exit(1)
 			}
+			logger.Info(fmt.Sprintf("Hypervisot features saved to %s,", supportedFeaturesPath))
 		}
 	}
 
@@ -128,5 +131,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger.Info(fmt.Sprintf("Virsh capabilities saved to %s", capabilitiesPath))
+	logger.Info(fmt.Sprintf("Host capabilities saved to %s", capabilitiesPath))
 }
