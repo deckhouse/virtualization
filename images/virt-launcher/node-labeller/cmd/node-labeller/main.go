@@ -128,37 +128,5 @@ func main() {
 		os.Exit(1)
 	}
 
-	// domCapsPath := fmt.Sprintf("%s/virsh_domcapabilities.xml", outDir)
-	// err := helpers.RunCommandToFile("virsh", []string{
-	// 	"domcapabilities", "--machine", machine, "--arch", arch, "--virttype", virtType,
-	// }, domCapsPath)
-	// if err != nil {
-	// 	logger.Error("Failed to retrieve virsh domcapabilities", "error", err)
-	// 	os.Exit(1)
-	// }
-
-	// // hypervisor-cpu-baseline command only works on x86_64
-	// if arch == "x86_64" {
-	// 	supportedFeaturesPath := fmt.Sprintf("%s/supported_features.xml", outDir)
-	// 	err = helpers.RunPipelineToFile([][]string{
-	// 		{"virsh", "domcapabilities", "--machine", machine, "--arch", arch, "--virttype", virtType},
-	// 		{
-	// 			"virsh", "hypervisor-cpu-baseline", "--features", "/dev/stdin", "--machine", machine, "--arch", arch,
-	// 			"--virttype", virtType,
-	// 		},
-	// 	}, supportedFeaturesPath)
-	// 	if err != nil {
-	// 		logger.Error("Failed to retrieve supported CPU features", "error", err)
-	// 		os.Exit(1)
-	// 	}
-	// }
-
-	// slog.Info("Execute virsh capabilities")
-	// capabilitiesPath := fmt.Sprintf("%s/capabilities.xml", outDir)
-	// err = helpers.RunCommandToFile("virsh", []string{"capabilities"}, capabilitiesPath)
-	// if err != nil {
-	// 	logger.Error("Failed to retrieve virsh capabilities", "error", err)
-	// 	os.Exit(1)
-	// }
 	slog.Info(fmt.Sprintf("Virsh capabilities saved to %s", capabilitiesPath))
 }
