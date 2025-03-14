@@ -20,8 +20,8 @@ function usage {
 Usage: $0 COMMAND OPTIONS
 
 Commands:
-  build <controller/apiserver> Build docker image with dlv.
-  push  <controller/apiserver> Build and Push docker image with dlv.
+  build <controller/apiserver/audit> Build docker image with dlv.
+  push  <controller/apiserver/audit> Build and Push docker image with dlv.
 
 Global Flags:
  --image,-i  (optional)  The name of the image being built.
@@ -47,6 +47,10 @@ function build_controller {
 
 function build_apiserver {
     build "dlv-apiserver.Dockerfile"
+}
+
+function build_audit {
+    build "dlv-audit.Dockerfile"
 }
 
 function build {
@@ -116,6 +120,9 @@ case "$CMD" in
             "apiserver")
                 build_apiserver
                 ;;
+            "audit")
+                build_audit
+                ;;
             *)
                 usage_exit 1
                 ;;
@@ -132,6 +139,10 @@ case "$CMD" in
             "apiserver")
                 build_apiserver
                 deployment="virtualization-api"
+                ;;
+            "audit")
+                build_audit
+                deployment="virtualization-audit"
                 ;;
             *)
                 usage_exit 1
