@@ -96,8 +96,6 @@ func main() {
 		logger.Error("Failed to retrieve domain capabilities", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	a := libvirt.DOMAIN_CAPABILITIES_DISABLE_DEPRECATED_FEATURES
-	logger.Info(fmt.Sprintf("\nDOMAIN_CAPABILITIES_DISABLE_DEPRECATED_FEATURES\n%v --", a))
 
 	// Save domcapabilities.xml
 	domCapsPath := fmt.Sprintf("%s/virsh_domcapabilities.xml", outDir)
@@ -109,11 +107,11 @@ func main() {
 
 	// hypervisor-cpu-baseline only for x86_64
 	if arch == "x86_64" {
-		// capsXML, err := conn.GetCapabilities()
-		// if err != nil {
-		// 	logger.Error("Failed to retrieve capabilities", slog.String("error", err.Error()))
-		// 	return
-		// }
+		capsXML, err := conn.GetCapabilities()
+		if err != nil {
+			logger.Error("Failed to retrieve capabilities", slog.String("error", err.Error()))
+			return
+		}
 
 		// fmt.Printf("Caps:\n%s\n", capsXML)
 		// fmt.Println("--------------------------")
@@ -132,8 +130,8 @@ func main() {
 		// 	os.Exit(1)
 		// }
 
-		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{capsXML}, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
-		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{domCapsXML}, 0)
+		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{domCapsXML}, 0)
+		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{capsXML}, 0)
 		if err != nil {
 			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
 			os.Exit(1)
