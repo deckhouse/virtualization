@@ -28,7 +28,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -57,11 +56,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 			Reason: conditions.ReasonUnknown.String(),
 		}
 
-		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Generation(vd.Generation)
-		conditions.SetCondition(cb, &vd.Status.Conditions)
+		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 	}
 
 	if vd.DeletionTimestamp != nil {
@@ -77,7 +73,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDStorageClassWasDeleted,
+			virtv2.ReasonVDStorageClassWasDeleted,
 			"Spec changes are detected: import process is restarted by controller",
 		)
 
@@ -94,9 +90,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	dataSourceReady, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-	if dataSourceReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(dataSourceReady, vd) {
-		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
+	if !IsDataSourceReady(vd) {
+		cb := conditions.
+			NewConditionBuilder(vdcondition.ReadyType).
 			Generation(vd.Generation).
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown)
@@ -133,6 +129,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	result, err := ds.Sync(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
+	}
+
+	readyConditionAfterSync, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	if readyConditionAfterSync.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyConditionAfterSync, vd) {
+		conditions.RemoveCondition(vdcondition.DatasourceReadyType, &vd.Status.Conditions)
+		return reconcile.Result{}, nil
 	}
 
 	return result, nil

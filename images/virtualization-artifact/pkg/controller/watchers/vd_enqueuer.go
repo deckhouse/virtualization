@@ -61,7 +61,8 @@ func (w VirtualDiskRequestEnqueuer) EnqueueRequestsFromVDs(ctx context.Context, 
 
 	for _, vd := range vds.Items {
 		dsReady, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-		if dsReady.Status == metav1.ConditionTrue {
+		ready, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+		if ready.Status == metav1.ConditionTrue || dsReady.Status == metav1.ConditionTrue {
 			continue
 		}
 

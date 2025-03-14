@@ -29,7 +29,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -54,10 +53,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
 	if vd.DeletionTimestamp != nil {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
+		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -84,7 +80,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDContainerRegistrySecretNotFound,
+			virtv2.ReasonVDContainerRegistrySecretNotFound,
 			"Container registry secret not found",
 		)
 
@@ -114,4 +110,12 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 	default:
 		return reconcile.Result{}, fmt.Errorf("validation failed for data source %s: %w", ds.Name(), err)
 	}
+}
+
+func IsDataSourceReady(vd *virtv2.VirtualDisk) bool {
+	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	datasourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+
+	return (readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, vd)) ||
+		(datasourceReadyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(datasourceReadyCondition, vd))
 }
