@@ -77,13 +77,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Connect to libvirt
+	logger.Info("Connect to libvirt via qemu:///system")
 	conn, err := libvirt.NewConnect("qemu:///system")
 	if err != nil {
 		logger.Error("Failed to connect to libvirt", slog.String("error", err.Error()))
 		return
 	}
-	logger.Info("Succesfull connected to qemu:///system")
 	defer conn.Close()
 
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
