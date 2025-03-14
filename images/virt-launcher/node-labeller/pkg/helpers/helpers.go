@@ -161,7 +161,7 @@ func ExtractCPUDomCapsXML(xmlData string) (string, error) {
 		return "", err
 	}
 
-	return fmt.Sprintf("<cpu>%s</cpu>", domainCapabilities.CPU), nil
+	return fmt.Sprintf("<cpu>%s</cpu>", domainCapabilities.CPU.Content), nil
 }
 
 // type DomainCapabilities struct {
