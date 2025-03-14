@@ -90,8 +90,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	dataSourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-	if readyCondition.Status != metav1.ConditionTrue && dataSourceReadyCondition.Status != metav1.ConditionTrue {
+	if !IsDataSourceReady(vd) {
 		cb := conditions.
 			NewConditionBuilder(vdcondition.ReadyType).
 			Generation(vd.Generation).
@@ -130,6 +129,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	result, err := ds.Sync(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
+	}
+
+	readyConditionAfterSync, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	if readyConditionAfterSync.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyConditionAfterSync, vd) {
+		conditions.RemoveCondition(vdcondition.DatasourceReadyType, &vd.Status.Conditions)
+		return reconcile.Result{}, nil
 	}
 
 	return result, nil
