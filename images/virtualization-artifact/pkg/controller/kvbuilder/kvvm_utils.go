@@ -105,10 +105,7 @@ func ApplyVirtualMachineSpec(
 
 	kvvm.SetMetadata(vm.ObjectMeta)
 
-	kvvm.Resource.Spec.Template.Spec.Networks = []virtv1.Network{}
-	kvvm.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = []virtv1.Interface{}
 	kvvm.SetNetworkInterface(vm, NetworkInterfaceName)
-	kvvm.SetMultusInterfaces(vm)
 	kvvm.SetMacvtapInterfaces(vm)
 
 	kvvm.SetTablet("default-0")
