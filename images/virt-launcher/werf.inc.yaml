@@ -263,16 +263,12 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
-{{/*
-# - image: virt-artifact
-  # add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
-*/}}
 - image: {{ $.ImageName }}-gobuilder
   add: /binaries
   to: /relocate/usr/bin
   before: setup
   includePaths:
-  - '*.sh'
+  - node-labeller
 shell:
   install:
   - |
@@ -409,5 +405,5 @@ shell:
       cd /node-labeller
       mkdir -p /binaries
       echo 'go build -ldflags="-s -w" -o /binaries/node-labeller.sh'
-      go build -ldflags="-s -w" -o /binaries/node-labeller.sh ./cmd/node-labeller
+      go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller
       echo "Done"

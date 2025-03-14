@@ -273,3 +273,14 @@ This patch modifies the behavior of domain reboot actions in virt-launcher by ov
 - Sends a QEMU agent command to override the reboot action, changing it from `reboot` to `shutdown`.
 - Logs shutdown events and writes them to `/dev/termination-log`.
 - Ensures that domain shutdown events are captured and processed correctly.
+
+#### `041-rename-node-labeller-virt-launcher-init.patch`
+
+This patch modifies init container args in virt-launcher images from node-labeller.sh to node-labeller. 
+This bash script has been rewritten to golang.
+
+### Changes Introduced:
+- Registers a QEMU monitor shutdown event callback to handle shutdown events.
+- Sends a QEMU agent command to override the reboot action, changing it from `reboot` to `shutdown`.
+- Logs shutdown events and writes them to `/dev/termination-log`.
+- Ensures that domain shutdown events are captured and processed correctly.
