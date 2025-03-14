@@ -389,7 +389,7 @@ shell:
 ---
 image: {{ $.ImageName }}-gobuilder
 final: false
-fromImage: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
 git:
   - add: /images/{{ $.ImageName }}/node-labeller
     to: /node-labeller
