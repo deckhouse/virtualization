@@ -5,3 +5,10 @@ resources:
   - ../../base
 patches:
   - path: vd.image.patch.yaml
+  - patch: |-
+      - op: replace
+        path: /spec/bootloader
+        value: BIOS
+    target:
+      kind: VirtualMachine
+      name: vm
