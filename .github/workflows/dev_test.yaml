@@ -79,7 +79,7 @@ jobs:
 
           go get golang.org/x/crypto@v0.31.0
 
-          go mod vendor
+          go work vendor
 
           go install github.com/onsi/ginkgo/v2/ginkgo@${{ env.GINKGO_VERSION }}
 
