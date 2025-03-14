@@ -91,11 +91,13 @@ func main() {
 	}
 
 	logger.Info("Get domain capabilities")
-	domCaps, err := conn.GetDomainCapabilities("", arch, machine, virtType, libvirt.DOMAIN_CAPABILITIES_DISABLE_DEPRECATED_FEATURES)
+	domCaps, err := conn.GetDomainCapabilities("", arch, machine, virtType, 0)
 	if err != nil {
 		logger.Error("Failed to retrieve domain capabilities", slog.String("error", err.Error()))
 		return
 	}
+	a := libvirt.DOMAIN_CAPABILITIES_DISABLE_DEPRECATED_FEATURES
+	logger.Info(fmt.Sprintf("%v --", a))
 
 	// Save domcapabilities.xml
 	domCapsPath := fmt.Sprintf("%s/virsh_domcapabilities.xml", outDir)
