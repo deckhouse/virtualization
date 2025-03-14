@@ -12,4 +12,3 @@ patches:
     target:
       kind: VirtualMachine
       name: vm
-
