@@ -98,12 +98,12 @@ func main() {
 	}
 
 	// Save domcapabilities.xml
-	DomCapsPath := fmt.Sprintf("%s/virsh_domcapabilities.xml", outDir)
-	if err := os.WriteFile(DomCapsPath, []byte(domCaps), 0o644); err != nil {
+	domCapsPath := fmt.Sprintf("%s/virsh_domcapabilities.xml", outDir)
+	if err := os.WriteFile(domCapsPath, []byte(domCaps), 0o644); err != nil {
 		logger.Error("Failed to write domain capabilities", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-	logger.Info(fmt.Sprintf("Domcapabilities saved to %s", DomCapsPath))
+	logger.Info(fmt.Sprintf("Domcapabilities saved to %s", domCapsPath))
 
 	// hypervisor-cpu-baseline only for x86_64
 	if arch == "x86_64" {
@@ -121,7 +121,7 @@ func main() {
 		// 	os.Exit(1)
 		// }
 
-		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{DomCapsPath}, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
+		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{domCaps}, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
 		if err != nil {
 			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
 			os.Exit(1)
