@@ -14,9 +14,11 @@ limitations under the License.
 package main
 
 import (
+	"encoding/xml"
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"node-labeller/pkg/helpers"
 
@@ -133,13 +135,51 @@ func main() {
 		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{domCapsXML}, 0)
 
 		// cpuXML, err := helpers.ExtractCPUFromCapabilities(capsXML)
-		cpuXML, err := helpers.ExtractCPUXML(domCapsXML)
-		if err != nil {
-			logger.Error("Failed to parse capabilities", slog.String("error", err.Error()))
+		// cpuXML, err := helpers.ExtractCPUXML(domCapsXML)
+		// if err != nil {
+		// 	logger.Error("Failed to parse capabilities", slog.String("error", err.Error()))
+		// 	os.Exit(1)
+		// }
+		// logger.Info(fmt.Sprintf("CPU XML:\n%s", cpuXML))
+
+		// if err := xml.Unmarshal([]byte(domCapsXML), &domCaps); err != nil {
+		// 	panic(fmt.Errorf("XML parsing failed: %w", err))
+		// }
+
+		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{capsXML}, 2)
+
+		var domCaps helpers.DomainCapabilities
+		if err := xml.Unmarshal([]byte(domCapsXML), &domCaps); err != nil {
+			logger.Error("XML parsing failed", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 
-		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{capsXML}, 2)
+		var cpuXML string
+		for _, mode := range domCaps.CPU.Modes {
+			if mode.Name == "host-model" && mode.Supported == "yes" {
+				var b strings.Builder
+				b.WriteString("<cpu>")
+				if mode.Model != nil {
+					fmt.Fprintf(&b, "<model fallback='%s'>%s</model>",
+						mode.Model.Fallback, mode.Model.Value)
+				}
+				if mode.Vendor != "" {
+					fmt.Fprintf(&b, "<vendor>%s</vendor>", mode.Vendor)
+				}
+				for _, f := range mode.Feature {
+					fmt.Fprintf(&b, "<feature policy='%s' name='%s'/>", f.Policy, f.Name)
+				}
+				b.WriteString("</cpu>")
+				cpuXML = b.String()
+				break
+			}
+		}
+
+		if cpuXML == "" {
+			logger.Error("No valid host-model CPU definition found in domain capabilities")
+			os.Exit(1)
+		}
+
 		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{cpuXML}, 2)
 		if err != nil {
 			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
