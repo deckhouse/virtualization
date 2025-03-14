@@ -91,3 +91,35 @@ func convertToStringSlice(input []interface{}) ([]string, error) {
 	}
 	return result, nil
 }
+
+type viStorageClassSettings struct {
+	DefaultStorageClassName     string
+	AllowedStorageClassSelector AllowedStorageClassSelector
+}
+
+type AllowedStorageClassSelector struct {
+	MatchNames []string
+}
+
+func parseViStorageClass(settings mcapi.SettingsValues) *viStorageClassSettings {
+	viScSettings := &viStorageClassSettings{}
+	if virtualImages, ok := settings["virtualImages"].(map[string]interface{}); ok {
+		if defaultClass, ok := virtualImages["defaultStorageClassName"].(string); ok {
+			viScSettings.DefaultStorageClassName = defaultClass
+		}
+
+		if allowedSelector, ok := virtualImages["allowedStorageClassSelector"].(map[string]interface{}); ok {
+			if matchNames, ok := allowedSelector["matchNames"].([]interface{}); ok {
+				var matchNameStrings []string
+				for _, name := range matchNames {
+					if strName, ok := name.(string); ok {
+						matchNameStrings = append(matchNameStrings, strName)
+					}
+				}
+				viScSettings.AllowedStorageClassSelector.MatchNames = matchNameStrings
+			}
+		}
+	}
+
+	return viScSettings
+}

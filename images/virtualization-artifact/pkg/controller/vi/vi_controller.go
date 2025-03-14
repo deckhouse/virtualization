@@ -100,7 +100,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&virtv2.VirtualImage{}).
-		WithValidator(NewValidator(log)).
+		WithValidator(NewValidator(log, mgr.GetClient())).
 		Complete(); err != nil {
 		return nil, err
 	}
