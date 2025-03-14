@@ -91,7 +91,7 @@ func main() {
 	}
 
 	logger.Info("Get domain capabilities")
-	domCaps, err := conn.GetDomainCapabilities("", arch, machine, virtType, libvirt.DOMAIN_CAPABILITIES_DISABLE_DEPRECATED_FEATURES)
+	domCaps, err := conn.GetDomainCapabilities("", arch, machine, virtType, libvirt.ConnectGetDomainCapabilitiesFlags(libvirt.DOMAIN_CAPABILITIES_DISABLE_DEPRECATED_FEATURES))
 	if err != nil {
 		logger.Error("Failed to retrieve domain capabilities", slog.String("error", err.Error()))
 		return
