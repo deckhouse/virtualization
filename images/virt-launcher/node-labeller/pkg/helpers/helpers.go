@@ -122,20 +122,23 @@ func RunCommandWithError(cmd string, args []string) error {
 	return err
 }
 
-func ExtractCPUFromCapabilities(capsXML string) (string, error) {
+// func ExtractCPUFromCapabilities(capsXML string) (string, error) {
+func ExtractCPUXML(capsXML string) (string, error) {
 	type CPU struct {
 		InnerXML string `xml:",innerxml"`
 	}
 	type Host struct {
 		CPU CPU `xml:"cpu"`
 	}
-	type Capabilities struct {
-		Host Host `xml:"host"`
-	}
+	// type Capabilities struct {
+	// 	Host Host `xml:"host"`
+	// }
 
-	var caps Capabilities
+	// var caps Capabilities
+	var caps Host
 	if err := xml.Unmarshal([]byte(capsXML), &caps); err != nil {
 		return "", fmt.Errorf("XML parsing failed: %w", err)
 	}
-	return fmt.Sprintf("<cpu>%s</cpu>", caps.Host.CPU.InnerXML), nil
+	return fmt.Sprintf("<cpu>%s</cpu>", caps.CPU.InnerXML), nil
+	// return fmt.Sprintf("<cpu>%s</cpu>", caps.Host.CPU.InnerXML), nil
 }

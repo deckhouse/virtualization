@@ -107,11 +107,11 @@ func main() {
 
 	// hypervisor-cpu-baseline only for x86_64
 	if arch == "x86_64" {
-		capsXML, err := conn.GetCapabilities()
-		if err != nil {
-			logger.Error("Failed to retrieve capabilities", slog.String("error", err.Error()))
-			return
-		}
+		// capsXML, err := conn.GetCapabilities()
+		// if err != nil {
+		// 	logger.Error("Failed to retrieve capabilities", slog.String("error", err.Error()))
+		// 	return
+		// }
 
 		// fmt.Printf("Caps:\n%s\n", capsXML)
 		// fmt.Println("--------------------------")
@@ -132,7 +132,8 @@ func main() {
 
 		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{domCapsXML}, 0)
 
-		cpuXML, err := helpers.ExtractCPUFromCapabilities(capsXML)
+		// cpuXML, err := helpers.ExtractCPUFromCapabilities(capsXML)
+		cpuXML, err := helpers.ExtractCPUXML(domCapsXML)
 		if err != nil {
 			logger.Error("Failed to parse capabilities", slog.String("error", err.Error()))
 			os.Exit(1)
