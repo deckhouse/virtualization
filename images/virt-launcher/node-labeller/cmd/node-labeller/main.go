@@ -39,7 +39,6 @@ func main() {
 		logger.Info("Unsupported architecture, exit gracefully")
 		return
 	}
-	logger.Info("Get", "arch", arch)
 
 	kvmMinor := helpers.GetKVMMinor()
 
@@ -61,9 +60,13 @@ func main() {
 	}
 
 	// QEMU requires RW access to query SEV capabilities
-	if err := helpers.SetPermissionsRW("/dev/sev"); err != nil {
-		logger.Error("Failed to set permissions for /dev/sev", slog.String("error", err.Error()))
-		os.Exit(1)
+	if _, err := os.Stat("/dev/sev"); err != nil {
+		if !os.IsNotExist(err) {
+			if err := helpers.SetPermissionsRW("/dev/sev"); err != nil {
+				logger.Error("Failed to set permissions for /dev/sev", slog.String("error", err.Error()))
+				os.Exit(1)
+			}
+		}
 	}
 
 	logger.Info("Start virtqemud as daemon")

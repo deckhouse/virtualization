@@ -406,7 +406,7 @@ shell:
       
       # apt update && apt install -y golang libvirt-dev
       # apt-get update && apt-get install -y golang libvirt-dev
-      # apt-get update && apt-get install -y golang libvirt-devel
+      # apt-get update && apt-get install -y golang libvirt-devel gcc
       apt-get clean
   install:
     - |
