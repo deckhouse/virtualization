@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"node-labeller/pkg/helpers"
 
@@ -145,13 +146,24 @@ func main() {
 		// }
 
 		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{capsXML}, 2)
+		var s []string
+		s, _ = conn.GetCPUModelNames(arch, 0)
+
+		logger.Info(strings.Join(s, ";"))
 
 		cpuXML, err := helpers.ExtractCPUDomCapsXML(domCapsXML)
 		if err != nil {
 			logger.Error("Failed to parse capabilities", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
-		logger.Info(fmt.Sprintf("CPU XML:\n%s", cpuXML))
+		// logger.Info(fmt.Sprintf("CPU XML:\n%s", cpuXML))
+
+		cpuXMLPath := fmt.Sprintf("%s/cpuXML.xml", outDir)
+		if err := os.WriteFile(cpuXMLPath, []byte(cpuXML), 0o644); err != nil {
+			logger.Error("Failed to write cpuXML", "error", err)
+			os.Exit(1)
+		}
+		logger.Info("Seved cpuXML to " + cpuXMLPath)
 
 		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{cpuXML}, 2)
 		if err != nil {
