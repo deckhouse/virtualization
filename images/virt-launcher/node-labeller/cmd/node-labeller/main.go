@@ -35,6 +35,7 @@ func main() {
 	arch := helpers.GetArch()
 	logger.Info(fmt.Sprintf("Get arch %s", arch))
 	machine := helpers.GetMachineType(arch)
+	logger.Info(fmt.Sprintf("Machine type %s for arch %s", machine, arch))
 	if machine == "" {
 		logger.Info("Unsupported architecture, exit gracefully")
 		return
@@ -91,7 +92,7 @@ func main() {
 	}
 
 	logger.Info("Get domain capabilities")
-	domCaps, err := conn.GetDomainCapabilities("", arch, "", virtType, 0)
+	domCaps, err := conn.GetDomainCapabilities("", arch, machine, virtType, 0)
 	if err != nil {
 		logger.Error("Failed to retrieve domain capabilities", slog.String("error", err.Error()))
 		return
