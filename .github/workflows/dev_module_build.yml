@@ -103,8 +103,10 @@ jobs:
           # Select runner
           if echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/github/ubuntu"; then
             echo "RUNNER_TYPE=[\"ubuntu-22.04\"]" >> "$GITHUB_OUTPUT"
+          elif echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/self-hosted/regular"; then
+            echo "RUNNER_TYPE=[\"self-hosted\", \"regular\"]" >> "$GITHUB_OUTPUT"
           else
-            echo "RUNNER_TYPE=[\"self-hosted\", \"regular\", \"large\"]" >> "$GITHUB_OUTPUT"
+            echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
           fi
 
   show_dev_manifest:
