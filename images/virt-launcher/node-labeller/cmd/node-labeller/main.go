@@ -113,6 +113,7 @@ func main() {
 			return
 		}
 
+		fmt.Printf("Caps:\n%s\n", capsXML)
 		// cpuXML, err := conn.BaselineCPU([]string{domCapsPath}, 1)
 		// if err != nil {
 		// 	logger.Error("Failed to retrieve supported CPU", slog.String("error", err.Error()))
