@@ -389,7 +389,7 @@ shell:
 ---
 image: {{ $.ImageName }}-gobuilder
 final: false
-from: ubuntu:24.04
+from: golang:1.22.7-bookworm
 # fromImage: base-alt-p11-binaries
 git:
   - add: /images/{{ $.ImageName }}/node-labeller
@@ -402,7 +402,9 @@ git:
 shell:
   beforeInstall:
     - |
-      apt update && apt install -y golang libvirt-dev
+      apt update && apt install -y libvirt-dev
+      
+      # apt update && apt install -y golang libvirt-dev
       # apt-get update && apt-get install -y golang libvirt-dev
       # apt-get update && apt-get install -y golang libvirt-devel
       apt-get clean
