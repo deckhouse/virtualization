@@ -262,12 +262,12 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
+- image: {{ $.ImageName }}-gobuilder
+  add: /binaries
   to: /relocate/usr/bin
   before: setup
   includePaths:
-  - '*.sh'
+  - node-labeller
 shell:
   install:
   - |
@@ -381,3 +381,28 @@ shell:
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
     cp -a etc/libvirt etc/libvirt-init
+---
+image: {{ $.ImageName }}-gobuilder
+final: false
+from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+git:
+  - add: /images/{{ $.ImageName }}/node-labeller
+    to: /node-labeller
+    includePaths:
+      - '**/*'
+    stageDependencies:
+      install:
+      - '**/*'
+shell:
+  install:
+    - |
+      echo "install deps libvirt-dev"
+      apt-get update && apt-get install -y libvirt-dev
+      apt-get clean
+
+      echo "Build node-labeller binaries"
+      cd /node-labeller
+      mkdir -p /binaries
+      echo 'go build -ldflags="-s -w" -o /binaries/node-labeller.sh'
+      go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller
+      echo "Done"
