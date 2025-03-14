@@ -24,9 +24,14 @@ import (
 )
 
 const (
-	virtType = "qemu"
-	outDir   = "/var/lib/kubevirt-node-labeller"
+	virtType    = "qemu"
+	outDir      = "/var/lib/kubevirt-node-labeller"
+	emulatorbin = "/usr/bin/qemu-system-x86_64"
 )
+
+// var libvirtFlag = libvirt.DOMAIN_CAPABILITIES_DISABLE_DEPRECATED_FEATURES
+
+// domCaps libvirtxml.DomainCaps
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -91,7 +96,7 @@ func main() {
 	}
 
 	logger.Info("Get domain capabilities")
-	domCapsXML, err := conn.GetDomainCapabilities("", arch, machine, virtType, 0)
+	domCapsXML, err := conn.GetDomainCapabilities(emulatorbin, arch, machine, virtType, 0)
 	if err != nil {
 		logger.Error("Failed to retrieve domain capabilities", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -105,55 +110,15 @@ func main() {
 	}
 	logger.Info(fmt.Sprintf("Domcapabilities saved to %s", domCapsPath))
 
+	cpuXML, err := helpers.GetCPUFeatureDomCaps(domCapsXML, logger)
+	if err != nil {
+		logger.Error("Failed to retrieve dom caps", slog.String("error", err.Error()))
+	}
+
 	// hypervisor-cpu-baseline only for x86_64
 	if arch == "x86_64" {
-		// capsXML, err := conn.GetCapabilities()
-		// if err != nil {
-		// 	logger.Error("Failed to retrieve capabilities", slog.String("error", err.Error()))
-		// 	return
-		// }
 
-		// fmt.Printf("Caps:\n%s\n", capsXML)
-		// fmt.Println("--------------------------")
-		// fmt.Printf("domCaps:\n%s\n", domCaps)
-		// fmt.Println("--------------------------")
-
-		// cpuXML, err := conn.BaselineCPU([]string{domCapsPath}, 1)
-		// if err != nil {
-		// 	logger.Error("Failed to retrieve supported CPU", slog.String("error", err.Error()))
-		// 	os.Exit(1)
-		// }
-
-		// supportedCPUPath := fmt.Sprintf("%s/supported_cpu.xml", outDir)
-		// if err := os.WriteFile(supportedCPUPath, []byte(cpuXML), 0o644); err != nil {
-		// 	logger.Error("Failed to write supported cpu", slog.String("error", err.Error()))
-		// 	os.Exit(1)
-		// }
-
-		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{domCapsXML}, 0)
-
-		// cpuXML, err := helpers.ExtractCPUFromCapabilities(capsXML)
-		// cpuXML, err := helpers.ExtractCPUXML(domCapsXML)
-		// if err != nil {
-		// 	logger.Error("Failed to parse capabilities", slog.String("error", err.Error()))
-		// 	os.Exit(1)
-		// }
-		// logger.Info(fmt.Sprintf("CPU XML:\n%s", cpuXML))
-
-		// if err := xml.Unmarshal([]byte(domCapsXML), &domCaps); err != nil {
-		// 	panic(fmt.Errorf("XML parsing failed: %w", err))
-		// }
-
-		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{capsXML}, 2)
-
-		cpuXML, err := helpers.ExtractCPUDomCapsXML(domCapsXML)
-		if err != nil {
-			logger.Error("Failed to parse capabilities", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-		logger.Info(fmt.Sprintf("CPU XML:\n%s", cpuXML))
-
-		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{cpuXML}, 2)
+		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{cpuXML}, 0)
 		if err != nil {
 			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
 			os.Exit(1)
