@@ -122,20 +122,67 @@ func RunCommandWithError(cmd string, args []string) error {
 	return err
 }
 
-func ExtractCPUFromCapabilities(capsXML string) (string, error) {
+// func ExtractCPUFromCapabilities(capsXML string) (string, error) {
+func ExtractCPUXML(capsXML string) (string, error) {
 	type CPU struct {
 		InnerXML string `xml:",innerxml"`
 	}
 	type Host struct {
 		CPU CPU `xml:"cpu"`
 	}
-	type Capabilities struct {
-		Host Host `xml:"host"`
-	}
+	// type Capabilities struct {
+	// 	Host Host `xml:"host"`
+	// }
 
-	var caps Capabilities
+	// var caps Capabilities
+	var caps Host
 	if err := xml.Unmarshal([]byte(capsXML), &caps); err != nil {
 		return "", fmt.Errorf("XML parsing failed: %w", err)
 	}
-	return fmt.Sprintf("<cpu>%s</cpu>", caps.Host.CPU.InnerXML), nil
+	return fmt.Sprintf("<cpu>%s</cpu>", caps.CPU.InnerXML), nil
+	// return fmt.Sprintf("<cpu>%s</cpu>", caps.Host.CPU.InnerXML), nil
 }
+
+func ExtractCPUDomCapsXML(xmlData string) (string, error) {
+	type CPU struct {
+		XMLName xml.Name `xml:"cpu"`
+		Content []byte   `xml:",innerxml"`
+	}
+
+	type DomainCapabilities struct {
+		XMLName xml.Name `xml:"domainCapabilities"`
+		CPU     CPU      `xml:"cpu"`
+	}
+
+	var domainCapabilities DomainCapabilities
+	err := xml.Unmarshal([]byte(xmlData), &domainCapabilities)
+	if err != nil {
+		fmt.Println("Error unmarshalling XML:", err)
+		return "", err
+	}
+
+	return fmt.Sprintf("<cpu>%s</cpu>", domainCapabilities.CPU), nil
+}
+
+// type DomainCapabilities struct {
+// 	XMLName xml.Name `xml:"domainCapabilities"`
+// 	CPU     struct {
+// 		Modes []struct {
+// 			Name      string `xml:"name,attr"`
+// 			Supported string `xml:"supported,attr"`
+// 			Model     *struct {
+// 				Fallback string `xml:"fallback,attr"`
+// 				Value    string `xml:",chardata"`
+// 			} `xml:"model"`
+// 			Vendor  string `xml:"vendor"`
+// 			Feature []struct {
+// 				Policy string `xml:"policy,attr"`
+// 				Name   string `xml:"name,attr"`
+// 			} `xml:"feature"`
+// 			Enum []struct {
+// 				Name   string   `xml:"name,attr"`
+// 				Values []string `xml:"value"`
+// 			} `xml:"enum"`
+// 		} `xml:"mode"`
+// 	} `xml:"cpu"`
+// }
