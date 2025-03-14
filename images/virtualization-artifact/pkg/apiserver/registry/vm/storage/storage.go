@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/version"
 	genericreq "k8s.io/apiserver/pkg/endpoints/request"
 	"k8s.io/apiserver/pkg/registry/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
@@ -50,6 +51,7 @@ type VirtualMachineStorage struct {
 	freeze        *vmrest.FreezeREST
 	unfreeze      *vmrest.UnfreezeREST
 	migrate       *vmrest.MigrateREST
+	migrateCancel *vmrest.MigrateCancelREST
 	convertor     rest.TableConvertor
 	vmClient      versionedv1alpha2.VirtualMachinesGetter
 }
@@ -72,6 +74,7 @@ func NewStorage(
 	proxyCertManager certmanager.CertificateManager,
 	crd *apiextensionsv1.CustomResourceDefinition,
 	vmClient versionedv1alpha2.VirtualMachinesGetter,
+	kubevirtClient client.Client,
 ) *VirtualMachineStorage {
 	var convertor rest.TableConvertor
 	if crd != nil && len(crd.Spec.Versions) > 0 {
@@ -99,6 +102,7 @@ func NewStorage(
 		freeze:        vmrest.NewFreezeREST(vmLister, kubevirt, proxyCertManager),
 		unfreeze:      vmrest.NewUnfreezeREST(vmLister, kubevirt, proxyCertManager),
 		migrate:       vmrest.NewMigrateREST(vmLister, kubevirt, proxyCertManager),
+		migrateCancel: vmrest.NewMigrateCancelREST(kubevirtClient),
 		convertor:     convertor,
 		vmClient:      vmClient,
 	}
@@ -133,6 +137,10 @@ func (store VirtualMachineStorage) UnfreezeREST() *vmrest.UnfreezeREST {
 }
 
 func (store VirtualMachineStorage) Migrate() *vmrest.MigrateREST { return store.migrate }
+
+func (store VirtualMachineStorage) MigrateCancel() *vmrest.MigrateCancelREST {
+	return store.migrateCancel
+}
 
 // New implements rest.Storage interface
 func (store VirtualMachineStorage) New() runtime.Object {

@@ -83,6 +83,7 @@ type VirtualMachineInterface interface {
 	Freeze(ctx context.Context, name string, opts v1alpha2.VirtualMachineFreeze) error
 	Unfreeze(ctx context.Context, name string) error
 	Migrate(ctx context.Context, name string, opts v1alpha2.VirtualMachineMigrate) error
+	MigrateCancel(ctx context.Context, name string) error
 	AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error
 	RemoveVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveVolume) error
 }

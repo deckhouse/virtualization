@@ -19,6 +19,7 @@ package options
 import (
 	"fmt"
 	"net"
+	"os"
 	"strings"
 
 	openapinamer "k8s.io/apiserver/pkg/endpoints/openapi"
@@ -38,6 +39,11 @@ import (
 	generatedopenapi "github.com/deckhouse/virtualization/api/pkg/apiserver/api/generated/openapi"
 )
 
+const (
+	kubevirtClientKubeconfigFlag = "kubevirt-client-kubeconfig"
+	kubevirtClientKubeconfigEnv  = "KUBECONFIG_FOR_KUBEVIRT_CLIENT"
+)
+
 type Options struct {
 	// genericoptions.RecomendedOptions - EtcdOptions
 	SecureServing  *genericoptions.SecureServingOptionsWithLoopback
@@ -55,9 +61,14 @@ type Options struct {
 	ShowVersion bool
 	// Only to be used to for testing
 	DisableAuthForTesting bool
+
+	KubevirtClientKubeconfig string
 }
 
 func (o *Options) Validate() error {
+	if o.KubevirtClientKubeconfig == "" {
+		return fmt.Errorf("flag %s or env %s is required", kubevirtClientKubeconfigFlag, kubevirtClientKubeconfigEnv)
+	}
 	return logsapi.ValidateAndApply(o.Logging, nil)
 }
 
@@ -72,6 +83,8 @@ func (o *Options) Flags() (fs flag.NamedFlagSets) {
 	// flags for authorization sa
 	msfs.StringVar(&o.Kubevirt.ServiceAccount.Name, "service-account-name", "", "The service-account name for authorization in kubevirt apiserver")
 	msfs.StringVar(&o.Kubevirt.ServiceAccount.Namespace, "service-account-namespace", "", "The service-account namespace for authorization in kubevirt apiserver")
+
+	msfs.StringVar(&o.KubevirtClientKubeconfig, kubevirtClientKubeconfigFlag, getEnv(kubevirtClientKubeconfigEnv, ""), "The path to kubevirt client kubeconfig")
 
 	o.SecureServing.AddFlags(fs.FlagSet("virtualization-api secure serving"))
 	o.Authentication.AddFlags(fs.FlagSet("virtualization-api authentication"))
@@ -95,7 +108,7 @@ func NewOptions() *Options {
 	}
 }
 
-func (o Options) ServerConfig() (*server.Config, error) {
+func (o *Options) ServerConfig() (*server.Config, error) {
 	apiserver, err := o.ApiserverConfig()
 	if err != nil {
 		return nil, err
@@ -106,11 +119,12 @@ func (o Options) ServerConfig() (*server.Config, error) {
 	}
 
 	conf := &server.Config{
-		Apiserver:           apiserver,
-		Rest:                restConfig,
-		Kubevirt:            vconf.LoadKubevirtAPIServerFromEnv(),
-		ProxyClientCertFile: o.ProxyClientCertFile,
-		ProxyClientKeyFile:  o.ProxyClientKeyFile,
+		Apiserver:                apiserver,
+		Rest:                     restConfig,
+		Kubevirt:                 vconf.LoadKubevirtAPIServerFromEnv(),
+		ProxyClientCertFile:      o.ProxyClientCertFile,
+		ProxyClientKeyFile:       o.ProxyClientKeyFile,
+		KubevirtClientKubeconfig: o.KubevirtClientKubeconfig,
 	}
 	if o.Kubevirt.Endpoint != "" {
 		conf.Kubevirt.Endpoint = o.Kubevirt.Endpoint
@@ -130,7 +144,7 @@ func (o Options) ServerConfig() (*server.Config, error) {
 	return conf, nil
 }
 
-func (o Options) ApiserverConfig() (*genericapiserver.Config, error) {
+func (o *Options) ApiserverConfig() (*genericapiserver.Config, error) {
 	if err := o.SecureServing.MaybeDefaultWithSelfSignedCerts("localhost", nil, []net.IP{net.ParseIP("127.0.0.1")}); err != nil {
 		return nil, fmt.Errorf("error creating self-signed certificates: %w", err)
 	}
@@ -165,7 +179,7 @@ func (o Options) ApiserverConfig() (*genericapiserver.Config, error) {
 	return serverConfig, nil
 }
 
-func (o Options) RestConfig() (*rest.Config, error) {
+func (o *Options) RestConfig() (*rest.Config, error) {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		return nil, err
@@ -178,4 +192,11 @@ func (o Options) RestConfig() (*rest.Config, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func getEnv(env, defaultEnv string) string {
+	if e, found := os.LookupEnv(env); found {
+		return e
+	}
+	return defaultEnv
 }

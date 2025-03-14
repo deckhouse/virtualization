@@ -150,6 +150,17 @@ func (v vm) Migrate(ctx context.Context, name string, opts v1alpha2.VirtualMachi
 	return v.restClient.Put().AbsPath(path).Body(body).Do(ctx).Error()
 }
 
+func (v vm) MigrateCancel(ctx context.Context, name string) error {
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "migratecancel")
+	cancel := &v1alpha2.VirtualMachineMigrateCancel{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "VirtualMachineMigrateCancel",
+			APIVersion: v1alpha2.SchemeGroupVersion.String(),
+		},
+	}
+	return v.restClient.Post().Body(cancel).AbsPath(path).Do(ctx).Error()
+}
+
 func (v vm) AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error {
 	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "addvolume")
 	return v.restClient.

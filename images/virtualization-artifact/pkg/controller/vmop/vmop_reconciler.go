@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -94,6 +95,49 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}
+
+	// Subscribe on VirtualMachineInstanceMigration.
+	if err = ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstanceMigration{}),
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+			if !ok {
+				return nil
+			}
+			c := mgr.GetClient()
+
+			vmops := &virtv2.VirtualMachineOperationList{}
+			if err := c.List(ctx, vmops, client.InNamespace(obj.GetNamespace())); err != nil {
+				return nil
+			}
+
+			var requests []reconcile.Request
+			for _, vmop := range vmops.Items {
+				if vmop.Spec.VirtualMachine == migration.Spec.VMIName {
+					requests = append(requests, reconcile.Request{
+						NamespacedName: types.NamespacedName{
+							Namespace: vmop.GetNamespace(),
+							Name:      vmop.GetName(),
+						},
+					})
+				}
+			}
+
+			return requests
+		}),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return false },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldMigration := e.ObjectOld.(*virtv1.VirtualMachineInstanceMigration)
+				newMigration := e.ObjectNew.(*virtv1.VirtualMachineInstanceMigration)
+				return oldMigration.Status.Phase != newMigration.Status.Phase
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	}
+
 	return nil
 }
 

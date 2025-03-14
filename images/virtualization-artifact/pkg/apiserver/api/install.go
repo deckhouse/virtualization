@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apiserver/pkg/registry/rest"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmrest "github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/rest"
 	"github.com/deckhouse/virtualization-controller/pkg/apiserver/registry/vm/storage"
@@ -58,15 +59,16 @@ func init() {
 func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
 	resources := map[string]rest.Storage{
-		"virtualmachines":              store,
-		"virtualmachines/console":      store.ConsoleREST(),
-		"virtualmachines/vnc":          store.VncREST(),
-		"virtualmachines/portforward":  store.PortForwardREST(),
-		"virtualmachines/addvolume":    store.AddVolumeREST(),
-		"virtualmachines/removevolume": store.RemoveVolumeREST(),
-		"virtualmachines/freeze":       store.FreezeREST(),
-		"virtualmachines/unfreeze":     store.UnfreezeREST(),
-		"virtualmachines/migrate":      store.Migrate(),
+		"virtualmachines":               store,
+		"virtualmachines/console":       store.ConsoleREST(),
+		"virtualmachines/vnc":           store.VncREST(),
+		"virtualmachines/portforward":   store.PortForwardREST(),
+		"virtualmachines/addvolume":     store.AddVolumeREST(),
+		"virtualmachines/removevolume":  store.RemoveVolumeREST(),
+		"virtualmachines/freeze":        store.FreezeREST(),
+		"virtualmachines/unfreeze":      store.UnfreezeREST(),
+		"virtualmachines/migrate":       store.Migrate(),
+		"virtualmachines/migratecancel": store.MigrateCancel(),
 	}
 	apiGroupInfo.VersionedResourcesStorageMap[v1alpha2.SchemeGroupVersion.Version] = resources
 	return apiGroupInfo
@@ -79,6 +81,7 @@ func Install(
 	proxyCertManager certmanager.CertificateManager,
 	crd *apiextensionsv1.CustomResourceDefinition,
 	vmClient versionedv1alpha2.VirtualMachinesGetter,
+	kubevirtClient client.Client,
 ) error {
 	vmStorage := storage.NewStorage(subresources.Resource("virtualmachines"),
 		vmLister,
@@ -86,6 +89,7 @@ func Install(
 		proxyCertManager,
 		crd,
 		vmClient,
+		kubevirtClient,
 	)
 	info := Build(vmStorage)
 	return server.InstallAPIGroup(&info)

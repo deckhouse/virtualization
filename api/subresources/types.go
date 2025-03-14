@@ -96,3 +96,11 @@ type VirtualMachineMigrate struct {
 	metav1.TypeMeta
 	DryRun []string
 }
+
+// +genclient
+// +genclient:readonly
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+type VirtualMachineMigrateCancel struct {
+	metav1.TypeMeta
+}

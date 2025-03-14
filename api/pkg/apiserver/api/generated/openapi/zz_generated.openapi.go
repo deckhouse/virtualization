@@ -146,6 +146,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineConsole":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineFreeze":              schema_virtualization_api_subresources_v1alpha2_VirtualMachineFreeze(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineMigrate":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineMigrate(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineMigrateCancel":       schema_virtualization_api_subresources_v1alpha2_VirtualMachineMigrateCancel(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachinePortForward":         schema_virtualization_api_subresources_v1alpha2_VirtualMachinePortForward(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineRemoveVolume":        schema_virtualization_api_subresources_v1alpha2_VirtualMachineRemoveVolume(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineUnfreeze":            schema_virtualization_api_subresources_v1alpha2_VirtualMachineUnfreeze(ref),
@@ -5414,6 +5415,32 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineMigrate(ref c
 									},
 								},
 							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_subresources_v1alpha2_VirtualMachineMigrateCancel(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
+							Type:        []string{"string"},
+							Format:      "",
 						},
 					},
 				},
