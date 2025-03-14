@@ -5,4 +5,4 @@ metadata:
   name: vd-blank
 spec:
   persistentVolumeClaim:
-    size: 260Mi
+    size: 370Mi
