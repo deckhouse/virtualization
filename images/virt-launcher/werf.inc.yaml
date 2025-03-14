@@ -262,8 +262,10 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
+{{/*
 # - image: virt-artifact
   # add: /kubevirt/cmd/{{ $.ImageName }}/node-labeller/
+*/}}
 - image: {{ $.ImageName }}-gobuilder
   add: /binaries
   to: /relocate/usr/bin
@@ -398,7 +400,7 @@ git:
 shell:
   beforeInstall:
     - |
-      apt-get update && apt-get install -y golang libvirt-dev
+      apt-get update && apt-get install -y golang libvirt-devel
       apt-get clean
   install:
     - |
