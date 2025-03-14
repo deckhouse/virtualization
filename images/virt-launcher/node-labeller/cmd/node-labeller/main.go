@@ -131,7 +131,15 @@ func main() {
 		// }
 
 		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{domCapsXML}, 0)
-		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{capsXML}, 0)
+
+		cpuXML, err := helpers.ExtractCPUFromCapabilities(capsXML)
+		if err != nil {
+			logger.Error("Failed to parse capabilities", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+
+		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{capsXML}, 2)
+		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{cpuXML}, 2)
 		if err != nil {
 			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
 			os.Exit(1)
