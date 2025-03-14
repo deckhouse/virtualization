@@ -114,6 +114,9 @@ func main() {
 		}
 
 		fmt.Printf("Caps:\n%s\n", capsXML)
+		fmt.Println("--------------------------")
+		fmt.Printf("domCaps:\n%s\n", domCaps)
+		fmt.Println("--------------------------")
 		// cpuXML, err := conn.BaselineCPU([]string{domCapsPath}, 1)
 		// if err != nil {
 		// 	logger.Error("Failed to retrieve supported CPU", slog.String("error", err.Error()))
@@ -126,7 +129,8 @@ func main() {
 		// 	os.Exit(1)
 		// }
 
-		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{capsXML}, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
+		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{capsXML}, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
+		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{domCaps}, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
 		if err != nil {
 			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
 			os.Exit(1)
