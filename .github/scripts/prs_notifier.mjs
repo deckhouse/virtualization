@@ -212,7 +212,7 @@ function getPullRequestGroup(reviews, requestedReviewers) {
     }
 
     const submittedAt = new Date(review.submitted_at)
-    submittedAt.setDate(submittedAt.getDate() + 1);
+    submittedAt.setTime(submittedAt.getTime() + 1.5 * 24 * 60 * 60 * 1000); // submittedAt + 1.5 days.
     if (now.getDay() !== 1 && submittedAt < now) {
       return STUCK;
     }
