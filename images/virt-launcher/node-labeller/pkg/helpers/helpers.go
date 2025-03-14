@@ -108,11 +108,6 @@ func StartVirtqemud() error {
 	return RunCommandWithError("virtqemud", []string{"-d"})
 }
 
-// func FileNotExists(path string) bool {
-// 	_, err := os.Stat(path)
-// 	return os.IsNotExist(err)
-// }
-
 func RunCommand(cmd string, args []string) (string, error) {
 	out, err := exec.Command(cmd, args...).CombinedOutput()
 	if err != nil {

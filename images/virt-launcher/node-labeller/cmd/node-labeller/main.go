@@ -60,6 +60,7 @@ func main() {
 	}
 
 	// QEMU requires RW access to query SEV capabilities
+	// AMD's Secure Encrypted Virtualization (SEV)
 	if _, err := os.Stat("/dev/sev"); err != nil {
 		if !os.IsNotExist(err) {
 			if err := helpers.SetPermissionsRW("/dev/sev"); err != nil {
@@ -116,7 +117,7 @@ func main() {
 				logger.Error("Failed to write supported features", slog.String("error", err.Error()))
 				os.Exit(1)
 			}
-			logger.Info(fmt.Sprintf("Hypervisot features saved to %s,", supportedFeaturesPath))
+			logger.Info(fmt.Sprintf("Hypervisor features saved to %s", supportedFeaturesPath))
 		}
 	}
 
