@@ -125,7 +125,3 @@ func RunCommandWithError(cmd string, args []string) error {
 	_, err := RunCommand(cmd, args)
 	return err
 }
-
-func CreateIfNotExist() error
-
-func SetPermissionRW() error
