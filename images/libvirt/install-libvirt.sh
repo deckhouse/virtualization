@@ -18,7 +18,7 @@ usage() {
     cat <<EOF
     Usage: $0 [OPTIONS]
     Options:
-    
+
     Set the source base directory:      -s, --src-base PATH (example: /mysourcedir)
     Set the build base directory:       -b, --build-dir FOLDER (example: mybuildfolder)
     Set the destination base directory: -d, --dest-base PATH (example: /mydestdir)
@@ -103,9 +103,9 @@ fi
 lib_version=$(convert_version $VERSION_NUM)
 
 # List of files and destinations of libvirt
-# Commented lines - binary for additional features. 
+# Commented lines - binary for additional features.
 #
-# The specific format of the list, 'SOURCE_FILE to DESTINATION', 
+# The specific format of the list, 'SOURCE_FILE to DESTINATION',
 # is due to the output of the installation scripts. To make it easier to add them to this list.
 
 FILE_LIST=$(cat <<EOF
@@ -186,7 +186,7 @@ $SRC_BUILD/tools/virt-host-validate to /usr/bin
 # $SRC_BUILD/tools/virt-login-shell to /usr/bin
 # $SRC_BUILD/tools/virt-login-shell-helper to /usr/libexec
 $SRC_BUILD/tools/virsh to /usr/bin
-$SRC_BUILD/tools/virt-admin to /usr/bin
+# $SRC_BUILD/tools/virt-admin to /usr/bin
 $SRC_BUILD/tools/virt-pki-validate to /usr/bin
 $SRC_BUILD/tools/virt-pki-query-dn to /usr/bin
 $SRC_BUILD/tools/nss/libnss_libvirt.so.2 to /usr/lib64
