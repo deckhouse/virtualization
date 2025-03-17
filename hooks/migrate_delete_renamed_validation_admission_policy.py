@@ -35,8 +35,6 @@ class MigrateDeleteRenamedVAPResources(Hook):
         self.managed_by_label_value = "virt-operator-internal-virtualization"
 
     def generate_config(self) -> dict:
-        kubernetesVersion = "1.30"
-
         return {
             "configVersion": "v1",
             "afterHelm": 5,
