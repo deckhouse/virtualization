@@ -36,9 +36,9 @@ type NewVMOPControlOptions struct {
 func NewVMOPControl(options NewVMOPControlOptions) *VMControl {
 	return &VMControl{
 		vmInformer:   options.VMInformer,
-		nodeInformer: options.NodeInformer,
 		vdInformer:   options.VDInformer,
 		vmopInformer: options.VMOPInformer,
+		nodeInformer: options.NodeInformer,
 	}
 }
 
@@ -50,7 +50,7 @@ type VMOPControl struct {
 }
 
 func (m *VMOPControl) IsMatched(event *audit.Event) bool {
-	if event.Stage != audit.StageResponseComplete {
+	if event.ObjectRef == nil || event.Stage != audit.StageResponseComplete {
 		return false
 	}
 

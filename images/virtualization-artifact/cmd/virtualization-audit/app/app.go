@@ -123,9 +123,15 @@ func run(c *cobra.Command, opts Options) error {
 		}),
 		events.NewVMControl(events.NewVMControlOptions{
 			VMInformer:   vmInformer.GetIndexer(),
+			VDInformer:   vdInformer.GetIndexer(),
 			NodeInformer: nodeInformer.GetIndexer(),
+			PodInformer:  podInformer.GetIndexer(),
+		}),
+		events.NewVMOPControl(events.NewVMOPControlOptions{
+			VMInformer:   vmInformer.GetIndexer(),
 			VDInformer:   vdInformer.GetIndexer(),
 			VMOPInformer: vmopInformer.GetIndexer(),
+			NodeInformer: nodeInformer.GetIndexer(),
 		}),
 		events.NewVMConnect(events.NewVMConnectOptions{
 			VMInformer:   vmInformer.GetIndexer(),
