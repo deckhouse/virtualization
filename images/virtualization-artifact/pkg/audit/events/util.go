@@ -25,7 +25,6 @@ import (
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apiserver/pkg/apis/audit"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -45,8 +44,8 @@ func removeAllQueryParams(uri string) (string, error) {
 	return parsedURL.String(), nil
 }
 
-func getVMFromInformer(vmInformer cache.Indexer, event *audit.Event) (*v1alpha2.VirtualMachine, error) {
-	vmObj, exist, err := vmInformer.GetByKey(event.ObjectRef.Namespace + "/" + event.ObjectRef.Name)
+func getVMFromInformer(vmInformer cache.Indexer, vmName string) (*v1alpha2.VirtualMachine, error) {
+	vmObj, exist, err := vmInformer.GetByKey(vmName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
 	}
@@ -62,6 +61,57 @@ func getVMFromInformer(vmInformer cache.Indexer, event *audit.Event) (*v1alpha2.
 	return vm, nil
 }
 
+func getVDFromInformer(vdInformer cache.Indexer, vdName string) (*v1alpha2.VirtualDisk, error) {
+	vdObj, exist, err := vdInformer.GetByKey(vdName)
+	if err != nil {
+		return nil, fmt.Errorf("fail to get node from informer: %w", err)
+	}
+	if !exist {
+		return nil, errors.New("vdObj not exist")
+	}
+
+	vd, ok := vdObj.(*v1alpha2.VirtualDisk)
+	if !ok {
+		return nil, errors.New("fail to convert vdObj to vd")
+	}
+
+	return vd, nil
+}
+
+func getNodeFromInformer(nodeInformer cache.Indexer, nodeName string) (*corev1.Node, error) {
+	nodeObj, exist, err := nodeInformer.GetByKey(nodeName)
+	if err != nil {
+		return nil, fmt.Errorf("fail to get node from informer: %w", err)
+	}
+	if !exist {
+		return nil, errors.New("nodeObj not exist")
+	}
+
+	node, ok := nodeObj.(*corev1.Node)
+	if !ok {
+		return nil, errors.New("fail to convert nodeObj to node")
+	}
+
+	return node, nil
+}
+
+func getVMOPFromInformer(vmopInformer cache.Indexer, vmopName string) (*v1alpha2.VirtualMachineOperation, error) {
+	vmopObj, exist, err := vmopInformer.GetByKey(vmopName)
+	if err != nil {
+		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
+	}
+	if !exist {
+		return nil, errors.New("vmopObj not exist")
+	}
+
+	vmop, ok := vmopObj.(*v1alpha2.VirtualMachineOperation)
+	if !ok {
+		return nil, errors.New("fail to convert vmopObj to vmop")
+	}
+
+	return vmop, nil
+}
+
 func fillVDInfo(vdInformer cache.Indexer, response map[string]string, vm *v1alpha2.VirtualMachine) error {
 	storageClasses := []string{}
 
@@ -70,17 +120,9 @@ func fillVDInfo(vdInformer cache.Indexer, response map[string]string, vm *v1alph
 			continue
 		}
 
-		vdObj, exist, err := vdInformer.GetByKey(vm.Namespace + "/" + bd.Name)
+		vd, err := getVDFromInformer(vdInformer, vm.Namespace+"/"+bd.Name)
 		if err != nil {
 			return fmt.Errorf("fail to get virtual disk from informer: %w", err)
-		}
-		if !exist {
-			continue
-		}
-
-		vd, ok := vdObj.(*v1alpha2.VirtualDisk)
-		if !ok {
-			return errors.New("fail to convert vdObj to vd")
 		}
 
 		storageClasses = append(storageClasses, vd.Status.StorageClassName)
@@ -94,16 +136,9 @@ func fillVDInfo(vdInformer cache.Indexer, response map[string]string, vm *v1alph
 }
 
 func fillNodeInfo(nodeInformer cache.Indexer, response map[string]string, vm *v1alpha2.VirtualMachine) error {
-	nodeObj, exist, err := nodeInformer.GetByKey(vm.Status.Node)
+	node, err := getNodeFromInformer(nodeInformer, vm.Status.Node)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)
-	}
-	if !exist {
-		return nil
-	}
-	node, ok := nodeObj.(*corev1.Node)
-	if !ok {
-		return errors.New("fail to convert nodeObj to node")
 	}
 
 	addresses := []string{}
