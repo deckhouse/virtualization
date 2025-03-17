@@ -56,7 +56,7 @@ func (m *VMControl) IsMatched(event *audit.Event) bool {
 		return false
 	}
 
-	if event.ObjectRef.Resource == "virtualmachineoperations" {
+	if event.ObjectRef.Resource == "virtualmachineoperations" && event.Verb == "create" {
 		return true
 	}
 
