@@ -30,17 +30,16 @@ import (
 type NewVMControlOptions struct {
 	VMInformer   cache.Indexer
 	VDInformer   cache.Indexer
-	VMOPInformer cache.Indexer
 	NodeInformer cache.Indexer
 	PodInformer  cache.Indexer
 }
 
 func NewVMControl(options NewVMControlOptions) *VMControl {
 	return &VMControl{
-		podInformer:  options.PodInformer,
 		vmInformer:   options.VMInformer,
-		nodeInformer: options.NodeInformer,
 		vdInformer:   options.VDInformer,
+		nodeInformer: options.NodeInformer,
+		podInformer:  options.PodInformer,
 	}
 }
 
@@ -53,7 +52,7 @@ type VMControl struct {
 }
 
 func (m *VMControl) IsMatched(event *audit.Event) bool {
-	if event.Stage != audit.StageResponseComplete {
+	if event.ObjectRef == nil || event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
