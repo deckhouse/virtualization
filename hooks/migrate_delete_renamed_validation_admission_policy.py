@@ -41,7 +41,7 @@ class MigrateDeleteRenamedVAPResources(Hook):
             "kubernetes": [
                 {
                     "name": self.POLICY_SNAPSHOT_NAME,
-                    "apiVersion": "admissionregistration.k8s.io/v1",
+                    "apiVersion": "admissionregistration.k8s.io/v1beta1",
                     "kind": "ValidatingAdmissionPolicy",
                     "nameSelector": {
                         "matchNames": [self.vapolicy_name]
@@ -55,7 +55,7 @@ class MigrateDeleteRenamedVAPResources(Hook):
                 },
                 {
                     "name": self.BINDING_SNAPSHOT_NAME,
-                    "apiVersion": "admissionregistration.k8s.io/v1",
+                    "apiVersion": "admissionregistration.k8s.io/v1beta1",
                     "kind": "ValidatingAdmissionPolicyBinding",
                     "nameSelector": {
                         "matchNames": [self.vapolicy_binding_name]
@@ -85,6 +85,7 @@ class MigrateDeleteRenamedVAPResources(Hook):
                         kind = s["filterResult"]["kind"]
                         print(f"Delete deprecated {kind} {name}.")
                         ctx.kubernetes.delete(kind=kind,
+                                          namespace='',
                                           name=name)
             if found_deprecated == 0:
                 print("No deprecated resources found, migration not required.")
