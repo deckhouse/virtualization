@@ -93,6 +93,9 @@ func run(c *cobra.Command, opts Options) error {
 	vdInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualDisks().Informer()
 	go vdInformer.Run(c.Context().Done())
 
+	vmopInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachineOperations().Informer()
+	go vmopInformer.Run(c.Context().Done())
+
 	nodeInformer := coreSharedInformerFactory.Core().V1().Nodes().Informer()
 	go nodeInformer.Run(c.Context().Done())
 
@@ -111,6 +114,7 @@ func run(c *cobra.Command, opts Options) error {
 			VMInformer:   vmInformer.GetIndexer(),
 			NodeInformer: nodeInformer.GetIndexer(),
 			VDInformer:   vdInformer.GetIndexer(),
+			VMOPInformer: vmopInformer.GetIndexer(),
 		}),
 		events.NewVMConnect(events.NewVMConnectOptions{
 			VMInformer:   vmInformer.GetIndexer(),

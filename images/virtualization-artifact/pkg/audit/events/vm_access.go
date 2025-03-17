@@ -92,7 +92,7 @@ func (m *VMAccess) Log(event *audit.Event) error {
 		response["name"] = "Access to VM via portforward"
 	}
 
-	vm, err := getVMFromInformer(m.vmInformer, event)
+	vm, err := getVMFromInformer(m.vmInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
