@@ -96,7 +96,6 @@ func run(c *cobra.Command, opts Options) error {
 	vmopInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachineOperations().Informer()
 	go vmopInformer.Run(c.Context().Done())
 
-	// TODO: add indexer by d8-namespace
 	podInformer := coreSharedInformerFactory.Core().V1().Pods().Informer()
 	go podInformer.Run(c.Context().Done())
 
@@ -143,5 +142,6 @@ func run(c *cobra.Command, opts Options) error {
 		log.Fatal("failed to create server", log.Err(err))
 	}
 
+	// TODO: add TLS support
 	return srv.Run(c.Context(), server.WithTLS(opts.Certfile, opts.Keyfile))
 }
