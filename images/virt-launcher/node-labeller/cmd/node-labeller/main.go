@@ -118,7 +118,8 @@ func main() {
 	// hypervisor-cpu-baseline only for x86_64
 	if arch == "x86_64" {
 
-		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{cpuXML}, 0)
+		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{cpuXML}, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
+		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, cpuXML, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
 		if err != nil {
 			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
 			os.Exit(1)
