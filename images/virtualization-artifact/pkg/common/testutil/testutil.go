@@ -17,6 +17,10 @@ limitations under the License.
 package testutil
 
 import (
+	"context"
+	"log/slog"
+
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -41,9 +45,17 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 			return nil, err
 		}
 	}
-	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).Build(), nil
+	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(objs...).WithStatusSubresource(objs...).Build(), nil
 }
 
 func NewNoOpLogger() *log.Logger {
 	return log.NewNop()
+}
+
+func ToContext(ctx context.Context, log *log.Logger) context.Context {
+	return logr.NewContextWithSlogLogger(ctx, slog.New(log.Handler()))
+}
+
+func ContextBackgroundWithNoOpLogger() context.Context {
+	return ToContext(context.Background(), NewNoOpLogger())
 }

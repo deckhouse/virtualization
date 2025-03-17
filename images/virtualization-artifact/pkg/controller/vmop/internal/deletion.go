@@ -18,11 +18,13 @@ package internal
 
 import (
 	"context"
+	"log/slog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -32,36 +34,62 @@ const deletionHandlerName = "DeletionHandler"
 
 // DeletionHandler manages finalizers on VirtualMachineOperation resource.
 type DeletionHandler struct {
-	client client.Client
+	client  client.Client
+	vmopSrv service.VMOperationService
+	log     *slog.Logger
 }
 
-func NewDeletionHandler(client client.Client) *DeletionHandler {
+func NewDeletionHandler(client client.Client, vmopSrv service.VMOperationService) *DeletionHandler {
 	return &DeletionHandler{
-		client: client,
+		client:  client,
+		vmopSrv: vmopSrv,
 	}
 }
 
 func (h DeletionHandler) Handle(ctx context.Context, s state.VMOperationState) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
+	h.log = logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
 	if s.VirtualMachineOperation() == nil {
 		return reconcile.Result{}, nil
 	}
 
+	if isMigrate(s.VirtualMachineOperation().Changed()) {
+		return h.migrateHandle(ctx, s)
+	}
+	return h.defaultHandle(ctx, s)
+}
+
+func (h DeletionHandler) migrateHandle(ctx context.Context, s state.VMOperationState) (reconcile.Result, error) {
 	changed := s.VirtualMachineOperation().Changed()
 
-	// The only case when we need finalizer on VirtualMachineOperation is when operation is in progress.
-	if changed.DeletionTimestamp == nil && changed.Status.Phase == virtv2.VMOPPhaseInProgress {
-		log.Debug("Add cleanup finalizer while in the InProgress phase")
+	if changed.DeletionTimestamp.IsZero() {
+		h.log.Debug("Add cleanup finalizer")
+		controllerutil.AddFinalizer(changed, virtv2.FinalizerVMOPCleanup)
+		return reconcile.Result{}, nil
+	}
+
+	h.log.Info("Deletion observed: cleanup VirtualMachineOperation")
+	if err := h.vmopSrv.Cancel(ctx, s.VirtualMachineOperation().Changed()); err != nil {
+		return reconcile.Result{}, err
+	}
+	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMOPCleanup)
+	return reconcile.Result{}, nil
+}
+
+func (h DeletionHandler) defaultHandle(_ context.Context, s state.VMOperationState) (reconcile.Result, error) {
+	changed := s.VirtualMachineOperation().Changed()
+
+	if changed.DeletionTimestamp.IsZero() && changed.Status.Phase == virtv2.VMOPPhaseInProgress {
+		h.log.Debug("Add cleanup finalizer while in the InProgress phase")
 		controllerutil.AddFinalizer(changed, virtv2.FinalizerVMOPCleanup)
 		return reconcile.Result{}, nil
 	}
 
 	// Remove finalizer when VirtualMachineOperation is in deletion state or not in progress.
-	if changed.DeletionTimestamp != nil {
-		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineOperation", "phase", changed.Status.Phase)
+	if changed.DeletionTimestamp.IsZero() {
+		h.log.Debug("Remove cleanup finalizer from VirtualMachineOperation: not InProgress state", "phase", changed.Status.Phase)
 	} else {
-		log.Debug("Remove cleanup finalizer from VirtualMachineOperation: not InProgress state", "phase", changed.Status.Phase)
+		h.log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineOperation", "phase", changed.Status.Phase)
 	}
 	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMOPCleanup)
 	return reconcile.Result{}, nil

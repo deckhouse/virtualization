@@ -150,8 +150,7 @@ func streamParams(_ url.Values, opts runtime.Object) error {
 		return nil
 	case *subresources.VirtualMachineUnfreeze:
 		return nil
-	case *subresources.VirtualMachineMigrate:
-		return nil
+
 	default:
 		return fmt.Errorf("unknown object for streaming: %v", opts)
 	}

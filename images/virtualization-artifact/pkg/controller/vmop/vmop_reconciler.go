@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
+	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -93,6 +94,27 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		},
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	}
+
+	if err = ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstanceMigration{}),
+		handler.EnqueueRequestForOwner(
+			mgr.GetScheme(),
+			mgr.GetRESTMapper(),
+			&virtv2.VirtualMachineOperation{},
+			handler.OnlyControllerOwner(),
+		),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldMig := e.ObjectOld.(*virtv1.VirtualMachineInstanceMigration)
+				newMig := e.ObjectNew.(*virtv1.VirtualMachineInstanceMigration)
+				return oldMig.Status.Phase != newMig.Status.Phase
+			},
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineInstanceMigration: %w", err)
 	}
 	return nil
 }

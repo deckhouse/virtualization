@@ -49,7 +49,6 @@ type VirtualMachineStorage struct {
 	removeVolume  *vmrest.RemoveVolumeREST
 	freeze        *vmrest.FreezeREST
 	unfreeze      *vmrest.UnfreezeREST
-	migrate       *vmrest.MigrateREST
 	convertor     rest.TableConvertor
 	vmClient      versionedv1alpha2.VirtualMachinesGetter
 }
@@ -98,7 +97,6 @@ func NewStorage(
 		removeVolume:  vmrest.NewRemoveVolumeREST(vmLister, kubevirt, proxyCertManager),
 		freeze:        vmrest.NewFreezeREST(vmLister, kubevirt, proxyCertManager),
 		unfreeze:      vmrest.NewUnfreezeREST(vmLister, kubevirt, proxyCertManager),
-		migrate:       vmrest.NewMigrateREST(vmLister, kubevirt, proxyCertManager),
 		convertor:     convertor,
 		vmClient:      vmClient,
 	}
@@ -131,8 +129,6 @@ func (store VirtualMachineStorage) FreezeREST() *vmrest.FreezeREST {
 func (store VirtualMachineStorage) UnfreezeREST() *vmrest.UnfreezeREST {
 	return store.unfreeze
 }
-
-func (store VirtualMachineStorage) Migrate() *vmrest.MigrateREST { return store.migrate }
 
 // New implements rest.Storage interface
 func (store VirtualMachineStorage) New() runtime.Object {

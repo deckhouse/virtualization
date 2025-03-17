@@ -313,7 +313,7 @@ func main() {
 	}
 
 	vmopLogger := logger.NewControllerLogger(vmop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vmop.SetupController(ctx, mgr, virtClient, vmopLogger); err != nil {
+	if err = vmop.SetupController(ctx, mgr, vmopLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
