@@ -18,14 +18,13 @@ package events
 
 import (
 	"fmt"
-	"log/slog"
-	"time"
+	"slices"
+	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type NewVMControlOptions struct {
@@ -33,18 +32,20 @@ type NewVMControlOptions struct {
 	VDInformer   cache.Indexer
 	VMOPInformer cache.Indexer
 	NodeInformer cache.Indexer
+	PodInformer  cache.Indexer
 }
 
 func NewVMControl(options NewVMControlOptions) *VMControl {
 	return &VMControl{
+		podInformer:  options.PodInformer,
 		vmInformer:   options.VMInformer,
 		nodeInformer: options.NodeInformer,
 		vdInformer:   options.VDInformer,
-		vmopInformer: options.VMOPInformer,
 	}
 }
 
 type VMControl struct {
+	podInformer  cache.Indexer
 	vmInformer   cache.Indexer
 	vdInformer   cache.Indexer
 	nodeInformer cache.Indexer
@@ -56,7 +57,7 @@ func (m *VMControl) IsMatched(event *audit.Event) bool {
 		return false
 	}
 
-	if event.ObjectRef.Resource == "virtualmachineoperations" && event.Verb == "create" {
+	if strings.Contains(event.ObjectRef.Name, "virt-launcher") && event.ObjectRef.Resource == "pod" && event.Verb == "delete" {
 		return true
 	}
 
@@ -64,74 +65,55 @@ func (m *VMControl) IsMatched(event *audit.Event) bool {
 }
 
 func (m *VMControl) Log(event *audit.Event) error {
-	response := map[string]string{
-		"type":           "Control VM",
-		"level":          "info",
-		"name":           "unknown",
-		"datetime":       event.RequestReceivedTimestamp.Format(time.RFC3339),
-		"uid":            string(event.AuditID),
-		"requestSubject": event.User.Username,
+	eventLog := NewEventLog(event)
+	eventLog.Type = "Control VM"
 
-		"action-type":          event.Verb,
-		"node-network-address": "unknown",
-		"virtualmachine-uid":   "unknown",
-		"virtualmachine-os":    "unknown",
-		"storageclasses":       "unknown",
-		"qemu-version":         "unknown",
-		"libvirt-version":      "unknown",
-		"libvirt-uri":          "unknown",
-
-		"operation-result": event.Annotations["authorization.k8s.io/decision"],
-	}
-
-	vmop, err := getVMOPFromInformer(m.vmopInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	pod, err := getPodFromInformer(m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
-		return fmt.Errorf("fail to get vmop from informer: %w", err)
+		return fmt.Errorf("fail to get pod from informer: %w", err)
 	}
 
-	switch vmop.Spec.Type {
-	case v1alpha2.VMOPTypeStart:
-		response["name"] = "VM started"
-		response["level"] = "info"
-	case v1alpha2.VMOPTypeStop:
-		response["name"] = "VM stopped"
-		response["level"] = "warn"
-	case v1alpha2.VMOPTypeRestart:
-		response["name"] = "VM restarted"
-		response["level"] = "warn"
-	case v1alpha2.VMOPTypeMigrate:
-		response["name"] = "VM migrated"
-		response["level"] = "warn"
-	case v1alpha2.VMOPTypeEvict:
-		response["name"] = "VM evicted"
-		response["level"] = "warn"
+	terminatedStatuses := make([]string, 0, len(pod.Status.ContainerStatuses))
+	for _, status := range pod.Status.ContainerStatuses {
+		terminatedStatuses = append(terminatedStatuses, string(status.State.Terminated.Message))
 	}
 
-	vm, err := getVMFromInformer(m.vmInformer, vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
+	isControllerAction := event.User.Username == "system:serviceaccount:d8-virtualization:virtualization-controller"
+
+	if isControllerAction {
+		eventLog.Level = "warn"
+
+		if slices.Contains(terminatedStatuses, "SHUTDOWN") {
+			eventLog.Name = "VM stoped from OS"
+		}
+
+		if slices.Contains(terminatedStatuses, "RESET") {
+			eventLog.Name = "VM restarted from OS"
+		}
+	} else {
+		eventLog.Level = "critical"
+		eventLog.Name = "VM killed abnormal way"
+	}
+
+	vm, err := getVMFromInformer(m.vmInformer, pod.Namespace+"/"+pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"])
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
 
+	eventLog.VirtualmachineUID = string(vm.UID)
+	eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := fillVDInfo(m.vdInformer, response, vm); err != nil {
+		if err := fillVDInfo(m.vdInformer, &eventLog, vm); err != nil {
 			log.Error("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := fillNodeInfo(m.nodeInformer, response, vm); err != nil {
+		if err := fillNodeInfo(m.nodeInformer, &eventLog, vm); err != nil {
 			log.Error("fail to fill node info", log.Err(err))
 		}
 	}
 
-	response["virtualmachine-uid"] = string(vm.UID)
-	response["virtualmachine-os"] = vm.Status.GuestOSInfo.Name
-
-	logSlice := make([]any, 0, len(response))
-	for k, v := range response {
-		logSlice = append(logSlice, slog.String(k, v))
-	}
-	log.Info("VirtualMachine", logSlice...)
-
-	return nil
+	return eventLog.Log()
 }
