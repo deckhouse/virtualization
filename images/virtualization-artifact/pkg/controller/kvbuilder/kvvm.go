@@ -100,6 +100,17 @@ func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 	b.Resource.Spec.Template.ObjectMeta.SetAnnotations(anno)
 }
 
+func (b *KVVM) SetKVVMILabel(labelKey, labelValue string) {
+	labels := b.Resource.Spec.Template.ObjectMeta.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	labels[labelKey] = labelValue
+
+	b.Resource.Spec.Template.ObjectMeta.SetLabels(labels)
+}
+
 func (b *KVVM) SetCPUModel(class *virtv2.VirtualMachineClass) error {
 	if b.Resource.Spec.Template.Spec.Domain.CPU == nil {
 		b.Resource.Spec.Template.Spec.Domain.CPU = &virtv1.CPU{}

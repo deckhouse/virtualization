@@ -27,6 +27,7 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/deckhouse"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
@@ -239,6 +240,9 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetKVVMIAnnotation(ipam.AnnoIPAddressCNIRequest, ipAddress)
 	// Set live migration annotation.
 	kvvm.SetKVVMIAnnotation(virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, "true")
+
+	// Add inhibit node shutdown label.
+	kvvm.SetKVVMILabel(deckhouse.InhibitNodeShutdownLabel, "")
 
 	return nil
 }
