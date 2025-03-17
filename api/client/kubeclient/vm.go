@@ -136,20 +136,6 @@ func (v vm) Unfreeze(ctx context.Context, name string) error {
 	return v.restClient.Put().AbsPath(path).Do(ctx).Error()
 }
 
-func (v vm) Migrate(ctx context.Context, name string, opts v1alpha2.VirtualMachineMigrate) error {
-	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "migrate")
-
-	migrateOpts := virtv1.MigrateOptions{
-		DryRun: opts.DryRun,
-	}
-
-	body, err := json.Marshal(&migrateOpts)
-	if err != nil {
-		return err
-	}
-	return v.restClient.Put().AbsPath(path).Body(body).Do(ctx).Error()
-}
-
 func (v vm) AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error {
 	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "addvolume")
 	return v.restClient.

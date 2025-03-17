@@ -18,47 +18,28 @@ package vmop
 
 import (
 	"context"
-	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/validator"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewValidator(log *log.Logger) *Validator {
-	return &Validator{
-		log: log.With("controller", ControllerName).With("webhook", "validation"),
-	}
+func NewValidator(log *log.Logger) admission.CustomValidator {
+	return validator.NewValidator[*v1alpha2.VirtualMachineOperation](log.
+		With("controller", ControllerName).
+		With("webhook", "validation"),
+	).WithCreateValidators(&deprecateMigrateValidator{})
 }
 
-type Validator struct {
-	log *log.Logger
-}
+type deprecateMigrateValidator struct{}
 
-func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
-	vmop, ok := obj.(*v1alpha2.VirtualMachineOperation)
-	if !ok {
-		return nil, fmt.Errorf("expected a new VirtualMachineOperation but got a %T", obj)
-	}
-
+func (v *deprecateMigrateValidator) ValidateCreate(_ context.Context, vmop *v1alpha2.VirtualMachineOperation) (admission.Warnings, error) {
 	// TODO: Delete me after v0.15
 	if vmop.Spec.Type == v1alpha2.VMOPTypeMigrate {
 		return admission.Warnings{"The Migrate type is deprecated, consider using Evict operation"}, nil
 	}
 
 	return admission.Warnings{}, nil
-}
-
-func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
-	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
-	return nil, nil
-}
-
-func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admission.Warnings, error) {
-	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
-	v.log.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
-	return nil, nil
 }
