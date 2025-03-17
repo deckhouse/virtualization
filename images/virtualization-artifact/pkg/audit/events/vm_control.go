@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validators
+package events
 
 import (
 	"errors"
@@ -29,31 +29,30 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook/util"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type NewVMManageOptions struct {
+type NewVMControlOptions struct {
 	VMInformer   cache.Indexer
 	VDInformer   cache.Indexer
 	NodeInformer cache.Indexer
 }
 
-func NewVMManage(options NewVMManageOptions) *VMManage {
-	return &VMManage{
+func NewVMControl(options NewVMControlOptions) *VMControl {
+	return &VMControl{
 		vmInformer:   options.VMInformer,
 		nodeInformer: options.NodeInformer,
 		vdInformer:   options.VDInformer,
 	}
 }
 
-type VMManage struct {
+type VMControl struct {
 	vmInformer   cache.Indexer
 	vdInformer   cache.Indexer
 	nodeInformer cache.Indexer
 }
 
-func (m *VMManage) IsMatched(event *audit.Event) bool {
+func (m *VMControl) IsMatched(event *audit.Event) bool {
 	if event.ObjectRef.Resource != "virtualmachines" || event.Stage != audit.StageResponseComplete {
 		return false
 	}
@@ -63,7 +62,7 @@ func (m *VMManage) IsMatched(event *audit.Event) bool {
 		return true
 	}
 
-	uriWithoutQueryParams, err := util.RemoveAllQueryParams(event.RequestURI)
+	uriWithoutQueryParams, err := removeAllQueryParams(event.RequestURI)
 	if err != nil {
 		log.Error("failed to remove query params from URI", err.Error(), slog.String("uri", event.RequestURI))
 		return false
@@ -77,10 +76,10 @@ func (m *VMManage) IsMatched(event *audit.Event) bool {
 	return false
 }
 
-func (m *VMManage) Log(event *audit.Event) error {
+func (m *VMControl) Log(event *audit.Event) error {
 	response := map[string]string{
-		"type":           "Manage VM",
-		"level":          string(event.Level),
+		"type":           "Control VM",
+		"level":          "info",
 		"name":           "unknown",
 		"datetime":       event.RequestReceivedTimestamp.Format(time.RFC3339),
 		"uid":            string(event.AuditID),
@@ -93,6 +92,7 @@ func (m *VMManage) Log(event *audit.Event) error {
 		"storageclasses":       "unknown",
 		"qemu-version":         "unknown",
 		"libvirt-version":      "unknown",
+		"libvirt-uri":          "unknown",
 
 		"operation-result": event.Annotations["authorization.k8s.io/decision"],
 	}
@@ -127,7 +127,7 @@ func (m *VMManage) Log(event *audit.Event) error {
 	response["virtualmachine-uid"] = string(vm.UID)
 	response["virtualmachine-os"] = vm.Status.GuestOSInfo.Name
 
-	logSlice := []any{}
+	logSlice := make([]any, 0, len(response))
 	for k, v := range response {
 		logSlice = append(logSlice, slog.String(k, v))
 	}
@@ -136,7 +136,7 @@ func (m *VMManage) Log(event *audit.Event) error {
 	return nil
 }
 
-func (m *VMManage) getVMFromInformer(event *audit.Event) (*v1alpha2.VirtualMachine, error) {
+func (m *VMControl) getVMFromInformer(event *audit.Event) (*v1alpha2.VirtualMachine, error) {
 	vmObj, exist, err := m.vmInformer.GetByKey(event.ObjectRef.Namespace + "/" + event.ObjectRef.Name)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -153,7 +153,7 @@ func (m *VMManage) getVMFromInformer(event *audit.Event) (*v1alpha2.VirtualMachi
 	return vm, nil
 }
 
-func (m *VMManage) fillVDInfo(response map[string]string, vm *v1alpha2.VirtualMachine) error {
+func (m *VMControl) fillVDInfo(response map[string]string, vm *v1alpha2.VirtualMachine) error {
 	storageClasses := []string{}
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -184,7 +184,7 @@ func (m *VMManage) fillVDInfo(response map[string]string, vm *v1alpha2.VirtualMa
 	return nil
 }
 
-func (m *VMManage) fillNodeInfo(response map[string]string, vm *v1alpha2.VirtualMachine) error {
+func (m *VMControl) fillNodeInfo(response map[string]string, vm *v1alpha2.VirtualMachine) error {
 	nodeObj, exist, err := m.nodeInformer.GetByKey(vm.Status.Node)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)

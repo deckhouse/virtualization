@@ -25,9 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/informer"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/server"
-	"github.com/deckhouse/virtualization-controller/pkg/audit/webhook/validators"
 )
 
 const long = `
@@ -102,7 +102,17 @@ func run(c *cobra.Command, opts Options) error {
 
 	srv, err := server.NewServer(
 		":"+opts.Port,
-		validators.NewVMManage(validators.NewVMManageOptions{
+		events.NewVMManage(events.NewVMManageOptions{
+			VMInformer:   vmInformer.GetIndexer(),
+			NodeInformer: nodeInformer.GetIndexer(),
+			VDInformer:   vdInformer.GetIndexer(),
+		}),
+		events.NewVMControl(events.NewVMControlOptions{
+			VMInformer:   vmInformer.GetIndexer(),
+			NodeInformer: nodeInformer.GetIndexer(),
+			VDInformer:   vdInformer.GetIndexer(),
+		}),
+		events.NewVMConnect(events.NewVMConnectOptions{
 			VMInformer:   vmInformer.GetIndexer(),
 			NodeInformer: nodeInformer.GetIndexer(),
 			VDInformer:   vdInformer.GetIndexer(),
