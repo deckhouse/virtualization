@@ -55,15 +55,15 @@ func (m *VMManage) IsMatched(event *audit.Event) bool {
 		return false
 	}
 
-	uri := fmt.Sprintf("/apis/virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines/%s", event.ObjectRef.Namespace, event.ObjectRef.Name)
-	if (event.Verb == "update" || event.Verb == "patch" || event.Verb == "delete") && uri == event.RequestURI {
-		return true
-	}
-
 	uriWithoutQueryParams, err := removeAllQueryParams(event.RequestURI)
 	if err != nil {
 		log.Error("failed to remove query params from URI", err.Error(), slog.String("uri", event.RequestURI))
 		return false
+	}
+
+	updateURI := fmt.Sprintf("/apis/virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines/%s", event.ObjectRef.Namespace, event.ObjectRef.Name)
+	if (event.Verb == "update" || event.Verb == "patch" || event.Verb == "delete") && updateURI == uriWithoutQueryParams {
+		return true
 	}
 
 	createURI := "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines"
