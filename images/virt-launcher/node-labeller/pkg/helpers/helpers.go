@@ -145,28 +145,26 @@ func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, err
 
 	var xmlCPUs []string
 	var domainCaps libvirtxml.DomainCaps
-	var modeVendor string
-
-	// var tst CapsCPU
+	var hostVendor string
 
 	if err := domainCaps.Unmarshal(domCapsXML); err != nil {
 		return nil, err
 	}
 
 	for _, mode := range domainCaps.CPU.Modes {
-		if len(mode.Models) == 0 {
+		if mode.Name == "host-model" && mode.Supported == "yes" {
+			hostVendor = mode.Vendor // Get vendor from host-model mode [[struct definition]]
+			break
+		}
+	}
+
+	for _, mode := range domainCaps.CPU.Modes {
+		if mode.Supported != "yes" || mode.Vendor != hostVendor {
 			continue
 		}
 
 		for _, model := range mode.Models {
-			// for _, model := range mode.Models {
-			// Skip models with mismatched vendors
-			if mode.Vendor == "" {
-				modeVendor = "unknown"
-			} else {
-				modeVendor = mode.Vendor
-			}
-
+			// Build XML for each compatible model
 			customCPU := CustomCPU{
 				Mode: mode.Name,
 				Model: struct {
@@ -176,7 +174,7 @@ func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, err
 					Text:     model.Name,
 					Fallback: model.Fallback,
 				},
-				Vendor: modeVendor,
+				Vendor: mode.Vendor, // Use mode's vendor [[struct definition]]
 			}
 
 			// Add features from the mode
@@ -190,14 +188,57 @@ func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, err
 				})
 			}
 
-			xmlData, err := xml.MarshalIndent(customCPU, "", "  ")
-			if err != nil {
-				return nil, err
-			}
-
+			// Marshal and collect
+			xmlData, _ := xml.MarshalIndent(customCPU, "", "  ")
 			xmlCPUs = append(xmlCPUs, string(xmlData))
 		}
 	}
+
+	// for _, mode := range domainCaps.CPU.Modes {
+	// 	if len(mode.Models) == 0 {
+	// 		continue
+	// 	}
+
+	// 	for _, model := range mode.Models {
+	// 		// for _, model := range mode.Models {
+	// 		// Skip models with mismatched vendors
+	// 		if mode.Vendor == "" {
+	// 			modeVendor = "unknown"
+	// 		} else {
+	// 			modeVendor = mode.Vendor
+	// 		}
+
+	// 		customCPU := CustomCPU{
+	// 			Mode: mode.Name,
+	// 			Model: struct {
+	// 				Text     string `xml:",chardata"`
+	// 				Fallback string `xml:"fallback,attr,omitempty"`
+	// 			}{
+	// 				Text:     model.Name,
+	// 				Fallback: model.Fallback,
+	// 			},
+	// 			Vendor: modeVendor,
+	// 		}
+
+	// 		// Add features from the mode
+	// 		for _, feature := range mode.Features {
+	// 			customCPU.Features = append(customCPU.Features, struct {
+	// 				Policy string `xml:"policy,attr"`
+	// 				Name   string `xml:"name,attr"`
+	// 			}{
+	// 				Policy: feature.Policy,
+	// 				Name:   feature.Name,
+	// 			})
+	// 		}
+
+	// 		xmlData, err := xml.MarshalIndent(customCPU, "", "  ")
+	// 		if err != nil {
+	// 			return nil, err
+	// 		}
+
+	// 		xmlCPUs = append(xmlCPUs, string(xmlData))
+	// 	}
+	// }
 
 	// xmlCPUFeatures, err := xml.Marshal(domainCaps.CPU)
 	// xmlCPUFeatures, err := xml.Marshal(customCPU)

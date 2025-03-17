@@ -115,8 +115,8 @@ func main() {
 	}
 	logger.Info(fmt.Sprintf("Domcapabilities saved to %s", domCapsPath))
 
-	// cpuXML, err := helpers.GetCPUFeatureDomCaps(domCapsXML, logger)
-	cpuXML, err := helpers.GetCPUFeatureDomCaps2(domCapsXML, logger)
+	cpuXML, err := helpers.GetCPUFeatureDomCaps(domCapsXML, logger)
+	// cpuXML, err := helpers.GetCPUFeatureDomCaps2(domCapsXML, logger)
 	if err != nil {
 		logger.Error("Failed to retrieve dom caps", slog.String("error", err.Error()))
 	}
