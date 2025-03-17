@@ -35,8 +35,8 @@ type NewVMManageOptions struct {
 func NewVMManage(options NewVMManageOptions) *VMManage {
 	return &VMManage{
 		vmInformer:   options.VMInformer,
-		nodeInformer: options.NodeInformer,
 		vdInformer:   options.VDInformer,
+		nodeInformer: options.NodeInformer,
 	}
 }
 
@@ -47,7 +47,11 @@ type VMManage struct {
 }
 
 func (m *VMManage) IsMatched(event *audit.Event) bool {
-	if event.ObjectRef.Resource != "virtualmachines" || event.Stage != audit.StageResponseComplete {
+	if event.ObjectRef == nil || event.Stage != audit.StageResponseComplete {
+		return false
+	}
+
+	if event.ObjectRef.Resource != "virtualmachines" {
 		return false
 	}
 

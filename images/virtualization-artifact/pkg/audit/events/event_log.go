@@ -23,7 +23,6 @@ type EventLog struct {
 	StorageClasses     string `json:"storageclasses"`
 	QemuVersion        string `json:"qemu_version"`
 	LibvirtVersion     string `json:"libvirt_version"`
-	LibvirtUri         string `json:"libvirt_uri"`
 
 	OperationResult string `json:"operation_result"`
 }
@@ -44,7 +43,6 @@ func NewEventLog(event *audit.Event) EventLog {
 		StorageClasses:     "unknown",
 		QemuVersion:        "unknown",
 		LibvirtVersion:     "unknown",
-		LibvirtUri:         "unknown",
 
 		OperationResult: event.Annotations["authorization.k8s.io/decision"],
 	}
