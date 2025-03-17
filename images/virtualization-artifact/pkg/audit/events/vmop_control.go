@@ -33,8 +33,8 @@ type NewVMOPControlOptions struct {
 	NodeInformer cache.Indexer
 }
 
-func NewVMOPControl(options NewVMOPControlOptions) *VMControl {
-	return &VMControl{
+func NewVMOPControl(options NewVMOPControlOptions) *VMOPControl {
+	return &VMOPControl{
 		vmInformer:   options.VMInformer,
 		vdInformer:   options.VDInformer,
 		vmopInformer: options.VMOPInformer,
@@ -54,7 +54,7 @@ func (m *VMOPControl) IsMatched(event *audit.Event) bool {
 		return false
 	}
 
-	if event.ObjectRef.Resource == "virtualmachineoperations" && event.Verb == "create" {
+	if event.ObjectRef.Resource == "virtualmachineoperations" {
 		return true
 	}
 
@@ -97,13 +97,13 @@ func (m *VMOPControl) Log(event *audit.Event) error {
 	eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := fillVDInfo(m.vdInformer, &eventLog, vm); err != nil {
+		if err := eventLog.fillVDInfo(m.vdInformer, vm); err != nil {
 			log.Error("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := fillNodeInfo(m.nodeInformer, &eventLog, vm); err != nil {
+		if err := eventLog.fillNodeInfo(m.nodeInformer, vm); err != nil {
 			log.Error("fail to fill node info", log.Err(err))
 		}
 	}

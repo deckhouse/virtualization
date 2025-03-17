@@ -20,8 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"slices"
-	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
@@ -128,47 +126,4 @@ func getVMOPFromInformer(vmopInformer cache.Indexer, vmopName string) (*v1alpha2
 	}
 
 	return vmop, nil
-}
-
-func fillVDInfo(vdInformer cache.Indexer, response *EventLog, vm *v1alpha2.VirtualMachine) error {
-	storageClasses := []string{}
-
-	for _, bd := range vm.Spec.BlockDeviceRefs {
-		if bd.Kind != v1alpha2.VirtualDiskKind {
-			continue
-		}
-
-		vd, err := getVDFromInformer(vdInformer, vm.Namespace+"/"+bd.Name)
-		if err != nil {
-			return fmt.Errorf("fail to get virtual disk from informer: %w", err)
-		}
-
-		storageClasses = append(storageClasses, vd.Status.StorageClassName)
-	}
-
-	if len(storageClasses) != 0 {
-		response.StorageClasses = strings.Join(slices.Compact(storageClasses), ",")
-	}
-
-	return nil
-}
-
-func fillNodeInfo(nodeInformer cache.Indexer, response *EventLog, vm *v1alpha2.VirtualMachine) error {
-	node, err := getNodeFromInformer(nodeInformer, vm.Status.Node)
-	if err != nil {
-		return fmt.Errorf("fail to get node from informer: %w", err)
-	}
-
-	addresses := []string{}
-	for _, addr := range node.Status.Addresses {
-		if addr.Type != corev1.NodeHostName && addr.Address != "" {
-			addresses = append(addresses, addr.Address)
-		}
-	}
-
-	if len(addresses) != 0 {
-		response.NodeNetworkAddress = strings.Join(slices.Compact(addresses), ",")
-	}
-
-	return nil
 }
