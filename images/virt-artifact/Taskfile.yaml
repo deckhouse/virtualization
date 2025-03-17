@@ -30,6 +30,7 @@ tasks:
     cmds:
       - |
         PATH_KUBEVIRT=$(find . -type d -name __kubevirt_\* -depth 1)
+        echo "$PATH_KUBEVIRT"
         read -p "Delete these directories? [y/N] " answer
 
         if [[ "${answer}" != "${answer#[Yy]}" ]] ; then

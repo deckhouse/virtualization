@@ -123,22 +123,86 @@ func RunCommandWithError(cmd string, args []string) error {
 	return err
 }
 
-func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) (string, error) {
+func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, error) {
+	type CustomCPU struct {
+		XMLName xml.Name `xml:"cpu"`
+		Mode    string   `xml:"mode,attr"`
+		Model   struct {
+			Text     string `xml:",chardata"`
+			Fallback string `xml:"fallback,attr,omitempty"`
+		} `xml:"model"`
+		Vendor   string `xml:"vendor,omitempty"`
+		Features []struct {
+			Policy string `xml:"policy,attr"`
+			Name   string `xml:"name,attr"`
+		} `xml:"feature"`
+	}
+
+	var xmlCPUs []string
 	var domainCaps libvirtxml.DomainCaps
+	var modeVendor string
+
+	// var tst CapsCPU
 
 	if err := domainCaps.Unmarshal(domCapsXML); err != nil {
-		// logger.Error("Failed to parse domain capabilities", slog.String("error", err.Error()))
-		// os.Exit(1)
-		return "", err
+		return nil, err
 	}
 
-	xmlCPUFeatures, err := xml.Marshal(domainCaps.CPU)
-	if err != nil {
-		return "", err
+	for _, mode := range domainCaps.CPU.Modes {
+		if len(mode.Models) == 0 {
+			continue
+		}
+
+		for _, model := range mode.Models {
+			// for _, model := range mode.Models {
+			// Skip models with mismatched vendors
+			if mode.Vendor == "" {
+				modeVendor = "unknown"
+			} else {
+				modeVendor = mode.Vendor
+			}
+
+			customCPU := CustomCPU{
+				Mode: mode.Name,
+				Model: struct {
+					Text     string `xml:",chardata"`
+					Fallback string `xml:"fallback,attr,omitempty"`
+				}{
+					Text:     model.Name,
+					Fallback: model.Fallback,
+				},
+				Vendor: modeVendor,
+			}
+
+			// Add features from the mode
+			for _, feature := range mode.Features {
+				customCPU.Features = append(customCPU.Features, struct {
+					Policy string `xml:"policy,attr"`
+					Name   string `xml:"name,attr"`
+				}{
+					Policy: feature.Policy,
+					Name:   feature.Name,
+				})
+			}
+
+			xmlData, err := xml.MarshalIndent(customCPU, "", "  ")
+			if err != nil {
+				return nil, err
+			}
+
+			xmlCPUs = append(xmlCPUs, string(xmlData))
+		}
 	}
 
-	printDbg := fmt.Sprintf("XML:\n%s\n", string(xmlCPUFeatures))
+	// xmlCPUFeatures, err := xml.Marshal(domainCaps.CPU)
+	// xmlCPUFeatures, err := xml.Marshal(customCPU)
+	// if err != nil {
+	// 	return "", err
+	// }
+
+	printDbg := fmt.Sprintf("XML:\n%s\n", strings.Join(xmlCPUs, "\n"))
 	fmt.Print(printDbg)
 
-	return string(xmlCPUFeatures), nil
+	// return string(xmlCPUFeatures), nil
+	return xmlCPUs, nil
 }
