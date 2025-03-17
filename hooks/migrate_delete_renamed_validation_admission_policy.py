@@ -85,6 +85,7 @@ class MigrateDeleteRenamedVAPResources(Hook):
                         kind = s["filterResult"]["kind"]
                         print(f"Delete deprecated {kind} {name}.")
                         ctx.kubernetes.delete(kind=kind,
+                                          namespace='',
                                           name=name)
             if found_deprecated == 0:
                 print("No deprecated resources found, migration not required.")
