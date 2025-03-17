@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package validators
+package events
 
 import (
 	"errors"
@@ -32,13 +32,13 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type NewVMConnectWebhookOptions struct {
+type NewVMConnectOptions struct {
 	VMInformer   cache.Indexer
 	VDInformer   cache.Indexer
 	NodeInformer cache.Indexer
 }
 
-func NewVMConnectWebhook(options NewVMConnectWebhookOptions) *VMAccess {
+func NewVMConnect(options NewVMConnectOptions) *VMAccess {
 	return &VMAccess{
 		vmInformer:   options.VMInformer,
 		nodeInformer: options.NodeInformer,
