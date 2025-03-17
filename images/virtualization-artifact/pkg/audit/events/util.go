@@ -14,42 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package events
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
-
-	admissionv1 "k8s.io/api/admission/v1"
 )
 
-func GetAdmissionReview(r *http.Request) (*admissionv1.AdmissionReview, error) {
-	var body []byte
-	if r.Body != nil {
-		if data, err := io.ReadAll(r.Body); err == nil {
-			body = data
-		}
-	}
-
-	contentType := r.Header.Get("Content-Type")
-	if contentType != "application/json" {
-		return nil, fmt.Errorf("contentType=%s, expect application/json", contentType)
-	}
-
-	ar := &admissionv1.AdmissionReview{}
-	err := json.Unmarshal(body, ar)
-	return ar, err
-}
-
-// RemoveAllQueryParams removes all query parameters from the given URI.
+// removeAllQueryParams removes all query parameters from the given URI.
 //
 // @param uri The URI string from which query parameters need to be removed.
 //
 // @return A string representing the URI without query parameters, or an error if the URI parsing fails.
-func RemoveAllQueryParams(uri string) (string, error) {
+func removeAllQueryParams(uri string) (string, error) {
 	parsedURL, err := url.Parse(uri)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse URI: %w", err)
