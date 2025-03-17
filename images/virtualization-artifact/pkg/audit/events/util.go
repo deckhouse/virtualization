@@ -96,6 +96,23 @@ func getNodeFromInformer(nodeInformer cache.Indexer, nodeName string) (*corev1.N
 	return node, nil
 }
 
+func getPodFromInformer(podInformer cache.Indexer, podName string) (*corev1.Pod, error) {
+	podObj, exist, err := podInformer.GetByKey(podName)
+	if err != nil {
+		return nil, fmt.Errorf("fail to get pod from informer: %w", err)
+	}
+	if !exist {
+		return nil, errors.New("podObj not exist")
+	}
+
+	pod, ok := podObj.(*corev1.Pod)
+	if !ok {
+		return nil, errors.New("fail to convert podObj to pod")
+	}
+
+	return pod, nil
+}
+
 func getVMOPFromInformer(vmopInformer cache.Indexer, vmopName string) (*v1alpha2.VirtualMachineOperation, error) {
 	vmopObj, exist, err := vmopInformer.GetByKey(vmopName)
 	if err != nil {
@@ -113,7 +130,7 @@ func getVMOPFromInformer(vmopInformer cache.Indexer, vmopName string) (*v1alpha2
 	return vmop, nil
 }
 
-func fillVDInfo(vdInformer cache.Indexer, response map[string]string, vm *v1alpha2.VirtualMachine) error {
+func fillVDInfo(vdInformer cache.Indexer, response *EventLog, vm *v1alpha2.VirtualMachine) error {
 	storageClasses := []string{}
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -130,13 +147,13 @@ func fillVDInfo(vdInformer cache.Indexer, response map[string]string, vm *v1alph
 	}
 
 	if len(storageClasses) != 0 {
-		response["storageclasses"] = strings.Join(slices.Compact(storageClasses), ",")
+		response.StorageClasses = strings.Join(slices.Compact(storageClasses), ",")
 	}
 
 	return nil
 }
 
-func fillNodeInfo(nodeInformer cache.Indexer, response map[string]string, vm *v1alpha2.VirtualMachine) error {
+func fillNodeInfo(nodeInformer cache.Indexer, response *EventLog, vm *v1alpha2.VirtualMachine) error {
 	node, err := getNodeFromInformer(nodeInformer, vm.Status.Node)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)
@@ -150,7 +167,7 @@ func fillNodeInfo(nodeInformer cache.Indexer, response map[string]string, vm *v1
 	}
 
 	if len(addresses) != 0 {
-		response["node-network-address"] = strings.Join(slices.Compact(addresses), ",")
+		response.NodeNetworkAddress = strings.Join(slices.Compact(addresses), ",")
 	}
 
 	return nil

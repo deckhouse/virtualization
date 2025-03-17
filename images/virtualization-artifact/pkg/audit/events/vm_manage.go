@@ -19,7 +19,6 @@ package events
 import (
 	"fmt"
 	"log/slog"
-	"time"
 
 	"k8s.io/apiserver/pkg/apis/audit"
 	"k8s.io/client-go/tools/cache"
@@ -72,33 +71,17 @@ func (m *VMManage) IsMatched(event *audit.Event) bool {
 }
 
 func (m *VMManage) Log(event *audit.Event) error {
-	response := map[string]string{
-		"type":           "Manage VM",
-		"level":          string(event.Level),
-		"name":           "unknown",
-		"datetime":       event.RequestReceivedTimestamp.Format(time.RFC3339),
-		"uid":            string(event.AuditID),
-		"requestSubject": event.User.Username,
-
-		"action-type":          event.Verb,
-		"node-network-address": "unknown",
-		"virtualmachine-uid":   "unknown",
-		"virtualmachine-os":    "unknown",
-		"storageclasses":       "unknown",
-		"qemu-version":         "unknown",
-		"libvirt-version":      "unknown",
-
-		"operation-result": event.Annotations["authorization.k8s.io/decision"],
-	}
+	eventLog := NewEventLog(event)
+	eventLog.Type = "Manage VM"
 
 	switch event.Verb {
 	case "create":
-		response["name"] = "VM creation"
+		eventLog.Name = "VM creation"
 	case "update", "patch":
-		response["name"] = "VM update"
+		eventLog.Name = "VM update"
 	case "delete":
-		response["level"] = "warn"
-		response["name"] = "VM deletion"
+		eventLog.Level = "warn"
+		eventLog.Name = "VM deletion"
 	}
 
 	vm, err := getVMFromInformer(m.vmInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
@@ -106,26 +89,20 @@ func (m *VMManage) Log(event *audit.Event) error {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
 
+	eventLog.VirtualmachineUID = string(vm.UID)
+	eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := fillVDInfo(m.vdInformer, response, vm); err != nil {
+		if err := fillVDInfo(m.vdInformer, &eventLog, vm); err != nil {
 			log.Error("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := fillNodeInfo(m.nodeInformer, response, vm); err != nil {
+		if err := fillNodeInfo(m.nodeInformer, &eventLog, vm); err != nil {
 			log.Error("fail to fill node info", log.Err(err))
 		}
 	}
 
-	response["virtualmachine-uid"] = string(vm.UID)
-	response["virtualmachine-os"] = vm.Status.GuestOSInfo.Name
-
-	logSlice := []any{}
-	for k, v := range response {
-		logSlice = append(logSlice, slog.String(k, v))
-	}
-	log.Info("VirtualMachine", logSlice...)
-
-	return nil
+	return eventLog.Log()
 }

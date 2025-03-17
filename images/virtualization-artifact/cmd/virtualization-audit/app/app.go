@@ -96,10 +96,21 @@ func run(c *cobra.Command, opts Options) error {
 	vmopInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachineOperations().Informer()
 	go vmopInformer.Run(c.Context().Done())
 
+	// TODO: add indexer by d8-namespace
+	podInformer := coreSharedInformerFactory.Core().V1().Pods().Informer()
+	go podInformer.Run(c.Context().Done())
+
 	nodeInformer := coreSharedInformerFactory.Core().V1().Nodes().Informer()
 	go nodeInformer.Run(c.Context().Done())
 
-	if !cache.WaitForCacheSync(c.Context().Done(), nodeInformer.HasSynced, vmInformer.HasSynced, vdInformer.HasSynced) {
+	if !cache.WaitForCacheSync(
+		c.Context().Done(),
+		podInformer.HasSynced,
+		nodeInformer.HasSynced,
+		vmInformer.HasSynced,
+		vdInformer.HasSynced,
+		vmopInformer.HasSynced,
+	) {
 		return errors.New("failed to wait for caches to sync")
 	}
 

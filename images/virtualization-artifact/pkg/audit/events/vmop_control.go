@@ -23,58 +23,72 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type NewVMConnectOptions struct {
+type NewVMOPControlOptions struct {
 	VMInformer   cache.Indexer
 	VDInformer   cache.Indexer
+	VMOPInformer cache.Indexer
 	NodeInformer cache.Indexer
 }
 
-func NewVMConnect(options NewVMConnectOptions) *VMAccess {
-	return &VMAccess{
+func NewVMOPControl(options NewVMOPControlOptions) *VMControl {
+	return &VMControl{
 		vmInformer:   options.VMInformer,
 		nodeInformer: options.NodeInformer,
 		vdInformer:   options.VDInformer,
+		vmopInformer: options.VMOPInformer,
 	}
 }
 
-type VMAccess struct {
+type VMOPControl struct {
 	vmInformer   cache.Indexer
 	vdInformer   cache.Indexer
 	nodeInformer cache.Indexer
+	vmopInformer cache.Indexer
 }
 
-func (m *VMAccess) IsMatched(event *audit.Event) bool {
-	if event.Stage != audit.StageResponseComplete || event.ObjectRef == nil {
+func (m *VMOPControl) IsMatched(event *audit.Event) bool {
+	if event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if event.ObjectRef.Resource != "virtualmachines" || event.ObjectRef.APIGroup != "subresources.virtualization.deckhouse.io" {
-		return false
-	}
-
-	if event.ObjectRef.Subresource == "console" || event.ObjectRef.Subresource == "vnc" || event.ObjectRef.Subresource == "portforward" {
+	if event.ObjectRef.Resource == "virtualmachineoperations" && event.Verb == "create" {
 		return true
 	}
 
 	return false
 }
 
-func (m *VMAccess) Log(event *audit.Event) error {
+func (m *VMOPControl) Log(event *audit.Event) error {
 	eventLog := NewEventLog(event)
-	eventLog.Type = "Access to VM"
+	eventLog.Type = "Control VM"
 
-	switch event.ObjectRef.Subresource {
-	case "console":
-		eventLog.Name = "Access to VM via serial console"
-	case "vnc":
-		eventLog.Name = "Access to VM via VNC"
-	case "portforward":
-		eventLog.Name = "Access to VM via portforward"
+	vmop, err := getVMOPFromInformer(m.vmopInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	if err != nil {
+		return fmt.Errorf("fail to get vmop from informer: %w", err)
 	}
 
-	vm, err := getVMFromInformer(m.vmInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	switch vmop.Spec.Type {
+	case v1alpha2.VMOPTypeStart:
+		eventLog.Name = "VM started"
+		eventLog.Level = "info"
+	case v1alpha2.VMOPTypeStop:
+		eventLog.Name = "VM stopped"
+		eventLog.Level = "warn"
+	case v1alpha2.VMOPTypeRestart:
+		eventLog.Name = "VM restarted"
+		eventLog.Level = "warn"
+	case v1alpha2.VMOPTypeMigrate:
+		eventLog.Name = "VM migrated"
+		eventLog.Level = "warn"
+	case v1alpha2.VMOPTypeEvict:
+		eventLog.Name = "VM evicted"
+		eventLog.Level = "warn"
+	}
+
+	vm, err := getVMFromInformer(m.vmInformer, vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
