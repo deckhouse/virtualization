@@ -19,9 +19,15 @@ package events
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/tools/cache"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type EventLog struct {
@@ -71,6 +77,49 @@ func (e EventLog) Log() error {
 	}
 
 	fmt.Println(string(bytes))
+
+	return nil
+}
+
+func (e *EventLog) fillVDInfo(vdInformer cache.Indexer, vm *v1alpha2.VirtualMachine) error {
+	storageClasses := []string{}
+
+	for _, bd := range vm.Spec.BlockDeviceRefs {
+		if bd.Kind != v1alpha2.VirtualDiskKind {
+			continue
+		}
+
+		vd, err := getVDFromInformer(vdInformer, vm.Namespace+"/"+bd.Name)
+		if err != nil {
+			return fmt.Errorf("fail to get virtual disk from informer: %w", err)
+		}
+
+		storageClasses = append(storageClasses, vd.Status.StorageClassName)
+	}
+
+	if len(storageClasses) != 0 {
+		e.StorageClasses = strings.Join(slices.Compact(storageClasses), ",")
+	}
+
+	return nil
+}
+
+func (e *EventLog) fillNodeInfo(nodeInformer cache.Indexer, vm *v1alpha2.VirtualMachine) error {
+	node, err := getNodeFromInformer(nodeInformer, vm.Status.Node)
+	if err != nil {
+		return fmt.Errorf("fail to get node from informer: %w", err)
+	}
+
+	addresses := []string{}
+	for _, addr := range node.Status.Addresses {
+		if addr.Type != corev1.NodeHostName && addr.Address != "" {
+			addresses = append(addresses, addr.Address)
+		}
+	}
+
+	if len(addresses) != 0 {
+		e.NodeNetworkAddress = strings.Join(slices.Compact(addresses), ",")
+	}
 
 	return nil
 }
