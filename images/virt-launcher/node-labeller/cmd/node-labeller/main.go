@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	virtType    = "qemu"
 	outDir      = "/var/lib/kubevirt-node-labeller"
 	emulatorbin = "/usr/bin/qemu-system-x86_64"
 )
@@ -34,6 +33,8 @@ const (
 // domCaps libvirtxml.DomainCaps
 
 func main() {
+	virtType := "qemu"
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
@@ -48,6 +49,7 @@ func main() {
 
 	kvmMinor := helpers.GetKVMMinor()
 
+	logger.Info("Check and create if not exists /dev/kvm")
 	if _, err := os.Stat("/dev/kvm"); err != nil {
 		if os.IsNotExist(err) {
 			if err := helpers.CreateKVMDevice(kvmMinor); err != nil {
@@ -58,8 +60,11 @@ func main() {
 			logger.Error("Failed to check /dev/kvm device", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
+	} else {
+		virtType = "kvm"
 	}
 
+	logger.Info("Set permissions on /dev/kvm")
 	if err := helpers.SetPermissionsRW("/dev/kvm"); err != nil {
 		logger.Error("Failed to set permissions for /dev/kvm", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -110,7 +115,8 @@ func main() {
 	}
 	logger.Info(fmt.Sprintf("Domcapabilities saved to %s", domCapsPath))
 
-	cpuXML, err := helpers.GetCPUFeatureDomCaps(domCapsXML, logger)
+	// cpuXML, err := helpers.GetCPUFeatureDomCaps(domCapsXML, logger)
+	cpuXML, err := helpers.GetCPUFeatureDomCaps2(domCapsXML, logger)
 	if err != nil {
 		logger.Error("Failed to retrieve dom caps", slog.String("error", err.Error()))
 	}

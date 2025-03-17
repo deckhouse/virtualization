@@ -138,6 +138,11 @@ func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, err
 		} `xml:"feature"`
 	}
 
+	// type CustomCPU struct {
+	// 	XMLName xml.Name `xml:"cpu"`
+	// 	libvirtxml.DomainCapsCPUMode
+	// }
+
 	var xmlCPUs []string
 	var domainCaps libvirtxml.DomainCaps
 	var modeVendor string
@@ -205,4 +210,43 @@ func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, err
 
 	// return string(xmlCPUFeatures), nil
 	return xmlCPUs, nil
+}
+
+func GetCPUFeatureDomCaps2(domCapsXML string, logger *slog.Logger) ([]string, error) {
+	var domainCaps libvirtxml.DomainCaps
+	var some []string
+
+	type CustomCPU2 struct {
+		XMLName xml.Name `xml:"cpu"`
+		// libvirtxml.DomainCapsCPUMode
+		Mode libvirtxml.DomainCapsCPUMode `xml:"mode"`
+	}
+
+	// var Ccp CustomCPU2
+
+	if err := domainCaps.Unmarshal(domCapsXML); err != nil {
+		logger.Error("Failed unmarshar domCaps")
+		return nil, err
+	}
+
+	for _, mode := range domainCaps.CPU.Modes {
+
+		ccpa := CustomCPU2{
+			Mode: mode,
+		}
+
+		fmt.Println(ccpa.Mode.Name)
+
+		s, e := xml.Marshal(ccpa)
+		// s, e := xml.Marshal(mode)
+		if e != nil {
+			logger.Error("Failed marshar domCaps")
+			return nil, e
+		}
+		fmt.Println("--debug--", string(s), "--", "")
+		some = append(some, string(s))
+	}
+
+	fmt.Println("=====", some, "=====")
+	return some, nil
 }
