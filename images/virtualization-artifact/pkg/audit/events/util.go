@@ -23,9 +23,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // removeAllQueryParams removes all query parameters from the given URI.
