@@ -35,13 +35,15 @@ class MigrateDeleteRenamedVAPResources(Hook):
         self.managed_by_label_value = "virt-operator-internal-virtualization"
 
     def generate_config(self) -> dict:
+        kubernetesVersion = "1.30"
+
         return {
             "configVersion": "v1",
             "afterHelm": 5,
             "kubernetes": [
                 {
                     "name": self.POLICY_SNAPSHOT_NAME,
-                    "apiVersion": "admissionregistration.k8s.io/v1",
+                    "apiVersion": "admissionregistration.k8s.io/v1beta1",
                     "kind": "ValidatingAdmissionPolicy",
                     "nameSelector": {
                         "matchNames": [self.vapolicy_name]
@@ -55,7 +57,7 @@ class MigrateDeleteRenamedVAPResources(Hook):
                 },
                 {
                     "name": self.BINDING_SNAPSHOT_NAME,
-                    "apiVersion": "admissionregistration.k8s.io/v1",
+                    "apiVersion": "admissionregistration.k8s.io/v1beta1",
                     "kind": "ValidatingAdmissionPolicyBinding",
                     "nameSelector": {
                         "matchNames": [self.vapolicy_binding_name]
