@@ -25,11 +25,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type NewVMControlOptions struct {
 	VMInformer   cache.Indexer
 	VDInformer   cache.Indexer
+	VMOPInformer cache.Indexer
 	NodeInformer cache.Indexer
 }
 
@@ -38,6 +40,7 @@ func NewVMControl(options NewVMControlOptions) *VMControl {
 		vmInformer:   options.VMInformer,
 		nodeInformer: options.NodeInformer,
 		vdInformer:   options.VDInformer,
+		vmopInformer: options.VMOPInformer,
 	}
 }
 
@@ -45,6 +48,7 @@ type VMControl struct {
 	vmInformer   cache.Indexer
 	vdInformer   cache.Indexer
 	nodeInformer cache.Indexer
+	vmopInformer cache.Indexer
 }
 
 func (m *VMControl) IsMatched(event *audit.Event) bool {
@@ -52,19 +56,7 @@ func (m *VMControl) IsMatched(event *audit.Event) bool {
 		return false
 	}
 
-	uri := fmt.Sprintf("/apis/virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines/%s", event.ObjectRef.Namespace, event.ObjectRef.Name)
-	if (event.Verb == "update" || event.Verb == "patch" || event.Verb == "delete") && uri == event.RequestURI {
-		return true
-	}
-
-	uriWithoutQueryParams, err := removeAllQueryParams(event.RequestURI)
-	if err != nil {
-		log.Error("failed to remove query params from URI", err.Error(), slog.String("uri", event.RequestURI))
-		return false
-	}
-
-	createURI := "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines"
-	if event.Verb == "create" && createURI == uriWithoutQueryParams {
+	if event.ObjectRef.Resource == "virtualmachineoperations" {
 		return true
 	}
 
@@ -92,17 +84,30 @@ func (m *VMControl) Log(event *audit.Event) error {
 		"operation-result": event.Annotations["authorization.k8s.io/decision"],
 	}
 
-	switch event.Verb {
-	case "create":
-		response["name"] = "VM creation"
-	case "update", "patch":
-		response["name"] = "VM update"
-	case "delete":
-		response["level"] = "warn"
-		response["name"] = "VM deletion"
+	vmop, err := getVMOPFromInformer(m.vmopInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	if err != nil {
+		return fmt.Errorf("fail to get vmop from informer: %w", err)
 	}
 
-	vm, err := getVMFromInformer(m.vmInformer, event)
+	switch vmop.Spec.Type {
+	case v1alpha2.VMOPTypeStart:
+		response["name"] = "VM started"
+		response["level"] = "info"
+	case v1alpha2.VMOPTypeStop:
+		response["name"] = "VM stopped"
+		response["level"] = "warn"
+	case v1alpha2.VMOPTypeRestart:
+		response["name"] = "VM restarted"
+		response["level"] = "warn"
+	case v1alpha2.VMOPTypeMigrate:
+		response["name"] = "VM migrated"
+		response["level"] = "warn"
+	case v1alpha2.VMOPTypeEvict:
+		response["name"] = "VM evicted"
+		response["level"] = "warn"
+	}
+
+	vm, err := getVMFromInformer(m.vmInformer, vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
