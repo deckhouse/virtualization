@@ -52,7 +52,7 @@ type VMControl struct {
 }
 
 func (m *VMControl) IsMatched(event *audit.Event) bool {
-	if event.ObjectRef.Resource != "virtualmachines" || event.Stage != audit.StageResponseComplete {
+	if event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
