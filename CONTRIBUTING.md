@@ -25,7 +25,7 @@ The first thing we recommend is to check the existing [issues](https://github.co
 4. Create branch following the [branch name convention](#branch-name):
 
     ```shell
-    git branch -b feat/core/add-new-feature
+    git checkout -b feat/core/add-new-feature
     ```
 
 5. Make changes.
