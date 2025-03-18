@@ -238,7 +238,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 				},
 				AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
 					{
-						Name: namespacedName.Name,
+						Name:    namespacedName.Name,
+						Mounted: true,
 					},
 				},
 			},
@@ -778,7 +779,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 					},
 					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
 						{
-							Name: "a-vm",
+							Name:    "a-vm",
+							Mounted: true,
 						},
 					},
 				},
@@ -888,7 +890,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 					},
 					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
 						{
-							Name: "b-vm",
+							Name:    "b-vm",
+							Mounted: true,
 						},
 					},
 				},
@@ -918,7 +921,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 					},
 					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
 						{
-							Name: "a-vm",
+							Name:    "a-vm",
+							Mounted: true,
 						},
 					},
 				},
@@ -990,7 +994,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 					},
 					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
 						{
-							Name: "a-vm",
+							Name:    "a-vm",
+							Mounted: true,
 						},
 					},
 				},
@@ -1062,7 +1067,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 					},
 					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
 						{
-							Name: "a-vm",
+							Name:    "a-vm",
+							Mounted: true,
 						},
 					},
 				},
