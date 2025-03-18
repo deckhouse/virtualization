@@ -125,6 +125,7 @@ shell:
     git curl \
     bash-completion \
     clang \
+    ca-certificates \
     bc \
     dosfstools \
     dpkg \

@@ -471,17 +471,17 @@ shell:
                       zlib1g-dev \
                       zstd
         
-        eatmydata apt-get autoremove -y
-        eatmydata apt-get autoclean -y
-        sed -Ei 's,^# (en_US\.UTF-8 .*)$,\1,' /etc/locale.gen 
-        
-        dpkg-reconfigure locales
-        rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED 
-        
-        mkdir -p /usr/libexec/ccache-wrappers
-        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
-        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
-        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+    eatmydata apt-get autoremove -y
+    eatmydata apt-get autoclean -y
+    sed -Ei 's,^# (en_US\.UTF-8 .*)$,\1,' /etc/locale.gen 
+    
+    dpkg-reconfigure locales
+    rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED 
+    
+    mkdir -p /usr/libexec/ccache-wrappers
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
+    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
     
     echo "Some extra pkg"
     DEBIAN_FRONTEND=noninteractive eatmydata \
