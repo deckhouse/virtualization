@@ -48,7 +48,6 @@ type VMControl struct {
 	vmInformer   cache.Indexer
 	vdInformer   cache.Indexer
 	nodeInformer cache.Indexer
-	vmopInformer cache.Indexer
 }
 
 func (m *VMControl) IsMatched(event *audit.Event) bool {
