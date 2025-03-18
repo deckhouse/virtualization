@@ -3,7 +3,7 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
 
-image: {{ $.ImageName }}
+image: {{ $.ImageName }}-alt
 final: false
 fromImage: base-alt-p11
 git:
@@ -183,6 +183,192 @@ shell:
       -Dlibiscsi=disabled
 
       ninja -C build -j$(nproc)
+
+  setup:
+  - |
+    /install-libvirt.sh --version-num "{{ $version }}" \
+                        -s /{{ $gitRepoName }}-{{ $version }} \
+                        -d /BINS \
+                        -b build
+---
+{{- $gitRepoName := "libvirt" }}
+{{- $version := get $.Version $gitRepoName }}
+{{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
+
+image: {{ $.ImageName }}
+final: false
+from: {{ $.Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+git:
+- add: /images/{{ $.ImageName }}/
+  to: /
+  includePaths:
+  - install-libvirt.sh
+  - patches
+  excludePaths:
+    - patches/README.md
+  stageDependencies:
+    install:
+      - '**/*'
+    setup:
+      - install-libvirt.sh
+shell:
+  beforeInstall:
+  - |
+    apt-get update && \
+    apt-get install -y eatmydata && \
+    eatmydata apt-get dist-upgrade -y && \
+    eatmydata apt-get install --no-install-recommends -y \
+                      augeas-lenses \
+                      augeas-tools \
+                      bash-completion \
+                      black \
+                      ca-certificates \
+                      ccache \
+                      clang \
+                      codespell \
+                      cpp \
+                      diffutils \
+                      dwarves \
+                      ebtables \
+                      flake8 \
+                      gcc \
+                      gettext \
+                      git \
+                      grep \
+                      iproute2 \
+                      iptables \
+                      kmod \
+                      libacl1-dev \
+                      libapparmor-dev \
+                      libattr1-dev \
+                      libaudit-dev \
+                      libblkid-dev \
+                      libc6-dev \
+                      libcap-ng-dev \
+                      libclang-rt-dev \
+                      libcurl4-gnutls-dev \
+                      libdevmapper-dev \
+                      libfuse-dev \
+                      libglib2.0-dev \
+                      libglusterfs-dev \
+                      libgnutls28-dev \
+                      libiscsi-dev \
+                      libjson-c-dev \
+                      libnbd-dev \
+                      libnl-3-dev \
+                      libnl-route-3-dev \
+                      libnuma-dev \
+                      libparted-dev \
+                      libpcap0.8-dev \
+                      libpciaccess-dev \
+                      librbd-dev \
+                      libreadline-dev \
+                      libsanlock-dev \
+                      libsasl2-dev \
+                      libselinux1-dev \
+                      libssh-dev \
+                      libssh2-1-dev \
+                      libtirpc-dev \
+                      libudev-dev \
+                      libxen-dev \
+                      libxml2-dev \
+                      libxml2-utils \
+                      locales \
+                      lvm2 \
+                      make \
+                      meson \
+                      nfs-common \
+                      ninja-build \
+                      numad \
+                      open-iscsi \
+                      perl-base \
+                      pkgconf \
+                      polkitd \
+                      python3 \
+                      python3-docutils \
+                      python3-pytest \
+                      qemu-utils \
+                      sed \
+                      systemtap-sdt-dev \
+                      wireshark-dev \
+                      xsltproc && \
+        eatmydata apt-get autoremove -y && \
+        eatmydata apt-get autoclean -y && \
+        sed -Ei 's,^# (en_US\.UTF-8 .*)$,\1,' /etc/locale.gen && \
+        dpkg-reconfigure locales && \
+        rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED && \
+        dpkg-query --showformat '${Package}_${Version}_${Architecture}\n' --show > /packages.txt && \
+        mkdir -p /usr/libexec/ccache-wrappers && \
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc && \
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang && \
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+  install:
+    - |
+      export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
+      export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
+      export CCACHE_BASEDIR="$(pwd)"
+      export PATH="$CCACHE_WRAPPERSDIR:$PATH"
+      export MAKE="/usr/bin/make"
+      export NINJA="/usr/bin/ninja"
+      export PYTHON="/usr/bin/python3"
+
+      git clone --depth=1 --branch v{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
+
+      cd {{ $gitRepoName }}-{{ $version }}
+
+
+      for p in /patches/*.patch ; do
+        echo -n "Apply ${p} ... "
+        git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+      done
+
+      CFLAGS="-Wframe-larger-than=262144" meson setup build \
+        -Dinit_script=systemd \
+        -Dsystem=true \
+        -Dremote_default_mode=direct \
+        -Dpciaccess=enabled \
+        -Dsasl=enabled \
+        -Dpolkit=enabled \
+        -Dlibssh=enabled \
+        -Dlibssh2=enabled \
+        -Dnumactl=enabled \
+        -Dcapng=enabled \
+        -Dudev=enabled \
+        -Ddriver_network=enabled \
+        -Ddriver_interface=enabled \
+        -Ddriver_libvirtd=enabled \
+        -Ddriver_qemu=enabled \
+        -Ddriver_remote=enabled \
+        -Dselinux=enabled \
+        -Dselinux_mount=enabled \
+        -Ddriver_esx=disabled -Dcurl=disabled \
+        -Dfirewalld=disabled \
+        -Dfirewalld_zone=disabled \
+        -Ddocs=disabled \
+        -Ddriver_ch=disabled \
+        -Ddriver_lxc=disabled -Dlogin_shell=disabled \
+        -Ddriver_openvz=disabled \
+        -Ddriver_test=disabled \
+        -Ddriver_vbox=disabled \
+        -Ddriver_vmware=disabled \
+        -Ddriver_hyperv=disabled -Dopenwsman=disabled \
+        -Ddriver_vz=disabled \
+        -Ddriver_bhyve=disabled \
+        -Dvbox_xpcomc_dir=disabled \
+        -Dwireshark_dissector=disabled \
+        -Dwireshark_plugindir=disabled \
+        -Dstorage_gluster=disabled -Dglusterfs=disabled \
+        -Dstorage_fs=disabled \
+        -Dstorage_lvm=disabled \
+        -Dstorage_zfs=disabled \
+        -Dstorage_vstorage=disabled \
+        -Dstorage_rbd=disabled \
+        -Dstorage_mpath=disabled \
+        -Dstorage_iscsi=disabled \
+        -Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
+        -Dlibiscsi=disabled
+
+        ninja -C build -j$(nproc)
 
   setup:
   - |
