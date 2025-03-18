@@ -389,6 +389,7 @@ shell:
                       libffi-dev \
                       libfuse3-dev \
                       libgbm-dev \
+                      libglm-dev \
                       libgcrypt20-dev \
                       libglib2.0-dev \
                       libglusterfs-dev \
@@ -420,6 +421,7 @@ shell:
                       libseccomp-dev \
                       libselinux1-dev \
                       libslirp-dev \
+                      libstb-dev \
                       libsnappy-dev \
                       libsndio-dev \
                       libspice-protocol-dev \
@@ -434,6 +436,8 @@ shell:
                       libusbredirhost-dev \
                       libvdeplug-dev \
                       libvirglrenderer-dev \
+                      libvulkan-dev \
+                      vulkan-validationlayers-dev \
                       libvte-2.91-dev \
                       libxdp-dev \
                       libxen-dev \
@@ -473,7 +477,15 @@ shell:
                       xorriso \
                       zlib1g-dev \
                       zstd
-        
+    
+    # Some qemu functional need packages from unstable repo
+
+    echo "deb https://deb.debian.org/debian/ unstable main contrib non-free" > /etc/apt/sources.list.d/debian_sid.list
+    apt-get update
+    apt-get install -y --no-install-recommends -y libblkio-dev libdw-dev
+    rm -f /etc/apt/sources.list.d/debian_sid.list
+    apt-get update
+
     eatmydata apt-get autoremove -y
     eatmydata apt-get autoclean -y
     sed -Ei 's,^# (en_US\.UTF-8 .*)$,\1,' /etc/locale.gen 
