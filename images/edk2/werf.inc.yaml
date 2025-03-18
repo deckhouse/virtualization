@@ -3,7 +3,7 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := cat $.SOURCE_REPO "/tianocore/edk2.git" | nospace }}
 
-image: {{ $.ImageName }}
+image: {{ $.ImageName }}-alt
 final: false
 fromImage: base-alt-p11
 git:
@@ -80,3 +80,91 @@ shell:
   - |
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
 
+---
+{{- $gitRepoName := "edk2" }}
+{{- $version := get $.Version $gitRepoName }}
+{{- $gitRepoUrl := cat $.SOURCE_REPO "/tianocore/edk2.git" | nospace }}
+
+image: {{ $.ImageName }}
+final: false
+from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+git:
+- add: /images/{{ $.ImageName }}
+  to: /
+  includePaths:
+  - build.sh
+  stageDependencies:
+    setup:
+      - build.sh
+- add: /images/{{ $.ImageName }}/logo
+  to: /
+  includePaths:
+  - Logo.bmp
+  stageDependencies:
+    setup:
+      - '**/*'
+- add: /images/{{ $.ImageName }}/json
+  to: /FIRMWARE
+  includePaths:
+  - '*.json'
+  stageDependencies:
+    setup:
+      - '*.json'
+- add: /images/{{ $.ImageName }}/uefi-revocation-list
+  to: /FIRMWARE
+  includePaths:
+  - '*.bin'
+  stageDependencies:
+    setup:
+      - '*.bin'
+shell:
+  beforeInstall:
+  - | 
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update && apt-get install -y --no-install-recommends \
+    git curl \
+    bash-completion \
+    clang \
+    bc \
+    dosfstools \
+    dpkg \
+    gcc-multilib \
+    iasl \
+    mtools \
+    nasm \
+    openssl \
+    python3 \
+    python3-distutils \
+    python3-pexpect \
+    qemu-utils \
+    qemu-system-arm \
+    qemu-system-x86 \
+    uuid-dev \
+    sbsigntool \
+    shim-signed \
+    genisoimage \
+    xorriso
+
+    # gcc-aarch64-linux-gnu \
+    # gcc-arm-linux-gnueabi \
+
+  install:
+  - |
+    git clone --depth=1 --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
+    
+    git clone {{ $.SOURCE_REPO }}/tianocore/edk2-platforms.git
+
+    cd {{ $gitRepoName }}-{{ $version }}
+    git submodule update --init --recursive
+
+    # Set env edk
+    export EDK_TOOLS_PATH=$(pwd)/BaseTools
+    export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
+
+    echo "Building BaseTools..."
+    ln /usr/bin/python3 /usr/bin/python
+    make -C BaseTools -j$(nproc) 2>&1 > /dev/null
+
+  setup:
+  - |
+    /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
