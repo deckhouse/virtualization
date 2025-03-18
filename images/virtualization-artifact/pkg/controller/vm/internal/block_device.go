@@ -575,7 +575,7 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 }
 
 // countReadyBlockDevices check if all attached images and disks are ready to use by the VM.
-func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState) (int, bool, []string) {
+func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState) (int, []string) {
 	if vm == nil {
 		return 0, nil
 	}
