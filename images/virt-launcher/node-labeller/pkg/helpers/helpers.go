@@ -56,7 +56,7 @@ func GetMachineType(arch string) string {
 	case "x86_64":
 		return "q35"
 	default:
-		return "" // Unsupported architecture, exit gracefully
+		return ""
 	}
 }
 
@@ -138,11 +138,6 @@ func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, err
 		} `xml:"feature"`
 	}
 
-	// type CustomCPU struct {
-	// 	XMLName xml.Name `xml:"cpu"`
-	// 	libvirtxml.DomainCapsCPUMode
-	// }
-
 	var xmlCPUs []string
 	var domainCaps libvirtxml.DomainCaps
 	var hostVendor string
@@ -153,7 +148,7 @@ func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, err
 
 	for _, mode := range domainCaps.CPU.Modes {
 		if mode.Name == "host-model" && mode.Supported == "yes" {
-			hostVendor = mode.Vendor // Get vendor from host-model mode [[struct definition]]
+			hostVendor = mode.Vendor
 			break
 		}
 	}
@@ -188,106 +183,13 @@ func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, err
 				})
 			}
 
-			// Marshal and collect
 			xmlData, _ := xml.MarshalIndent(customCPU, "", "  ")
 			xmlCPUs = append(xmlCPUs, string(xmlData))
 		}
 	}
 
-	// for _, mode := range domainCaps.CPU.Modes {
-	// 	if len(mode.Models) == 0 {
-	// 		continue
-	// 	}
-
-	// 	for _, model := range mode.Models {
-	// 		// for _, model := range mode.Models {
-	// 		// Skip models with mismatched vendors
-	// 		if mode.Vendor == "" {
-	// 			modeVendor = "unknown"
-	// 		} else {
-	// 			modeVendor = mode.Vendor
-	// 		}
-
-	// 		customCPU := CustomCPU{
-	// 			Mode: mode.Name,
-	// 			Model: struct {
-	// 				Text     string `xml:",chardata"`
-	// 				Fallback string `xml:"fallback,attr,omitempty"`
-	// 			}{
-	// 				Text:     model.Name,
-	// 				Fallback: model.Fallback,
-	// 			},
-	// 			Vendor: modeVendor,
-	// 		}
-
-	// 		// Add features from the mode
-	// 		for _, feature := range mode.Features {
-	// 			customCPU.Features = append(customCPU.Features, struct {
-	// 				Policy string `xml:"policy,attr"`
-	// 				Name   string `xml:"name,attr"`
-	// 			}{
-	// 				Policy: feature.Policy,
-	// 				Name:   feature.Name,
-	// 			})
-	// 		}
-
-	// 		xmlData, err := xml.MarshalIndent(customCPU, "", "  ")
-	// 		if err != nil {
-	// 			return nil, err
-	// 		}
-
-	// 		xmlCPUs = append(xmlCPUs, string(xmlData))
-	// 	}
-	// }
-
-	// xmlCPUFeatures, err := xml.Marshal(domainCaps.CPU)
-	// xmlCPUFeatures, err := xml.Marshal(customCPU)
-	// if err != nil {
-	// 	return "", err
-	// }
-
 	printDbg := fmt.Sprintf("XML:\n%s\n", strings.Join(xmlCPUs, "\n"))
 	fmt.Print(printDbg)
 
-	// return string(xmlCPUFeatures), nil
 	return xmlCPUs, nil
-}
-
-func GetCPUFeatureDomCaps2(domCapsXML string, logger *slog.Logger) ([]string, error) {
-	var domainCaps libvirtxml.DomainCaps
-	var some []string
-
-	type CustomCPU2 struct {
-		XMLName xml.Name `xml:"cpu"`
-		// libvirtxml.DomainCapsCPUMode
-		Mode libvirtxml.DomainCapsCPUMode `xml:"mode"`
-	}
-
-	// var Ccp CustomCPU2
-
-	if err := domainCaps.Unmarshal(domCapsXML); err != nil {
-		logger.Error("Failed unmarshar domCaps")
-		return nil, err
-	}
-
-	for _, mode := range domainCaps.CPU.Modes {
-
-		ccpa := CustomCPU2{
-			Mode: mode,
-		}
-
-		fmt.Println(ccpa.Mode.Name)
-
-		s, e := xml.Marshal(ccpa)
-		// s, e := xml.Marshal(mode)
-		if e != nil {
-			logger.Error("Failed marshar domCaps")
-			return nil, e
-		}
-		fmt.Println("--debug--", string(s), "--", "")
-		some = append(some, string(s))
-	}
-
-	fmt.Println("=====", some, "=====")
-	return some, nil
 }
