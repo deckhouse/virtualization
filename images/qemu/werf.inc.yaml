@@ -338,10 +338,10 @@ git:
 shell:
   beforeInstall:
   - |
-    export DEBIAN_FRONTEND=noninteractive && \
-    apt-get update && \
-    apt-get install -y eatmydata && \
-    eatmydata apt-get dist-upgrade -y && \
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y eatmydata
+    eatmydata apt-get dist-upgrade -y
     eatmydata apt-get install --no-install-recommends -y \
                       bash \
                       bc \
@@ -352,6 +352,7 @@ shell:
                       ca-certificates \
                       ccache \
                       clang \
+                      dmidecode \
                       dbus \
                       debianutils \
                       diffutils \
@@ -367,6 +368,7 @@ shell:
                       libasan6 \
                       libasound2-dev \
                       libattr1-dev \
+                      libblkid-dev \
                       libbpf-dev \
                       libbrlapi-dev \
                       libbz2-dev \
@@ -443,6 +445,7 @@ shell:
                       nettle-dev \
                       ninja-build \
                       openssh-client \
+                      pkg-config \
                       pkgconf \
                       python3 \
                       python3-numpy \
@@ -466,16 +469,18 @@ shell:
                       vulkan-tools \
                       xorriso \
                       zlib1g-dev \
-                      zstd && \
-        eatmydata apt-get autoremove -y && \
-        eatmydata apt-get autoclean -y && \
-        sed -Ei 's,^# (en_US\.UTF-8 .*)$,\1,' /etc/locale.gen && \
-        dpkg-reconfigure locales && \
-        rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED && \
-        dpkg-query --showformat '${Package}_${Version}_${Architecture}\n' --show > /packages.txt && \
-        mkdir -p /usr/libexec/ccache-wrappers && \
-        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc && \
-        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang && \
+                      zstd
+        
+        eatmydata apt-get autoremove -y
+        eatmydata apt-get autoclean -y
+        sed -Ei 's,^# (en_US\.UTF-8 .*)$,\1,' /etc/locale.gen 
+        
+        dpkg-reconfigure locales
+        rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED 
+        
+        mkdir -p /usr/libexec/ccache-wrappers
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
+        ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
         ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
     
     echo "Some extra pkg"
