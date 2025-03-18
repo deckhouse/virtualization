@@ -17,6 +17,7 @@ limitations under the License.
 package events
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"k8s.io/apiserver/pkg/apis/audit"
@@ -61,11 +62,26 @@ func (m *VMOPControl) IsMatched(event *audit.Event) bool {
 	return false
 }
 
+type vmopResponseObject struct {
+	Metadata vmopResponseObjectMetadata `json:"metadata"`
+}
+
+type vmopResponseObjectMetadata struct {
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+}
+
 func (m *VMOPControl) Log(event *audit.Event) error {
 	eventLog := NewEventLog(event)
 	eventLog.Type = "Control VM"
 
-	vmop, err := getVMOPFromInformer(m.vmopInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	var response vmopResponseObject
+	err := json.Unmarshal(event.ResponseObject.Raw, &response)
+	if err != nil {
+		return fmt.Errorf("fail to unmarshal event ResponseObject: %w", err)
+	}
+
+	vmop, err := getVMOPFromInformer(m.vmopInformer, event.ObjectRef.Namespace+"/"+response.Metadata.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get vmop from informer: %w", err)
 	}
