@@ -242,7 +242,7 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, cvi *virtv2.Cluster
 	}
 
 	inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-	if inUseCondition.Status != metav1.ConditionTrue || inUseCondition.ObservedGeneration != vd.Generation {
+	if inUseCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(inUseCondition, vd) {
 		return NewVirtualDiskNotReadyForUseError(vd.Name)
 	}
 
