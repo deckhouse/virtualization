@@ -24,6 +24,7 @@
   "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
+  "id": 47,
   "links": [],
   "panels": [
     {
@@ -1473,7 +1474,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -1609,7 +1611,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               },
@@ -2316,7 +2319,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2389,7 +2393,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 28
+            "y": 24
           },
           "id": 75,
           "options": {
@@ -2486,7 +2490,7 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 30,
+                "fillOpacity": 0,
                 "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
@@ -2516,7 +2520,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2567,7 +2572,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 28
+            "y": 24
           },
           "id": 42,
           "options": {
@@ -2669,7 +2674,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   }
                 ]
               }
@@ -2680,7 +2686,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 36
+            "y": 32
           },
           "id": 31,
           "options": {
@@ -2780,7 +2786,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2796,7 +2803,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 36
+            "y": 32
           },
           "id": 32,
           "options": {
@@ -2910,7 +2917,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2965,7 +2973,7 @@
             "h": 14,
             "w": 12,
             "x": 0,
-            "y": 29
+            "y": 25
           },
           "id": 44,
           "maxPerRow": 2,
@@ -2995,13 +3003,17 @@
                 "type": "prometheus",
                 "uid": "${ds_prometheus}"
               },
-              "editorMode": "code",
+              "disableTextWrap": false,
+              "editorMode": "builder",
               "exemplar": false,
-              "expr": "sum by (mount_point) (\n        d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\", mount_point=\"$mount_point\"}\n)\n",
+              "expr": "sum by(mount_point) (d8_virtualization_virtualmachine_filesystem_capacity_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\", mount_point=~\"$mount_point\"})",
+              "fullMetaSearch": false,
+              "includeNullMetadata": true,
               "instant": false,
               "legendFormat": "Capacity",
               "range": true,
-              "refId": "A"
+              "refId": "A",
+              "useBackend": false
             },
             {
               "datasource": {
@@ -3010,7 +3022,7 @@
               },
               "editorMode": "code",
               "exemplar": false,
-              "expr": "sum by (mount_point) (d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\", mount_point=\"$mount_point\"})",
+              "expr": "sum by (mount_point) (d8_virtualization_virtualmachine_filesystem_used_bytes{namespace=\"$namespace\", name=\"$name\", type!=\"cloudinit\", mount_point=~\"$mount_point\"})",
               "hide": false,
               "instant": false,
               "legendFormat": "Used",
@@ -4285,8 +4297,8 @@
       {
         "current": {
           "selected": false,
-          "text": "demo-app",
-          "value": "demo-app"
+          "text": "default",
+          "value": "default"
         },
         "datasource": {
           "type": "prometheus",
@@ -4313,8 +4325,8 @@
       {
         "current": {
           "selected": false,
-          "text": "backend-a",
-          "value": "backend-a"
+          "text": "default",
+          "value": "default"
         },
         "datasource": {
           "type": "prometheus",
@@ -4402,7 +4414,7 @@
   "timepicker": {},
   "timezone": "browser",
   "title": "Namespace / Virtual Machine",
-  "uid": "bdw6dw2izvpxcx",
+  "uid": "bdw6dw2izvpxcb",
   "version": 1,
   "weekStart": ""
 }
