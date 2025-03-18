@@ -121,7 +121,10 @@ shell:
   beforeInstall:
   - | 
     export DEBIAN_FRONTEND=noninteractive
-    apt-get update && apt-get install -y --no-install-recommends \
+    apt-get update
+    apt-get install -y eatmydata
+    eatmydata apt-get dist-upgrade -y
+    eatmydata apt-get install --no-install-recommends -y \
     git curl \
     bash-completion \
     clang \
@@ -132,6 +135,7 @@ shell:
     gcc-multilib \
     iasl \
     mtools \
+    make \
     nasm \
     openssl \
     python3 \
