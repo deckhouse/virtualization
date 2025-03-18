@@ -62,19 +62,19 @@ jobs:
         uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Login to DEV_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v1.2
+      - uses: deckhouse/modules-actions/build@v2
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
@@ -105,19 +105,19 @@ jobs:
         uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Login to DEV_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v1.2
+      - uses: deckhouse/modules-actions/build@v2
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
@@ -149,19 +149,19 @@ jobs:
         uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Login to DEV_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v1.2
+      - uses: deckhouse/modules-actions/build@v2
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
@@ -193,19 +193,19 @@ jobs:
         uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Login to DEV_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v1.2
+      - uses: deckhouse/modules-actions/build@v2
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
