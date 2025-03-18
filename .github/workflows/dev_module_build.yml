@@ -253,7 +253,7 @@ jobs:
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
-          registry_password: ${{ vars.DEV_MODULES_REGISTRY_PASSWORD }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - uses: deckhouse/modules-actions/build@v2
         with:
