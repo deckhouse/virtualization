@@ -144,6 +144,14 @@ spec:
                 attachedToVirtualMachines:
                   description: |
                     Список виртуальных машин, использующих данный диск.
+                  properties:
+                    mounted:
+                      description:
+                        Флаг, указывающий, что этот VirtualDisk в настоящее время используется
+                        этой присоединенной VirtualMachine.
+                      type: boolean
+                    name:
+                      description: Имя присоединённой VirtualMachine.
                 stats:
                   description: |
                     Статистика по виртуальному диску.

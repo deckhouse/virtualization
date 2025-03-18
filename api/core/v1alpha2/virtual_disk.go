@@ -102,7 +102,10 @@ type VirtualDiskStatsCreationDuration struct {
 
 // List of VirtualMachines that use the disk.
 type AttachedVirtualMachine struct {
+	// Name of attached VirtualMachine.
 	Name string `json:"name,omitempty"`
+	// Flag indicating that VirtualDisk is currently being used by this attached VirtualMachine.
+	Mounted bool `json:"mounted,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="self.type == 'HTTP' ? has(self.http) && !has(self.containerImage) && !has(self.objectRef) : true",message="HTTP requires http and cannot have ContainerImage or ObjectRef."
