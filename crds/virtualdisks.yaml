@@ -257,7 +257,13 @@ spec:
                   items:
                     description: List of VirtualMachines that use the disk.
                     properties:
+                      mounted:
+                        description:
+                          Flag indicating that VirtualDisk is currently being
+                          used by this attached VirtualMachine.
+                        type: boolean
                       name:
+                        description: Name of attached VirtualMachine.
                         type: string
                     type: object
                   type: array
