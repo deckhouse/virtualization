@@ -24,15 +24,11 @@ import (
 )
 
 const (
-	outDir      = "/var/lib/kubevirt-node-labeller"
-	emulatorbin = "/usr/bin/qemu-system-x86_64"
+	outDir = "/var/lib/kubevirt-node-labeller"
 )
 
-// var libvirtFlag = libvirt.DOMAIN_CAPABILITIES_DISABLE_DEPRECATED_FEATURES
-
-// domCaps libvirtxml.DomainCaps
-
 func main() {
+	// Define virt type qemu for get domain capabilites if no device kvm
 	virtType := "qemu"
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -101,7 +97,7 @@ func main() {
 	}
 
 	logger.Info("Get domain capabilities")
-	domCapsXML, err := conn.GetDomainCapabilities(emulatorbin, arch, machine, virtType, 0)
+	domCapsXML, err := conn.GetDomainCapabilities("", arch, machine, virtType, 0)
 	if err != nil {
 		logger.Error("Failed to retrieve domain capabilities", slog.String("error", err.Error()))
 		os.Exit(1)
@@ -116,7 +112,6 @@ func main() {
 	logger.Info(fmt.Sprintf("Domcapabilities saved to %s", domCapsPath))
 
 	cpuXML, err := helpers.GetCPUFeatureDomCaps(domCapsXML, logger)
-	// cpuXML, err := helpers.GetCPUFeatureDomCaps2(domCapsXML, logger)
 	if err != nil {
 		logger.Error("Failed to retrieve dom caps", slog.String("error", err.Error()))
 	}
@@ -124,7 +119,6 @@ func main() {
 	// hypervisor-cpu-baseline only for x86_64
 	if arch == "x86_64" {
 
-		// featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, []string{cpuXML}, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
 		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, cpuXML, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
 		if err != nil {
 			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
