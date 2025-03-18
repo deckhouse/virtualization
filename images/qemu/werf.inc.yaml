@@ -343,9 +343,11 @@ shell:
     apt-get install -y eatmydata
     eatmydata apt-get dist-upgrade -y
     eatmydata apt-get install --no-install-recommends -y \
+                      acpica-tools \
                       bash \
                       bc \
                       bindgen \
+                      build-essential \
                       bison \
                       bsdextrautils \
                       bzip2 \
@@ -369,6 +371,7 @@ shell:
                       libasound2-dev \
                       libattr1-dev \
                       libblkid-dev \
+                      libblockdev-dev \
                       libbpf-dev \
                       libbrlapi-dev \
                       libbz2-dev \
