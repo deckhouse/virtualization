@@ -323,7 +323,7 @@ shell:
 ---
 image: {{ $.ImageName }}
 final: false
-from: {{ $.Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
 git:
 - add: /images/{{ $.ImageName }}/
   to: /
