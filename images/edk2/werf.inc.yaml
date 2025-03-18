@@ -124,14 +124,16 @@ shell:
     apt-get update
     apt-get install -y eatmydata
     eatmydata apt-get dist-upgrade -y
-    eatmydata apt-get install --no-install-recommends -y \
+    eatmydata apt-get install -y \
     git curl \
     bash-completion \
+    binutils-dev \
     clang \
     ca-certificates \
     bc \
     dosfstools \
     dpkg \
+    g++-multilib \
     gcc-multilib \
     iasl \
     mtools \
@@ -149,6 +151,10 @@ shell:
     shim-signed \
     genisoimage \
     xorriso
+
+    eatmydata apt-get autoremove -y
+    eatmydata apt-get autoclean -y
+    apt-get clean
 
     # gcc-aarch64-linux-gnu \
     # gcc-arm-linux-gnueabi \
