@@ -45,7 +45,7 @@ type V12NControl struct {
 }
 
 func (m *V12NControl) IsMatched(event *audit.Event) bool {
-	if event.ObjectRef == nil || event.Stage != audit.StageResponseComplete {
+	if (event.ObjectRef == nil && event.ObjectRef.Name != "") || event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
