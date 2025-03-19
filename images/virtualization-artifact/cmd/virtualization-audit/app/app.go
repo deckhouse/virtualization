@@ -169,7 +169,6 @@ func run(c *cobra.Command, opts Options) error {
 		}),
 		events.NewV12NModuleControl(events.NewV12NModuleControlOptions{
 			NodeInformer: nodeInformer.GetIndexer(),
-			PodInformer:  podInformer.GetIndexer(),
 		}),
 	)
 	if err != nil {
