@@ -105,6 +105,13 @@ func run(c *cobra.Command, opts Options) error {
 	go vmInformer.Run(c.Context().Done())
 
 	vdInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualDisks().Informer()
+	vdInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj any) {
+			vd := obj.(*v1alpha2.VirtualDisk)
+			key := fmt.Sprintf("pods/%s/%s", vd.Namespace, vd.Name)
+			ttlCache.Add(key, vd)
+		},
+	})
 	go vdInformer.Run(c.Context().Done())
 
 	vmopInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachineOperations().Informer()
@@ -113,9 +120,9 @@ func run(c *cobra.Command, opts Options) error {
 	podInformer := coreSharedInformerFactory.Core().V1().Pods().Informer()
 	podInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
-			vm := obj.(*corev1.Pod)
-			key := fmt.Sprintf("pods/%s/%s", vm.Namespace, vm.Name)
-			ttlCache.Add(key, vm)
+			pod := obj.(*corev1.Pod)
+			key := fmt.Sprintf("pods/%s/%s", pod.Namespace, pod.Name)
+			ttlCache.Add(key, pod)
 		},
 	})
 	go podInformer.Run(c.Context().Done())
