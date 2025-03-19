@@ -345,6 +345,7 @@ shell:
     eatmydata apt-get install --no-install-recommends -y \
                       apparmor \
                       libapparmor-dev \
+                      libapparmor1 \
                       acpica-tools \
                       bash \
                       bc \
@@ -730,3 +731,15 @@ shell:
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
                         -b build
+    
+    mkdir -p /BINS/usr/lib/x86_64-linux-gnu/pkgconfig
+    mkdir -p /BINS/usr/include/aalogparse
+    mkdir -p /BINS/usr/include/sys
+    
+    cp -a /usr/lib/x86_64-linux-gnu/{libapparmor.so.1,libapparmor.so.1.8.4} /BINS/usr/lib/x86_64-linux-gnu
+    cp -a /usr/include/aalogparse/aalogparse.h /BINS/usr/include/aalogparse
+    cp -a /usr/include/sys/apparmor.h /BINS/usr/include/sys
+    cp -a /usr/include/sys/apparmor_private.h /BINS/usr/include/sys
+    cp -a /usr/lib/x86_64-linux-gnu/libapparmor.a /BINS/usr/lib/x86_64-linux-gnu
+    cp -a /usr/lib/x86_64-linux-gnu/libapparmor.so /BINS/usr/lib/x86_64-linux-gnu
+    cp -a /usr/lib/x86_64-linux-gnu/pkgconfig/libapparmor.pc /BINS/usr/lib/x86_64-linux-gnu/pkgconfig
