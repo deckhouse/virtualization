@@ -330,6 +330,10 @@ binaries:
   - /usr/bin/grep
   - /usr/bin/sync
   - /usr/bin/mknod
+  # debug only
+  - /usr/bin/ls
+  - /usr/bin/cat
+  - /usr/bin/ldd
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
   - /usr/bin/gnutls-cli
