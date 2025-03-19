@@ -2,7 +2,7 @@ project: virtualization
 configVersion: 1
 build:
   imageSpec:
-    author: "Deckhouse Virtualization Platform <contact@deckhouse.io>"
+    author: "Deckhouse <contact@deckhouse.io>"
     clearHistory: true
     config:
       clearWerfLabels: true
