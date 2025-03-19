@@ -42,13 +42,16 @@ func removeAllQueryParams(uri string) (string, error) {
 	return parsedURL.String(), nil
 }
 
-func getVMFromInformer(vmInformer indexer, vmName string) (*v1alpha2.VirtualMachine, error) {
+func getVMFromInformer(cache ttlCache, vmInformer indexer, vmName string) (*v1alpha2.VirtualMachine, error) {
 	vmObj, exist, err := vmInformer.GetByKey(vmName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
 	}
 	if !exist {
-		return nil, errors.New("vmObj not exist")
+		vmObj, exist = cache.Get("virtualmachines/" + vmName)
+		if !exist {
+			return nil, errors.New("vmObj not exist")
+		}
 	}
 
 	vm, ok := vmObj.(*v1alpha2.VirtualMachine)
@@ -59,13 +62,16 @@ func getVMFromInformer(vmInformer indexer, vmName string) (*v1alpha2.VirtualMach
 	return vm, nil
 }
 
-func getVDFromInformer(vdInformer indexer, vdName string) (*v1alpha2.VirtualDisk, error) {
+func getVDFromInformer(cache ttlCache, vdInformer indexer, vdName string) (*v1alpha2.VirtualDisk, error) {
 	vdObj, exist, err := vdInformer.GetByKey(vdName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
 	}
 	if !exist {
-		return nil, errors.New("vdObj not exist")
+		vdObj, exist = cache.Get("virtualdisks/" + vdName)
+		if !exist {
+			return nil, errors.New("vdObj not exist")
+		}
 	}
 
 	vd, ok := vdObj.(*v1alpha2.VirtualDisk)
