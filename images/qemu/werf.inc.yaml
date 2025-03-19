@@ -21,7 +21,6 @@ shell:
   beforeInstall:
   - |
     apt-get update && apt-get install -y \
-    apparmor \
     binutils \
     pkgconfig \
     pkg-config \
@@ -344,6 +343,8 @@ shell:
     apt-get install -y eatmydata
     eatmydata apt-get dist-upgrade -y
     eatmydata apt-get install --no-install-recommends -y \
+                      apparmor \
+                      libapparmor-dev \
                       acpica-tools \
                       bash \
                       bc \
