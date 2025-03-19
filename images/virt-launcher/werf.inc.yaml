@@ -509,7 +509,7 @@ shell:
     cp -a /etc/xattr.conf /relocate/etc
 
     # glibc-gconv-modules
-    cp -a /usr/lib64/gconv /relocate/usr/lib64
+    # cp -a /usr/lib64/gconv /relocate/usr/lib64
 
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
