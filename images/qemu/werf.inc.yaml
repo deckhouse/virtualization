@@ -344,6 +344,10 @@ shell:
     eatmydata apt-get dist-upgrade -y
     eatmydata apt-get install -y \
                       acpica-tools \
+                      autoconf automake autopoint \
+                      autotools-dev \
+                      bison comerr-dev \ 
+                      dbus dbus-bin dbus-daemon \
                       bash \
                       bc \
                       bindgen \
@@ -362,6 +366,7 @@ shell:
                       findutils \
                       flex \
                       g++ g++-12 gcc gcc-12 \
+                      gcc-x86-64-linux-gnu \
                       gcovr \
                       gettext \
                       git \
@@ -371,6 +376,7 @@ shell:
                       libasan6 \
                       libasound2-dev \
                       libattr1-dev \
+                      libbinutils \
                       libblkid-dev \
                       libblockdev-dev \
                       libbpf-dev \
@@ -695,7 +701,6 @@ shell:
       --enable-snappy                  \
       --enable-spice-protocol          \
       --enable-system                  \
-      --enable-tcg                     \
       --enable-tools                   \
       --enable-tpm                     \
       --enable-usb-redir               \
@@ -713,6 +718,9 @@ shell:
       --enable-zstd
 
       make -j$(nproc)
+      
+      # disable tcg
+      # --enable-tcg                     \
 
   setup:
   - |
