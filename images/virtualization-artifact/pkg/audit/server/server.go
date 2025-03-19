@@ -118,7 +118,7 @@ func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
 			for _, eventLogger := range s.eventLoggers {
 				if eventLogger.IsMatched(&event) {
 					if err := eventLogger.Log(&event); err != nil {
-						log.Error("fail to log event", log.Err(err))
+						log.Error("fail to log event", log.Err(err), slog.Any("event", event), slog.Any("eventLogger", eventLogger))
 					}
 					break
 				}

@@ -88,6 +88,7 @@ func (m *VMControl) Log(event *audit.Event) error {
 		} else if strings.Contains(terminatedStatuses, "guest-reset") {
 			eventLog.Name = "VM restarted from OS"
 		} else {
+			eventLog.Level = "critical"
 			eventLog.Name = "VM killed abnormal way"
 		}
 	} else {
@@ -105,13 +106,13 @@ func (m *VMControl) Log(event *audit.Event) error {
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
 		if err := eventLog.fillVDInfo(m.ttlCache, m.vdInformer, vm); err != nil {
-			log.Error("fail to fill vd info", log.Err(err))
+			log.Debug("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
 		if err := eventLog.fillNodeInfo(m.nodeInformer, vm); err != nil {
-			log.Error("fail to fill node info", log.Err(err))
+			log.Debug("fail to fill node info", log.Err(err))
 		}
 	}
 
