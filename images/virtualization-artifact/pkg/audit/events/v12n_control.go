@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"k8s.io/apiserver/pkg/apis/audit"
 )
 
@@ -53,6 +54,10 @@ func (m *V12NControl) IsMatched(event *audit.Event) bool {
 		return false
 	}
 
+	if strings.Contains(event.ObjectRef.Name, "cvi-importer") {
+		return false
+	}
+
 	if (event.Verb == "delete" || event.Verb == "create") &&
 		event.ObjectRef.Resource == "pods" &&
 		event.ObjectRef.Namespace == "d8-virtualization" {
@@ -73,7 +78,7 @@ func (m *V12NControl) Log(event *audit.Event) error {
 
 	err = eventLog.fillNodeInfo(m.nodeInformer, pod)
 	if err != nil {
-		return fmt.Errorf("fail to fill node info: %w", err)
+		log.Debug("fail to fill node info", log.Err(err))
 	}
 
 	if event.Verb == "create" {
@@ -81,6 +86,7 @@ func (m *V12NControl) Log(event *audit.Event) error {
 		eventLog.Level = "info"
 		eventLog.Component = pod.Name
 
+		// TODO: Should we add something?
 		if strings.Contains(pod.Name, "virt-handler") {
 		} else {
 		}
@@ -89,6 +95,7 @@ func (m *V12NControl) Log(event *audit.Event) error {
 		eventLog.Level = "warn"
 		eventLog.Component = pod.Name
 
+		// TODO: Should we add something?
 		if strings.Contains(pod.Name, "virt-handler") {
 		} else {
 		}
