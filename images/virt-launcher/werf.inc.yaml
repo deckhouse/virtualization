@@ -591,3 +591,5 @@ shell:
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
     cp -a etc/libvirt etc/libvirt-init
+
+    echo -e "OS=DVP\nVer=0.17.0" > etc/os-release
