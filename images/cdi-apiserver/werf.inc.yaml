@@ -9,5 +9,6 @@ import:
   includePaths:
   - cdi-apiserver
 imageSpec:
-  entrypoint: ["/usr/bin/cdi-apiserver", "-alsologtostderr"]
-  user: 64535
+  config:
+    entrypoint: ["/usr/bin/cdi-apiserver", "-alsologtostderr"]
+    user: 64535

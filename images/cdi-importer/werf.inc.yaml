@@ -8,8 +8,9 @@ import:
   before: setup
 # Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-importer/BUILD.bazel
 imageSpec:
-  entrypoint: ["/usr/bin/cdi-importer", "-alsologtostderr"]
-  user: 64535
+  config:
+    entrypoint: ["/usr/bin/cdi-importer", "-alsologtostderr"]
+    user: 64535
 
 ---
 {{- define "cdi-importer-deps" -}}

@@ -38,6 +38,7 @@ import:
   to: /app/vm-route-forge
   after: install
 imageSpec:
-  user: 64535
-  workingDir: "/app"
-  entrypoint: ["/app/vm-route-forge"]
+  config:
+    user: 64535
+    workingDir: "/app"
+    entrypoint: ["/app/vm-route-forge"]

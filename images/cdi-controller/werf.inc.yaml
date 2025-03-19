@@ -7,8 +7,9 @@ import:
   to: /
   before: setup
 imageSpec:
-  entrypoint: ["/usr/bin/cdi-controller", "-alsologtostderr"]
-  user: 64535
+  config:
+    entrypoint: ["/usr/bin/cdi-controller", "-alsologtostderr"]
+    user: 64535
 ---
 {{- define "cdi-controller-deps" -}}
 binaries:

@@ -8,7 +8,8 @@ import:
     to: /
     after: install
 imageSpec:
-  user: 0
+  config:
+    user: 0
 
 ---
 {{- define "virt-launcher-dependencies" -}}

@@ -10,5 +10,6 @@ import:
   - csv-generator
   before: setup
 imageSpec:
-  entrypoint: ["/usr/bin/cdi-operator"]
-  user: 64535
+  config:
+    entrypoint: ["/usr/bin/cdi-operator"]
+    user: 64535

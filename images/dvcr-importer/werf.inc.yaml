@@ -17,6 +17,7 @@ git:
   stageDependencies:
     setup: ['*']
 imageSpec:
-  workingDir: "/"
-  cmd: ["/usr/local/bin/dvcr-importer"]
-  user: 64535
+  config:
+    workingDir: "/"
+    cmd: ["/usr/local/bin/dvcr-importer"]
+    user: 64535
