@@ -25,7 +25,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
-	"k8s.io/client-go/tools/cache"
 )
 
 type V12NEventLog struct {
@@ -57,10 +56,10 @@ func NewV12NEventLog(event *audit.Event) V12NEventLog {
 		OperationResult: event.Annotations["authorization.k8s.io/decision"],
 
 		ActionType:            event.Verb,
-		Component:             "unknown",
+		Component:             "virtualizaion",
 		NodeNetworkAddress:    "unknown",
-		VirtualizationVersion: "unknown",
 		VirtualizationName:    "Deckhouse Virtualization Platform",
+		VirtualizationVersion: "unknown",
 		QemuVersion:           "unknown",
 		LibvirtVersion:        "unknown",
 	}
@@ -77,7 +76,7 @@ func (e V12NEventLog) Log() error {
 	return nil
 }
 
-func (e *V12NEventLog) fillNodeInfo(nodeInformer cache.Indexer, pod *corev1.Pod) error {
+func (e *V12NEventLog) fillNodeInfo(nodeInformer indexer, pod *corev1.Pod) error {
 	node, err := getNodeFromInformer(nodeInformer, pod.Spec.NodeName)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)
