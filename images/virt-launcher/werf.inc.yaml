@@ -507,9 +507,12 @@ shell:
     cd /relocate
     mkdir -p usr/lib64
 
-    echo "Copy ld-linux-x86-64.so.2 and create link for ld-linux-x86-64.so.2 -> ld-linux-x86-64.so.2"
-    cp -af /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
-    ln -s usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib64/ld-linux-x86-64.so.2
+    # echo "Copy ld-linux-x86-64.so.2 and create link for ld-linux-x86-64.so.2 -> ld-linux-x86-64.so.2"
+    # cp -af /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+    # ln -s usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib64/ld-linux-x86-64.so.2
+
+    cp -a /usr/lib/x86_64-linux-gnu/. usr/lib/x86_64-linux-gnu
+    cp -a /usr/lib64/. usr/lib64
 
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins}
