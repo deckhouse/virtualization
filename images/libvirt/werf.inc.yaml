@@ -322,6 +322,8 @@ shell:
       done
 
       CFLAGS="-Wframe-larger-than=262144" meson setup build \
+        -Dqemu_user=qemu \
+        -Dqemu_group=qemu \
         -Dinit_script=systemd \
         -Dsystem=true \
         -Dremote_default_mode=direct \
