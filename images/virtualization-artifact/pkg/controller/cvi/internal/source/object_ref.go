@@ -35,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
@@ -306,7 +307,7 @@ func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVi
 		return reconcile.Result{}, err
 	}
 
-	return service.MergeResults(viRefResult, vdRefResult, reconcile.Result{Requeue: objRefRequeue}), nil
+	return reconciler.MergeResults(viRefResult, vdRefResult, reconcile.Result{Requeue: objRefRequeue}), nil
 }
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {

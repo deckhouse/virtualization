@@ -18,7 +18,6 @@ package vmclass
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -36,7 +35,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -146,50 +145,31 @@ func (r *Reconciler) SetupController(ctx context.Context, mgr manager.Manager, c
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 
-	class := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	vmClass := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
-	err := class.Fetch(ctx)
+	err := vmClass.Fetch(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if class.IsEmpty() {
+	if vmClass.IsEmpty() {
 		log.Info("Reconcile observe an absent VirtualMachineClass: it may be deleted")
 		return reconcile.Result{}, nil
 	}
-	s := state.New(r.client, r.controllerNamespace, class)
 
-	log.Debug("Start reconcile VMClass")
+	s := state.New(r.client, r.controllerNamespace, vmClass)
 
-	var result reconcile.Result
-	var handlerErr error
+	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+		return h.Handle(ctx, s)
+	})
+	rec.SetResourceUpdater(func(ctx context.Context) error {
+		vmClass.Changed().Status.ObservedGeneration = vmClass.Changed().Generation
 
-	for _, h := range r.handlers {
-		log.Debug("Run handler", logger.SlogHandler(h.Name()))
+		return vmClass.Update(ctx)
+	})
 
-		var res reconcile.Result
-		res, err = h.Handle(ctx, s)
-		if err != nil {
-			log.Error("The handler failed with an error", logger.SlogErr(err), logger.SlogHandler(h.Name()))
-			handlerErr = errors.Join(handlerErr, err)
-		}
-		result = service.MergeResults(result, res)
-	}
-	if handlerErr != nil {
-		err = class.Update(ctx)
-		if err != nil {
-			log.Error("Failed to update VirtualMachineClass")
-		}
-		return reconcile.Result{}, handlerErr
-	}
-	err = class.Update(ctx)
-	if err != nil {
-		log.Error("Failed to update VirtualMachineClass")
-		return reconcile.Result{}, err
-	}
-
-	log.Debug("Finished reconcile VirtualMachineClass")
-	return result, nil
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachineClass {

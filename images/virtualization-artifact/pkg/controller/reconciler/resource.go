@@ -14,11 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package reconciler
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"maps"
 	"reflect"
@@ -231,32 +230,6 @@ func (r *Resource[T, ST]) JSONPatchOpsForLabels() []patch.JsonPatchOperation {
 		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/labels", r.currentObj.GetLabels()),
 		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/labels", r.changedObj.GetLabels()),
 	}
-}
-
-func GetPatchOwnerReferences(ownerReferences []metav1.OwnerReference) (client.Patch, error) {
-	data, err := json.Marshal(map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"ownerReferences": ownerReferences,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return client.RawPatch(types.MergePatchType, data), nil
-}
-
-func GetPatchFinalizers(finalizers []string) (client.Patch, error) {
-	data, err := json.Marshal(map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"finalizers": finalizers,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return client.RawPatch(types.MergePatchType, data), nil
 }
 
 func MergeResults(results ...reconcile.Result) reconcile.Result {

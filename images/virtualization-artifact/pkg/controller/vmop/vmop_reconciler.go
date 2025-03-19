@@ -18,7 +18,6 @@ package vmop
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -31,9 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -98,9 +96,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	log := logger.FromContext(ctx)
-
-	vmop := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	vmop := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vmop.Fetch(ctx)
 	if err != nil {
@@ -111,34 +107,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	log.Info("Start reconcile VMOP", "namespacedName", req.String())
-
 	s := state.New(r.client, vmop)
-	var handlerErrs []error
 
-	var result reconcile.Result
-	for _, h := range r.handlers {
-		log.Debug("Run handler", "name", h.Name())
-		res, err := h.Handle(ctx, s)
-		if err != nil {
-			log.Error("Failed to handle VirtualMachineOperation", "err", err, "handler", h.Name())
-			handlerErrs = append(handlerErrs, err)
-		}
+	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+		return h.Handle(ctx, s)
+	})
+	rec.SetResourceUpdater(func(ctx context.Context) error {
+		vmop.Changed().Status.ObservedGeneration = vmop.Changed().Generation
 
-		result = service.MergeResults(result, res)
-	}
+		return vmop.Update(ctx)
+	})
 
-	err = vmop.Update(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	err = errors.Join(handlerErrs...)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return result, nil
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachineOperation {

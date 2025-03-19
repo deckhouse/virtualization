@@ -18,7 +18,6 @@ package vmiplease
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -33,9 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -92,9 +90,7 @@ func (r *Reconciler) enqueueRequestsFromVMIP(_ context.Context, obj client.Objec
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	log := logger.FromContext(ctx)
-
-	lease := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	lease := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	var err error
 	err = lease.Fetch(ctx)
@@ -106,51 +102,30 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	log.Debug("Start reconcile VMIPLease")
-
 	s := state.New(r.client, lease.Changed())
-	var handlerErrs []error
 
-	var result reconcile.Result
-	for _, h := range r.handlers {
-		log.Debug("Run handler", logger.SlogHandler(h.Name()))
-
-		var res reconcile.Result
-		res, err = h.Handle(ctx, s)
-		if err != nil {
-			log.Error("Failed to handle VMIPLease", "err", err, logger.SlogHandler(h.Name()))
-			handlerErrs = append(handlerErrs, err)
+	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+		return h.Handle(ctx, s)
+	})
+	rec.SetResourceUpdater(func(ctx context.Context) error {
+		if s.ShouldDeletion() {
+			return r.client.Delete(ctx, lease.Changed())
 		}
 
-		result = service.MergeResults(result, res)
-	}
-
-	if s.ShouldDeletion() {
-		err = r.client.Delete(ctx, lease.Changed())
-	} else {
 		if !reflect.DeepEqual(lease.Current().Spec, lease.Changed().Spec) {
 			leaseStatus := lease.Changed().Status.DeepCopy()
 			err = r.client.Update(ctx, lease.Changed())
 			if err != nil {
-				log.Error("Failed to update VirtualMachineIPAddressLease", "err", err)
-				handlerErrs = append(handlerErrs, err)
+				return fmt.Errorf("failed to update spec: %w", err)
 			}
 			lease.Changed().Status = *leaseStatus
 		}
 
-		err = lease.Update(ctx)
-	}
+		return lease.Update(ctx)
+	})
 
-	if err != nil {
-		handlerErrs = append(handlerErrs, err)
-	}
-
-	err = errors.Join(handlerErrs...)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return result, nil
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachineIPAddressLease {

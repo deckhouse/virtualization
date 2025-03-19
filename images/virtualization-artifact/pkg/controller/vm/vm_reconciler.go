@@ -18,12 +18,10 @@ package vm
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 
 	corev1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -38,7 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -320,7 +318,7 @@ func (r *Reconciler) enqueueRequestsBlockDevice(cl client.Client, kind virtv2.Bl
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 
-	vm := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	vm := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vm.Fetch(ctx)
 	if err != nil {
@@ -334,52 +332,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 	s := state.New(r.client, vm)
 
-	log.Debug("Start reconcile VM")
+	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+		return h.Handle(ctx, s)
+	})
+	rec.SetResourceUpdater(func(ctx context.Context) error {
+		return vm.Update(ctx)
+	})
 
-	var result reconcile.Result
-	var errs error
-
-	for _, h := range r.handlers {
-		log.Debug("Run handler", logger.SlogHandler(h.Name()))
-
-		var res reconcile.Result
-		res, err = h.Handle(ctx, s)
-		switch {
-		case err == nil: // OK.
-		case k8serrors.IsConflict(err):
-			log.Debug("The handler failed with an error", logger.SlogHandler(h.Name()), logger.SlogErr(err))
-			result.Requeue = true
-		default:
-			log.Error("The handler failed with an error", logger.SlogHandler(h.Name()), logger.SlogErr(err))
-			errs = errors.Join(errs, err)
-		}
-
-		result = service.MergeResults(result, res)
-	}
-
-	err = r.updateVM(ctx, vm)
-	switch {
-	case err == nil: // OK.
-	case k8serrors.IsConflict(err):
-		log.Debug("Failed to update VirtualMachine", logger.SlogErr(err))
-		result.Requeue = true
-	default:
-		log.Error("Failed to update VirtualMachine", logger.SlogErr(err))
-		errs = errors.Join(errs, err)
-	}
-
-	if errs != nil {
-		log.Error("Reconciling has been finished with error", logger.SlogErr(errs))
-		return reconcile.Result{}, errs
-	}
-
-	log.Debug("Finished reconcile VM")
-
-	return result, nil
-}
-
-func (r *Reconciler) updateVM(ctx context.Context, vm *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) error {
-	return vm.Update(ctx)
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachine {
