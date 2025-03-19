@@ -13,6 +13,6 @@ shell:
     apt-get update && apt-get install -y \
     libc-bin \
     libffi8 libssh-dev libssh2-1-dev \
-    mount xfsprogs util-linux e2fsprogs
+    mount xfsprogs util-linux e2fsprogs binutils
   - |
     apt-get clean
