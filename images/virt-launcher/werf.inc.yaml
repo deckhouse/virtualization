@@ -494,11 +494,14 @@ shell:
     LIST+=" /usr/lib/x86_64-linux-gnu/libbsd.so /usr/lib/x86_64-linux-gnu/libbsd.so.0 /usr/lib/x86_64-linux-gnu/libnbd.so"
     LIST+=" /usr/lib/x86_64-linux-gnu/libjson-c.so /usr/lib/x86_64-linux-gnu/libssh.so"
 
+    echo "=====Relocate binaries and libs from LIST======"
     ./relocate_binaries.sh -i "$LIST" -o /VBINS
 
     # cp -a /usr/lib/x86_64-linux-gnu /relocate
     
     cp -a /VBINS/. /relocate
+    cp -a /usr/lib64/ld-linux-x86-64.so.2 /relocate/usr/lib64/ld-linux-x86-64.so.2
+    cp -a /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 /relocate/usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
 
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins}
