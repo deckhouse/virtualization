@@ -156,9 +156,6 @@ shell:
     eatmydata apt-get autoclean -y
     apt-get clean
 
-    # gcc-aarch64-linux-gnu \
-    # gcc-arm-linux-gnueabi \
-
   install:
   - |
     git clone --depth=1 --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
