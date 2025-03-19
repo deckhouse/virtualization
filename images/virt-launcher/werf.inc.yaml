@@ -496,6 +496,8 @@ shell:
 
     ./relocate_binaries.sh -i "$LIST" -o /VBINS
 
+    # cp -a /usr/lib/x86_64-linux-gnu /relocate
+    
     cp -a /VBINS/. /relocate
 
     # Cleanup

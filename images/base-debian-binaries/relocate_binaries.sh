@@ -99,7 +99,7 @@ function relocate_lib() {
 
   for lib in $(ldd ${item} 2>/dev/null | awk '{if ($2=="=>") print $3; else print $1}'); do
     # don't try to relocate linux-vdso.so lib due to this lib is virtual
-    if [[ "${lib}" =~ "linux-vdso" || "${lib}" == "not" ]]; then
+    if [[ "${lib}" =~ "linux-vdso" || "${lib}" == "not" || "${lib}" =~ "ld-linux-x86-64.so.2" ]]; then
       continue
     fi
     relocate_item ${lib}
