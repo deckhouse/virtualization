@@ -1,0 +1,18 @@
+---
+image: {{ $.ImageName }}
+final: false
+from: {{ $.Images.BASE_DEBIAN_BOOKWORM }}
+git:
+  - add: /images/{{ $.ImageName }}
+    to: /
+    includePaths:
+    - relocate_binaries.sh
+shell:
+  install:
+  - |
+    apt-get update && apt-get install -y \
+    libc-bin \
+    libffi8 libssh-dev libssh2-dev \
+    mount xfsprogs util-linux e2fsprogs
+  - |
+    apt-get clean
