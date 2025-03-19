@@ -18,20 +18,19 @@ package events
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 type NewVMControlOptions struct {
-	VMInformer   cache.Indexer
-	VDInformer   cache.Indexer
-	NodeInformer cache.Indexer
-	PodInformer  cache.Indexer
+	VMInformer   indexer
+	VDInformer   indexer
+	NodeInformer indexer
+	PodInformer  indexer
+	TTLCache     ttlCache
 }
 
 func NewVMControl(options NewVMControlOptions) *VMControl {
@@ -40,14 +39,16 @@ func NewVMControl(options NewVMControlOptions) *VMControl {
 		vdInformer:   options.VDInformer,
 		nodeInformer: options.NodeInformer,
 		podInformer:  options.PodInformer,
+		ttlCache:     options.TTLCache,
 	}
 }
 
 type VMControl struct {
-	podInformer  cache.Indexer
-	vmInformer   cache.Indexer
-	vdInformer   cache.Indexer
-	nodeInformer cache.Indexer
+	podInformer  indexer
+	vmInformer   indexer
+	vdInformer   indexer
+	nodeInformer indexer
+	ttlCache     ttlCache
 }
 
 func (m *VMControl) IsMatched(event *audit.Event) bool {
@@ -66,29 +67,27 @@ func (m *VMControl) Log(event *audit.Event) error {
 	eventLog := NewVMEventLog(event)
 	eventLog.Type = "Control VM"
 
-	pod, err := getPodFromInformer(m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	pod, err := getPodFromInformer(m.ttlCache, m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get pod from informer: %w", err)
 	}
 
-	terminatedStatuses := make([]string, 0, len(pod.Status.ContainerStatuses))
+	var terminatedStatuses string
 	for _, status := range pod.Status.ContainerStatuses {
-		// TODO: find compute container and check his state
-		if status.State.Terminated != nil {
-			terminatedStatuses = append(terminatedStatuses, string(status.State.Terminated.Message))
+		if status.Name == "compute" && status.State.Terminated != nil {
+			terminatedStatuses = status.State.Terminated.Message
 		}
 	}
 
-	isControllerAction := event.User.Username == "system:serviceaccount:d8-virtualization:virtualization-controller"
-
+	isControllerAction := event.User.Username == "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-controller"
 	if isControllerAction {
 		eventLog.Level = "warn"
 
-		if slices.Contains(terminatedStatuses, "SHUTDOWN") {
+		if strings.Contains(terminatedStatuses, "guest-shutdown") {
 			eventLog.Name = "VM stoped from OS"
 		}
 
-		if slices.Contains(terminatedStatuses, "RESET") {
+		if strings.Contains(terminatedStatuses, "guest-reset") {
 			eventLog.Name = "VM restarted from OS"
 		}
 	} else {
@@ -105,13 +104,13 @@ func (m *VMControl) Log(event *audit.Event) error {
 	eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := eventLog.fillNodeInfo(m.nodeInformer, vm); err != nil {
+		if err := eventLog.fillVDInfo(m.vdInformer, vm); err != nil {
 			log.Error("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := eventLog.fillVDInfo(m.vdInformer, vm); err != nil {
+		if err := eventLog.fillNodeInfo(m.nodeInformer, vm); err != nil {
 			log.Error("fail to fill node info", log.Err(err))
 		}
 	}

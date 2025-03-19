@@ -18,12 +18,11 @@ package events
 
 import (
 	"k8s.io/apiserver/pkg/apis/audit"
-	"k8s.io/client-go/tools/cache"
 )
 
 type NewV12NModuleControlOptions struct {
-	NodeInformer cache.Indexer
-	PodInformer  cache.Indexer
+	NodeInformer indexer
+	PodInformer  indexer
 }
 
 func NewV12NModuleControl(options NewV12NModuleControlOptions) *V12NModuleControl {
@@ -34,8 +33,8 @@ func NewV12NModuleControl(options NewV12NModuleControlOptions) *V12NModuleContro
 }
 
 type V12NModuleControl struct {
-	podInformer  cache.Indexer
-	nodeInformer cache.Indexer
+	podInformer  indexer
+	nodeInformer indexer
 }
 
 func (m *V12NModuleControl) IsMatched(event *audit.Event) bool {
