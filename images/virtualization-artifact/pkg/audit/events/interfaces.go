@@ -16,7 +16,7 @@ limitations under the License.
 
 package events
 
-//go:generate moq -rm -out mock.go . ttlCache indexer
+//go:generate moq -rm -out mock.go . indexer
 
 type ttlCache interface {
 	Get(key string) (any, bool)
