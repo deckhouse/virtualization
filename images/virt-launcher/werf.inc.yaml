@@ -11,7 +11,7 @@ docker:
   USER: 0
 
 ---
-{{- define "virt-launcher-dependencies" -}}
+{{- define "virt-launcher-alt-dependencies" -}}
 libs:
   - libffi8
   - libssh-devel
@@ -189,6 +189,196 @@ binaries:
   - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
 {{- end -}}
 
+{{- define "virt-launcher-dependencies" -}}
+libs:
+  - libffi8 
+  - libssh-dev 
+  - libssh2-1-dev 
+  - libcap-ng-dev
+  - zlib1g-dev
+  - libcurl4-openssl-dev
+  - libpci-dev
+  - libgvnc-1.0-dev
+  - libfdt-dev
+  - libpixman-1-dev
+  - libkeyutils-dev
+  - uuid-dev
+  - libpam0g-dev
+  - libtasn1-6-dev
+  - libslirp-dev
+  - libdrm-dev
+  - libxdp-dev
+  - libsdl2-dev
+  - libsdl2-image-dev
+  - libncursesw6
+  - libasound2-dev
+  - libpulse-dev
+  - libpipewire-0.3-modules
+  - libpipewire-0.3-dev
+  # - libpipewire-jack-dev
+  - libsoundio-dev
+  - libcapstone-dev
+  - libsasl2-dev
+  - libjpeg-dev
+  - libpng-dev
+  - libxkbcommon-dev
+  - xkb-data
+  - libgtk-3-dev
+  - libvte-2.91-0
+  - libvte-2.91-dev
+  - libvirglrenderer-dev
+  - libusb-1.0-0-dev
+  - liburing-dev
+  - libbpf-dev
+  - libspice-server-dev
+  # libcephfs-dev
+  - libnfs-dev
+  - libzstd-dev
+  - libseccomp-dev
+  - libgcrypt20-dev
+  - libgnutls28-dev
+  - nettle-dev
+  - libudev-dev
+  # - libmultipath-dev
+  # - libblkio-dev
+  - libpmem-dev
+  - libdaxctl-dev
+  - libfuse3-dev
+  - librdmacm-dev
+  - libibverbs-dev
+  - libnuma-dev
+  - libbz2-dev
+  - liblzo2-dev
+  - libsnappy-dev
+  - libcacard-dev
+  # - libusbredir-dev
+  - libusbredirhost-dev
+  # - libusbredirparser-dev 
+  - libepoxy-dev
+  - libgbm-dev
+  - libiscsi-dev
+  - libaio-dev
+  - libselinux1-dev
+  - libglusterfs-dev
+  - libvdeplug-dev
+  - libpciaccess-dev
+  - libyajl-dev
+  - libsanlock-dev
+  - libpcap-dev
+  - libnl-3-dev
+  - libnl-genl-3-dev
+  - libparted-dev
+  - libdevmapper-dev
+  - libglusterfs-dev
+  - libaudit-dev
+  - libfuse-dev
+  - libnbd-dev
+  - libblkid-dev
+  - libp11-kit-dev
+  - libreadline-dev
+  - libattr1-dev
+  - libbsd-dev
+  - libsystemd-dev
+  - libjson-c-dev
+  # - libjson-c5
+  - systemtap-sdt-dev
+  - libacl1-dev
+  - libglib2.0-dev
+  - libxml2-dev
+  - libtirpc-dev
+  - libc6-dev
+  - libllvmspirvlib-15-dev
+  - libllvmspirvlib15
+  # - llvm-spirv-dev
+packages:
+  - acl
+  - attr
+  - dmidecode
+  - ethtool
+  - iproute2
+  - fdisk
+  - gnutls-bin
+  - iptables
+  - multipath-tools
+  - nftables
+  - numactl
+  - openssl
+  - passt
+  - libpcre3
+  - pipewire-jack
+  - procps
+  - selinux-basics
+  - policycoreutils
+  - psmisc
+  - swtpm swtpm-tools
+  - util-linux
+  - xfsprogs
+  - xorriso
+binaries:
+  # GNU utilities
+  - /usr/bin/sh
+  - /usr/bin/bash
+  - /usr/bin/uname
+  - /usr/bin/nohup
+  - /usr/bin/sleep
+  - /usr/bin/cp
+  - /usr/bin/rm
+  - /usr/bin/mv
+  - /usr/bin/cut
+  - /usr/bin/grep
+  - /usr/bin/sync
+  - /usr/bin/mknod
+  # Gnu utils (requared for swtpm)
+  - /usr/bin/certtool
+  - /usr/bin/gnutls-cli
+  - /usr/bin/ocsptool
+  - /usr/bin/p11tool
+  - /usr/bin/psktool
+  # Utilities for mount
+  - /usr/bin/mount
+  - /usr/bin/umount
+  - /usr/bin/findmnt
+  # Blk utilites
+  - /usr/sbin/blkid
+  - /usr/sbin/blockdev
+  # Openssl
+  - /usr/bin/openssl
+  # Acl utils
+  - /usr/bin/chacl /usr/bin/getfacl /usr/bin/setfacl /usr/bin/chmod /usr/bin/chown
+  # Fs utils
+  - /usr/sbin/fstrim /usr/bin/fuser /usr/sbin/findfs
+  # - /usr/sbin/fstrim /usr/sbin/fuser /usr/sbin/findfs
+  # Xorriso (Creates an image of an ISO9660 filesystem)
+  - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
+  # Ethtool
+  - /usr/sbin/ethtool /usr/sbin/iptables /usr/bin/ip /usr/sbin/bridge /usr/sbin/nft
+  # Procps utils
+  - /usr/sbin/sysctl
+  # Passt (User-mode networking daemons for virtual machines and namespaces)
+  - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
+  # Swtpm
+  - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
+  # Dmidecode
+  - /usr/sbin/biosdecode /usr/sbin/dmidecode /usr/sbin/ownership /usr/sbin/vpddecode
+  # Numactl
+  - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat /usr/bin/migratepages
+  # Hwclock
+  - /usr/bin/clock_unsynced /etc/adjtime /usr/sbin/clock /usr/sbin/hwclock
+  # Libffi8
+  # - "/usr/lib64/libffi.so*"
+  - "/usr/lib/x86_64-linux-gnu/libffi.so*"
+  # Attr
+  - /usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr
+  # SELinux policy core utilities
+  - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
+sid:
+  # - libvitastor-dev
+  # - libpipewire-jack-dev
+  - xorriso-dd-target
+  - libblkio-dev
+  - libblkio1
+{{- end -}}
+
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
 
 {{- $gitRepoName := "libvirt" }}
@@ -196,7 +386,8 @@ binaries:
 
 image: {{ $.ImageName }}-binaries
 final: false
-fromImage: base-alt-p11-binaries
+# fromImage: base-alt-p11-binaries
+fromImage: base-debian-binaries
 git:
   # Add qemu and virtqemud configs
   - add: /images/{{ $.ImageName }}/configs
@@ -273,6 +464,14 @@ shell:
   - |
     apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
+    {{- if gt (len $virtLauncherDependencies.sid) 0 }}
+    echo "deb https://deb.debian.org/debian/ unstable main contrib non-free" > /etc/apt/sources.list.d/debian_sid.list
+    apt-get update
+    apt-get install -y --no-install-recommends -y {{ $virtLauncherDependencies.sid | join " " }}
+    rm -f /etc/apt/sources.list.d/debian_sid.list
+    apt-get update
+    {{- end }}
+
     apt-get clean
 
     echo "Create folder hierarchy in VBINS"
@@ -287,8 +486,11 @@ shell:
 
     LIST="$(find /VBINS/usr/bin/ -type f)"
     LIST+=" $(find /VBINS/usr/sbin/ -type f)"
-    LIST+=" /usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3"
-    LIST+=" /usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4"
+    # LIST+=" /usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3"
+    # LIST+=" /usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4"
+    
+    LIST+=" /usr/lib/x86_64-linux-gnu/libbsd.so /usr/lib/x86_64-linux-gnu/libbsd.so.0 /usr/lib/x86_64-linux-gnu/libnbd.so"
+    LIST+=" /usr/lib/x86_64-linux-gnu/libjson-c.so /usr/lib/x86_64-linux-gnu/libssh.so"
 
     ./relocate_binaries.sh -i "$LIST" -o /VBINS
 
