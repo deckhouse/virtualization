@@ -140,6 +140,7 @@ func run(c *cobra.Command, opts Options) error {
 			VMInformer:   vmInformer.GetIndexer(),
 			NodeInformer: nodeInformer.GetIndexer(),
 			VDInformer:   vdInformer.GetIndexer(),
+			TTLCache:     ttlCache,
 		}),
 		events.NewVMControl(events.NewVMControlOptions{
 			VMInformer:   vmInformer.GetIndexer(),
@@ -153,11 +154,13 @@ func run(c *cobra.Command, opts Options) error {
 			VDInformer:   vdInformer.GetIndexer(),
 			VMOPInformer: vmopInformer.GetIndexer(),
 			NodeInformer: nodeInformer.GetIndexer(),
+			TTLCache:     ttlCache,
 		}),
 		events.NewVMConnect(events.NewVMConnectOptions{
 			VMInformer:   vmInformer.GetIndexer(),
 			NodeInformer: nodeInformer.GetIndexer(),
 			VDInformer:   vdInformer.GetIndexer(),
+			TTLCache:     ttlCache,
 		}),
 		events.NewV12NControl(events.NewV12NControlOptions{
 			NodeInformer: nodeInformer.GetIndexer(),
