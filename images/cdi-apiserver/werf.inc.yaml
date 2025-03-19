@@ -8,6 +8,6 @@ import:
   before: setup
   includePaths:
   - cdi-apiserver
-docker:
-  ENTRYPOINT: ["/usr/bin/cdi-apiserver", "-alsologtostderr"]
-  USER: 64535
+imageSpec:
+  entrypoint: ["/usr/bin/cdi-apiserver", "-alsologtostderr"]
+  user: 64535

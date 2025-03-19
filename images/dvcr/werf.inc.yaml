@@ -16,8 +16,8 @@ import:
   excludePaths:
   - '**/dvcr-uploader'
   - '**/dvcr-importer'
-docker:
-  USER: 64535
+imageSpec:
+  user: 64535
 ---
 {{- $version := "2.8.3" }}
 

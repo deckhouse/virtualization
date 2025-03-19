@@ -32,7 +32,7 @@ import:
   add: /pre-delete-hook/pre-delete-hook
   to: /pre-delete-hook
   after: install
-docker:
-  USER: "65532:65532"
-  WORKDIR: "/"
-  ENTRYPOINT: ["/pre-delete-hook"]
+imageSpec:
+  user: "65532:65532"
+  workingDir: "/"
+  entrypoint: ["/pre-delete-hook"]

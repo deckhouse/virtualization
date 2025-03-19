@@ -14,9 +14,9 @@ import:
   - cloner_startup.sh
   before: setup
 # Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-cloner/BUILD.bazel
-docker:
-  ENTRYPOINT: ["/usr/bin/cloner_startup.sh"]
-  USER: 64535
+imageSpec:
+  entrypoint: ["/usr/bin/cloner_startup.sh"]
+  user: 64535
 ---
 {{- $binaries := "/usr/bin/sh /usr/bin/bash /usr/sbin/blockdev /usr/bin/mount /usr/bin/umount /usr/sbin/fsck /usr/sbin/blkid /usr/sbin/mkfs /usr/sbin/mkfs.ext4 /usr/sbin/mkfs.xfs /usr/sbin/dumpe2fs /usr/sbin/xfs_io /usr/sbin/xfs_growfs /usr/sbin/resize2fs" }}
 

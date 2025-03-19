@@ -6,8 +6,8 @@ import:
     add: /relocate
     to: /
     after: setup
-docker:
-  CMD: ["echo", "Hi, my name is Bounder. I’m here to fulfill my destiny… to mount PVCs and vanish into the void."]
+imageSpec:
+  cmd: ["echo", "Hi, my name is Bounder. I’m here to fulfill my destiny… to mount PVCs and vanish into the void."]
 ---
 {{- $binaries := "/usr/bin/echo" }}
 

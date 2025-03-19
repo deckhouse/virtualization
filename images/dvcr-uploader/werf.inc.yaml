@@ -16,7 +16,7 @@ git:
     - uploader_entrypoint.sh
   stageDependencies:
     setup: ['*']
-docker:
-  WORKDIR: "/"
-  CMD: ["/usr/local/bin/dvcr-uploader"]
-  USER: 64535
+imageSpec:
+  workingDir: "/"
+  cmd: ["/usr/local/bin/dvcr-uploader"]
+  user: 64535
