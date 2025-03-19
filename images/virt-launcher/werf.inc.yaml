@@ -215,6 +215,7 @@ libs:
   - libpulse-dev
   - libpipewire-0.3-modules
   - libpipewire-0.3-dev
+  - libcbor0.8
   # - libpipewire-jack-dev
   - libsoundio-dev
   - libcapstone-dev
