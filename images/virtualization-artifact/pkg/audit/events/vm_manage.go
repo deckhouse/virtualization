@@ -75,7 +75,7 @@ func (m *VMManage) IsMatched(event *audit.Event) bool {
 }
 
 func (m *VMManage) Log(event *audit.Event) error {
-	eventLog := NewEventLog(event)
+	eventLog := NewVMEventLog(event)
 	eventLog.Type = "Manage VM"
 
 	switch event.Verb {

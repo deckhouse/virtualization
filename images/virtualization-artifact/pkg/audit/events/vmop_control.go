@@ -72,7 +72,7 @@ type vmopResponseObjectMetadata struct {
 }
 
 func (m *VMOPControl) Log(event *audit.Event) error {
-	eventLog := NewEventLog(event)
+	eventLog := NewVMEventLog(event)
 	eventLog.Type = "Control VM"
 
 	var response vmopResponseObject

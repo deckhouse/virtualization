@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type EventLog struct {
+type VMEventLog struct {
 	Type           string `json:"type"`
 	Level          string `json:"level"`
 	Name           string `json:"name"`
@@ -49,8 +49,8 @@ type EventLog struct {
 	OperationResult string `json:"operation_result"`
 }
 
-func NewEventLog(event *audit.Event) EventLog {
-	return EventLog{
+func NewVMEventLog(event *audit.Event) VMEventLog {
+	return VMEventLog{
 		Type:           "unknown",
 		Level:          "info",
 		Name:           "unknown",
@@ -70,7 +70,7 @@ func NewEventLog(event *audit.Event) EventLog {
 	}
 }
 
-func (e EventLog) Log() error {
+func (e VMEventLog) Log() error {
 	bytes, err := json.Marshal(e)
 	if err != nil {
 		return err
@@ -81,7 +81,7 @@ func (e EventLog) Log() error {
 	return nil
 }
 
-func (e *EventLog) fillVDInfo(vdInformer cache.Indexer, vm *v1alpha2.VirtualMachine) error {
+func (e *VMEventLog) fillVDInfo(vdInformer cache.Indexer, vm *v1alpha2.VirtualMachine) error {
 	storageClasses := []string{}
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -104,7 +104,7 @@ func (e *EventLog) fillVDInfo(vdInformer cache.Indexer, vm *v1alpha2.VirtualMach
 	return nil
 }
 
-func (e *EventLog) fillNodeInfo(nodeInformer cache.Indexer, vm *v1alpha2.VirtualMachine) error {
+func (e *VMEventLog) fillNodeInfo(nodeInformer cache.Indexer, vm *v1alpha2.VirtualMachine) error {
 	node, err := getNodeFromInformer(nodeInformer, vm.Status.Node)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)

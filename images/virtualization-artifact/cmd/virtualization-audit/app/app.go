@@ -137,6 +137,14 @@ func run(c *cobra.Command, opts Options) error {
 			NodeInformer: nodeInformer.GetIndexer(),
 			VDInformer:   vdInformer.GetIndexer(),
 		}),
+		events.NewV12NControl(events.NewV12NControlOptions{
+			NodeInformer: nodeInformer.GetIndexer(),
+			PodInformer:  podInformer.GetIndexer(),
+		}),
+		events.NewV12NModuleControl(events.NewV12NModuleControlOptions{
+			NodeInformer: nodeInformer.GetIndexer(),
+			PodInformer:  podInformer.GetIndexer(),
+		}),
 	)
 	if err != nil {
 		log.Fatal("failed to create server", log.Err(err))
