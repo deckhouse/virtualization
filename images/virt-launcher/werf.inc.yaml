@@ -592,4 +592,10 @@ shell:
   - |
     cp -a etc/libvirt etc/libvirt-init
 
-    echo -e "OS=DVP\nVer=0.17.0" > etc/os-release
+  - |
+    echo "Add ver"
+    echo -e "OS=DVP\nVer=0.17.0\nRelease=1" > etc/os-release
+
+    echo "Copy ld-linux-x86-64.so.2 and create link for ld-linux-x86-64.so.2 -> ld-linux-x86-64.so.2"
+    cp -a /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib/x86_64-linux-gnu
+    ln -s usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib64/ld-linux-x86-64.so.2
