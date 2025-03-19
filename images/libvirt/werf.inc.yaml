@@ -338,7 +338,8 @@ shell:
         -Ddriver_libvirtd=enabled \
         -Ddriver_qemu=enabled \
         -Ddriver_remote=enabled \
-        -Dselinux=enabled \
+        -Dselinux=disabled \
+        -Dapparmor=disabled \
         -Dselinux_mount=enabled \
         -Ddriver_esx=disabled -Dcurl=disabled \
         -Dfirewalld=disabled \
