@@ -69,6 +69,21 @@ func GetConfig() (*Config, error) {
 	if err := conf.setEnvs(); err != nil {
 		return nil, err
 	}
+
+	conf.LogFilter = []string{
+		VirtualMachinePowerStateFilter,
+		VirtualMachineInternalErrorFilter,
+		VirtualMachineTooManyRequestsFilter,
+		VirtualDiskObjectRefValidationFilter,
+		VirtualDiskMetadataPatchingFilter,
+		VirtualMachineClassMetadataPatchingFilter,
+		VirtualDiskCleanUpFilter,
+		ImagesVirtualDiskSnapshotObjectRefIsNilFilter,
+		ImagesVirtualDiskSnapshotNotReadyFilter,
+		ImagesVIObjectRefIsNilFilter,
+		AllMetadataPatchingFilter,
+	}
+
 	return &conf, nil
 }
 
