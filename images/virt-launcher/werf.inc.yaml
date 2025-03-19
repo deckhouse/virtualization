@@ -286,6 +286,7 @@ libs:
   - libglib2.0-dev
   - libxml2-dev
   - libtirpc-dev
+  - libc6
   - libc6-dev
   - libllvmspirvlib-15-dev
   - libllvmspirvlib15
