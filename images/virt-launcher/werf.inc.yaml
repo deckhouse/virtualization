@@ -363,7 +363,7 @@ binaries:
   # Numactl
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat /usr/bin/migratepages
   # Hwclock
-  - /usr/bin/clock_unsynced /etc/adjtime /usr/sbin/clock /usr/sbin/hwclock
+  - /usr/sbin/hwclock
   # Libffi8
   # - "/usr/lib64/libffi.so*"
   - "/usr/lib/x86_64-linux-gnu/libffi.so*"
