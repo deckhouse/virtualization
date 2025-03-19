@@ -75,6 +75,11 @@ mkdir -p "${OUT_DIR}"
 function relocate_item() {
   local file=$1
   
+  # bypass ld-linux
+  if [[ $file =~ ^/lib64/ld-linux-x86-64.so.2 ]];then
+    return
+  fi
+  
   if [[ $file =~ ^(/lib|/lib64|/bin|/sbin) ]];then
     file="/usr${file}"
   fi
@@ -99,7 +104,7 @@ function relocate_lib() {
 
   for lib in $(ldd ${item} 2>/dev/null | awk '{if ($2=="=>") print $3; else print $1}'); do
     # don't try to relocate linux-vdso.so lib due to this lib is virtual
-    if [[ "${lib}" =~ "linux-vdso" || "${lib}" == "not" || "${lib}" =~ ^/lib64/ld-linux-x86-64.so.2 ]]; then
+    if [[ "${lib}" =~ "linux-vdso" || "${lib}" == "not" ]]; then
       continue
     fi
     relocate_item ${lib}
