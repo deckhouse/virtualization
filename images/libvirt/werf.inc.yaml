@@ -191,10 +191,6 @@ shell:
                         -d /BINS \
                         -b build
 ---
-{{- $gitRepoName := "libvirt" }}
-{{- $version := get $.Version $gitRepoName }}
-{{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
-
 image: {{ $.ImageName }}
 final: false
 from: {{ $.Images.BASE_DEBIAN_BOOKWORM_SLIM }}
