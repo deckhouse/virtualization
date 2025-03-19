@@ -588,7 +588,8 @@ shell:
       echo "Create symlinc for $LINE"
       TARGET=$(echo $LINE | awk -F' ' '{print $1}')
       SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
-      ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
+      ln -s ../local/lib64/$TARGET usr/lib/x86_64-linux-gnu/$SYMLINK
+      # ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
     done <<< "$SYMLINC_LIST"
 
   - |
@@ -608,4 +609,4 @@ shell:
 
   - |
     echo "Add ver"
-    echo -e "OS=DVP\nVer=0.17.0\nRelease=0.17.0" > etc/os-release
+    echo -e "OS: DVP\nVer: 0.17.0\nRelease: 0.17.0" > etc/os-release
