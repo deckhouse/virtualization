@@ -22,18 +22,15 @@ import (
 
 type NewV12NModuleControlOptions struct {
 	NodeInformer indexer
-	PodInformer  indexer
 }
 
 func NewV12NModuleControl(options NewV12NModuleControlOptions) *V12NModuleControl {
 	return &V12NModuleControl{
 		nodeInformer: options.NodeInformer,
-		podInformer:  options.PodInformer,
 	}
 }
 
 type V12NModuleControl struct {
-	podInformer  indexer
 	nodeInformer indexer
 }
 
