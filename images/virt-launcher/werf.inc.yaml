@@ -192,19 +192,22 @@ binaries:
 {{- define "virt-launcher-dependencies" -}}
 libs:
   - libffi8 
-  - libssh-dev 
-  - libssh2-1-dev 
+  - libssh-4 
+  - libssh2-1
   - libcap-ng-dev
   - zlib1g-dev
   - libcurl4-openssl-dev
   - libpci-dev
+  - libpci3
   - libgvnc-1.0-dev
   - libfdt-dev
   - libpixman-1-dev
   - libkeyutils-dev
   - uuid-dev
   - libpam0g-dev
+  - libpam0g
   - libtasn1-6-dev
+  - libtasn1-6
   - libslirp-dev
   - libdrm-dev
   - libxdp-dev
@@ -274,6 +277,7 @@ libs:
   - libaudit-dev
   - libfuse-dev
   - libnbd-dev
+  - libnbd0
   - libblkid-dev
   - libp11-kit-dev
   - libreadline-dev

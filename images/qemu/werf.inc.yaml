@@ -342,7 +342,7 @@ shell:
     apt-get update
     apt-get install -y eatmydata
     eatmydata apt-get dist-upgrade -y
-    eatmydata apt-get install --no-install-recommends -y \
+    eatmydata apt-get install -y \
                       acpica-tools \
                       bash \
                       bc \
@@ -361,11 +361,12 @@ shell:
                       exuberant-ctags \
                       findutils \
                       flex \
-                      gcc \
+                      g++ g++-12 gcc gcc-12 \
                       gcovr \
                       gettext \
                       git \
                       hostname \
+                      icu-devtools intltool-debian libacl1-dev \
                       libaio-dev \
                       libasan6 \
                       libasound2-dev \
@@ -375,6 +376,7 @@ shell:
                       libbpf-dev \
                       libbrlapi-dev \
                       libbz2-dev \
+                      libdbus-1-dev \
                       libc6-dev \
                       libcacard-dev \
                       libcap-ng-dev \
@@ -385,6 +387,7 @@ shell:
                       libdaxctl-dev \
                       libdrm-dev \
                       libepoxy-dev \
+                      libegl-mesa0 libegl1 libegl1-mesa-dev \
                       libfdt-dev \
                       libffi-dev \
                       libfuse3-dev \
@@ -415,7 +418,7 @@ shell:
                       libpulse-dev \
                       librbd-dev \
                       librdmacm-dev \
-                      libsasl2-dev \
+                      libsasl2-2 libsasl2-dev \
                       libsdl2-dev \
                       libsdl2-image-dev \
                       libseccomp-dev \
@@ -426,8 +429,9 @@ shell:
                       libsndio-dev \
                       libspice-protocol-dev \
                       libspice-server-dev \
-                      libssh-dev \
+                      libssh2-1-dev libssh2-1 libssh-4 libssl-dev \
                       libsystemd-dev \
+                      libstdc++-12-dev \
                       libtasn1-6-dev \
                       libubsan1 \
                       libudev-dev \
@@ -439,6 +443,7 @@ shell:
                       libvulkan-dev \
                       vulkan-validationlayers-dev \
                       libvte-2.91-dev \
+                      libwayland-bin libwayland-dev \
                       libxdp-dev \
                       libxen-dev \
                       libzstd-dev \
@@ -476,7 +481,8 @@ shell:
                       vulkan-tools \
                       xorriso \
                       zlib1g-dev \
-                      zstd
+                      zstd \
+                      qemu-system-data readline-common seabios sensible-utils
     
     # Some qemu functional need packages from unstable repo
 
@@ -497,20 +503,6 @@ shell:
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
-    
-    echo "Some extra pkg"
-    DEBIAN_FRONTEND=noninteractive eatmydata \
-      apt install -y --no-install-recommends \
-      cscope\
-      global\
-      linux-headers-generic
-
-    git clone https://github.com/luigirizzo/netmap.git /usr/src/netmap
-    cd /usr/src/netmap && git checkout v11.3
-    cd /usr/src/netmap/LINUX && \
-      ./configure --no-drivers --no-apps \
-      --kernel-dir=$(ls -d /usr/src/linux-headers-*-$(dpkg --print-architecture)) \
-      && make install
 
     apt-get clean
 
