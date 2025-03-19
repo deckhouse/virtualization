@@ -117,7 +117,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, err
 	}
 
-	toBeReadyState := h.checkBlockDevicesToBeReady(s, bdState, log)
+	canStartVM, toBeReadyState := h.checkBlockDevicesToBeReady(s, bdState, log)
 	toBeReadyForUseState, err := h.checkBlockDevicesToBeReadyForUse(ctx, s)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -130,7 +130,7 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 				return reconcile.Result{}, err
 			}
 
-			if isWFFC {
+			if isWFFC && canStartVM {
 				toBeReadyState.Reason(vmcondition.ReasonWaitingForProvisioningToPVC)
 			}
 		}
@@ -275,14 +275,14 @@ func (h *BlockDeviceHandler) checkVDToUseCurrentVM(vd *virtv2.VirtualDisk, vm *v
 	return false
 }
 
-func (h *BlockDeviceHandler) checkBlockDevicesToBeReady(s state.VirtualMachineState, bdState BlockDevicesState, log *slog.Logger) *conditions.ConditionBuilder {
+func (h *BlockDeviceHandler) checkBlockDevicesToBeReady(s state.VirtualMachineState, bdState BlockDevicesState, log *slog.Logger) (bool, *conditions.ConditionBuilder) {
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
 		Generation(changed.Generation)
 
-	if readyCount, warnings := h.countReadyBlockDevices(current, bdState); len(current.Spec.BlockDeviceRefs) != readyCount {
+	if readyCount, canStartVM, warnings := h.countReadyBlockDevices(current, bdState); len(current.Spec.BlockDeviceRefs) != readyCount {
 		var reason vmcondition.Reason
 		var msg string
 		if len(current.Spec.BlockDeviceRefs) == 1 {
@@ -301,13 +301,13 @@ func (h *BlockDeviceHandler) checkBlockDevicesToBeReady(s state.VirtualMachineSt
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDevicesNotReady).
 			Message(msg)
-		return cb
+		return canStartVM, cb
 	}
 
 	cb.Status(metav1.ConditionTrue).
 		Reason(vmcondition.ReasonBlockDevicesReady).
 		Message("")
-	return cb
+	return true, cb
 }
 
 func (h *BlockDeviceHandler) updateStatusBlockDeviceRefs(
@@ -575,14 +575,14 @@ func (h *BlockDeviceHandler) getBlockDeviceStatusRefs(ctx context.Context, s sta
 }
 
 // countReadyBlockDevices check if all attached images and disks are ready to use by the VM.
-func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState) (int, []string) {
+func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s BlockDevicesState) (int, bool, []string) {
 	if vm == nil {
-		return 0, nil
+		return 0, false, nil
 	}
 
 	var warnings []string
 	ready := 0
-
+	canStartKVVM := true
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		switch bd.Kind {
 		case virtv2.ImageDevice:
@@ -590,18 +590,22 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 				ready++
 				continue
 			}
+			canStartKVVM = false
 		case virtv2.ClusterImageDevice:
 			if cvi, hasKey := s.CVIByName[bd.Name]; hasKey && cvi.Status.Phase == virtv2.ImageReady {
 				ready++
 				continue
 			}
+			canStartKVVM = false
 		case virtv2.DiskDevice:
 			vd, hasKey := s.VDByName[bd.Name]
 			if !hasKey {
+				canStartKVVM = false
 				continue
 			}
 
 			if vd.Status.Target.PersistentVolumeClaim == "" {
+				canStartKVVM = false
 				continue
 			}
 			readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
@@ -614,7 +618,7 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 		}
 	}
 
-	return ready, warnings
+	return ready, canStartKVVM, warnings
 }
 
 // setFinalizersOnBlockDevices sets protection finalizers on CVMI and VMD attached to the VM.

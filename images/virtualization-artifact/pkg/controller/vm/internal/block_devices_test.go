@@ -1177,8 +1177,9 @@ var _ = Describe("BlockDeviceHandler", func() {
 
 	Context("VirtualMachine is nil", func() {
 		It("Not ready, cannot start, no warnings", func() {
-			ready, warnings := h.countReadyBlockDevices(nil, BlockDevicesState{})
+			ready, canStart, warnings := h.countReadyBlockDevices(nil, BlockDevicesState{})
 			Expect(ready).To(Equal(0))
+			Expect(canStart).To(BeFalse())
 			Expect(warnings).To(BeNil())
 		})
 	})
@@ -1186,8 +1187,9 @@ var _ = Describe("BlockDeviceHandler", func() {
 	Context("BlockDevices are ready", func() {
 		It("Ready, can start, no warnings", func() {
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, warnings := h.countReadyBlockDevices(vm, state)
+			ready, canStart, warnings := h.countReadyBlockDevices(vm, state)
 			Expect(ready).To(Equal(4))
+			Expect(canStart).To(BeTrue())
 			Expect(warnings).To(BeNil())
 		})
 	})
@@ -1196,16 +1198,18 @@ var _ = Describe("BlockDeviceHandler", func() {
 		It("VirtualImage not ready: cannot start, no warnings", func() {
 			vi.Status.Phase = virtv2.ImagePending
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, warnings := h.countReadyBlockDevices(vm, state)
+			ready, canStart, warnings := h.countReadyBlockDevices(vm, state)
 			Expect(ready).To(Equal(3))
+			Expect(canStart).To(BeFalse())
 			Expect(warnings).To(BeNil())
 		})
 
 		It("ClusterVirtualImage not ready: cannot start, no warnings", func() {
 			cvi.Status.Phase = virtv2.ImagePending
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, warnings := h.countReadyBlockDevices(vm, state)
+			ready, canStart, warnings := h.countReadyBlockDevices(vm, state)
 			Expect(ready).To(Equal(3))
+			Expect(canStart).To(BeFalse())
 			Expect(warnings).To(BeNil())
 		})
 	})
@@ -1215,8 +1219,9 @@ var _ = Describe("BlockDeviceHandler", func() {
 			vdFoo.Status.Phase = virtv2.DiskProvisioning
 			vdFoo.Status.Target.PersistentVolumeClaim = ""
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, warnings := h.countReadyBlockDevices(vm, state)
+			ready, canStart, warnings := h.countReadyBlockDevices(vm, state)
 			Expect(ready).To(Equal(3))
+			Expect(canStart).To(BeFalse())
 			Expect(warnings).To(BeNil())
 		})
 
@@ -1235,8 +1240,9 @@ var _ = Describe("BlockDeviceHandler", func() {
 				},
 			}
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, warnings := h.countReadyBlockDevices(vm, state)
+			ready, canStart, warnings := h.countReadyBlockDevices(vm, state)
 			Expect(ready).To(Equal(3))
+			Expect(canStart).To(BeTrue())
 			Expect(warnings).ToNot(BeEmpty())
 		})
 	})
