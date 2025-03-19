@@ -317,6 +317,7 @@ packages:
 binaries:
   # GNU utilities
   - /usr/bin/sh
+  - /usr/bin/dash
   - /usr/bin/bash
   - /usr/bin/uname
   - /usr/bin/nohup
