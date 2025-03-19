@@ -22,7 +22,6 @@ import (
 	"net/url"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -43,7 +42,7 @@ func removeAllQueryParams(uri string) (string, error) {
 	return parsedURL.String(), nil
 }
 
-func getVMFromInformer(vmInformer cache.Indexer, vmName string) (*v1alpha2.VirtualMachine, error) {
+func getVMFromInformer(vmInformer indexer, vmName string) (*v1alpha2.VirtualMachine, error) {
 	vmObj, exist, err := vmInformer.GetByKey(vmName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -60,7 +59,7 @@ func getVMFromInformer(vmInformer cache.Indexer, vmName string) (*v1alpha2.Virtu
 	return vm, nil
 }
 
-func getVDFromInformer(vdInformer cache.Indexer, vdName string) (*v1alpha2.VirtualDisk, error) {
+func getVDFromInformer(vdInformer indexer, vdName string) (*v1alpha2.VirtualDisk, error) {
 	vdObj, exist, err := vdInformer.GetByKey(vdName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -77,7 +76,7 @@ func getVDFromInformer(vdInformer cache.Indexer, vdName string) (*v1alpha2.Virtu
 	return vd, nil
 }
 
-func getNodeFromInformer(nodeInformer cache.Indexer, nodeName string) (*corev1.Node, error) {
+func getNodeFromInformer(nodeInformer indexer, nodeName string) (*corev1.Node, error) {
 	nodeObj, exist, err := nodeInformer.GetByKey(nodeName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -94,13 +93,16 @@ func getNodeFromInformer(nodeInformer cache.Indexer, nodeName string) (*corev1.N
 	return node, nil
 }
 
-func getPodFromInformer(podInformer cache.Indexer, podName string) (*corev1.Pod, error) {
+func getPodFromInformer(cache ttlCache, podInformer indexer, podName string) (*corev1.Pod, error) {
 	podObj, exist, err := podInformer.GetByKey(podName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get pod from informer: %w", err)
 	}
 	if !exist {
-		return nil, errors.New("podObj not exist")
+		podObj, exist = cache.Get("pods/" + podName)
+		if !exist {
+			return nil, errors.New("podObj not exist")
+		}
 	}
 
 	pod, ok := podObj.(*corev1.Pod)
@@ -111,7 +113,7 @@ func getPodFromInformer(podInformer cache.Indexer, podName string) (*corev1.Pod,
 	return pod, nil
 }
 
-func getVMOPFromInformer(vmopInformer cache.Indexer, vmopName string) (*v1alpha2.VirtualMachineOperation, error) {
+func getVMOPFromInformer(vmopInformer indexer, vmopName string) (*v1alpha2.VirtualMachineOperation, error) {
 	vmopObj, exist, err := vmopInformer.GetByKey(vmopName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
