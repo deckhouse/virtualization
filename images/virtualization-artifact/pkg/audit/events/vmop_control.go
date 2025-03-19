@@ -31,6 +31,7 @@ type NewVMOPControlOptions struct {
 	VDInformer   indexer
 	VMOPInformer indexer
 	NodeInformer indexer
+	TTLCache     ttlCache
 }
 
 func NewVMOPControl(options NewVMOPControlOptions) *VMOPControl {
@@ -39,6 +40,7 @@ func NewVMOPControl(options NewVMOPControlOptions) *VMOPControl {
 		vdInformer:   options.VDInformer,
 		vmopInformer: options.VMOPInformer,
 		nodeInformer: options.NodeInformer,
+		ttlCache:     options.TTLCache,
 	}
 }
 
@@ -47,6 +49,7 @@ type VMOPControl struct {
 	vdInformer   indexer
 	nodeInformer indexer
 	vmopInformer indexer
+	ttlCache     ttlCache
 }
 
 func (m *VMOPControl) IsMatched(event *audit.Event) bool {
@@ -103,7 +106,7 @@ func (m *VMOPControl) Log(event *audit.Event) error {
 		eventLog.Level = "warn"
 	}
 
-	vm, err := getVMFromInformer(m.vmInformer, vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
+	vm, err := getVMFromInformer(m.ttlCache, m.vmInformer, vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
@@ -112,7 +115,7 @@ func (m *VMOPControl) Log(event *audit.Event) error {
 	eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := eventLog.fillVDInfo(m.vdInformer, vm); err != nil {
+		if err := eventLog.fillVDInfo(m.ttlCache, m.vdInformer, vm); err != nil {
 			log.Error("fail to fill vd info", log.Err(err))
 		}
 	}

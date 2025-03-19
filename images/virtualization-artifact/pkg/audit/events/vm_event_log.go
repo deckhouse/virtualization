@@ -80,7 +80,7 @@ func (e VMEventLog) Log() error {
 	return nil
 }
 
-func (e *VMEventLog) fillVDInfo(vdInformer indexer, vm *v1alpha2.VirtualMachine) error {
+func (e *VMEventLog) fillVDInfo(ttlCache ttlCache, vdInformer indexer, vm *v1alpha2.VirtualMachine) error {
 	storageClasses := []string{}
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -88,7 +88,7 @@ func (e *VMEventLog) fillVDInfo(vdInformer indexer, vm *v1alpha2.VirtualMachine)
 			continue
 		}
 
-		vd, err := getVDFromInformer(vdInformer, vm.Namespace+"/"+bd.Name)
+		vd, err := getVDFromInformer(ttlCache, vdInformer, vm.Namespace+"/"+bd.Name)
 		if err != nil {
 			return fmt.Errorf("fail to get virtual disk from informer: %w", err)
 		}
