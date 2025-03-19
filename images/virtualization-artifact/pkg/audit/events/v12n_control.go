@@ -21,28 +21,35 @@ import (
 	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
-	"k8s.io/client-go/tools/cache"
 )
 
 type NewV12NControlOptions struct {
-	NodeInformer cache.Indexer
-	PodInformer  cache.Indexer
+	NodeInformer indexer
+	PodInformer  indexer
+	TTLCache     ttlCache
 }
 
 func NewV12NControl(options NewV12NControlOptions) *V12NControl {
 	return &V12NControl{
 		nodeInformer: options.NodeInformer,
 		podInformer:  options.PodInformer,
+		ttlCache:     options.TTLCache,
 	}
 }
 
 type V12NControl struct {
-	podInformer  cache.Indexer
-	nodeInformer cache.Indexer
+	podInformer  indexer
+	nodeInformer indexer
+	ttlCache     ttlCache
 }
 
 func (m *V12NControl) IsMatched(event *audit.Event) bool {
 	if event.ObjectRef == nil || event.Stage != audit.StageResponseComplete {
+		return false
+	}
+
+	// DaemonSet create request skipped because got it with almost emptry ObjectRef
+	if event.User.Username == "system:serviceaccount:kube-system:daemon-set-controller" {
 		return false
 	}
 
@@ -59,7 +66,7 @@ func (m *V12NControl) Log(event *audit.Event) error {
 	eventLog := NewV12NEventLog(event)
 	eventLog.Type = "Virtualization control"
 
-	pod, err := getPodFromInformer(m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	pod, err := getPodFromInformer(m.ttlCache, m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get pod from informer: %w", err)
 	}
@@ -72,6 +79,7 @@ func (m *V12NControl) Log(event *audit.Event) error {
 	if event.Verb == "create" {
 		eventLog.Name = "Component creation"
 		eventLog.Level = "info"
+		eventLog.Component = pod.Name
 
 		if strings.Contains(pod.Name, "virt-handler") {
 		} else {
@@ -79,6 +87,7 @@ func (m *V12NControl) Log(event *audit.Event) error {
 	} else {
 		eventLog.Name = "Component deletion"
 		eventLog.Level = "warn"
+		eventLog.Component = pod.Name
 
 		if strings.Contains(pod.Name, "virt-handler") {
 		} else {
