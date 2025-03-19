@@ -62,7 +62,7 @@ func (m *VMAccess) IsMatched(event *audit.Event) bool {
 }
 
 func (m *VMAccess) Log(event *audit.Event) error {
-	eventLog := NewEventLog(event)
+	eventLog := NewVMEventLog(event)
 	eventLog.Type = "Access to VM"
 
 	switch event.ObjectRef.Subresource {
