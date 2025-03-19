@@ -12,7 +12,7 @@ shell:
   - |
     apt-get update && apt-get install -y \
     libc-bin \
-    libffi8 libssh-dev libssh2-dev \
+    libffi8 libssh-dev libssh2-1-dev \
     mount xfsprogs util-linux e2fsprogs
   - |
     apt-get clean
