@@ -55,7 +55,7 @@ func (m *VMControl) IsMatched(event *audit.Event) bool {
 		return false
 	}
 
-	if strings.Contains(event.ObjectRef.Name, "virt-launcher") && event.ObjectRef.Resource == "pod" && event.Verb == "delete" {
+	if strings.Contains(event.ObjectRef.Name, "virt-launcher") && event.ObjectRef.Resource == "pods" && event.Verb == "delete" {
 		return true
 	}
 
@@ -63,7 +63,7 @@ func (m *VMControl) IsMatched(event *audit.Event) bool {
 }
 
 func (m *VMControl) Log(event *audit.Event) error {
-	eventLog := NewEventLog(event)
+	eventLog := NewVMEventLog(event)
 	eventLog.Type = "Control VM"
 
 	pod, err := getPodFromInformer(m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
@@ -73,7 +73,10 @@ func (m *VMControl) Log(event *audit.Event) error {
 
 	terminatedStatuses := make([]string, 0, len(pod.Status.ContainerStatuses))
 	for _, status := range pod.Status.ContainerStatuses {
-		terminatedStatuses = append(terminatedStatuses, string(status.State.Terminated.Message))
+		// TODO: find compute container and check his state
+		if status.State.Terminated != nil {
+			terminatedStatuses = append(terminatedStatuses, string(status.State.Terminated.Message))
+		}
 	}
 
 	isControllerAction := event.User.Username == "system:serviceaccount:d8-virtualization:virtualization-controller"
