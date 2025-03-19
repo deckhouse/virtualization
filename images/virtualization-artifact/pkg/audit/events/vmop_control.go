@@ -21,17 +21,16 @@ import (
 	"fmt"
 
 	"k8s.io/apiserver/pkg/apis/audit"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type NewVMOPControlOptions struct {
-	VMInformer   cache.Indexer
-	VDInformer   cache.Indexer
-	VMOPInformer cache.Indexer
-	NodeInformer cache.Indexer
+	VMInformer   indexer
+	VDInformer   indexer
+	VMOPInformer indexer
+	NodeInformer indexer
 }
 
 func NewVMOPControl(options NewVMOPControlOptions) *VMOPControl {
@@ -44,10 +43,10 @@ func NewVMOPControl(options NewVMOPControlOptions) *VMOPControl {
 }
 
 type VMOPControl struct {
-	vmInformer   cache.Indexer
-	vdInformer   cache.Indexer
-	nodeInformer cache.Indexer
-	vmopInformer cache.Indexer
+	vmInformer   indexer
+	vdInformer   indexer
+	nodeInformer indexer
+	vmopInformer indexer
 }
 
 func (m *VMOPControl) IsMatched(event *audit.Event) bool {

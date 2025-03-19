@@ -20,15 +20,14 @@ import (
 	"fmt"
 
 	"k8s.io/apiserver/pkg/apis/audit"
-	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 type NewVMConnectOptions struct {
-	VMInformer   cache.Indexer
-	VDInformer   cache.Indexer
-	NodeInformer cache.Indexer
+	VMInformer   indexer
+	VDInformer   indexer
+	NodeInformer indexer
 }
 
 func NewVMConnect(options NewVMConnectOptions) *VMAccess {
@@ -40,9 +39,9 @@ func NewVMConnect(options NewVMConnectOptions) *VMAccess {
 }
 
 type VMAccess struct {
-	vmInformer   cache.Indexer
-	vdInformer   cache.Indexer
-	nodeInformer cache.Indexer
+	vmInformer   indexer
+	vdInformer   indexer
+	nodeInformer indexer
 }
 
 func (m *VMAccess) IsMatched(event *audit.Event) bool {
