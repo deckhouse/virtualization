@@ -92,11 +92,11 @@ jobs:
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: ${{ github.ref_name }}
+          module_tag: "$MODULES_MODULE_TAG"
 
       - uses: deckhouse/modules-actions/deploy@v2
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: ${{ github.ref_name }}
+          module_tag: "$MODULES_MODULE_TAG"
           release_channel: ${{ github.event.inputs.version }}
