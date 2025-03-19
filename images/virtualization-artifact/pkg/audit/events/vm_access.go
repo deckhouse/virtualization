@@ -28,6 +28,7 @@ type NewVMConnectOptions struct {
 	VMInformer   indexer
 	VDInformer   indexer
 	NodeInformer indexer
+	TTLCache     ttlCache
 }
 
 func NewVMConnect(options NewVMConnectOptions) *VMAccess {
@@ -35,6 +36,7 @@ func NewVMConnect(options NewVMConnectOptions) *VMAccess {
 		vmInformer:   options.VMInformer,
 		nodeInformer: options.NodeInformer,
 		vdInformer:   options.VDInformer,
+		ttlCache:     options.TTLCache,
 	}
 }
 
@@ -42,6 +44,7 @@ type VMAccess struct {
 	vmInformer   indexer
 	vdInformer   indexer
 	nodeInformer indexer
+	ttlCache     ttlCache
 }
 
 func (m *VMAccess) IsMatched(event *audit.Event) bool {
@@ -73,7 +76,7 @@ func (m *VMAccess) Log(event *audit.Event) error {
 		eventLog.Name = "Access to VM via portforward"
 	}
 
-	vm, err := getVMFromInformer(m.vmInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	vm, err := getVMFromInformer(m.ttlCache, m.vmInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
@@ -82,7 +85,7 @@ func (m *VMAccess) Log(event *audit.Event) error {
 	eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := eventLog.fillVDInfo(m.vdInformer, vm); err != nil {
+		if err := eventLog.fillVDInfo(m.ttlCache, m.vdInformer, vm); err != nil {
 			log.Error("fail to fill vd info", log.Err(err))
 		}
 	}

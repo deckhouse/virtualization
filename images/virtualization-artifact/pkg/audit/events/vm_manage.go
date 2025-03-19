@@ -29,6 +29,7 @@ type NewVMManageOptions struct {
 	VMInformer   indexer
 	VDInformer   indexer
 	NodeInformer indexer
+	TTLCache     ttlCache
 }
 
 func NewVMManage(options NewVMManageOptions) *VMManage {
@@ -36,6 +37,7 @@ func NewVMManage(options NewVMManageOptions) *VMManage {
 		vmInformer:   options.VMInformer,
 		vdInformer:   options.VDInformer,
 		nodeInformer: options.NodeInformer,
+		ttlCache:     options.TTLCache,
 	}
 }
 
@@ -43,6 +45,7 @@ type VMManage struct {
 	vmInformer   indexer
 	vdInformer   indexer
 	nodeInformer indexer
+	ttlCache     ttlCache
 }
 
 func (m *VMManage) IsMatched(event *audit.Event) bool {
@@ -87,7 +90,7 @@ func (m *VMManage) Log(event *audit.Event) error {
 		eventLog.Name = "VM deletion"
 	}
 
-	vm, err := getVMFromInformer(m.vmInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	vm, err := getVMFromInformer(m.ttlCache, m.vmInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
@@ -96,7 +99,7 @@ func (m *VMManage) Log(event *audit.Event) error {
 	eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := eventLog.fillVDInfo(m.vdInformer, vm); err != nil {
+		if err := eventLog.fillVDInfo(m.ttlCache, m.vdInformer, vm); err != nil {
 			log.Error("fail to fill vd info", log.Err(err))
 		}
 	}

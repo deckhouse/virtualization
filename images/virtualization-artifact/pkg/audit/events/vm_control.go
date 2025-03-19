@@ -85,17 +85,17 @@ func (m *VMControl) Log(event *audit.Event) error {
 
 		if strings.Contains(terminatedStatuses, "guest-shutdown") {
 			eventLog.Name = "VM stoped from OS"
-		}
-
-		if strings.Contains(terminatedStatuses, "guest-reset") {
+		} else if strings.Contains(terminatedStatuses, "guest-reset") {
 			eventLog.Name = "VM restarted from OS"
+		} else {
+			eventLog.Name = "VM killed abnormal way"
 		}
 	} else {
 		eventLog.Level = "critical"
 		eventLog.Name = "VM killed abnormal way"
 	}
 
-	vm, err := getVMFromInformer(m.vmInformer, pod.Namespace+"/"+pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"])
+	vm, err := getVMFromInformer(m.ttlCache, m.vmInformer, pod.Namespace+"/"+pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"])
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
@@ -104,7 +104,7 @@ func (m *VMControl) Log(event *audit.Event) error {
 	eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := eventLog.fillVDInfo(m.vdInformer, vm); err != nil {
+		if err := eventLog.fillVDInfo(m.ttlCache, m.vdInformer, vm); err != nil {
 			log.Error("fail to fill vd info", log.Err(err))
 		}
 	}
