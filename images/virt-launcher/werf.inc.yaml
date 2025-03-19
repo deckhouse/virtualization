@@ -515,9 +515,6 @@ shell:
     # cp -af /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
     # ln -s usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 usr/lib64/ld-linux-x86-64.so.2
 
-    cp -a /usr/lib/x86_64-linux-gnu/. usr/lib/x86_64-linux-gnu
-    cp -a /usr/lib64/. usr/lib64
-
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins}
 
@@ -582,15 +579,22 @@ shell:
     EOF
     )
 
-    cd /relocate
+    # cd /relocate
+    cd /relocate/usr/local/lib64
 
     while IFS= read -r LINE; do
       echo "Create symlinc for $LINE"
       TARGET=$(echo $LINE | awk -F' ' '{print $1}')
       SYMLINK=$(echo $LINE | awk -F' ' '{print $2}')
-      ln -s ../local/lib64/$TARGET usr/lib/x86_64-linux-gnu/$SYMLINK
+      # ln -s ../local/lib64/$TARGET usr/lib/x86_64-linux-gnu/$SYMLINK
       # ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
+      ln -s $TARGET $SYMLINK
     done <<< "$SYMLINC_LIST"
+  - |
+    cd /relocate
+    echo "Copy from $(pwd)/usr/lib64 to usr/lib/x86_64-linux-gnu"
+    cp -a usr/local/lib64/. usr/lib/x86_64-linux-gnu
+    rm -rf usr/local/lib64
 
   - |
     cd /relocate
@@ -610,3 +614,8 @@ shell:
   - |
     echo "Add ver"
     echo -e "OS: DVP\nVer: 0.17.0\nRelease: 0.17.0" > etc/os-release
+
+  - |
+    echo "Copy all libs"
+    cp -a /usr/lib/x86_64-linux-gnu/. usr/lib/x86_64-linux-gnu
+    cp -a /usr/lib64/. usr/lib64
