@@ -32,12 +32,12 @@ import (
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualMachineState interface {
-	VirtualMachine() *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+	VirtualMachine() *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
 	KVVM(ctx context.Context) (*virtv1.VirtualMachine, error)
 	KVVMI(ctx context.Context) (*virtv1.VirtualMachineInstance, error)
 	Pods(ctx context.Context) (*corev1.PodList, error)
@@ -54,14 +54,14 @@ type VirtualMachineState interface {
 	Shared(fn func(s *Shared))
 }
 
-func New(c client.Client, vm *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) VirtualMachineState {
+func New(c client.Client, vm *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) VirtualMachineState {
 	return &state{client: c, vm: vm}
 }
 
 type state struct {
 	client      client.Client
 	mu          sync.RWMutex
-	vm          *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+	vm          *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
 	kvvm        *virtv1.VirtualMachine
 	kvvmi       *virtv1.VirtualMachineInstance
 	pods        *corev1.PodList
@@ -83,7 +83,7 @@ func (s *state) Shared(fn func(s *Shared)) {
 	fn(&s.shared)
 }
 
-func (s *state) VirtualMachine() *service.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus] {
+func (s *state) VirtualMachine() *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus] {
 	return s.vm
 }
 

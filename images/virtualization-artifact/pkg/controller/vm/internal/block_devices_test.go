@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -403,7 +403,7 @@ var _ = Describe("Capacity check", func() {
 		}
 
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm).Build()
-		vmResource := service.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
 		_ = vmResource.Fetch(ctx)
 		vmState := state.New(fakeClient, vmResource)
 
@@ -586,7 +586,7 @@ var _ = Describe("Capacity check", func() {
 			}
 
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm, kvvmi, vi, cvi, vmbdaVi, vmbdaCvi).Build()
-			vmResource := service.NewResource(namespacedVirtualMachine, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedVirtualMachine, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
 			_ = vmResource.Fetch(ctx)
 			vmState := state.New(fakeClient, vmResource)
 

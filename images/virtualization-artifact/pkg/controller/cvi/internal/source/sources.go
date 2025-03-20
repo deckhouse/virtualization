@@ -26,6 +26,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -69,7 +70,7 @@ func (s Sources) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (
 			return reconcile.Result{}, err
 		}
 
-		mergedResult = service.MergeResults(mergedResult, result)
+		mergedResult = reconciler.MergeResults(mergedResult, result)
 	}
 
 	return mergedResult, nil

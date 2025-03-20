@@ -18,7 +18,6 @@ package vmip
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -32,9 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -142,9 +140,7 @@ func (r *Reconciler) enqueueRequestsFromLeases(_ context.Context, obj client.Obj
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	log := logger.FromContext(ctx)
-
-	vmip := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	vmip := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vmip.Fetch(ctx)
 	if err != nil {
@@ -155,36 +151,19 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	log.Debug("Start reconcile VMIP")
-
 	s := state.New(r.client, vmip.Changed())
-	var handlerErrs []error
 
-	var result reconcile.Result
-	for _, h := range r.handlers {
-		log.Debug("Run handler", logger.SlogHandler(h.Name()))
+	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+		return h.Handle(ctx, s)
+	})
+	rec.SetResourceUpdater(func(ctx context.Context) error {
+		vmip.Changed().Status.ObservedGeneration = vmip.Changed().Generation
 
-		var res reconcile.Result
-		res, err = h.Handle(ctx, s)
-		if err != nil {
-			log.Error("Failed to handle VirtualMachineIP", logger.SlogErr(err), logger.SlogHandler(h.Name()))
-			handlerErrs = append(handlerErrs, err)
-		}
+		return vmip.Update(ctx)
+	})
 
-		result = service.MergeResults(result, res)
-	}
-
-	err = vmip.Update(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	err = errors.Join(handlerErrs...)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return result, nil
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachineIPAddress {

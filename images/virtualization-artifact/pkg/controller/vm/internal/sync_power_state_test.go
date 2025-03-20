@@ -33,7 +33,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -74,7 +74,7 @@ var _ = Describe("Test power actions with VMs", func() {
 			WithStatusSubresource(vm, kvvm, kvvmi).
 			Build()
 
-		vmResource := service.NewResource(
+		vmResource := reconciler.NewResource(
 			types.NamespacedName{Namespace: namespacedVirtualMachine.Namespace, Name: namespacedVirtualMachine.Name},
 			fakeClient,
 			vmFactoryByVm(vm),
@@ -185,7 +185,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			},
 		}
 
-		vmResource := service.NewResource(
+		vmResource := reconciler.NewResource(
 			types.NamespacedName{Namespace: namespacedVirtualMachine.Namespace, Name: namespacedVirtualMachine.Name},
 			fakeClient,
 			vmFactoryByVm(vm),
