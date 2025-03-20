@@ -51,9 +51,7 @@ func (m *ModuleComponentControl) IsMatched(event *audit.Event) bool {
 	}
 
 	// Skip control requests from internal k8s controllers because we get them with almost empty ObjectRef
-	if event.User.Username == "system:serviceaccount:kube-system:daemon-set-controller" ||
-		event.User.Username == "system:serviceaccount:kube-system:statefulset-controller" ||
-		event.User.Username == "system:serviceaccount:kube-system:replicaset-controller" {
+	if strings.Contains(event.User.Username, "system:serviceaccount:kube-system") {
 		return false
 	}
 
