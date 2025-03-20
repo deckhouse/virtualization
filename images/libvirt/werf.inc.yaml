@@ -3,194 +3,198 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
 
-image: {{ $.ImageName }}-alt
-final: false
-fromImage: base-alt-p11
-git:
-- add: /images/{{ $.ImageName }}/
-  to: /
-  includePaths:
-  - install-libvirt.sh
-  - patches
-  excludePaths:
-    - patches/README.md
-  stageDependencies:
-    install:
-      - '**/*'
-    setup:
-      - install-libvirt.sh
-shell:
-  beforeInstall:
-  - |
-    apt-get update && apt-get install --yes \
-    binutils \
-    dmidecode \
-    gcc-c++ \
-    git \
-    gettext \
-    bash-completion \
-    clang \
-    ccache \
-    make cmake \
-    meson \
-    ninja-build \
-    libudev-devel \
-    libpciaccess-devel \
-    libyajl-devel \
-    sanlock-devel \
-    libpcap-devel \
-    libnl-devel \
-    libselinux-devel \
-    iproute \
-    iptables \
-    iptables-nft \
-    iptables-ipv6 \
-    openvswitch \
-    ebtables \
-    libsasl2-devel \
-    pkgconfig \
-    libssh-devel \
-    libssh2-devel \
-    polkit kmod \
-    qemu-img \
-    lvm2 \
-    libparted-devel \
-    parted \
-    libdevmapper-devel \
-    ceph-devel \
-    open-iscsi \
-    libiscsi-devel \
-    libglusterfs-devel \
-    libnuma-devel \
-    libcap-ng-devel \
-    libcurl-devel \
-    libaudit-devel \
-    libfuse-devel \
-    libnbd-devel \
-    libblkid-devel \
-    libgcrypt-devel \
-    libgnutls-devel \
-    libp11-kit-devel \
-    libreadline-devel \
-    libtasn1-devel \
-    libattr-devel \
-    libbsd-devel \
-    libsystemd-devel \
-    libuuid-devel \
-    libjson-c-devel \
-    systemtap-sdt-devel \
-    systemd-container \
-    attr \
-    libacl-devel \
-    glib2-devel \
-    glibc-utils \
-    libgio-devel \
-    libxml2-devel \
-    xml-utils \
-    xsltproc \
-    python3 python3-devel \
-    python3-module-pytest \
-    python3-module-docutils \
-    python3-tools \
-    python3-module-pip \
-    polkit \
-    libtirpc-devel \
-    libsasl2-devel \
-    wireshark-devel \
-    tshark \
-    zlib-devel \
-    mdevctl \
-    util-linux dmsetup pm-utils libclocale \
-    libfuse3-devel libnuma libslirp-devel \
-    libyajl-devel libselinux-devel
+{{/*
 
-    apt-get clean
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+# image: {{ $.ImageName }}-alt
+# final: false
+# fromImage: base-alt-p11
+# git:
+# - add: /images/{{ $.ImageName }}/
+#   to: /
+#   includePaths:
+#   - install-libvirt.sh
+#   - patches
+#   excludePaths:
+#     - patches/README.md
+#   stageDependencies:
+#     install:
+#       - '**/*'
+#     setup:
+#       - install-libvirt.sh
+# shell:
+#   beforeInstall:
+#   - |
+#     apt-get update && apt-get install --yes \
+#     binutils \
+#     dmidecode \
+#     gcc-c++ \
+#     git \
+#     gettext \
+#     bash-completion \
+#     clang \
+#     ccache \
+#     make cmake \
+#     meson \
+#     ninja-build \
+#     libudev-devel \
+#     libpciaccess-devel \
+#     libyajl-devel \
+#     sanlock-devel \
+#     libpcap-devel \
+#     libnl-devel \
+#     libselinux-devel \
+#     iproute \
+#     iptables \
+#     iptables-nft \
+#     iptables-ipv6 \
+#     openvswitch \
+#     ebtables \
+#     libsasl2-devel \
+#     pkgconfig \
+#     libssh-devel \
+#     libssh2-devel \
+#     polkit kmod \
+#     qemu-img \
+#     lvm2 \
+#     libparted-devel \
+#     parted \
+#     libdevmapper-devel \
+#     ceph-devel \
+#     open-iscsi \
+#     libiscsi-devel \
+#     libglusterfs-devel \
+#     libnuma-devel \
+#     libcap-ng-devel \
+#     libcurl-devel \
+#     libaudit-devel \
+#     libfuse-devel \
+#     libnbd-devel \
+#     libblkid-devel \
+#     libgcrypt-devel \
+#     libgnutls-devel \
+#     libp11-kit-devel \
+#     libreadline-devel \
+#     libtasn1-devel \
+#     libattr-devel \
+#     libbsd-devel \
+#     libsystemd-devel \
+#     libuuid-devel \
+#     libjson-c-devel \
+#     systemtap-sdt-devel \
+#     systemd-container \
+#     attr \
+#     libacl-devel \
+#     glib2-devel \
+#     glibc-utils \
+#     libgio-devel \
+#     libxml2-devel \
+#     xml-utils \
+#     xsltproc \
+#     python3 python3-devel \
+#     python3-module-pytest \
+#     python3-module-docutils \
+#     python3-tools \
+#     python3-module-pip \
+#     polkit \
+#     libtirpc-devel \
+#     libsasl2-devel \
+#     wireshark-devel \
+#     tshark \
+#     zlib-devel \
+#     mdevctl \
+#     util-linux dmsetup pm-utils libclocale \
+#     libfuse3-devel libnuma libslirp-devel \
+#     libyajl-devel libselinux-devel
 
-    rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
-    rpm -qa | sort > /packages.txt
-    mkdir -p /usr/libexec/ccache-wrappers
-    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
-    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
-    ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
+#     apt-get clean
+#     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
-    pip3 install black
+#     rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
+#     rpm -qa | sort > /packages.txt
+#     mkdir -p /usr/libexec/ccache-wrappers
+#     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
+#     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
+#     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
 
-  install:
-  - |
-    export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
-    export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
-    export CCACHE_BASEDIR="$(pwd)"
-    export PATH="$CCACHE_WRAPPERSDIR:$PATH"
-    export MAKE="/usr/bin/make"
-    export NINJA="/usr/bin/ninja"
-    export PYTHON="/usr/bin/python3"
+#     pip3 install black
 
-    git clone --depth=1 --branch v{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
+#   install:
+#   - |
+#     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
+#     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
+#     export CCACHE_BASEDIR="$(pwd)"
+#     export PATH="$CCACHE_WRAPPERSDIR:$PATH"
+#     export MAKE="/usr/bin/make"
+#     export NINJA="/usr/bin/ninja"
+#     export PYTHON="/usr/bin/python3"
 
-    cd {{ $gitRepoName }}-{{ $version }}
+#     git clone --depth=1 --branch v{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
+
+#     cd {{ $gitRepoName }}-{{ $version }}
 
 
-    for p in /patches/*.patch ; do
-      echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-    done
+#     for p in /patches/*.patch ; do
+#       echo -n "Apply ${p} ... "
+#       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+#     done
 
-    CFLAGS="-Wframe-larger-than=262144" meson setup build \
-      -Dinit_script=systemd \
-      -Dsystem=true \
-      -Dremote_default_mode=direct \
-      -Dpciaccess=enabled \
-      -Dsasl=enabled \
-      -Dpolkit=enabled \
-      -Dlibssh=enabled \
-      -Dlibssh2=enabled \
-      -Dnumactl=enabled \
-      -Dcapng=enabled \
-      -Dudev=enabled \
-      -Ddriver_network=enabled \
-      -Ddriver_interface=enabled \
-      -Ddriver_libvirtd=enabled \
-      -Ddriver_qemu=enabled \
-      -Ddriver_remote=enabled \
-      -Dselinux=enabled \
-      -Dselinux_mount=enabled \
-      -Ddriver_esx=disabled -Dcurl=disabled \
-      -Dfirewalld=disabled \
-      -Dfirewalld_zone=disabled \
-      -Ddocs=disabled \
-      -Ddriver_ch=disabled \
-      -Ddriver_lxc=disabled -Dlogin_shell=disabled \
-      -Ddriver_openvz=disabled \
-      -Ddriver_test=disabled \
-      -Ddriver_vbox=disabled \
-      -Ddriver_vmware=disabled \
-      -Ddriver_hyperv=disabled -Dopenwsman=disabled \
-      -Ddriver_vz=disabled \
-      -Ddriver_bhyve=disabled \
-      -Dvbox_xpcomc_dir=disabled \
-      -Dwireshark_dissector=disabled \
-      -Dwireshark_plugindir=disabled \
-      -Dstorage_gluster=disabled -Dglusterfs=disabled \
-      -Dstorage_fs=disabled \
-      -Dstorage_lvm=disabled \
-      -Dstorage_zfs=disabled \
-      -Dstorage_vstorage=disabled \
-      -Dstorage_rbd=disabled \
-      -Dstorage_mpath=disabled \
-      -Dstorage_iscsi=disabled \
-      -Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
-      -Dlibiscsi=disabled
+#     CFLAGS="-Wframe-larger-than=262144" meson setup build \
+#       -Dinit_script=systemd \
+#       -Dsystem=true \
+#       -Dremote_default_mode=direct \
+#       -Dpciaccess=enabled \
+#       -Dsasl=enabled \
+#       -Dpolkit=enabled \
+#       -Dlibssh=enabled \
+#       -Dlibssh2=enabled \
+#       -Dnumactl=enabled \
+#       -Dcapng=enabled \
+#       -Dudev=enabled \
+#       -Ddriver_network=enabled \
+#       -Ddriver_interface=enabled \
+#       -Ddriver_libvirtd=enabled \
+#       -Ddriver_qemu=enabled \
+#       -Ddriver_remote=enabled \
+#       -Dselinux=enabled \
+#       -Dselinux_mount=enabled \
+#       -Ddriver_esx=disabled -Dcurl=disabled \
+#       -Dfirewalld=disabled \
+#       -Dfirewalld_zone=disabled \
+#       -Ddocs=disabled \
+#       -Ddriver_ch=disabled \
+#       -Ddriver_lxc=disabled -Dlogin_shell=disabled \
+#       -Ddriver_openvz=disabled \
+#       -Ddriver_test=disabled \
+#       -Ddriver_vbox=disabled \
+#       -Ddriver_vmware=disabled \
+#       -Ddriver_hyperv=disabled -Dopenwsman=disabled \
+#       -Ddriver_vz=disabled \
+#       -Ddriver_bhyve=disabled \
+#       -Dvbox_xpcomc_dir=disabled \
+#       -Dwireshark_dissector=disabled \
+#       -Dwireshark_plugindir=disabled \
+#       -Dstorage_gluster=disabled -Dglusterfs=disabled \
+#       -Dstorage_fs=disabled \
+#       -Dstorage_lvm=disabled \
+#       -Dstorage_zfs=disabled \
+#       -Dstorage_vstorage=disabled \
+#       -Dstorage_rbd=disabled \
+#       -Dstorage_mpath=disabled \
+#       -Dstorage_iscsi=disabled \
+#       -Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
+#       -Dlibiscsi=disabled
 
-      ninja -C build -j$(nproc)
+#       ninja -C build -j$(nproc)
 
-  setup:
-  - |
-    /install-libvirt.sh --version-num "{{ $version }}" \
-                        -s /{{ $gitRepoName }}-{{ $version }} \
-                        -d /BINS \
-                        -b build
----
+#   setup:
+#   - |
+#     /install-libvirt.sh --version-num "{{ $version }}" \
+#                         -s /{{ $gitRepoName }}-{{ $version }} \
+#                         -d /BINS \
+#                         -b build
+# ---
+*/}}
+
 image: {{ $.ImageName }}
 final: false
 from: {{ $.Images.BASE_DEBIAN_BOOKWORM_SLIM }}
