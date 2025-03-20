@@ -19,8 +19,9 @@ package events
 import (
 	"fmt"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"k8s.io/apiserver/pkg/apis/audit"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
 type NewModuleControlOptions struct {
@@ -48,6 +49,10 @@ func (m *ModuleControl) IsMatched(event *audit.Event) bool {
 		return false
 	}
 
+	if event.Verb == "get" || event.Verb == "list" {
+		return false
+	}
+
 	if event.ObjectRef.Resource == "moduleconfigs" {
 		return true
 	}
@@ -57,7 +62,7 @@ func (m *ModuleControl) IsMatched(event *audit.Event) bool {
 
 func (m *ModuleControl) Log(event *audit.Event) error {
 	eventLog := NewModuleEventLog(event)
-	eventLog.Type = "Virtualization control"
+	eventLog.Type = "Module control"
 
 	eventLog.Component = event.ObjectRef.Name
 
@@ -70,11 +75,11 @@ func (m *ModuleControl) Log(event *audit.Event) error {
 	case "create":
 		eventLog.Name = "Module creation"
 		eventLog.Level = "info"
-	case "update":
+	case "patch", "update":
 		eventLog.Name = "Module update"
 		eventLog.Level = "info"
 
-		if !moduleConfig.Enabled {
+		if !*moduleConfig.Spec.Enabled {
 			eventLog.Name = "Module disable"
 			eventLog.Level = "warn"
 		}
@@ -87,7 +92,7 @@ func (m *ModuleControl) Log(event *audit.Event) error {
 	if err != nil {
 		log.Debug("fail to get module from informer", log.Err(err))
 	}
-	eventLog.VirtualizationVersion = module.Version
+	eventLog.VirtualizationVersion = module.Spec.Version
 
 	return eventLog.Log()
 }

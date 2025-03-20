@@ -18,7 +18,6 @@ package events
 
 import (
 	"fmt"
-	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
 )
@@ -48,18 +47,7 @@ func (m *IntegrityCheckVM) IsMatched(event *audit.Event) bool {
 		return false
 	}
 
-	// DaemonSet create request skipped because got it with almost emptry ObjectRef
-	if event.User.Username == "system:serviceaccount:kube-system:daemon-set-controller" {
-		return false
-	}
-
-	if strings.Contains(event.ObjectRef.Name, "cvi-importer") {
-		return false
-	}
-
-	if (event.Verb == "delete" || event.Verb == "create") &&
-		event.ObjectRef.Resource == "pods" &&
-		event.ObjectRef.Namespace == "d8-virtualization" {
+	if (event.Verb == "pathch" || event.Verb == "update") && event.ObjectRef.Resource == "internalvirtualizationvirtualmachineinstances" {
 		return true
 	}
 
@@ -70,7 +58,7 @@ func (m *IntegrityCheckVM) Log(event *audit.Event) error {
 	eventLog := NewIntegrityCheckEventLog(event)
 	eventLog.Type = "Integrity Check"
 
-	vmi, err := getInternalVMIFromInformer(m.internalVMIInformer, event.ObjectRef.Name)
+	vmi, err := getInternalVMIFromInformer(m.internalVMIInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get VMI from informer: %w", err)
 	}

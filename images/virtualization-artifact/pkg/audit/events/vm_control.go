@@ -79,7 +79,7 @@ func (m *VMControl) Log(event *audit.Event) error {
 		}
 	}
 
-	isControllerAction := event.User.Username == "system:serviceaccount:d8-virtualization:kubevirt-internal-virtualization-controller"
+	isControllerAction := strings.Contains(event.User.Username, "system:serviceaccount:d8-virtualization")
 	if isControllerAction {
 		eventLog.Level = "warn"
 
