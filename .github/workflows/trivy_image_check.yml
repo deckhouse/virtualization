@@ -23,7 +23,7 @@ on:
   workflow_dispatch:
     inputs:
       release_branch:
-        description: 'release branch name, example: release-1.68'
+        description: "release branch name, example: release-1.68"
         required: false
 
 jobs:
