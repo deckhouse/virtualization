@@ -36,6 +36,7 @@ on:
   # Called from trivy_image_check.yml
   # pull_request:
   #   types: [opened, reopened, synchronize, labeled, unlabeled]
+  workflow_call:
   push:
     branches:
       - main
