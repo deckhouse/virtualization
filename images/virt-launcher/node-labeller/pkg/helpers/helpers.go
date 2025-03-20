@@ -95,14 +95,13 @@ func CreateCharDevice(path string, major, minor int) error {
 func CreateKVMDevice(minor string) error {
 	m, err := strconv.Atoi(minor)
 	if err != nil {
-		slog.Error(fmt.Sprintf("unexpected value, expect int, take %v", minor))
-		return err
+		return fmt.Errorf("unexpected value, expect int, take %v", minor)
 	}
 	return CreateCharDevice("/dev/kvm", kvmCharDeviceMajorVersion, m)
 }
 
 func SetPermissionsRW(path string) error {
-	mode := os.FileMode(0o666) // Equivalent to `chmod o+rw`
+	mode := os.FileMode(0o666) // `chmod o+rw`
 	return os.Chmod(path, mode)
 }
 
@@ -123,73 +122,97 @@ func RunCommandWithError(cmd string, args []string) error {
 	return err
 }
 
-func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, error) {
-	type CustomCPU struct {
-		XMLName xml.Name `xml:"cpu"`
-		Mode    string   `xml:"mode,attr"`
-		Model   struct {
-			Text     string `xml:",chardata"`
-			Fallback string `xml:"fallback,attr,omitempty"`
-		} `xml:"model"`
-		Vendor   string `xml:"vendor,omitempty"`
-		Features []struct {
-			Policy string `xml:"policy,attr"`
-			Name   string `xml:"name,attr"`
-		} `xml:"feature"`
-	}
-
-	var xmlCPUs []string
-	var domainCaps libvirtxml.DomainCaps
-	var hostVendor string
-
-	if err := domainCaps.Unmarshal(domCapsXML); err != nil {
-		return nil, err
-	}
-
-	for _, mode := range domainCaps.CPU.Modes {
+func findHostVendor(modes []libvirtxml.DomainCapsCPUMode) string {
+	for _, mode := range modes {
 		if mode.Name == "host-model" && mode.Supported == "yes" {
-			hostVendor = mode.Vendor
-			break
+			return mode.Vendor
 		}
 	}
+	return ""
+}
+
+// Check if mode is supported and matches host vendor
+func isModeSupported(mode libvirtxml.DomainCapsCPUMode, hostVendor string) bool {
+	return mode.Supported == "yes" && mode.Vendor == hostVendor
+}
+
+type cpuFeature struct {
+	Policy string `xml:"policy,attr"`
+	Name   string `xml:"name,attr"`
+}
+
+type cpuModel struct {
+	Text     string `xml:",chardata"`
+	Fallback string `xml:"fallback,attr,omitempty"`
+}
+
+type customCPU struct {
+	XMLName  xml.Name     `xml:"cpu"`
+	Mode     string       `xml:"mode,attr"`
+	Model    cpuModel     `xml:"model"`
+	Vendor   string       `xml:"vendor,omitempty"`
+	Features []cpuFeature `xml:"feature"`
+}
+
+// Construct base CPU configuration
+func buildCustomCPU(mode libvirtxml.DomainCapsCPUMode,
+	model libvirtxml.DomainCapsCPUModel,
+	hostVendor string,
+) customCPU {
+	return customCPU{
+		Mode: mode.Name,
+		Model: cpuModel{
+			Text:     model.Name,
+			Fallback: model.Fallback,
+		},
+		Vendor: hostVendor,
+	}
+}
+
+// Add features from mode to CPU configuration
+func addModeFeatures(cpu *customCPU, features []libvirtxml.DomainCapsCPUFeature) {
+	for _, feature := range features {
+		cpu.Features = append(cpu.Features, cpuFeature{
+			Policy: feature.Policy,
+			Name:   feature.Name,
+		})
+	}
+}
+
+// GetCPUFeatureDomCaps extracts CPU feature domain capabilities from libvirt XML data.
+// It returns XML snippets representing compatible CPU configurations.
+func GetCPUFeatureDomCaps(domCapsXML string, logger *slog.Logger) ([]string, error) {
+	const indent = "  "
+	var (
+		cpuXMLs    []string
+		domainCaps libvirtxml.DomainCaps
+		hostVendor string
+	)
+
+	if err := domainCaps.Unmarshal(domCapsXML); err != nil {
+		return nil, fmt.Errorf("failed to parse domain capabilities: %w", err)
+	}
+
+	hostVendor = findHostVendor(domainCaps.CPU.Modes)
 
 	for _, mode := range domainCaps.CPU.Modes {
-		if mode.Supported != "yes" || mode.Vendor != hostVendor {
+		if !isModeSupported(mode, hostVendor) {
 			continue
 		}
 
 		for _, model := range mode.Models {
-			// Build XML for each compatible model
-			customCPU := CustomCPU{
-				Mode: mode.Name,
-				Model: struct {
-					Text     string `xml:",chardata"`
-					Fallback string `xml:"fallback,attr,omitempty"`
-				}{
-					Text:     model.Name,
-					Fallback: model.Fallback,
-				},
-				Vendor: mode.Vendor, // Use mode's vendor [[struct definition]]
+			cpu := buildCustomCPU(mode, model, hostVendor)
+			addModeFeatures(&cpu, mode.Features)
+
+			xmlData, err := xml.MarshalIndent(cpu, "", indent)
+			if err != nil {
+				logger.Warn("Failed to marshal CPU configuration", "error", err)
+				continue // Skip invalid configurations [[7]]
 			}
 
-			// Add features from the mode
-			for _, feature := range mode.Features {
-				customCPU.Features = append(customCPU.Features, struct {
-					Policy string `xml:"policy,attr"`
-					Name   string `xml:"name,attr"`
-				}{
-					Policy: feature.Policy,
-					Name:   feature.Name,
-				})
-			}
-
-			xmlData, _ := xml.MarshalIndent(customCPU, "", "  ")
-			xmlCPUs = append(xmlCPUs, string(xmlData))
+			cpuXMLs = append(cpuXMLs, string(xmlData))
 		}
 	}
 
-	printDbg := fmt.Sprintf("XML:\n%s\n", strings.Join(xmlCPUs, "\n"))
-	fmt.Print(printDbg)
-
-	return xmlCPUs, nil
+	return cpuXMLs, nil
 }
