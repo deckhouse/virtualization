@@ -53,7 +53,6 @@ func (m *V12NModuleControl) Log(event *audit.Event) error {
 	if event.Verb == "create" {
 		eventLog.Name = "Module creation"
 		eventLog.Level = "info"
-
 	} else {
 		eventLog.Name = "Module deletion"
 		eventLog.Level = "warn"

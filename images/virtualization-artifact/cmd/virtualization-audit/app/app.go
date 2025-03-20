@@ -95,36 +95,48 @@ func run(c *cobra.Command, opts Options) error {
 	}
 
 	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
-	vmInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
+	_, err = vmInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
 			vm := obj.(*v1alpha2.VirtualMachine)
 			key := fmt.Sprintf("virtualmachines/%s/%s", vm.Namespace, vm.Name)
 			ttlCache.Add(key, vm)
 		},
 	})
+	if err != nil {
+		log.Error("failed to add event handler for virtual machines", log.Err(err))
+		return err
+	}
 	go vmInformer.Run(c.Context().Done())
 
 	vdInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualDisks().Informer()
-	vdInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
+	_, err = vdInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
 			vd := obj.(*v1alpha2.VirtualDisk)
 			key := fmt.Sprintf("pods/%s/%s", vd.Namespace, vd.Name)
 			ttlCache.Add(key, vd)
 		},
 	})
+	if err != nil {
+		log.Error("failed to add event handler for virtual disks", log.Err(err))
+		return err
+	}
 	go vdInformer.Run(c.Context().Done())
 
 	vmopInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachineOperations().Informer()
 	go vmopInformer.Run(c.Context().Done())
 
 	podInformer := coreSharedInformerFactory.Core().V1().Pods().Informer()
-	podInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
+	_, err = podInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
 			pod := obj.(*corev1.Pod)
 			key := fmt.Sprintf("pods/%s/%s", pod.Namespace, pod.Name)
 			ttlCache.Add(key, pod)
 		},
 	})
+	if err != nil {
+		log.Error("failed to add event handler for pods", log.Err(err))
+		return err
+	}
 	go podInformer.Run(c.Context().Done())
 
 	nodeInformer := coreSharedInformerFactory.Core().V1().Nodes().Informer()
