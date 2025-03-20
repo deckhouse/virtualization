@@ -7,8 +7,9 @@ import:
     add: /relocate
     to: /
     after: install
-docker:
-  USER: 0
+imageSpec:
+  config:
+    user: 0
 
 ---
 {{- define "virt-launcher-dependencies" -}}

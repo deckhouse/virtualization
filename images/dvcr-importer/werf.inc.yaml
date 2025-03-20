@@ -16,7 +16,8 @@ git:
   - importer_entrypoint.sh
   stageDependencies:
     setup: ['*']
-docker:
-  WORKDIR: "/"
-  CMD: ["/usr/local/bin/dvcr-importer"]
-  USER: 64535
+imageSpec:
+  config:
+    workingDir: "/"
+    cmd: ["/usr/local/bin/dvcr-importer"]
+    user: 64535

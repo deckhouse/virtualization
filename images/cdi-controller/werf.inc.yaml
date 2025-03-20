@@ -6,9 +6,10 @@ import:
   add: /relocate
   to: /
   before: setup
-docker:
-  ENTRYPOINT: ["/usr/bin/cdi-controller", "-alsologtostderr"]
-  USER: 64535
+imageSpec:
+  config:
+    entrypoint: ["/usr/bin/cdi-controller", "-alsologtostderr"]
+    user: 64535
 ---
 {{- define "cdi-controller-deps" -}}
 binaries:

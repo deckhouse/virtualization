@@ -93,27 +93,32 @@ jobs:
         uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Login to DEV_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: deckhouse/modules-actions/build@v1.2
+        uses: deckhouse/modules-actions/build@v2
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: ${{ github.ref_name }}
+          module_tag: "$MODULES_MODULE_TAG"
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
-      - uses: deckhouse/modules-actions/deploy@v1
+      - uses: deckhouse/modules-actions/deploy@v2
+        with:
+          module_source: "$MODULES_MODULE_SOURCE"
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: "$MODULES_MODULE_TAG"
+          release_channel: ${{ github.event.inputs.version }}
 
   job-EE:
     name: Edition EE
@@ -136,30 +141,39 @@ jobs:
         if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: ./.github/actions/remove-unwanted-software
 
-      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.PROD_REGISTRY }}
+          registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
 
       - name: Login to PROD_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Login to DEV_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: deckhouse/modules-actions/build@v1.2
+        uses: deckhouse/modules-actions/build@v2
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: ${{ github.ref_name }}
+          module_tag: "$MODULES_MODULE_TAG"
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
-      - uses: deckhouse/modules-actions/deploy@v1
+      - uses: deckhouse/modules-actions/deploy@v2
+        with:
+          module_source: "$MODULES_MODULE_SOURCE"
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: "$MODULES_MODULE_TAG"
+          release_channel: ${{ github.event.inputs.version }}
 
   job-SE-Plus:
     name: Edition SE Plus
@@ -183,27 +197,32 @@ jobs:
         uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Login to DEV_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: deckhouse/modules-actions/build@v1.2
+        uses: deckhouse/modules-actions/build@v2
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: ${{ github.ref_name }}
+          module_tag: "$MODULES_MODULE_TAG"
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
-      - uses: deckhouse/modules-actions/deploy@v1
+      - uses: deckhouse/modules-actions/deploy@v2
+        with:
+          module_source: "$MODULES_MODULE_SOURCE"
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: "$MODULES_MODULE_TAG"
+          release_channel: ${{ github.event.inputs.version }}
 
   job-FE:
     name: Edition FE
@@ -231,24 +250,29 @@ jobs:
         uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.PROD_REGISTRY }}
           registry_login: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
       - name: Login to DEV_REGISTRY
-        uses: deckhouse/modules-actions/setup@v1.2
+        uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: deckhouse/modules-actions/build@v1.2
+        uses: deckhouse/modules-actions/build@v2
         with:
           module_source: "$MODULES_MODULE_SOURCE"
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: ${{ github.ref_name }}
+          module_tag: "$MODULES_MODULE_TAG"
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
-      - uses: deckhouse/modules-actions/deploy@v1
+      - uses: deckhouse/modules-actions/deploy@v2
+        with:
+          module_source: "$MODULES_MODULE_SOURCE"
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: "$MODULES_MODULE_TAG"
+          release_channel: ${{ github.event.inputs.version }}

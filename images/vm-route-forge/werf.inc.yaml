@@ -37,7 +37,8 @@ import:
   add: /app/images/vm-route-forge/vm-route-forge
   to: /app/vm-route-forge
   after: install
-docker:
-  USER: 64535
-  WORKDIR: "/app"
-  ENTRYPOINT: ["/app/vm-route-forge"]
+imageSpec:
+  config:
+    user: 64535
+    workingDir: "/app"
+    entrypoint: ["/app/vm-route-forge"]
