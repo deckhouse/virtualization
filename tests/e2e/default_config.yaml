@@ -34,3 +34,5 @@ testData:
   vdSnapshots: "/tmp/testdata/vd-snapshots"
   sshKey: "/tmp/testdata/sshkeys/id_ed"
   sshUser: "cloud"
+logFilter:
+  - "pattern to exclude"

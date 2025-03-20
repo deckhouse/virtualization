@@ -69,6 +69,21 @@ func GetConfig() (*Config, error) {
 	if err := conf.setEnvs(); err != nil {
 		return nil, err
 	}
+
+	conf.LogFilter = []string{
+		VirtualMachinePowerStateFilter,
+		VirtualMachineInternalErrorFilter,
+		VirtualMachineTooManyRequestsFilter,
+		VirtualDiskObjectRefValidationFilter,
+		VirtualDiskMetadataPatchingFilter,
+		VirtualMachineClassMetadataPatchingFilter,
+		VirtualDiskCleanUpFilter,
+		ImagesVirtualDiskSnapshotObjectRefIsNilFilter,
+		ImagesVirtualDiskSnapshotNotReadyFilter,
+		ImagesVIObjectRefIsNilFilter,
+		AllMetadataPatchingFilter,
+	}
+
 	return &conf, nil
 }
 
@@ -128,6 +143,7 @@ type Config struct {
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	Namespace        string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
+	LogFilter        []string         `yaml:"logFilter"`
 	StorageClass     StorageClass
 }
 
