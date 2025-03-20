@@ -48,7 +48,7 @@ type VMAccess struct {
 }
 
 func (m *VMAccess) IsMatched(event *audit.Event) bool {
-	if event.Stage != audit.StageResponseComplete || event.ObjectRef == nil {
+	if event.ObjectRef == nil {
 		return false
 	}
 
