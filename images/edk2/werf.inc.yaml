@@ -3,7 +3,7 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := cat $.SOURCE_REPO "/tianocore/edk2.git" | nospace }}
 
-image: {{ $.ImageName }}
+image: {{ $.ImageName }}-alt
 final: false
 fromImage: base-alt-p11
 git:
@@ -68,6 +68,9 @@ shell:
     cd {{ $gitRepoName }}-{{ $version }}
     git submodule update --init --recursive
 
+  setup:
+  - |
+    cd /{{ $gitRepoName }}-{{ $version }}
     # Set env edk
     export EDK_TOOLS_PATH=$(pwd)/BaseTools
     export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
@@ -76,7 +79,123 @@ shell:
     ln /usr/bin/python3 /usr/bin/python
     make -C BaseTools -j$(nproc) 2>&1 > /dev/null
 
-  setup:
-  - |
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
 
+---
+{{- $gitRepoName := "edk2" }}
+{{- $version := get $.Version $gitRepoName }}
+{{- $gitRepoUrl := cat $.SOURCE_REPO "/tianocore/edk2.git" | nospace }}
+
+image: {{ $.ImageName }}
+final: false
+from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+git:
+- add: /images/{{ $.ImageName }}
+  to: /
+  includePaths:
+  - build.sh
+  stageDependencies:
+    setup:
+      - build.sh
+- add: /images/{{ $.ImageName }}/logo
+  to: /
+  includePaths:
+  - Logo.bmp
+  stageDependencies:
+    setup:
+      - '**/*'
+- add: /images/{{ $.ImageName }}/json
+  to: /FIRMWARE
+  includePaths:
+  - '*.json'
+  stageDependencies:
+    setup:
+      - '*.json'
+- add: /images/{{ $.ImageName }}/uefi-revocation-list
+  to: /FIRMWARE
+  includePaths:
+  - '*.bin'
+  stageDependencies:
+    setup:
+      - '*.bin'
+shell:
+  beforeInstall:
+  - | 
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y eatmydata
+    eatmydata apt-get dist-upgrade -y
+    eatmydata apt-get install -y \
+      acpica-tools automake autoconf autotools-dev \
+      git curl \
+      bash-completion \
+      binutils-dev \
+      clang \
+      ca-certificates \
+      bc \
+      dosfstools \
+      dpkg \
+      fuse3 \
+      g++-multilib \
+      gcc-multilib \
+      gettext gettext-base \
+      iasl \
+      libc6 libc6-dev \
+      libaio1 libaio-dev \
+      libarchive-zip-perl libdebhelper-perl \
+      libfile-stripnondeterminism-perl \
+      liblocale-gettext-perl \
+      liburing2 \
+      libisofs6 \
+      libstdc++-11-dev \
+      libtsan2 \
+      libjson-glib-dev libjson-c-dev \
+      libjson-any-perl \
+      libjson-c5 \
+      libjson-glib-1.0-0 \
+      libperl5.36 libperl-dev \
+      mtools nasm netbase \
+      make cmake \
+      openssl \
+      perl perl-depends \
+      python3 \
+      python3-distutils \
+      python3-pexpect \
+      python3-ptyprocess \
+      qemu-utils \
+      qemu-system-arm \
+      qemu-system-x86 \
+      readline-common seabios \
+      sensible-utils uuid-dev \
+      sbsigntool \
+      shim-signed \
+      genisoimage \
+      xorriso
+
+    eatmydata apt-get autoremove -y
+    eatmydata apt-get autoclean -y
+    apt-get clean
+
+  install:
+  - |
+    git clone --depth=1 --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
+    
+    git clone {{ $.SOURCE_REPO }}/tianocore/edk2-platforms.git
+
+    cd {{ $gitRepoName }}-{{ $version }}
+    git submodule update --init --recursive
+
+
+  setup:
+  - |
+    cd /{{ $gitRepoName }}-{{ $version }}
+
+    # Set env edk
+    export EDK_TOOLS_PATH=$(pwd)/BaseTools
+    export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
+
+    echo "Building BaseTools..."
+    ln /usr/bin/python3 /usr/bin/python
+    make -C BaseTools -j$(nproc) 2>&1 > /dev/null
+
+    /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}

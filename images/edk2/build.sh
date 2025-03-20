@@ -81,7 +81,7 @@ fi
 EDK2_DIR="/${gitRepoName}-${edk2Branch}"
 FIRMWARE="/FIRMWARE"
 
-mv -f Logo.bmp $EDK2_DIR/MdeModulePkg/Logo/
+mv -f /Logo.bmp $EDK2_DIR/MdeModulePkg/Logo/Logo.bmp
 echo "=== cd $EDK2_DIR ==="
 cd $EDK2_DIR
 
@@ -109,7 +109,6 @@ CC_FLAGS="${CC_FLAGS} -D TPM1_ENABLE=FALSE"
 CC_FLAGS="${CC_FLAGS} -D CAVIUM_ERRATUM_27456=TRUE"
 
 # ovmf features
-OVMF_2M_FLAGS="${CC_FLAGS} -D FD_SIZE_2MB=TRUE -D NETWORK_TLS_ENABLE=FALSE -D NETWORK_ISCSI_ENABLE=FALSE"
 OVMF_4M_FLAGS="${CC_FLAGS} -D FD_SIZE_4MB=TRUE -D NETWORK_TLS_ENABLE=TRUE -D NETWORK_ISCSI_ENABLE=TRUE"
 
 # secure boot features
@@ -121,6 +120,8 @@ OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FAL
 echo "run source edksetup.sh"
 source ./edksetup.sh BaseTools
 source ./edksetup.sh
+
+python3 CryptoPkg/Library/OpensslLib/configure.py
 
 build_iso() {
   dir="$1"
@@ -156,12 +157,37 @@ build_iso() {
     -o "$ISO_IMAGE" "$UEFI_SHELL_IMAGE"
 }
 
+prep() {
+  build -a X64 -p MdeModulePkg/MdeModulePkg.dsc -t GCC5 -b RELEASE
+}
+
+build_ovmf_deb_style() {
+  build -a X64 \
+    -t GCC5 \
+    -p OvmfPkg/OvmfPkgX64.dsc \
+    -DCC_MEASUREMENT_ENABLE=TRUE -DNETWORK_HTTP_BOOT_ENABLE=TRUE -DNETWORK_IP6_ENABLE=TRUE -DNETWORK_TLS_ENABLE --pcd PcdFirmwareVendor=L"DVP distribution of EDK II\\0" --pcd PcdFirmwareVersionString=L"2025.02-1\\0" --pcd PcdFirmwareReleaseDateString=L"03/02/2025\\0" -DTPM2_ENABLE=TRUE -DFD_SIZE_4MB -b RELEASE
+    cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
+    cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
+}
+
+build_ovmf_secboot_deb_style() {
+  build -a X64 \
+		-t GCC5 \
+		-p OvmfPkg/OvmfPkgX64.dsc \
+		-DCC_MEASUREMENT_ENABLE=TRUE -DNETWORK_HTTP_BOOT_ENABLE=TRUE -DNETWORK_IP6_ENABLE=TRUE -DNETWORK_TLS_ENABLE --pcd PcdFirmwareVendor=L"DVP distribution of EDK II\\0" --pcd PcdFirmwareVersionString=L"2025.02-1\\0" --pcd PcdFirmwareReleaseDateString=L"03/02/2025\\0" -DTPM2_ENABLE=TRUE -DFD_SIZE_4MB -DBUILD_SHELL=FALSE -DSECURE_BOOT_ENABLE=TRUE -DSMM_REQUIRE=TRUE -b RELEASE
+    cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd           $FIRMWARE/OVMF_CODE.secboot.fd
+    cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd           $FIRMWARE/OVMF_VARS.secboot.fd
+    cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+    cp -p Build/OvmfX64/*/X64/Shell.efi             $FIRMWARE/
+}
+
 # Build with SB and SMM; exclude UEFI shell.
 build_ovmf() {
   echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
   build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
   cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
   cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
+  rm -rf Build/*
 }
 
 # Build with SB and SMM with secure boot; exclude UEFI shell.
@@ -169,6 +195,7 @@ build_ovmf_secboot() {
   echo_dbg "build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
   build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc
   cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.secboot.fd
+  rm -rf Build/*
 }
 
 # Build AmdSev and IntelTdx variants
@@ -182,6 +209,7 @@ build_ovmf_amdsev() {
   echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc"
   build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/IntelTdx/IntelTdxX64.dsc
   cp -p Build/IntelTdx/*/FV/OVMF.fd $FIRMWARE/OVMF.inteltdx.fd
+  rm -rf Build/*
 }
 
 # Build ovmf (x64) shell iso with EnrollDefaultKeys
@@ -191,7 +219,8 @@ build_shell() {
   build ${OVMF_4M_FLAGS} -a IA32 -p ShellPkg/ShellPkg.dsc
 
   cp -p Build/Shell/*/X64/ShellPkg/Application/Shell/Shell/OUTPUT/Shell.efi $FIRMWARE/
-  cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+  # cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+  rm -rf Build/*
 }
 
 
@@ -199,12 +228,12 @@ enroll() {
   virt-fw-vars --input  $FIRMWARE/OVMF_VARS.fd \
               --output  $FIRMWARE/OVMF_VARS.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
-              --secure-boot 
+              --secure-boot --enroll-generate dvp.deckhouse.io
 
   virt-fw-vars --input  $FIRMWARE/OVMF.inteltdx.fd \
               --output  $FIRMWARE/OVMF.inteltdx.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
-              --secure-boot 
+              --secure-boot --enroll-generate dvp.deckhouse.io
 }
 
 no_enroll() {
@@ -212,10 +241,15 @@ no_enroll() {
   cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd  
 }
 
-build_ovmf 2>&1 > /dev/null
-build_ovmf_secboot 2>&1 > /dev/null
+prep 2>&1 > /dev/null
+build_ovmf_deb_style 2>&1 > /dev/null
+build_ovmf_secboot_deb_style 2>&1 > /dev/null
 build_ovmf_amdsev 2>&1 > /dev/null
-build_shell 2>&1 > /dev/null
+
+# build_ovmf 2>&1 > /dev/null
+# build_ovmf_secboot 2>&1 > /dev/null
+# build_shell 2>&1 > /dev/null
 
 build_iso $FIRMWARE
-no_enroll
+enroll
+# no_enroll
