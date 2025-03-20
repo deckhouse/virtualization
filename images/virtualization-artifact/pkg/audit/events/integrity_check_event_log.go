@@ -17,6 +17,8 @@ limitations under the License.
 package events
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"k8s.io/apiserver/pkg/apis/audit"
@@ -60,17 +62,13 @@ func NewIntegrityCheckEventLog(event *audit.Event) IntegrityCheckEventLog {
 	}
 }
 
-func (m *IntegrityCheckEventLog) Log(event *audit.Event) error {
-	eventLog := NewV12NEventLog(event)
-	eventLog.Type = "Virtualization control"
-
-	if event.Verb == "create" {
-		eventLog.Name = "Module creation"
-		eventLog.Level = "info"
-	} else {
-		eventLog.Name = "Module deletion"
-		eventLog.Level = "warn"
+func (e *IntegrityCheckEventLog) Log() error {
+	bytes, err := json.Marshal(e)
+	if err != nil {
+		return err
 	}
 
-	return eventLog.Log()
+	fmt.Println(string(bytes))
+
+	return nil
 }
