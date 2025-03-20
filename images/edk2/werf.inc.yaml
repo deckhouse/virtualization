@@ -68,6 +68,9 @@ shell:
     cd {{ $gitRepoName }}-{{ $version }}
     git submodule update --init --recursive
 
+  setup:
+  - |
+    cd /{{ $gitRepoName }}-{{ $version }}
     # Set env edk
     export EDK_TOOLS_PATH=$(pwd)/BaseTools
     export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
@@ -76,8 +79,6 @@ shell:
     ln /usr/bin/python3 /usr/bin/python
     make -C BaseTools -j$(nproc) 2>&1 > /dev/null
 
-  setup:
-  - |
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
 
 ---
@@ -125,32 +126,51 @@ shell:
     apt-get install -y eatmydata
     eatmydata apt-get dist-upgrade -y
     eatmydata apt-get install -y \
-    git curl \
-    bash-completion \
-    binutils-dev \
-    clang \
-    ca-certificates \
-    bc \
-    dosfstools \
-    dpkg \
-    g++-multilib \
-    gcc-multilib \
-    iasl \
-    mtools \
-    make \
-    nasm \
-    openssl \
-    python3 \
-    python3-distutils \
-    python3-pexpect \
-    qemu-utils \
-    qemu-system-arm \
-    qemu-system-x86 \
-    uuid-dev \
-    sbsigntool \
-    shim-signed \
-    genisoimage \
-    xorriso
+      acpica-tools automake autoconf autotools-dev \
+      git curl \
+      bash-completion \
+      binutils-dev \
+      clang \
+      ca-certificates \
+      bc \
+      dosfstools \
+      dpkg \
+      fuse3 \
+      g++-multilib \
+      gcc-multilib \
+      gettext gettext-base \
+      iasl \
+      libc6 libc6-dev \
+      libaio1 libaio-dev \
+      libarchive-zip-perl libdebhelper-perl \
+      libfile-stripnondeterminism-perl \
+      liblocale-gettext-perl \
+      liburing2 \
+      libisofs6 \
+      libstdc++-11-dev \
+      libtsan2 \
+      libjson-glib-dev libjson-c-dev \
+      libjson-any-perl \
+      libjson-c5 \
+      libjson-glib-1.0-0 \
+      libperl5.36 libperl-dev \
+      mtools nasm netbase \
+      make cmake \
+      openssl \
+      perl perl-depends \
+      python3 \
+      python3-distutils \
+      python3-pexpect \
+      python3-ptyprocess \
+      qemu-utils \
+      qemu-system-arm \
+      qemu-system-x86 \
+      readline-common seabios \
+      sensible-utils uuid-dev \
+      sbsigntool \
+      shim-signed \
+      genisoimage \
+      xorriso
 
     eatmydata apt-get autoremove -y
     eatmydata apt-get autoclean -y
@@ -165,6 +185,11 @@ shell:
     cd {{ $gitRepoName }}-{{ $version }}
     git submodule update --init --recursive
 
+
+  setup:
+  - |
+    cd /{{ $gitRepoName }}-{{ $version }}
+
     # Set env edk
     export EDK_TOOLS_PATH=$(pwd)/BaseTools
     export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
@@ -173,6 +198,4 @@ shell:
     ln /usr/bin/python3 /usr/bin/python
     make -C BaseTools -j$(nproc) 2>&1 > /dev/null
 
-  setup:
-  - |
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
