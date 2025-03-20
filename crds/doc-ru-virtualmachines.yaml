@@ -696,3 +696,5 @@ spec:
                           description: Накладные расходы на память во время выполнения.
                         size:
                           description: Текущий размер памяти виртуальной машины.
+                firmwareVersion:
+                  description: Версия firmware.

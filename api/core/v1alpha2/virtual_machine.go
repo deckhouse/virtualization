@@ -275,6 +275,8 @@ type VirtualMachineStatus struct {
 	// List of virtual machine pods.
 	VirtualMachinePods []VirtualMachinePod `json:"virtualMachinePods,omitempty"`
 	Resources          ResourcesStatus     `json:"resources,omitempty"`
+	// Firmware version.
+	FirmwareVersion string `json:"firmwareVersion,omitempty"`
 }
 
 type VirtualMachineStats struct {

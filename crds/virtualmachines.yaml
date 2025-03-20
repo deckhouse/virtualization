@@ -1241,6 +1241,9 @@ spec:
                         - size
                       type: object
                   type: object
+                firmwareVersion:
+                  type: string
+                  description: firmware Version.
       additionalPrinterColumns:
         - description: Virtual machine phase.
           jsonPath: .status.phase

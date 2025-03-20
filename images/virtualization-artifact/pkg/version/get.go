@@ -16,36 +16,20 @@ limitations under the License.
 
 package version
 
-import "golang.org/x/mod/semver"
-
-const MainVersion = "main"
-
-type Version string
-
-func (v Version) IsValid() bool {
-	return v == MainVersion || semver.IsValid(string(v))
+func GetEdition() string {
+	return edition
 }
 
-func (v Version) IsMain() bool {
-	return v == MainVersion
-}
-
-func (v Version) String() string {
-	return string(v)
-}
-
-func (v Version) Compare(v2 Version) int {
-	vIsMain := v.IsMain()
-	v2IsMain := v2.IsMain()
-
-	switch {
-	case vIsMain && v2IsMain:
-		return 0
-	case vIsMain:
-		return 1
-	case v2IsMain:
-		return -1
+func GetFirmwareVersion() Version {
+	if !firmwareInstance.Version.IsValid() {
+		panic("firmware version is invalid")
 	}
+	return firmwareInstance.Version
+}
 
-	return semver.Compare(v.String(), v2.String())
+func GetFirmwareMinSupportedVersion() Version {
+	if !firmwareInstance.MinSupportedVersion.IsValid() {
+		panic("firmware minimum supported version is invalid")
+	}
+	return firmwareInstance.MinSupportedVersion
 }
