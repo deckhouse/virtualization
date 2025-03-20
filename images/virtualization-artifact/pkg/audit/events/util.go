@@ -22,9 +22,11 @@ import (
 	"net/url"
 
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -141,64 +143,71 @@ func getVMOPFromInformer(vmopInformer indexer, vmopName string) (*v1alpha2.Virtu
 func getInternalVMIFromInformer(internalVMIInformer indexer, internalVMIName string) (*virtv1.VirtualMachineInstance, error) {
 	vmopObj, exist, err := internalVMIInformer.GetByKey(internalVMIName)
 	if err != nil {
-		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
+		return nil, fmt.Errorf("fail to get intVMI from informer: %w", err)
 	}
 	if !exist {
-		return nil, errors.New("vmopObj not exist")
+		return nil, errors.New("intVMI not exist")
 	}
 
 	vm, ok := vmopObj.(*virtv1.VirtualMachineInstance)
 	if !ok {
-		return nil, errors.New("fail to convert vmopObj to vmop")
+		return nil, errors.New("fail to convert intVMIObj to vmop")
 	}
 
 	return vm, nil
 }
 
-type module struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Version string `json:"version"`
-}
-
 func getModuleFromInformer(moduleInformer indexer, moduleName string) (*module, error) {
-	vmopObj, exist, err := moduleInformer.GetByKey(moduleName)
+	moduleObj, exist, err := moduleInformer.GetByKey(moduleName)
 	if err != nil {
-		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
+		return nil, fmt.Errorf("fail to get module from informer: %w", err)
 	}
 	if !exist {
-		return nil, errors.New("vmopObj not exist")
+		return nil, errors.New("module not exist")
 	}
 
-	module, ok := vmopObj.(*module)
+	unstructuredObj, ok := moduleObj.(*unstructured.Unstructured)
 	if !ok {
-		return nil, errors.New("fail to convert vmopObj to vmop")
+		return nil, fmt.Errorf("moduleObj is not of type *unstructured.Unstructured")
+	}
+
+	module := &module{}
+	err = unstructuredToTypedObject(unstructuredObj, module)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert unstructuredObj to Module: %w", err)
 	}
 
 	return module, nil
 }
 
-type moduleConfig struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Enabled bool `json:"enabled"`
-}
-
-func getModuleConfigFromInformer(moduleConfigInformer indexer, moduleConfigName string) (*moduleConfig, error) {
-	vmopObj, exist, err := moduleConfigInformer.GetByKey(moduleConfigName)
+func getModuleConfigFromInformer(moduleConfigInformer indexer, moduleConfigName string) (*mcapi.ModuleConfig, error) {
+	mcObj, exist, err := moduleConfigInformer.GetByKey(moduleConfigName)
 	if err != nil {
-		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
+		return nil, fmt.Errorf("fail to get module config from informer: %w", err)
 	}
 	if !exist {
-		return nil, errors.New("vmopObj not exist")
+		return nil, errors.New("module config not exist")
 	}
 
-	moduleConfig, ok := vmopObj.(*moduleConfig)
+	unstructuredObj, ok := mcObj.(*unstructured.Unstructured)
 	if !ok {
-		return nil, errors.New("fail to convert vmopObj to vmop")
+		return nil, fmt.Errorf("mcObj is not of type *unstructured.Unstructured")
+	}
+
+	moduleConfig := &mcapi.ModuleConfig{}
+	err = unstructuredToTypedObject(unstructuredObj, moduleConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert unstructuredObj to ModuleConfig: %w", err)
 	}
 
 	return moduleConfig, nil
+}
+
+func unstructuredToTypedObject(unstructuredObj *unstructured.Unstructured, obj runtime.Object) error {
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, obj)
+	if err != nil {
+		return fmt.Errorf("failed to convert map to typed object: %w", err)
+	}
+
+	return nil
 }
