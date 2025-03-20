@@ -89,8 +89,8 @@ func (m *VMControl) Log(event *audit.Event) error {
 		case strings.Contains(terminatedStatuses, "guest-reset"):
 			eventLog.Name = "VM restarted from OS"
 		default:
-			eventLog.Level = "critical"
-			eventLog.Name = "VM killed abnormal way"
+			// deleted by vmop
+			return nil
 		}
 	} else {
 		eventLog.Level = "critical"

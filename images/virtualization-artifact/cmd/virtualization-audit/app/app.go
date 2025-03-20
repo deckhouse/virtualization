@@ -94,6 +94,12 @@ func run(c *cobra.Command, opts Options) error {
 		return err
 	}
 
+	dynamicInformerFactory, err := informer.DynamicInformerFactory(kubeCfg)
+	if err != nil {
+		log.Error("failed to create dynamic informer factory", log.Err(err))
+		return err
+	}
+
 	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
 	_, err = vmInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
 		DeleteFunc: func(obj any) {
@@ -142,6 +148,15 @@ func run(c *cobra.Command, opts Options) error {
 	nodeInformer := coreSharedInformerFactory.Core().V1().Nodes().Informer()
 	go nodeInformer.Run(c.Context().Done())
 
+	internalVMIInformer := informer.GetInternalVMIInformer(dynamicInformerFactory).Informer()
+	go internalVMIInformer.Run(c.Context().Done())
+
+	moduleInformer := informer.GetModuleInformer(dynamicInformerFactory).Informer()
+	go moduleInformer.Run(c.Context().Done())
+
+	moduleConfigInformer := informer.GetModuleConfigsInformer(dynamicInformerFactory).Informer()
+	go moduleConfigInformer.Run(c.Context().Done())
+
 	if !kubecache.WaitForCacheSync(
 		c.Context().Done(),
 		podInformer.HasSynced,
@@ -149,6 +164,9 @@ func run(c *cobra.Command, opts Options) error {
 		vmInformer.HasSynced,
 		vdInformer.HasSynced,
 		vmopInformer.HasSynced,
+		moduleInformer.HasSynced,
+		moduleConfigInformer.HasSynced,
+		internalVMIInformer.HasSynced,
 	) {
 		return errors.New("failed to wait for caches to sync")
 	}
@@ -181,13 +199,20 @@ func run(c *cobra.Command, opts Options) error {
 			VDInformer:   vdInformer.GetIndexer(),
 			TTLCache:     ttlCache,
 		}),
-		events.NewV12NControl(events.NewV12NControlOptions{
+		events.NewModuleComponentControl(events.NewModuleComponentControlOptions{
 			NodeInformer: nodeInformer.GetIndexer(),
 			PodInformer:  podInformer.GetIndexer(),
 			TTLCache:     ttlCache,
 		}),
-		events.NewV12NModuleControl(events.NewV12NModuleControlOptions{
-			NodeInformer: nodeInformer.GetIndexer(),
+		events.NewModuleControl(events.NewModuleControlOptions{
+			NodeInformer:         nodeInformer.GetIndexer(),
+			ModuleInformer:       moduleInformer.GetIndexer(),
+			ModuleConfigInformer: moduleConfigInformer.GetIndexer(),
+		}),
+		events.NewIntegrityCheckVM(events.NewIntegrityCheckVMOptions{
+			VMInformer:          vmInformer.GetIndexer(),
+			InternalVMIInformer: internalVMIInformer.GetIndexer(),
+			TTLCache:            ttlCache,
 		}),
 	)
 	if err != nil {

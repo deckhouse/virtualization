@@ -17,29 +17,30 @@ limitations under the License.
 package events
 
 import (
+	"fmt"
 	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
 )
 
 type NewIntegrityCheckVMOptions struct {
-	NodeInformer indexer
-	PodInformer  indexer
-	TTLCache     ttlCache
+	InternalVMIInformer indexer
+	VMInformer          indexer
+	TTLCache            ttlCache
 }
 
 func NewIntegrityCheckVM(options NewIntegrityCheckVMOptions) *IntegrityCheckVM {
 	return &IntegrityCheckVM{
-		nodeInformer: options.NodeInformer,
-		podInformer:  options.PodInformer,
-		ttlCache:     options.TTLCache,
+		internalVMIInformer: options.InternalVMIInformer,
+		vmInformer:          options.VMInformer,
+		ttlCache:            options.TTLCache,
 	}
 }
 
 type IntegrityCheckVM struct {
-	podInformer  indexer
-	nodeInformer indexer
-	ttlCache     ttlCache
+	internalVMIInformer indexer
+	vmInformer          indexer
+	ttlCache            ttlCache
 }
 
 func (m *IntegrityCheckVM) IsMatched(event *audit.Event) bool {
@@ -66,8 +67,15 @@ func (m *IntegrityCheckVM) IsMatched(event *audit.Event) bool {
 }
 
 func (m *IntegrityCheckVM) Log(event *audit.Event) error {
-	eventLog := NewVMEventLog(event)
+	eventLog := NewIntegrityCheckEventLog(event)
 	eventLog.Type = "Integrity Check"
+
+	vmi, err := getInternalVMIFromInformer(m.internalVMIInformer, event.ObjectRef.Name)
+	if err != nil {
+		return fmt.Errorf("failed to get VMI from informer: %w", err)
+	}
+
+	eventLog.ReferenceChecksum
 
 	return eventLog.Log()
 }

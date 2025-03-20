@@ -25,33 +25,35 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
-type NewV12NControlOptions struct {
+type NewModuleComponentControlOptions struct {
 	NodeInformer indexer
 	PodInformer  indexer
 	TTLCache     ttlCache
 }
 
-func NewV12NControl(options NewV12NControlOptions) *V12NControl {
-	return &V12NControl{
+func NewModuleComponentControl(options NewModuleComponentControlOptions) *ModuleComponentControl {
+	return &ModuleComponentControl{
 		nodeInformer: options.NodeInformer,
 		podInformer:  options.PodInformer,
 		ttlCache:     options.TTLCache,
 	}
 }
 
-type V12NControl struct {
+type ModuleComponentControl struct {
 	podInformer  indexer
 	nodeInformer indexer
 	ttlCache     ttlCache
 }
 
-func (m *V12NControl) IsMatched(event *audit.Event) bool {
+func (m *ModuleComponentControl) IsMatched(event *audit.Event) bool {
 	if (event.ObjectRef == nil && event.ObjectRef.Name != "") || event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	// DaemonSet create request skipped because got it with almost emptry ObjectRef
-	if event.User.Username == "system:serviceaccount:kube-system:daemon-set-controller" {
+	// Skip control requests from internal k8s controllers because we get them with almost empty ObjectRef
+	if event.User.Username == "system:serviceaccount:kube-system:daemon-set-controller" ||
+		event.User.Username == "system:serviceaccount:kube-system:statefulset-controller" ||
+		event.User.Username == "system:serviceaccount:kube-system:replicaset-controller" {
 		return false
 	}
 
@@ -68,8 +70,8 @@ func (m *V12NControl) IsMatched(event *audit.Event) bool {
 	return false
 }
 
-func (m *V12NControl) Log(event *audit.Event) error {
-	eventLog := NewV12NEventLog(event)
+func (m *ModuleComponentControl) Log(event *audit.Event) error {
+	eventLog := NewModuleEventLog(event)
 	eventLog.Type = "Virtualization control"
 
 	pod, err := getPodFromInformer(m.ttlCache, m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)

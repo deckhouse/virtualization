@@ -42,30 +42,27 @@ type VMEventLog struct {
 	VirtualmachineUID  string `json:"virtualmachine_uid"`
 	VirtualmachineOS   string `json:"virtualmachine_os"`
 	StorageClasses     string `json:"storageclasses"`
-	QemuVersion        string `json:"qemu_version"`
-	LibvirtVersion     string `json:"libvirt_version"`
+	FirmwareVersion    string `json:"firmware_version"`
 
 	OperationResult string `json:"operation_result"`
 }
 
 func NewVMEventLog(event *audit.Event) VMEventLog {
 	return VMEventLog{
-		Type:           "unknown",
-		Level:          "info",
-		Name:           "unknown",
-		Datetime:       event.RequestReceivedTimestamp.Format(time.RFC3339),
-		Uid:            string(event.AuditID),
-		RequestSubject: event.User.Username,
+		Type:            "unknown",
+		Level:           "info",
+		Name:            "unknown",
+		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
+		Uid:             string(event.AuditID),
+		RequestSubject:  event.User.Username,
+		OperationResult: event.Annotations["authorization.k8s.io/decision"],
 
 		ActionType:         event.Verb,
 		NodeNetworkAddress: "unknown",
 		VirtualmachineUID:  "unknown",
 		VirtualmachineOS:   "unknown",
 		StorageClasses:     "unknown",
-		QemuVersion:        "unknown",
-		LibvirtVersion:     "unknown",
-
-		OperationResult: event.Annotations["authorization.k8s.io/decision"],
+		FirmwareVersion:    "unknown",
 	}
 }
 
