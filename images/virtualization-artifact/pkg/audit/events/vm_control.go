@@ -79,7 +79,10 @@ func (m *VMControl) Log(event *audit.Event) error {
 		}
 	}
 
-	isControllerAction := strings.Contains(event.User.Username, "system:serviceaccount:d8-virtualization")
+	isControllerAction := strings.Contains(
+		event.User.Username,
+		"system:serviceaccount:d8-virtualization",
+	) || strings.Contains(event.User.Username, "system:node")
 	if isControllerAction {
 		eventLog.Level = "warn"
 
