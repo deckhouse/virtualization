@@ -19,11 +19,12 @@ package app
 import "github.com/spf13/cobra"
 
 const vlctlLong = `
-__     ___     ____ _____ _
-\ \   / / |   / ___|_   _| |
- \ \ / /| |  | |     | | | |
-  \ V / | |__| |___  | | | |___
-   \_/  |_____\____| |_| |_____|
+      .__          __  .__   
+___  _|  |   _____/  |_|  |  
+\  \/ /  | _/ ___\   __\  |  
+ \   /|  |_\  \___|  | |  |__
+  \_/ |____/\___  >__| |____/
+                \/           
 
 vlctl is a tool for gathering information from virtual machines running under the
 Kubernetes environment using the virt-launcher. It allows you to query
