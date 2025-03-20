@@ -50,10 +50,19 @@ func (m *V12NModuleControl) Log(event *audit.Event) error {
 	eventLog := NewV12NEventLog(event)
 	eventLog.Type = "Virtualization control"
 
-	if event.Verb == "create" {
+	switch event.Verb {
+	case "create":
 		eventLog.Name = "Module creation"
 		eventLog.Level = "info"
-	} else {
+	case "update":
+		eventLog.Name = "Module update"
+		eventLog.Level = "info"
+
+		// if module.enabled = false {
+		// 	eventLog.Name = "Module disable"
+		// 	eventLog.Level = "warn"
+		// }
+	case "delete":
 		eventLog.Name = "Module deletion"
 		eventLog.Level = "warn"
 	}
