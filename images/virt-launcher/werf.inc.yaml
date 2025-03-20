@@ -596,10 +596,18 @@ shell:
       ln -s $TARGET $SYMLINK
     done <<< "$SYMLINC_LIST"
   - |
+    echo "move libvirt"
     cd /relocate
-    echo "Copy from $(pwd)/usr/lib64 to usr/lib/x86_64-linux-gnu"
+    mkdir -p usr/lib/x86_64-linux-gnu/libvirt
     cp -a usr/local/lib64/. usr/lib/x86_64-linux-gnu
+    cp -a usr/lib64/libvirt/. usr/lib/x86_64-linux-gnu/libvirt
     rm -rf usr/local/lib64
+    # rm -rf usr/lib64/libvirt
+
+    echo "move qemu"
+    mkdir -p usr/lib/x86_64-linux-gnu/qemu
+    cp -a usr/lib64/qemu/. usr/lib/x86_64-linux-gnu/qemu
+    rm -rf usr/lib64/qemu
 
   - |
     cd /relocate

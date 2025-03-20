@@ -341,13 +341,12 @@ shell:
     export DEBIAN_FRONTEND=noninteractive
     apt-get update
     apt-get install -y eatmydata
-    eatmydata apt-get dist-upgrade -y
     eatmydata apt-get install -y \
                       acpica-tools \
                       autoconf automake autopoint \
                       autotools-dev \
-                      bison comerr-dev \ 
-                      dbus dbus-bin dbus-daemon \
+                      bison comerr-dev \
+                      dbus-bin dbus-daemon \
                       bash \
                       bc \
                       bindgen \
@@ -488,7 +487,8 @@ shell:
                       xorriso \
                       zlib1g-dev \
                       zstd \
-                      qemu-system-data readline-common seabios sensible-utils
+                      qemu-system-data readline-common \
+                      seabios sensible-utils
     
     # Some qemu functional need packages from unstable repo
 
@@ -701,6 +701,7 @@ shell:
       --enable-snappy                  \
       --enable-spice-protocol          \
       --enable-system                  \
+      --enable-tcg                     \
       --enable-tools                   \
       --enable-tpm                     \
       --enable-usb-redir               \
@@ -718,9 +719,6 @@ shell:
       --enable-zstd
 
       make -j$(nproc)
-      
-      # disable tcg
-      # --enable-tcg                     \
 
   setup:
   - |
