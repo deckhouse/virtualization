@@ -33,8 +33,9 @@ on:
           For branches main, release-*, tag will be generated as branch name
         required: false
         type: number
-  pull_request:
-    types: [opened, reopened, synchronize, labeled, unlabeled]
+  # Called from trivy_image_check.yml
+  # pull_request:
+  #   types: [opened, reopened, synchronize, labeled, unlabeled]
   push:
     branches:
       - main
