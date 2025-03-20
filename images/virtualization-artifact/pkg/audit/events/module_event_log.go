@@ -27,7 +27,7 @@ import (
 	"k8s.io/apiserver/pkg/apis/audit"
 )
 
-type V12NEventLog struct {
+type ModuleEventLog struct {
 	Type            string `json:"type"`
 	Level           string `json:"level"`
 	Name            string `json:"name"`
@@ -41,12 +41,11 @@ type V12NEventLog struct {
 	NodeNetworkAddress    string `json:"node_network_address"`
 	VirtualizationVersion string `json:"virtualization_version"`
 	VirtualizationName    string `json:"virtualization_name"`
-	QemuVersion           string `json:"qemu_version"`
-	LibvirtVersion        string `json:"libvirt_version"`
+	FirmwareVersion       string `json:"qemu_version"`
 }
 
-func NewV12NEventLog(event *audit.Event) V12NEventLog {
-	return V12NEventLog{
+func NewModuleEventLog(event *audit.Event) ModuleEventLog {
+	return ModuleEventLog{
 		Type:            "unknown",
 		Level:           "info",
 		Name:            "unknown",
@@ -60,12 +59,11 @@ func NewV12NEventLog(event *audit.Event) V12NEventLog {
 		NodeNetworkAddress:    "unknown",
 		VirtualizationName:    "Deckhouse Virtualization Platform",
 		VirtualizationVersion: "unknown",
-		QemuVersion:           "unknown",
-		LibvirtVersion:        "unknown",
+		FirmwareVersion:       "unknown",
 	}
 }
 
-func (e V12NEventLog) Log() error {
+func (e ModuleEventLog) Log() error {
 	bytes, err := json.Marshal(e)
 	if err != nil {
 		return err
@@ -76,7 +74,7 @@ func (e V12NEventLog) Log() error {
 	return nil
 }
 
-func (e *V12NEventLog) fillNodeInfo(nodeInformer indexer, pod *corev1.Pod) error {
+func (e *ModuleEventLog) fillNodeInfo(nodeInformer indexer, pod *corev1.Pod) error {
 	node, err := getNodeFromInformer(nodeInformer, pod.Spec.NodeName)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)
