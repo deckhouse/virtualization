@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -16,6 +16,22 @@ limitations under the License.
 
 package version
 
-var firmwareVersion = "v0.17.0"
+import "github.com/rogpeppe/go-internal/semver"
 
-var firmwareMinSupportedVersion = "v0.17.0"
+func GetEdition() string {
+	return edition
+}
+
+func GetFirmwareVersion() string {
+	if !semver.IsValid(firmwareVersion) {
+		panic("firmware version is invalid")
+	}
+	return firmwareVersion
+}
+
+func GetFirmwareMinSupportedVersion() string {
+	if !semver.IsValid(firmwareMinSupportedVersion) {
+		panic("firmware min supported version is invalid")
+	}
+	return firmwareMinSupportedVersion
+}

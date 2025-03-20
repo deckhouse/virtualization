@@ -67,6 +67,7 @@ func SetupController(
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
 		internal.NewStatisticHandler(client),
+		internal.NewFirmwareHandler(),
 	}
 	r := NewReconciler(client, handlers...)
 
