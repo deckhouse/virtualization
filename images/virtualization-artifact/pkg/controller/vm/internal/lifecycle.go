@@ -42,17 +42,23 @@ var lifeCycleConditions = []vmcondition.Type{
 	vmcondition.TypeMigrating,
 	vmcondition.TypeMigratable,
 	vmcondition.TypePodStarted,
+	vmcondition.TypeFirmwareUpToDate,
 }
 
 const nameLifeCycleHandler = "LifeCycleHandler"
 
-func NewLifeCycleHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *LifeCycleHandler {
-	return &LifeCycleHandler{client: client, recorder: recorder}
+func NewLifeCycleHandler(client client.Client, recorder eventrecord.EventRecorderLogger, image string) *LifeCycleHandler {
+	return &LifeCycleHandler{
+		client:   client,
+		recorder: recorder,
+		image:    image,
+	}
 }
 
 type LifeCycleHandler struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
+	image    string
 }
 
 func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -107,6 +113,7 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 	h.syncMigrationState(changed, kvvm, kvvmi)
 	h.syncPodStarted(changed, kvvm, kvvmi, pod)
 	h.syncRunning(changed, kvvm, kvvmi, log)
+	h.syncFirmwareUpToDate(changed, kvvmi)
 	return reconcile.Result{}, nil
 }
 
@@ -280,6 +287,28 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 		vm.Status.Node = ""
 	}
 	cb.Reason(vmcondition.ReasonVmIsNotRunning).Status(metav1.ConditionFalse)
+	conditions.SetCondition(cb, &vm.Status.Conditions)
+}
+
+func (h *LifeCycleHandler) syncFirmwareUpToDate(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
+	if vm == nil {
+		return
+	}
+
+	upToDate := kvvmi == nil || h.image == kvvmi.Status.LauncherContainerImageVersion
+
+	cb := conditions.NewConditionBuilder(vmcondition.TypeFirmwareUpToDate).Generation(vm.GetGeneration())
+	if upToDate {
+		cb.Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonFirmwareUpToDate).
+			Message("")
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return
+	}
+
+	cb.Status(metav1.ConditionFalse).
+		Reason(vmcondition.ReasonFirmwareOutOfDate).
+		Message("The VM firmware is outdated and not recommended for use by the current version of the module, please migrate or reboot the VM to upgrade to the new firmware version.")
 	conditions.SetCondition(cb, &vm.Status.Conditions)
 }
 

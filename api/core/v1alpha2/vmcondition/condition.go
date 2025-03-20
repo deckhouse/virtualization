@@ -39,6 +39,7 @@ const (
 	TypeFilesystemFrozen    Type = "FilesystemFrozen"
 	TypeSizingPolicyMatched Type = "SizingPolicyMatched"
 	TypeSnapshotting        Type = "Snapshotting"
+	TypeFirmwareUpToDate    Type = "FirmwareUpToDate"
 )
 
 type Reason string
@@ -104,8 +105,11 @@ const (
 	// ReasonBlockDeviceLimitExceeded indicates that the limit for attaching block devices has been exceeded
 	ReasonBlockDeviceLimitExceeded Reason = "BlockDeviceLimitExceeded"
 
-	ReasonPodTerminatingReason      Reason = "PodTerminating"
-	ReasonPodNotExistsReason        Reason = "PodNotExists"
-	ReasonPodConditionMissingReason Reason = "PodConditionMissing"
-	ReasonGuestNotRunningReason     Reason = "GuestNotRunning"
+	ReasonPodTerminating      Reason = "PodTerminating"
+	ReasonPodNotExists        Reason = "PodNotExists"
+	ReasonPodConditionMissing Reason = "PodConditionMissing"
+	ReasonGuestNotRunning     Reason = "GuestNotRunning"
+
+	ReasonFirmwareUpToDate  Reason = "FirmwareUpToDate"
+	ReasonFirmwareOutOfDate Reason = "FirmwareOutOfDate"
 )

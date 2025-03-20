@@ -38,6 +38,7 @@ const (
 	MetricVirtualMachinePod                                     = "virtualmachine_pod"
 	MetricVirtualMachineLabels                                  = "virtualmachine_labels"
 	MetricVirtualMachineAnnotations                             = "virtualmachine_annotations"
+	MetricVirtualMachineFirmwareUpToDate                        = "virtualmachine_firmware_up_to_date"
 )
 
 var baseLabels = []string{"name", "namespace", "uid", "node"}
@@ -160,6 +161,13 @@ var virtualMachineMetrics = map[string]metrics.MetricInfo{
 
 	MetricVirtualMachineAgentReady: metrics.NewMetricInfo(MetricVirtualMachineAgentReady,
 		"The virtualmachine agent ready.",
+		prometheus.GaugeValue,
+		WithBaseLabels(),
+		nil,
+	),
+
+	MetricVirtualMachineFirmwareUpToDate: metrics.NewMetricInfo(MetricVirtualMachineFirmwareUpToDate,
+		"The virtualmachine firmware up to date.",
 		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,

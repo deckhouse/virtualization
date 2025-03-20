@@ -204,13 +204,13 @@ func getKVMIReadyReason(kvmiReason string) conditions.Stringer {
 
 var mapReasons = map[string]vmcondition.Reason{
 	// PodTerminatingReason indicates on the Ready condition on the VMI if the underlying pod is terminating
-	virtv1.PodTerminatingReason: vmcondition.ReasonPodTerminatingReason,
+	virtv1.PodTerminatingReason: vmcondition.ReasonPodTerminating,
 	// PodNotExistsReason indicates on the Ready condition on the VMI if the underlying pod does not exist
-	virtv1.PodNotExistsReason: vmcondition.ReasonPodNotExistsReason,
+	virtv1.PodNotExistsReason: vmcondition.ReasonPodNotExists,
 	// PodConditionMissingReason indicates on the Ready condition on the VMI if the underlying pod does not report a Ready condition
-	virtv1.PodConditionMissingReason: vmcondition.ReasonPodConditionMissingReason,
+	virtv1.PodConditionMissingReason: vmcondition.ReasonPodConditionMissing,
 	// GuestNotRunningReason indicates on the Ready condition on the VMI if the underlying guest VM is not running
-	virtv1.GuestNotRunningReason: vmcondition.ReasonGuestNotRunningReason,
+	virtv1.GuestNotRunningReason: vmcondition.ReasonGuestNotRunning,
 }
 
 func isPodStartedError(vm *virtv1.VirtualMachine) bool {
