@@ -591,10 +591,14 @@ func (b *KVVM) SetMacvtapInterfaces(vm *virtv2.VirtualMachine) {
 	if domainSpec.Resources.Limits == nil {
 		domainSpec.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
 	}
+	if domainSpec.Resources.Requests == nil {
+		domainSpec.Resources.Requests = make(map[corev1.ResourceName]resource.Quantity)
+	}
 
 	var macvtapRes corev1.ResourceName = corev1.ResourceName("macvtap.network.kubevirt.io/" + nadName)
 	resCount := resource.NewQuantity(int64(1), resource.DecimalSI)
 	domainSpec.Resources.Limits[macvtapRes] = *resCount
+	domainSpec.Resources.Requests[macvtapRes] = *resCount
 }
 
 func (b *KVVM) SetBootloader(bootloader virtv2.BootloaderType) error {
