@@ -75,7 +75,7 @@ func (m *IntegrityCheckVM) Log(event *audit.Event) error {
 		return fmt.Errorf("failed to get VMI from informer: %w", err)
 	}
 
-	eventLog.ReferenceChecksum
+	eventLog.VirtualMachineName = vmi.Name
 
 	return eventLog.Log()
 }
