@@ -83,11 +83,12 @@ func (m *VMControl) Log(event *audit.Event) error {
 	if isControllerAction {
 		eventLog.Level = "warn"
 
-		if strings.Contains(terminatedStatuses, "guest-shutdown") {
+		switch {
+		case strings.Contains(terminatedStatuses, "guest-shutdown"):
 			eventLog.Name = "VM stoped from OS"
-		} else if strings.Contains(terminatedStatuses, "guest-reset") {
+		case strings.Contains(terminatedStatuses, "guest-reset"):
 			eventLog.Name = "VM restarted from OS"
-		} else {
+		default:
 			eventLog.Level = "critical"
 			eventLog.Name = "VM killed abnormal way"
 		}

@@ -17,35 +17,32 @@ limitations under the License.
 package events
 
 import (
-	"fmt"
 	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
-
-	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
-type NewV12NControlOptions struct {
+type NewIntegrityCheckVMOptions struct {
 	NodeInformer indexer
 	PodInformer  indexer
 	TTLCache     ttlCache
 }
 
-func NewV12NControl(options NewV12NControlOptions) *V12NControl {
-	return &V12NControl{
+func NewIntegrityCheckVM(options NewIntegrityCheckVMOptions) *IntegrityCheckVM {
+	return &IntegrityCheckVM{
 		nodeInformer: options.NodeInformer,
 		podInformer:  options.PodInformer,
 		ttlCache:     options.TTLCache,
 	}
 }
 
-type V12NControl struct {
+type IntegrityCheckVM struct {
 	podInformer  indexer
 	nodeInformer indexer
 	ttlCache     ttlCache
 }
 
-func (m *V12NControl) IsMatched(event *audit.Event) bool {
+func (m *IntegrityCheckVM) IsMatched(event *audit.Event) bool {
 	if (event.ObjectRef == nil && event.ObjectRef.Name != "") || event.Stage != audit.StageResponseComplete {
 		return false
 	}
@@ -68,29 +65,9 @@ func (m *V12NControl) IsMatched(event *audit.Event) bool {
 	return false
 }
 
-func (m *V12NControl) Log(event *audit.Event) error {
-	eventLog := NewV12NEventLog(event)
-	eventLog.Type = "Virtualization control"
-
-	pod, err := getPodFromInformer(m.ttlCache, m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
-	if err != nil {
-		return fmt.Errorf("fail to get pod from informer: %w", err)
-	}
-
-	err = eventLog.fillNodeInfo(m.nodeInformer, pod)
-	if err != nil {
-		log.Debug("fail to fill node info", log.Err(err))
-	}
-
-	if event.Verb == "create" {
-		eventLog.Name = "Component creation"
-		eventLog.Level = "info"
-		eventLog.Component = pod.Name
-	} else {
-		eventLog.Name = "Component deletion"
-		eventLog.Level = "warn"
-		eventLog.Component = pod.Name
-	}
+func (m *IntegrityCheckVM) Log(event *audit.Event) error {
+	eventLog := NewVMEventLog(event)
+	eventLog.Type = "Integrity Check"
 
 	return eventLog.Log()
 }
