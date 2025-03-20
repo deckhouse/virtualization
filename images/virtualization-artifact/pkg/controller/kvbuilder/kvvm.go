@@ -592,7 +592,7 @@ func (b *KVVM) SetMacvtapInterfaces(vm *virtv2.VirtualMachine) {
 		domainSpec.Resources.Limits = make(map[corev1.ResourceName]resource.Quantity)
 	}
 
-	var macvtapRes corev1.ResourceName = corev1.ResourceName("macvtap.network.kubevirt.io/" + netName)
+	var macvtapRes corev1.ResourceName = corev1.ResourceName("macvtap.network.kubevirt.io/" + nadName)
 	resCount := resource.NewQuantity(int64(1), resource.DecimalSI)
 	domainSpec.Resources.Limits[macvtapRes] = *resCount
 }
