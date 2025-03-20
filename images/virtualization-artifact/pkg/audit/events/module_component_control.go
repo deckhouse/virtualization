@@ -26,23 +26,26 @@ import (
 )
 
 type NewModuleComponentControlOptions struct {
-	NodeInformer indexer
-	PodInformer  indexer
-	TTLCache     ttlCache
+	NodeInformer   indexer
+	PodInformer    indexer
+	ModuleInformer indexer
+	TTLCache       ttlCache
 }
 
 func NewModuleComponentControl(options NewModuleComponentControlOptions) *ModuleComponentControl {
 	return &ModuleComponentControl{
-		nodeInformer: options.NodeInformer,
-		podInformer:  options.PodInformer,
-		ttlCache:     options.TTLCache,
+		nodeInformer:   options.NodeInformer,
+		podInformer:    options.PodInformer,
+		moduleInformer: options.ModuleInformer,
+		ttlCache:       options.TTLCache,
 	}
 }
 
 type ModuleComponentControl struct {
-	podInformer  indexer
-	nodeInformer indexer
-	ttlCache     ttlCache
+	podInformer    indexer
+	nodeInformer   indexer
+	moduleInformer indexer
+	ttlCache       ttlCache
 }
 
 func (m *ModuleComponentControl) IsMatched(event *audit.Event) bool {
@@ -91,6 +94,12 @@ func (m *ModuleComponentControl) Log(event *audit.Event) error {
 		eventLog.Level = "warn"
 		eventLog.Component = pod.Name
 	}
+
+	module, err := getModuleFromInformer(m.moduleInformer, "virtualization")
+	if err != nil {
+		log.Debug("fail to get module from informer", log.Err(err))
+	}
+	eventLog.VirtualizationVersion = module.Spec.Version
 
 	return eventLog.Log()
 }

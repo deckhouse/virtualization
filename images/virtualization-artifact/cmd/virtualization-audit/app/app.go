@@ -200,9 +200,10 @@ func run(c *cobra.Command, opts Options) error {
 			TTLCache:     ttlCache,
 		}),
 		events.NewModuleComponentControl(events.NewModuleComponentControlOptions{
-			NodeInformer: nodeInformer.GetIndexer(),
-			PodInformer:  podInformer.GetIndexer(),
-			TTLCache:     ttlCache,
+			NodeInformer:   nodeInformer.GetIndexer(),
+			PodInformer:    podInformer.GetIndexer(),
+			ModuleInformer: moduleInformer.GetIndexer(),
+			TTLCache:       ttlCache,
 		}),
 		events.NewModuleControl(events.NewModuleControlOptions{
 			NodeInformer:         nodeInformer.GetIndexer(),
