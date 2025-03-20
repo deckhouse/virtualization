@@ -24,7 +24,7 @@ import (
 // TTLCache represents a cache with Time-To-Live for its elements.
 // Elements are automatically removed from the cache after their lifetime expires.
 type TTLCache struct {
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	data   map[string]*cacheEntry
 	ttl    time.Duration
 	stopCh chan struct{}
@@ -63,8 +63,8 @@ func (c *TTLCache) Add(key string, obj any) {
 // Get returns an element from the cache by key.
 // Returns the element itself and a flag indicating whether the element was found and has not expired.
 func (c *TTLCache) Get(key string) (any, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	entry, exists := c.data[key]
 	if !exists || time.Now().After(entry.expiry) {
