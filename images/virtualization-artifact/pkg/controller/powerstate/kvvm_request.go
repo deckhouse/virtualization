@@ -17,12 +17,17 @@ limitations under the License.
 package powerstate
 
 import (
-	"fmt"
+	"errors"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	kvv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
+)
+
+var (
+	ErrChangesAlreadyExists    = errors.New("changes already exist in the current status")
+	ErrUnableToCompleteRequest = errors.New("unable to complete request: stop/start already underway")
 )
 
 // BuildPatch creates a patch to request VM state changing via updating KVVM status.
@@ -49,8 +54,12 @@ func BuildPatch(vm *kvv1.VirtualMachine, changes ...kvv1.VirtualMachineStateChan
 			failOnConflict = false
 		}
 		if len(vm.Status.StateChangeRequests) != 0 {
+			if equality.Semantic.DeepEqual(vm.Status.StateChangeRequests, changes) {
+				return nil, ErrChangesAlreadyExists
+			}
+
 			if failOnConflict {
-				return nil, fmt.Errorf("unable to complete request: stop/start already underway")
+				return nil, ErrUnableToCompleteRequest
 			} else {
 				verb = patch.PatchReplaceOp
 			}

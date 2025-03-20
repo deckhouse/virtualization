@@ -70,6 +70,9 @@ func (h *SyncPowerStateHandler) Handle(ctx context.Context, s state.VirtualMachi
 	}
 
 	changed := s.VirtualMachine().Changed()
+	if isDeletion(changed) {
+		return reconcile.Result{}, nil
+	}
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
