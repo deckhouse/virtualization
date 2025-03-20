@@ -19,6 +19,9 @@ package informer
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -49,4 +52,37 @@ func CoreInformerFactory(config *rest.Config) (informers.SharedInformerFactory, 
 	}
 
 	return informers.NewSharedInformerFactory(client, defaultResync), nil
+}
+
+func DynamicInformerFactory(config *rest.Config) (dynamicinformer.DynamicSharedInformerFactory, error) {
+	dynamicClient, err := dynamic.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+
+	return dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, defaultResync), nil
+}
+
+func GetModuleInformer(factory dynamicinformer.DynamicSharedInformerFactory) informers.GenericInformer {
+	return factory.ForResource(schema.GroupVersionResource{
+		Group:    "deckhouse.io",
+		Version:  "v1alpha1",
+		Resource: "modules",
+	})
+}
+
+func GetModuleConfigsInformer(factory dynamicinformer.DynamicSharedInformerFactory) informers.GenericInformer {
+	return factory.ForResource(schema.GroupVersionResource{
+		Group:    "deckhouse.io",
+		Version:  "v1alpha1",
+		Resource: "moduleconfigs",
+	})
+}
+
+func GetInternalVMIInformer(factory dynamicinformer.DynamicSharedInformerFactory) informers.GenericInformer {
+	return factory.ForResource(schema.GroupVersionResource{
+		Group:    "internal.virtualization.deckhouse.io",
+		Version:  "v1",
+		Resource: "internalvirtualizationvirtualmachineinstances",
+	})
 }
