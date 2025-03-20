@@ -578,6 +578,7 @@ func (b *KVVM) SetMacvtapInterfaces(vm *virtv2.VirtualMachine) {
 		Binding: &virtv1.PluginBinding{
 			Name: "macvtap",
 		},
+		MacAddress: "ae:5c:53:48:6e:39",
 	}
 
 	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = array.SetArrayElem(
