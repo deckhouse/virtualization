@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,8 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package version
+package handler
 
-func GetEdition() string {
-	return edition
+import (
+	"context"
+	"log/slog"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+type OneShotMigration interface {
+	OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) error
+	SetLogger(log *slog.Logger)
 }
