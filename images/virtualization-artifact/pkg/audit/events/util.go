@@ -22,6 +22,8 @@ import (
 	"net/url"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -134,4 +136,69 @@ func getVMOPFromInformer(vmopInformer indexer, vmopName string) (*v1alpha2.Virtu
 	}
 
 	return vmop, nil
+}
+
+func getInternalVMIFromInformer(internalVMIInformer indexer, internalVMIName string) (*virtv1.VirtualMachineInstance, error) {
+	vmopObj, exist, err := internalVMIInformer.GetByKey(internalVMIName)
+	if err != nil {
+		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
+	}
+	if !exist {
+		return nil, errors.New("vmopObj not exist")
+	}
+
+	vm, ok := vmopObj.(*virtv1.VirtualMachineInstance)
+	if !ok {
+		return nil, errors.New("fail to convert vmopObj to vmop")
+	}
+
+	return vm, nil
+}
+
+type module struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Version string `json:"version"`
+}
+
+func getModuleFromInformer(moduleInformer indexer, moduleName string) (*module, error) {
+	vmopObj, exist, err := moduleInformer.GetByKey(moduleName)
+	if err != nil {
+		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
+	}
+	if !exist {
+		return nil, errors.New("vmopObj not exist")
+	}
+
+	module, ok := vmopObj.(*module)
+	if !ok {
+		return nil, errors.New("fail to convert vmopObj to vmop")
+	}
+
+	return module, nil
+}
+
+type moduleConfig struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Enabled bool `json:"enabled"`
+}
+
+func getModuleConfigFromInformer(moduleConfigInformer indexer, moduleConfigName string) (*moduleConfig, error) {
+	vmopObj, exist, err := moduleConfigInformer.GetByKey(moduleConfigName)
+	if err != nil {
+		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
+	}
+	if !exist {
+		return nil, errors.New("vmopObj not exist")
+	}
+
+	moduleConfig, ok := vmopObj.(*moduleConfig)
+	if !ok {
+		return nil, errors.New("fail to convert vmopObj to vmop")
+	}
+
+	return moduleConfig, nil
 }
