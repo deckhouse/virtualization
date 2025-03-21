@@ -387,6 +387,56 @@ shell:
     cp -a /usr/lib64/libdbus* usr/lib64
     cp -a /usr/lib64/libdevmapper* usr/lib64
     cp -a /usr/lib64/libpciaccess* usr/lib64
+
+    mkdir -p etc/modprobe.d
+    mkdir -p usr/lib/sysctl.d
+    mkdir -p usr/lib/tmpfiles.d
+    mkdir -p usr/share/qemu/systemtap
+
+
+    cat > etc/modprobe.d/kvm.conf <<EOF
+    # Setting modprobe kvm_intel/kvm_amd nested = 1
+    # only enables Nested Virtualization until the next reboot or
+    # module reload. Uncomment the option applicable
+    # to your system below to enable the feature permanently.
+    #
+    # User changes in this file are preserved across upgrades.
+    #
+    # For Intel
+    #options kvm_intel nested=1
+    #
+    # For AMD
+    #options kvm_amd nested=1
+    EOF
+
+    cat > etc/modprobe.d/vhost.conf <<EOF
+    # Increase default vhost memory map limit to match
+    # KVM's memory slot limit
+    options vhost max_mem_regions=509
+    EOF
+
+    mkdir -p etc/modules
+    cp etc/modprobe.d/vhost.conf etc/modules
+    cp etc/modprobe.d/kvm.conf etc/modules
+
+    cat > usr/lib/sysctl.d/60-qemu-postcopy-migration.conf <<EOF
+    # This is needed to support post-copy migration for QEMU run by libvirt,
+    # i.e., unprivileged, as userfaultfd is by default only available to
+    # privileged processes.
+    # It can be safely overridden by a file in /etc/sysctl.d/ in case post-copy
+    # migration is not used on the host.
+    -vm.unprivileged_userfaultfd = 1
+    EOF
+
+    cat > usr/share/qemu/systemtap/qemu_kvm.conf <<EOF
+    # Force load uprobes (see BZ#1118352)
+    stap -e 'probe process("/usr/libexec/qemu-kvm").function("main") { printf("") }' -c true
+
+    qemu_kvm_OPT="-s4" # per-CPU buffer size, in megabytes
+    EOF
+
+
+
 ---
 image: {{ $.ImageName }}-gobuilder
 final: false
