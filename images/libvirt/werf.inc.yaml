@@ -190,5 +190,3 @@ shell:
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
                         -b build
-    
-    cp -a /usr/lib64/libpciaccess* /BINS/usr/lib64
