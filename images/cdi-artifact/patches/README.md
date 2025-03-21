@@ -101,3 +101,7 @@ This patch includes an architectural assumption where the condition of the DataV
 #### `023-remove-upload-proxy-server-variables.patch`
 
 The CDI uploadproxy and serverproxy functionality is not used. Deployment of these images and deployments has been removed.
+
+#### `024-cdi-controller-change-echo-to-binary-hello.patch`
+
+Due to the transfer to distroless images, in cdi-controller command `"echo hello cdi"` changed to single binary hello.
