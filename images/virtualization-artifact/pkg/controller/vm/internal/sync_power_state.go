@@ -212,6 +212,17 @@ func (h *SyncPowerStateHandler) handleManualPolicy(
 	return Nothing
 }
 
+func (h *SyncPowerStateHandler) isRestartVM(kvvm *virtv1.VirtualMachine) bool {
+	if kvvm != nil &&
+		len(kvvm.Status.StateChangeRequests) == 2 &&
+		kvvm.Status.StateChangeRequests[0].Action == virtv1.StopRequest &&
+		kvvm.Status.StateChangeRequests[1].Action == virtv1.StartRequest {
+		return true
+	}
+
+	return false
+}
+
 func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(
 	ctx context.Context,
 	s state.VirtualMachineState,
@@ -221,6 +232,10 @@ func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(
 	shutdownInfo powerstate.ShutdownInfo,
 ) (VMAction, error) {
 	if kvvmi == nil {
+		if h.isRestartVM(kvvm) {
+			return Nothing, nil
+		}
+
 		if isConfigurationApplied {
 			h.recordStartEventf(ctx, s.VirtualMachine().Current(), "Start initiated "+
 				"by controller for AlwaysOn policy")
