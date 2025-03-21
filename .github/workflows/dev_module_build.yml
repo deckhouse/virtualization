@@ -34,9 +34,9 @@ on:
         required: false
         type: number
   # Called from trivy_image_check.yml
-  # pull_request:
-  #   types: [opened, reopened, synchronize, labeled, unlabeled]
-  workflow_call:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+  # workflow_call:
   push:
     branches:
       - main
@@ -262,3 +262,13 @@ jobs:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: "$MODULES_MODULE_TAG"
+
+  cve_scan_on_pr:
+    name: Trivy images check
+    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
+    needs: [dev_setup_build]
+    steps:
+      - uses: ".github/actions/trivy-image-scan"
+        with:
+          image: ${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}
+          tag: pr${{ github.event.number }}

@@ -1,0 +1,25 @@
+name: Trivy image scan
+description: Scan images in module for vulnerabilities
+inputs:
+  image:
+    description: Image to scan (without the tag)
+    required: true
+  tag:
+    description: Image tag to scan
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/checkout@v4
+    - uses: deckhouse/modules-actions/cve_scan@v2
+      with:
+        image: ${{ inputs.image }}
+        tag: ${{ inputs.tag }}
+        module_name: ${{ vars.MODULE_NAME }}
+        dd_url: ${{vars.DEFECTDOJO_HOST}}
+        dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
+        trivy_registry: ${{ vars.PROD_REGISTRY }}
+        trivy_registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+        trivy_registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+        deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
