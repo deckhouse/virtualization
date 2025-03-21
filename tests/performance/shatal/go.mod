@@ -3,7 +3,7 @@ module github.com/deckhouse/virtualization/shatal
 go 1.22.7
 
 require (
-	github.com/deckhouse/virtualization/api v0.0.0-20240408082728-b892ddd03f9e
+	github.com/deckhouse/virtualization/api v0.15.0
 	github.com/google/uuid v1.3.0
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	k8s.io/api v0.29.3
@@ -89,5 +89,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
-
-replace github.com/deckhouse/virtualization/api => ./../../../api
