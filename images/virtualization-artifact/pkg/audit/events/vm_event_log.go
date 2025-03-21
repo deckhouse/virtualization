@@ -48,14 +48,14 @@ type VMEventLog struct {
 }
 
 func NewVMEventLog(event *audit.Event) VMEventLog {
-	return VMEventLog{
+	eventLog := VMEventLog{
 		Type:            "unknown",
 		Level:           "info",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
 		Uid:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
-		OperationResult: event.Annotations["authorization.k8s.io/decision"],
+		OperationResult: "unknown",
 
 		ActionType:         event.Verb,
 		NodeNetworkAddress: "unknown",
@@ -64,6 +64,12 @@ func NewVMEventLog(event *audit.Event) VMEventLog {
 		StorageClasses:     "unknown",
 		FirmwareVersion:    "unknown",
 	}
+
+	if event.Annotations["authorization.k8s.io/decision"] != "" {
+		eventLog.OperationResult = event.Annotations["authorization.k8s.io/decision"]
+	}
+
+	return eventLog
 }
 
 func (e VMEventLog) Log() error {
