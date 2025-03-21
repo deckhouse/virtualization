@@ -87,13 +87,13 @@ func (m *ModuleComponentControl) Log(event *audit.Event) error {
 	pod, err := getPodFromInformer(m.ttlCache, m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get pod from informer", log.Err(err))
+
+		return eventLog.Log()
 	}
 
-	if pod != nil {
-		err = eventLog.fillNodeInfo(m.nodeInformer, pod)
-		if err != nil {
-			log.Debug("fail to fill node info", log.Err(err))
-		}
+	err = eventLog.fillNodeInfo(m.nodeInformer, pod)
+	if err != nil {
+		log.Debug("fail to fill node info", log.Err(err))
 	}
 
 	module, err := getModuleFromInformer(m.moduleInformer, "virtualization")

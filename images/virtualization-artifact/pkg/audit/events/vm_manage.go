@@ -92,11 +92,16 @@ func (m *VMManage) Log(event *audit.Event) error {
 
 	vm, err := getVMFromInformer(m.ttlCache, m.vmInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
-		return fmt.Errorf("fail to get vm from informer: %w", err)
+		log.Debug("fail to get vm from informer", log.Err(err))
+
+		return eventLog.Log()
 	}
 
 	eventLog.VirtualmachineUID = string(vm.UID)
-	eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+
+	if vm.Status.GuestOSInfo.Name != "" {
+		eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+	}
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
 		if err := eventLog.fillVDInfo(m.ttlCache, m.vdInformer, vm); err != nil {
