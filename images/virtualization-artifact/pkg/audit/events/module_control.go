@@ -17,8 +17,6 @@ limitations under the License.
 package events
 
 import (
-	"fmt"
-
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
