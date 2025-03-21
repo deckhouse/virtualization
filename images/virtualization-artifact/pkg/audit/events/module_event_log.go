@@ -41,18 +41,18 @@ type ModuleEventLog struct {
 	NodeNetworkAddress    string `json:"node_network_address"`
 	VirtualizationVersion string `json:"virtualization_version"`
 	VirtualizationName    string `json:"virtualization_name"`
-	FirmwareVersion       string `json:"qemu_version"`
+	FirmwareVersion       string `json:"firmware_version"`
 }
 
 func NewModuleEventLog(event *audit.Event) ModuleEventLog {
-	return ModuleEventLog{
+	eventLog := ModuleEventLog{
 		Type:            "unknown",
 		Level:           "info",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
 		Uid:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
-		OperationResult: event.Annotations["authorization.k8s.io/decision"],
+		OperationResult: "unknown",
 
 		ActionType:            event.Verb,
 		Component:             "virtualizaion",
@@ -61,6 +61,12 @@ func NewModuleEventLog(event *audit.Event) ModuleEventLog {
 		VirtualizationVersion: "unknown",
 		FirmwareVersion:       "unknown",
 	}
+
+	if event.Annotations["authorization.k8s.io/decision"] != "" {
+		eventLog.OperationResult = event.Annotations["authorization.k8s.io/decision"]
+	}
+
+	return eventLog
 }
 
 func (e ModuleEventLog) Log() error {
