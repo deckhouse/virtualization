@@ -43,14 +43,14 @@ type IntegrityCheckEventLog struct {
 }
 
 func NewIntegrityCheckEventLog(event *audit.Event) IntegrityCheckEventLog {
-	return IntegrityCheckEventLog{
+	eventLog := IntegrityCheckEventLog{
 		Type:            "unknown",
 		Level:           "info",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
 		Uid:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
-		OperationResult: event.Annotations["authorization.k8s.io/decision"],
+		OperationResult: "unknown",
 
 		ObjectType:         "unknown",
 		VirtualMachineName: "unknown",
@@ -60,6 +60,12 @@ func NewIntegrityCheckEventLog(event *audit.Event) IntegrityCheckEventLog {
 		ReferenceChecksum:  "unknown",
 		CurrentChecksum:    "unknown",
 	}
+
+	if event.Annotations["authorization.k8s.io/decision"] != "" {
+		eventLog.OperationResult = event.Annotations["authorization.k8s.io/decision"]
+	}
+
+	return eventLog
 }
 
 func (e *IntegrityCheckEventLog) Log() error {
