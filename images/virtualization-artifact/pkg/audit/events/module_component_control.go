@@ -17,7 +17,6 @@ limitations under the License.
 package events
 
 import (
-	"fmt"
 	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
