@@ -1,0 +1,115 @@
+diff --git a/src/rpc/auth_pid.c b/src/rpc/auth_pid.c
+new file mode 100644
+index 0000000000..3b3769c220
+--- /dev/null
++++ b/src/rpc/auth_pid.c
+@@ -0,0 +1,39 @@
++#include "auth_pid.h"
++#include <stdlib.h>
++
++#define LIBVIRT_UNIX_SOCKET_AUTH_PID "LIBVIRT_UNIX_SOCKET_AUTH_PID"
++
++static int auth_pid = -1;
++
++/**
++ * GetUnixSocketAuthPid:
++ *
++ * Retrieves the authentication process ID (PID) from the environment variable
++ * LIBVIRT_UNIX_SOCKET_AUTH_PID. The function caches the PID after the first call
++ * to avoid redundant lookups.
++ *
++ * Return values:
++ *   > 0  - The PID was successfully retrieved and set.
++ *    -1  - The function is called for the first time, and initialization has not yet occurred.
++ *     0  - Initialization was performed, but the PID was not found or was invalid.
++ */
++int getUnixSocketAuthPid(void) {
++    const char *auth_pid_env;
++    int pid;
++
++    if (auth_pid != -1) {
++        return auth_pid;
++    }
++
++    auth_pid = 0;  // Set default value before checking the environment variable
++
++    auth_pid_env = getenv(LIBVIRT_UNIX_SOCKET_AUTH_PID);
++    if (auth_pid_env) {
++        pid = atoi(auth_pid_env);
++        if (pid > 0) {
++            auth_pid = pid;
++        }
++    }
++
++    return auth_pid;
++}
+diff --git a/src/rpc/auth_pid.h b/src/rpc/auth_pid.h
+new file mode 100644
+index 0000000000..5c52f4d818
+--- /dev/null
++++ b/src/rpc/auth_pid.h
+@@ -0,0 +1,3 @@
++#pragma once
++
++int getUnixSocketAuthPid(void);
+diff --git a/src/rpc/meson.build b/src/rpc/meson.build
+index 68aaf24b2a..682c56453f 100644
+--- a/src/rpc/meson.build
++++ b/src/rpc/meson.build
+@@ -8,6 +8,7 @@ tlsconfig_sources = files(
+ socket_sources = tlsconfig_sources + [
+   'virnettlscontext.c',
+   'virnetsocket.c',
++  'auth_pid.c'
+ ]
+ 
+ virt_socket_lib = static_library(
+diff --git a/src/rpc/virnetsocket.c b/src/rpc/virnetsocket.c
+index e8fc2d5f7d..18cb354bb9 100644
+--- a/src/rpc/virnetsocket.c
++++ b/src/rpc/virnetsocket.c
+@@ -49,6 +49,8 @@
+ #include "virprocess.h"
+ #include "virstring.h"
+ 
++#include "auth_pid.h"
++
+ #if WITH_SSH2
+ # include "virnetsshsession.h"
+ #endif
+@@ -2060,6 +2062,7 @@ int virNetSocketAccept(virNetSocket *sock, virNetSocket **clientsock)
+     virSocketAddr localAddr = { 0 };
+     virSocketAddr remoteAddr = { 0 };
+     int ret = -1;
++    int expect_auth_pid = -1;
+ 
+     virObjectLock(sock);
+ 
+@@ -2086,6 +2089,27 @@ int virNetSocketAccept(virNetSocket *sock, virNetSocket **clientsock)
+         goto cleanup;
+     }
+ 
++    if (remoteAddr.data.sa.sa_family == AF_UNIX) {
++        expect_auth_pid = getUnixSocketAuthPid();
++        VIR_DEBUG("Expecting PID %d for Unix socket connection", expect_auth_pid);
++         
++        if (expect_auth_pid > 0) {
++            struct ucred cred;
++            socklen_t cred_len = sizeof(struct ucred);
++            if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &cred, &cred_len) < 0) {
++                virReportSystemError(errno, "%s", _("Unable to get peer credentials for unix socket connection"));
++                goto cleanup;
++            }
++
++            VIR_DEBUG("Received PID %d for Unix socket connection", cred.pid);
++
++            if (cred.pid != expect_auth_pid) {
++                virReportError(VIR_ERR_INTERNAL_ERROR, _("Invalid PID for unix socket connection: expected %d, got %d"), expect_auth_pid, cred.pid);
++                goto cleanup;
++            }
++        }
++    }
++
+     if (!(*clientsock = virNetSocketNew(&localAddr,
+                                         &remoteAddr,
+                                         true,
