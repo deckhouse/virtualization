@@ -266,7 +266,9 @@ jobs:
   cve_scan_on_pr:
     name: Trivy images check
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
-    needs: [dev_setup_build]
+    needs: 
+      - set_vars
+      - dev_setup_build
     steps:
       - uses: ./.github/actions/trivy-image-scan
         with:
