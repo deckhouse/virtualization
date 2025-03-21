@@ -101,11 +101,13 @@ var _ = Describe("FirmwareHandler", func() {
 			Expect(oldVersion).To(Equal(newVersion))
 		}
 	},
-		Entry("Condition should be removed because firmware version supported",
+		Entry("Condition should be removed because the firmware version is supported",
 			newVmWithCond("v0.80.1"), newKVVMI(), false, false),
-		Entry("Condition should be removed and firmware should updated, because firmware version not supported but vm stopped.",
+		Entry("Condition should be removed, and the firmware should be updated because the firmware version is not supported, but the VM is stopped",
 			newVmWithCond("v0.10.0"), nil, false, true),
-		Entry("Condition should be added because firmware version not supported and vm started",
+		Entry("Condition should be added because the firmware version is not supported (older) and the VM is running",
 			newVm("v0.10.0"), newKVVMI(), true, false),
+		Entry("Condition should be added because the firmware version is not supported (newer) and the VM is running",
+			newVm("v1.10.0"), newKVVMI(), true, false),
 	)
 })

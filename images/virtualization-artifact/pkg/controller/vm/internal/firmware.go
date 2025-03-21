@@ -81,7 +81,11 @@ func (f FirmwareHandler) needUpdate(currentVersion string) bool {
 	if currentVersion == "" || !semver.IsValid(currentVersion) {
 		return true
 	}
-	return semver.Compare(currentVersion, f.firmwareMinSupportedVersion) == -1
+	if semver.Compare(currentVersion, f.firmwareMinSupportedVersion) == -1 {
+		return true
+	}
+
+	return semver.Compare(currentVersion, f.firmwareVersion) == 1
 }
 
 func (f FirmwareHandler) addCondition(changed *virtv2.VirtualMachine) {
