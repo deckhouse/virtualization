@@ -39,8 +39,8 @@ func main() {
 	machine := helpers.GetMachineType(arch)
 	logger.Info(fmt.Sprintf("Machine type %s for arch %s", machine, arch))
 	if machine == "" {
-		logger.Info("Unsupported architecture, exit gracefully")
-		return
+		logger.Error("Unsupported architecture, exit")
+		os.Exit(1)
 	}
 
 	kvmMinor := helpers.GetKVMMinor()
