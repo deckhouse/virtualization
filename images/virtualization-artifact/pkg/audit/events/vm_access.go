@@ -76,7 +76,7 @@ func (m *VMAccess) Log(event *audit.Event) error {
 		eventLog.Name = "Access to VM via portforward"
 	}
 
-	if event.Stage == audit.StageResponseComplete {
+	if event.Stage == audit.StageRequestReceived {
 		eventLog.Name = "Request " + eventLog.Name
 	}
 
