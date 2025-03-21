@@ -14,139 +14,16 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
 	"log/slog"
 	"os"
-
-	"node-labeller/pkg/helpers"
-
-	"libvirt.org/go/libvirt"
-)
-
-const (
-	outDir = "/var/lib/kubevirt-node-labeller"
 )
 
 func main() {
-	// Define virt type qemu for get domain capabilites if no device kvm
-	virtType := "qemu"
-
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	arch := helpers.GetArch()
-	logger.Info(fmt.Sprintf("Get arch %s", arch))
-	machine := helpers.GetMachineType(arch)
-	logger.Info(fmt.Sprintf("Machine type %s for arch %s", machine, arch))
-	if machine == "" {
-		logger.Error("Unsupported architecture, exit")
+	if err := run(logger); err != nil {
+		slog.Error("Failed to run node-labeller", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-
-	kvmMinor := helpers.GetKVMMinor()
-
-	logger.Info("Check and create if not exists /dev/kvm")
-	if _, err := os.Stat("/dev/kvm"); err != nil {
-		if os.IsNotExist(err) {
-			if err := helpers.CreateKVMDevice(kvmMinor); err != nil {
-				logger.Error("Failed to create /dev/kvm device", slog.String("error", err.Error()))
-				os.Exit(1)
-			}
-		} else {
-			logger.Error("Failed to check /dev/kvm device", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-	} else {
-		virtType = "kvm"
-	}
-
-	logger.Info("Set permissions on /dev/kvm")
-	if err := helpers.SetPermissionsRW("/dev/kvm"); err != nil {
-		logger.Error("Failed to set permissions for /dev/kvm", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
-	// QEMU requires RW access to query SEV capabilities
-	// AMD's Secure Encrypted Virtualization (SEV)
-	if _, err := os.Stat("/dev/sev"); err != nil {
-		if !os.IsNotExist(err) {
-			if err := helpers.SetPermissionsRW("/dev/sev"); err != nil {
-				logger.Error("Failed to set permissions for /dev/sev", slog.String("error", err.Error()))
-				os.Exit(1)
-			}
-		}
-	}
-
-	logger.Info("Start virtqemud as daemon")
-	if err := helpers.StartVirtqemud(); err != nil {
-		logger.Error("Failed to start virtqemud", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
-	logger.Info("Connect to libvirt via qemu:///system")
-	conn, err := libvirt.NewConnect("qemu:///system")
-	if err != nil {
-		logger.Error("Failed to connect to libvirt", slog.String("error", err.Error()))
-		return
-	}
-	defer conn.Close()
-
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		logger.Error("Failed to create output directory", "path", outDir, slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
-	logger.Info("Get domain capabilities")
-	domCapsXML, err := conn.GetDomainCapabilities("", arch, machine, virtType, 0)
-	if err != nil {
-		logger.Error("Failed to retrieve domain capabilities", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
-	// Save domcapabilities.xml
-	domCapsPath := fmt.Sprintf("%s/virsh_domcapabilities.xml", outDir)
-	if err := os.WriteFile(domCapsPath, []byte(domCapsXML), 0o644); err != nil {
-		logger.Error("Failed to write domain capabilities", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-	logger.Info(fmt.Sprintf("Domcapabilities saved to %s", domCapsPath))
-
-	cpuXML, err := helpers.GetCPUFeatureDomCaps(domCapsXML, logger)
-	if err != nil {
-		logger.Error("Failed to retrieve dom caps", slog.String("error", err.Error()))
-	}
-
-	// hypervisor-cpu-baseline only for x86_64
-	if arch == "x86_64" {
-
-		featuresXML, err := conn.BaselineHypervisorCPU("", arch, machine, virtType, cpuXML, libvirt.CONNECT_BASELINE_CPU_EXPAND_FEATURES)
-		if err != nil {
-			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-
-		supportedFeaturesPath := fmt.Sprintf("%s/supported_features.xml", outDir)
-		if err := os.WriteFile(supportedFeaturesPath, []byte(featuresXML), 0o644); err != nil {
-			logger.Error("Failed to write supported features", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-		logger.Info(fmt.Sprintf("Hypervisor features saved to %s", supportedFeaturesPath))
-
-	}
-
-	// Get host capabilities
-	hostCaps, err := conn.GetCapabilities()
-	if err != nil {
-		logger.Error("Failed to retrieve host capabilities", slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
-	// Save capabilities.xml
-	capabilitiesPath := fmt.Sprintf("%s/capabilities.xml", outDir)
-	if err := os.WriteFile(capabilitiesPath, []byte(hostCaps), 0o644); err != nil {
-		logger.Error("Failed to write capabilities", "error", err)
-		os.Exit(1)
-	}
-
-	logger.Info(fmt.Sprintf("Host capabilities saved to %s", capabilitiesPath))
 }
