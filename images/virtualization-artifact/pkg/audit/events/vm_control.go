@@ -82,7 +82,8 @@ func (m *VMControl) Log(event *audit.Event) error {
 	isControllerAction := strings.Contains(event.User.Username, "system:serviceaccount:d8-virtualization")
 	isNodeAction := strings.Contains(event.User.Username, "system:node")
 
-	if isControllerAction {
+	switch {
+	case isControllerAction:
 		eventLog.Level = "warn"
 
 		switch {
@@ -94,9 +95,9 @@ func (m *VMControl) Log(event *audit.Event) error {
 			// deleted by vmop
 			return nil
 		}
-	} else if isNodeAction {
+	case isNodeAction:
 		return nil
-	} else {
+	default:
 		eventLog.Level = "critical"
 		eventLog.Name = "VM killed abnormal way"
 	}
