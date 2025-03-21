@@ -75,24 +75,26 @@ func (m *ModuleComponentControl) Log(event *audit.Event) error {
 	eventLog := NewModuleEventLog(event)
 	eventLog.Type = "Virtualization control"
 
-	pod, err := getPodFromInformer(m.ttlCache, m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
-	if err != nil {
-		return fmt.Errorf("fail to get pod from informer: %w", err)
-	}
-
-	err = eventLog.fillNodeInfo(m.nodeInformer, pod)
-	if err != nil {
-		log.Debug("fail to fill node info", log.Err(err))
-	}
-
 	if event.Verb == "create" {
 		eventLog.Name = "Component creation"
 		eventLog.Level = "info"
-		eventLog.Component = pod.Name
+		eventLog.Component = event.ObjectRef.Name
 	} else {
 		eventLog.Name = "Component deletion"
 		eventLog.Level = "warn"
-		eventLog.Component = pod.Name
+		eventLog.Component = event.ObjectRef.Name
+	}
+
+	pod, err := getPodFromInformer(m.ttlCache, m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	if err != nil {
+		log.Debug("fail to get pod from informer", log.Err(err))
+	}
+
+	if pod != nil {
+		err = eventLog.fillNodeInfo(m.nodeInformer, pod)
+		if err != nil {
+			log.Debug("fail to fill node info", log.Err(err))
+		}
 	}
 
 	module, err := getModuleFromInformer(m.moduleInformer, "virtualization")
