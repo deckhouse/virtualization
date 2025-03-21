@@ -191,4 +191,4 @@ shell:
                         -d /BINS \
                         -b build
     
-    cp -a /usr/lib64/libpciaccess* /BINS/lib64
+    cp -a /usr/lib64/libpciaccess* /BINS/usr/lib64
