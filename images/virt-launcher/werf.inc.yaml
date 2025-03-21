@@ -51,6 +51,7 @@ libs:
   - libvte-devel
   - libvte3-devel
   - libvirglrenderer-devel
+  - libdbus
   - libusb-devel
   - liburing-devel
   - libbpf-devel
@@ -382,6 +383,10 @@ shell:
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
     cp -a etc/libvirt etc/libvirt-init
+  - |
+    cp -a /usr/lib64/libdbus* usr/lib64
+    cp -a /usr/lib64/libdevmapper* usr/lib64
+    cp -a /usr/lib64/libpciaccess* usr/lib64
 ---
 image: {{ $.ImageName }}-gobuilder
 final: false
