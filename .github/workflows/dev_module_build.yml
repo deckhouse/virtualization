@@ -267,14 +267,12 @@ jobs:
     needs:
       - set_vars
       - dev_setup_build
-    env:
-      MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
     steps:
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/cve_scan@v2
         with:
           image: ${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}
-          tag: "$MODULES_MODULE_TAG"
+          tag: ${{needs.set_vars.outputs.modules_module_tag}}
           module_name: ${{ vars.MODULE_NAME }}
           dd_url: ${{vars.DEFECTDOJO_HOST}}
           dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
