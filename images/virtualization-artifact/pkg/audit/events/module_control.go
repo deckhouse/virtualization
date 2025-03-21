@@ -66,11 +66,6 @@ func (m *ModuleControl) Log(event *audit.Event) error {
 
 	eventLog.Component = event.ObjectRef.Name
 
-	moduleConfig, err := getModuleConfigFromInformer(m.moduleConfigInformer, event.ObjectRef.Name)
-	if err != nil {
-		return fmt.Errorf("fail to get moduleconfig from informer: %w", err)
-	}
-
 	switch event.Verb {
 	case "create":
 		eventLog.Name = "Module creation"
@@ -78,13 +73,20 @@ func (m *ModuleControl) Log(event *audit.Event) error {
 	case "patch", "update":
 		eventLog.Name = "Module update"
 		eventLog.Level = "info"
-
-		if !*moduleConfig.Spec.Enabled {
-			eventLog.Name = "Module disable"
-			eventLog.Level = "warn"
-		}
 	case "delete":
 		eventLog.Name = "Module deletion"
+		eventLog.Level = "warn"
+	}
+
+	moduleConfig, err := getModuleConfigFromInformer(m.moduleConfigInformer, event.ObjectRef.Name)
+	if err != nil {
+		log.Debug("fail to get moduleconfig from informer", log.Err(err))
+
+		return eventLog.Log()
+	}
+
+	if (event.Verb == "patch" || event.Verb == "update") || !*moduleConfig.Spec.Enabled {
+		eventLog.Name = "Module disable"
 		eventLog.Level = "warn"
 	}
 
