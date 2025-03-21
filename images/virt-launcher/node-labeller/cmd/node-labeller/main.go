@@ -123,14 +123,15 @@ func main() {
 		if err != nil {
 			logger.Error("Failed to retrieve supported CPU features", slog.String("error", err.Error()))
 			os.Exit(1)
-		} else {
-			supportedFeaturesPath := fmt.Sprintf("%s/supported_features.xml", outDir)
-			if err := os.WriteFile(supportedFeaturesPath, []byte(featuresXML), 0o644); err != nil {
-				logger.Error("Failed to write supported features", slog.String("error", err.Error()))
-				os.Exit(1)
-			}
-			logger.Info(fmt.Sprintf("Hypervisor features saved to %s", supportedFeaturesPath))
 		}
+
+		supportedFeaturesPath := fmt.Sprintf("%s/supported_features.xml", outDir)
+		if err := os.WriteFile(supportedFeaturesPath, []byte(featuresXML), 0o644); err != nil {
+			logger.Error("Failed to write supported features", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+		logger.Info(fmt.Sprintf("Hypervisor features saved to %s", supportedFeaturesPath))
+
 	}
 
 	// Get host capabilities
