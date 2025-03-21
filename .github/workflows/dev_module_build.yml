@@ -274,7 +274,7 @@ jobs:
       - uses: deckhouse/modules-actions/cve_scan@v2
         with:
           image: ${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}
-          tag: pr${{ github.event.number }}
+          tag: "$MODULES_MODULE_TAG"
           module_name: ${{ vars.MODULE_NAME }}
           dd_url: ${{vars.DEFECTDOJO_HOST}}
           dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
