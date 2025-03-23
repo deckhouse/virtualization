@@ -36,7 +36,7 @@ func (h ProtectionHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (
 	log := logger.FromContext(ctx).With(logger.SlogHandler("protection"))
 
 	if len(vd.Status.AttachedToVirtualMachines) > 1 {
-		log.Error("virtual disk connected to multiple virtual machines", "vms", len(vd.Status.AttachedToVirtualMachines))
+		log.Debug("virtual disk connected to multiple virtual machines", "vms", len(vd.Status.AttachedToVirtualMachines))
 	}
 
 	switch {

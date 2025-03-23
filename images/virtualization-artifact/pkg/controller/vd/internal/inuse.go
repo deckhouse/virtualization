@@ -154,8 +154,6 @@ func (h InUseHandler) checkImageUsage(ctx context.Context, vd *virtv2.VirtualDis
 }
 
 func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *virtv2.VirtualDisk) error {
-	usageMap := make(map[string]bool)
-
 	var vms virtv2.VirtualMachineList
 	err := h.client.List(ctx, &vms, &client.ListOptions{
 		Namespace: vd.GetNamespace(),
@@ -163,6 +161,17 @@ func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *vir
 	if err != nil {
 		return fmt.Errorf("error getting virtual machines: %w", err)
 	}
+
+	usageMap, err := h.getVirtualMachineUsageMap(ctx, vd, vms)
+	if err != nil {
+		return err
+	}
+
+	return h.updateAttachedVirtualMachinesStatus(vd, usageMap)
+}
+
+func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *virtv2.VirtualDisk, vms virtv2.VirtualMachineList) (map[string]bool, error) {
+	usageMap := make(map[string]bool)
 
 	for _, vm := range vms.Items {
 		if !h.isVDAttachedToVM(vd.GetName(), vm) {
@@ -175,37 +184,48 @@ func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *vir
 		case virtv2.MachinePending:
 			usageMap[vm.GetName()] = canStartVM(vm.Status.Conditions)
 		case virtv2.MachineStopped:
-			kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, h.client, &virtv1.VirtualMachine{})
+			vmIsActive, err := h.isVMActive(ctx, vm)
 			if err != nil {
-				return fmt.Errorf("error getting kvvms: %w", err)
-			}
-			if kvvm != nil && kvvm.Status.StateChangeRequests != nil {
-				usageMap[vm.GetName()] = true
-				continue
-			}
-			podList := corev1.PodList{}
-			err = h.client.List(ctx, &podList, &client.ListOptions{
-				Namespace:     vm.GetNamespace(),
-				LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
-			})
-			if err != nil {
-				return fmt.Errorf("unable to list virt-launcher Pod for VM %q: %w", vm.GetName(), err)
+				return nil, err
 			}
 
-			used := false
-			for _, pod := range podList.Items {
-				if pod.Status.Phase == corev1.PodRunning {
-					used = true
-					break
-				}
-			}
-
-			usageMap[vm.GetName()] = used
+			usageMap[vm.GetName()] = vmIsActive
 		default:
 			usageMap[vm.GetName()] = true
 		}
 	}
 
+	return usageMap, nil
+}
+
+func (h InUseHandler) isVMActive(ctx context.Context, vm virtv2.VirtualMachine) (bool, error) {
+	kvvm, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, h.client, &virtv1.VirtualMachine{})
+	if err != nil {
+		return false, fmt.Errorf("error getting kvvms: %w", err)
+	}
+	if kvvm != nil && kvvm.Status.StateChangeRequests != nil {
+		return true, nil
+	}
+
+	podList := corev1.PodList{}
+	err = h.client.List(ctx, &podList, &client.ListOptions{
+		Namespace:     vm.GetNamespace(),
+		LabelSelector: labels.SelectorFromSet(map[string]string{virtv1.VirtualMachineNameLabel: vm.GetName()}),
+	})
+	if err != nil {
+		return false, fmt.Errorf("unable to list virt-launcher Pod for VM %q: %w", vm.GetName(), err)
+	}
+
+	for _, pod := range podList.Items {
+		if pod.Status.Phase == corev1.PodRunning {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *virtv2.VirtualDisk, usageMap map[string]bool) error {
 	var currentlyMountedVM string
 	for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
 		if attachedVM.Mounted {

@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +42,15 @@ import (
 )
 
 const nameBlockDeviceHandler = "BlockDeviceHandler"
+
+type virtualDisksState struct {
+	readyForUseCount         int    // Number of disks ready for use by the current VM.
+	usingForCreateImageCount int    // Number of disks used for image creation.
+	usingInOtherVMCount      int    // Number of disks attached to other VMs.
+	imageDiskName            string // Name of the disk used for image creation (if any).
+	otherVMDiskName          string // Name of the disk attached to another VM (if any).
+	message                  string // Status message describing the disk state (if applicable).
+}
 
 func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger, blockDeviceService BlockDeviceService) *BlockDeviceHandler {
 	return &BlockDeviceHandler{
@@ -110,40 +118,45 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, err
 	}
 
-	if err = h.updateStatusBlockDeviceRefs(ctx, s, log); err != nil {
+	changed.Status.BlockDeviceRefs, err = h.getBlockDeviceStatusRefs(ctx, s)
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("failed to get block device status refs: %w", err)
+	}
+
+	if err = h.checkBlockDeviceConflicts(ctx, s, log); err != nil {
 		if errors.Is(err, ErrConflictedVirtualDisksDetected) {
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
 	}
 
-	canStartVM, toBeReadyState := h.checkBlockDevicesToBeReady(s, bdState, log)
-	toBeReadyForUseState, err := h.checkBlockDevicesToBeReadyForUse(ctx, s)
+	canStartVM, blockDevicesReadinessCondition := h.checkBlockDevicesToBeReady(s, bdState, log)
+	blockDevicesUsageReadinessCondition, err := h.checkBlockDevicesToBeReadyForUse(ctx, s)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if toBeReadyState.Condition().Status == metav1.ConditionFalse {
-		if toBeReadyForUseState.Condition().Status == metav1.ConditionTrue {
-			isWFFC, err := h.checkVirtualDisksToWFFC(ctx, s)
+	if blockDevicesReadinessCondition.Condition().Status == metav1.ConditionFalse {
+		if blockDevicesUsageReadinessCondition.Condition().Status == metav1.ConditionTrue {
+			isWFFC, err := h.checkVirtualDisksToBeWFFC(ctx, s)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
 
 			if isWFFC && canStartVM {
-				toBeReadyState.Reason(vmcondition.ReasonWaitingForProvisioningToPVC)
+				blockDevicesReadinessCondition.Reason(vmcondition.ReasonWaitingForProvisioningToPVC)
 			}
 		}
 
-		conditions.SetCondition(toBeReadyState, &changed.Status.Conditions)
-		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
+		conditions.SetCondition(blockDevicesReadinessCondition, &changed.Status.Conditions)
+		return reconcile.Result{}, nil
 	}
 
-	conditions.SetCondition(toBeReadyForUseState, &changed.Status.Conditions)
+	conditions.SetCondition(blockDevicesUsageReadinessCondition, &changed.Status.Conditions)
 	return reconcile.Result{}, nil
 }
 
-func (h *BlockDeviceHandler) checkVirtualDisksToWFFC(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+func (h *BlockDeviceHandler) checkVirtualDisksToBeWFFC(ctx context.Context, s state.VirtualMachineState) (bool, error) {
 	vds, err := s.VirtualDisksByName(ctx)
 	if err != nil {
 		return false, err
@@ -167,61 +180,23 @@ func (h *BlockDeviceHandler) checkBlockDevicesToBeReadyForUse(ctx context.Contex
 		return cb, err
 	}
 
-	countReadyForUseVD, countUsingForCreateImageVD, countUsingInOtherVMVD := 0, 0, 0
+	diskState := h.getVirtualDisksState(vm, vds)
 
-	var imageDiskName string
-	var otherVMDiskName string
-
-	msg := ""
-	for _, vd := range vds {
-		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-		if inUseCondition.ObservedGeneration != vd.Generation {
-			continue
-		}
-
-		if inUseCondition.Status == metav1.ConditionTrue {
-			switch inUseCondition.Reason {
-			case vdcondition.UsedForImageCreation.String():
-				countUsingForCreateImageVD++
-				if len(vds) == 1 {
-					msg = fmt.Sprintf("Virtual disk %q is in use for image creation.", vd.Name)
-				}
-				imageDiskName = vd.Name
-			case vdcondition.AttachedToVirtualMachine.String():
-				if !h.checkVDToUseCurrentVM(vd, vm) {
-					countUsingInOtherVMVD++
-					if len(vds) == 1 {
-						msg = fmt.Sprintf("Virtual disk %q is in use by another VM.", vd.Name)
-					}
-					otherVMDiskName = vd.Name
-				} else {
-					countReadyForUseVD++
-				}
-			}
-		} else {
-			if vm.Status.Phase == virtv2.MachineStopped && h.checkVDToUseCurrentVM(vd, vm) && len(vd.Status.AttachedToVirtualMachines) == 1 {
-				countReadyForUseVD++
-			} else if len(vds) == 1 {
-				msg = fmt.Sprintf("Waiting for block device %q to be ready to use.", vd.Name)
-			}
-		}
-	}
-
-	if len(vds) == countReadyForUseVD {
+	if len(vds) == diskState.readyForUseCount {
 		cb.Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonBlockDevicesReady).
 			Message("")
 		return cb, nil
 	}
 
-	if msg != "" {
+	if diskState.message != "" {
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDevicesNotReady).
-			Message(msg)
+			Message(diskState.message)
 		return cb, nil
 	}
 
-	if countReadyForUseVD == 0 && countUsingInOtherVMVD == 0 && countUsingForCreateImageVD == 0 {
+	if diskState.readyForUseCount == 0 && diskState.usingInOtherVMCount == 0 && diskState.usingForCreateImageCount == 0 {
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDevicesNotReady).
 			Message(fmt.Sprintf("Waiting for block devices to be ready to use: %d/%d.", 0, len(vds)))
@@ -229,38 +204,82 @@ func (h *BlockDeviceHandler) checkBlockDevicesToBeReadyForUse(ctx context.Contex
 	}
 
 	if len(vds) > 1 {
-		var msgBuilder strings.Builder
-		msgBuilder.WriteString(fmt.Sprintf("Waiting for block devices to be ready to use: %d/%d", countReadyForUseVD, len(vds)))
-
-		if countUsingForCreateImageVD > 0 {
-			if countUsingForCreateImageVD == 1 {
-				msgBuilder.WriteString(fmt.Sprintf("; Disk %q is in use for image creation", imageDiskName))
-			} else {
-				msgBuilder.WriteString(fmt.Sprintf("; Disks %d/%d are in use for image creation", countUsingForCreateImageVD, len(vds)))
-			}
-		}
-
-		if countUsingInOtherVMVD > 0 {
-			if countUsingInOtherVMVD == 1 {
-				msgBuilder.WriteString(fmt.Sprintf("; Disk %q is in use by another VM", otherVMDiskName))
-			} else {
-				msgBuilder.WriteString(fmt.Sprintf("; Disks %d/%d are in use by another VM", countUsingInOtherVMVD, len(vds)))
-			}
-		}
-
-		msgBuilder.WriteString(".")
-		if msgBuilder.Len() > 0 {
-			cb.Status(metav1.ConditionFalse).
-				Reason(vmcondition.ReasonBlockDevicesNotReady).
-				Message(msgBuilder.String())
-			return cb, nil
-		}
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonBlockDevicesNotReady).
+			Message(h.buildStatusMessage(diskState, len(vds)))
+		return cb, nil
 	}
 
 	cb.Status(metav1.ConditionTrue).
 		Reason(vmcondition.ReasonBlockDevicesReady).
 		Message("")
 	return cb, nil
+}
+
+// getVirtualDisksState checks the state of virtual disks and returns counts of disks ready for use,
+// used for image creation, or attached to other VMs, along with relevant disk names and a status message.
+func (h *BlockDeviceHandler) getVirtualDisksState(vm *virtv2.VirtualMachine, vds map[string]*virtv2.VirtualDisk) virtualDisksState {
+	disksState := virtualDisksState{}
+
+	for _, vd := range vds {
+		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+		if !conditions.IsLastUpdated(inUseCondition, vd) {
+			continue
+		}
+
+		if inUseCondition.Status == metav1.ConditionTrue {
+			switch inUseCondition.Reason {
+			case vdcondition.UsedForImageCreation.String():
+				disksState.usingForCreateImageCount++
+				if len(vds) == 1 {
+					disksState.message = fmt.Sprintf("Virtual disk %q is in use for image creation.", vd.Name)
+				}
+				disksState.imageDiskName = vd.Name
+			case vdcondition.AttachedToVirtualMachine.String():
+				if !h.checkVDToUseCurrentVM(vd, vm) {
+					disksState.usingInOtherVMCount++
+					if len(vds) == 1 {
+						disksState.message = fmt.Sprintf("Virtual disk %q is in use by another VM.", vd.Name)
+					}
+					disksState.otherVMDiskName = vd.Name
+				} else {
+					disksState.readyForUseCount++
+				}
+			}
+		} else {
+			if vm.Status.Phase == virtv2.MachineStopped && h.checkVDToUseCurrentVM(vd, vm) && len(vd.Status.AttachedToVirtualMachines) == 1 {
+				disksState.readyForUseCount++
+			} else if len(vds) == 1 {
+				disksState.message = fmt.Sprintf("Waiting for block device %q to be ready to use.", vd.Name)
+			}
+		}
+	}
+
+	return disksState
+}
+
+func (h *BlockDeviceHandler) buildStatusMessage(diskState virtualDisksState, summaryCount int) string {
+	var msgBuilder strings.Builder
+	msgBuilder.WriteString(fmt.Sprintf("Waiting for block devices to be ready to use: %d/%d", diskState.readyForUseCount, summaryCount))
+
+	if diskState.usingForCreateImageCount > 0 {
+		if diskState.usingForCreateImageCount == 1 {
+			msgBuilder.WriteString(fmt.Sprintf("; Disk %q is in use for image creation", diskState.imageDiskName))
+		} else {
+			msgBuilder.WriteString(fmt.Sprintf("; Disks %d/%d are in use for image creation", diskState.usingForCreateImageCount, summaryCount))
+		}
+	}
+
+	if diskState.usingInOtherVMCount > 0 {
+		if diskState.usingInOtherVMCount == 1 {
+			msgBuilder.WriteString(fmt.Sprintf("; Disk %q is in use by another VM", diskState.otherVMDiskName))
+		} else {
+			msgBuilder.WriteString(fmt.Sprintf("; Disks %d/%d are in use by another VM", diskState.usingInOtherVMCount, summaryCount))
+		}
+	}
+
+	msgBuilder.WriteString(".")
+	return msgBuilder.String()
 }
 
 func (h *BlockDeviceHandler) checkVDToUseCurrentVM(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine) bool {
@@ -310,19 +329,8 @@ func (h *BlockDeviceHandler) checkBlockDevicesToBeReady(s state.VirtualMachineSt
 	return true, cb
 }
 
-func (h *BlockDeviceHandler) updateStatusBlockDeviceRefs(
-	ctx context.Context,
-	s state.VirtualMachineState,
-	log *slog.Logger,
-) error {
+func (h *BlockDeviceHandler) checkBlockDeviceConflicts(ctx context.Context, s state.VirtualMachineState, log *slog.Logger) error {
 	changed := s.VirtualMachine().Changed()
-
-	var err error
-	// Fill BlockDeviceRefs every time without knowledge of previously kept BlockDeviceRefs.
-	changed.Status.BlockDeviceRefs, err = h.getBlockDeviceStatusRefs(ctx, s)
-	if err != nil {
-		return fmt.Errorf("failed to get block device status refs: %w", err)
-	}
 
 	conflictWarning, err := h.getBlockDeviceWarnings(ctx, s)
 	if err != nil {
