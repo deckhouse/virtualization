@@ -37,7 +37,7 @@ func StartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine) e
 	jp, err := BuildPatch(kvvm,
 		kvv1.VirtualMachineStateChangeRequest{Action: kvv1.StartRequest})
 	if err != nil {
-		if errors.Is(err, ErrChangesAlreadyExists) {
+		if errors.Is(err, ErrChangesAlreadyExist) {
 			return nil
 		}
 		return err
@@ -74,7 +74,7 @@ func RestartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine,
 		kvv1.VirtualMachineStateChangeRequest{Action: kvv1.StopRequest, UID: &kvvmi.UID},
 		kvv1.VirtualMachineStateChangeRequest{Action: kvv1.StartRequest})
 	if err != nil {
-		if errors.Is(err, ErrChangesAlreadyExists) {
+		if errors.Is(err, ErrChangesAlreadyExist) {
 			return nil
 		}
 		return err

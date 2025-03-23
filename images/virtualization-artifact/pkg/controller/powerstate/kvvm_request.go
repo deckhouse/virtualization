@@ -18,6 +18,7 @@ package powerstate
 
 import (
 	"errors"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	kvv1 "kubevirt.io/api/core/v1"
@@ -25,10 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 )
 
-var (
-	ErrChangesAlreadyExists    = errors.New("changes already exist in the current status")
-	ErrUnableToCompleteRequest = errors.New("unable to complete request: stop/start already underway")
-)
+var ErrChangesAlreadyExist = errors.New("changes already exist in the current status")
 
 // BuildPatch creates a patch to request VM state changing via updating KVVM status.
 //
@@ -55,11 +53,11 @@ func BuildPatch(vm *kvv1.VirtualMachine, changes ...kvv1.VirtualMachineStateChan
 		}
 		if len(vm.Status.StateChangeRequests) != 0 {
 			if equality.Semantic.DeepEqual(vm.Status.StateChangeRequests, changes) {
-				return nil, ErrChangesAlreadyExists
+				return nil, ErrChangesAlreadyExist
 			}
 
 			if failOnConflict {
-				return nil, ErrUnableToCompleteRequest
+				return nil, fmt.Errorf("unable to complete request: stop/start already underway")
 			} else {
 				verb = patch.PatchReplaceOp
 			}

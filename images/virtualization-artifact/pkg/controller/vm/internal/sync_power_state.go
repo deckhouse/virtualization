@@ -212,7 +212,7 @@ func (h *SyncPowerStateHandler) handleManualPolicy(
 	return Nothing
 }
 
-func (h *SyncPowerStateHandler) isRestartVM(kvvm *virtv1.VirtualMachine) bool {
+func (h *SyncPowerStateHandler) isVMRestarting(kvvm *virtv1.VirtualMachine) bool {
 	if kvvm != nil &&
 		len(kvvm.Status.StateChangeRequests) == 2 &&
 		kvvm.Status.StateChangeRequests[0].Action == virtv1.StopRequest &&
@@ -232,7 +232,7 @@ func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(
 	shutdownInfo powerstate.ShutdownInfo,
 ) (VMAction, error) {
 	if kvvmi == nil {
-		if h.isRestartVM(kvvm) {
+		if h.isVMRestarting(kvvm) {
 			return Nothing, nil
 		}
 
