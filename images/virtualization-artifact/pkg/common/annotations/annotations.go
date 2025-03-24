@@ -91,6 +91,8 @@ const (
 
 	// AnnAuditDecision is the Kubernetes annotation for audit event decision
 	AnnAuditDecision = "authorization.k8s.io/decision"
+	// AnnAuditReason is the Kubernetes annotation for audit event reason
+	AnnAuditReason = "authorization.k8s.io/reason"
 
 	// AppLabel is the app name label.
 	AppLabel = "app"
