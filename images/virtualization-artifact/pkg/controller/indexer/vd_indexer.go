@@ -58,3 +58,53 @@ func IndexVDByStorageClass() (obj client.Object, field string, extractValue clie
 		}
 	}
 }
+
+func IndexVDByCVIDataSource(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByCVIDataSourceNotReady, IndexVDByCVIDataSourceIndexerFunc)
+}
+
+func IndexVDByCVIDataSourceIndexerFunc(object client.Object) []string {
+	vd, ok := object.(*virtv2.VirtualDisk)
+	if !ok || vd == nil {
+		return nil
+	}
+
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
+		return nil
+	}
+
+	if vd.Status.Phase == virtv2.DiskReady {
+		return nil
+	}
+
+	if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageKind {
+		return nil
+	}
+
+	return []string{vd.Spec.DataSource.ObjectRef.Name}
+}
+
+func IndexVDByVIDataSource(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByVIDataSourceNotReady, IndexVDByVIDataSourceIndexerFunc)
+}
+
+func IndexVDByVIDataSourceIndexerFunc(object client.Object) []string {
+	vd, ok := object.(*virtv2.VirtualDisk)
+	if !ok || vd == nil {
+		return nil
+	}
+
+	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
+		return nil
+	}
+
+	if vd.Status.Phase == virtv2.DiskReady {
+		return nil
+	}
+
+	if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageKind {
+		return nil
+	}
+
+	return []string{vd.Spec.DataSource.ObjectRef.Name}
+}
