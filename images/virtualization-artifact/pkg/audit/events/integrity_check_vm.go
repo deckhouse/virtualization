@@ -47,7 +47,7 @@ func (m *IntegrityCheckVM) IsMatched(event *audit.Event) bool {
 		return false
 	}
 
-	if (event.Verb == "pathch" || event.Verb == "update") && event.ObjectRef.Resource == "internalvirtualizationvirtualmachineinstances" {
+	if (event.Verb == "patch" || event.Verb == "update") && event.ObjectRef.Resource == "internalvirtualizationvirtualmachineinstances" {
 		return true
 	}
 
