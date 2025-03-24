@@ -76,6 +76,10 @@ const (
 	// AnnVmRestartRequested is an annotation on KVVM that represents a request to restart a virtual machine.
 	AnnVmRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
 
+	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
+	AnnVMOPWorkloadUpdate                 = AnnAPIGroup + "/workload-update"
+	AnnVMOPWorkloadUpdateImage            = AnnAPIGroup + "/workload-update-image"
+	AnnVMOPWorkloadUpdateNodePlacementSum = AnnAPIGroup + "workload-update-node-placement-sum"
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 
