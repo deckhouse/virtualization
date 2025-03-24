@@ -92,7 +92,10 @@ func (m *ModuleControl) Log(event *audit.Event) error {
 	if err != nil {
 		log.Debug("fail to get module from informer", log.Err(err))
 	}
-	eventLog.VirtualizationVersion = module.Spec.Version
+
+	if module != nil {
+		eventLog.VirtualizationVersion = module.Spec.Version
+	}
 
 	return eventLog.Log()
 }
