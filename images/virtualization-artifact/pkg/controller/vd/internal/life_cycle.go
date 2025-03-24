@@ -57,7 +57,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		}
 
 		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
-		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 	}
 
 	if vd.DeletionTimestamp != nil {
@@ -90,10 +90,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, nil
 	}
 
+	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	if !IsDataSourceReady(vd) {
-		cb := conditions.
-			NewConditionBuilder(vdcondition.ReadyType).
-			Generation(vd.Generation).
+		cb.
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown)
 		conditions.SetCondition(cb, &vd.Status.Conditions)
@@ -103,8 +102,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 
 	storageClassReady, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 	if storageClassReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(storageClassReady, vd) {
-		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
-			Generation(vd.Generation).
+		cb.
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown)
 		conditions.SetCondition(cb, &vd.Status.Conditions)
@@ -133,8 +131,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 
 	readyConditionAfterSync, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if readyConditionAfterSync.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyConditionAfterSync, vd) {
-		conditions.RemoveCondition(vdcondition.DatasourceReadyType, &vd.Status.Conditions)
-		return reconcile.Result{}, nil
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	return result, nil

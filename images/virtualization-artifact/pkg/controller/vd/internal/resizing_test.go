@@ -378,8 +378,8 @@ var _ = Describe("Resizing handler Run", func() {
 			expectedResizeCalled:    false,
 			expectedHaveError:       false,
 			expectedPhase:           virtv2.DiskPending,
-			expectedStatus:          metav1.ConditionUnknown,
-			expectedReason:          conditions.ReasonUnknown.String(),
+			expectedStatus:          metav1.ConditionFalse,
+			expectedReason:          vdcondition.ResizingNotAvailable.String(),
 		}),
 		Entry("Resize return err", resizeNeededArgs{
 			snapshottingStatus:      metav1.ConditionFalse,

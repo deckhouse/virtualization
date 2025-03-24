@@ -63,16 +63,10 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	switch {
-	// This check will be triggered if any of the following conditions are met:
-	// 1) The condition status is equal to 'Unknown' or 'False'.
-	// 2) The observedGeneration of the condition is less than the generation of the VirtualDisk,
-	//    indicating that the state was set in previous reconciliation cycles.
-	// 3) The condition does not exist.
-	case !conditions.IsLastUpdated(readyCondition, vd) || readyCondition.Status == metav1.ConditionUnknown:
+	if !conditions.IsLastUpdated(readyCondition, vd) || readyCondition.Status == metav1.ConditionUnknown {
 		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
-	case readyCondition.Status == metav1.ConditionFalse:
+	} else if readyCondition.Status == metav1.ConditionFalse {
 		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
@@ -200,14 +194,12 @@ func (h ResizingHandler) ResizeNeeded(
 			Reason(vdcondition.InProgress).
 			Message("The virtual disk resizing has started.")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
-	case metav1.ConditionFalse:
+	case metav1.ConditionFalse, metav1.ConditionUnknown:
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ResizingNotAvailable).
 			Message("Disk resizing is not allowed: Storage class is not ready")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
-	case metav1.ConditionUnknown:
-		conditions.SetCondition(cb.SetUnknown(), &vd.Status.Conditions)
 	}
 
 	return reconcile.Result{}, nil
