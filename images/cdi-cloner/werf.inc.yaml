@@ -26,7 +26,26 @@ imageSpec:
     # entrypoint: ["/usr/bin/cloner_startup.sh"]
     user: 64535
 ---
-{{- $binaries := "/usr/bin/sh /usr/bin/bash /usr/sbin/blockdev /usr/bin/mount /usr/bin/umount /usr/sbin/fsck /usr/sbin/blkid /usr/sbin/mkfs /usr/sbin/mkfs.ext4 /usr/sbin/mkfs.xfs /usr/sbin/dumpe2fs /usr/sbin/xfs_io /usr/sbin/xfs_growfs /usr/sbin/resize2fs" }}
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+binaries:
+# - /usr/bin/sh
+# - /usr/bin/bash
+# - /usr/sbin/blockdev
+- /usr/bin/mount
+- /usr/bin/umount
+# - /usr/sbin/fsck
+# - /usr/sbin/blkid
+# - /usr/sbin/mkfs
+# - /usr/sbin/mkfs.ext4
+# - /usr/sbin/mkfs.xfs
+# - /usr/sbin/dumpe2fs
+# - /usr/sbin/xfs_io
+# - /usr/sbin/xfs_growfs
+# - /usr/sbin/resize2fs
+{{- end -}}
+
+{{ $virtCDIClonerDependencies := include "$name" . | fromYaml }}
 
 image: {{ $.ImageName }}-bins
 final: false
@@ -34,7 +53,7 @@ fromImage: base-alt-p11-binaries
 shell:
   beforeInstall:
   - |
-    /relocate_binaries.sh -i "{{ $binaries }}" -o /relocate
+    /relocate_binaries.sh -i "{{ $virtCDIClonerDependencies.binaries | join " " }}" -o /relocate
 ---
 image: {{ $.ImageName }}-gobuild
 final: false
