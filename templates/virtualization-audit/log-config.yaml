@@ -14,6 +14,7 @@ spec:
       operator: In
       values:
         - virtualization.deckhouse.io
+        - internal.virtualization.deckhouse.io
         - subresources.virtualization.deckhouse.io
   type: File
 ---
