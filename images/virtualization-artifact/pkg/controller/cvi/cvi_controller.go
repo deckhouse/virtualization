@@ -74,6 +74,7 @@ func NewController(
 		mgr.GetClient(),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
+		internal.NewInUseHandler(mgr.GetClient()),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)

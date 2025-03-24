@@ -28,6 +28,8 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `ClusterVirtualImage` is ready for use.
 	ReadyType Type = "Ready"
+	// InUse indicates that the `ClusterVirtualImage` is used by other resources and cannot be deleted now.
+	InUseType Type = "InUse"
 )
 
 type (
@@ -35,6 +37,8 @@ type (
 	DatasourceReadyReason string
 	// ReadyReason represents the various reasons for the Ready condition type.
 	ReadyReason string
+	// InUseReason represents the various reasons for the InUseType condition type.
+	InUseReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -42,6 +46,10 @@ func (s DatasourceReadyReason) String() string {
 }
 
 func (s ReadyReason) String() string {
+	return string(s)
+}
+
+func (s InUseReason) String() string {
 	return string(s)
 }
 
@@ -73,4 +81,6 @@ const (
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
 	// Ready indicates that the import process is complete and the `ClusterVirtualImage` is ready for use.
 	Ready ReadyReason = "Ready"
+	// InUse indicates that the `ClusterVirtualImage` is used by other resources and cannot be deleted now.
+	InUse InUseReason = "InUse"
 )

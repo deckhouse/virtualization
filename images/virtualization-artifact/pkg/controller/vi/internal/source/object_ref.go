@@ -505,7 +505,9 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 		}
 
 		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
-			if viRef.Status.Phase != virtv2.ImageReady {
+			readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, viRef.Status.Conditions)
+
+			if readyCondition.Status != metav1.ConditionTrue {
 				return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 			}
 			return nil

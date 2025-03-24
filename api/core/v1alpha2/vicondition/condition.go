@@ -28,8 +28,10 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `VirtualImage` is ready for use.
 	ReadyType Type = "Ready"
-	// StorageClassReadyType indicates whether the storageClass ready
+	// StorageClassReadyType indicates whether the storageClass ready.
 	StorageClassReadyType Type = "StorageClassReady"
+	// InUse indicates that the `VirtualImage` is used by other resources and cannot be deleted now.
+	InUseType Type = "InUse"
 )
 
 type (
@@ -39,6 +41,8 @@ type (
 	ReadyReason string
 	// StorageClassReadyReason represents the various reasons for the StorageClassReady condition type.
 	StorageClassReadyReason string
+	// InUseReason represents the various reasons for the InUseType condition type.
+	InUseReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -50,6 +54,10 @@ func (s ReadyReason) String() string {
 }
 
 func (s StorageClassReadyReason) String() string {
+	return string(s)
+}
+
+func (s InUseReason) String() string {
 	return string(s)
 }
 
@@ -99,4 +107,6 @@ const (
 	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
 	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
+	// InUse indicates that the `VirtualImage` is used by other resources and cannot be deleted now.
+	InUse InUseReason = "InUse"
 )

@@ -172,6 +172,9 @@ spec:
                 uploadCommand:
                   description: |
                     Устаревшее поле. Используйте `imageUploadURLs`.
+                usedInNamespaces:
+                  description: |
+                    Поле, отображающее неймспейсы в которых используется образ, при удалении образа.
                 imageUploadURLs:
                   properties:
                     external:

@@ -32,12 +32,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/watcher"
+	watcher "github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/watchers"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
+
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
+}
 
 type Watcher interface {
 	Watch(mgr manager.Manager, ctr controller.Controller) error
@@ -148,6 +152,17 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		},
 	); err != nil {
 		return fmt.Errorf("error setting watch on VDs: %w", err)
+	}
+
+	for _, w := range []Watcher{
+		watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
+		watcher.NewVirtualImageWatcher(mgr.GetClient()),
+		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("error setting watcher: %w", err)
+		}
 	}
 
 	cviFromVIEnqueuer := watchers.NewClusterVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.ClusterVirtualImageObjectRefKindVirtualImage)
