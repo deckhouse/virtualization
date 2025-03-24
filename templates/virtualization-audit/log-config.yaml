@@ -2,13 +2,54 @@
 apiVersion: deckhouse.io/v1alpha1
 kind: ClusterLoggingConfig
 metadata:
-  name: virtualization-audit
+  name: virtualization-audit-apigroups
 spec:
   destinationRefs:
   - to-virtualization-audit
   file:
     include:
       - /var/log/kube-audit/audit.log
+  logFilter:
+    - field: objectRef.apiGroup
+      operator: In
+      values:
+        - virtualization.deckhouse.io
+        - subresources.virtualization.deckhouse.io
+  type: File
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLoggingConfig
+metadata:
+  name: virtualization-audit-resources
+spec:
+  destinationRefs:
+  - to-virtualization-audit
+  file:
+    include:
+      - /var/log/kube-audit/audit.log
+  logFilter:
+    - field: objectRef.resource
+      operator: In
+      values:
+        - pods
+        - moduleconfigs
+  type: File
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLoggingConfig
+metadata:
+  name: virtualization-audit-namespaces
+spec:
+  destinationRefs:
+  - to-virtualization-audit
+  file:
+    include:
+      - /var/log/kube-audit/audit.log
+  logFilter:
+    - field: objectRef.namespace
+      operator: In
+      values:
+        - d8-virtualization
   type: File
 ---
 apiVersion: deckhouse.io/v1alpha1
