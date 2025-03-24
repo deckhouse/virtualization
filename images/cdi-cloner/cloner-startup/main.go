@@ -28,12 +28,24 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	BLKGETSIZE64 = 0x80081272
+)
+
 func getEnv(key string) (string, error) {
 	value, ok := os.LookupEnv(key)
 	if !ok {
-		return "", fmt.Errorf("error getting env var %s", key)
+		return "", fmt.Errorf("missing required environment variable: %s", key)
 	}
 	return value, nil
+}
+
+func getBoolEnv(key string) (bool, error) {
+	value, err := getEnv(key)
+	if err != nil {
+		return false, err
+	}
+	return strconv.ParseBool(value)
 }
 
 func getBlockSize(device string) (uint64, error) {
@@ -42,12 +54,8 @@ func getBlockSize(device string) (uint64, error) {
 		return 0, fmt.Errorf("open device: %w", err)
 	}
 	defer unix.Close(fd)
-	var (
-		size         uint64
-		BLKGETSIZE64 = 0x80081272 // BLKGETSIZE64 ioctl command
-	)
 
-	// Use BLKGETSIZE64 (0x80081272)
+	var size uint64
 	_, _, errno := unix.Syscall(
 		syscall.SYS_IOCTL,
 		uintptr(fd),
@@ -55,7 +63,7 @@ func getBlockSize(device string) (uint64, error) {
 		uintptr(unsafe.Pointer(&size)),
 	)
 	if errno != 0 {
-		return 0, fmt.Errorf("ioctl BLKGETSIZE64: %w", errno)
+		return 0, fmt.Errorf("ioctl failed: %w", errno)
 	}
 	return size, nil
 }
@@ -63,6 +71,7 @@ func getBlockSize(device string) (uint64, error) {
 // getDirectorySize calculates directory size using Go's filepath.Walk
 func getDirectorySize(path string, preallocate bool) (uint64, error) {
 	var total uint64
+
 	err := filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return err
@@ -101,66 +110,53 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+
 	mountPoint, err := getEnv("MOUNT_POINT")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	boolValue, err := getEnv("PREALLOCATION")
+	preallocation, err := getBoolEnv("PREALLOCATION")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
-	}
-
-	preallocation, err := strconv.ParseBool(boolValue)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-
-	if preallocation {
-		fmt.Println("Preallocation enabled")
-	} else {
-		fmt.Println("Preallocation not enabled")
 	}
 
 	fmt.Printf("VOLUME_MODE=%s\n", volumeMode)
 	fmt.Printf("MOUNT_POINT=%s\n", mountPoint)
-
-	var uploadBytes uint64
-	// var err error
+	fmt.Printf("PREALLOCATION=%v\n", preallocation)
 
 	if volumeMode == "block" {
-		uploadBytes, err = getBlockSize(mountPoint)
+		uploadBytes, err := getBlockSize(mountPoint)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting block size: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Block size calculation failed: %v\n", err)
 			os.Exit(1)
 		}
 		runCloner("blockdevice-clone", uploadBytes, mountPoint)
 	} else {
+		// Directory handling with safe context management
 		currentDir, err := os.Getwd()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
-			defer os.Chdir(currentDir)
+			fmt.Fprintf(os.Stderr, "Directory context error: %v\n", err)
 			os.Exit(1)
 		}
 		defer os.Chdir(currentDir)
 
 		if err := os.Chdir(mountPoint); err != nil {
-			fmt.Fprintf(os.Stderr, "Error changing directory: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Mount point access failed: %v\n", err)
 			os.Exit(1)
 		}
 
 		if preallocation {
 			fmt.Println("Preallocating filesystem, uploading all bytes")
 		} else {
-			fmt.Println("Not preallocating filesystem, uploading only used bytes")
+			fmt.Println("Not preallocating, uploading used bytes only")
 		}
 
-		uploadBytes, err = getDirectorySize(".", preallocation)
+		uploadBytes, err := getDirectorySize(".", preallocation)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error calculating directory size: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Directory size calculation failed: %v\n", err)
 			os.Exit(1)
 		}
 		runCloner("filesystem-clone", uploadBytes, mountPoint)
