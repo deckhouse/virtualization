@@ -102,6 +102,6 @@ This patch includes an architectural assumption where the condition of the DataV
 
 The CDI uploadproxy and serverproxy functionality is not used. Deployment of these images and deployments has been removed.
 
-#### `024-cdi-controller-change-echo-to-binary-hello.patch`
+#### `024-cdi-controller-change-bash-utils-to-binary.patch`
 
-Due to the transfer to distroless images, in cdi-controller command `"echo hello cdi"` changed to single binary hello.
+Due to the transfer to distroless images, in cdi-controller commands `"echo hello cdi"` and `cat /tmp/ready` changed to single binary hello and printFile.

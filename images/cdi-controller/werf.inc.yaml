@@ -13,9 +13,9 @@ imageSpec:
 ---
 {{- define "cdi-controller-deps" -}}
 binaries:
-  - /usr/bin/cat
-  - /usr/bin/bash
-  - /usr/bin/echo
+  # - /usr/bin/cat
+  # - /usr/bin/bash
+  # - /usr/bin/echo
   - /usr/bin/cdi-controller
   - /usr/sbin/blockdev
 packages:
@@ -71,7 +71,9 @@ shell:
     apt-get update && apt-get install --yes gcc musl-dev musl-tools
     apt-get clean
     
-    echo "Build simple app that print hello cdi"
+    echo "Building simple app that prints hello cdi"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/hello hello.c
+    musl-gcc -static -Os -o /bins/printFile print_file_context.c
     strip /bins/hello
+    strip /bins/printFile
