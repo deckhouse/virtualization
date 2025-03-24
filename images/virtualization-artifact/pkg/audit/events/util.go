@@ -140,21 +140,30 @@ func getVMOPFromInformer(vmopInformer indexer, vmopName string) (*v1alpha2.Virtu
 	return vmop, nil
 }
 
-func getInternalVMIFromInformer(internalVMIInformer indexer, internalVMIName string) (*virtv1.VirtualMachineInstance, error) {
-	vmopObj, exist, err := internalVMIInformer.GetByKey(internalVMIName)
+func getInternalVMIFromInformer(cache ttlCache, internalVMIInformer indexer, internalVMIName string) (*virtv1.VirtualMachineInstance, error) {
+	intVMIObj, exist, err := internalVMIInformer.GetByKey(internalVMIName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get intVMI from informer: %w", err)
 	}
 	if !exist {
-		return nil, errors.New("intVMI not exist")
+		intVMIObj, exist = cache.Get("intVMI/" + internalVMIName)
+		if !exist {
+			return nil, errors.New("intVMI not exist")
+		}
 	}
 
-	vm, ok := vmopObj.(*virtv1.VirtualMachineInstance)
+	unstructuredObj, ok := intVMIObj.(*unstructured.Unstructured)
 	if !ok {
-		return nil, errors.New("fail to convert intVMIObj to vmop")
+		return nil, fmt.Errorf("moduleObj is not of type *unstructured.Unstructured")
 	}
 
-	return vm, nil
+	intVMI := &virtv1.VirtualMachineInstance{}
+	err = unstructuredToTypedObject(unstructuredObj, intVMI)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert unstructuredObj to VirtualMachineInstance: %w", err)
+	}
+
+	return intVMI, nil
 }
 
 func getModuleFromInformer(moduleInformer indexer, moduleName string) (*module, error) {

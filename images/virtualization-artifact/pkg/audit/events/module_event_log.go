@@ -23,9 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
 type ModuleEventLog struct {

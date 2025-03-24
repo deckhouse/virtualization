@@ -24,6 +24,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kubecache "k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -149,6 +150,20 @@ func run(c *cobra.Command, opts Options) error {
 	go nodeInformer.Run(c.Context().Done())
 
 	internalVMIInformer := informer.GetInternalVMIInformer(dynamicInformerFactory).Informer()
+	_, err = internalVMIInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj any) {
+			unstructuredObj, ok := obj.(*unstructured.Unstructured)
+			if !ok {
+				return
+			}
+			key := fmt.Sprintf("intVMI/%s/%s", unstructuredObj.GetNamespace(), unstructuredObj.GetName())
+			ttlCache.Add(key, unstructuredObj)
+		},
+	})
+	if err != nil {
+		log.Error("failed to add event handler for internalVMI", log.Err(err))
+		return err
+	}
 	go internalVMIInformer.Run(c.Context().Done())
 
 	moduleInformer := informer.GetModuleInformer(dynamicInformerFactory).Informer()
