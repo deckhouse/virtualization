@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
 )
@@ -62,8 +63,8 @@ func NewModuleEventLog(event *audit.Event) ModuleEventLog {
 		FirmwareVersion:       "unknown",
 	}
 
-	if event.Annotations["authorization.k8s.io/decision"] != "" {
-		eventLog.OperationResult = event.Annotations["authorization.k8s.io/decision"]
+	if event.Annotations[annotations.AnnAuditDecision] != "" {
+		eventLog.OperationResult = event.Annotations[annotations.AnnAuditDecision]
 	}
 
 	return eventLog

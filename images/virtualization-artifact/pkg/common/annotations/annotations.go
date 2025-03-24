@@ -89,6 +89,9 @@ const (
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
 
+	// AnnAuditDecision is the Kubernetes annotation for audit event decision
+	AnnAuditDecision = "authorization.k8s.io/decision"
+
 	// AppLabel is the app name label.
 	AppLabel = "app"
 	// CDILabelValue provides a constant  for CDI Pod label values.

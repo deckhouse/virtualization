@@ -21,11 +21,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"k8s.io/apiserver/pkg/apis/audit"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
-type IntegrityCheckEventLog struct {
+type ForbidEventLog struct {
 	Type            string `json:"type"`
 	Level           string `json:"level"`
 	Name            string `json:"name"`
@@ -33,33 +34,19 @@ type IntegrityCheckEventLog struct {
 	Uid             string `json:"uid"`
 	RequestSubject  string `json:"request_subject"`
 	OperationResult string `json:"operation_result"`
-
-	ObjectType         string `json:"object_type"`
-	VirtualMachineName string `json:"virtual_machine_name"`
-	ControlMethod      string `json:"control_method"`
-	ReactionType       string `json:"reaction_type"`
-	IntegrityCheckAlgo string `json:"integrity_check_algo"`
-	ReferenceChecksum  string `json:"reference_checksum"`
-	CurrentChecksum    string `json:"current_checksum"`
+	IsAdmin         string `json:"is_admin"`
+	SourceIP        string `json:"source_ip"`
 }
 
-func NewIntegrityCheckEventLog(event *audit.Event) IntegrityCheckEventLog {
-	eventLog := IntegrityCheckEventLog{
+func NewForbidEventLog(event *audit.Event) ForbidEventLog {
+	eventLog := ForbidEventLog{
 		Type:            "unknown",
-		Level:           "info",
+		Level:           "warn",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
 		Uid:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
-		OperationResult: "unknown",
-
-		ObjectType:         "unknown",
-		VirtualMachineName: "unknown",
-		ControlMethod:      "unknown",
-		ReactionType:       "unknown",
-		IntegrityCheckAlgo: "unknown",
-		ReferenceChecksum:  "unknown",
-		CurrentChecksum:    "unknown",
+		OperationResult: "forbid",
 	}
 
 	if event.Annotations[annotations.AnnAuditDecision] != "" {
@@ -69,7 +56,7 @@ func NewIntegrityCheckEventLog(event *audit.Event) IntegrityCheckEventLog {
 	return eventLog
 }
 
-func (e *IntegrityCheckEventLog) Log() error {
+func (e *ForbidEventLog) Log() error {
 	bytes, err := json.Marshal(e)
 	if err != nil {
 		return err
