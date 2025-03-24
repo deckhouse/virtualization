@@ -25,7 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -33,16 +36,16 @@ import (
 )
 
 type LifeCycleHandler struct {
-	client   client.Client
-	sources  Sources
-	recorder eventrecord.EventRecorderLogger
+	client      client.Client
+	sources     Sources
+	diskService *service.DiskService
+	recorder    eventrecord.EventRecorderLogger
 }
 
 func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, sources Sources, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
-		recorder: recorder,
-		client:   client,
-		sources:  sources,
+		client:  client,
+		sources: sources,
 	}
 }
 
@@ -59,8 +62,43 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	}
 
 	if vi.DeletionTimestamp != nil {
+		needRequeue := false
+
+		if readyCondition.Status == metav1.ConditionTrue {
+			cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
+			if vi.Spec.Storage == virtv2.StorageContainerRegistry {
+				cb.
+					Status(metav1.ConditionTrue).
+					Reason(vicondition.Ready).
+					Message("")
+			} else {
+				supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+				pvc, err := h.diskService.GetPersistentVolumeClaim(ctx, supgen)
+				if err != nil {
+					return reconcile.Result{}, err
+				}
+
+				switch {
+				case pvc == nil:
+					cb.
+						Status(metav1.ConditionFalse).
+						Reason(vicondition.Lost).
+						Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
+					needRequeue = true
+				default:
+					cb.
+						Status(metav1.ConditionTrue).
+						Reason(vicondition.Ready).
+						Message("")
+				}
+			}
+
+			conditions.SetCondition(cb, &vi.Status.Conditions)
+		}
+
 		vi.Status.Phase = virtv2.ImageTerminating
-		return reconcile.Result{}, nil
+		return reconcile.Result{Requeue: needRequeue}, nil
 	}
 
 	if vi.Status.Phase == "" {
