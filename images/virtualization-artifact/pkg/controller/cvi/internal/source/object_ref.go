@@ -43,6 +43,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type ObjectRefDataSource struct {
@@ -333,7 +334,9 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterV
 		}
 
 		if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
-			if vi.Status.Phase != virtv2.ImageReady {
+			readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+
+			if readyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(readyCondition, vi) {
 				return NewImageNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 			}
 			return nil
