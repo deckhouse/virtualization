@@ -58,7 +58,7 @@ func (m *IntegrityCheckVM) Log(event *audit.Event) error {
 	eventLog := NewIntegrityCheckEventLog(event)
 	eventLog.Type = "Integrity Check"
 
-	vmi, err := getInternalVMIFromInformer(m.internalVMIInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	vmi, err := getInternalVMIFromInformer(m.ttlCache, m.internalVMIInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get VMI from informer: %w", err)
 	}

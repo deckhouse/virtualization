@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"k8s.io/apiserver/pkg/apis/audit"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
 type IntegrityCheckEventLog struct {
