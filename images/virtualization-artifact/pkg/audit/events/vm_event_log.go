@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -65,8 +66,8 @@ func NewVMEventLog(event *audit.Event) VMEventLog {
 		FirmwareVersion:    "unknown",
 	}
 
-	if event.Annotations["authorization.k8s.io/decision"] != "" {
-		eventLog.OperationResult = event.Annotations["authorization.k8s.io/decision"]
+	if event.Annotations[annotations.AnnAuditDecision] != "" {
+		eventLog.OperationResult = event.Annotations[annotations.AnnAuditDecision]
 	}
 
 	return eventLog

@@ -173,6 +173,9 @@ func run(c *cobra.Command, opts Options) error {
 
 	srv, err := server.NewServer(
 		":"+opts.Port,
+		events.NewForbid(events.NewForbidOptions{
+			AdminInformer: vmInformer.GetIndexer(),
+		}),
 		events.NewVMManage(events.NewVMManageOptions{
 			VMInformer:   vmInformer.GetIndexer(),
 			NodeInformer: nodeInformer.GetIndexer(),
