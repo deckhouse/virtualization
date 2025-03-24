@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,6 +36,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type ObjectRefVirtualImage struct {
@@ -94,10 +96,11 @@ func (ds ObjectRefVirtualImage) Validate(ctx context.Context, vd *virtv2.Virtual
 	}
 
 	if viRef == nil {
-		return NewImageNotFoundError(vd.Spec.DataSource.ObjectRef.Name)
+		return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
-	if viRef.Status.Phase != virtv2.ImageReady {
+	viRefReady, _ := conditions.GetCondition(vicondition.ReadyType, viRef.Status.Conditions)
+	if viRefReady.Status != metav1.ConditionTrue {
 		return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
