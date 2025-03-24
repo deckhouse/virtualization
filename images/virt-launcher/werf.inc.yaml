@@ -406,6 +406,6 @@ shell:
       echo "Build node-labeller binaries"
       cd /node-labeller
       mkdir -p /binaries
-      echo 'go build -ldflags="-s -w" -o /binaries/node-labeller.sh'
+      echo 'go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller'
       go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller
       echo "Done"
