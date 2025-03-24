@@ -81,7 +81,7 @@ func NewController(
 		mgr.GetClient(),
 		internal.NewStorageClassReadyHandler(scService),
 		internal.NewDatasourceReadyHandler(recorder, blank, sources),
-		internal.NewLifeCycleHandler(recorder, blank, sources, mgr.GetClient()),
+		internal.NewLifeCycleHandler(recorder, blank, sources, mgr.GetClient(), disk),
 		internal.NewSnapshottingHandler(disk),
 		internal.NewResizingHandler(recorder, disk),
 		internal.NewDeletionHandler(sources),

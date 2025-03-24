@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -93,7 +95,13 @@ func (ds ObjectRefClusterVirtualImage) Validate(ctx context.Context, vd *virtv2.
 		return fmt.Errorf("fetch vi %q: %w", cviRefKey, err)
 	}
 
-	if cviRef == nil || cviRef.Status.Phase != virtv2.ImageReady || cviRef.Status.Target.RegistryURL == "" {
+	if cviRef == nil || cviRef.Status.Target.RegistryURL == "" {
+		return NewClusterImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
+	}
+
+	cviRefReady, _ := conditions.GetCondition(cvicondition.ReadyType, cviRef.Status.Conditions)
+
+	if cviRefReady.Status != metav1.ConditionTrue {
 		return NewClusterImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
