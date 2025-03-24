@@ -104,4 +104,6 @@ The CDI uploadproxy and serverproxy functionality is not used. Deployment of the
 
 #### `024-cdi-controller-change-bash-utils-to-binary.patch`
 
-Due to the transfer to distroless images, in cdi-controller commands `"echo hello cdi"` and `cat /tmp/ready` changed to single binary hello and printFile.
+We want fully reproducible distroless images (without bash). This patch replaces bash usage with static binaries:
+- `bash -c "echo 'hello cdi'"` is replaced with "hello" binary.
+- `cat /tmp/ready` is replaced with "printFile /tmp/ready"
