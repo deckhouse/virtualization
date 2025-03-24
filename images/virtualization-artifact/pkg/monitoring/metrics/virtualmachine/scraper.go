@@ -22,6 +22,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -157,6 +158,14 @@ func (s *scraper) updateMetricVirtualMachineLabels(m *dataMetric) {
 
 func (s *scraper) updateMetricVirtualMachineAnnotations(m *dataMetric) {
 	s.updateDynamic(MetricVirtualMachineAnnotations, 1, m, nil, m.Annotations)
+}
+
+func (s *scraper) updateMetricVirtualMachineInfo(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineInfo, 1, m, m.firmwareVersion)
+}
+
+func (s *scraper) updateMetricVirtualMachineFirmwareUpToDate(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineFirmwareUpToDate, common.BoolFloat64(m.firmwareUpToDate), m)
 }
 
 func (s *scraper) defaultUpdate(name string, value float64, m *dataMetric, labelValues ...string) {

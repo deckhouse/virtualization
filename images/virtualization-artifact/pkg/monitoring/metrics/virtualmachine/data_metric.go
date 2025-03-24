@@ -48,6 +48,8 @@ type dataMetric struct {
 	Pods                                []virtv2.VirtualMachinePod
 	Labels                              map[string]string
 	Annotations                         map[string]string
+	firmwareVersion                     string
+	firmwareUpToDate                    bool
 }
 
 // DO NOT mutate VirtualMachine!
@@ -63,6 +65,7 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		awaitingRestartToApplyConfiguration bool
 		configurationApplied                bool
 		agentReady                          bool
+		firmwareUpToDate                    bool = true
 	)
 	if cond, found := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration,
 		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
@@ -75,6 +78,10 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 	if cond, found := conditions.GetCondition(vmcondition.TypeAgentReady,
 		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
 		agentReady = true
+	}
+	if cond, found := conditions.GetCondition(vmcondition.TypeFirmwareNeedUpdate,
+		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
+		firmwareUpToDate = false
 	}
 	pods := make([]virtv2.VirtualMachinePod, len(vm.Status.VirtualMachinePods))
 	for i, pod := range vm.Status.VirtualMachinePods {
@@ -105,6 +112,8 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		Annotations: promutil.WrapPrometheusLabels(vm.GetAnnotations(), "annotation", func(key, _ string) bool {
 			return strings.HasPrefix(key, "kubectl.kubernetes.io")
 		}),
+		firmwareVersion:  vm.Status.FirmwareVersion,
+		firmwareUpToDate: firmwareUpToDate,
 	}
 }
 
