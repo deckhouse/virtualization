@@ -36,6 +36,7 @@ type ForbidEventLog struct {
 	OperationResult string `json:"operation_result"`
 	IsAdmin         string `json:"is_admin"`
 	SourceIP        string `json:"source_ip"`
+	ForbidReason    string `json:"forbid_reason"`
 }
 
 func NewForbidEventLog(event *audit.Event) ForbidEventLog {
@@ -47,10 +48,15 @@ func NewForbidEventLog(event *audit.Event) ForbidEventLog {
 		Uid:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
 		OperationResult: "forbid",
+		ForbidReason:    "unknown",
 	}
 
 	if event.Annotations[annotations.AnnAuditDecision] != "" {
 		eventLog.OperationResult = event.Annotations[annotations.AnnAuditDecision]
+	}
+
+	if event.Annotations[annotations.AnnAuditReason] != "" {
+		eventLog.OperationResult = event.Annotations[annotations.AnnAuditReason]
 	}
 
 	return eventLog
