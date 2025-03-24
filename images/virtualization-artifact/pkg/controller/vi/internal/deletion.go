@@ -20,12 +20,15 @@ import (
 	"context"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 const deletionHandlerName = "DeletionHandler"
@@ -44,6 +47,11 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (r
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
 	if vi.DeletionTimestamp != nil {
+		inUseCondition, _ := conditions.GetCondition(vicondition.InUseType, vi.Status.Conditions)
+		if inUseCondition.Status != metav1.ConditionFalse || !conditions.IsLastUpdated(inUseCondition, vi) {
+			return reconcile.Result{}, nil
+		}
+
 		requeue, err := h.sources.CleanUp(ctx, vi)
 		if err != nil {
 			return reconcile.Result{}, err
