@@ -13,9 +13,6 @@ imageSpec:
 ---
 {{- define "cdi-controller-deps" -}}
 binaries:
-  # - /usr/bin/cat
-  # - /usr/bin/bash
-  # - /usr/bin/echo
   - /usr/bin/cdi-controller
   - /usr/sbin/blockdev
 packages:
