@@ -100,6 +100,9 @@ const (
 	// AnnLibvirtVersion is a pod annotation indicating libvirt version.
 	AnnLibvirtVersion = AnnVersionsGroup + "/libvirt-version"
 
+	// AnnAuditDecision is the Kubernetes annotation for audit event decision
+	AnnAuditDecision = "authorization.k8s.io/decision"
+
 	// AppLabel is the app name label.
 	AppLabel = "app"
 	// CDILabelValue provides a constant  for CDI Pod label values.
