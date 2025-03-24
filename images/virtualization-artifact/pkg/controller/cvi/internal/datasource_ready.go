@@ -101,6 +101,12 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, cvi *virtv2.ClusterV
 			Reason(cvicondition.VirtualDiskAttachedToVirtualMachine).
 			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		return reconcile.Result{}, nil
+	case errors.As(err, &source.VirtualDiskSnapshotNotReadyError{}):
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(cvicondition.VirtualDiskSnapshotNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error()))
+		return reconcile.Result{}, nil
 	default:
 		return reconcile.Result{}, err
 	}

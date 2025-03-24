@@ -105,20 +105,31 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 }
 
 func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldKVVMI, ok := e.ObjectOld.(*virtv2.VirtualMachine)
+	oldVM, ok := e.ObjectOld.(*virtv2.VirtualMachine)
 	if !ok {
 		slog.Default().Error(fmt.Sprintf("expected an old VirtualMachine but got a %T", e.ObjectOld))
 		return false
 	}
 
-	newKVVMI, ok := e.ObjectNew.(*virtv2.VirtualMachine)
+	newVM, ok := e.ObjectNew.(*virtv2.VirtualMachine)
 	if !ok {
 		slog.Default().Error(fmt.Sprintf("expected a new VirtualMachine but got a %T", e.ObjectNew))
 		return false
 	}
 
-	oldFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, oldKVVMI.Status.Conditions)
-	newFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, newKVVMI.Status.Conditions)
+	if oldVM.Status.Phase != newVM.Status.Phase {
+		return true
+	}
 
-	return oldFSFrozen.Status != newFSFrozen.Status
+	oldFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, oldVM.Status.Conditions)
+	newFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, newVM.Status.Conditions)
+
+	if oldFSFrozen.Status != newFSFrozen.Status {
+		return true
+	}
+
+	oldAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, oldVM.Status.Conditions)
+	newAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, newVM.Status.Conditions)
+
+	return oldAgentReady.Status != newAgentReady.Status
 }
