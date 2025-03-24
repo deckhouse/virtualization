@@ -80,7 +80,7 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 		})
 	})
 
-	DescribeTable("Extracting the author's first and last name",
+	DescribeTable("When resources are ready",
 		func(resourceShortName string, resource kc.Resource, phase string) {
 			By(fmt.Sprintf("%ss should be in %s phases", resourceShortName, phase))
 			WaitPhaseByLabel(resource, phase, kc.WaitOptions{
@@ -89,8 +89,8 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 				Timeout:   MaxWaitTimeout,
 			})
 		},
-		Entry("When virtual images are applied", "VI", kc.ResourceVI, string(virtv2.ImageReady)),
-		Entry("When virtual disks are applied", "VD", kc.ResourceVD, string(virtv2.DiskReady)),
-		Entry("When virtual machines are applied", "VM", kc.ResourceVM, string(virtv2.MachineRunning)),
+		Entry("When virtual images are ready", "VI", kc.ResourceVI, string(virtv2.ImageReady)),
+		Entry("When virtual disks are ready", "VD", kc.ResourceVD, string(virtv2.DiskReady)),
+		Entry("When virtual machines are ready", "VM", kc.ResourceVM, string(virtv2.MachineRunning)),
 	)
 })
