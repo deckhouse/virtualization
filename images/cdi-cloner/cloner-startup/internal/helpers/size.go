@@ -35,8 +35,8 @@ const (
 		Data Type : 0x8008 (upper 16 bits) indicates:
 			Direction : Read from the kernel (0x80).
 			Size : 8 bytes (64 bits), matching the uint64 return type
-		Magic Number : 0x12 (lower 8 bits of the third byte) identifies this as a block device ioctl
-		Command Number : 0x72 (lower 8 bits of the fourth byte) specifies the exact operation (size query)
+		Magic Number : 0x12 (the third byte) identifies this as a block device ioctl
+		Command Number : 0x72 (the fourth byte) specifies the exact operation (size query)
 
 	*/
 	BLKGETSIZE64 = 0x80081272
