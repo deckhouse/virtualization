@@ -57,7 +57,7 @@ func GetBlockSize(device string) (uint64, error) {
 		uintptr(unsafe.Pointer(&size)),
 	)
 	if errno != 0 {
-		return 0, fmt.Errorf("ioctl failed: %w", errno)
+		return 0, fmt.Errorf("get size for block device %s: %w", device, errno)
 	}
 	return size, nil
 }
