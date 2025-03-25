@@ -80,7 +80,7 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 		})
 	})
 
-	DescribeTable("When resources are ready",
+	DescribeTable("When resources are applied",
 		func(resourceShortName string, resource kc.Resource, phase string) {
 			By(fmt.Sprintf("%ss should be in %s phases", resourceShortName, phase))
 			WaitPhaseByLabel(resource, phase, kc.WaitOptions{
