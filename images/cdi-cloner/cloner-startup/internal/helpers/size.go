@@ -33,8 +33,8 @@ const (
 		Structure of ioctl Codes :
 
 		Data Type : 0x8008 (upper 16 bits) indicates:
-			Direction : Read from the kernel (0x80).
-			Size : 8 bytes (64 bits), matching the uint64 return type
+			Direction : Read from the kernel (0x2) (upper 2 bits).
+			Size : 0x008 (remaining 14 bits) == 8 bytes, matching the uint64 return type
 		Magic Number : 0x12 (the third byte) identifies this as a block device ioctl
 		Command Number : 0x72 (the fourth byte) specifies the exact operation (size query)
 
