@@ -259,7 +259,7 @@ spec:
                     properties:
                       mounted:
                         description:
-                          Flag indicating that VirtualDisk is currently being
+                          Flag indicating that this VirtualDisk is currently
                           used by this attached VirtualMachine.
                         type: boolean
                       name:
