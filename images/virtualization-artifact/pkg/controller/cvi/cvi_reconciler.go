@@ -32,11 +32,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
+
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
+}
 
 type Handler interface {
 	Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error)
@@ -155,6 +160,15 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), cviFromCVIEnqueuer)
 	if err := cviWatcher.Run(mgr, ctr); err != nil {
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
+	}
+
+	for _, w := range []Watcher{
+		watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient()),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("error setting watcher: %w", err)
+		}
 	}
 
 	return nil

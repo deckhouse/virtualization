@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -68,26 +69,27 @@ func (w VirtualDiskSnapshotWatcher) enqueueRequests(ctx context.Context, obj cli
 		return
 	}
 
-	var vis virtv2.VirtualImageList
-	err := w.client.List(ctx, &vis, &client.ListOptions{
-		Namespace:     vdSnapshot.Namespace,
-		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVIByVDSnapshot, vdSnapshot.Name),
+	var cvis virtv2.ClusterVirtualImageList
+	err := w.client.List(ctx, &cvis, &client.ListOptions{
+		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldCVIByVDSnapshot, types.NamespacedName{
+			Namespace: vdSnapshot.Namespace,
+			Name:      vdSnapshot.Name,
+		}.String()),
 	})
 	if err != nil {
-		w.logger.Error(fmt.Sprintf("failed to list virtual images: %s", err))
+		w.logger.Error(fmt.Sprintf("failed to list cluster virtual images: %s", err))
 		return
 	}
 
-	for _, vi := range vis.Items {
-		if !isSnapshotDataSource(vi.Spec.DataSource, vdSnapshot.Name) {
-			w.logger.Error("vi list by vd snapshot returns unexpected resources, please report a bug")
+	for _, cvi := range cvis.Items {
+		if !isSnapshotDataSource(cvi.Spec.DataSource, vdSnapshot) {
+			w.logger.Error("cvi list by vd snapshot returns unexpected resources, please report a bug")
 			continue
 		}
 
 		requests = append(requests, reconcile.Request{
 			NamespacedName: types.NamespacedName{
-				Name:      vi.Name,
-				Namespace: vi.Namespace,
+				Name: cvi.Name,
 			},
 		})
 	}
@@ -111,14 +113,14 @@ func (w VirtualDiskSnapshotWatcher) filterUpdateEvents(e event.UpdateEvent) bool
 	return oldVDSnapshot.Status.Phase != newVDSnapshot.Status.Phase
 }
 
-func isSnapshotDataSource(ds virtv2.VirtualImageDataSource, vdSnapshotName string) bool {
+func isSnapshotDataSource(ds virtv2.ClusterVirtualImageDataSource, vdSnapshot metav1.Object) bool {
 	if ds.Type != virtv2.DataSourceTypeObjectRef {
 		return false
 	}
 
-	if ds.ObjectRef == nil || ds.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot {
+	if ds.ObjectRef == nil || ds.ObjectRef.Kind != virtv2.ClusterVirtualImageObjectRefKindVirtualDiskSnapshot {
 		return false
 	}
 
-	return ds.ObjectRef.Name == vdSnapshotName
+	return ds.ObjectRef.Name == vdSnapshot.GetName() && ds.ObjectRef.Namespace == vdSnapshot.GetNamespace()
 }

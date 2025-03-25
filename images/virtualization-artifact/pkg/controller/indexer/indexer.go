@@ -37,8 +37,9 @@ const (
 
 	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef.Name"
 
-	IndexFieldVDByVDSnapshot = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
-	IndexFieldVIByVDSnapshot = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
+	IndexFieldVDByVDSnapshot  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
+	IndexFieldVIByVDSnapshot  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
+	IndexFieldCVIByVDSnapshot = "cvi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 
 	IndexFieldVDByStorageClass = "vd.spec.PersistentVolumeClaim.StorageClass"
 	IndexFieldVIByStorageClass = "vi.spec.PersistentVolumeClaim.StorageClass"
@@ -71,6 +72,7 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVDByStorageClass,
 		IndexVIByVDSnapshot,
 		IndexVIByStorageClass,
+		IndexCVIByVDSnapshot,
 		IndexVMIPByAddress,
 		IndexVMBDAByVM,
 	} {
