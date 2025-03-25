@@ -17,7 +17,6 @@ import:
   to: /usr/bin
   includePaths:
   - cdi-cloner
-  # - cloner_startup.sh
   before: setup
 # Source https://github.com/kubevirt/containerized-data-importer/blob/v1.60.3/cmd/cdi-cloner/BUILD.bazel
 imageSpec:
@@ -28,12 +27,12 @@ imageSpec:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 binaries:
-- /usr/bin/sh
-- /usr/bin/bash
-- /usr/sbin/blockdev
+# - /usr/bin/sh
+# - /usr/bin/bash
+# - /usr/sbin/blockdev
 - /usr/bin/mount
 - /usr/bin/umount
-- /usr/sbin/blkid
+# - /usr/sbin/blkid
 {{- end -}}
 
 {{ $virtCDIClonerDependencies := include "$name" . | fromYaml }}
