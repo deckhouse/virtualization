@@ -516,7 +516,7 @@ index 0e8825cfd2..d29380f8f4 100644
 +		if !d.isMigrationSource(vmi) {
 +			client, err := d.getLauncherClient(vmi)
 +			if err != nil {
-+				return fmt.Errorf("failed to get lacunher client")
++				return fmt.Errorf("failed to get virt-launcher client")
 +			}
 +			if err = d.StopMigrationProxyInVirtLauncher(client); err != nil {
 +				return fmt.Errorf("failed to stop migration proxy in virt launcher")
