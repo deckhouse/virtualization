@@ -66,4 +66,4 @@ shell:
     - |
       mkdir -p /cdi-binaries
       cd /app
-      go build -ldflags="-s -w" -o /cdi-binaries/cloner-startup .
+      go build -ldflags="-s -w" -o /cdi-binaries/cloner-startup ./cmd/cloner-startup
