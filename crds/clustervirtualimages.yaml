@@ -407,6 +407,10 @@ spec:
                 uploadCommand:
                   description: Deprecated. Use `imageUploadURLs` instead.
                   type: string
+                usedInNamespaces:
+                  items:
+                    type: string
+                  type: array
               type: object
           required:
             - spec

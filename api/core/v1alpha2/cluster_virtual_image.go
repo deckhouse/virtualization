@@ -145,9 +145,10 @@ type ClusterVirtualImageStatus struct {
 	// Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 	// Deprecated. Use `imageUploadURLs` instead.
-	UploadCommand   string                          `json:"uploadCommand,omitempty"`
-	ImageUploadURLs *ImageUploadURLs                `json:"imageUploadURLs,omitempty"`
-	Target          ClusterVirtualImageStatusTarget `json:"target,omitempty"`
+	UploadCommand    string                          `json:"uploadCommand,omitempty"`
+	ImageUploadURLs  *ImageUploadURLs                `json:"imageUploadURLs,omitempty"`
+	Target           ClusterVirtualImageStatusTarget `json:"target,omitempty"`
+	UsedInNamespaces []string                        `json:"usedInNamespaces,omitempty"`
 }
 
 type ClusterVirtualImageStatusTarget struct {

@@ -324,6 +324,11 @@ func (in *ClusterVirtualImageStatus) DeepCopyInto(out *ClusterVirtualImageStatus
 		**out = **in
 	}
 	out.Target = in.Target
+	if in.UsedInNamespaces != nil {
+		in, out := &in.UsedInNamespaces, &out.UsedInNamespaces
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	return
 }
 
