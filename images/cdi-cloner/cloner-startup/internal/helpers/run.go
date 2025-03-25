@@ -17,13 +17,12 @@ limitations under the License.
 package helpers
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"strconv"
 )
 
-func RunCloner(contentType string, uploadBytes uint64, mountPoint string) {
+func RunCloner(contentType string, uploadBytes uint64, mountPoint string) error {
 	cmd := exec.Command("/usr/bin/cdi-cloner",
 		"-v=3",
 		"-alsologtostderr",
@@ -34,7 +33,7 @@ func RunCloner(contentType string, uploadBytes uint64, mountPoint string) {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error running cdi-cloner: %v\n", err)
-		os.Exit(1)
+		return err
 	}
+	return nil
 }

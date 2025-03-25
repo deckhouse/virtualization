@@ -18,66 +18,84 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"cloner-startup/internal/helpers"
 )
 
 func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	volumeMode, err := helpers.GetEnv("VOLUME_MODE")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logger.Error("Failed to get env VOLUME_MODE", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
 	mountPoint, err := helpers.GetEnv("MOUNT_POINT")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logger.Error("Failed to get env MOUNT_POINT", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
 	preallocation, err := helpers.GetBoolEnv("PREALLOCATION")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logger.Error("Failed to get env PREALLOCATION", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 
-	fmt.Printf("VOLUME_MODE=%s\n", volumeMode)
-	fmt.Printf("MOUNT_POINT=%s\n", mountPoint)
-	fmt.Printf("PREALLOCATION=%v\n", preallocation)
+	logger.Info(fmt.Sprintf(
+		"VOLUME_MODE=%s\n"+
+			"MOUNT_POINT=%s\n"+
+			"PREALLOCATION=%v\n",
+		volumeMode,
+		mountPoint,
+		preallocation))
 
 	if volumeMode == "block" {
 		uploadBytes, err := helpers.GetBlockSize(mountPoint)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Block size calculation failed: %v\n", err)
+			logger.Error("Block size calculation failed: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
-		helpers.RunCloner("blockdevice-clone", uploadBytes, mountPoint)
+
+		if err = helpers.RunCloner("blockdevice-clone", uploadBytes, mountPoint); err != nil {
+			logger.Error("Error running cdi-cloner: %v\n", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+
 	} else {
 		// Directory handling with safe context management
 		currentDir, err := os.Getwd()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Directory context error: %v\n", err)
+			logger.Error("Directory context error: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 		defer os.Chdir(currentDir)
 
 		if err := os.Chdir(mountPoint); err != nil {
-			fmt.Fprintf(os.Stderr, "Mount point access failed: %v\n", err)
+			logger.Error("Mount point access failed: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 
 		if preallocation {
-			fmt.Println("Preallocating filesystem, uploading all bytes")
+			logger.Info("Preallocating filesystem, uploading all bytes")
 		} else {
-			fmt.Println("Not preallocating, uploading used bytes only")
+			logger.Info("Not preallocating, uploading used bytes only")
 		}
 
 		uploadBytes, err := helpers.GetDirectorySize(".", preallocation)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Directory size calculation failed: %v\n", err)
+			logger.Error("Directory size calculation failed: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
-		helpers.RunCloner("filesystem-clone", uploadBytes, mountPoint)
+
+		if err = helpers.RunCloner("filesystem-clone", uploadBytes, mountPoint); err != nil {
+			logger.Error("Error running cdi-cloner: %v\n", slog.String("error", err.Error()))
+			os.Exit(1)
+		}
+
 	}
 }
