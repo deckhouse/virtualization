@@ -22,7 +22,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
 	"github.com/deckhouse/virtualization-controller/pkg/version"

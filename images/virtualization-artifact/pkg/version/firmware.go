@@ -29,8 +29,20 @@ var firmwareInstance firmwareConfig
 var embeddedConfig string
 
 type firmwareConfig struct {
-	Version             Version `yaml:"version"`
-	MinSupportedVersion Version `yaml:"minSupportedVersion"`
+	Version             Version
+	MinSupportedVersion Version
+}
+type cvConfig struct {
+	Firmware firmware `yaml:"firmware"`
+	Module   module   `yaml:"module"`
+}
+
+type firmware struct {
+	Version Version `yaml:"version"`
+}
+type module struct {
+	Version                     Version `yaml:"version"`
+	FirmwareMinSupportedVersion Version `yaml:"firmwareMinSupportedVersion"`
 }
 
 func (f firmwareConfig) Validate() error {
@@ -44,9 +56,14 @@ func (f firmwareConfig) Validate() error {
 }
 
 func init() {
-	if err := yaml.Unmarshal([]byte(embeddedConfig), &firmwareInstance); err != nil {
-		panic("failed to load embedded firmwareConf: " + err.Error())
+	cvConf := cvConfig{}
+	if err := yaml.Unmarshal([]byte(embeddedConfig), &cvConf); err != nil {
+		panic("failed to load embedded component version config: " + err.Error())
 	}
+
+	firmwareInstance.Version = cvConf.Firmware.Version
+	firmwareInstance.MinSupportedVersion = cvConf.Module.FirmwareMinSupportedVersion
+
 	if err := firmwareInstance.Validate(); err != nil {
 		panic("failed to validate embedded firmwareConf: " + err.Error())
 	}
