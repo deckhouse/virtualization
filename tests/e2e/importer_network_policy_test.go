@@ -89,7 +89,7 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 				Timeout:   MaxWaitTimeout,
 			})
 		},
-		Entry("When virtual images are ready", "VI", kc.ResourceVI, string(virtv2.ImageReady)),
+		Entry("When virtual images are applied", "VI", kc.ResourceVI, string(virtv2.ImageReady)),
 		Entry("When virtual disks are ready", "VD", kc.ResourceVD, string(virtv2.DiskReady)),
 		Entry("When virtual machines are ready", "VM", kc.ResourceVM, string(virtv2.MachineRunning)),
 	)
