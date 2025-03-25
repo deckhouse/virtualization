@@ -70,7 +70,7 @@ var _ = Describe("FirmwareHandler", func() {
 	newVmWithCond := func(version string) *virtv2.VirtualMachine {
 		vm := newVm(version)
 		vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
-			Type:   vmcondition.TypeFirmwareNeedUpdate.String(),
+			Type:   vmcondition.TypeFirmwareUpdateRequired.String(),
 			Status: metav1.ConditionTrue,
 		})
 		return vm
@@ -93,7 +93,7 @@ var _ = Describe("FirmwareHandler", func() {
 
 		if condExist {
 			Expect(newVM.Status.Conditions).To(HaveLen(1))
-			Expect(newVM.Status.Conditions[0].Type).To(Equal(vmcondition.TypeFirmwareNeedUpdate.String()))
+			Expect(newVM.Status.Conditions[0].Type).To(Equal(vmcondition.TypeFirmwareUpdateRequired.String()))
 			Expect(newVM.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
 		}
 

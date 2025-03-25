@@ -18,16 +18,16 @@ package version
 
 import "golang.org/x/mod/semver"
 
-const MainVersion = "main"
+const mainVersion Version = "main"
 
 type Version string
 
 func (v Version) IsValid() bool {
-	return v == MainVersion || semver.IsValid(string(v))
+	return v == mainVersion || semver.IsValid(string(v))
 }
 
 func (v Version) IsMain() bool {
-	return v == MainVersion
+	return v == mainVersion
 }
 
 func (v Version) String() string {

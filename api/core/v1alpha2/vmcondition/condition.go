@@ -36,10 +36,10 @@ const (
 	TypeConfigurationApplied                Type = "ConfigurationApplied"
 	TypeAwaitingRestartToApplyConfiguration Type = "AwaitingRestartToApplyConfiguration"
 	// TypeFilesystemFrozen indicates whether the filesystem is currently frozen, a necessary condition for creating a snapshot.
-	TypeFilesystemFrozen    Type = "FilesystemFrozen"
-	TypeSizingPolicyMatched Type = "SizingPolicyMatched"
-	TypeSnapshotting        Type = "Snapshotting"
-	TypeFirmwareNeedUpdate  Type = "FirmwareNeedUpdate"
+	TypeFilesystemFrozen       Type = "FilesystemFrozen"
+	TypeSizingPolicyMatched    Type = "SizingPolicyMatched"
+	TypeSnapshotting           Type = "Snapshotting"
+	TypeFirmwareUpdateRequired Type = "FirmwareUpdateRequired"
 )
 
 type Reason string
@@ -110,5 +110,5 @@ const (
 	ReasonPodConditionMissing Reason = "PodConditionMissing"
 	ReasonGuestNotRunning     Reason = "GuestNotRunning"
 
-	ReasonFirmwareNeedUpdate Reason = "FirmwareNeedUpdate"
+	ReasonFirmwareUpdateRequired Reason = "FirmwareUpdateRequired"
 )

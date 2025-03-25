@@ -88,32 +88,32 @@ func (f FirmwareHandler) needUpdate(currentVersion, firmwareImage string) bool {
 	}
 
 	if f.firmwareVersion.Compare(currVersion) == 0 {
-		// Need update if versions is main but has different virt-launcher images
+		// Update is required if the version is 'main', but the virt-launcher images are different
 		if f.firmwareVersion.IsMain() {
 			return f.firmwareImage != firmwareImage
 		}
 		return false
 	}
 
-	// Need update if curr version less than min supported version
+	// Update is required if the current version is less than the minimum supported version.
 	if currVersion.Compare(f.firmwareMinSupportedVersion) == -1 {
 		return true
 	}
 
-	// Need update if curr version bigger than firmware version
+	// Update is required if the current version is greater than the firmware version
 	return currVersion.Compare(f.firmwareVersion) == 1
 }
 
 func (f FirmwareHandler) addCondition(changed *virtv2.VirtualMachine) {
-	conditions.SetCondition(conditions.NewConditionBuilder(vmcondition.TypeFirmwareNeedUpdate).
+	conditions.SetCondition(conditions.NewConditionBuilder(vmcondition.TypeFirmwareUpdateRequired).
 		Generation(changed.GetGeneration()).
 		Status(metav1.ConditionTrue).
-		Reason(vmcondition.TypeFirmwareNeedUpdate).
+		Reason(vmcondition.ReasonFirmwareUpdateRequired).
 		Message("The VM firmware is outdated and not recommended for use by the current version of the module, please migrate or reboot the VM to upgrade to the new firmware version."),
 		&changed.Status.Conditions,
 	)
 }
 
 func (f FirmwareHandler) removeCondition(changed *virtv2.VirtualMachine) {
-	conditions.RemoveCondition(vmcondition.TypeFirmwareNeedUpdate, &changed.Status.Conditions)
+	conditions.RemoveCondition(vmcondition.TypeFirmwareUpdateRequired, &changed.Status.Conditions)
 }
