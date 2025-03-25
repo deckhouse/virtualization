@@ -148,7 +148,7 @@ spec:
                     mounted:
                       description:
                         Флаг, указывающий, что данный VirtualDisk в настоящее время используется
-                        этой присоединенной VirtualMachine.
+                        присоединённой VirtualMachine.
                       type: boolean
                     name:
                       description: Имя присоединённой VirtualMachine.
