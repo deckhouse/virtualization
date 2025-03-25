@@ -71,7 +71,6 @@ func GetConfig() (*Config, error) {
 	}
 
 	conf.LogFilter = []string{
-		VirtualMachinePowerStateFilter,
 		VirtualMachineInternalErrorFilter,
 		VirtualMachineTooManyRequestsFilter,
 		VirtualDiskObjectRefValidationFilter,

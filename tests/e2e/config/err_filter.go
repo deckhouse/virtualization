@@ -17,7 +17,6 @@ limitations under the License.
 package config
 
 const (
-	VirtualMachinePowerStateFilter                = "failed to sync powerstate"                                                               // Msg.
 	VirtualMachineTooManyRequestsFilter           = "Server rejected event (will not retry!)"                                                 // Msg.
 	VirtualMachineInternalErrorFilter             = "Internal virtual machine error"                                                          // Msg.
 	VirtualDiskObjectRefValidationFilter          = "validation failed for data source objectref"                                             // Err.
