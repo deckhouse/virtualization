@@ -34,15 +34,7 @@ binaries:
 - /usr/sbin/blockdev
 - /usr/bin/mount
 - /usr/bin/umount
-# - /usr/sbin/fsck
 - /usr/sbin/blkid
-# - /usr/sbin/mkfs
-# - /usr/sbin/mkfs.ext4
-# - /usr/sbin/mkfs.xfs
-# - /usr/sbin/dumpe2fs
-# - /usr/sbin/xfs_io
-# - /usr/sbin/xfs_growfs
-# - /usr/sbin/resize2fs
 {{- end -}}
 
 {{ $virtCDIClonerDependencies := include "$name" . | fromYaml }}
