@@ -30,14 +30,15 @@ const (
 	/*
 		It is a standardized ioctl request code that queries the size of a block device (e.g., disks, partitions) directly from the kernel
 
-		Structure of ioctl Codes :
+			Structure of ioctl Codes:
 
-		Data Type : 0x8008 (upper 16 bits) indicates:
-			Direction : Read from the kernel (0x2) (upper 2 bits).
-			Size : 0x008 (remaining 14 bits) == 8 bytes, matching the uint64 return type
-		Magic Number : 0x12 (the third byte) identifies this as a block device ioctl
-		Command Number : 0x72 (the fourth byte) specifies the exact operation (size query)
+			Data Type: 0x8008 (upper 16 bits) indicates:
+				Direction: Read from the kernel (0x2) (upper 2 bits).
+				Size: 0x008 (remaining 14 bits) == 8 bytes, matching the uint64 return type
 
+			Magic Number : 0x12 (the third byte) identifies this as a block device ioctl
+
+			Command Number : 0x72 (the fourth byte) specifies the exact operation (size query)
 	*/
 	BLKGETSIZE64 = 0x80081272
 )
@@ -62,7 +63,7 @@ func GetBlockSize(device string) (uint64, error) {
 	return size, nil
 }
 
-// getDirectorySize calculates directory size using Go's filepath.Walk
+// GetDirectorySize calculates directory size using Go's filepath.Walk
 func GetDirectorySize(path string, preallocate bool) (uint64, error) {
 	var total uint64
 

@@ -65,17 +65,10 @@ func main() {
 			logger.Error("Error running cdi-cloner: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
-
 	} else {
 		// Directory handling with safe context management
-		currentDir, err := os.Getwd()
+		err := helpers.ChangeDir(mountPoint)
 		if err != nil {
-			logger.Error("Directory context error: %v\n", slog.String("error", err.Error()))
-			os.Exit(1)
-		}
-		defer os.Chdir(currentDir)
-
-		if err := os.Chdir(mountPoint); err != nil {
 			logger.Error("Mount point access failed: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
@@ -83,7 +76,7 @@ func main() {
 		if preallocation {
 			logger.Info("Preallocating filesystem, uploading all bytes")
 		} else {
-			logger.Info("Not preallocating, uploading used bytes only")
+			logger.Info("Not preallocating filesystem, uploading only used bytes")
 		}
 
 		uploadBytes, err := helpers.GetDirectorySize(".", preallocation)
@@ -96,6 +89,5 @@ func main() {
 			logger.Error("Error running cdi-cloner: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
-
 	}
 }
