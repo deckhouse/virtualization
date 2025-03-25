@@ -1243,7 +1243,7 @@ spec:
                   type: object
                 firmwareVersion:
                   type: string
-                  description: firmware Version.
+                  description: Firmware version.
       additionalPrinterColumns:
         - description: Virtual machine phase.
           jsonPath: .status.phase
