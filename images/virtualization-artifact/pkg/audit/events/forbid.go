@@ -43,7 +43,7 @@ type Forbid struct {
 }
 
 func (m *Forbid) IsMatched(event *audit.Event) bool {
-	if (event.ObjectRef == nil && event.ObjectRef.Name != "") || event.Stage != audit.StageResponseComplete {
+	if event.ObjectRef == nil || event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
@@ -60,7 +60,11 @@ func (m *Forbid) Log(event *audit.Event) error {
 
 	eventLog.SourceIP = strings.Join(event.SourceIPs, ",")
 
-	resource := fmt.Sprintf("%s/%s/%s", event.ObjectRef.Resource, event.ObjectRef.Namespace, event.ObjectRef.Name)
+	resource := fmt.Sprintf("%s/%s", event.ObjectRef.Resource, event.ObjectRef.Namespace)
+	if event.ObjectRef.Name != "" {
+		resource = resource + "/" + event.ObjectRef.Name
+	}
+
 	eventLog.Name = fmt.Sprintf(
 		"User (%s) attempted to perform a forbidden operation (%s) on resource (%s).",
 		event.User.Username,
