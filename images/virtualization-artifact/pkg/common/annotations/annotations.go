@@ -79,7 +79,7 @@ const (
 	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
 	AnnVMOPWorkloadUpdate                 = AnnAPIGroup + "/workload-update"
 	AnnVMOPWorkloadUpdateImage            = AnnAPIGroup + "/workload-update-image"
-	AnnVMOPWorkloadUpdateNodePlacementSum = AnnAPIGroup + "workload-update-node-placement-sum"
+	AnnVMOPWorkloadUpdateNodePlacementSum = AnnAPIGroup + "/workload-update-node-placement-sum"
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 
