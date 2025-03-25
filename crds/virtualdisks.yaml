@@ -260,7 +260,7 @@ spec:
                       mounted:
                         description:
                           Flag indicating that this VirtualDisk is currently
-                          used by this attached VirtualMachine.
+                          used by the attached VirtualMachine.
                         type: boolean
                       name:
                         description: Name of attached VirtualMachine.
