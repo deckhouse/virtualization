@@ -147,7 +147,7 @@ spec:
                   properties:
                     mounted:
                       description:
-                        Флаг, указывающий, что этот VirtualDisk в настоящее время используется
+                        Флаг, указывающий, что данный VirtualDisk в настоящее время используется
                         этой присоединенной VirtualMachine.
                       type: boolean
                     name:
