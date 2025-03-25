@@ -12,4 +12,4 @@ tasks:
       - task: go:tidy
     cmds:
       - mkdir -p bin
-      - go build -o bin/vmx cmd/vlctl/main.go
+      - go build -o bin/vlctl cmd/vlctl/main.go
