@@ -12,6 +12,12 @@ import:
   includePaths:
   - cloner-startup
   before: setup
+- image: cdi-controller-cbuilder
+  add: /bins
+  to: /usr/bin
+  includePaths:
+  - hello
+  before: setup
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
