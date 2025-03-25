@@ -101,3 +101,9 @@ This patch includes an architectural assumption where the condition of the DataV
 #### `023-remove-upload-proxy-server-variables.patch`
 
 The CDI uploadproxy and serverproxy functionality is not used. Deployment of these images and deployments has been removed.
+
+#### `024-cdi-controller-change-bash-utils-to-binary.patch`
+
+We want fully reproducible distroless images (without bash). This patch replaces bash usage with static binaries:
+- `bash -c "echo 'hello cdi'"` is replaced with "hello" binary.
+- `cat /tmp/ready` is replaced with "printFile /tmp/ready"
