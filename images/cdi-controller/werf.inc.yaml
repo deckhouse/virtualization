@@ -25,10 +25,12 @@ image: {{ $.ImageName }}-bins
 final: false
 fromImage: base-alt-p11-binaries
 import:
-- image: {{ $.ImageName }}-cbuilder
+- image: cdi-artifact-cbuilder
   add: /bins
   to: /relocate/usr/bin
   after: setup
+  includePaths:
+  - printFile
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
@@ -51,26 +53,3 @@ shell:
   - |
     mkdir -p /relocate/{tmp,var/run/certs/cdi-uploadserver-signer,var/run/certs/cdi-uploadserver-client-signer}
     chown -R 64535:64535 /relocate/
-
----
-image: {{ $.ImageName }}-cbuilder
-final: false
-from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
-git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    stageDependencies:
-      install:
-        - '*.c'
-shell:
-  install:
-  - |
-    apt-get update && apt-get install --yes gcc musl-dev musl-tools
-    apt-get clean
-    
-    echo "Building simple app that prints hello cdi"
-    mkdir -p /bins
-    musl-gcc -static -Os -o /bins/hello hello.c
-    musl-gcc -static -Os -o /bins/printFile print_file_context.c
-    strip /bins/hello
-    strip /bins/printFile

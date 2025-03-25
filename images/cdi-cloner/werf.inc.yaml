@@ -12,12 +12,12 @@ import:
   includePaths:
   - cloner-startup
   before: setup
-- image: cdi-controller-cbuilder
+- image: cdi-artifact-cbuilder
   add: /bins
-  to: /usr/bin
+  to: /relocate/usr/bin
+  before: setup
   includePaths:
   - hello
-  before: setup
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
@@ -33,12 +33,8 @@ imageSpec:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 binaries:
-# - /usr/bin/sh
-# - /usr/bin/bash
-# - /usr/sbin/blockdev
 - /usr/bin/mount
 - /usr/bin/umount
-# - /usr/sbin/blkid
 {{- end -}}
 
 {{ $virtCDIClonerDependencies := include "$name" . | fromYaml }}
