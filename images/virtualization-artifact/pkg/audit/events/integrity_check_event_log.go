@@ -46,8 +46,8 @@ type IntegrityCheckEventLog struct {
 
 func NewIntegrityCheckEventLog(event *audit.Event) IntegrityCheckEventLog {
 	eventLog := IntegrityCheckEventLog{
-		Type:            "unknown",
-		Level:           "info",
+		Type:            "Integrity check",
+		Level:           "critical",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
 		Uid:             string(event.AuditID),

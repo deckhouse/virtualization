@@ -20,6 +20,8 @@ import (
 	"fmt"
 
 	"k8s.io/apiserver/pkg/apis/audit"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
 type NewIntegrityCheckVMOptions struct {
@@ -56,7 +58,13 @@ func (m *IntegrityCheckVM) IsMatched(event *audit.Event) bool {
 
 func (m *IntegrityCheckVM) Log(event *audit.Event) error {
 	eventLog := NewIntegrityCheckEventLog(event)
-	eventLog.Type = "Integrity Check"
+
+	eventLog.Name = "VM config integrity check failed"
+	eventLog.ObjectType = "Virtual machine configuration"
+	eventLog.ControlMethod = "Integrity Check"
+	eventLog.ReactionType = "info"
+	eventLog.ReferenceChecksum = event.Annotations[annotations.AnnIntegrityCoreChecksum]
+	eventLog.CurrentChecksum = event.Annotations[annotations.AnnIntegrityCoreChecksumApplied]
 
 	vmi, err := getInternalVMIFromInformer(m.ttlCache, m.internalVMIInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
