@@ -149,7 +149,6 @@ spec:
                       description:
                         Флаг, указывающий, что данный VirtualDisk в настоящее время используется
                         присоединённой VirtualMachine.
-                      type: boolean
                     name:
                       description: Имя присоединённой VirtualMachine.
                 stats:
