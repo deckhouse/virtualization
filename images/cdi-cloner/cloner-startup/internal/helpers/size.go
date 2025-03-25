@@ -26,8 +26,25 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	/*
+		IOCTL request code that queries the size of a block device (e.g., disks, partitions) directly from the kernel
+
+			Structure of ioctl Codes:
+
+			Data Type: 0x8008 (upper 16 bits) indicates:
+				Direction: Read from the kernel (0x2) (upper 2 bits).
+				Size: 0x008 (remaining 14 bits) == 8 bytes, matching the uint64 return type
+
+			Magic Number : 0x12 (the third byte) identifies this as a block device ioctl
+
+			Command Number : 0x72 (the fourth byte) specifies the exact operation (size query)
+	*/
+	BLKGETSIZE64 = 0x80081272
+)
+
 // GetBlockDeviceSize returns block size in bytes
-func GetBlockDeviceSize(device string, ioctlcmd int) (uint64, error) {
+func GetBlockDeviceSize(device string) (uint64, error) {
 	fd, err := unix.Open(device, unix.O_RDONLY, 0)
 	if err != nil {
 		return 0, fmt.Errorf("open device %s: %w", device, err)
@@ -38,7 +55,7 @@ func GetBlockDeviceSize(device string, ioctlcmd int) (uint64, error) {
 	_, _, errno := unix.Syscall(
 		syscall.SYS_IOCTL,
 		uintptr(fd),
-		uintptr(ioctlcmd),
+		uintptr(BLKGETSIZE64),
 		uintptr(unsafe.Pointer(&size)),
 	)
 	if errno != 0 {
@@ -59,7 +76,7 @@ func GetDirectorySize(path string, preallocate bool) (uint64, error) {
 			total += uint64(info.Size())
 		} else {
 			if stat, ok := info.Sys().(*syscall.Stat_t); ok {
-				total += uint64(stat.Blocks * 512) // 512-byte blocks
+				total += uint64(stat.Blocks * int64(stat.Blksize))
 			}
 		}
 		return nil

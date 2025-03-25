@@ -55,7 +55,7 @@ func main() {
 		preallocation))
 
 	if volumeMode == "block" {
-		uploadBytes, err := helpers.GetBlockDeviceSize(mountPoint, helpers.BLKGETSIZE64)
+		uploadBytes, err := helpers.GetBlockDeviceSize(mountPoint)
 		if err != nil {
 			logger.Error("Block size calculation failed: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
