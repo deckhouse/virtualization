@@ -19,8 +19,8 @@ git:
     - go.sum
     setup:
     - "**/*.go"
-- add: /firmware.yaml
-  to: /usr/local/go/src/virtualization-controller/pkg/version/firmware.yaml
+- add: /cv/version_map.yml
+  to: /usr/local/go/src/virtualization-controller/pkg/version/version_map.yml
   stageDependencies:
     install:
       - go.mod

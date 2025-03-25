@@ -1,9 +1,10 @@
+# Just stub file
 firmware:
   # Don't touch! Generating in CI.
   version: main
   ##
-  qemu: 9.2.0
-  libvirt: 10.9.0
+  qemu: 0.0.0
+  libvirt: 0.0.0
   edk2: stable202411
 
 module:

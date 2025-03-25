@@ -1,4 +1,0 @@
-# Don't touch! Generating in CI
-version: main
-# Should be updated by manual.
-minSupportedVersion: "v0.17.0"

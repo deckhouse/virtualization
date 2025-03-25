@@ -22,8 +22,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -53,7 +55,6 @@ func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVirtualMachineAnnotations(m)
 	s.updateMetricVirtualMachineAgentReady(m)
 	s.updateMetricVirtualMachineInfo(m)
-	s.updateMetricVirtualMachineFirmwareUpToDate(m)
 }
 
 func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
@@ -162,12 +163,10 @@ func (s *scraper) updateMetricVirtualMachineAnnotations(m *dataMetric) {
 }
 
 func (s *scraper) updateMetricVirtualMachineInfo(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineInfo, 1, m, m.firmwareVersion)
+	s.defaultUpdate(MetricVirtualMachineInfo, 1, m, m.currentFirmwareVersion, desiredFirmwareVersion.String())
 }
 
-func (s *scraper) updateMetricVirtualMachineFirmwareUpToDate(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineFirmwareUpToDate, common.BoolFloat64(m.firmwareUpToDate), m)
-}
+var desiredFirmwareVersion = version.GetFirmwareVersion()
 
 func (s *scraper) defaultUpdate(name string, value float64, m *dataMetric, labelValues ...string) {
 	info := virtualMachineMetrics[name]

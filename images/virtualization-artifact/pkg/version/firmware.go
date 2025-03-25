@@ -25,7 +25,7 @@ import (
 
 var firmwareInstance firmwareConfig
 
-//go:embed firmware.yaml
+//go:embed version_map.yml
 var embeddedConfig string
 
 type firmwareConfig struct {
