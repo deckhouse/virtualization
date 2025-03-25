@@ -19,11 +19,10 @@ import:
   - cdi-cloner
   # - cloner_startup.sh
   before: setup
-# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-cloner/BUILD.bazel
+# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.60.3/cmd/cdi-cloner/BUILD.bazel
 imageSpec:
   config:
     entrypoint: ["/usr/bin/cloner-startup"]
-    # entrypoint: ["/usr/bin/cloner_startup.sh"]
     user: 64535
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -57,11 +56,6 @@ git:
       install:
         - '**/*'
 shell:
-  beforeInstall:
-    - |
-      apt-get update
-      apt-get install --yes libnbd-dev
-      apt-get clean
   install:
     - |
       mkdir -p /cdi-binaries
