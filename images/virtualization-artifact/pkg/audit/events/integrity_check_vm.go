@@ -63,15 +63,20 @@ func (m *IntegrityCheckVM) Log(event *audit.Event) error {
 	eventLog.ObjectType = "Virtual machine configuration"
 	eventLog.ControlMethod = "Integrity Check"
 	eventLog.ReactionType = "info"
-	eventLog.ReferenceChecksum = event.Annotations[annotations.AnnIntegrityCoreChecksum]
-	eventLog.CurrentChecksum = event.Annotations[annotations.AnnIntegrityCoreChecksumApplied]
+	eventLog.IntegrityCheckAlgo = "sha256"
 
 	vmi, err := getInternalVMIFromInformer(m.ttlCache, m.internalVMIInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get VMI from informer: %w", err)
 	}
 
+	if vmi.Annotations[annotations.AnnIntegrityCoreChecksum] == vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied] {
+		return nil
+	}
+
 	eventLog.VirtualMachineName = vmi.Name
+	eventLog.ReferenceChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksum]
+	eventLog.CurrentChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied]
 
 	return eventLog.Log()
 }

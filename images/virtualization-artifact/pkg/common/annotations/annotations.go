@@ -30,7 +30,7 @@ const (
 	VIShortName  = "vi"
 
 	// AnnIntegrityGroup is the Integrity for virtualization-contrller.
-	AnnIntegrityGroup = "integrity.virtualization.deckhouse.io"
+	AnnIntegrityGroup = "integrity.virtualization.deckhouse.io/"
 
 	// AnnIntegrityCoreChecksumis is the integrity check VMI checksum.
 	AnnIntegrityCoreChecksum = AnnIntegrityGroup + "core-spec-checksum"
