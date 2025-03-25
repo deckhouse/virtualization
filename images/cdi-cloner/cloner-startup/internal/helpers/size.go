@@ -45,7 +45,7 @@ const (
 func GetBlockSize(device string) (uint64, error) {
 	fd, err := unix.Open(device, unix.O_RDONLY, 0)
 	if err != nil {
-		return 0, fmt.Errorf("open device: %w", err)
+		return 0, fmt.Errorf("open device %s: %w", device, err)
 	}
 	defer unix.Close(fd)
 
