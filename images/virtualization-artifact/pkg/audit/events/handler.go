@@ -33,9 +33,10 @@ type cache interface {
 
 type eventLogger interface {
 	IsMatched(event *audit.Event) bool
-	Fill(event *audit.Event) error
-	ShouldLog() bool
-	Log() error
+	// Fill(event *audit.Event) error
+	// ShouldLog() bool
+	// Log() error
+	Log(event *audit.Event) error
 }
 
 type logMessage struct {
