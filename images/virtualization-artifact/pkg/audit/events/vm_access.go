@@ -22,26 +22,15 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
-type NewVMConnectOptions struct {
-	VMInformer   indexer
-	VDInformer   indexer
-	NodeInformer indexer
-	TTLCache     ttlCache
-}
-
-func NewVMConnect(options NewVMConnectOptions) *VMAccess {
+func NewVMAccess(options NewEventHandlerOptions) eventLogger {
 	return &VMAccess{
-		vmInformer:   options.VMInformer,
-		nodeInformer: options.NodeInformer,
-		vdInformer:   options.VDInformer,
+		informerList: options.InformerList,
 		ttlCache:     options.TTLCache,
 	}
 }
 
 type VMAccess struct {
-	vmInformer   indexer
-	vdInformer   indexer
-	nodeInformer indexer
+	informerList informerList
 	ttlCache     ttlCache
 }
 
@@ -78,7 +67,7 @@ func (m *VMAccess) Log(event *audit.Event) error {
 		eventLog.Name = "Request " + eventLog.Name
 	}
 
-	vm, err := getVMFromInformer(m.ttlCache, m.vmInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	vm, err := getVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
 
@@ -92,13 +81,13 @@ func (m *VMAccess) Log(event *audit.Event) error {
 	}
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := eventLog.fillVDInfo(m.ttlCache, m.vdInformer, vm); err != nil {
+		if err := eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
 			log.Debug("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := eventLog.fillNodeInfo(m.nodeInformer, vm); err != nil {
+		if err := eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
 			log.Debug("fail to fill node info", log.Err(err))
 		}
 	}

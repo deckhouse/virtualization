@@ -28,13 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
-type NewForbidOptions struct {
-	Ctx      context.Context
-	TTLCache ttlCache
-	Client   *kubernetes.Clientset
-}
-
-func NewForbid(options NewForbidOptions) *Forbid {
+func NewForbid(options NewEventHandlerOptions) eventLogger {
 	return &Forbid{
 		ctx:       options.Ctx,
 		clientset: options.Client,
@@ -46,6 +40,7 @@ type Forbid struct {
 	ctx       context.Context
 	ttlCache  ttlCache
 	clientset *kubernetes.Clientset
+	eventLog  *ForbidEventLog
 }
 
 func (m *Forbid) IsMatched(event *audit.Event) bool {
@@ -61,17 +56,20 @@ func (m *Forbid) IsMatched(event *audit.Event) bool {
 }
 
 func (m *Forbid) Log(event *audit.Event) error {
-	eventLog := NewForbidEventLog(event)
-	eventLog.Type = "Forbidden operation"
+	m.eventLog = NewForbidEventLog(event)
+	m.eventLog.Type = "Forbidden operation"
 
-	eventLog.SourceIP = strings.Join(event.SourceIPs, ",")
+	m.eventLog.SourceIP = strings.Join(event.SourceIPs, ",")
 
-	resource := fmt.Sprintf("%s/%s", event.ObjectRef.Resource, event.ObjectRef.Namespace)
+	resource := event.ObjectRef.Resource
+	if event.ObjectRef.Namespace != "" {
+		resource += "/" + event.ObjectRef.Namespace
+	}
 	if event.ObjectRef.Name != "" {
-		resource = resource + "/" + event.ObjectRef.Name
+		resource += "/" + event.ObjectRef.Name
 	}
 
-	eventLog.Name = fmt.Sprintf(
+	m.eventLog.Name = fmt.Sprintf(
 		"User (%s) attempted to perform a forbidden operation (%s) on resource (%s).",
 		event.User.Username,
 		event.Verb,
@@ -82,9 +80,9 @@ func (m *Forbid) Log(event *audit.Event) error {
 		log.Debug(err.Error())
 	}
 
-	eventLog.IsAdmin = isAdmin
+	m.eventLog.IsAdmin = isAdmin
 
-	return eventLog.Log()
+	return m.eventLog
 }
 
 func (m *Forbid) isAdmin(user string) (bool, error) {
