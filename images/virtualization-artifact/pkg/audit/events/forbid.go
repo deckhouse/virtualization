@@ -17,29 +17,35 @@ limitations under the License.
 package events
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/kubernetes"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
 type NewForbidOptions struct {
-	AdminInformer indexer
-	TTLCache      ttlCache
+	Ctx      context.Context
+	TTLCache ttlCache
+	Client   *kubernetes.Clientset
 }
 
 func NewForbid(options NewForbidOptions) *Forbid {
 	return &Forbid{
-		adminInformer: options.AdminInformer,
-		ttlCache:      options.TTLCache,
+		ctx:       options.Ctx,
+		clientset: options.Client,
+		ttlCache:  options.TTLCache,
 	}
 }
 
 type Forbid struct {
-	adminInformer indexer
-	ttlCache      ttlCache
+	ctx       context.Context
+	ttlCache  ttlCache
+	clientset *kubernetes.Clientset
 }
 
 func (m *Forbid) IsMatched(event *audit.Event) bool {
@@ -71,5 +77,39 @@ func (m *Forbid) Log(event *audit.Event) error {
 		event.Verb,
 		resource)
 
+	isAdmin, err := m.isAdmin(event.User.Username)
+	if err != nil {
+		log.Debug(err.Error())
+	}
+
+	eventLog.IsAdmin = isAdmin
+
 	return eventLog.Log()
+}
+
+func (m *Forbid) isAdmin(user string) (bool, error) {
+	isAdm, ok := m.ttlCache.Get("is_admin/" + user)
+	if ok {
+		return isAdm.(bool), nil
+	}
+
+	canUpdateModuleConfigs, err := checkAccess(m.ctx, m.clientset, user, "update", "authorization.k8s.io", "v1", "moduleconfigs")
+	if err != nil {
+		return false, err
+	}
+
+	if canUpdateModuleConfigs {
+		return true, nil
+	}
+
+	canUpdateVMClasses, err := checkAccess(m.ctx, m.clientset, user, "update", "authorization.k8s.io", "v1", "virtualmachineclasses")
+	if err != nil {
+		return false, err
+	}
+
+	if canUpdateVMClasses {
+		return true, nil
+	}
+
+	return false, nil
 }
