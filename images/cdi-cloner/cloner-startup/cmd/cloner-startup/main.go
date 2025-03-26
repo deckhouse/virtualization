@@ -73,17 +73,38 @@ func main() {
 			os.Exit(1)
 		}
 
+		// TODO correct log message
 		if preallocation {
-			logger.Info("Preallocating filesystem, uploading all bytes")
+			logger.Info("Get only used blocks in bytes")
 		} else {
-			logger.Info("Not preallocating filesystem, uploading only used bytes")
+			logger.Info("Preallocating filesystem, uploading all bytes")
 		}
-
-		uploadBytes, err := helpers.GetDirectorySize(".", preallocation)
+		// directory bytes, directory bytes
+		// total count bytes, used count bytes
+		// uploadBytes, err := helpers.GetDirectorySize(".", preallocation)
+		totalBytes, totalUsedBytes, err := helpers.GetDirectorySize(".")
 		if err != nil {
 			logger.Error("Directory size calculation failed: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
+
+		/*
+			if preallocation {
+				uploadBytes := totalUsedBytes
+			}else
+			{
+				uploadBytes := totalBytes
+			}
+		*/
+		var uploadBytes uint64
+
+		if preallocation {
+			uploadBytes = totalUsedBytes
+		} else {
+			uploadBytes = totalBytes
+		}
+
+		logger.Info(fmt.Sprintf("Start clone with %d bytes", uploadBytes))
 
 		if err = helpers.RunCloner("filesystem-clone", uploadBytes, mountPoint); err != nil {
 			logger.Error("Error running cdi-cloner: %v\n", slog.String("error", err.Error()))

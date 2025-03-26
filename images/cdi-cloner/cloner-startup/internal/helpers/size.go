@@ -65,21 +65,36 @@ func GetBlockDeviceSize(device string) (uint64, error) {
 }
 
 // GetDirectorySize calculates directory size using Go's filepath.Walk
-func GetDirectorySize(path string, preallocate bool) (uint64, error) {
-	var total uint64
+// func GetDirectorySize(path string, usedBlocks bool) (uint64, uint64, error) {
+func GetDirectorySize(path string) (uint64, uint64, error) {
+	var (
+		// total          uint64
+		totalBytes     uint64
+		totalUsedBytes uint64
+	)
 
 	err := filepath.Walk(path, func(p string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() {
 			return err
 		}
-		if preallocate {
-			total += uint64(info.Size())
-		} else {
-			if stat, ok := info.Sys().(*syscall.Stat_t); ok {
-				total += uint64(stat.Blocks * int64(stat.Blksize))
-			}
+
+		totalBytes += uint64(info.Size())
+
+		if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+			totalUsedBytes += uint64(stat.Blocks * int64(stat.Blksize))
 		}
+
+		// if usedBlocks {
+		// 	// only used blocks
+		// 	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		// 		total += uint64(stat.Blocks * int64(stat.Blksize))
+		// 	}
+		// } else {
+		// 	// all bytes
+		// 	total += uint64(info.Size())
+		// }
 		return nil
 	})
-	return total, err
+	return totalBytes, totalUsedBytes, err
+	// return total, err
 }
