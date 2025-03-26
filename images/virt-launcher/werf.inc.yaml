@@ -9,7 +9,7 @@ import:
     after: install
 imageSpec:
   config:
-    user: 0
+    user: 107
 
 ---
 {{- define "virt-launcher-dependencies" -}}
@@ -111,6 +111,7 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
+  - libcap-utils
 packages:
   - acl
   - attr
@@ -139,6 +140,12 @@ binaries:
   - /usr/bin/sh
   - /usr/bin/bash
   - /usr/bin/uname
+  - /usr/bin/ls
+  - /usr/bin/id
+  - /usr/bin/cat
+  - /usr/bin/namei
+  - /usr/bin/whoami
+  - /usr/bin/strace
   - /usr/bin/nohup
   - /usr/bin/sleep
   - /usr/bin/cp
@@ -189,6 +196,7 @@ binaries:
   - /usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr
   # SELinux policy core utilities
   - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
+  - /usr/sbin/setcap /usr/sbin/getcap /usr/sbin/getpcaps /usr/sbin/capsh
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}

@@ -1,0 +1,29 @@
+diff --git a/cmd/virt-launcher-monitor/virt-launcher-monitor.go b/cmd/virt-launcher-monitor/virt-launcher-monitor.go
+index f2a0ed86f5..90caff4265 100644
+--- a/cmd/virt-launcher-monitor/virt-launcher-monitor.go
++++ b/cmd/virt-launcher-monitor/virt-launcher-monitor.go
+@@ -35,8 +35,8 @@ import (
+ 	"time"
+ 
+ 	"github.com/spf13/pflag"
+-
+ 	"golang.org/x/sys/unix"
++
+ 	"kubevirt.io/client-go/log"
+ 
+ 	"kubevirt.io/kubevirt/pkg/util"
+@@ -177,10 +177,13 @@ func RunAndMonitor(containerDiskDir, uid string) (int, error) {
+ 	cmd.Stdout = os.Stdout
+ 	cmd.Stderr = os.Stderr
+ 
++	log.Log.Info("11111")
++
+ 	if err := cmd.Start(); err != nil {
+-		log.Log.Reason(err).Error("failed to run virt-launcher")
++		log.Log.Reason(err).With("cmd", cmd.String()).Error("[AAA] failed to run virt-launcher")
+ 		return 1, err
+ 	}
++	log.Log.Info("22222")
+ 
+ 	exitStatus := make(chan int, 10)
+ 	sigs := make(chan os.Signal, 10)
