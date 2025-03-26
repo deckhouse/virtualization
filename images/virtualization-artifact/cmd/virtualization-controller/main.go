@@ -54,6 +54,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmsnapshot"
+	workloadupdater "github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization-controller/pkg/migration"
 	"github.com/deckhouse/virtualization-controller/pkg/version"
@@ -333,6 +334,11 @@ func main() {
 	}
 
 	if err = mc.SetupWebhookWithManager(mgr); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	if err = workloadupdater.SetupController(ctx, mgr, log, firmwareImage); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
