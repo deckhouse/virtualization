@@ -167,7 +167,8 @@ func (h InUseHandler) updateAttachedVirtualMachines(ctx context.Context, vd *vir
 		return err
 	}
 
-	return h.updateAttachedVirtualMachinesStatus(vd, usageMap)
+	h.updateAttachedVirtualMachinesStatus(vd, usageMap)
+	return nil
 }
 
 func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *virtv2.VirtualDisk, vms virtv2.VirtualMachineList) (map[string]bool, error) {
@@ -225,7 +226,7 @@ func (h InUseHandler) isVMActive(ctx context.Context, vm virtv2.VirtualMachine) 
 	return false, nil
 }
 
-func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *virtv2.VirtualDisk, usageMap map[string]bool) error {
+func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *virtv2.VirtualDisk, usageMap map[string]bool) {
 	var currentlyMountedVM string
 	for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
 		if attachedVM.Mounted {
@@ -269,7 +270,6 @@ func (h InUseHandler) updateAttachedVirtualMachinesStatus(vd *virtv2.VirtualDisk
 	}
 
 	vd.Status.AttachedToVirtualMachines = attachedVMs
-	return nil
 }
 
 func (h InUseHandler) checkUsageByVM(vd *virtv2.VirtualDisk) bool {
