@@ -70,19 +70,6 @@ func GetConfig() (*Config, error) {
 		return nil, err
 	}
 
-	conf.LogFilter = []string{
-		VirtualMachineInternalErrorFilter,
-		VirtualMachineTooManyRequestsFilter,
-		VirtualDiskObjectRefValidationFilter,
-		VirtualDiskMetadataPatchingFilter,
-		VirtualMachineClassMetadataPatchingFilter,
-		VirtualDiskCleanUpFilter,
-		ImagesVirtualDiskSnapshotObjectRefIsNilFilter,
-		ImagesVirtualDiskSnapshotNotReadyFilter,
-		ImagesVIObjectRefIsNilFilter,
-		AllMetadataPatchingFilter,
-	}
-
 	return &conf, nil
 }
 

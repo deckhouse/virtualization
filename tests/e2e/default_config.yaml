@@ -36,3 +36,17 @@ testData:
   sshUser: "cloud"
 logFilter:
   - "pattern to exclude"
+  - "Server rejected event (will not retry!)" # Msg.
+  - "Internal virtual machine error" # Msg.
+  - "validation failed for data source objectref" # Err.
+  - "error patching metadata: virtualdisks" # Err.
+  - "error patching metadata: virtualmachineclasses" # Err.
+  - "clean up failed for data source registry" # Err.
+  - "VDSnapshot object ref" # Err.
+  - "VirtualDiskSnapshot " # Err.
+  - "VI object ref source " # Err.
+  - "error patching metadata: the server rejected our request due to an error in our request" # Err.
+  - "failed to sync powerstate" # Msg.
+  - "failed to sync virtual disk data source objectref" # "err": "failed to sync virtual disk data source objectref: admission webhook \"datavolume-validate.cdi.kubevirt.io\" denied the request:  Destination PVC winwin/vd-win2022-8a136ef9-32d9-4ae3-a27f-e42e15c15f47 already exists"
+  - "failed to detach: intvirtvm not found to unplug" # "err": "failed to detach: intvirtvm not found to unplug"
+  - "does not have a pvc reference" # "err": "kvvm head-345e7b6a-testcases-image-hotplug/head-345e7b6a-vm-image-hotplug spec volume vi-head-345e7b6a-vi-alpine-http does not have a pvc reference"
