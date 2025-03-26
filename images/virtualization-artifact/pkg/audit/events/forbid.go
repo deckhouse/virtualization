@@ -40,7 +40,6 @@ type Forbid struct {
 	ctx       context.Context
 	ttlCache  ttlCache
 	clientset *kubernetes.Clientset
-	eventLog  *ForbidEventLog
 }
 
 func (m *Forbid) IsMatched(event *audit.Event) bool {
@@ -56,10 +55,10 @@ func (m *Forbid) IsMatched(event *audit.Event) bool {
 }
 
 func (m *Forbid) Log(event *audit.Event) error {
-	m.eventLog = NewForbidEventLog(event)
-	m.eventLog.Type = "Forbidden operation"
+	eventLog := NewForbidEventLog(event)
+	eventLog.Type = "Forbidden operation"
 
-	m.eventLog.SourceIP = strings.Join(event.SourceIPs, ",")
+	eventLog.SourceIP = strings.Join(event.SourceIPs, ",")
 
 	resource := event.ObjectRef.Resource
 	if event.ObjectRef.Namespace != "" {
@@ -69,7 +68,7 @@ func (m *Forbid) Log(event *audit.Event) error {
 		resource += "/" + event.ObjectRef.Name
 	}
 
-	m.eventLog.Name = fmt.Sprintf(
+	eventLog.Name = fmt.Sprintf(
 		"User (%s) attempted to perform a forbidden operation (%s) on resource (%s).",
 		event.User.Username,
 		event.Verb,
@@ -80,9 +79,9 @@ func (m *Forbid) Log(event *audit.Event) error {
 		log.Debug(err.Error())
 	}
 
-	m.eventLog.IsAdmin = isAdmin
+	eventLog.IsAdmin = isAdmin
 
-	return m.eventLog
+	return eventLog.Log()
 }
 
 func (m *Forbid) isAdmin(user string) (bool, error) {
