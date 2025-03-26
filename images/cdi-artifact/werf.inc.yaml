@@ -86,3 +86,26 @@ shell:
     - chmod +x /cdi-binaries/*
     - chown -R 64535:64535 /cdi-binaries/*
     - ls -la /cdi-binaries
+
+---
+image: {{ $.ImageName }}-cbuilder
+final: false
+from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+git:
+  - add: /images/{{ $.ImageName }}/static_binaries
+    to: /
+    stageDependencies:
+      install:
+        - '*.c'
+shell:
+  install:
+  - |
+    apt-get update && apt-get install --yes gcc musl-dev musl-tools
+    apt-get clean
+    
+    echo "Building simple app that prints hello cdi"
+    mkdir -p /bins
+    musl-gcc -static -Os -o /bins/hello hello.c
+    musl-gcc -static -Os -o /bins/printFile print_file_context.c
+    strip /bins/hello
+    strip /bins/printFile
