@@ -107,6 +107,10 @@ const (
 	QuotaExceeded ReadyReason = "QuotaExceeded"
 	// ImagePullFailed indicates that there was an issue with importing from DVCR.
 	ImagePullFailed ReadyReason = "ImagePullFailed"
+	// DatasourceIsNotReady indicates that Datasource is not ready for provisioning.
+	DatasourceIsNotReady ReadyReason = "DatasourceIsNotReady"
+	// StorageClassIsNotReady indicates that Storage class is not ready.
+	StorageClassIsNotReady ReadyReason = "StorageClassIsNotReady"
 
 	// InProgress indicates that the resize request has been detected and the operation is currently in progress.
 	InProgress ResizedReason = "InProgress"

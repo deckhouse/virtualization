@@ -91,20 +91,25 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
-	if !IsDataSourceReady(vd) {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown)
-		conditions.SetCondition(cb, &vd.Status.Conditions)
+	if !source.IsDiskProvisioningFinished(readyCondition) {
+		datasourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+		if datasourceReadyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(datasourceReadyCondition, vd) {
+			cb.
+				Reason(vdcondition.DatasourceIsNotReady).
+				Message("Datasource is not ready for provisioning.").
+				Status(metav1.ConditionFalse)
+			conditions.SetCondition(cb, &vd.Status.Conditions)
 
-		return reconcile.Result{}, nil
+			return reconcile.Result{}, nil
+		}
 	}
 
 	storageClassReady, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
 	if storageClassReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(storageClassReady, vd) {
 		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown)
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassIsNotReady).
+			Message("Storage class in not ready")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 
 		return reconcile.Result{}, nil
