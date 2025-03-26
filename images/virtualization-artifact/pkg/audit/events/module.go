@@ -26,7 +26,7 @@ type module struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec moduleProperties `json:"properties"`
+	Properties moduleProperties `json:"properties"`
 }
 
 // +k8s:deepcopy-gen=true
@@ -41,7 +41,7 @@ func (in *module) DeepCopyInto(out *module) {
 
 	in.ObjectMeta.DeepCopyInto(&out.ObjectMeta)
 
-	in.Spec.DeepCopyInto(&out.Spec)
+	in.Properties.DeepCopyInto(&out.Properties)
 }
 
 // DeepCopy creates a deep copy of the module.

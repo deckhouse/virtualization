@@ -34,13 +34,13 @@ type ForbidEventLog struct {
 	Uid             string `json:"uid"`
 	RequestSubject  string `json:"request_subject"`
 	OperationResult string `json:"operation_result"`
-	IsAdmin         string `json:"is_admin"`
+	IsAdmin         bool   `json:"is_admin"`
 	SourceIP        string `json:"source_ip"`
 	ForbidReason    string `json:"forbid_reason"`
 }
 
-func NewForbidEventLog(event *audit.Event) ForbidEventLog {
-	eventLog := ForbidEventLog{
+func NewForbidEventLog(event *audit.Event) *ForbidEventLog {
+	eventLog := &ForbidEventLog{
 		Type:            "unknown",
 		Level:           "warn",
 		Name:            "unknown",

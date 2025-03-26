@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/pflag"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/kubernetes"
 	kubecache "k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -79,6 +80,11 @@ func run(c *cobra.Command, opts Options) error {
 	kubeCfg, err := config.GetConfig()
 	if err != nil {
 		return err
+	}
+
+	client, err := kubernetes.NewForConfig(kubeCfg)
+	if err != nil {
+		return fmt.Errorf("unable to construct lister client: %w", err)
 	}
 
 	ttlCache := cache.NewTTLCache(3 * time.Minute)
@@ -189,7 +195,9 @@ func run(c *cobra.Command, opts Options) error {
 	srv, err := server.NewServer(
 		":"+opts.Port,
 		events.NewForbid(events.NewForbidOptions{
-			AdminInformer: vmInformer.GetIndexer(),
+			Ctx:      c.Context(),
+			TTLCache: ttlCache,
+			Client:   client,
 		}),
 		events.NewVMManage(events.NewVMManageOptions{
 			VMInformer:   vmInformer.GetIndexer(),

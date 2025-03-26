@@ -17,13 +17,17 @@ limitations under the License.
 package events
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
 
+	authorizationv1 "k8s.io/api/authorization/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
@@ -219,4 +223,29 @@ func unstructuredToTypedObject(unstructuredObj *unstructured.Unstructured, obj r
 	}
 
 	return nil
+}
+
+func checkAccess(ctx context.Context, clientset *kubernetes.Clientset, user, verb, group, version, resource string) (bool, error) {
+	subjectAccessReview := &authorizationv1.SubjectAccessReview{
+		Spec: authorizationv1.SubjectAccessReviewSpec{
+			User: user,
+			ResourceAttributes: &authorizationv1.ResourceAttributes{
+				Verb:     verb,
+				Group:    group,
+				Version:  version,
+				Resource: resource,
+			},
+		},
+	}
+
+	response, err := clientset.AuthorizationV1().SubjectAccessReviews().Create(
+		ctx,
+		subjectAccessReview,
+		metav1.CreateOptions{},
+	)
+	if err != nil {
+		return false, err
+	}
+
+	return response.Status.Allowed, nil
 }
