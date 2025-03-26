@@ -102,7 +102,7 @@ func (m *ModuleComponentControl) Log(event *audit.Event) error {
 	}
 
 	if module != nil {
-		eventLog.VirtualizationVersion = module.Spec.Version
+		eventLog.VirtualizationVersion = module.Properties.Version
 	}
 
 	return eventLog.Log()
