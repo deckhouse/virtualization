@@ -17,10 +17,11 @@ limitations under the License.
 package main
 
 import (
-	"cloner-startup/internal/helpers"
 	"fmt"
 	"log/slog"
 	"os"
+
+	"cloner-startup/internal/helpers"
 )
 
 func main() {
@@ -50,35 +51,34 @@ func main() {
 	logger.Info(fmt.Sprintf(
 		"VOLUME_MODE=%s\n"+
 			"MOUNT_POINT=%s\n"+
-			"PREALLOCATION=%v\n",
+			"PREALLOCATION=%v",
 		volumeMode,
 		mountPoint,
 		preallocation))
 
 	if volumeMode == "block" {
-		uploadBytes, err := helpers.GetBlockDeviceSize(mountPoint)
+		uploadBytes, err = helpers.GetBlockDeviceSize(mountPoint)
 		if err != nil {
-			logger.Error("Block size calculation failed: %v\n", slog.String("error", err.Error()))
+			logger.Error("Block size calculation failed: %v", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 
 		logger.Info(fmt.Sprintf("Start clone block with %s", helpers.FormatBytes(float64(uploadBytes))))
 
 		if err = helpers.RunCloner("blockdevice-clone", uploadBytes, mountPoint); err != nil {
-			logger.Error("Error running cdi-cloner: %v\n", slog.String("error", err.Error()))
+			logger.Error("Error running cdi-cloner: %v", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 	} else {
-		// Directory handling with safe context management
-		err := helpers.ChangeDir(mountPoint)
-		if err != nil {
-			logger.Error("Mount point access failed: %v\n", slog.String("error", err.Error()))
+		// Check if directory accesseble
+		if err := os.Chdir(mountPoint); err != nil {
+			logger.Error("Mount point access failed: %v", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 
 		totalBytes, totalUsedBytes, err := helpers.GetDirectorySize(".")
 		if err != nil {
-			logger.Error("Directory size calculation failed: %v\n", slog.String("error", err.Error()))
+			logger.Error("Directory size calculation failed: %v", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 
@@ -94,7 +94,7 @@ func main() {
 		logger.Info(fmt.Sprintf("Start clone with %s", helpers.FormatBytes(float64(uploadBytes))))
 
 		if err = helpers.RunCloner("filesystem-clone", uploadBytes, mountPoint); err != nil {
-			logger.Error("Error running cdi-cloner: %v\n", slog.String("error", err.Error()))
+			logger.Error("Error running cdi-cloner: %v", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 	}
