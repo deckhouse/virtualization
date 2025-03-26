@@ -64,11 +64,11 @@ func GetBlockDeviceSize(device string) (uint64, error) {
 	return size, nil
 }
 
-// GetDirectorySize calculates directory size using Go's filepath.Walk
-// func GetDirectorySize(path string, usedBlocks bool) (uint64, uint64, error) {
+// Calculates directory size using Go's filepath.Walk
+//
+// return totalBytes and totalUsedBytes(Blocks * Blksize)
 func GetDirectorySize(path string) (uint64, uint64, error) {
 	var (
-		// total          uint64
 		totalBytes     uint64
 		totalUsedBytes uint64
 	)
@@ -83,18 +83,27 @@ func GetDirectorySize(path string) (uint64, uint64, error) {
 		if stat, ok := info.Sys().(*syscall.Stat_t); ok {
 			totalUsedBytes += uint64(stat.Blocks * int64(stat.Blksize))
 		}
-
-		// if usedBlocks {
-		// 	// only used blocks
-		// 	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
-		// 		total += uint64(stat.Blocks * int64(stat.Blksize))
-		// 	}
-		// } else {
-		// 	// all bytes
-		// 	total += uint64(info.Size())
-		// }
 		return nil
 	})
 	return totalBytes, totalUsedBytes, err
-	// return total, err
+}
+
+// Convert byte size to human readable format
+func FormatBytes(s float64) string {
+	var base float64 = 1024.0
+	sizes := []string{"B", "kB", "MB", "GB", "TB", "PB", "EB"}
+
+	unitsLimit := len(sizes)
+	i := 0
+	for s >= base && i < unitsLimit {
+		s /= base
+		i++
+	}
+
+	f := "%.0f %s"
+	if i > 1 {
+		f = "%.2f %s"
+	}
+
+	return fmt.Sprintf(f, s, sizes[i])
 }

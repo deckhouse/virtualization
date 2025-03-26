@@ -17,14 +17,15 @@ limitations under the License.
 package main
 
 import (
+	"cloner-startup/internal/helpers"
 	"fmt"
 	"log/slog"
 	"os"
-
-	"cloner-startup/internal/helpers"
 )
 
 func main() {
+	var uploadBytes uint64
+
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
@@ -61,6 +62,8 @@ func main() {
 			os.Exit(1)
 		}
 
+		logger.Info(fmt.Sprintf("Start clone block with %s", helpers.FormatBytes(float64(uploadBytes))))
+
 		if err = helpers.RunCloner("blockdevice-clone", uploadBytes, mountPoint); err != nil {
 			logger.Error("Error running cdi-cloner: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
@@ -73,38 +76,22 @@ func main() {
 			os.Exit(1)
 		}
 
-		// TODO correct log message
-		if preallocation {
-			logger.Info("Get only used blocks in bytes")
-		} else {
-			logger.Info("Preallocating filesystem, uploading all bytes")
-		}
-		// directory bytes, directory bytes
-		// total count bytes, used count bytes
-		// uploadBytes, err := helpers.GetDirectorySize(".", preallocation)
 		totalBytes, totalUsedBytes, err := helpers.GetDirectorySize(".")
 		if err != nil {
 			logger.Error("Directory size calculation failed: %v\n", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 
-		/*
-			if preallocation {
-				uploadBytes := totalUsedBytes
-			}else
-			{
-				uploadBytes := totalBytes
-			}
-		*/
-		var uploadBytes uint64
-
 		if preallocation {
-			uploadBytes = totalUsedBytes
-		} else {
 			uploadBytes = totalBytes
+			logger.Info("Preallocating filesystem, uploading all bytes")
+		} else {
+			uploadBytes = totalUsedBytes
+			logger.Info("Not preallocating filesystem, get only used blocks in bytes")
 		}
 
 		logger.Info(fmt.Sprintf("Start clone with %d bytes", uploadBytes))
+		logger.Info(fmt.Sprintf("Start clone with %s", helpers.FormatBytes(float64(uploadBytes))))
 
 		if err = helpers.RunCloner("filesystem-clone", uploadBytes, mountPoint); err != nil {
 			logger.Error("Error running cdi-cloner: %v\n", slog.String("error", err.Error()))
