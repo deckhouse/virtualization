@@ -17,72 +17,181 @@ limitations under the License.
 package informer
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/rest"
+	kubecache "k8s.io/client-go/tools/cache"
 
-	virtClient "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
-	virtInformers "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions"
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const (
-	// we should never need to resync, since we're not worried about missing events,
-	// and resync is actually for regular interval-based reconciliation these days,
-	// so set the default resync interval to 0
-	defaultResync = 0
-)
-
-func VirtualizationInformerFactory(config *rest.Config) (virtInformers.SharedInformerFactory, error) {
-	client, err := virtClient.NewForConfig(config)
-	if err != nil {
-		return nil, fmt.Errorf("unable to construct lister client: %w", err)
-	}
-	return virtInformers.NewSharedInformerFactory(client, defaultResync), nil
+type cache interface {
+	Add(key string, obj any)
 }
 
-func CoreInformerFactory(config *rest.Config) (informers.SharedInformerFactory, error) {
-	client, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, fmt.Errorf("unable to construct lister client: %w", err)
-	}
-
-	return informers.NewSharedInformerFactory(client, defaultResync), nil
+type InformerList struct {
+	vmInformer           kubecache.SharedIndexInformer
+	vdInformer           kubecache.SharedIndexInformer
+	vmopInformer         kubecache.SharedIndexInformer
+	podInformer          kubecache.SharedIndexInformer
+	nodeInformer         kubecache.SharedIndexInformer
+	moduleInformer       kubecache.SharedIndexInformer
+	moduleConfigInformer kubecache.SharedIndexInformer
+	internalVMIInformer  kubecache.SharedIndexInformer
 }
 
-func DynamicInformerFactory(config *rest.Config) (dynamicinformer.DynamicSharedInformerFactory, error) {
-	dynamicClient, err := dynamic.NewForConfig(config)
+func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) (*InformerList, error) {
+	inf := &InformerList{}
+	virtSharedInformerFactory, err := VirtualizationInformerFactory(kubeCfg)
 	if err != nil {
-		return nil, err
+		log.Error("failed to create virtualization shared factory", log.Err(err))
+		return inf, err
 	}
 
-	return dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, defaultResync), nil
+	coreSharedInformerFactory, err := CoreInformerFactory(kubeCfg)
+	if err != nil {
+		log.Error("failed to create core shared factory", log.Err(err))
+		return inf, err
+	}
+
+	dynamicInformerFactory, err := DynamicInformerFactory(kubeCfg)
+	if err != nil {
+		log.Error("failed to create dynamic informer factory", log.Err(err))
+		return inf, err
+	}
+
+	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
+	_, err = vmInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj any) {
+			vm := obj.(*v1alpha2.VirtualMachine)
+			key := fmt.Sprintf("virtualmachines/%s/%s", vm.Namespace, vm.Name)
+			ttlCache.Add(key, vm)
+		},
+	})
+	if err != nil {
+		log.Error("failed to add event handler for virtual machines", log.Err(err))
+		return inf, err
+	}
+	inf.vmInformer = vmInformer
+
+	vdInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualDisks().Informer()
+	_, err = vdInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj any) {
+			vd := obj.(*v1alpha2.VirtualDisk)
+			key := fmt.Sprintf("pods/%s/%s", vd.Namespace, vd.Name)
+			ttlCache.Add(key, vd)
+		},
+	})
+	if err != nil {
+		log.Error("failed to add event handler for virtual disks", log.Err(err))
+		return inf, err
+	}
+	inf.vdInformer = vdInformer
+
+	podInformer := coreSharedInformerFactory.Core().V1().Pods().Informer()
+	_, err = podInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj any) {
+			pod := obj.(*corev1.Pod)
+			key := fmt.Sprintf("pods/%s/%s", pod.Namespace, pod.Name)
+			ttlCache.Add(key, pod)
+		},
+	})
+	if err != nil {
+		log.Error("failed to add event handler for pods", log.Err(err))
+		return inf, err
+	}
+
+	internalVMIInformer := GetInternalVMIInformer(dynamicInformerFactory).Informer()
+	_, err = internalVMIInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
+		DeleteFunc: func(obj any) {
+			unstructuredObj, ok := obj.(*unstructured.Unstructured)
+			if !ok {
+				return
+			}
+			key := fmt.Sprintf("intVMI/%s/%s", unstructuredObj.GetNamespace(), unstructuredObj.GetName())
+			ttlCache.Add(key, unstructuredObj)
+		},
+	})
+	if err != nil {
+		log.Error("failed to add event handler for internalVMI", log.Err(err))
+		return inf, err
+	}
+
+	vmopInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachineOperations().Informer()
+	inf.vmopInformer = vmopInformer
+
+	nodeInformer := coreSharedInformerFactory.Core().V1().Nodes().Informer()
+	inf.nodeInformer = nodeInformer
+
+	moduleInformer := GetModuleInformer(dynamicInformerFactory).Informer()
+	inf.moduleInformer = moduleInformer
+
+	moduleConfigInformer := GetModuleConfigsInformer(dynamicInformerFactory).Informer()
+	inf.moduleConfigInformer = moduleConfigInformer
+
+	return inf, nil
 }
 
-func GetModuleInformer(factory dynamicinformer.DynamicSharedInformerFactory) informers.GenericInformer {
-	return factory.ForResource(schema.GroupVersionResource{
-		Group:    "deckhouse.io",
-		Version:  "v1alpha1",
-		Resource: "modules",
-	})
+func (i *InformerList) Run(ctx context.Context) error {
+	if !kubecache.WaitForCacheSync(
+		ctx.Done(),
+		i.podInformer.HasSynced,
+		i.nodeInformer.HasSynced,
+		i.vmInformer.HasSynced,
+		i.vdInformer.HasSynced,
+		i.vmopInformer.HasSynced,
+		i.moduleInformer.HasSynced,
+		i.moduleConfigInformer.HasSynced,
+		i.internalVMIInformer.HasSynced,
+	) {
+		return errors.New("failed to wait for caches to sync")
+	}
+
+	go i.vmInformer.Run(ctx.Done())
+	go i.vdInformer.Run(ctx.Done())
+	go i.nodeInformer.Run(ctx.Done())
+	go i.vmopInformer.Run(ctx.Done())
+	go i.podInformer.Run(ctx.Done())
+	go i.moduleConfigInformer.Run(ctx.Done())
+	go i.moduleInformer.Run(ctx.Done())
+	go i.internalVMIInformer.Run(ctx.Done())
+
+	return nil
 }
 
-func GetModuleConfigsInformer(factory dynamicinformer.DynamicSharedInformerFactory) informers.GenericInformer {
-	return factory.ForResource(schema.GroupVersionResource{
-		Group:    "deckhouse.io",
-		Version:  "v1alpha1",
-		Resource: "moduleconfigs",
-	})
+func (i *InformerList) GetVMInformer() kubecache.Indexer {
+	return i.vmInformer.GetIndexer()
 }
 
-func GetInternalVMIInformer(factory dynamicinformer.DynamicSharedInformerFactory) informers.GenericInformer {
-	return factory.ForResource(schema.GroupVersionResource{
-		Group:    "internal.virtualization.deckhouse.io",
-		Version:  "v1",
-		Resource: "internalvirtualizationvirtualmachineinstances",
-	})
+func (i *InformerList) GetVDInformer() kubecache.Indexer {
+	return i.vdInformer.GetIndexer()
+}
+
+func (i *InformerList) GetVMOPInformer() kubecache.Indexer {
+	return i.vmopInformer.GetIndexer()
+}
+
+func (i *InformerList) GetPodInformer() kubecache.Indexer {
+	return i.podInformer.GetIndexer()
+}
+
+func (i *InformerList) GetNodeInformer() kubecache.Indexer {
+	return i.nodeInformer.GetIndexer()
+}
+
+func (i *InformerList) GetModuleInformer() kubecache.Indexer {
+	return i.moduleInformer.GetIndexer()
+}
+
+func (i *InformerList) GetModuleConfigInformer() kubecache.Indexer {
+	return i.moduleConfigInformer.GetIndexer()
+}
+
+func (i *InformerList) GetInternalVMIInformer() kubecache.Indexer {
+	return i.internalVMIInformer.GetIndexer()
 }

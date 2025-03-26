@@ -16,6 +16,8 @@ limitations under the License.
 
 package events
 
+import kubecache "k8s.io/client-go/tools/cache"
+
 //go:generate moq -rm -out mock.go . indexer
 
 type ttlCache interface {
@@ -24,4 +26,15 @@ type ttlCache interface {
 
 type indexer interface {
 	GetByKey(string) (any, bool, error)
+}
+
+type informerList interface {
+	GetVMInformer() kubecache.Indexer
+	GetVDInformer() kubecache.Indexer
+	GetVMOPInformer() kubecache.Indexer
+	GetPodInformer() kubecache.Indexer
+	GetNodeInformer() kubecache.Indexer
+	GetModuleInformer() kubecache.Indexer
+	GetModuleConfigInformer() kubecache.Indexer
+	GetInternalVMIInformer() kubecache.Indexer
 }

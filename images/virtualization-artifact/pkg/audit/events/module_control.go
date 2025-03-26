@@ -22,24 +22,14 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
-type NewModuleControlOptions struct {
-	NodeInformer         indexer
-	ModuleInformer       indexer
-	ModuleConfigInformer indexer
-}
-
-func NewModuleControl(options NewModuleControlOptions) *ModuleControl {
+func NewModuleControl(options NewEventHandlerOptions) eventLogger {
 	return &ModuleControl{
-		nodeInformer:         options.NodeInformer,
-		moduleInformer:       options.ModuleInformer,
-		moduleConfigInformer: options.ModuleConfigInformer,
+		informerList: options.InformerList,
 	}
 }
 
 type ModuleControl struct {
-	nodeInformer         indexer
-	moduleInformer       indexer
-	moduleConfigInformer indexer
+	informerList informerList
 }
 
 func (m *ModuleControl) IsMatched(event *audit.Event) bool {
@@ -76,7 +66,7 @@ func (m *ModuleControl) Log(event *audit.Event) error {
 		eventLog.Level = "warn"
 	}
 
-	moduleConfig, err := getModuleConfigFromInformer(m.moduleConfigInformer, event.ObjectRef.Name)
+	moduleConfig, err := getModuleConfigFromInformer(m.informerList.GetModuleConfigInformer(), event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get moduleconfig from informer", log.Err(err))
 
@@ -88,7 +78,7 @@ func (m *ModuleControl) Log(event *audit.Event) error {
 		eventLog.Level = "warn"
 	}
 
-	module, err := getModuleFromInformer(m.moduleInformer, event.ObjectRef.Name)
+	module, err := getModuleFromInformer(m.informerList.GetModuleInformer(), event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get module from informer", log.Err(err))
 	}

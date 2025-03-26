@@ -26,29 +26,15 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type NewVMOPControlOptions struct {
-	VMInformer   indexer
-	VDInformer   indexer
-	VMOPInformer indexer
-	NodeInformer indexer
-	TTLCache     ttlCache
-}
-
-func NewVMOPControl(options NewVMOPControlOptions) *VMOPControl {
+func NewVMOPControl(options NewEventHandlerOptions) eventLogger {
 	return &VMOPControl{
-		vmInformer:   options.VMInformer,
-		vdInformer:   options.VDInformer,
-		vmopInformer: options.VMOPInformer,
-		nodeInformer: options.NodeInformer,
+		informerList: options.InformerList,
 		ttlCache:     options.TTLCache,
 	}
 }
 
 type VMOPControl struct {
-	vmInformer   indexer
-	vdInformer   indexer
-	nodeInformer indexer
-	vmopInformer indexer
+	informerList informerList
 	ttlCache     ttlCache
 }
 
@@ -83,7 +69,7 @@ func (m *VMOPControl) Log(event *audit.Event) error {
 		return fmt.Errorf("fail to unmarshal event ResponseObject: %w", err)
 	}
 
-	vmop, err := getVMOPFromInformer(m.vmopInformer, event.ObjectRef.Namespace+"/"+response.Metadata.Name)
+	vmop, err := getVMOPFromInformer(m.informerList.GetVMOPInformer(), event.ObjectRef.Namespace+"/"+response.Metadata.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get vmop from informer: %w", err)
 	}
@@ -106,7 +92,7 @@ func (m *VMOPControl) Log(event *audit.Event) error {
 		eventLog.Level = "warn"
 	}
 
-	vm, err := getVMFromInformer(m.ttlCache, m.vmInformer, vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
+	vm, err := getVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
@@ -115,13 +101,13 @@ func (m *VMOPControl) Log(event *audit.Event) error {
 	eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := eventLog.fillVDInfo(m.ttlCache, m.vdInformer, vm); err != nil {
+		if err := eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
 			log.Debug("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := eventLog.fillNodeInfo(m.nodeInformer, vm); err != nil {
+		if err := eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
 			log.Debug("fail to fill node info", log.Err(err))
 		}
 	}

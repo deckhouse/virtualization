@@ -17,16 +17,12 @@ limitations under the License.
 package app
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes"
-	kubecache "k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
@@ -34,7 +30,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/informer"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/server"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const long = `
@@ -77,6 +72,8 @@ func NewAuditCommand() *cobra.Command {
 }
 
 func run(c *cobra.Command, opts Options) error {
+	ttlCache := cache.NewTTLCache(3 * time.Minute)
+
 	kubeCfg, err := config.GetConfig()
 	if err != nil {
 		return err
@@ -87,161 +84,18 @@ func run(c *cobra.Command, opts Options) error {
 		return fmt.Errorf("unable to construct lister client: %w", err)
 	}
 
-	ttlCache := cache.NewTTLCache(3 * time.Minute)
-
-	virtSharedInformerFactory, err := informer.VirtualizationInformerFactory(kubeCfg)
+	informerList, err := informer.NewInformerList(c.Context(), kubeCfg, ttlCache)
 	if err != nil {
-		log.Error("failed to create virtualization shared factory", log.Err(err))
-		return err
+		return fmt.Errorf("unable to create informerList: %w", err)
 	}
 
-	coreSharedInformerFactory, err := informer.CoreInformerFactory(kubeCfg)
+	err = informerList.Run(c.Context())
 	if err != nil {
-		log.Error("failed to create core shared factory", log.Err(err))
-		return err
+		return fmt.Errorf("unable to run informerList: %w", err)
 	}
 
-	dynamicInformerFactory, err := informer.DynamicInformerFactory(kubeCfg)
-	if err != nil {
-		log.Error("failed to create dynamic informer factory", log.Err(err))
-		return err
-	}
-
-	vmInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachines().Informer()
-	_, err = vmInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
-		DeleteFunc: func(obj any) {
-			vm := obj.(*v1alpha2.VirtualMachine)
-			key := fmt.Sprintf("virtualmachines/%s/%s", vm.Namespace, vm.Name)
-			ttlCache.Add(key, vm)
-		},
-	})
-	if err != nil {
-		log.Error("failed to add event handler for virtual machines", log.Err(err))
-		return err
-	}
-	go vmInformer.Run(c.Context().Done())
-
-	vdInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualDisks().Informer()
-	_, err = vdInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
-		DeleteFunc: func(obj any) {
-			vd := obj.(*v1alpha2.VirtualDisk)
-			key := fmt.Sprintf("pods/%s/%s", vd.Namespace, vd.Name)
-			ttlCache.Add(key, vd)
-		},
-	})
-	if err != nil {
-		log.Error("failed to add event handler for virtual disks", log.Err(err))
-		return err
-	}
-	go vdInformer.Run(c.Context().Done())
-
-	vmopInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachineOperations().Informer()
-	go vmopInformer.Run(c.Context().Done())
-
-	podInformer := coreSharedInformerFactory.Core().V1().Pods().Informer()
-	_, err = podInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
-		DeleteFunc: func(obj any) {
-			pod := obj.(*corev1.Pod)
-			key := fmt.Sprintf("pods/%s/%s", pod.Namespace, pod.Name)
-			ttlCache.Add(key, pod)
-		},
-	})
-	if err != nil {
-		log.Error("failed to add event handler for pods", log.Err(err))
-		return err
-	}
-	go podInformer.Run(c.Context().Done())
-
-	nodeInformer := coreSharedInformerFactory.Core().V1().Nodes().Informer()
-	go nodeInformer.Run(c.Context().Done())
-
-	internalVMIInformer := informer.GetInternalVMIInformer(dynamicInformerFactory).Informer()
-	_, err = internalVMIInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
-		DeleteFunc: func(obj any) {
-			unstructuredObj, ok := obj.(*unstructured.Unstructured)
-			if !ok {
-				return
-			}
-			key := fmt.Sprintf("intVMI/%s/%s", unstructuredObj.GetNamespace(), unstructuredObj.GetName())
-			ttlCache.Add(key, unstructuredObj)
-		},
-	})
-	if err != nil {
-		log.Error("failed to add event handler for internalVMI", log.Err(err))
-		return err
-	}
-	go internalVMIInformer.Run(c.Context().Done())
-
-	moduleInformer := informer.GetModuleInformer(dynamicInformerFactory).Informer()
-	go moduleInformer.Run(c.Context().Done())
-
-	moduleConfigInformer := informer.GetModuleConfigsInformer(dynamicInformerFactory).Informer()
-	go moduleConfigInformer.Run(c.Context().Done())
-
-	if !kubecache.WaitForCacheSync(
-		c.Context().Done(),
-		podInformer.HasSynced,
-		nodeInformer.HasSynced,
-		vmInformer.HasSynced,
-		vdInformer.HasSynced,
-		vmopInformer.HasSynced,
-		moduleInformer.HasSynced,
-		moduleConfigInformer.HasSynced,
-		internalVMIInformer.HasSynced,
-	) {
-		return errors.New("failed to wait for caches to sync")
-	}
-
-	srv, err := server.NewServer(
-		":"+opts.Port,
-		events.NewForbid(events.NewForbidOptions{
-			Ctx:      c.Context(),
-			TTLCache: ttlCache,
-			Client:   client,
-		}),
-		events.NewVMManage(events.NewVMManageOptions{
-			VMInformer:   vmInformer.GetIndexer(),
-			NodeInformer: nodeInformer.GetIndexer(),
-			VDInformer:   vdInformer.GetIndexer(),
-			TTLCache:     ttlCache,
-		}),
-		events.NewVMControl(events.NewVMControlOptions{
-			VMInformer:   vmInformer.GetIndexer(),
-			VDInformer:   vdInformer.GetIndexer(),
-			NodeInformer: nodeInformer.GetIndexer(),
-			PodInformer:  podInformer.GetIndexer(),
-			TTLCache:     ttlCache,
-		}),
-		events.NewVMOPControl(events.NewVMOPControlOptions{
-			VMInformer:   vmInformer.GetIndexer(),
-			VDInformer:   vdInformer.GetIndexer(),
-			VMOPInformer: vmopInformer.GetIndexer(),
-			NodeInformer: nodeInformer.GetIndexer(),
-			TTLCache:     ttlCache,
-		}),
-		events.NewVMConnect(events.NewVMConnectOptions{
-			VMInformer:   vmInformer.GetIndexer(),
-			NodeInformer: nodeInformer.GetIndexer(),
-			VDInformer:   vdInformer.GetIndexer(),
-			TTLCache:     ttlCache,
-		}),
-		events.NewModuleComponentControl(events.NewModuleComponentControlOptions{
-			NodeInformer:   nodeInformer.GetIndexer(),
-			PodInformer:    podInformer.GetIndexer(),
-			ModuleInformer: moduleInformer.GetIndexer(),
-			TTLCache:       ttlCache,
-		}),
-		events.NewModuleControl(events.NewModuleControlOptions{
-			NodeInformer:         nodeInformer.GetIndexer(),
-			ModuleInformer:       moduleInformer.GetIndexer(),
-			ModuleConfigInformer: moduleConfigInformer.GetIndexer(),
-		}),
-		events.NewIntegrityCheckVM(events.NewIntegrityCheckVMOptions{
-			VMInformer:          vmInformer.GetIndexer(),
-			InternalVMIInformer: internalVMIInformer.GetIndexer(),
-			TTLCache:            ttlCache,
-		}),
-	)
+	eventHandler := events.NewEventHandler(c.Context(), client, informerList, ttlCache)
+	srv, err := server.NewServer(":"+opts.Port, eventHandler)
 	if err != nil {
 		log.Fatal("failed to create server", log.Err(err))
 	}
