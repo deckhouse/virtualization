@@ -24,24 +24,16 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
-type NewIntegrityCheckVMOptions struct {
-	InternalVMIInformer indexer
-	VMInformer          indexer
-	TTLCache            ttlCache
-}
-
-func NewIntegrityCheckVM(options NewIntegrityCheckVMOptions) *IntegrityCheckVM {
+func NewIntegrityCheckVM(options NewEventHandlerOptions) eventLogger {
 	return &IntegrityCheckVM{
-		internalVMIInformer: options.InternalVMIInformer,
-		vmInformer:          options.VMInformer,
-		ttlCache:            options.TTLCache,
+		informerList: options.InformerList,
+		ttlCache:     options.TTLCache,
 	}
 }
 
 type IntegrityCheckVM struct {
-	internalVMIInformer indexer
-	vmInformer          indexer
-	ttlCache            ttlCache
+	informerList informerList
+	ttlCache     ttlCache
 }
 
 func (m *IntegrityCheckVM) IsMatched(event *audit.Event) bool {
@@ -65,7 +57,7 @@ func (m *IntegrityCheckVM) Log(event *audit.Event) error {
 	eventLog.ReactionType = "info"
 	eventLog.IntegrityCheckAlgo = "sha256"
 
-	vmi, err := getInternalVMIFromInformer(m.ttlCache, m.internalVMIInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	vmi, err := getInternalVMIFromInformer(m.ttlCache, m.informerList.GetInternalVMIInformer(), event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get VMI from informer: %w", err)
 	}

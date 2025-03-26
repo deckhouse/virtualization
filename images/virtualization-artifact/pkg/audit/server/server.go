@@ -19,12 +19,9 @@ package server
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net"
 	"time"
-
-	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
@@ -34,23 +31,18 @@ type Server interface {
 	Run(ctx context.Context, opts ...Option) error
 }
 
-type endpointer interface {
-	IsMatched(*audit.Event) bool
-	Log(*audit.Event) error
-}
-
-func NewServer(addr string, regs ...endpointer) (Server, error) {
+func NewServer(addr string, handler func([]byte) error) (Server, error) {
 	return &tcpServer{
 		gracefulShutdownTimeout: 5 * time.Second,
 		addr:                    addr,
-		eventLoggers:            regs,
+		handler:                 handler,
 	}, nil
 }
 
 type tcpServer struct {
 	gracefulShutdownTimeout time.Duration
 	addr                    string
-	eventLoggers            []endpointer
+	handler                 func([]byte) error
 }
 
 func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
@@ -86,10 +78,6 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 	}
 }
 
-type logMessage struct {
-	Message string `json:"message"`
-}
-
 func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
@@ -103,26 +91,11 @@ func (s *tcpServer) handleConnection(ctx context.Context, conn net.Conn) {
 		default:
 			line := scanner.Bytes()
 
-			var message logMessage
-			if err := json.Unmarshal(line, &message); err != nil {
-				log.Error("error parsing JSON", log.Err(err))
-				continue
+			err := s.handler(line)
+			if err != nil {
+				log.Debug("Error processing line", log.Err(err))
 			}
-
-			var event audit.Event
-			if err := json.Unmarshal([]byte(message.Message), &event); err != nil {
-				log.Error("Error parsing JSON", log.Err(err))
-				continue
-			}
-
-			for _, eventLogger := range s.eventLoggers {
-				if eventLogger.IsMatched(&event) {
-					if err := eventLogger.Log(&event); err != nil {
-						log.Error("fail to log event", log.Err(err), slog.Any("event", event), slog.Any("eventLogger", eventLogger))
-					}
-					break
-				}
-			}
+			continue
 		}
 	}
 

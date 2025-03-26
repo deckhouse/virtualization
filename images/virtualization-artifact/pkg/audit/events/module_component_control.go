@@ -24,27 +24,16 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
-type NewModuleComponentControlOptions struct {
-	NodeInformer   indexer
-	PodInformer    indexer
-	ModuleInformer indexer
-	TTLCache       ttlCache
-}
-
-func NewModuleComponentControl(options NewModuleComponentControlOptions) *ModuleComponentControl {
+func NewModuleComponentControl(options NewEventHandlerOptions) eventLogger {
 	return &ModuleComponentControl{
-		nodeInformer:   options.NodeInformer,
-		podInformer:    options.PodInformer,
-		moduleInformer: options.ModuleInformer,
-		ttlCache:       options.TTLCache,
+		informerList: options.InformerList,
+		ttlCache:     options.TTLCache,
 	}
 }
 
 type ModuleComponentControl struct {
-	podInformer    indexer
-	nodeInformer   indexer
-	moduleInformer indexer
-	ttlCache       ttlCache
+	informerList informerList
+	ttlCache     ttlCache
 }
 
 func (m *ModuleComponentControl) IsMatched(event *audit.Event) bool {
@@ -84,19 +73,19 @@ func (m *ModuleComponentControl) Log(event *audit.Event) error {
 		eventLog.Component = event.ObjectRef.Name
 	}
 
-	pod, err := getPodFromInformer(m.ttlCache, m.podInformer, event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	pod, err := getPodFromInformer(m.ttlCache, m.informerList.GetPodInformer(), event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get pod from informer", log.Err(err))
 
 		return eventLog.Log()
 	}
 
-	err = eventLog.fillNodeInfo(m.nodeInformer, pod)
+	err = eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), pod)
 	if err != nil {
 		log.Debug("fail to fill node info", log.Err(err))
 	}
 
-	module, err := getModuleFromInformer(m.moduleInformer, "virtualization")
+	module, err := getModuleFromInformer(m.informerList.GetModuleInformer(), "virtualization")
 	if err != nil {
 		log.Debug("fail to get module from informer", log.Err(err))
 	}
