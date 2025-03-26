@@ -122,6 +122,5 @@ func IsDataSourceReady(vd *virtv2.VirtualDisk) bool {
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	datasourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 
-	return (readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, vd)) ||
-		(datasourceReadyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(datasourceReadyCondition, vd))
+	return readyCondition.Status == metav1.ConditionTrue || (datasourceReadyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(datasourceReadyCondition, vd))
 }
