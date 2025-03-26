@@ -442,9 +442,6 @@ func (h *BlockDeviceHandler) getBlockDeviceWarnings(ctx context.Context, s state
 			default:
 				return "", fmt.Errorf("unacceptable `Kind` of `BlockDeviceRef`: %s", vmbda.Spec.BlockDeviceRef.Kind)
 			}
-			// todo dlopatin remove this
-			bdStatusRef.Hotplugged = true
-			bdStatusRef.VirtualMachineBlockDeviceAttachmentName = vmbda.Name
 
 			hotplugsByName[bdStatusRef.Name] = struct{}{}
 		}
