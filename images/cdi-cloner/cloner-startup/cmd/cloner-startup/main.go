@@ -59,26 +59,26 @@ func main() {
 	if volumeMode == "block" {
 		uploadBytes, err = helpers.GetBlockDeviceSize(mountPoint)
 		if err != nil {
-			logger.Error("Block size calculation failed: %v", slog.String("error", err.Error()))
+			logger.Error("Block size calculation failed", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 
 		logger.Info(fmt.Sprintf("Start clone block with %s", helpers.FormatBytes(float64(uploadBytes))))
 
 		if err = helpers.RunCloner("blockdevice-clone", uploadBytes, mountPoint); err != nil {
-			logger.Error("Error running cdi-cloner: %v", slog.String("error", err.Error()))
+			logger.Error("Error running cdi-cloner", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 	} else {
 		// Check if directory accesseble
 		if err := os.Chdir(mountPoint); err != nil {
-			logger.Error("Mount point access failed: %v", slog.String("error", err.Error()))
+			logger.Error("Mount point access failed", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 
 		totalBytes, totalUsedBytes, err := helpers.GetDirectorySize(".")
 		if err != nil {
-			logger.Error("Directory size calculation failed: %v", slog.String("error", err.Error()))
+			logger.Error("Directory size calculation failed", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 
@@ -94,7 +94,7 @@ func main() {
 		logger.Info(fmt.Sprintf("Start clone with %s", helpers.FormatBytes(float64(uploadBytes))))
 
 		if err = helpers.RunCloner("filesystem-clone", uploadBytes, mountPoint); err != nil {
-			logger.Error("Error running cdi-cloner: %v", slog.String("error", err.Error()))
+			logger.Error("Error running cdi-cloner", slog.String("error", err.Error()))
 			os.Exit(1)
 		}
 	}
