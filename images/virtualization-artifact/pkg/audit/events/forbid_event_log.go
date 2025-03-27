@@ -37,6 +37,8 @@ type ForbidEventLog struct {
 	IsAdmin         bool   `json:"is_admin"`
 	SourceIP        string `json:"source_ip"`
 	ForbidReason    string `json:"forbid_reason"`
+
+	shouldLog bool
 }
 
 func NewForbidEventLog(event *audit.Event) *ForbidEventLog {
@@ -49,6 +51,8 @@ func NewForbidEventLog(event *audit.Event) *ForbidEventLog {
 		RequestSubject:  event.User.Username,
 		OperationResult: "forbid",
 		ForbidReason:    "unknown",
+
+		shouldLog: true,
 	}
 
 	if event.Annotations[annotations.AnnAuditDecision] != "" {

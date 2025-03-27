@@ -46,10 +46,12 @@ type VMEventLog struct {
 	FirmwareVersion    string `json:"firmware_version"`
 
 	OperationResult string `json:"operation_result"`
+
+	shouldLog bool
 }
 
-func NewVMEventLog(event *audit.Event) VMEventLog {
-	eventLog := VMEventLog{
+func NewVMEventLog(event *audit.Event) *VMEventLog {
+	eventLog := &VMEventLog{
 		Type:            "unknown",
 		Level:           "info",
 		Name:            "unknown",
@@ -64,6 +66,8 @@ func NewVMEventLog(event *audit.Event) VMEventLog {
 		VirtualmachineOS:   "unknown",
 		StorageClasses:     "unknown",
 		FirmwareVersion:    "unknown",
+
+		shouldLog: true,
 	}
 
 	if event.Annotations[annotations.AnnAuditDecision] != "" {
