@@ -125,9 +125,8 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
-		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested.String()))
+		_, ok := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
+		Expect(ok).Should(BeFalse())
 	})
 
 	It("Resize is not requested (vd.spec.size < pvc.spec.size)", func() {
@@ -137,9 +136,8 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
-		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested.String()))
+		_, ok := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
+		Expect(ok).Should(BeFalse())
 	})
 
 	It("Resize is not requested (vd.spec.size == pvc.spec.size)", func() {
@@ -147,9 +145,8 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
-		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.ResizingNotRequested.String()))
+		_, ok := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
+		Expect(ok).Should(BeFalse())
 	})
 
 	It("Resize has started (vd.spec.size > pvc.spec.size)", func() {
@@ -175,9 +172,8 @@ var _ = Describe("Resizing handler Run", func() {
 
 		_, err := h.Handle(testContext(), vd)
 		Expect(err).To(BeNil())
-		resized, _ := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
-		Expect(resized.Status).To(Equal(metav1.ConditionFalse))
-		Expect(resized.Reason).To(Equal(vdcondition.Resized.String()))
+		_, ok := conditions.GetCondition(vdcondition.ResizingType, vd.Status.Conditions)
+		Expect(ok).Should(BeFalse())
 	})
 
 	DescribeTable("Resizing handler Handle", func(args handleTestArgs) {
@@ -382,8 +378,8 @@ var _ = Describe("Resizing handler Run", func() {
 			expectedResizeCalled:    false,
 			expectedHaveError:       false,
 			expectedPhase:           virtv2.DiskPending,
-			expectedStatus:          metav1.ConditionUnknown,
-			expectedReason:          conditions.ReasonUnknown.String(),
+			expectedStatus:          metav1.ConditionFalse,
+			expectedReason:          vdcondition.ResizingNotAvailable.String(),
 		}),
 		Entry("Resize return err", resizeNeededArgs{
 			snapshottingStatus:      metav1.ConditionFalse,
@@ -404,42 +400,6 @@ var _ = Describe("Resizing handler Run", func() {
 			expectedPhase:           virtv2.DiskResizing,
 			expectedStatus:          metav1.ConditionTrue,
 			expectedReason:          vdcondition.InProgress.String(),
-		}),
-	)
-
-	DescribeTable("Resizing Handler ResizeNotNeeded", func(args resizeNotNeededArgs) {
-		recorder := &eventrecord.EventRecorderLoggerMock{
-			EventFunc: func(_ client.Object, _, _, _ string) {},
-		}
-
-		handler := NewResizingHandler(recorder, nil)
-		cb := conditions.NewConditionBuilder(vdcondition.ResizingType)
-
-		resizingCondition := metav1.Condition{
-			Type:    vdcondition.ResizingType.String(),
-			Reason:  args.resizingConditionReason,
-			Status:  metav1.ConditionUnknown,
-			Message: "",
-		}
-
-		result, err := handler.ResizeNotNeeded(nil, resizingCondition, cb)
-
-		Expect(result).To(Equal(reconcile.Result{}))
-		Expect(err).To(BeNil())
-		Expect(cb.Condition().Status).To(Equal(metav1.ConditionFalse))
-		Expect(cb.Condition().Reason).To(Equal(args.expectedReason))
-	},
-		Entry("Resizing in progress", resizeNotNeededArgs{
-			resizingConditionReason: vdcondition.InProgress.String(),
-			expectedReason:          vdcondition.Resized.String(),
-		}),
-		Entry("Resized", resizeNotNeededArgs{
-			resizingConditionReason: vdcondition.Resized.String(),
-			expectedReason:          vdcondition.Resized.String(),
-		}),
-		Entry("Default", resizeNotNeededArgs{
-			resizingConditionReason: conditions.ReasonUnknown.String(),
-			expectedReason:          vdcondition.ResizingNotRequested.String(),
 		}),
 	)
 })
@@ -465,10 +425,5 @@ type resizeNeededArgs struct {
 	expectedHaveError       bool
 	expectedPhase           virtv2.DiskPhase
 	expectedStatus          metav1.ConditionStatus
-	expectedReason          string
-}
-
-type resizeNotNeededArgs struct {
-	resizingConditionReason string
 	expectedReason          string
 }

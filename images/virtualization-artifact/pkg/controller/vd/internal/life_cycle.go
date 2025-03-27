@@ -28,7 +28,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -57,10 +56,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 			Reason: conditions.ReasonUnknown.String(),
 		}
 
-		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Generation(vd.Generation)
+		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 	}
 
@@ -77,7 +73,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			v1alpha2.ReasonVDStorageClassWasDeleted,
+			virtv2.ReasonVDStorageClassWasDeleted,
 			"Spec changes are detected: import process is restarted by controller",
 		)
 
@@ -94,30 +90,33 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	dataSourceReady, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
-	if dataSourceReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(dataSourceReady, vd) {
-		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
-			Generation(vd.Generation).
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown)
-		conditions.SetCondition(cb, &vd.Status.Conditions)
+	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
+	if !source.IsDiskProvisioningFinished(readyCondition) {
+		datasourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
+		if datasourceReadyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(datasourceReadyCondition, vd) {
+			cb.
+				Reason(vdcondition.DatasourceIsNotReady).
+				Message("Datasource is not ready for provisioning.").
+				Status(metav1.ConditionFalse)
+			conditions.SetCondition(cb, &vd.Status.Conditions)
 
-		return reconcile.Result{}, nil
-	}
+			return reconcile.Result{}, nil
+		}
 
-	storageClassReady, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
-	if storageClassReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(storageClassReady, vd) {
-		cb := conditions.NewConditionBuilder(vdcondition.ReadyType).
-			Generation(vd.Generation).
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown)
-		conditions.SetCondition(cb, &vd.Status.Conditions)
+		storageClassReady, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
+		if storageClassReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(storageClassReady, vd) {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.StorageClassIsNotReady).
+				Message("Storage class in not ready")
+			conditions.SetCondition(cb, &vd.Status.Conditions)
 
-		return reconcile.Result{}, nil
-	}
+			return reconcile.Result{}, nil
+		}
 
-	if vd.Status.StorageClassName == "" {
-		return reconcile.Result{}, fmt.Errorf("empty storage class in status")
+		if vd.Status.StorageClassName == "" {
+			return reconcile.Result{}, fmt.Errorf("empty storage class in status")
+		}
 	}
 
 	var ds source.Handler
@@ -133,6 +132,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	result, err := ds.Sync(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("failed to sync virtual disk data source %s: %w", ds.Name(), err)
+	}
+
+	readyConditionAfterSync, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	if readyConditionAfterSync.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyConditionAfterSync, vd) {
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	return result, nil

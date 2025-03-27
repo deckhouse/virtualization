@@ -107,18 +107,16 @@ const (
 	QuotaExceeded ReadyReason = "QuotaExceeded"
 	// ImagePullFailed indicates that there was an issue with importing from DVCR.
 	ImagePullFailed ReadyReason = "ImagePullFailed"
+	// DatasourceIsNotReady indicates that Datasource is not ready for provisioning.
+	DatasourceIsNotReady ReadyReason = "DatasourceIsNotReady"
+	// StorageClassIsNotReady indicates that Storage class is not ready.
+	StorageClassIsNotReady ReadyReason = "StorageClassIsNotReady"
 
-	// ResizingNotRequested indicates that the resize operation has not been requested yet.
-	ResizingNotRequested ResizedReason = "NotRequested"
 	// InProgress indicates that the resize request has been detected and the operation is currently in progress.
 	InProgress ResizedReason = "InProgress"
-	// Resized indicates that the resize operation has been successfully completed.
-	Resized ResizedReason = "Resized"
 	// ResizingNotAvailable indicates that the resize operation is not available for now.
 	ResizingNotAvailable SnapshottingReason = "NotAvailable"
 
-	// SnapshottingNotRequested indicates that the snapshotting operation has been successfully started and is in progress now.
-	SnapshottingNotRequested SnapshottingReason = "NotRequested"
 	// Snapshotting indicates that the snapshotting operation has been successfully started and is in progress now.
 	Snapshotting SnapshottingReason = "Snapshotting"
 	// SnapshottingNotAvailable indicates that the snapshotting operation is not available for now.
