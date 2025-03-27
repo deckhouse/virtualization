@@ -93,8 +93,7 @@ func (m *VMManage) Fill() error {
 	vm, err := getVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
-
-		return m.eventLog.Log()
+		return nil
 	}
 
 	m.eventLog.VirtualmachineUID = string(vm.UID)
@@ -115,5 +114,5 @@ func (m *VMManage) Fill() error {
 		}
 	}
 
-	return m.eventLog.Log()
+	return nil
 }

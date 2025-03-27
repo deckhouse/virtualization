@@ -87,8 +87,7 @@ func (m *ModuleComponentControl) Fill() error {
 	pod, err := getPodFromInformer(m.ttlCache, m.informerList.GetPodInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get pod from informer", log.Err(err))
-
-		return m.eventLog.Log()
+		return nil
 	}
 
 	err = m.eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), pod)
