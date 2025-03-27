@@ -63,10 +63,7 @@ func (h ResizingHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	if !conditions.IsLastUpdated(readyCondition, vd) || readyCondition.Status == metav1.ConditionUnknown {
-		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
-		return reconcile.Result{}, nil
-	} else if readyCondition.Status == metav1.ConditionFalse {
+	if !conditions.IsLastUpdated(readyCondition, vd) || readyCondition.Status != metav1.ConditionTrue {
 		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}

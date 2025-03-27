@@ -21,31 +21,19 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apiruntime "k8s.io/apimachinery/pkg/runtime"
-	virtv1 "kubevirt.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-var _ = DescribeTable("Test Handle cases", func(args SnapshottingHandlerTestHandlerArgs) {
-	scheme := apiruntime.NewScheme()
-	for _, f := range []func(*apiruntime.Scheme) error{
-		virtv2.AddToScheme,
-		virtv1.AddToScheme,
-		corev1.AddToScheme,
-	} {
-		err := f(scheme)
-		Expect(err).NotTo(HaveOccurred(), "failed to add scheme: %s", err)
-	}
-
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(&args.Snapshot).Build()
+var _ = DescribeTable("Test Handle cases", func(args snapshottingHandlerTestHandlerArgs) {
+	fakeClient, err := testutil.NewFakeClientWithObjects(&args.Snapshot)
+	Expect(err).NotTo(HaveOccurred(), "failed to create fake client: %s", err)
 	diskService := service.NewDiskService(fakeClient, nil, nil, "test")
 	snapshottingHandler := NewSnapshottingHandler(diskService)
 
@@ -72,7 +60,7 @@ var _ = DescribeTable("Test Handle cases", func(args SnapshottingHandlerTestHand
 		Expect(snapshottingCondition.Status).Should(Equal(args.ExpectConditionStatus))
 	}
 },
-	Entry("normal case", SnapshottingHandlerTestHandlerArgs{
+	Entry("normal case", snapshottingHandlerTestHandlerArgs{
 		DeletionTimestamp: nil,
 		ReadyCondition: metav1.Condition{
 			Type:   vdcondition.ReadyType.String(),
@@ -80,7 +68,7 @@ var _ = DescribeTable("Test Handle cases", func(args SnapshottingHandlerTestHand
 		},
 		IsExpectCondition: false,
 	}),
-	Entry("not ready case", SnapshottingHandlerTestHandlerArgs{
+	Entry("not ready case", snapshottingHandlerTestHandlerArgs{
 		DeletionTimestamp: nil,
 		ReadyCondition: metav1.Condition{
 			Type:   vdcondition.ReadyType.String(),
@@ -88,7 +76,7 @@ var _ = DescribeTable("Test Handle cases", func(args SnapshottingHandlerTestHand
 		},
 		IsExpectCondition: false,
 	}),
-	Entry("unknown ready case", SnapshottingHandlerTestHandlerArgs{
+	Entry("unknown ready case", snapshottingHandlerTestHandlerArgs{
 		DeletionTimestamp: nil,
 		ReadyCondition: metav1.Condition{
 			Type:   vdcondition.ReadyType.String(),
@@ -97,7 +85,7 @@ var _ = DescribeTable("Test Handle cases", func(args SnapshottingHandlerTestHand
 		IsExpectCondition:     false,
 		ExpectConditionStatus: metav1.ConditionUnknown,
 	}),
-	Entry("not vd snapshots", SnapshottingHandlerTestHandlerArgs{
+	Entry("not vd snapshots", snapshottingHandlerTestHandlerArgs{
 		DeletionTimestamp: nil,
 		ReadyCondition: metav1.Condition{
 			Type:   vdcondition.ReadyType.String(),
@@ -114,7 +102,7 @@ var _ = DescribeTable("Test Handle cases", func(args SnapshottingHandlerTestHand
 		},
 		IsExpectCondition: false,
 	}),
-	Entry("vd has snapshot but resized", SnapshottingHandlerTestHandlerArgs{
+	Entry("vd has snapshot but resized", snapshottingHandlerTestHandlerArgs{
 		DeletionTimestamp: nil,
 		ReadyCondition: metav1.Condition{
 			Type:   vdcondition.ReadyType.String(),
@@ -136,7 +124,7 @@ var _ = DescribeTable("Test Handle cases", func(args SnapshottingHandlerTestHand
 		IsExpectCondition:     true,
 		ExpectConditionStatus: metav1.ConditionFalse,
 	}),
-	Entry("vd has snapshot", SnapshottingHandlerTestHandlerArgs{
+	Entry("vd has snapshot", snapshottingHandlerTestHandlerArgs{
 		DeletionTimestamp: nil,
 		ReadyCondition: metav1.Condition{
 			Type:   vdcondition.ReadyType.String(),
@@ -154,7 +142,7 @@ var _ = DescribeTable("Test Handle cases", func(args SnapshottingHandlerTestHand
 		IsExpectCondition:     true,
 		ExpectConditionStatus: metav1.ConditionTrue,
 	}),
-	Entry("deletion case", SnapshottingHandlerTestHandlerArgs{
+	Entry("deletion case", snapshottingHandlerTestHandlerArgs{
 		DeletionTimestamp: &metav1.Time{
 			Time: metav1.Now().Time,
 		},
@@ -162,7 +150,7 @@ var _ = DescribeTable("Test Handle cases", func(args SnapshottingHandlerTestHand
 	}),
 )
 
-type SnapshottingHandlerTestHandlerArgs struct {
+type snapshottingHandlerTestHandlerArgs struct {
 	DeletionTimestamp     *metav1.Time
 	ReadyCondition        metav1.Condition
 	ResizingCondition     metav1.Condition

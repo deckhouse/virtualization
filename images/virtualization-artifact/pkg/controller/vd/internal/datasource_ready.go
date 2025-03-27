@@ -48,6 +48,11 @@ func NewDatasourceReadyHandler(recorder eventrecord.EventRecorderLogger, blank s
 }
 
 func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+	if vd.DeletionTimestamp != nil {
+		conditions.RemoveCondition(vdcondition.DatasourceReadyType, &vd.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 	if readyCondition.Status == metav1.ConditionTrue {
 		conditions.RemoveCondition(vdcondition.DatasourceReadyType, &vd.Status.Conditions)
@@ -57,11 +62,6 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 	cb := conditions.NewConditionBuilder(vdcondition.DatasourceReadyType).Generation(vd.Generation)
 
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
-
-	if vd.DeletionTimestamp != nil {
-		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
-		return reconcile.Result{}, nil
-	}
 
 	var ds source.Handler
 	if vd.Spec.DataSource == nil {
