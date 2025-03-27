@@ -46,8 +46,8 @@ type IntegrityCheckEventLog struct {
 	shouldLog bool
 }
 
-func NewIntegrityCheckEventLog(event *audit.Event) IntegrityCheckEventLog {
-	eventLog := IntegrityCheckEventLog{
+func NewIntegrityCheckEventLog(event *audit.Event) *IntegrityCheckEventLog {
+	eventLog := &IntegrityCheckEventLog{
 		Type:            "Integrity check",
 		Level:           "critical",
 		Name:            "unknown",
@@ -63,6 +63,8 @@ func NewIntegrityCheckEventLog(event *audit.Event) IntegrityCheckEventLog {
 		IntegrityCheckAlgo: "unknown",
 		ReferenceChecksum:  "unknown",
 		CurrentChecksum:    "unknown",
+
+		shouldLog: true,
 	}
 
 	if event.Annotations[annotations.AnnAuditDecision] != "" {
