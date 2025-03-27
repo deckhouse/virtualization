@@ -27,33 +27,44 @@ import (
 
 func NewVMControl(options NewEventHandlerOptions) eventLogger {
 	return &VMControl{
+		event:        options.Event,
 		informerList: options.InformerList,
 		ttlCache:     options.TTLCache,
 	}
 }
 
 type VMControl struct {
+	event        *audit.Event
+	eventLog     *VMEventLog
 	informerList informerList
 	ttlCache     ttlCache
 }
 
-func (m *VMControl) IsMatched(event *audit.Event) bool {
-	if event.ObjectRef == nil || event.Stage != audit.StageResponseComplete {
+func (m *VMControl) Log() error {
+	return m.eventLog.Log()
+}
+
+func (m *VMControl) ShouldLog() bool {
+	return m.eventLog.shouldLog
+}
+
+func (m *VMControl) IsMatched() bool {
+	if m.event.ObjectRef == nil || m.event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if strings.Contains(event.ObjectRef.Name, "virt-launcher") && event.ObjectRef.Resource == "pods" && event.Verb == "delete" {
+	if strings.Contains(m.event.ObjectRef.Name, "virt-launcher") && m.event.ObjectRef.Resource == "pods" && m.event.Verb == "delete" {
 		return true
 	}
 
 	return false
 }
 
-func (m *VMControl) Log(event *audit.Event) error {
-	eventLog := NewVMEventLog(event)
-	eventLog.Type = "Control VM"
+func (m *VMControl) Fill() error {
+	m.eventLog = NewVMEventLog(m.event)
+	m.eventLog.Type = "Control VM"
 
-	pod, err := getPodFromInformer(m.ttlCache, m.informerList.GetPodInformer(), event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	pod, err := getPodFromInformer(m.ttlCache, m.informerList.GetPodInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get pod from informer: %w", err)
 	}
@@ -65,18 +76,18 @@ func (m *VMControl) Log(event *audit.Event) error {
 		}
 	}
 
-	isControllerAction := strings.Contains(event.User.Username, "system:serviceaccount:d8-virtualization")
-	isNodeAction := strings.Contains(event.User.Username, "system:node")
+	isControllerAction := strings.Contains(m.event.User.Username, "system:serviceaccount:d8-virtualization")
+	isNodeAction := strings.Contains(m.event.User.Username, "system:node")
 
 	switch {
 	case isControllerAction:
-		eventLog.Level = "warn"
+		m.eventLog.Level = "warn"
 
 		switch {
 		case strings.Contains(terminatedStatuses, "guest-shutdown"):
-			eventLog.Name = "VM stoped from OS"
+			m.eventLog.Name = "VM stoped from OS"
 		case strings.Contains(terminatedStatuses, "guest-reset"):
-			eventLog.Name = "VM restarted from OS"
+			m.eventLog.Name = "VM restarted from OS"
 		default:
 			// deleted by vmop
 			return nil
@@ -84,34 +95,33 @@ func (m *VMControl) Log(event *audit.Event) error {
 	case isNodeAction:
 		return nil
 	default:
-		eventLog.Level = "critical"
-		eventLog.Name = "VM killed abnormal way"
+		m.eventLog.Level = "critical"
+		m.eventLog.Name = "VM killed abnormal way"
 	}
 
 	vm, err := getVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), pod.Namespace+"/"+pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"])
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
-
-		return eventLog.Log()
+		return nil
 	}
 
-	eventLog.VirtualmachineUID = string(vm.UID)
+	m.eventLog.VirtualmachineUID = string(vm.UID)
 
 	if vm.Status.GuestOSInfo.Name != "" {
-		eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+		m.eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 	}
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
+		if err := m.eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
 			log.Debug("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
+		if err := m.eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
 			log.Debug("fail to fill node info", log.Err(err))
 		}
 	}
 
-	return eventLog.Log()
+	return nil
 }
