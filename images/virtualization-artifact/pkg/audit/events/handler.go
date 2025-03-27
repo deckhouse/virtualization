@@ -32,11 +32,10 @@ type cache interface {
 }
 
 type eventLogger interface {
-	IsMatched(event *audit.Event) bool
-	// Fill(event *audit.Event) error
-	// ShouldLog() bool
-	// Log() error
-	Log(event *audit.Event) error
+	IsMatched() bool
+	Fill() error
+	ShouldLog() bool
+	Log() error
 }
 
 type logMessage struct {
@@ -56,6 +55,7 @@ var eventLoggers = []func(NewEventHandlerOptions) eventLogger{
 
 type NewEventHandlerOptions struct {
 	Ctx          context.Context
+	Event        *audit.Event
 	InformerList informerList
 	Client       *kubernetes.Clientset
 	TTLCache     ttlCache
@@ -75,12 +75,23 @@ func NewEventHandler(ctx context.Context, client *kubernetes.Clientset, informer
 
 		for _, newEventLogger := range eventLoggers {
 			eventLogger := newEventLogger(NewEventHandlerOptions{Ctx: ctx, Client: client, InformerList: informerList, TTLCache: cache})
-			if eventLogger.IsMatched(&event) {
-				if err := eventLogger.Log(&event); err != nil {
-					log.Debug("fail to log event: %w", err)
-				}
+			if !eventLogger.IsMatched() {
+				continue
+			}
+
+			if err := eventLogger.Fill(); err != nil {
+				log.Debug("fail to fill event: %w", err)
+			}
+
+			if eventLogger.ShouldLog() {
 				break
 			}
+
+			if err := eventLogger.Log(); err != nil {
+				log.Debug("fail to log event: %w", err)
+			}
+
+			break
 		}
 
 		return nil

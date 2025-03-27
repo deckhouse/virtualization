@@ -44,10 +44,12 @@ type ModuleEventLog struct {
 	VirtualizationVersion string `json:"virtualization_version"`
 	VirtualizationName    string `json:"virtualization_name"`
 	FirmwareVersion       string `json:"firmware_version"`
+
+	shouldLog bool
 }
 
-func NewModuleEventLog(event *audit.Event) ModuleEventLog {
-	eventLog := ModuleEventLog{
+func NewModuleEventLog(event *audit.Event) *ModuleEventLog {
+	eventLog := &ModuleEventLog{
 		Type:            "unknown",
 		Level:           "info",
 		Name:            "unknown",
@@ -62,6 +64,8 @@ func NewModuleEventLog(event *audit.Event) ModuleEventLog {
 		VirtualizationName:    "Deckhouse Virtualization Platform",
 		VirtualizationVersion: "unknown",
 		FirmwareVersion:       "unknown",
+
+		shouldLog: true,
 	}
 
 	if event.Annotations[annotations.AnnAuditDecision] != "" {
