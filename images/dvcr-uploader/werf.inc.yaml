@@ -9,13 +9,6 @@ import:
   excludePaths:
   - '**/dvcr-importer'
   - '**/dvcr-cleaner'
-git:
-- add: /images/dvcr-artifact/build
-  to: /
-  includePaths:
-    - uploader_entrypoint.sh
-  stageDependencies:
-    setup: ['*']
 imageSpec:
   config:
     workingDir: "/"
