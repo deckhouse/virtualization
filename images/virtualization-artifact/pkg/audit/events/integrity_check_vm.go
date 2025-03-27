@@ -34,7 +34,7 @@ func NewIntegrityCheckVM(options NewEventHandlerOptions) eventLogger {
 
 type IntegrityCheckVM struct {
 	event        *audit.Event
-	eventLog     *VMEventLog
+	eventLog     *IntegrityCheckEventLog
 	informerList informerList
 	ttlCache     ttlCache
 }
@@ -60,13 +60,13 @@ func (m *IntegrityCheckVM) IsMatched() bool {
 }
 
 func (m *IntegrityCheckVM) Fill() error {
-	eventLog := NewIntegrityCheckEventLog(m.event)
+	m.eventLog = NewIntegrityCheckEventLog(m.event)
 
-	eventLog.Name = "VM config integrity check failed"
-	eventLog.ObjectType = "Virtual machine configuration"
-	eventLog.ControlMethod = "Integrity Check"
-	eventLog.ReactionType = "info"
-	eventLog.IntegrityCheckAlgo = "sha256"
+	m.eventLog.Name = "VM config integrity check failed"
+	m.eventLog.ObjectType = "Virtual machine configuration"
+	m.eventLog.ControlMethod = "Integrity Check"
+	m.eventLog.ReactionType = "info"
+	m.eventLog.IntegrityCheckAlgo = "sha256"
 
 	vmi, err := getInternalVMIFromInformer(m.ttlCache, m.informerList.GetInternalVMIInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
@@ -74,13 +74,13 @@ func (m *IntegrityCheckVM) Fill() error {
 	}
 
 	if vmi.Annotations[annotations.AnnIntegrityCoreChecksum] == vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied] {
-		eventLog.shouldLog = false
+		m.eventLog.shouldLog = false
 		return nil
 	}
 
-	eventLog.VirtualMachineName = vmi.Name
-	eventLog.ReferenceChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksum]
-	eventLog.CurrentChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied]
+	m.eventLog.VirtualMachineName = vmi.Name
+	m.eventLog.ReferenceChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksum]
+	m.eventLog.CurrentChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied]
 
 	return nil
 }
