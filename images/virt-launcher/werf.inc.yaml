@@ -416,7 +416,7 @@ shell:
       cd /node-labeller
       echo '== go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller =='
       go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller
-      echo -e "Done\n"
+      echo "Done"
     - |
       cd /src-vlctl
       export GO111MODULE=on
