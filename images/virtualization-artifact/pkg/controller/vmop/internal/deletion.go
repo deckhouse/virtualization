@@ -18,7 +18,6 @@ package internal
 
 import (
 	"context"
-	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -75,7 +74,7 @@ func (h DeletionHandler) migrateHandle(ctx context.Context, s state.VMOperationS
 		return reconcile.Result{}, err
 	}
 	if mig != nil {
-		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
+		return reconcile.Result{}, nil
 	}
 
 	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMOPCleanup)

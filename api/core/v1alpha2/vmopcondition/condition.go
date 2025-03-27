@@ -62,7 +62,7 @@ const (
 	// ReasonMigrationInProgress is a ReasonCompleted indicating that the migrate signal has been sent and stop is in progress.
 	ReasonMigrationInProgress ReasonCompleted = "MigrationInProgress"
 
-	// ReasonOtherMigrationInProgress is a ReasonCompleted indicating that there are other migration in progress.
+	// ReasonOtherMigrationInProgress is a ReasonCompleted indicating that there are other migrations in progress.
 	ReasonOtherMigrationInProgress ReasonCompleted = "OtherMigrationInProgress"
 
 	// ReasonOperationFailed is a ReasonCompleted indicating that operation has failed.
