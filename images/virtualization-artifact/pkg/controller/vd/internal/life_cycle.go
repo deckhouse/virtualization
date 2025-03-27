@@ -102,21 +102,21 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 
 			return reconcile.Result{}, nil
 		}
-	}
 
-	storageClassReady, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
-	if storageClassReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(storageClassReady, vd) {
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.StorageClassIsNotReady).
-			Message("Storage class in not ready")
-		conditions.SetCondition(cb, &vd.Status.Conditions)
+		storageClassReady, _ := conditions.GetCondition(vdcondition.StorageClassReadyType, vd.Status.Conditions)
+		if storageClassReady.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(storageClassReady, vd) {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.StorageClassIsNotReady).
+				Message("Storage class in not ready")
+			conditions.SetCondition(cb, &vd.Status.Conditions)
 
-		return reconcile.Result{}, nil
-	}
+			return reconcile.Result{}, nil
+		}
 
-	if vd.Status.StorageClassName == "" {
-		return reconcile.Result{}, fmt.Errorf("empty storage class in status")
+		if vd.Status.StorageClassName == "" {
+			return reconcile.Result{}, fmt.Errorf("empty storage class in status")
+		}
 	}
 
 	var ds source.Handler

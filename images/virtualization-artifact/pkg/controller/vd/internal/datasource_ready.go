@@ -54,7 +54,7 @@ func (h DatasourceReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDi
 	}
 
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
-	if readyCondition.Status == metav1.ConditionTrue {
+	if source.IsDiskProvisioningFinished(readyCondition) {
 		conditions.RemoveCondition(vdcondition.DatasourceReadyType, &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
