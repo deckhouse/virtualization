@@ -451,6 +451,7 @@ var _ = Describe("InUseHandler", func() {
 					Namespace: "default",
 				},
 				Status: virtv2.VirtualDiskStatus{
+					Phase:      virtv2.DiskReady,
 					Conditions: []metav1.Condition{},
 				},
 			}
@@ -497,6 +498,7 @@ var _ = Describe("InUseHandler", func() {
 					Namespace: "default",
 				},
 				Status: virtv2.VirtualDiskStatus{
+					Phase:      virtv2.DiskReady,
 					Conditions: []metav1.Condition{},
 				},
 			}
@@ -657,6 +659,7 @@ var _ = Describe("InUseHandler", func() {
 					Namespace: "default",
 				},
 				Status: virtv2.VirtualDiskStatus{
+					Phase: virtv2.DiskReady,
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),

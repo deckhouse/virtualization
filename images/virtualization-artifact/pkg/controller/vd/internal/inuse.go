@@ -139,6 +139,11 @@ func canStartVM(conditions []metav1.Condition) bool {
 }
 
 func (h InUseHandler) checkImageUsage(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+	// If disk is not ready, it cannot be used for create image
+	if vd.Status.Phase != virtv2.DiskReady {
+		return false, nil
+	}
+
 	usedByImage, err := h.checkUsageByVI(ctx, vd)
 	if err != nil {
 		return false, err
