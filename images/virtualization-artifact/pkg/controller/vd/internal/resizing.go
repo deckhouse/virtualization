@@ -207,7 +207,7 @@ func (h ResizingHandler) ResizeNotNeeded(
 	resizingCondition metav1.Condition,
 	cb *conditions.ConditionBuilder,
 ) (reconcile.Result, error) {
-	if resizingCondition.Reason == vdcondition.InProgress.String() {
+	if resizingCondition.Status == metav1.ConditionTrue {
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
