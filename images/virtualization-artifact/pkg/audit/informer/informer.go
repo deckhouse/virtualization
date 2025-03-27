@@ -105,6 +105,7 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 		log.Error("failed to add event handler for pods", log.Err(err))
 		return inf, err
 	}
+	inf.podInformer = podInformer
 
 	internalVMIInformer := GetInternalVMIInformer(dynamicInformerFactory).Informer()
 	_, err = internalVMIInformer.AddEventHandler(kubecache.ResourceEventHandlerFuncs{
@@ -121,6 +122,7 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 		log.Error("failed to add event handler for internalVMI", log.Err(err))
 		return inf, err
 	}
+	inf.internalVMIInformer = internalVMIInformer
 
 	vmopInformer := virtSharedInformerFactory.Virtualization().V1alpha2().VirtualMachineOperations().Informer()
 	inf.vmopInformer = vmopInformer
