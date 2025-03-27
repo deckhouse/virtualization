@@ -24,73 +24,84 @@ import (
 
 func NewVMAccess(options NewEventHandlerOptions) eventLogger {
 	return &VMAccess{
+		event:        options.Event,
 		informerList: options.InformerList,
 		ttlCache:     options.TTLCache,
 	}
 }
 
 type VMAccess struct {
+	event        *audit.Event
+	eventLog     *VMEventLog
 	informerList informerList
 	ttlCache     ttlCache
 }
 
-func (m *VMAccess) IsMatched(event *audit.Event) bool {
-	if event.ObjectRef == nil {
+func (m *VMAccess) Log() error {
+	return m.eventLog.Log()
+}
+
+func (m *VMAccess) ShouldLog() bool {
+	return m.eventLog.shouldLog
+}
+
+func (m *VMAccess) IsMatched() bool {
+	if m.event.ObjectRef == nil {
 		return false
 	}
 
-	if event.ObjectRef.Resource != "virtualmachines" || event.ObjectRef.APIGroup != "subresources.virtualization.deckhouse.io" {
+	if m.event.ObjectRef.Resource != "virtualmachines" || m.event.ObjectRef.APIGroup != "subresources.virtualization.deckhouse.io" {
 		return false
 	}
 
-	if event.ObjectRef.Subresource == "console" || event.ObjectRef.Subresource == "vnc" || event.ObjectRef.Subresource == "portforward" {
+	if m.event.ObjectRef.Subresource == "console" || m.event.ObjectRef.Subresource == "vnc" || m.event.ObjectRef.Subresource == "portforward" {
 		return true
 	}
 
 	return false
 }
 
-func (m *VMAccess) Log(event *audit.Event) error {
-	eventLog := NewVMEventLog(event)
-	eventLog.Type = "Access to VM"
+func (m *VMAccess) Fill() error {
+	m.eventLog = NewVMEventLog(m.event)
+	m.eventLog.Type = "Access to VM"
 
-	switch event.ObjectRef.Subresource {
+	switch m.event.ObjectRef.Subresource {
 	case "console":
-		eventLog.Name = "Access to VM via serial console"
+		m.eventLog.Name = "Access to VM via serial console"
 	case "vnc":
-		eventLog.Name = "Access to VM via VNC"
+		m.eventLog.Name = "Access to VM via VNC"
 	case "portforward":
-		eventLog.Name = "Access to VM via portforward"
+		m.eventLog.Name = "Access to VM via portforward"
 	}
 
-	if event.Stage == audit.StageRequestReceived {
-		eventLog.Name = "Request " + eventLog.Name
+	if m.event.Stage == audit.StageRequestReceived {
+		m.eventLog.Name = "Request " + m.eventLog.Name
 	}
 
-	vm, err := getVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	vm, err := getVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
 
-		return eventLog.Log()
+		return nil
 	}
 
-	eventLog.VirtualmachineUID = string(vm.UID)
+	m.eventLog.VirtualmachineUID = string(vm.UID)
 
 	if vm.Status.GuestOSInfo.Name != "" {
-		eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+		m.eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 	}
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
+		if err := m.eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
 			log.Debug("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
+		if err := m.eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
 			log.Debug("fail to fill node info", log.Err(err))
 		}
 	}
 
-	return eventLog.Log()
+	return nil
 }

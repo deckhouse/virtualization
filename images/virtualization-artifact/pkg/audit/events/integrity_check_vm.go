@@ -26,30 +26,41 @@ import (
 
 func NewIntegrityCheckVM(options NewEventHandlerOptions) eventLogger {
 	return &IntegrityCheckVM{
+		event:        options.Event,
 		informerList: options.InformerList,
 		ttlCache:     options.TTLCache,
 	}
 }
 
 type IntegrityCheckVM struct {
+	event        *audit.Event
+	eventLog     *VMEventLog
 	informerList informerList
 	ttlCache     ttlCache
 }
 
-func (m *IntegrityCheckVM) IsMatched(event *audit.Event) bool {
-	if (event.ObjectRef == nil && event.ObjectRef.Name != "") || event.Stage != audit.StageResponseComplete {
+func (m *IntegrityCheckVM) Log() error {
+	return m.eventLog.Log()
+}
+
+func (m *IntegrityCheckVM) ShouldLog() bool {
+	return m.eventLog.shouldLog
+}
+
+func (m *IntegrityCheckVM) IsMatched() bool {
+	if (m.event.ObjectRef == nil && m.event.ObjectRef.Name != "") || m.event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if (event.Verb == "patch" || event.Verb == "update") && event.ObjectRef.Resource == "internalvirtualizationvirtualmachineinstances" {
+	if (m.event.Verb == "patch" || m.event.Verb == "update") && m.event.ObjectRef.Resource == "internalvirtualizationvirtualmachineinstances" {
 		return true
 	}
 
 	return false
 }
 
-func (m *IntegrityCheckVM) Log(event *audit.Event) error {
-	eventLog := NewIntegrityCheckEventLog(event)
+func (m *IntegrityCheckVM) Fill() error {
+	eventLog := NewIntegrityCheckEventLog(m.event)
 
 	eventLog.Name = "VM config integrity check failed"
 	eventLog.ObjectType = "Virtual machine configuration"
@@ -57,12 +68,13 @@ func (m *IntegrityCheckVM) Log(event *audit.Event) error {
 	eventLog.ReactionType = "info"
 	eventLog.IntegrityCheckAlgo = "sha256"
 
-	vmi, err := getInternalVMIFromInformer(m.ttlCache, m.informerList.GetInternalVMIInformer(), event.ObjectRef.Namespace+"/"+event.ObjectRef.Name)
+	vmi, err := getInternalVMIFromInformer(m.ttlCache, m.informerList.GetInternalVMIInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get VMI from informer: %w", err)
 	}
 
 	if vmi.Annotations[annotations.AnnIntegrityCoreChecksum] == vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied] {
+		eventLog.shouldLog = false
 		return nil
 	}
 
@@ -70,5 +82,5 @@ func (m *IntegrityCheckVM) Log(event *audit.Event) error {
 	eventLog.ReferenceChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksum]
 	eventLog.CurrentChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied]
 
-	return eventLog.Log()
+	return nil
 }

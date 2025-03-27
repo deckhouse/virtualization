@@ -42,6 +42,8 @@ type IntegrityCheckEventLog struct {
 	IntegrityCheckAlgo string `json:"integrity_check_algo"`
 	ReferenceChecksum  string `json:"reference_checksum"`
 	CurrentChecksum    string `json:"current_checksum"`
+
+	shouldLog bool
 }
 
 func NewIntegrityCheckEventLog(event *audit.Event) IntegrityCheckEventLog {

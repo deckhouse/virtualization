@@ -31,57 +31,68 @@ import (
 func NewForbid(options NewEventHandlerOptions) eventLogger {
 	return &Forbid{
 		ctx:       options.Ctx,
+		event:     options.Event,
 		clientset: options.Client,
 		ttlCache:  options.TTLCache,
 	}
 }
 
 type Forbid struct {
+	event     *audit.Event
+	eventLog  *ForbidEventLog
 	ctx       context.Context
 	ttlCache  ttlCache
 	clientset *kubernetes.Clientset
 }
 
-func (m *Forbid) IsMatched(event *audit.Event) bool {
-	if event.ObjectRef == nil || event.Stage != audit.StageResponseComplete {
+func (m *Forbid) Log() error {
+	return m.eventLog.Log()
+}
+
+func (m *Forbid) ShouldLog() bool {
+	return m.eventLog.shouldLog
+}
+
+func (m *Forbid) IsMatched() bool {
+	if m.event.ObjectRef == nil || m.event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if event.Annotations[annotations.AnnAuditDecision] == "forbid" {
+	if m.event.Annotations[annotations.AnnAuditDecision] == "forbid" {
 		return true
 	}
 
 	return false
 }
 
-func (m *Forbid) Log(event *audit.Event) error {
-	eventLog := NewForbidEventLog(event)
-	eventLog.Type = "Forbidden operation"
+func (m *Forbid) Fill() error {
+	m.eventLog = NewForbidEventLog(m.event)
+	m.eventLog.Type = "Forbidden operation"
 
-	eventLog.SourceIP = strings.Join(event.SourceIPs, ",")
+	m.eventLog.SourceIP = strings.Join(m.event.SourceIPs, ",")
 
-	resource := event.ObjectRef.Resource
-	if event.ObjectRef.Namespace != "" {
-		resource += "/" + event.ObjectRef.Namespace
+	resource := m.event.ObjectRef.Resource
+	if m.event.ObjectRef.Namespace != "" {
+		resource += "/" + m.event.ObjectRef.Namespace
 	}
-	if event.ObjectRef.Name != "" {
-		resource += "/" + event.ObjectRef.Name
+	if m.event.ObjectRef.Name != "" {
+		resource += "/" + m.event.ObjectRef.Name
 	}
 
-	eventLog.Name = fmt.Sprintf(
+	m.eventLog.Name = fmt.Sprintf(
 		"User (%s) attempted to perform a forbidden operation (%s) on resource (%s).",
-		event.User.Username,
-		event.Verb,
+		m.event.User.Username,
+		m.event.Verb,
 		resource)
 
-	isAdmin, err := m.isAdmin(event.User.Username)
+	isAdmin, err := m.isAdmin(m.event.User.Username)
 	if err != nil {
 		log.Debug(err.Error())
 	}
 
-	eventLog.IsAdmin = isAdmin
+	m.eventLog.IsAdmin = isAdmin
 
-	return eventLog.Log()
+	return nil
 }
 
 func (m *Forbid) isAdmin(user string) (bool, error) {
