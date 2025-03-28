@@ -30,21 +30,21 @@ import (
 
 func NewVMOPControl(options events.EventLoggerOptions) events.EventLogger {
 	return &VMOPControl{
-		event:        options.GetEvent(),
-		informerList: options.GetInformerList(),
-		ttlCache:     options.GetTTLCache(),
+		Event:        options.GetEvent(),
+		InformerList: options.GetInformerList(),
+		TTLCache:     options.GetTTLCache(),
 	}
 }
 
 type VMOPControl struct {
-	event        *audit.Event
-	eventLog     *VMEventLog
-	informerList events.InformerList
-	ttlCache     events.TTLCache
+	EventLog     *VMEventLog
+	Event        *audit.Event
+	InformerList events.InformerList
+	TTLCache     events.TTLCache
 }
 
 func (m *VMOPControl) Log() error {
-	return m.eventLog.Log()
+	return m.EventLog.Log()
 }
 
 func (m *VMOPControl) ShouldLog() bool {
@@ -52,11 +52,15 @@ func (m *VMOPControl) ShouldLog() bool {
 }
 
 func (m *VMOPControl) IsMatched() bool {
-	if m.event.ObjectRef == nil || m.event.Stage != audit.StageResponseComplete {
+	if m.Event.ObjectRef == nil || m.Event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if m.event.ObjectRef.Resource == "virtualmachineoperations" && m.event.Verb == "create" {
+	if m.Event.Level != audit.LevelRequestResponse {
+		return false
+	}
+
+	if m.Event.ObjectRef.Resource == "virtualmachineoperations" && m.Event.Verb == "create" {
 		return true
 	}
 
@@ -73,54 +77,59 @@ type vmopResponseObjectMetadata struct {
 }
 
 func (m *VMOPControl) Fill() error {
-	m.eventLog = NewVMEventLog(m.event)
-	m.eventLog.Type = "Control VM"
+	m.EventLog = NewVMEventLog(m.Event)
+	m.EventLog.Type = "Control VM"
 
 	var response vmopResponseObject
-	err := json.Unmarshal(m.event.ResponseObject.Raw, &response)
+	err := json.Unmarshal(m.Event.ResponseObject.Raw, &response)
 	if err != nil {
 		return fmt.Errorf("fail to unmarshal event ResponseObject: %w", err)
 	}
 
-	vmop, err := util.GetVMOPFromInformer(m.informerList.GetVMOPInformer(), m.event.ObjectRef.Namespace+"/"+response.Metadata.Name)
+	vmop, err := util.GetVMOPFromInformer(m.InformerList.GetVMOPInformer(), m.Event.ObjectRef.Namespace+"/"+response.Metadata.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get vmop from informer: %w", err)
 	}
 
 	switch vmop.Spec.Type {
 	case v1alpha2.VMOPTypeStart:
-		m.eventLog.Name = "VM started"
-		m.eventLog.Level = "info"
+		m.EventLog.Name = "VM started"
+		m.EventLog.Level = "info"
+		m.EventLog.ActionType = "start"
 	case v1alpha2.VMOPTypeStop:
-		m.eventLog.Name = "VM stopped"
-		m.eventLog.Level = "warn"
+		m.EventLog.Name = "VM stopped"
+		m.EventLog.Level = "warn"
+		m.EventLog.ActionType = "stop"
 	case v1alpha2.VMOPTypeRestart:
-		m.eventLog.Name = "VM restarted"
-		m.eventLog.Level = "warn"
+		m.EventLog.Name = "VM restarted"
+		m.EventLog.Level = "warn"
+		m.EventLog.ActionType = "restart"
 	case v1alpha2.VMOPTypeMigrate:
-		m.eventLog.Name = "VM migrated"
-		m.eventLog.Level = "warn"
+		m.EventLog.Name = "VM migrated"
+		m.EventLog.Level = "warn"
+		m.EventLog.ActionType = "migrate"
 	case v1alpha2.VMOPTypeEvict:
-		m.eventLog.Name = "VM evicted"
-		m.eventLog.Level = "warn"
+		m.EventLog.Name = "VM evicted"
+		m.EventLog.Level = "warn"
+		m.EventLog.ActionType = "evict"
 	}
 
-	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
+	vm, err := util.GetVMFromInformer(m.TTLCache, m.InformerList.GetVMInformer(), vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
 
-	m.eventLog.VirtualmachineUID = string(vm.UID)
-	m.eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+	m.EventLog.VirtualmachineUID = string(vm.UID)
+	m.EventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := m.eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
+		if err := m.EventLog.fillVDInfo(m.TTLCache, m.InformerList.GetVDInformer(), vm); err != nil {
 			log.Debug("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := m.eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
+		if err := m.EventLog.fillNodeInfo(m.InformerList.GetNodeInformer(), vm); err != nil {
 			log.Debug("fail to fill node info", log.Err(err))
 		}
 	}

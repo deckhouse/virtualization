@@ -26,37 +26,41 @@ import (
 
 func NewVMAccess(options events.EventLoggerOptions) events.EventLogger {
 	return &VMAccess{
-		event:        options.GetEvent(),
-		informerList: options.GetInformerList(),
-		ttlCache:     options.GetTTLCache(),
+		Event:        options.GetEvent(),
+		InformerList: options.GetInformerList(),
+		TTLCache:     options.GetTTLCache(),
 	}
 }
 
 type VMAccess struct {
-	event        *audit.Event
-	eventLog     *VMEventLog
-	informerList events.InformerList
-	ttlCache     events.TTLCache
+	Event        *audit.Event
+	EventLog     *VMEventLog
+	InformerList events.InformerList
+	TTLCache     events.TTLCache
 }
 
 func (m *VMAccess) Log() error {
-	return m.eventLog.Log()
+	return m.EventLog.Log()
 }
 
 func (m *VMAccess) ShouldLog() bool {
-	return m.eventLog.shouldLog
+	return m.EventLog.shouldLog
 }
 
 func (m *VMAccess) IsMatched() bool {
-	if m.event.ObjectRef == nil {
+	if m.Event.ObjectRef == nil {
 		return false
 	}
 
-	if m.event.ObjectRef.Resource != "virtualmachines" || m.event.ObjectRef.APIGroup != "subresources.virtualization.deckhouse.io" {
+	if m.Event.Verb != "get" {
 		return false
 	}
 
-	if m.event.ObjectRef.Subresource == "console" || m.event.ObjectRef.Subresource == "vnc" || m.event.ObjectRef.Subresource == "portforward" {
+	if m.Event.ObjectRef.Resource != "virtualmachines" || m.Event.ObjectRef.APIGroup != "subresources.virtualization.deckhouse.io" {
+		return false
+	}
+
+	if m.Event.ObjectRef.Subresource == "console" || m.Event.ObjectRef.Subresource == "vnc" || m.Event.ObjectRef.Subresource == "portforward" {
 		return true
 	}
 
@@ -64,43 +68,43 @@ func (m *VMAccess) IsMatched() bool {
 }
 
 func (m *VMAccess) Fill() error {
-	m.eventLog = NewVMEventLog(m.event)
-	m.eventLog.Type = "Access to VM"
+	m.EventLog = NewVMEventLog(m.Event)
+	m.EventLog.Type = "Access to VM"
 
-	switch m.event.ObjectRef.Subresource {
+	switch m.Event.ObjectRef.Subresource {
 	case "console":
-		m.eventLog.Name = "Access to VM via serial console"
+		m.EventLog.Name = "Access to VM via serial console"
 	case "vnc":
-		m.eventLog.Name = "Access to VM via VNC"
+		m.EventLog.Name = "Access to VM via VNC"
 	case "portforward":
-		m.eventLog.Name = "Access to VM via portforward"
+		m.EventLog.Name = "Access to VM via portforward"
 	}
 
-	if m.event.Stage == audit.StageRequestReceived {
-		m.eventLog.Name = "Request " + m.eventLog.Name
+	if m.Event.Stage == audit.StageRequestReceived {
+		m.EventLog.Name = "Request " + m.EventLog.Name
 	}
 
-	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
+	vm, err := util.GetVMFromInformer(m.TTLCache, m.InformerList.GetVMInformer(), m.Event.ObjectRef.Namespace+"/"+m.Event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
 
 		return nil
 	}
 
-	m.eventLog.VirtualmachineUID = string(vm.UID)
+	m.EventLog.VirtualmachineUID = string(vm.UID)
 
 	if vm.Status.GuestOSInfo.Name != "" {
-		m.eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+		m.EventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 	}
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := m.eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
+		if err := m.EventLog.fillVDInfo(m.TTLCache, m.InformerList.GetVDInformer(), vm); err != nil {
 			log.Debug("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := m.eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
+		if err := m.EventLog.fillNodeInfo(m.InformerList.GetNodeInformer(), vm); err != nil {
 			log.Debug("fail to fill node info", log.Err(err))
 		}
 	}
