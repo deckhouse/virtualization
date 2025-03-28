@@ -88,28 +88,59 @@ func (v d8VirtualizationCMD) SshCommand(vmName, command string, opts SshOptions)
 		timeout = opts.Timeout
 	}
 
-	localSshOpts := "--local-ssh-opts='-o StrictHostKeyChecking=no' --local-ssh-opts='-o UserKnownHostsFile=/dev/null' --local-ssh-opts='-o LogLevel=ERROR'"
-	localSshOpts = fmt.Sprintf("%s --local-ssh-opts='-o ConnectTimeout=%s'", localSshOpts, timeout.String())
+	// Begin with command
+	sshCmd := []string{
+		fmt.Sprintf("%s ssh", v.cmd),
+	}
 
-	cmd := fmt.Sprintf("%s ssh %s -c '%s' --local-ssh=true %s", v.cmd, vmName, command, localSshOpts)
-	cmd = v.addNamespace(cmd, opts.Namespace)
+	// Continue with more arguments.
+	// Add VM name.
+	sshCmd = append(sshCmd, vmName)
+
+	// Add VM namespace.
+	if opts.Namespace != "" {
+		sshCmd = append(sshCmd, fmt.Sprintf("-n %s", opts.Namespace))
+	}
+
+	// Add command to run via SSH.
+	sshCmd = append(sshCmd, fmt.Sprintf("-c '%s'", command))
+
+	// Use local ssh.
+	sshCmd = append(sshCmd, "--local-ssh=true")
+
+	// Add more SSH options.
+	sshOpts := []string{
+		"-o StrictHostKeyChecking=no",
+		"-o UserKnownHostsFile=/dev/null",
+		"-o LogLevel=ERROR",
+		// ConnectTimeout in seconds.
+		fmt.Sprintf("-o ConnectTimeout=%.0f", timeout.Seconds()),
+		// Set retries for more robust connection.
+		"-o ConnectionAttempts=5",
+	}
+	for _, sshOpt := range sshOpts {
+		sshCmd = append(sshCmd, fmt.Sprintf("--local-ssh-opts='%s'", sshOpt))
+	}
+
+	// Enable debug messages into stderr.
+	sshCmd = append(sshCmd, "-vvv")
 
 	if opts.Username != "" {
-		cmd = fmt.Sprintf("%s --username=%s", cmd, opts.Username)
+		sshCmd = append(sshCmd, fmt.Sprintf("--username=%s", opts.Username))
 	}
 
 	if opts.IdenityFile != "" {
-		cmd = fmt.Sprintf("%s --identity-file=%s", cmd, opts.IdenityFile)
+		sshCmd = append(sshCmd, fmt.Sprintf("--identity-file=%s", opts.IdenityFile))
 	}
 
 	if opts.Port != 0 {
-		cmd = fmt.Sprintf("%s --port=%d", cmd, opts.Port)
+		sshCmd = append(sshCmd, fmt.Sprintf("--port=%d", opts.Port))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	return v.ExecContext(ctx, cmd)
+	return v.ExecContext(ctx, strings.Join(sshCmd, " "))
 }
 
 func (v d8VirtualizationCMD) StartVM(vmName string, opts SshOptions) *executor.CMDResult {
