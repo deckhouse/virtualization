@@ -76,6 +76,7 @@ type BlockDeviceHandler struct {
 
 var (
 	ErrBlockDeviceLimitExceeded       = errors.New("block device limit exceeded")
+	ErrBlockDeviceNotReady            = errors.New("block device not ready")
 	ErrConflictedVirtualDisksDetected = errors.New("conflicted virtual disks detected")
 )
 
@@ -130,30 +131,14 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, err
 	}
 
-	canStartVM, blockDevicesReadinessCondition := h.checkBlockDevicesToBeReady(s, bdState, log)
-	blockDevicesUsageReadinessCondition, err := h.checkBlockDevicesToBeReadyForUse(ctx, s)
-	if err != nil {
+	if err = h.checkBlockDevicesToBeReady(ctx, s, bdState); err != nil {
+		if errors.Is(err, ErrBlockDeviceNotReady) {
+			return reconcile.Result{}, nil
+		}
 		return reconcile.Result{}, err
 	}
 
-	if blockDevicesReadinessCondition.Condition().Status == metav1.ConditionFalse {
-		if blockDevicesUsageReadinessCondition.Condition().Status == metav1.ConditionTrue {
-			isWFFC, err := h.checkVirtualDisksToBeWFFC(ctx, s)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			if isWFFC && canStartVM {
-				blockDevicesReadinessCondition.Reason(vmcondition.ReasonWaitingForProvisioningToPVC)
-			}
-		}
-
-		conditions.SetCondition(blockDevicesReadinessCondition, &changed.Status.Conditions)
-		return reconcile.Result{}, nil
-	}
-
-	conditions.SetCondition(blockDevicesUsageReadinessCondition, &changed.Status.Conditions)
-	return reconcile.Result{}, nil
+	return reconcile.Result{}, h.checkBlockDevicesToBeReadyForUse(ctx, s)
 }
 
 func (h *BlockDeviceHandler) checkVirtualDisksToBeWFFC(ctx context.Context, s state.VirtualMachineState) (bool, error) {
@@ -171,49 +156,53 @@ func (h *BlockDeviceHandler) checkVirtualDisksToBeWFFC(ctx context.Context, s st
 	return false, nil
 }
 
-func (h *BlockDeviceHandler) checkBlockDevicesToBeReadyForUse(ctx context.Context, s state.VirtualMachineState) (*conditions.ConditionBuilder, error) {
+func (h *BlockDeviceHandler) checkBlockDevicesToBeReadyForUse(ctx context.Context, s state.VirtualMachineState) error {
 	vm := s.VirtualMachine().Changed()
 	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
 		Generation(vm.Generation)
 	vds, err := s.VirtualDisksByName(ctx)
 	if err != nil {
-		return cb, err
+		return err
 	}
-
 	diskState := h.getVirtualDisksState(vm, vds)
 
 	if len(vds) == diskState.readyForUseCount {
 		cb.Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonBlockDevicesReady).
 			Message("")
-		return cb, nil
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
 	}
 
 	if diskState.message != "" {
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDevicesNotReady).
 			Message(diskState.message)
-		return cb, nil
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
 	}
 
 	if diskState.readyForUseCount == 0 && diskState.usingInOtherVMCount == 0 && diskState.usingForCreateImageCount == 0 {
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDevicesNotReady).
 			Message(fmt.Sprintf("Waiting for block devices to be ready to use: %d/%d.", 0, len(vds)))
-		return cb, nil
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
 	}
 
 	if len(vds) > 1 {
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonBlockDevicesNotReady).
 			Message(h.buildStatusMessage(diskState, len(vds)))
-		return cb, nil
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
 	}
 
 	cb.Status(metav1.ConditionTrue).
 		Reason(vmcondition.ReasonBlockDevicesReady).
 		Message("")
-	return cb, nil
+	conditions.SetCondition(cb, &vm.Status.Conditions)
+	return nil
 }
 
 // getVirtualDisksState checks the state of virtual disks and returns counts of disks ready for use,
@@ -294,7 +283,9 @@ func (h *BlockDeviceHandler) checkVDToUseCurrentVM(vd *virtv2.VirtualDisk, vm *v
 	return false
 }
 
-func (h *BlockDeviceHandler) checkBlockDevicesToBeReady(s state.VirtualMachineState, bdState BlockDevicesState, log *slog.Logger) (bool, *conditions.ConditionBuilder) {
+func (h *BlockDeviceHandler) checkBlockDevicesToBeReady(ctx context.Context, s state.VirtualMachineState, bdState BlockDevicesState) error {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(nameBlockDeviceHandler))
+
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
 
@@ -315,18 +306,32 @@ func (h *BlockDeviceHandler) checkBlockDevicesToBeReady(s state.VirtualMachineSt
 		msg += "."
 
 		log.Info(msg, "actualReady", readyCount, "expectedReady", len(current.Spec.BlockDeviceRefs))
-
 		h.recorder.Event(changed, corev1.EventTypeNormal, reason.String(), msg)
+
 		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonBlockDevicesNotReady).
 			Message(msg)
-		return canStartVM, cb
+
+		isWFFC, err := h.checkVirtualDisksToBeWFFC(ctx, s)
+		if err != nil {
+			return err
+		}
+
+		if isWFFC && canStartVM {
+			cb.Reason(vmcondition.ReasonWaitingForProvisioningToPVC)
+			conditions.SetCondition(cb, &changed.Status.Conditions)
+			return nil
+		} else {
+			cb.Reason(vmcondition.ReasonBlockDevicesNotReady)
+			conditions.SetCondition(cb, &changed.Status.Conditions)
+			return ErrBlockDeviceNotReady
+		}
 	}
 
 	cb.Status(metav1.ConditionTrue).
 		Reason(vmcondition.ReasonBlockDevicesReady).
 		Message("")
-	return true, cb
+	conditions.SetCondition(cb, &changed.Status.Conditions)
+	return nil
 }
 
 func (h *BlockDeviceHandler) checkBlockDeviceConflicts(ctx context.Context, s state.VirtualMachineState, log *slog.Logger) error {
