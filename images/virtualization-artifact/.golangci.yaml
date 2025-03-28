@@ -59,3 +59,16 @@ linters:
     - unparam
     - unused
     - whitespace
+    # add new
+    # ====
+    - contextcheck
+    # Test-related checks. All of them are good.
+    - tenv
+    - testableexamples
+    - thelper
+    - tparallel
+    # Finds wasted assignment statements.
+    - wastedassign
+    # Checks that package variables are not reassigned.
+    # Super rare case but can catch bad things (like `io.EOF = nil`)
+    - reassign

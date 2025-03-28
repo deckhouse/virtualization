@@ -37,7 +37,7 @@ linters:
     - errcheck
     - errname
     - errorlint
-    - exportloopref
+    - looppointer
     - gci
     - gocritic
     - gofmt
