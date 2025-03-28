@@ -1,0 +1,5 @@
+vd:
+  features:
+    - summary: implement conditions rfc
+      pull_request: https://github.com/deckhouse/virtualization/pull/780
+
