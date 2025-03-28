@@ -14,25 +14,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package module
 
 import (
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 )
 
-func NewModuleControl(options NewEventHandlerOptions) eventLogger {
+func NewModuleControl(options events.EventLoggerOptions) events.EventLogger {
 	return &ModuleControl{
-		event:        options.Event,
-		informerList: options.InformerList,
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
 	}
 }
 
 type ModuleControl struct {
 	event        *audit.Event
 	eventLog     *ModuleEventLog
-	informerList informerList
+	informerList events.InformerList
 }
 
 func (m *ModuleControl) Log() error {
@@ -77,7 +79,7 @@ func (m *ModuleControl) Fill() error {
 		m.eventLog.Level = "warn"
 	}
 
-	moduleConfig, err := getModuleConfigFromInformer(m.informerList.GetModuleConfigInformer(), m.event.ObjectRef.Name)
+	moduleConfig, err := util.GetModuleConfigFromInformer(m.informerList.GetModuleConfigInformer(), m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get moduleconfig from informer", log.Err(err))
 		return nil
@@ -88,7 +90,7 @@ func (m *ModuleControl) Fill() error {
 		m.eventLog.Level = "warn"
 	}
 
-	module, err := getModuleFromInformer(m.informerList.GetModuleInformer(), m.event.ObjectRef.Name)
+	module, err := util.GetModuleFromInformer(m.informerList.GetModuleInformer(), m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get module from informer", log.Err(err))
 	}

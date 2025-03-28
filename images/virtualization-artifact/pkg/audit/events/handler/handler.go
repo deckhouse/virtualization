@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package handler
 
 import (
 	"context"
@@ -25,43 +25,64 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events/forbid"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events/integrity"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events/module"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events/vm"
 )
 
-type cache interface {
-	Get(key string) (any, bool)
+type NewEventHandlerOptions struct {
+	Ctx          context.Context
+	Event        *audit.Event
+	InformerList events.InformerList
+	Client       *kubernetes.Clientset
+	TTLCache     events.TTLCache
 }
 
-type eventLogger interface {
-	IsMatched() bool
-	Fill() error
-	ShouldLog() bool
-	Log() error
+func (o NewEventHandlerOptions) GetCtx() context.Context {
+	return o.Ctx
+}
+
+func (o NewEventHandlerOptions) GetEvent() *audit.Event {
+	return o.Event
+}
+
+func (o NewEventHandlerOptions) GetInformerList() events.InformerList {
+	return o.InformerList
+}
+
+func (o NewEventHandlerOptions) GetClient() *kubernetes.Clientset {
+	return o.Client
+}
+
+func (o NewEventHandlerOptions) GetTTLCache() events.TTLCache {
+	return o.TTLCache
 }
 
 type logMessage struct {
 	Message string `json:"message"`
 }
 
-var eventLoggers = []func(NewEventHandlerOptions) eventLogger{
-	NewForbid,
-	NewVMManage,
-	NewVMControl,
-	NewVMOPControl,
-	NewVMAccess,
-	NewModuleComponentControl,
-	NewModuleControl,
-	NewIntegrityCheckVM,
-}
+type NewEventLogger func(events.EventLoggerOptions) events.EventLogger
 
-type NewEventHandlerOptions struct {
-	Ctx          context.Context
-	Event        *audit.Event
-	InformerList informerList
-	Client       *kubernetes.Clientset
-	TTLCache     ttlCache
-}
+func NewEventHandler(
+	ctx context.Context,
+	client *kubernetes.Clientset,
+	informerList events.InformerList,
+	cache events.TTLCache,
+) func([]byte) error {
+	eL := []NewEventLogger{
+		forbid.NewForbid,
+		vm.NewVMManage,
+		vm.NewVMControl,
+		vm.NewVMOPControl,
+		vm.NewVMAccess,
+		module.NewModuleComponentControl,
+		module.NewModuleControl,
+		integrity.NewIntegrityCheckVM,
+	}
 
-func NewEventHandler(ctx context.Context, client *kubernetes.Clientset, informerList informerList, cache cache) func([]byte) error {
 	return func(line []byte) error {
 		var message logMessage
 		if err := json.Unmarshal(line, &message); err != nil {
@@ -73,7 +94,7 @@ func NewEventHandler(ctx context.Context, client *kubernetes.Clientset, informer
 			return fmt.Errorf("Error parsing JSON: %w", err)
 		}
 
-		for _, newEventLogger := range eventLoggers {
+		for _, newEventLogger := range eL {
 			eventLogger := newEventLogger(NewEventHandlerOptions{
 				Ctx:          ctx,
 				Client:       client,

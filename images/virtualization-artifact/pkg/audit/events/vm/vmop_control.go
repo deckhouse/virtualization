@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package vm
 
 import (
 	"encoding/json"
@@ -23,22 +23,24 @@ import (
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewVMOPControl(options NewEventHandlerOptions) eventLogger {
+func NewVMOPControl(options events.EventLoggerOptions) events.EventLogger {
 	return &VMOPControl{
-		event:        options.Event,
-		informerList: options.InformerList,
-		ttlCache:     options.TTLCache,
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
+		ttlCache:     options.GetTTLCache(),
 	}
 }
 
 type VMOPControl struct {
 	event        *audit.Event
 	eventLog     *VMEventLog
-	informerList informerList
-	ttlCache     ttlCache
+	informerList events.InformerList
+	ttlCache     events.TTLCache
 }
 
 func (m *VMOPControl) Log() error {
@@ -80,7 +82,7 @@ func (m *VMOPControl) Fill() error {
 		return fmt.Errorf("fail to unmarshal event ResponseObject: %w", err)
 	}
 
-	vmop, err := getVMOPFromInformer(m.informerList.GetVMOPInformer(), m.event.ObjectRef.Namespace+"/"+response.Metadata.Name)
+	vmop, err := util.GetVMOPFromInformer(m.informerList.GetVMOPInformer(), m.event.ObjectRef.Namespace+"/"+response.Metadata.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get vmop from informer: %w", err)
 	}
@@ -103,7 +105,7 @@ func (m *VMOPControl) Fill() error {
 		m.eventLog.Level = "warn"
 	}
 
-	vm, err := getVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
+	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}

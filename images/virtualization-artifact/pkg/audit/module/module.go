@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package module
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,20 +22,20 @@ import (
 )
 
 // +k8s:deepcopy-gen=true
-type module struct {
+type Module struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Properties moduleProperties `json:"properties"`
+	Properties ModuleProperties `json:"properties"`
 }
 
 // +k8s:deepcopy-gen=true
-type moduleProperties struct {
+type ModuleProperties struct {
 	Version string `json:"version"`
 }
 
 // DeepCopyInto copies the receiver into the given module.
-func (in *module) DeepCopyInto(out *module) {
+func (in *Module) DeepCopyInto(out *Module) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
 
@@ -45,17 +45,17 @@ func (in *module) DeepCopyInto(out *module) {
 }
 
 // DeepCopy creates a deep copy of the module.
-func (in *module) DeepCopy() *module {
+func (in *Module) DeepCopy() *Module {
 	if in == nil {
 		return nil
 	}
-	out := new(module)
+	out := new(Module)
 	in.DeepCopyInto(out)
 	return out
 }
 
 // DeepCopyObject implements the runtime.Object interface.
-func (in *module) DeepCopyObject() runtime.Object {
+func (in *Module) DeepCopyObject() runtime.Object {
 	if in == nil {
 		return nil
 	}
@@ -64,16 +64,16 @@ func (in *module) DeepCopyObject() runtime.Object {
 }
 
 // DeepCopyInto copies the receiver into the given moduleSpec.
-func (in *moduleProperties) DeepCopyInto(out *moduleProperties) {
+func (in *ModuleProperties) DeepCopyInto(out *ModuleProperties) {
 	*out = *in
 }
 
 // DeepCopy creates a deep copy of the moduleSpec.
-func (in *moduleProperties) DeepCopy() *moduleProperties {
+func (in *ModuleProperties) DeepCopy() *ModuleProperties {
 	if in == nil {
 		return nil
 	}
-	out := new(moduleProperties)
+	out := new(ModuleProperties)
 	in.DeepCopyInto(out)
 	return out
 }

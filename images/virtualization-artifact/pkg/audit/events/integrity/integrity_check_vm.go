@@ -14,29 +14,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package integrity
 
 import (
 	"fmt"
 
 	"k8s.io/apiserver/pkg/apis/audit"
 
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
-func NewIntegrityCheckVM(options NewEventHandlerOptions) eventLogger {
+func NewIntegrityCheckVM(options events.EventLoggerOptions) events.EventLogger {
 	return &IntegrityCheckVM{
-		event:        options.Event,
-		informerList: options.InformerList,
-		ttlCache:     options.TTLCache,
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
+		ttlCache:     options.GetTTLCache(),
 	}
 }
 
 type IntegrityCheckVM struct {
 	event        *audit.Event
 	eventLog     *IntegrityCheckEventLog
-	informerList informerList
-	ttlCache     ttlCache
+	informerList events.InformerList
+	ttlCache     events.TTLCache
 }
 
 func (m *IntegrityCheckVM) Log() error {
@@ -68,7 +70,7 @@ func (m *IntegrityCheckVM) Fill() error {
 	m.eventLog.ReactionType = "info"
 	m.eventLog.IntegrityCheckAlgo = "sha256"
 
-	vmi, err := getInternalVMIFromInformer(m.ttlCache, m.informerList.GetInternalVMIInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
+	vmi, err := util.GetInternalVMIFromInformer(m.ttlCache, m.informerList.GetInternalVMIInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get VMI from informer: %w", err)
 	}

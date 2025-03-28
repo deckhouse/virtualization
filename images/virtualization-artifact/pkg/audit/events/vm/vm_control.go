@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package vm
 
 import (
 	"fmt"
@@ -23,21 +23,23 @@ import (
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 )
 
-func NewVMControl(options NewEventHandlerOptions) eventLogger {
+func NewVMControl(options events.EventLoggerOptions) events.EventLogger {
 	return &VMControl{
-		event:        options.Event,
-		informerList: options.InformerList,
-		ttlCache:     options.TTLCache,
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
+		ttlCache:     options.GetTTLCache(),
 	}
 }
 
 type VMControl struct {
 	event        *audit.Event
 	eventLog     *VMEventLog
-	informerList informerList
-	ttlCache     ttlCache
+	informerList events.InformerList
+	ttlCache     events.TTLCache
 }
 
 func (m *VMControl) Log() error {
@@ -64,7 +66,7 @@ func (m *VMControl) Fill() error {
 	m.eventLog = NewVMEventLog(m.event)
 	m.eventLog.Type = "Control VM"
 
-	pod, err := getPodFromInformer(m.ttlCache, m.informerList.GetPodInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
+	pod, err := util.GetPodFromInformer(m.ttlCache, m.informerList.GetPodInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get pod from informer: %w", err)
 	}
@@ -99,7 +101,7 @@ func (m *VMControl) Fill() error {
 		m.eventLog.Name = "VM killed abnormal way"
 	}
 
-	vm, err := getVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), pod.Namespace+"/"+pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"])
+	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), pod.Namespace+"/"+pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"])
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
 		return nil

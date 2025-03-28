@@ -14,27 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package vm
 
 import (
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 )
 
-func NewVMAccess(options NewEventHandlerOptions) eventLogger {
+func NewVMAccess(options events.EventLoggerOptions) events.EventLogger {
 	return &VMAccess{
-		event:        options.Event,
-		informerList: options.InformerList,
-		ttlCache:     options.TTLCache,
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
+		ttlCache:     options.GetTTLCache(),
 	}
 }
 
 type VMAccess struct {
 	event        *audit.Event
 	eventLog     *VMEventLog
-	informerList informerList
-	ttlCache     ttlCache
+	informerList events.InformerList
+	ttlCache     events.TTLCache
 }
 
 func (m *VMAccess) Log() error {
@@ -78,7 +80,7 @@ func (m *VMAccess) Fill() error {
 		m.eventLog.Name = "Request " + m.eventLog.Name
 	}
 
-	vm, err := getVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
+	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
 

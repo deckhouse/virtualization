@@ -27,7 +27,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/cache"
-	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/informer"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/server"
 )
@@ -94,7 +94,7 @@ func run(c *cobra.Command, opts Options) error {
 		return fmt.Errorf("unable to run informerList: %w", err)
 	}
 
-	eventHandler := events.NewEventHandler(c.Context(), client, informerList, ttlCache)
+	eventHandler := handler.NewEventHandler(c.Context(), client, informerList, ttlCache)
 	srv, err := server.NewServer(":"+opts.Port, eventHandler)
 	if err != nil {
 		log.Fatal("failed to create server", log.Err(err))
