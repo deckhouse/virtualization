@@ -179,7 +179,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 				Command: "sleep",
 				Args:    []string{"10000"},
 			})
-			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+			Expect(res.Error()).NotTo(HaveOccurred())
 			WaitResource(kc.ResourcePod, CurlPod, waitFor, ShortWaitDuration)
 		})
 	})
@@ -190,23 +190,23 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			err = GetObject(kc.ResourceVM, aObjName, &vmA, kc.GetOptions{
 				Namespace: conf.Namespace,
 			})
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 			vmB = virtv2.VirtualMachine{}
 			err = GetObject(kc.ResourceVM, bObjName, &vmB, kc.GetOptions{
 				Namespace: conf.Namespace,
 			})
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 
 			svcA = corev1.Service{}
 			err = GetObject(kc.ResourceService, aObjName, &svcA, kc.GetOptions{
 				Namespace: conf.Namespace,
 			})
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 			svcB = corev1.Service{}
 			err = GetObject(kc.ResourceService, bObjName, &svcB, kc.GetOptions{
 				Namespace: conf.Namespace,
 			})
-			Expect(err).NotTo(HaveOccurred(), err)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("check ssh connection via `d8 v` to VMs", func() {

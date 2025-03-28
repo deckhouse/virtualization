@@ -285,7 +285,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 
 			It("obtains the disks metadata before resizing", func() {
 				vmDisksBefore, err = GetVirtualMachineDisks(vmObj.Name, conf)
-				Expect(err).NotTo(HaveOccurred(), err)
+				Expect(err).NotTo(HaveOccurred())
 				Expect(vmDisksBefore).Should(HaveLen(diskCount))
 			})
 
