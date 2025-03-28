@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package util
 
 import (
 	"context"
@@ -30,16 +30,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	virtv1 "kubevirt.io/api/core/v1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/module"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-// removeAllQueryParams removes all query parameters from the given URI.
-//
-// @param uri The URI string from which query parameters need to be removed.
-//
-// @return A string representing the URI without query parameters, or an error if the URI parsing fails.
-func removeAllQueryParams(uri string) (string, error) {
+func RemoveAllQueryParams(uri string) (string, error) {
 	parsedURL, err := url.Parse(uri)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse URI: %w", err)
@@ -50,7 +47,7 @@ func removeAllQueryParams(uri string) (string, error) {
 	return parsedURL.String(), nil
 }
 
-func getVMFromInformer(cache ttlCache, vmInformer indexer, vmName string) (*v1alpha2.VirtualMachine, error) {
+func GetVMFromInformer(cache events.TTLCache, vmInformer events.Indexer, vmName string) (*v1alpha2.VirtualMachine, error) {
 	vmObj, exist, err := vmInformer.GetByKey(vmName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -70,7 +67,7 @@ func getVMFromInformer(cache ttlCache, vmInformer indexer, vmName string) (*v1al
 	return vm, nil
 }
 
-func getVDFromInformer(cache ttlCache, vdInformer indexer, vdName string) (*v1alpha2.VirtualDisk, error) {
+func GetVDFromInformer(cache events.TTLCache, vdInformer events.Indexer, vdName string) (*v1alpha2.VirtualDisk, error) {
 	vdObj, exist, err := vdInformer.GetByKey(vdName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -90,7 +87,7 @@ func getVDFromInformer(cache ttlCache, vdInformer indexer, vdName string) (*v1al
 	return vd, nil
 }
 
-func getNodeFromInformer(nodeInformer indexer, nodeName string) (*corev1.Node, error) {
+func GetNodeFromInformer(nodeInformer events.Indexer, nodeName string) (*corev1.Node, error) {
 	nodeObj, exist, err := nodeInformer.GetByKey(nodeName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -107,7 +104,7 @@ func getNodeFromInformer(nodeInformer indexer, nodeName string) (*corev1.Node, e
 	return node, nil
 }
 
-func getPodFromInformer(cache ttlCache, podInformer indexer, podName string) (*corev1.Pod, error) {
+func GetPodFromInformer(cache events.TTLCache, podInformer events.Indexer, podName string) (*corev1.Pod, error) {
 	podObj, exist, err := podInformer.GetByKey(podName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get pod from informer: %w", err)
@@ -127,7 +124,7 @@ func getPodFromInformer(cache ttlCache, podInformer indexer, podName string) (*c
 	return pod, nil
 }
 
-func getVMOPFromInformer(vmopInformer indexer, vmopName string) (*v1alpha2.VirtualMachineOperation, error) {
+func GetVMOPFromInformer(vmopInformer events.Indexer, vmopName string) (*v1alpha2.VirtualMachineOperation, error) {
 	vmopObj, exist, err := vmopInformer.GetByKey(vmopName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
@@ -144,7 +141,7 @@ func getVMOPFromInformer(vmopInformer indexer, vmopName string) (*v1alpha2.Virtu
 	return vmop, nil
 }
 
-func getInternalVMIFromInformer(cache ttlCache, internalVMIInformer indexer, internalVMIName string) (*virtv1.VirtualMachineInstance, error) {
+func GetInternalVMIFromInformer(cache events.TTLCache, internalVMIInformer events.Indexer, internalVMIName string) (*virtv1.VirtualMachineInstance, error) {
 	intVMIObj, exist, err := internalVMIInformer.GetByKey(internalVMIName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get intVMI from informer: %w", err)
@@ -162,7 +159,7 @@ func getInternalVMIFromInformer(cache ttlCache, internalVMIInformer indexer, int
 	}
 
 	intVMI := &virtv1.VirtualMachineInstance{}
-	err = unstructuredToTypedObject(unstructuredObj, intVMI)
+	err = UnstructuredToTypedObject(unstructuredObj, intVMI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert unstructuredObj to VirtualMachineInstance: %w", err)
 	}
@@ -170,7 +167,7 @@ func getInternalVMIFromInformer(cache ttlCache, internalVMIInformer indexer, int
 	return intVMI, nil
 }
 
-func getModuleFromInformer(moduleInformer indexer, moduleName string) (*module, error) {
+func GetModuleFromInformer(moduleInformer events.Indexer, moduleName string) (*module.Module, error) {
 	moduleObj, exist, err := moduleInformer.GetByKey(moduleName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get module from informer: %w", err)
@@ -184,8 +181,8 @@ func getModuleFromInformer(moduleInformer indexer, moduleName string) (*module, 
 		return nil, fmt.Errorf("moduleObj is not of type *unstructured.Unstructured")
 	}
 
-	module := &module{}
-	err = unstructuredToTypedObject(unstructuredObj, module)
+	module := &module.Module{}
+	err = UnstructuredToTypedObject(unstructuredObj, module)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert unstructuredObj to Module: %w", err)
 	}
@@ -193,7 +190,7 @@ func getModuleFromInformer(moduleInformer indexer, moduleName string) (*module, 
 	return module, nil
 }
 
-func getModuleConfigFromInformer(moduleConfigInformer indexer, moduleConfigName string) (*mcapi.ModuleConfig, error) {
+func GetModuleConfigFromInformer(moduleConfigInformer events.Indexer, moduleConfigName string) (*mcapi.ModuleConfig, error) {
 	mcObj, exist, err := moduleConfigInformer.GetByKey(moduleConfigName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get module config from informer: %w", err)
@@ -208,7 +205,7 @@ func getModuleConfigFromInformer(moduleConfigInformer indexer, moduleConfigName 
 	}
 
 	moduleConfig := &mcapi.ModuleConfig{}
-	err = unstructuredToTypedObject(unstructuredObj, moduleConfig)
+	err = UnstructuredToTypedObject(unstructuredObj, moduleConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert unstructuredObj to ModuleConfig: %w", err)
 	}
@@ -216,7 +213,7 @@ func getModuleConfigFromInformer(moduleConfigInformer indexer, moduleConfigName 
 	return moduleConfig, nil
 }
 
-func unstructuredToTypedObject(unstructuredObj *unstructured.Unstructured, obj runtime.Object) error {
+func UnstructuredToTypedObject(unstructuredObj *unstructured.Unstructured, obj runtime.Object) error {
 	err := runtime.DefaultUnstructuredConverter.FromUnstructured(unstructuredObj.Object, obj)
 	if err != nil {
 		return fmt.Errorf("failed to convert map to typed object: %w", err)
@@ -225,7 +222,7 @@ func unstructuredToTypedObject(unstructuredObj *unstructured.Unstructured, obj r
 	return nil
 }
 
-func checkAccess(ctx context.Context, clientset *kubernetes.Clientset, user, verb, group, version, resource string) (bool, error) {
+func CheckAccess(ctx context.Context, clientset *kubernetes.Clientset, user, verb, group, version, resource string) (bool, error) {
 	subjectAccessReview := &authorizationv1.SubjectAccessReview{
 		Spec: authorizationv1.SubjectAccessReviewSpec{
 			User: user,

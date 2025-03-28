@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package integrity
 
 import (
 	"encoding/json"
@@ -26,7 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
-type ForbidEventLog struct {
+type IntegrityCheckEventLog struct {
 	Type            string `json:"type"`
 	Level           string `json:"level"`
 	Name            string `json:"name"`
@@ -34,23 +34,35 @@ type ForbidEventLog struct {
 	Uid             string `json:"uid"`
 	RequestSubject  string `json:"request_subject"`
 	OperationResult string `json:"operation_result"`
-	IsAdmin         bool   `json:"is_admin"`
-	SourceIP        string `json:"source_ip"`
-	ForbidReason    string `json:"forbid_reason"`
+
+	ObjectType         string `json:"object_type"`
+	VirtualMachineName string `json:"virtual_machine_name"`
+	ControlMethod      string `json:"control_method"`
+	ReactionType       string `json:"reaction_type"`
+	IntegrityCheckAlgo string `json:"integrity_check_algo"`
+	ReferenceChecksum  string `json:"reference_checksum"`
+	CurrentChecksum    string `json:"current_checksum"`
 
 	shouldLog bool
 }
 
-func NewForbidEventLog(event *audit.Event) *ForbidEventLog {
-	eventLog := &ForbidEventLog{
-		Type:            "unknown",
-		Level:           "warn",
+func NewIntegrityCheckEventLog(event *audit.Event) *IntegrityCheckEventLog {
+	eventLog := &IntegrityCheckEventLog{
+		Type:            "Integrity check",
+		Level:           "critical",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
 		Uid:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
-		OperationResult: "forbid",
-		ForbidReason:    "unknown",
+		OperationResult: "unknown",
+
+		ObjectType:         "unknown",
+		VirtualMachineName: "unknown",
+		ControlMethod:      "unknown",
+		ReactionType:       "unknown",
+		IntegrityCheckAlgo: "unknown",
+		ReferenceChecksum:  "unknown",
+		CurrentChecksum:    "unknown",
 
 		shouldLog: true,
 	}
@@ -59,14 +71,10 @@ func NewForbidEventLog(event *audit.Event) *ForbidEventLog {
 		eventLog.OperationResult = event.Annotations[annotations.AnnAuditDecision]
 	}
 
-	if event.Annotations[annotations.AnnAuditReason] != "" {
-		eventLog.OperationResult = event.Annotations[annotations.AnnAuditReason]
-	}
-
 	return eventLog
 }
 
-func (e *ForbidEventLog) Log() error {
+func (e *IntegrityCheckEventLog) Log() error {
 	bytes, err := json.Marshal(e)
 	if err != nil {
 		return err
