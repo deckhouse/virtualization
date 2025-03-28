@@ -16,25 +16,47 @@ limitations under the License.
 
 package events
 
-import kubecache "k8s.io/client-go/tools/cache"
+import (
+	"context"
 
-//go:generate moq -rm -out mock.go . indexer
+	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/kubernetes"
+)
 
-type ttlCache interface {
+// import kubecache "k8s.io/client-go/tools/cache"
+
+//go:generate moq -rm -out mock.go . TTLCache Indexer InformerList
+
+type TTLCache interface {
 	Get(key string) (any, bool)
 }
 
-type indexer interface {
+type EventLogger interface {
+	IsMatched() bool
+	Fill() error
+	ShouldLog() bool
+	Log() error
+}
+
+type EventLoggerOptions interface {
+	GetTTLCache() TTLCache
+	GetCtx() context.Context
+	GetEvent() *audit.Event
+	GetInformerList() InformerList
+	GetClient() *kubernetes.Clientset
+}
+
+type Indexer interface {
 	GetByKey(string) (any, bool, error)
 }
 
-type informerList interface {
-	GetVMInformer() kubecache.Indexer
-	GetVDInformer() kubecache.Indexer
-	GetVMOPInformer() kubecache.Indexer
-	GetPodInformer() kubecache.Indexer
-	GetNodeInformer() kubecache.Indexer
-	GetModuleInformer() kubecache.Indexer
-	GetModuleConfigInformer() kubecache.Indexer
-	GetInternalVMIInformer() kubecache.Indexer
+type InformerList interface {
+	GetVMInformer() Indexer
+	GetVDInformer() Indexer
+	GetVMOPInformer() Indexer
+	GetPodInformer() Indexer
+	GetNodeInformer() Indexer
+	GetModuleInformer() Indexer
+	GetModuleConfigInformer() Indexer
+	GetInternalVMIInformer() Indexer
 }
