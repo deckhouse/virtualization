@@ -17,7 +17,6 @@ limitations under the License.
 package vm_test
 
 import (
-	"encoding/json"
 	"os"
 	"syscall"
 	"time"
@@ -27,7 +26,6 @@ import (
 	authnv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/apis/audit"
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -37,25 +35,23 @@ import (
 	v1alpha "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type vmopTestArgs struct {
-	VMOPType               v1alpha.VMOPType
-	ExpectedName           string
-	ExpectedLevel          string
-	ExpectedActionType     string
-	ShouldLostVMOP         bool
-	ShouldLostVM           bool
-	ShouldLostVD           bool
-	ShouldLostNode         bool
-	ShouldCorruptVMOPBytes bool
-	CustomObjectRef        *audit.ObjectReference
-	CustomObjectRefNil     bool
-	CustomLevel            audit.Level
-	ShouldFailMatch        bool
+type vmManageTestArgs struct {
+	EventURI           string
+	EventVerb          string
+	ExpectedName       string
+	ExpectedLevel      string
+	ExpectedActionType string
+	ShouldLostVM       bool
+	ShouldLostVD       bool
+	ShouldLostNode     bool
+	CustomObjectRef    *audit.ObjectReference
+	CustomObjectRefNil bool
+	CustomStage        audit.Stage
+	ShouldFailMatch    bool
 }
 
 var _ = Describe("VMOP Events", func() {
 	var event *audit.Event
-	var vmop *v1alpha.VirtualMachineOperation
 	var vm *v1alpha.VirtualMachine
 	var vd *v1alpha.VirtualDisk
 	var node *corev1.Node
@@ -73,18 +69,12 @@ var _ = Describe("VMOP Events", func() {
 			User:                     authnv1.UserInfo{Username: "test-user", UID: "0000-0000-1234"},
 			RequestReceivedTimestamp: metav1.MicroTime{Time: currentTime},
 			ObjectRef: &audit.ObjectReference{
-				Resource:  "virtualmachineoperations",
+				Resource:  "virtualmachines",
 				Namespace: "test",
-				Name:      "test-vmop",
+				Name:      "test-vm",
 			},
 			Annotations: map[string]string{
 				annotations.AnnAuditDecision: "allow",
-			},
-		}
-
-		vmop = &v1alpha.VirtualMachineOperation{
-			Spec: v1alpha.VirtualMachineOperationSpec{
-				VirtualMachine: "test-vm",
 			},
 		}
 
@@ -120,14 +110,7 @@ var _ = Describe("VMOP Events", func() {
 	})
 
 	DescribeTable("Checking VMOP events",
-		func(args vmopTestArgs) {
-			bytes, _ := json.Marshal(vmop)
-			event.ResponseObject = &runtime.Unknown{Raw: bytes}
-
-			if args.ShouldCorruptVMOPBytes {
-				bytes[0] = ^bytes[0]
-			}
-
+		func(args vmManageTestArgs) {
 			ttlCache := &events.TTLCacheMock{
 				GetFunc: func(key string) (any, bool) {
 					return nil, false
@@ -139,13 +122,6 @@ var _ = Describe("VMOP Events", func() {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							return vm, !args.ShouldLostVM, nil
-						},
-					}
-				},
-				GetVMOPInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
-						GetByKeyFunc: func(s string) (any, bool, error) {
-							return vmop, !args.ShouldLostVMOP, nil
 						},
 					}
 				},
@@ -165,13 +141,19 @@ var _ = Describe("VMOP Events", func() {
 				},
 			}
 
-			eventLog := vmevent.VMOPControl{
+			eventLog := vmevent.VMManage{
 				Event:        event,
 				InformerList: informerList,
 				TTLCache:     ttlCache,
 			}
 
-			vmop.Spec.Type = args.VMOPType
+			if args.EventVerb != "" {
+				event.Verb = args.EventVerb
+			}
+
+			if args.EventURI != "" {
+				event.RequestURI = args.EventURI
+			}
 
 			if args.CustomObjectRef != nil {
 				event.ObjectRef = args.CustomObjectRef
@@ -181,8 +163,8 @@ var _ = Describe("VMOP Events", func() {
 				event.ObjectRef = nil
 			}
 
-			if args.CustomLevel != "" {
-				event.Level = args.CustomLevel
+			if args.CustomStage != "" {
+				event.Stage = args.CustomStage
 			}
 
 			if args.ShouldFailMatch {
@@ -192,16 +174,16 @@ var _ = Describe("VMOP Events", func() {
 
 			Expect(eventLog.IsMatched()).To(BeTrue())
 
-			if args.ShouldLostVMOP || args.ShouldLostVM || args.ShouldCorruptVMOPBytes {
+			if args.ShouldLostVM {
 				err := eventLog.Fill()
-				Expect(err).NotTo(BeNil())
+				Expect(err).To(BeNil())
 				return
 			}
 
 			err := eventLog.Fill()
 			Expect(err).To(BeNil())
 
-			Expect(eventLog.EventLog.Type).To(Equal("Control VM"))
+			Expect(eventLog.EventLog.Type).To(Equal("Manage VM"))
 			Expect(eventLog.EventLog.Level).To(Equal(args.ExpectedLevel))
 			Expect(eventLog.EventLog.Name).To(Equal(args.ExpectedName))
 			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
@@ -237,82 +219,66 @@ var _ = Describe("VMOP Events", func() {
 			err = eventLog.Log()
 			Expect(err).To(BeNil())
 		},
-		Entry("VMOP event should failed match if objectRef is nil", vmopTestArgs{
+		Entry("VM Manage event should failed match if objectRef is nil", vmManageTestArgs{
 			CustomObjectRefNil: true,
+			ShouldFailMatch:    true,
+		}),
+		Entry("VM Manage event should failed match if stage is not ResponseComplete", vmManageTestArgs{
+			CustomStage:     audit.StageRequestReceived,
 			ShouldFailMatch: true,
 		}),
-		Entry("VMOP event should failed match if level is not RequestResponse", vmopTestArgs{
-			CustomLevel:     audit.LevelMetadata,
+		Entry("VM Manage event should failed match if resource is not virtualmachines", vmManageTestArgs{
+			CustomObjectRef: &audit.ObjectReference{Resource: "virtualmachineoperations", Namespace: "test", Name: "test-vm"},
 			ShouldFailMatch: true,
 		}),
-		Entry("VMOP event should failed match if resource is not virtualmachineoperations", vmopTestArgs{
-			CustomObjectRef: &audit.ObjectReference{Resource: "virtualmachines", Namespace: "test", Name: "test-vmop"},
+		Entry("VM Manage event chouldn't match if URI is not correct", vmManageTestArgs{
+			EventURI:        "\x06/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
 			ShouldFailMatch: true,
 		}),
-		Entry("Start VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
+		Entry("VM update event should filled without errors", vmManageTestArgs{
+			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
+			EventVerb:          "update",
 			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
+			ExpectedName:       "VM update",
+			ExpectedActionType: "update",
 		}),
-		Entry("Stop VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStop,
-			ExpectedName:       "VM stopped",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "stop",
-		}),
-		Entry("Restart VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeRestart,
-			ExpectedName:       "VM restarted",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "restart",
-		}),
-		Entry("Migrate VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeMigrate,
-			ExpectedName:       "VM migrated",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "migrate",
-		}),
-		Entry("Evict VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeEvict,
-			ExpectedName:       "VM evicted",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "evict",
-		}),
-		Entry("Evict VMOP event should filled without errors, but with unknown VDs", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
+		Entry("VM patch event should filled without errors", vmManageTestArgs{
+			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
+			EventVerb:          "patch",
 			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
-			ShouldLostVD:       true,
+			ExpectedName:       "VM update",
+			ExpectedActionType: "patch",
 		}),
-		Entry("Evict VMOP event should filled without errors, but with unknown Node's IPs", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
-			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
-			ShouldLostNode:     true,
+		Entry("VM delete event should filled without errors", vmManageTestArgs{
+			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
+			EventVerb:          "delete",
+			ExpectedLevel:      "warn",
+			ExpectedName:       "VM deletion",
+			ExpectedActionType: "delete",
 		}),
-		Entry("VMOP event should filled with VM exist error", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
+		Entry("VM create event should filled without errors", vmManageTestArgs{
+			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
+			EventVerb:          "create",
 			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
+			ExpectedName:       "VM creation",
+			ExpectedActionType: "create",
+		}),
+		Entry("VM manage event should filled without VM exist error", vmManageTestArgs{
+			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
+			EventVerb:          "create",
+			ExpectedLevel:      "info",
+			ExpectedName:       "VM creation",
+			ExpectedActionType: "create",
 			ShouldLostVM:       true,
 		}),
-		Entry("VMOP event should filled with VMOP exist error", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
+		Entry("VM manage event should filled without VD exist error", vmManageTestArgs{
+			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
+			EventVerb:          "create",
 			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
-			ShouldLostVMOP:     true,
-		}),
-		Entry("VMOP event should filled with JSON encode error", vmopTestArgs{
-			VMOPType:               v1alpha.VMOPTypeStart,
-			ExpectedName:           "VM started",
-			ExpectedLevel:          "info",
-			ExpectedActionType:     "start",
-			ShouldCorruptVMOPBytes: true,
+			ExpectedName:       "VM creation",
+			ExpectedActionType: "create",
+			ShouldLostVD:       true,
+			ShouldLostNode:     true,
 		}),
 	)
 })
