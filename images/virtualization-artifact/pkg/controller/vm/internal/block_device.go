@@ -166,47 +166,41 @@ func (h *BlockDeviceHandler) checkBlockDevicesToBeReadyForUse(ctx context.Contex
 	}
 	diskState := h.getVirtualDisksState(vm, vds)
 
-	if len(vds) == diskState.readyForUseCount {
-		cb.Status(metav1.ConditionTrue).
-			Reason(vmcondition.ReasonBlockDevicesReady).
-			Message("")
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return nil
-	}
+	ready := len(vds) == diskState.readyForUseCount
+	message := h.getStatusMessage(diskState, len(vds))
 
-	if diskState.message != "" {
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonBlockDevicesNotReady).
-			Message(diskState.message)
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return nil
-	}
-
-	if diskState.readyForUseCount == 0 && diskState.usingInOtherVMCount == 0 && diskState.usingForCreateImageCount == 0 {
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonBlockDevicesNotReady).
-			Message(fmt.Sprintf("Waiting for block devices to be ready to use: %d/%d.", 0, len(vds)))
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return nil
-	}
-
-	if len(vds) > 1 {
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonBlockDevicesNotReady).
-			Message(h.buildStatusMessage(diskState, len(vds)))
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return nil
-	}
-
-	cb.Status(metav1.ConditionTrue).
-		Reason(vmcondition.ReasonBlockDevicesReady).
-		Message("")
-	conditions.SetCondition(cb, &vm.Status.Conditions)
+	h.updateCondition(cb, vm, ready, message)
 	return nil
 }
 
-// getVirtualDisksState checks the state of virtual disks and returns counts of disks ready for use,
-// used for image creation, or attached to other VMs, along with relevant disk names and a status message.
+func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, summaryCount int) string {
+	if diskState.message != "" {
+		return diskState.message
+	}
+
+	if diskState.readyForUseCount == 0 && diskState.usingInOtherVMCount == 0 && diskState.usingForCreateImageCount == 0 {
+		return fmt.Sprintf("Waiting for block devices to be ready to use: %d/%d.", 0, summaryCount)
+	}
+
+	if summaryCount > 1 {
+		return h.buildStatusMessage(diskState, summaryCount)
+	}
+	return ""
+}
+
+func (h *BlockDeviceHandler) updateCondition(cb *conditions.ConditionBuilder, vm *virtv2.VirtualMachine, ready bool, message string) {
+	if ready {
+		cb.Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonBlockDevicesReady).
+			Message("")
+	} else {
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonBlockDevicesNotReady).
+			Message(message)
+	}
+	conditions.SetCondition(cb, &vm.Status.Conditions)
+}
+
 func (h *BlockDeviceHandler) getVirtualDisksState(vm *virtv2.VirtualMachine, vds map[string]*virtv2.VirtualDisk) virtualDisksState {
 	disksState := virtualDisksState{}
 
