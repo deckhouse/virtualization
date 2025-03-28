@@ -34,7 +34,7 @@ linters:
     - bodyclose
     - errname
     - errorlint
-    - exportloopref
+    - looppointer
     - gci
     - gocritic
     - gofumpt

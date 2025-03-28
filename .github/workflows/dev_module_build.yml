@@ -240,13 +240,6 @@ jobs:
             echo "::endgroup::"
           done
 
-          # Set outputs
-          {
-            echo 'REPORT<<EOF'
-            echo "report=$report"
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
           echo "directory_count=$count" >> "$GITHUB_OUTPUT"
 
           has_errors=$( [[ "$error_count" -gt 0 ]] && echo true || echo false)
