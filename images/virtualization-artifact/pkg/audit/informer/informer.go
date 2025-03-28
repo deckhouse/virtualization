@@ -140,6 +140,15 @@ func NewInformerList(ctx context.Context, kubeCfg *rest.Config, ttlCache cache) 
 }
 
 func (i *InformerList) Run(ctx context.Context) error {
+	go i.podInformer.Run(ctx.Done())
+	go i.nodeInformer.Run(ctx.Done())
+	go i.vmInformer.Run(ctx.Done())
+	go i.vdInformer.Run(ctx.Done())
+	go i.vmopInformer.Run(ctx.Done())
+	go i.moduleInformer.Run(ctx.Done())
+	go i.moduleConfigInformer.Run(ctx.Done())
+	go i.internalVMIInformer.Run(ctx.Done())
+
 	if !kubecache.WaitForCacheSync(
 		ctx.Done(),
 		i.podInformer.HasSynced,
@@ -153,15 +162,6 @@ func (i *InformerList) Run(ctx context.Context) error {
 	) {
 		return errors.New("failed to wait for caches to sync")
 	}
-
-	go i.vmInformer.Run(ctx.Done())
-	go i.vdInformer.Run(ctx.Done())
-	go i.nodeInformer.Run(ctx.Done())
-	go i.vmopInformer.Run(ctx.Done())
-	go i.podInformer.Run(ctx.Done())
-	go i.moduleConfigInformer.Run(ctx.Done())
-	go i.moduleInformer.Run(ctx.Done())
-	go i.internalVMIInformer.Run(ctx.Done())
 
 	return nil
 }

@@ -74,7 +74,13 @@ func NewEventHandler(ctx context.Context, client *kubernetes.Clientset, informer
 		}
 
 		for _, newEventLogger := range eventLoggers {
-			eventLogger := newEventLogger(NewEventHandlerOptions{Ctx: ctx, Client: client, InformerList: informerList, TTLCache: cache})
+			eventLogger := newEventLogger(NewEventHandlerOptions{
+				Ctx:          ctx,
+				Client:       client,
+				InformerList: informerList,
+				TTLCache:     cache,
+				Event:        &event,
+			})
 			if !eventLogger.IsMatched() {
 				continue
 			}
@@ -83,7 +89,7 @@ func NewEventHandler(ctx context.Context, client *kubernetes.Clientset, informer
 				log.Debug("fail to fill event: %w", err)
 			}
 
-			if eventLogger.ShouldLog() {
+			if !eventLogger.ShouldLog() {
 				break
 			}
 
