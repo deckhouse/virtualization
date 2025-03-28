@@ -36,18 +36,18 @@ import (
 )
 
 type vmManageTestArgs struct {
-	EventURI           string
-	EventVerb          string
-	ExpectedName       string
-	ExpectedLevel      string
-	ExpectedActionType string
-	ShouldLostVM       bool
-	ShouldLostVD       bool
-	ShouldLostNode     bool
-	CustomObjectRef    *audit.ObjectReference
-	CustomObjectRefNil bool
-	CustomStage        audit.Stage
-	ShouldFailMatch    bool
+	eventURI           string
+	eventVerb          string
+	expectedName       string
+	expectedLevel      string
+	expectedActionType string
+	shouldLostVM       bool
+	shouldLostVD       bool
+	shouldLostNode     bool
+	customObjectRef    *audit.ObjectReference
+	customObjectRefNil bool
+	customStage        audit.Stage
+	shouldFailMatch    bool
 }
 
 var _ = Describe("VMOP Events", func() {
@@ -121,21 +121,21 @@ var _ = Describe("VMOP Events", func() {
 				GetVMInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return vm, !args.ShouldLostVM, nil
+							return vm, !args.shouldLostVM, nil
 						},
 					}
 				},
 				GetVDInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return vd, !args.ShouldLostVD, nil
+							return vd, !args.shouldLostVD, nil
 						},
 					}
 				},
 				GetNodeInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return node, !args.ShouldLostNode, nil
+							return node, !args.shouldLostNode, nil
 						},
 					}
 				},
@@ -147,34 +147,34 @@ var _ = Describe("VMOP Events", func() {
 				TTLCache:     ttlCache,
 			}
 
-			if args.EventVerb != "" {
-				event.Verb = args.EventVerb
+			if args.eventVerb != "" {
+				event.Verb = args.eventVerb
 			}
 
-			if args.EventURI != "" {
-				event.RequestURI = args.EventURI
+			if args.eventURI != "" {
+				event.RequestURI = args.eventURI
 			}
 
-			if args.CustomObjectRef != nil {
-				event.ObjectRef = args.CustomObjectRef
+			if args.customObjectRef != nil {
+				event.ObjectRef = args.customObjectRef
 			}
 
-			if args.CustomObjectRefNil {
+			if args.customObjectRefNil {
 				event.ObjectRef = nil
 			}
 
-			if args.CustomStage != "" {
-				event.Stage = args.CustomStage
+			if args.customStage != "" {
+				event.Stage = args.customStage
 			}
 
-			if args.ShouldFailMatch {
+			if args.shouldFailMatch {
 				Expect(eventLog.IsMatched()).To(BeFalse())
 				return
 			}
 
 			Expect(eventLog.IsMatched()).To(BeTrue())
 
-			if args.ShouldLostVM {
+			if args.shouldLostVM {
 				err := eventLog.Fill()
 				Expect(err).To(BeNil())
 				return
@@ -184,25 +184,25 @@ var _ = Describe("VMOP Events", func() {
 			Expect(err).To(BeNil())
 
 			Expect(eventLog.EventLog.Type).To(Equal("Manage VM"))
-			Expect(eventLog.EventLog.Level).To(Equal(args.ExpectedLevel))
-			Expect(eventLog.EventLog.Name).To(Equal(args.ExpectedName))
+			Expect(eventLog.EventLog.Level).To(Equal(args.expectedLevel))
+			Expect(eventLog.EventLog.Name).To(Equal(args.expectedName))
 			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
 			Expect(eventLog.EventLog.Uid).To(Equal("0000-0000-0000"))
 			Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
 			Expect(eventLog.EventLog.OperationResult).To(Equal("allow"))
 
-			Expect(eventLog.EventLog.ActionType).To(Equal(args.ExpectedActionType))
+			Expect(eventLog.EventLog.ActionType).To(Equal(args.expectedActionType))
 			Expect(eventLog.EventLog.VirtualmachineUID).To(Equal("0000-0000-4567"))
 			Expect(eventLog.EventLog.VirtualmachineOS).To(Equal("test-os"))
 			Expect(eventLog.EventLog.FirmwareVersion).To(Equal("unknown"))
 
-			if !args.ShouldLostNode {
+			if !args.shouldLostNode {
 				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("127.0.0.1"))
 			} else {
 				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("unknown"))
 			}
 
-			if !args.ShouldLostVD {
+			if !args.shouldLostVD {
 				Expect(eventLog.EventLog.StorageClasses).To(Equal("test-storageclass"))
 			} else {
 				Expect(eventLog.EventLog.StorageClasses).To(Equal("unknown"))
@@ -220,65 +220,65 @@ var _ = Describe("VMOP Events", func() {
 			Expect(err).To(BeNil())
 		},
 		Entry("VM Manage event should failed match if objectRef is nil", vmManageTestArgs{
-			CustomObjectRefNil: true,
-			ShouldFailMatch:    true,
+			customObjectRefNil: true,
+			shouldFailMatch:    true,
 		}),
 		Entry("VM Manage event should failed match if stage is not ResponseComplete", vmManageTestArgs{
-			CustomStage:     audit.StageRequestReceived,
-			ShouldFailMatch: true,
+			customStage:     audit.StageRequestReceived,
+			shouldFailMatch: true,
 		}),
 		Entry("VM Manage event should failed match if resource is not virtualmachines", vmManageTestArgs{
-			CustomObjectRef: &audit.ObjectReference{Resource: "virtualmachineoperations", Namespace: "test", Name: "test-vm"},
-			ShouldFailMatch: true,
+			customObjectRef: &audit.ObjectReference{Resource: "virtualmachineoperations", Namespace: "test", Name: "test-vm"},
+			shouldFailMatch: true,
 		}),
 		Entry("VM Manage event chouldn't match if URI is not correct", vmManageTestArgs{
-			EventURI:        "\x06/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
-			ShouldFailMatch: true,
+			eventURI:        "\x06/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
+			shouldFailMatch: true,
 		}),
 		Entry("VM update event should filled without errors", vmManageTestArgs{
-			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
-			EventVerb:          "update",
-			ExpectedLevel:      "info",
-			ExpectedName:       "VM update",
-			ExpectedActionType: "update",
+			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
+			eventVerb:          "update",
+			expectedLevel:      "info",
+			expectedName:       "VM update",
+			expectedActionType: "update",
 		}),
 		Entry("VM patch event should filled without errors", vmManageTestArgs{
-			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
-			EventVerb:          "patch",
-			ExpectedLevel:      "info",
-			ExpectedName:       "VM update",
-			ExpectedActionType: "patch",
+			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
+			eventVerb:          "patch",
+			expectedLevel:      "info",
+			expectedName:       "VM update",
+			expectedActionType: "patch",
 		}),
 		Entry("VM delete event should filled without errors", vmManageTestArgs{
-			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
-			EventVerb:          "delete",
-			ExpectedLevel:      "warn",
-			ExpectedName:       "VM deletion",
-			ExpectedActionType: "delete",
+			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines/test-vm",
+			eventVerb:          "delete",
+			expectedLevel:      "warn",
+			expectedName:       "VM deletion",
+			expectedActionType: "delete",
 		}),
 		Entry("VM create event should filled without errors", vmManageTestArgs{
-			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
-			EventVerb:          "create",
-			ExpectedLevel:      "info",
-			ExpectedName:       "VM creation",
-			ExpectedActionType: "create",
+			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
+			eventVerb:          "create",
+			expectedLevel:      "info",
+			expectedName:       "VM creation",
+			expectedActionType: "create",
 		}),
 		Entry("VM manage event should filled without VM exist error", vmManageTestArgs{
-			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
-			EventVerb:          "create",
-			ExpectedLevel:      "info",
-			ExpectedName:       "VM creation",
-			ExpectedActionType: "create",
-			ShouldLostVM:       true,
+			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
+			eventVerb:          "create",
+			expectedLevel:      "info",
+			expectedName:       "VM creation",
+			expectedActionType: "create",
+			shouldLostVM:       true,
 		}),
 		Entry("VM manage event should filled without VD exist error", vmManageTestArgs{
-			EventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
-			EventVerb:          "create",
-			ExpectedLevel:      "info",
-			ExpectedName:       "VM creation",
-			ExpectedActionType: "create",
-			ShouldLostVD:       true,
-			ShouldLostNode:     true,
+			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
+			eventVerb:          "create",
+			expectedLevel:      "info",
+			expectedName:       "VM creation",
+			expectedActionType: "create",
+			shouldLostVD:       true,
+			shouldLostNode:     true,
 		}),
 	)
 })

@@ -38,19 +38,19 @@ import (
 )
 
 type vmopTestArgs struct {
-	VMOPType               v1alpha.VMOPType
-	ExpectedName           string
-	ExpectedLevel          string
-	ExpectedActionType     string
-	ShouldLostVMOP         bool
-	ShouldLostVM           bool
-	ShouldLostVD           bool
-	ShouldLostNode         bool
-	ShouldCorruptVMOPBytes bool
-	CustomObjectRef        *audit.ObjectReference
-	CustomObjectRefNil     bool
-	CustomLevel            audit.Level
-	ShouldFailMatch        bool
+	vmopType               v1alpha.VMOPType
+	expectedName           string
+	expectedLevel          string
+	expectedActionType     string
+	shouldLostVMOP         bool
+	shouldLostVM           bool
+	shouldLostVD           bool
+	shouldLostNode         bool
+	shouldCorruptVMOPBytes bool
+	customObjectRef        *audit.ObjectReference
+	customObjectRefNil     bool
+	customLevel            audit.Level
+	shouldFailMatch        bool
 }
 
 var _ = Describe("VMOP Events", func() {
@@ -124,7 +124,7 @@ var _ = Describe("VMOP Events", func() {
 			bytes, _ := json.Marshal(vmop)
 			event.ResponseObject = &runtime.Unknown{Raw: bytes}
 
-			if args.ShouldCorruptVMOPBytes {
+			if args.shouldCorruptVMOPBytes {
 				bytes[0] = ^bytes[0]
 			}
 
@@ -138,28 +138,28 @@ var _ = Describe("VMOP Events", func() {
 				GetVMInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return vm, !args.ShouldLostVM, nil
+							return vm, !args.shouldLostVM, nil
 						},
 					}
 				},
 				GetVMOPInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return vmop, !args.ShouldLostVMOP, nil
+							return vmop, !args.shouldLostVMOP, nil
 						},
 					}
 				},
 				GetVDInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return vd, !args.ShouldLostVD, nil
+							return vd, !args.shouldLostVD, nil
 						},
 					}
 				},
 				GetNodeInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return node, !args.ShouldLostNode, nil
+							return node, !args.shouldLostNode, nil
 						},
 					}
 				},
@@ -171,28 +171,28 @@ var _ = Describe("VMOP Events", func() {
 				TTLCache:     ttlCache,
 			}
 
-			vmop.Spec.Type = args.VMOPType
+			vmop.Spec.Type = args.vmopType
 
-			if args.CustomObjectRef != nil {
-				event.ObjectRef = args.CustomObjectRef
+			if args.customObjectRef != nil {
+				event.ObjectRef = args.customObjectRef
 			}
 
-			if args.CustomObjectRefNil {
+			if args.customObjectRefNil {
 				event.ObjectRef = nil
 			}
 
-			if args.CustomLevel != "" {
-				event.Level = args.CustomLevel
+			if args.customLevel != "" {
+				event.Level = args.customLevel
 			}
 
-			if args.ShouldFailMatch {
+			if args.shouldFailMatch {
 				Expect(eventLog.IsMatched()).To(BeFalse())
 				return
 			}
 
 			Expect(eventLog.IsMatched()).To(BeTrue())
 
-			if args.ShouldLostVMOP || args.ShouldLostVM || args.ShouldCorruptVMOPBytes {
+			if args.shouldLostVMOP || args.shouldLostVM || args.shouldCorruptVMOPBytes {
 				err := eventLog.Fill()
 				Expect(err).NotTo(BeNil())
 				return
@@ -202,25 +202,25 @@ var _ = Describe("VMOP Events", func() {
 			Expect(err).To(BeNil())
 
 			Expect(eventLog.EventLog.Type).To(Equal("Control VM"))
-			Expect(eventLog.EventLog.Level).To(Equal(args.ExpectedLevel))
-			Expect(eventLog.EventLog.Name).To(Equal(args.ExpectedName))
+			Expect(eventLog.EventLog.Level).To(Equal(args.expectedLevel))
+			Expect(eventLog.EventLog.Name).To(Equal(args.expectedName))
 			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
 			Expect(eventLog.EventLog.Uid).To(Equal("0000-0000-0000"))
 			Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
 			Expect(eventLog.EventLog.OperationResult).To(Equal("allow"))
 
-			Expect(eventLog.EventLog.ActionType).To(Equal(args.ExpectedActionType))
+			Expect(eventLog.EventLog.ActionType).To(Equal(args.expectedActionType))
 			Expect(eventLog.EventLog.VirtualmachineUID).To(Equal("0000-0000-4567"))
 			Expect(eventLog.EventLog.VirtualmachineOS).To(Equal("test-os"))
 			Expect(eventLog.EventLog.FirmwareVersion).To(Equal("unknown"))
 
-			if !args.ShouldLostNode {
+			if !args.shouldLostNode {
 				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("127.0.0.1"))
 			} else {
 				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("unknown"))
 			}
 
-			if !args.ShouldLostVD {
+			if !args.shouldLostVD {
 				Expect(eventLog.EventLog.StorageClasses).To(Equal("test-storageclass"))
 			} else {
 				Expect(eventLog.EventLog.StorageClasses).To(Equal("unknown"))
@@ -238,81 +238,81 @@ var _ = Describe("VMOP Events", func() {
 			Expect(err).To(BeNil())
 		},
 		Entry("VMOP event should failed match if objectRef is nil", vmopTestArgs{
-			CustomObjectRefNil: true,
-			ShouldFailMatch: true,
+			customObjectRefNil: true,
+			shouldFailMatch:    true,
 		}),
 		Entry("VMOP event should failed match if level is not RequestResponse", vmopTestArgs{
-			CustomLevel:     audit.LevelMetadata,
-			ShouldFailMatch: true,
+			customLevel:     audit.LevelMetadata,
+			shouldFailMatch: true,
 		}),
 		Entry("VMOP event should failed match if resource is not virtualmachineoperations", vmopTestArgs{
-			CustomObjectRef: &audit.ObjectReference{Resource: "virtualmachines", Namespace: "test", Name: "test-vmop"},
-			ShouldFailMatch: true,
+			customObjectRef: &audit.ObjectReference{Resource: "virtualmachines", Namespace: "test", Name: "test-vmop"},
+			shouldFailMatch: true,
 		}),
 		Entry("Start VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
-			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
+			vmopType:           v1alpha.VMOPTypeStart,
+			expectedName:       "VM started",
+			expectedLevel:      "info",
+			expectedActionType: "start",
 		}),
 		Entry("Stop VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStop,
-			ExpectedName:       "VM stopped",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "stop",
+			vmopType:           v1alpha.VMOPTypeStop,
+			expectedName:       "VM stopped",
+			expectedLevel:      "warn",
+			expectedActionType: "stop",
 		}),
 		Entry("Restart VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeRestart,
-			ExpectedName:       "VM restarted",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "restart",
+			vmopType:           v1alpha.VMOPTypeRestart,
+			expectedName:       "VM restarted",
+			expectedLevel:      "warn",
+			expectedActionType: "restart",
 		}),
 		Entry("Migrate VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeMigrate,
-			ExpectedName:       "VM migrated",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "migrate",
+			vmopType:           v1alpha.VMOPTypeMigrate,
+			expectedName:       "VM migrated",
+			expectedLevel:      "warn",
+			expectedActionType: "migrate",
 		}),
 		Entry("Evict VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeEvict,
-			ExpectedName:       "VM evicted",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "evict",
+			vmopType:           v1alpha.VMOPTypeEvict,
+			expectedName:       "VM evicted",
+			expectedLevel:      "warn",
+			expectedActionType: "evict",
 		}),
 		Entry("Evict VMOP event should filled without errors, but with unknown VDs", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
-			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
-			ShouldLostVD:       true,
+			vmopType:           v1alpha.VMOPTypeStart,
+			expectedName:       "VM started",
+			expectedLevel:      "info",
+			expectedActionType: "start",
+			shouldLostVD:       true,
 		}),
 		Entry("Evict VMOP event should filled without errors, but with unknown Node's IPs", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
-			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
-			ShouldLostNode:     true,
+			vmopType:           v1alpha.VMOPTypeStart,
+			expectedName:       "VM started",
+			expectedLevel:      "info",
+			expectedActionType: "start",
+			shouldLostNode:     true,
 		}),
 		Entry("VMOP event should filled with VM exist error", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
-			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
-			ShouldLostVM:       true,
+			vmopType:           v1alpha.VMOPTypeStart,
+			expectedName:       "VM started",
+			expectedLevel:      "info",
+			expectedActionType: "start",
+			shouldLostVM:       true,
 		}),
 		Entry("VMOP event should filled with VMOP exist error", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
-			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
-			ShouldLostVMOP:     true,
+			vmopType:           v1alpha.VMOPTypeStart,
+			expectedName:       "VM started",
+			expectedLevel:      "info",
+			expectedActionType: "start",
+			shouldLostVMOP:     true,
 		}),
 		Entry("VMOP event should filled with JSON encode error", vmopTestArgs{
-			VMOPType:               v1alpha.VMOPTypeStart,
-			ExpectedName:           "VM started",
-			ExpectedLevel:          "info",
-			ExpectedActionType:     "start",
-			ShouldCorruptVMOPBytes: true,
+			vmopType:               v1alpha.VMOPTypeStart,
+			expectedName:           "VM started",
+			expectedLevel:          "info",
+			expectedActionType:     "start",
+			shouldCorruptVMOPBytes: true,
 		}),
 	)
 })
