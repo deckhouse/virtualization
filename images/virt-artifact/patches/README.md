@@ -278,3 +278,16 @@ This patch modifies the behavior of domain reboot actions in virt-launcher by ov
 
 This patch modifies init container args in virt-launcher images from node-labeller.sh to node-labeller. 
 This bash script has been rewritten to golang.
+
+#### `042-set-migration-configuration-externally.patch`
+
+##### Problem
+
+We want to set MigrationConfiguration in vmi status from the virtualization-controller.
+It will use VM, VMOP, VMClass resources to construct migration options.
+
+##### Solution
+
+This patch disables setting migration configuration from MigrationPolicies, 
+and makes source virt-handler wait for MigrationConfiguration before
+starting migration.
