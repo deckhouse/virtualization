@@ -36,20 +36,20 @@ import (
 )
 
 type vmControlTestArgs struct {
-	EventVerb                    string
-	ExpectedName                 string
-	ExpectedLevel                string
-	ExpectedActionType           string
-	ShouldLostPod                bool
-	ShouldLostVM                 bool
-	ShouldLostVD                 bool
-	ShouldLostNode               bool
-	CustomObjectRef              *audit.ObjectReference
-	CustomObjectRefNil           bool
-	CustomContainerStatusMessage string
-	CustomEventUser              string
-	CustomStage                  audit.Stage
-	ShouldFailMatch              bool
+	eventVerb                    string
+	expectedName                 string
+	expectedLevel                string
+	expectedActionType           string
+	shouldLostPod                bool
+	shouldLostVM                 bool
+	shouldLostVD                 bool
+	shouldLostNode               bool
+	customObjectRef              *audit.ObjectReference
+	customObjectRefNil           bool
+	customContainerStatusMessage string
+	customEventUser              string
+	customStage                  audit.Stage
+	shouldFailMatch              bool
 }
 
 var _ = Describe("VMOP Events", func() {
@@ -146,28 +146,28 @@ var _ = Describe("VMOP Events", func() {
 				GetPodInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return pod, !args.ShouldLostPod, nil
+							return pod, !args.shouldLostPod, nil
 						},
 					}
 				},
 				GetVMInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return vm, !args.ShouldLostVM, nil
+							return vm, !args.shouldLostVM, nil
 						},
 					}
 				},
 				GetVDInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return vd, !args.ShouldLostVD, nil
+							return vd, !args.shouldLostVD, nil
 						},
 					}
 				},
 				GetNodeInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
-							return node, !args.ShouldLostNode, nil
+							return node, !args.shouldLostNode, nil
 						},
 					}
 				},
@@ -179,38 +179,38 @@ var _ = Describe("VMOP Events", func() {
 				TTLCache:     ttlCache,
 			}
 
-			if args.EventVerb != "" {
-				event.Verb = args.EventVerb
+			if args.eventVerb != "" {
+				event.Verb = args.eventVerb
 			}
 
-			if args.CustomObjectRef != nil {
-				event.ObjectRef = args.CustomObjectRef
+			if args.customObjectRef != nil {
+				event.ObjectRef = args.customObjectRef
 			}
 
-			if args.CustomObjectRefNil {
+			if args.customObjectRefNil {
 				event.ObjectRef = nil
 			}
 
-			if args.CustomStage != "" {
-				event.Stage = args.CustomStage
+			if args.customStage != "" {
+				event.Stage = args.customStage
 			}
 
-			if args.CustomContainerStatusMessage != "" {
-				pod.Status.ContainerStatuses[0].State.Terminated.Message = args.CustomContainerStatusMessage
+			if args.customContainerStatusMessage != "" {
+				pod.Status.ContainerStatuses[0].State.Terminated.Message = args.customContainerStatusMessage
 			}
 
-			if args.CustomEventUser != "" {
-				event.User.Username = args.CustomEventUser
+			if args.customEventUser != "" {
+				event.User.Username = args.customEventUser
 			}
 
-			if args.ShouldFailMatch {
+			if args.shouldFailMatch {
 				Expect(eventLog.IsMatched()).To(BeFalse())
 				return
 			}
 
 			Expect(eventLog.IsMatched()).To(BeTrue())
 
-			if args.ShouldLostPod {
+			if args.shouldLostPod {
 				Expect(eventLog.Fill()).NotTo(BeNil())
 				return
 			}
@@ -219,16 +219,16 @@ var _ = Describe("VMOP Events", func() {
 			Expect(err).To(BeNil())
 
 			Expect(eventLog.EventLog.Type).To(Equal("Control VM"))
-			Expect(eventLog.EventLog.Level).To(Equal(args.ExpectedLevel))
-			Expect(eventLog.EventLog.Name).To(Equal(args.ExpectedName))
+			Expect(eventLog.EventLog.Level).To(Equal(args.expectedLevel))
+			Expect(eventLog.EventLog.Name).To(Equal(args.expectedName))
 			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
 			Expect(eventLog.EventLog.Uid).To(Equal("0000-0000-0000"))
 			Expect(eventLog.EventLog.OperationResult).To(Equal("allow"))
-			Expect(eventLog.EventLog.ActionType).To(Equal(args.ExpectedActionType))
+			Expect(eventLog.EventLog.ActionType).To(Equal(args.expectedActionType))
 
-			if args.CustomEventUser == "some-user" ||
-				(args.CustomContainerStatusMessage != "guest-shutdown" &&
-					args.CustomContainerStatusMessage != "guest-reset") {
+			if args.customEventUser == "some-user" ||
+				(args.customContainerStatusMessage != "guest-shutdown" &&
+					args.customContainerStatusMessage != "guest-reset") {
 				Expect(eventLog.Fill()).To(BeNil())
 				return
 			}
@@ -237,19 +237,19 @@ var _ = Describe("VMOP Events", func() {
 			Expect(eventLog.EventLog.VirtualmachineOS).To(Equal("test-os"))
 			Expect(eventLog.EventLog.FirmwareVersion).To(Equal("unknown"))
 
-			if args.CustomEventUser != "" {
-				Expect(eventLog.EventLog.RequestSubject).To(Equal(args.CustomEventUser))
+			if args.customEventUser != "" {
+				Expect(eventLog.EventLog.RequestSubject).To(Equal(args.customEventUser))
 			} else {
 				Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
 			}
 
-			if !args.ShouldLostNode {
+			if !args.shouldLostNode {
 				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("127.0.0.1"))
 			} else {
 				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("unknown"))
 			}
 
-			if !args.ShouldLostVD {
+			if !args.shouldLostVD {
 				Expect(eventLog.EventLog.StorageClasses).To(Equal("test-storageclass"))
 			} else {
 				Expect(eventLog.EventLog.StorageClasses).To(Equal("unknown"))
@@ -267,72 +267,72 @@ var _ = Describe("VMOP Events", func() {
 			Expect(err).To(BeNil())
 		},
 		Entry("VM Manage event should failed match if objectRef is nil", vmControlTestArgs{
-			CustomObjectRefNil: true,
-			ShouldFailMatch:    true,
+			customObjectRefNil: true,
+			shouldFailMatch:    true,
 		}),
 		Entry("VM Manage event should failed match if stage is not ResponseComplete", vmControlTestArgs{
-			CustomStage:     audit.StageRequestReceived,
-			ShouldFailMatch: true,
+			customStage:     audit.StageRequestReceived,
+			shouldFailMatch: true,
 		}),
 		Entry("VM Control event should failed match if resource is not pods", vmControlTestArgs{
-			CustomObjectRef: &audit.ObjectReference{Resource: "virtualmachineoperations", Namespace: "test", Name: "test-vm"},
-			ShouldFailMatch: true,
+			customObjectRef: &audit.ObjectReference{Resource: "virtualmachineoperations", Namespace: "test", Name: "test-vm"},
+			shouldFailMatch: true,
 		}),
 		Entry("VM Control event should failed match if pod is not virt-launcher", vmControlTestArgs{
-			CustomObjectRef: &audit.ObjectReference{Resource: "pods", Namespace: "test", Name: "test-vm"},
-			ShouldFailMatch: true,
+			customObjectRef: &audit.ObjectReference{Resource: "pods", Namespace: "test", Name: "test-vm"},
+			shouldFailMatch: true,
 		}),
 		Entry("VM Control event should failed match if verb is not delete", vmControlTestArgs{
-			EventVerb:       "create",
-			ShouldFailMatch: true,
+			eventVerb:       "create",
+			shouldFailMatch: true,
 		}),
 		Entry("VM create event should filled with Pod lost error", vmControlTestArgs{
-			ShouldLostPod: true,
+			shouldLostPod: true,
 		}),
 		Entry("VM deleted by user event should filled without errors", vmControlTestArgs{
-			ExpectedLevel:      "critical",
-			ExpectedName:       "VM killed abnormal way",
-			ExpectedActionType: "delete",
+			expectedLevel:      "critical",
+			expectedName:       "VM killed abnormal way",
+			expectedActionType: "delete",
 		}),
 		Entry("VM stopped from OS by controller event should filled without errors", vmControlTestArgs{
-			CustomEventUser:              "system:serviceaccount:d8-virtualization",
-			CustomContainerStatusMessage: "guest-shutdown",
-			ExpectedLevel:                "warn",
-			ExpectedName:                 "VM stoped from OS",
-			ExpectedActionType:           "delete",
+			customEventUser:              "system:serviceaccount:d8-virtualization",
+			customContainerStatusMessage: "guest-shutdown",
+			expectedLevel:                "warn",
+			expectedName:                 "VM stoped from OS",
+			expectedActionType:           "delete",
 		}),
 		Entry("VM restarted from OS by controller event should filled without errors", vmControlTestArgs{
-			CustomEventUser:              "system:serviceaccount:d8-virtualization",
-			CustomContainerStatusMessage: "guest-reset",
-			ExpectedLevel:                "warn",
-			ExpectedName:                 "VM restarted from OS",
-			ExpectedActionType:           "delete",
+			customEventUser:              "system:serviceaccount:d8-virtualization",
+			customContainerStatusMessage: "guest-reset",
+			expectedLevel:                "warn",
+			expectedName:                 "VM restarted from OS",
+			expectedActionType:           "delete",
 		}),
 		Entry("VM deleted by node event should filled without errors", vmControlTestArgs{
-			CustomEventUser:    "system:node",
-			ExpectedLevel:      "info",
-			ExpectedName:       "VM stopped by system",
-			ExpectedActionType: "delete",
+			customEventUser:    "system:node",
+			expectedLevel:      "info",
+			expectedName:       "VM stopped by system",
+			expectedActionType: "delete",
 		}),
 		Entry("VM deleted by controller with unknown termination message event should filled without errors", vmControlTestArgs{
-			CustomContainerStatusMessage: "poped",
-			CustomEventUser:              "system:serviceaccount:d8-virtualization",
-			ExpectedLevel:                "warn",
-			ExpectedName:                 "VM stopped by system",
-			ExpectedActionType:           "delete",
+			customContainerStatusMessage: "poped",
+			customEventUser:              "system:serviceaccount:d8-virtualization",
+			expectedLevel:                "warn",
+			expectedName:                 "VM stopped by system",
+			expectedActionType:           "delete",
 		}),
 		Entry("VM deleted by user event with losted VM should filled without errors", vmControlTestArgs{
-			ExpectedLevel:      "critical",
-			ExpectedName:       "VM killed abnormal way",
-			ExpectedActionType: "delete",
-			ShouldLostVM:       true,
+			expectedLevel:      "critical",
+			expectedName:       "VM killed abnormal way",
+			expectedActionType: "delete",
+			shouldLostVM:       true,
 		}),
 		Entry("VM deleted by user event with losted VD and Node should filled without errors", vmControlTestArgs{
-			ExpectedLevel:      "critical",
-			ExpectedName:       "VM killed abnormal way",
-			ExpectedActionType: "delete",
-			ShouldLostNode:     true,
-			ShouldLostVD:       true,
+			expectedLevel:      "critical",
+			expectedName:       "VM killed abnormal way",
+			expectedActionType: "delete",
+			shouldLostNode:     true,
+			shouldLostVD:       true,
 		}),
 	)
 })
