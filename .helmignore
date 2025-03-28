@@ -7,6 +7,5 @@ lib
 Makefile
 openapi
 *.md
-release.yaml
 werf*.yaml
 NOTES.txt

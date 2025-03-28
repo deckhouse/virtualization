@@ -24,6 +24,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/promutil"
+	"github.com/deckhouse/virtualization-controller/pkg/version"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -52,6 +53,7 @@ func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVirtualMachineLabels(m)
 	s.updateMetricVirtualMachineAnnotations(m)
 	s.updateMetricVirtualMachineAgentReady(m)
+	s.updateMetricVirtualMachineInfo(m)
 }
 
 func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
@@ -158,6 +160,12 @@ func (s *scraper) updateMetricVirtualMachineLabels(m *dataMetric) {
 func (s *scraper) updateMetricVirtualMachineAnnotations(m *dataMetric) {
 	s.updateDynamic(MetricVirtualMachineAnnotations, 1, m, nil, m.Annotations)
 }
+
+func (s *scraper) updateMetricVirtualMachineInfo(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineInfo, 1, m, m.currentFirmwareVersion, desiredFirmwareVersion.String())
+}
+
+var desiredFirmwareVersion = version.GetFirmwareVersion()
 
 func (s *scraper) defaultUpdate(name string, value float64, m *dataMetric, labelValues ...string) {
 	info := virtualMachineMetrics[name]

@@ -104,7 +104,7 @@ var _ = Describe("Test power actions with VMs", func() {
 			},
 		}
 
-		vm, kvvm, kvvmi, vmPod = createObjects(namespacedVirtualMachine)
+		vm, kvvm, kvvmi, vmPod = createObjectsForPowerstateTest(namespacedVirtualMachine)
 	})
 
 	It("should handle start", func() {
@@ -171,7 +171,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			Name:      "ns",
 		}
 
-		vm, kvvm, kvvmi, vmPod = createObjects(namespacedVirtualMachine)
+		vm, kvvm, kvvmi, vmPod = createObjectsForPowerstateTest(namespacedVirtualMachine)
 		fakeClient = fake.NewClientBuilder().
 			WithScheme(scheme).
 			WithObjects(vm, kvvm, kvvmi, vmPod).
@@ -414,7 +414,7 @@ func setupScheme() *runtime.Scheme {
 	return scheme
 }
 
-func createObjects(namespacedVirtualMachine types.NamespacedName) (*virtv2.VirtualMachine, *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, *corev1.Pod) {
+func createObjectsForPowerstateTest(namespacedVirtualMachine types.NamespacedName) (*virtv2.VirtualMachine, *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, *corev1.Pod) {
 	vm := &virtv2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedVirtualMachine.Name,

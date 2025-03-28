@@ -46,6 +46,7 @@ func SetupController(
 	mgr manager.Manager,
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
+	firmwareImage string,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	mgrCache := mgr.GetCache()
@@ -67,6 +68,7 @@ func SetupController(
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
 		internal.NewStatisticHandler(client),
+		internal.NewFirmwareHandler(firmwareImage),
 	}
 	r := NewReconciler(client, handlers...)
 

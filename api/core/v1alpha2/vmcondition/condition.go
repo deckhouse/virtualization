@@ -36,9 +36,10 @@ const (
 	TypeConfigurationApplied                Type = "ConfigurationApplied"
 	TypeAwaitingRestartToApplyConfiguration Type = "AwaitingRestartToApplyConfiguration"
 	// TypeFilesystemFrozen indicates whether the filesystem is currently frozen, a necessary condition for creating a snapshot.
-	TypeFilesystemFrozen    Type = "FilesystemFrozen"
-	TypeSizingPolicyMatched Type = "SizingPolicyMatched"
-	TypeSnapshotting        Type = "Snapshotting"
+	TypeFilesystemFrozen       Type = "FilesystemFrozen"
+	TypeSizingPolicyMatched    Type = "SizingPolicyMatched"
+	TypeSnapshotting           Type = "Snapshotting"
+	TypeFirmwareUpdateRequired Type = "FirmwareUpdateRequired"
 )
 
 type Reason string
@@ -104,8 +105,10 @@ const (
 	// ReasonBlockDeviceLimitExceeded indicates that the limit for attaching block devices has been exceeded
 	ReasonBlockDeviceLimitExceeded Reason = "BlockDeviceLimitExceeded"
 
-	ReasonPodTerminatingReason      Reason = "PodTerminating"
-	ReasonPodNotExistsReason        Reason = "PodNotExists"
-	ReasonPodConditionMissingReason Reason = "PodConditionMissing"
-	ReasonGuestNotRunningReason     Reason = "GuestNotRunning"
+	ReasonPodTerminating      Reason = "PodTerminating"
+	ReasonPodNotExists        Reason = "PodNotExists"
+	ReasonPodConditionMissing Reason = "PodConditionMissing"
+	ReasonGuestNotRunning     Reason = "GuestNotRunning"
+
+	ReasonFirmwareUpdateRequired Reason = "FirmwareUpdateRequired"
 )

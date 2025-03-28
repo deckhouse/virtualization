@@ -48,6 +48,7 @@ type dataMetric struct {
 	Pods                                []virtv2.VirtualMachinePod
 	Labels                              map[string]string
 	Annotations                         map[string]string
+	currentFirmwareVersion              string
 }
 
 // DO NOT mutate VirtualMachine!
@@ -105,6 +106,7 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		Annotations: promutil.WrapPrometheusLabels(vm.GetAnnotations(), "annotation", func(key, _ string) bool {
 			return strings.HasPrefix(key, "kubectl.kubernetes.io")
 		}),
+		currentFirmwareVersion: vm.Status.FirmwareVersion,
 	}
 }
 
