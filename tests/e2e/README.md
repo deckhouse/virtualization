@@ -121,6 +121,17 @@ For example, run test in reusable mode with the removal of all used resources af
 REUSABLE=yes WITH_POST_CLEANUP=yes task run
 ```
 
+### Working with `Virtualization-controller` errors
+
+When the Ginkgo tests suite is running, it also runs the Virtualization-controller log stream. If you see an error in the STDOUT, it is not an error of the Ginkgo contexts. You can ignore this error by adding an ignore-pattern to the configuration file (default_config.yaml). But remember that the Virtualization-controller should work without errors while the tests suite is running. If your changes may be causing errors, check the code.
+
+Example:
+```yaml
+logFilter:
+  - "failed to sync virtual disk data source objectref" # "err": "failed to sync virtual disk data source objectref: admission webhook \"datavolume-validate.cdi.kubevirt.io\" denied the request:  Destination PVC winwin/vd-win2022-8a136ef9-32d9-4ae3-a27f-e42e15c15f47 already exists"
+  - "failed to detach: intvirtvm not found to unplug" # "err": "failed to detach: intvirtvm not found to unplug"
+```
+
 ## Run tests in CI
 ```bash
 task run:ci
