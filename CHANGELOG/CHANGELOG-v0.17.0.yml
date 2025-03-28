@@ -1,0 +1,116 @@
+api:
+  fixes:
+    - summary: fix e2e panic caused wrong assertation
+      pull_request: https://github.com/deckhouse/virtualization/pull/893
+core:
+  fixes:
+    - summary: remove missed cdi-uploadproxy image
+      pull_request: https://github.com/deckhouse/virtualization/pull/867
+    - summary: Fix ValidatingAdmissionPolicy migration hook, it should support Kubernetes 1.28+
+      pull_request: https://github.com/deckhouse/virtualization/pull/860
+    - summary: Add to cdi config HonorWaitForFirstConsumer
+      pull_request: https://github.com/deckhouse/virtualization/pull/850
+    - summary: >-
+        Virtual machines can run on Linux nodes with broken implementations of the getsockopt
+        syscall.
+      pull_request: https://github.com/deckhouse/virtualization/pull/843
+    - summary: Revert scsi disk serial truncate in QEMU
+      pull_request: https://github.com/deckhouse/virtualization/pull/842
+    - summary: Rename internal resources to not conflict with the original Kubevirt installation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/839
+    - summary: add mknod binary to virt-launcher image
+      pull_request: https://github.com/deckhouse/virtualization/pull/834
+    - summary: add blockdev binary to cdi-importer and cdi-controller
+      pull_request: https://github.com/deckhouse/virtualization/pull/820
+    - summary: add swtpm configs and gnutls-utils to virt-launcher image
+      pull_request: https://github.com/deckhouse/virtualization/pull/819
+    - summary: fix symlinks and add missing binaries virt-launcher
+      pull_request: https://github.com/deckhouse/virtualization/pull/815
+    - summary: fix dvcr images imports, cdi components to distroless images
+      pull_request: https://github.com/deckhouse/virtualization/pull/806
+    - summary: Add new emptydirs mounted to `/tmp` and  `/var/lib/swtpm-localca` for virt-launcher
+      pull_request: https://github.com/deckhouse/virtualization/pull/802
+    - summary: directories in root such as bin,sbin,etc linked to their respective counterparts in /usr
+      pull_request: https://github.com/deckhouse/virtualization/pull/789
+cvi:
+  fixes:
+    - summary: add the omitted watcher for vd snapshots
+      pull_request: https://github.com/deckhouse/virtualization/pull/880
+docs:
+  fixes:
+    - summary: fix typo in shell command of creating branch in CONTRIBUTING.md
+      pull_request: https://github.com/deckhouse/virtualization/pull/858
+kubevirt:
+  fixes:
+    - summary: Add Patch Permissions for DS virt-handler on VMI
+      pull_request: https://github.com/deckhouse/virtualization/pull/872
+    - summary: add limits for init container `etc-libvirt-init`
+      pull_request: https://github.com/deckhouse/virtualization/pull/793
+    - summary: >-
+        fix hotplug container disk mounter blocking the queue when virt-handler attempts to
+        reconcile ghost records
+      pull_request: https://github.com/deckhouse/virtualization/pull/717
+module:
+  features:
+    - summary: Add VM grafana dashboard
+      pull_request: https://github.com/deckhouse/virtualization/pull/861
+  fixes:
+    - summary: add CRD check for DVCR ServiceMonitor and ScrapeConfig
+      pull_request: https://github.com/deckhouse/virtualization/pull/884
+    - summary: fix OS Windows mountpoint promql
+      pull_request: https://github.com/deckhouse/virtualization/pull/864
+vd:
+  fixes:
+    - summary: return a named error when VirtualImage is not found to avoid throw handler error
+      pull_request: https://github.com/deckhouse/virtualization/pull/889
+    - summary: watch pvc creation events
+      pull_request: https://github.com/deckhouse/virtualization/pull/808
+    - summary: Optimized the creation time for empty disks
+      pull_request: https://github.com/deckhouse/virtualization/pull/786
+    - summary: fix resizing handler and cover it with unit tests
+      pull_request: https://github.com/deckhouse/virtualization/pull/685
+vi:
+  fixes:
+    - summary: bug fixes related to VirtualImage and VDSnapshot ObjectRef
+      pull_request: https://github.com/deckhouse/virtualization/pull/781
+vm:
+  features:
+    - summary: >-
+        We have implemented an automatic CPU topology configuration mechanism for VMs. The number of
+        cores/sockets depends on the number of cores in .spec.cpu.cores. For more details, refer to
+        the documentation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/747
+    - summary: VirtualMachine.Status.BlockDeviceRefs contains hotplugged images
+      pull_request: https://github.com/deckhouse/virtualization/pull/681
+  fixes:
+    - summary: fix errors with power state operations
+      pull_request: https://github.com/deckhouse/virtualization/pull/873
+    - summary: add missed but attached block device references to the status of the virtual machine
+      pull_request: https://github.com/deckhouse/virtualization/pull/841
+    - summary: correct maximum CPU sockets assignment in domain specification
+      pull_request: https://github.com/deckhouse/virtualization/pull/832
+    - summary: fix start VM after change run policy from AlwaysOff
+      pull_request: https://github.com/deckhouse/virtualization/pull/825
+    - summary: correct CPU core validation logic for range checks
+      pull_request: https://github.com/deckhouse/virtualization/pull/824
+    - summary: fix description in generated code
+      pull_request: https://github.com/deckhouse/virtualization/pull/818
+    - summary: fix filesystem frozen condition blinks
+      pull_request: https://github.com/deckhouse/virtualization/pull/795
+    - summary: rename filesystemReady condition to filesystemFrozen
+      pull_request: https://github.com/deckhouse/virtualization/pull/714
+vmbda:
+  fixes:
+    - summary: check unplug ability for prefixed block device name
+      pull_request: https://github.com/deckhouse/virtualization/pull/814
+    - summary: >-
+        fixed a bug that prevented the deletion of the vmbda device when its block device was
+        already specified in the virtual machine's specification.
+      pull_request: https://github.com/deckhouse/virtualization/pull/760
+vmop:
+  features:
+    - summary: >-
+        Implement new migration design. Delete VMOP type Evict, equivalent to working as cancel
+        migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/857
+
