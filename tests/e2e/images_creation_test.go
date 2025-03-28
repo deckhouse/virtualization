@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	storagev1 "k8s.io/api/storage/v1"
 
 	sdsrepvolv1 "github.com/deckhouse/sds-replicated-volume/api/v1alpha1"
@@ -27,8 +28,6 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
-	. "github.com/onsi/gomega"
-
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
