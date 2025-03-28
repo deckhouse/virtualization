@@ -1,4 +1,5 @@
 run:
+  concurrency: 4
   timeout: 10m
 #  skip-dirs:
 # this code has been copied from kubectl cli. No need to lint external code.
