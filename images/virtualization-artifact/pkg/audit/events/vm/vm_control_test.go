@@ -17,7 +17,6 @@ limitations under the License.
 package vm_test
 
 import (
-	"encoding/json"
 	"os"
 	"syscall"
 	"time"
@@ -27,7 +26,6 @@ import (
 	authnv1 "k8s.io/api/authentication/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/apis/audit"
 	virtv1 "kubevirt.io/api/core/v1"
 
@@ -37,28 +35,29 @@ import (
 	v1alpha "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type vmopTestArgs struct {
-	VMOPType               v1alpha.VMOPType
-	ExpectedName           string
-	ExpectedLevel          string
-	ExpectedActionType     string
-	ShouldLostVMOP         bool
-	ShouldLostVM           bool
-	ShouldLostVD           bool
-	ShouldLostNode         bool
-	ShouldCorruptVMOPBytes bool
-	CustomObjectRef        *audit.ObjectReference
-	CustomObjectRefNil     bool
-	CustomLevel            audit.Level
-	ShouldFailMatch        bool
+type vmControlTestArgs struct {
+	EventVerb                    string
+	ExpectedName                 string
+	ExpectedLevel                string
+	ExpectedActionType           string
+	ShouldLostPod                bool
+	ShouldLostVM                 bool
+	ShouldLostVD                 bool
+	ShouldLostNode               bool
+	CustomObjectRef              *audit.ObjectReference
+	CustomObjectRefNil           bool
+	CustomContainerStatusMessage string
+	CustomEventUser              string
+	CustomStage                  audit.Stage
+	ShouldFailMatch              bool
 }
 
 var _ = Describe("VMOP Events", func() {
 	var event *audit.Event
-	var vmop *v1alpha.VirtualMachineOperation
 	var vm *v1alpha.VirtualMachine
 	var vd *v1alpha.VirtualDisk
 	var node *corev1.Node
+	var pod *corev1.Pod
 
 	currentTime := time.Now()
 
@@ -69,22 +68,38 @@ var _ = Describe("VMOP Events", func() {
 			AuditID:                  "0000-0000-0000",
 			Stage:                    audit.StageResponseComplete,
 			RequestURI:               "/",
-			Verb:                     "create",
+			Verb:                     "delete",
 			User:                     authnv1.UserInfo{Username: "test-user", UID: "0000-0000-1234"},
 			RequestReceivedTimestamp: metav1.MicroTime{Time: currentTime},
 			ObjectRef: &audit.ObjectReference{
-				Resource:  "virtualmachineoperations",
+				Resource:  "pods",
 				Namespace: "test",
-				Name:      "test-vmop",
+				Name:      "virt-launcher-test-vm",
 			},
 			Annotations: map[string]string{
 				annotations.AnnAuditDecision: "allow",
 			},
 		}
 
-		vmop = &v1alpha.VirtualMachineOperation{
-			Spec: v1alpha.VirtualMachineOperationSpec{
-				VirtualMachine: "test-vm",
+		pod = &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "virt-launcher-test-vm", Namespace: "test", UID: "0000-0000-4567"},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{
+						Name:  "compute",
+						Image: "test-image",
+					},
+				},
+				NodeName: "test-node",
+			},
+			Status: corev1.PodStatus{
+				ContainerStatuses: []corev1.ContainerStatus{
+					{
+						Name:  "compute",
+						State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{Message: "guest-shutdown"}},
+					},
+				},
+				Phase: corev1.PodRunning,
 			},
 		}
 
@@ -120,14 +135,7 @@ var _ = Describe("VMOP Events", func() {
 	})
 
 	DescribeTable("Checking VMOP events",
-		func(args vmopTestArgs) {
-			bytes, _ := json.Marshal(vmop)
-			event.ResponseObject = &runtime.Unknown{Raw: bytes}
-
-			if args.ShouldCorruptVMOPBytes {
-				bytes[0] = ^bytes[0]
-			}
-
+		func(args vmControlTestArgs) {
 			ttlCache := &events.TTLCacheMock{
 				GetFunc: func(key string) (any, bool) {
 					return nil, false
@@ -135,17 +143,17 @@ var _ = Describe("VMOP Events", func() {
 			}
 
 			informerList := &events.InformerListMock{
+				GetPodInformerFunc: func() events.Indexer {
+					return &events.IndexerMock{
+						GetByKeyFunc: func(s string) (any, bool, error) {
+							return pod, !args.ShouldLostPod, nil
+						},
+					}
+				},
 				GetVMInformerFunc: func() events.Indexer {
 					return &events.IndexerMock{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							return vm, !args.ShouldLostVM, nil
-						},
-					}
-				},
-				GetVMOPInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
-						GetByKeyFunc: func(s string) (any, bool, error) {
-							return vmop, !args.ShouldLostVMOP, nil
 						},
 					}
 				},
@@ -165,13 +173,15 @@ var _ = Describe("VMOP Events", func() {
 				},
 			}
 
-			eventLog := vmevent.VMOPControl{
+			eventLog := vmevent.VMControl{
 				Event:        event,
 				InformerList: informerList,
 				TTLCache:     ttlCache,
 			}
 
-			vmop.Spec.Type = args.VMOPType
+			if args.EventVerb != "" {
+				event.Verb = args.EventVerb
+			}
 
 			if args.CustomObjectRef != nil {
 				event.ObjectRef = args.CustomObjectRef
@@ -181,8 +191,16 @@ var _ = Describe("VMOP Events", func() {
 				event.ObjectRef = nil
 			}
 
-			if args.CustomLevel != "" {
-				event.Level = args.CustomLevel
+			if args.CustomStage != "" {
+				event.Stage = args.CustomStage
+			}
+
+			if args.CustomContainerStatusMessage != "" {
+				pod.Status.ContainerStatuses[0].State.Terminated.Message = args.CustomContainerStatusMessage
+			}
+
+			if args.CustomEventUser != "" {
+				event.User.Username = args.CustomEventUser
 			}
 
 			if args.ShouldFailMatch {
@@ -192,9 +210,8 @@ var _ = Describe("VMOP Events", func() {
 
 			Expect(eventLog.IsMatched()).To(BeTrue())
 
-			if args.ShouldLostVMOP || args.ShouldLostVM || args.ShouldCorruptVMOPBytes {
-				err := eventLog.Fill()
-				Expect(err).NotTo(BeNil())
+			if args.ShouldLostPod {
+				Expect(eventLog.Fill()).NotTo(BeNil())
 				return
 			}
 
@@ -206,13 +223,25 @@ var _ = Describe("VMOP Events", func() {
 			Expect(eventLog.EventLog.Name).To(Equal(args.ExpectedName))
 			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
 			Expect(eventLog.EventLog.Uid).To(Equal("0000-0000-0000"))
-			Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
 			Expect(eventLog.EventLog.OperationResult).To(Equal("allow"))
-
 			Expect(eventLog.EventLog.ActionType).To(Equal(args.ExpectedActionType))
+
+			if args.CustomEventUser == "some-user" ||
+				(args.CustomContainerStatusMessage != "guest-shutdown" &&
+					args.CustomContainerStatusMessage != "guest-reset") {
+				Expect(eventLog.Fill()).To(BeNil())
+				return
+			}
+
 			Expect(eventLog.EventLog.VirtualmachineUID).To(Equal("0000-0000-4567"))
 			Expect(eventLog.EventLog.VirtualmachineOS).To(Equal("test-os"))
 			Expect(eventLog.EventLog.FirmwareVersion).To(Equal("unknown"))
+
+			if args.CustomEventUser != "" {
+				Expect(eventLog.EventLog.RequestSubject).To(Equal(args.CustomEventUser))
+			} else {
+				Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
+			}
 
 			if !args.ShouldLostNode {
 				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("127.0.0.1"))
@@ -237,82 +266,73 @@ var _ = Describe("VMOP Events", func() {
 			err = eventLog.Log()
 			Expect(err).To(BeNil())
 		},
-		Entry("VMOP event should failed match if objectRef is nil", vmopTestArgs{
+		Entry("VM Manage event should failed match if objectRef is nil", vmControlTestArgs{
 			CustomObjectRefNil: true,
+			ShouldFailMatch:    true,
+		}),
+		Entry("VM Manage event should failed match if stage is not ResponseComplete", vmControlTestArgs{
+			CustomStage:     audit.StageRequestReceived,
 			ShouldFailMatch: true,
 		}),
-		Entry("VMOP event should failed match if level is not RequestResponse", vmopTestArgs{
-			CustomLevel:     audit.LevelMetadata,
+		Entry("VM Control event should failed match if resource is not pods", vmControlTestArgs{
+			CustomObjectRef: &audit.ObjectReference{Resource: "virtualmachineoperations", Namespace: "test", Name: "test-vm"},
 			ShouldFailMatch: true,
 		}),
-		Entry("VMOP event should failed match if resource is not virtualmachineoperations", vmopTestArgs{
-			CustomObjectRef: &audit.ObjectReference{Resource: "virtualmachines", Namespace: "test", Name: "test-vmop"},
+		Entry("VM Control event should failed match if pod is not virt-launcher", vmControlTestArgs{
+			CustomObjectRef: &audit.ObjectReference{Resource: "pods", Namespace: "test", Name: "test-vm"},
 			ShouldFailMatch: true,
 		}),
-		Entry("Start VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
+		Entry("VM Control event should failed match if verb is not delete", vmControlTestArgs{
+			EventVerb:       "create",
+			ShouldFailMatch: true,
+		}),
+		Entry("VM create event should filled with Pod lost error", vmControlTestArgs{
+			ShouldLostPod: true,
+		}),
+		Entry("VM deleted by user event should filled without errors", vmControlTestArgs{
+			ExpectedLevel:      "critical",
+			ExpectedName:       "VM killed abnormal way",
+			ExpectedActionType: "delete",
+		}),
+		Entry("VM stopped from OS by controller event should filled without errors", vmControlTestArgs{
+			CustomEventUser:              "system:serviceaccount:d8-virtualization",
+			CustomContainerStatusMessage: "guest-shutdown",
+			ExpectedLevel:                "warn",
+			ExpectedName:                 "VM stoped from OS",
+			ExpectedActionType:           "delete",
+		}),
+		Entry("VM restarted from OS by controller event should filled without errors", vmControlTestArgs{
+			CustomEventUser:              "system:serviceaccount:d8-virtualization",
+			CustomContainerStatusMessage: "guest-reset",
+			ExpectedLevel:                "warn",
+			ExpectedName:                 "VM restarted from OS",
+			ExpectedActionType:           "delete",
+		}),
+		Entry("VM deleted by node event should filled without errors", vmControlTestArgs{
+			CustomEventUser:    "system:node",
 			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
+			ExpectedName:       "VM stopped by system",
+			ExpectedActionType: "delete",
 		}),
-		Entry("Stop VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStop,
-			ExpectedName:       "VM stopped",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "stop",
+		Entry("VM deleted by controller with unknown termination message event should filled without errors", vmControlTestArgs{
+			CustomContainerStatusMessage: "poped",
+			CustomEventUser:              "system:serviceaccount:d8-virtualization",
+			ExpectedLevel:                "warn",
+			ExpectedName:                 "VM stopped by system",
+			ExpectedActionType:           "delete",
 		}),
-		Entry("Restart VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeRestart,
-			ExpectedName:       "VM restarted",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "restart",
-		}),
-		Entry("Migrate VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeMigrate,
-			ExpectedName:       "VM migrated",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "migrate",
-		}),
-		Entry("Evict VMOP event should filled without errors", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeEvict,
-			ExpectedName:       "VM evicted",
-			ExpectedLevel:      "warn",
-			ExpectedActionType: "evict",
-		}),
-		Entry("Evict VMOP event should filled without errors, but with unknown VDs", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
-			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
-			ShouldLostVD:       true,
-		}),
-		Entry("Evict VMOP event should filled without errors, but with unknown Node's IPs", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
-			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
-			ShouldLostNode:     true,
-		}),
-		Entry("VMOP event should filled with VM exist error", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
-			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
+		Entry("VM deleted by user event with losted VM should filled without errors", vmControlTestArgs{
+			ExpectedLevel:      "critical",
+			ExpectedName:       "VM killed abnormal way",
+			ExpectedActionType: "delete",
 			ShouldLostVM:       true,
 		}),
-		Entry("VMOP event should filled with VMOP exist error", vmopTestArgs{
-			VMOPType:           v1alpha.VMOPTypeStart,
-			ExpectedName:       "VM started",
-			ExpectedLevel:      "info",
-			ExpectedActionType: "start",
-			ShouldLostVMOP:     true,
-		}),
-		Entry("VMOP event should filled with JSON encode error", vmopTestArgs{
-			VMOPType:               v1alpha.VMOPTypeStart,
-			ExpectedName:           "VM started",
-			ExpectedLevel:          "info",
-			ExpectedActionType:     "start",
-			ShouldCorruptVMOPBytes: true,
+		Entry("VM deleted by user event with losted VD and Node should filled without errors", vmControlTestArgs{
+			ExpectedLevel:      "critical",
+			ExpectedName:       "VM killed abnormal way",
+			ExpectedActionType: "delete",
+			ShouldLostNode:     true,
+			ShouldLostVD:       true,
 		}),
 	)
 })

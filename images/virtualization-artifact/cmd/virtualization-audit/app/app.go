@@ -27,7 +27,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/cache"
-	"github.com/deckhouse/virtualization-controller/pkg/audit/events/handler"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/informer"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/server"
 )
