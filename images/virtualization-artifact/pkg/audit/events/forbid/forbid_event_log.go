@@ -14,22 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package forbid
 
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
-	"strings"
 	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
-type ModuleEventLog struct {
+type ForbidEventLog struct {
 	Type            string `json:"type"`
 	Level           string `json:"level"`
 	Name            string `json:"name"`
@@ -37,33 +34,23 @@ type ModuleEventLog struct {
 	Uid             string `json:"uid"`
 	RequestSubject  string `json:"request_subject"`
 	OperationResult string `json:"operation_result"`
-
-	ActionType            string `json:"action_type"`
-	Component             string `json:"component"`
-	NodeNetworkAddress    string `json:"node_network_address"`
-	VirtualizationVersion string `json:"virtualization_version"`
-	VirtualizationName    string `json:"virtualization_name"`
-	FirmwareVersion       string `json:"firmware_version"`
+	IsAdmin         bool   `json:"is_admin"`
+	SourceIP        string `json:"source_ip"`
+	ForbidReason    string `json:"forbid_reason"`
 
 	shouldLog bool
 }
 
-func NewModuleEventLog(event *audit.Event) *ModuleEventLog {
-	eventLog := &ModuleEventLog{
+func NewForbidEventLog(event *audit.Event) *ForbidEventLog {
+	eventLog := &ForbidEventLog{
 		Type:            "unknown",
-		Level:           "info",
+		Level:           "warn",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
 		Uid:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
-		OperationResult: "unknown",
-
-		ActionType:            event.Verb,
-		Component:             "virtualizaion",
-		NodeNetworkAddress:    "unknown",
-		VirtualizationName:    "Deckhouse Virtualization Platform",
-		VirtualizationVersion: "unknown",
-		FirmwareVersion:       "unknown",
+		OperationResult: "forbid",
+		ForbidReason:    "unknown",
 
 		shouldLog: true,
 	}
@@ -72,36 +59,20 @@ func NewModuleEventLog(event *audit.Event) *ModuleEventLog {
 		eventLog.OperationResult = event.Annotations[annotations.AnnAuditDecision]
 	}
 
+	if event.Annotations[annotations.AnnAuditReason] != "" {
+		eventLog.OperationResult = event.Annotations[annotations.AnnAuditReason]
+	}
+
 	return eventLog
 }
 
-func (e ModuleEventLog) Log() error {
+func (e *ForbidEventLog) Log() error {
 	bytes, err := json.Marshal(e)
 	if err != nil {
 		return err
 	}
 
 	fmt.Println(string(bytes))
-
-	return nil
-}
-
-func (e *ModuleEventLog) fillNodeInfo(nodeInformer indexer, pod *corev1.Pod) error {
-	node, err := getNodeFromInformer(nodeInformer, pod.Spec.NodeName)
-	if err != nil {
-		return fmt.Errorf("fail to get node from informer: %w", err)
-	}
-
-	addresses := []string{}
-	for _, addr := range node.Status.Addresses {
-		if addr.Type != corev1.NodeHostName && addr.Address != "" {
-			addresses = append(addresses, addr.Address)
-		}
-	}
-
-	if len(addresses) != 0 {
-		e.NodeNetworkAddress = strings.Join(slices.Compact(addresses), ",")
-	}
 
 	return nil
 }

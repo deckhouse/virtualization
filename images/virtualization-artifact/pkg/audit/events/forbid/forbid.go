@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package forbid
 
 import (
 	"context"
@@ -25,15 +25,17 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
-func NewForbid(options NewEventHandlerOptions) eventLogger {
+func NewForbid(options events.EventLoggerOptions) events.EventLogger {
 	return &Forbid{
-		ctx:       options.Ctx,
-		event:     options.Event,
-		clientset: options.Client,
-		ttlCache:  options.TTLCache,
+		ctx:       options.GetCtx(),
+		event:     options.GetEvent(),
+		clientset: options.GetClient(),
+		ttlCache:  options.GetTTLCache(),
 	}
 }
 
@@ -41,7 +43,7 @@ type Forbid struct {
 	event     *audit.Event
 	eventLog  *ForbidEventLog
 	ctx       context.Context
-	ttlCache  ttlCache
+	ttlCache  events.TTLCache
 	clientset *kubernetes.Clientset
 }
 
@@ -101,7 +103,7 @@ func (m *Forbid) isAdmin(user string) (bool, error) {
 		return isAdm.(bool), nil
 	}
 
-	canUpdateModuleConfigs, err := checkAccess(m.ctx, m.clientset, user, "update", "authorization.k8s.io", "v1", "moduleconfigs")
+	canUpdateModuleConfigs, err := util.CheckAccess(m.ctx, m.clientset, user, "update", "authorization.k8s.io", "v1", "moduleconfigs")
 	if err != nil {
 		return false, err
 	}
@@ -110,7 +112,7 @@ func (m *Forbid) isAdmin(user string) (bool, error) {
 		return true, nil
 	}
 
-	canUpdateVMClasses, err := checkAccess(m.ctx, m.clientset, user, "update", "authorization.k8s.io", "v1", "virtualmachineclasses")
+	canUpdateVMClasses, err := util.CheckAccess(m.ctx, m.clientset, user, "update", "authorization.k8s.io", "v1", "virtualmachineclasses")
 	if err != nil {
 		return false, err
 	}

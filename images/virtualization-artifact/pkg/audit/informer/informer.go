@@ -27,6 +27,7 @@ import (
 	kubecache "k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -166,34 +167,34 @@ func (i *InformerList) Run(ctx context.Context) error {
 	return nil
 }
 
-func (i *InformerList) GetVMInformer() kubecache.Indexer {
+func (i *InformerList) GetVMInformer() events.Indexer {
 	return i.vmInformer.GetIndexer()
 }
 
-func (i *InformerList) GetVDInformer() kubecache.Indexer {
+func (i *InformerList) GetVDInformer() events.Indexer {
 	return i.vdInformer.GetIndexer()
 }
 
-func (i *InformerList) GetVMOPInformer() kubecache.Indexer {
+func (i *InformerList) GetVMOPInformer() events.Indexer {
 	return i.vmopInformer.GetIndexer()
 }
 
-func (i *InformerList) GetPodInformer() kubecache.Indexer {
+func (i *InformerList) GetPodInformer() events.Indexer {
 	return i.podInformer.GetIndexer()
 }
 
-func (i *InformerList) GetNodeInformer() kubecache.Indexer {
+func (i *InformerList) GetNodeInformer() events.Indexer {
 	return i.nodeInformer.GetIndexer()
 }
 
-func (i *InformerList) GetModuleInformer() kubecache.Indexer {
+func (i *InformerList) GetModuleInformer() events.Indexer {
 	return i.moduleInformer.GetIndexer()
 }
 
-func (i *InformerList) GetModuleConfigInformer() kubecache.Indexer {
+func (i *InformerList) GetModuleConfigInformer() events.Indexer {
 	return i.moduleConfigInformer.GetIndexer()
 }
 
-func (i *InformerList) GetInternalVMIInformer() kubecache.Indexer {
+func (i *InformerList) GetInternalVMIInformer() events.Indexer {
 	return i.internalVMIInformer.GetIndexer()
 }

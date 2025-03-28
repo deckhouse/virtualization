@@ -7,26 +7,92 @@ import (
 	"sync"
 )
 
-// Ensure, that indexerMock does implement indexer.
+// Ensure, that TTLCacheMock does implement TTLCache.
 // If this is not the case, regenerate this file with moq.
-var _ indexer = &indexerMock{}
+var _ TTLCache = &TTLCacheMock{}
 
-// indexerMock is a mock implementation of indexer.
+// TTLCacheMock is a mock implementation of TTLCache.
 //
-//	func TestSomethingThatUsesindexer(t *testing.T) {
+//	func TestSomethingThatUsesTTLCache(t *testing.T) {
 //
-//		// make and configure a mocked indexer
-//		mockedindexer := &indexerMock{
+//		// make and configure a mocked TTLCache
+//		mockedTTLCache := &TTLCacheMock{
+//			GetFunc: func(key string) (any, bool) {
+//				panic("mock out the Get method")
+//			},
+//		}
+//
+//		// use mockedTTLCache in code that requires TTLCache
+//		// and then make assertions.
+//
+//	}
+type TTLCacheMock struct {
+	// GetFunc mocks the Get method.
+	GetFunc func(key string) (any, bool)
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// Get holds details about calls to the Get method.
+		Get []struct {
+			// Key is the key argument value.
+			Key string
+		}
+	}
+	lockGet sync.RWMutex
+}
+
+// Get calls GetFunc.
+func (mock *TTLCacheMock) Get(key string) (any, bool) {
+	if mock.GetFunc == nil {
+		panic("TTLCacheMock.GetFunc: method is nil but TTLCache.Get was just called")
+	}
+	callInfo := struct {
+		Key string
+	}{
+		Key: key,
+	}
+	mock.lockGet.Lock()
+	mock.calls.Get = append(mock.calls.Get, callInfo)
+	mock.lockGet.Unlock()
+	return mock.GetFunc(key)
+}
+
+// GetCalls gets all the calls that were made to Get.
+// Check the length with:
+//
+//	len(mockedTTLCache.GetCalls())
+func (mock *TTLCacheMock) GetCalls() []struct {
+	Key string
+} {
+	var calls []struct {
+		Key string
+	}
+	mock.lockGet.RLock()
+	calls = mock.calls.Get
+	mock.lockGet.RUnlock()
+	return calls
+}
+
+// Ensure, that IndexerMock does implement Indexer.
+// If this is not the case, regenerate this file with moq.
+var _ Indexer = &IndexerMock{}
+
+// IndexerMock is a mock implementation of Indexer.
+//
+//	func TestSomethingThatUsesIndexer(t *testing.T) {
+//
+//		// make and configure a mocked Indexer
+//		mockedIndexer := &IndexerMock{
 //			GetByKeyFunc: func(s string) (any, bool, error) {
 //				panic("mock out the GetByKey method")
 //			},
 //		}
 //
-//		// use mockedindexer in code that requires indexer
+//		// use mockedIndexer in code that requires Indexer
 //		// and then make assertions.
 //
 //	}
-type indexerMock struct {
+type IndexerMock struct {
 	// GetByKeyFunc mocks the GetByKey method.
 	GetByKeyFunc func(s string) (any, bool, error)
 
@@ -42,9 +108,9 @@ type indexerMock struct {
 }
 
 // GetByKey calls GetByKeyFunc.
-func (mock *indexerMock) GetByKey(s string) (any, bool, error) {
+func (mock *IndexerMock) GetByKey(s string) (any, bool, error) {
 	if mock.GetByKeyFunc == nil {
-		panic("indexerMock.GetByKeyFunc: method is nil but indexer.GetByKey was just called")
+		panic("IndexerMock.GetByKeyFunc: method is nil but Indexer.GetByKey was just called")
 	}
 	callInfo := struct {
 		S string
@@ -60,8 +126,8 @@ func (mock *indexerMock) GetByKey(s string) (any, bool, error) {
 // GetByKeyCalls gets all the calls that were made to GetByKey.
 // Check the length with:
 //
-//	len(mockedindexer.GetByKeyCalls())
-func (mock *indexerMock) GetByKeyCalls() []struct {
+//	len(mockedIndexer.GetByKeyCalls())
+func (mock *IndexerMock) GetByKeyCalls() []struct {
 	S string
 } {
 	var calls []struct {
@@ -70,5 +136,323 @@ func (mock *indexerMock) GetByKeyCalls() []struct {
 	mock.lockGetByKey.RLock()
 	calls = mock.calls.GetByKey
 	mock.lockGetByKey.RUnlock()
+	return calls
+}
+
+// Ensure, that InformerListMock does implement InformerList.
+// If this is not the case, regenerate this file with moq.
+var _ InformerList = &InformerListMock{}
+
+// InformerListMock is a mock implementation of InformerList.
+//
+//	func TestSomethingThatUsesInformerList(t *testing.T) {
+//
+//		// make and configure a mocked InformerList
+//		mockedInformerList := &InformerListMock{
+//			GetInternalVMIInformerFunc: func() Indexer {
+//				panic("mock out the GetInternalVMIInformer method")
+//			},
+//			GetModuleConfigInformerFunc: func() Indexer {
+//				panic("mock out the GetModuleConfigInformer method")
+//			},
+//			GetModuleInformerFunc: func() Indexer {
+//				panic("mock out the GetModuleInformer method")
+//			},
+//			GetNodeInformerFunc: func() Indexer {
+//				panic("mock out the GetNodeInformer method")
+//			},
+//			GetPodInformerFunc: func() Indexer {
+//				panic("mock out the GetPodInformer method")
+//			},
+//			GetVDInformerFunc: func() Indexer {
+//				panic("mock out the GetVDInformer method")
+//			},
+//			GetVMInformerFunc: func() Indexer {
+//				panic("mock out the GetVMInformer method")
+//			},
+//			GetVMOPInformerFunc: func() Indexer {
+//				panic("mock out the GetVMOPInformer method")
+//			},
+//		}
+//
+//		// use mockedInformerList in code that requires InformerList
+//		// and then make assertions.
+//
+//	}
+type InformerListMock struct {
+	// GetInternalVMIInformerFunc mocks the GetInternalVMIInformer method.
+	GetInternalVMIInformerFunc func() Indexer
+
+	// GetModuleConfigInformerFunc mocks the GetModuleConfigInformer method.
+	GetModuleConfigInformerFunc func() Indexer
+
+	// GetModuleInformerFunc mocks the GetModuleInformer method.
+	GetModuleInformerFunc func() Indexer
+
+	// GetNodeInformerFunc mocks the GetNodeInformer method.
+	GetNodeInformerFunc func() Indexer
+
+	// GetPodInformerFunc mocks the GetPodInformer method.
+	GetPodInformerFunc func() Indexer
+
+	// GetVDInformerFunc mocks the GetVDInformer method.
+	GetVDInformerFunc func() Indexer
+
+	// GetVMInformerFunc mocks the GetVMInformer method.
+	GetVMInformerFunc func() Indexer
+
+	// GetVMOPInformerFunc mocks the GetVMOPInformer method.
+	GetVMOPInformerFunc func() Indexer
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// GetInternalVMIInformer holds details about calls to the GetInternalVMIInformer method.
+		GetInternalVMIInformer []struct {
+		}
+		// GetModuleConfigInformer holds details about calls to the GetModuleConfigInformer method.
+		GetModuleConfigInformer []struct {
+		}
+		// GetModuleInformer holds details about calls to the GetModuleInformer method.
+		GetModuleInformer []struct {
+		}
+		// GetNodeInformer holds details about calls to the GetNodeInformer method.
+		GetNodeInformer []struct {
+		}
+		// GetPodInformer holds details about calls to the GetPodInformer method.
+		GetPodInformer []struct {
+		}
+		// GetVDInformer holds details about calls to the GetVDInformer method.
+		GetVDInformer []struct {
+		}
+		// GetVMInformer holds details about calls to the GetVMInformer method.
+		GetVMInformer []struct {
+		}
+		// GetVMOPInformer holds details about calls to the GetVMOPInformer method.
+		GetVMOPInformer []struct {
+		}
+	}
+	lockGetInternalVMIInformer  sync.RWMutex
+	lockGetModuleConfigInformer sync.RWMutex
+	lockGetModuleInformer       sync.RWMutex
+	lockGetNodeInformer         sync.RWMutex
+	lockGetPodInformer          sync.RWMutex
+	lockGetVDInformer           sync.RWMutex
+	lockGetVMInformer           sync.RWMutex
+	lockGetVMOPInformer         sync.RWMutex
+}
+
+// GetInternalVMIInformer calls GetInternalVMIInformerFunc.
+func (mock *InformerListMock) GetInternalVMIInformer() Indexer {
+	if mock.GetInternalVMIInformerFunc == nil {
+		panic("InformerListMock.GetInternalVMIInformerFunc: method is nil but InformerList.GetInternalVMIInformer was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetInternalVMIInformer.Lock()
+	mock.calls.GetInternalVMIInformer = append(mock.calls.GetInternalVMIInformer, callInfo)
+	mock.lockGetInternalVMIInformer.Unlock()
+	return mock.GetInternalVMIInformerFunc()
+}
+
+// GetInternalVMIInformerCalls gets all the calls that were made to GetInternalVMIInformer.
+// Check the length with:
+//
+//	len(mockedInformerList.GetInternalVMIInformerCalls())
+func (mock *InformerListMock) GetInternalVMIInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetInternalVMIInformer.RLock()
+	calls = mock.calls.GetInternalVMIInformer
+	mock.lockGetInternalVMIInformer.RUnlock()
+	return calls
+}
+
+// GetModuleConfigInformer calls GetModuleConfigInformerFunc.
+func (mock *InformerListMock) GetModuleConfigInformer() Indexer {
+	if mock.GetModuleConfigInformerFunc == nil {
+		panic("InformerListMock.GetModuleConfigInformerFunc: method is nil but InformerList.GetModuleConfigInformer was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetModuleConfigInformer.Lock()
+	mock.calls.GetModuleConfigInformer = append(mock.calls.GetModuleConfigInformer, callInfo)
+	mock.lockGetModuleConfigInformer.Unlock()
+	return mock.GetModuleConfigInformerFunc()
+}
+
+// GetModuleConfigInformerCalls gets all the calls that were made to GetModuleConfigInformer.
+// Check the length with:
+//
+//	len(mockedInformerList.GetModuleConfigInformerCalls())
+func (mock *InformerListMock) GetModuleConfigInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetModuleConfigInformer.RLock()
+	calls = mock.calls.GetModuleConfigInformer
+	mock.lockGetModuleConfigInformer.RUnlock()
+	return calls
+}
+
+// GetModuleInformer calls GetModuleInformerFunc.
+func (mock *InformerListMock) GetModuleInformer() Indexer {
+	if mock.GetModuleInformerFunc == nil {
+		panic("InformerListMock.GetModuleInformerFunc: method is nil but InformerList.GetModuleInformer was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetModuleInformer.Lock()
+	mock.calls.GetModuleInformer = append(mock.calls.GetModuleInformer, callInfo)
+	mock.lockGetModuleInformer.Unlock()
+	return mock.GetModuleInformerFunc()
+}
+
+// GetModuleInformerCalls gets all the calls that were made to GetModuleInformer.
+// Check the length with:
+//
+//	len(mockedInformerList.GetModuleInformerCalls())
+func (mock *InformerListMock) GetModuleInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetModuleInformer.RLock()
+	calls = mock.calls.GetModuleInformer
+	mock.lockGetModuleInformer.RUnlock()
+	return calls
+}
+
+// GetNodeInformer calls GetNodeInformerFunc.
+func (mock *InformerListMock) GetNodeInformer() Indexer {
+	if mock.GetNodeInformerFunc == nil {
+		panic("InformerListMock.GetNodeInformerFunc: method is nil but InformerList.GetNodeInformer was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetNodeInformer.Lock()
+	mock.calls.GetNodeInformer = append(mock.calls.GetNodeInformer, callInfo)
+	mock.lockGetNodeInformer.Unlock()
+	return mock.GetNodeInformerFunc()
+}
+
+// GetNodeInformerCalls gets all the calls that were made to GetNodeInformer.
+// Check the length with:
+//
+//	len(mockedInformerList.GetNodeInformerCalls())
+func (mock *InformerListMock) GetNodeInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetNodeInformer.RLock()
+	calls = mock.calls.GetNodeInformer
+	mock.lockGetNodeInformer.RUnlock()
+	return calls
+}
+
+// GetPodInformer calls GetPodInformerFunc.
+func (mock *InformerListMock) GetPodInformer() Indexer {
+	if mock.GetPodInformerFunc == nil {
+		panic("InformerListMock.GetPodInformerFunc: method is nil but InformerList.GetPodInformer was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetPodInformer.Lock()
+	mock.calls.GetPodInformer = append(mock.calls.GetPodInformer, callInfo)
+	mock.lockGetPodInformer.Unlock()
+	return mock.GetPodInformerFunc()
+}
+
+// GetPodInformerCalls gets all the calls that were made to GetPodInformer.
+// Check the length with:
+//
+//	len(mockedInformerList.GetPodInformerCalls())
+func (mock *InformerListMock) GetPodInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetPodInformer.RLock()
+	calls = mock.calls.GetPodInformer
+	mock.lockGetPodInformer.RUnlock()
+	return calls
+}
+
+// GetVDInformer calls GetVDInformerFunc.
+func (mock *InformerListMock) GetVDInformer() Indexer {
+	if mock.GetVDInformerFunc == nil {
+		panic("InformerListMock.GetVDInformerFunc: method is nil but InformerList.GetVDInformer was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetVDInformer.Lock()
+	mock.calls.GetVDInformer = append(mock.calls.GetVDInformer, callInfo)
+	mock.lockGetVDInformer.Unlock()
+	return mock.GetVDInformerFunc()
+}
+
+// GetVDInformerCalls gets all the calls that were made to GetVDInformer.
+// Check the length with:
+//
+//	len(mockedInformerList.GetVDInformerCalls())
+func (mock *InformerListMock) GetVDInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetVDInformer.RLock()
+	calls = mock.calls.GetVDInformer
+	mock.lockGetVDInformer.RUnlock()
+	return calls
+}
+
+// GetVMInformer calls GetVMInformerFunc.
+func (mock *InformerListMock) GetVMInformer() Indexer {
+	if mock.GetVMInformerFunc == nil {
+		panic("InformerListMock.GetVMInformerFunc: method is nil but InformerList.GetVMInformer was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetVMInformer.Lock()
+	mock.calls.GetVMInformer = append(mock.calls.GetVMInformer, callInfo)
+	mock.lockGetVMInformer.Unlock()
+	return mock.GetVMInformerFunc()
+}
+
+// GetVMInformerCalls gets all the calls that were made to GetVMInformer.
+// Check the length with:
+//
+//	len(mockedInformerList.GetVMInformerCalls())
+func (mock *InformerListMock) GetVMInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetVMInformer.RLock()
+	calls = mock.calls.GetVMInformer
+	mock.lockGetVMInformer.RUnlock()
+	return calls
+}
+
+// GetVMOPInformer calls GetVMOPInformerFunc.
+func (mock *InformerListMock) GetVMOPInformer() Indexer {
+	if mock.GetVMOPInformerFunc == nil {
+		panic("InformerListMock.GetVMOPInformerFunc: method is nil but InformerList.GetVMOPInformer was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetVMOPInformer.Lock()
+	mock.calls.GetVMOPInformer = append(mock.calls.GetVMOPInformer, callInfo)
+	mock.lockGetVMOPInformer.Unlock()
+	return mock.GetVMOPInformerFunc()
+}
+
+// GetVMOPInformerCalls gets all the calls that were made to GetVMOPInformer.
+// Check the length with:
+//
+//	len(mockedInformerList.GetVMOPInformerCalls())
+func (mock *InformerListMock) GetVMOPInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetVMOPInformer.RLock()
+	calls = mock.calls.GetVMOPInformer
+	mock.lockGetVMOPInformer.RUnlock()
 	return calls
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package module
 
 import (
 	"strings"
@@ -22,21 +22,23 @@ import (
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 )
 
-func NewModuleComponentControl(options NewEventHandlerOptions) eventLogger {
+func NewModuleComponentControl(options events.EventLoggerOptions) events.EventLogger {
 	return &ModuleComponentControl{
-		event:        options.Event,
-		informerList: options.InformerList,
-		ttlCache:     options.TTLCache,
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
+		ttlCache:     options.GetTTLCache(),
 	}
 }
 
 type ModuleComponentControl struct {
 	event        *audit.Event
 	eventLog     *ModuleEventLog
-	informerList informerList
-	ttlCache     ttlCache
+	informerList events.InformerList
+	ttlCache     events.TTLCache
 }
 
 func (m *ModuleComponentControl) Log() error {
@@ -84,7 +86,7 @@ func (m *ModuleComponentControl) Fill() error {
 		m.eventLog.Component = m.event.ObjectRef.Name
 	}
 
-	pod, err := getPodFromInformer(m.ttlCache, m.informerList.GetPodInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
+	pod, err := util.GetPodFromInformer(m.ttlCache, m.informerList.GetPodInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get pod from informer", log.Err(err))
 		return nil
@@ -95,7 +97,7 @@ func (m *ModuleComponentControl) Fill() error {
 		log.Debug("fail to fill node info", log.Err(err))
 	}
 
-	module, err := getModuleFromInformer(m.informerList.GetModuleInformer(), "virtualization")
+	module, err := util.GetModuleFromInformer(m.informerList.GetModuleInformer(), "virtualization")
 	if err != nil {
 		log.Debug("fail to get module from informer", log.Err(err))
 	}

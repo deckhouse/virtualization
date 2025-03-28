@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package events
+package vm
 
 import (
 	"fmt"
@@ -23,21 +23,23 @@ import (
 	"k8s.io/apiserver/pkg/apis/audit"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
+	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 )
 
-func NewVMManage(options NewEventHandlerOptions) eventLogger {
+func NewVMManage(options events.EventLoggerOptions) events.EventLogger {
 	return &VMManage{
-		event:        options.Event,
-		informerList: options.InformerList,
-		ttlCache:     options.TTLCache,
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
+		ttlCache:     options.GetTTLCache(),
 	}
 }
 
 type VMManage struct {
 	event        *audit.Event
 	eventLog     *VMEventLog
-	informerList informerList
-	ttlCache     ttlCache
+	informerList events.InformerList
+	ttlCache     events.TTLCache
 }
 
 func (m *VMManage) Log() error {
@@ -57,7 +59,7 @@ func (m *VMManage) IsMatched() bool {
 		return false
 	}
 
-	uriWithoutQueryParams, err := removeAllQueryParams(m.event.RequestURI)
+	uriWithoutQueryParams, err := util.RemoveAllQueryParams(m.event.RequestURI)
 	if err != nil {
 		log.Error("failed to remove query params from URI", err.Error(), slog.String("uri", m.event.RequestURI))
 		return false
@@ -90,7 +92,7 @@ func (m *VMManage) Fill() error {
 		m.eventLog.Name = "VM deletion"
 	}
 
-	vm, err := getVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
+	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
 		return nil
