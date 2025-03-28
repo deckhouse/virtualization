@@ -34,7 +34,7 @@ type Executor interface {
 	ExecWithSudo(cmd string) *CMDResult
 	ExecWithSudoContext(ctx context.Context, cmd string) *CMDResult
 	ExecuteContext(ctx context.Context, cmd string, stdout, stderr io.Writer) error
-	MakeCmdWithStart(ctx context.Context, command string) *exec.Cmd
+	MakeCmd(ctx context.Context, command string) *exec.Cmd
 }
 
 func (e CMDExecutor) Exec(command string) *CMDResult {
@@ -69,20 +69,14 @@ func (e CMDExecutor) ExecWithSudoContext(ctx context.Context, command string) *C
 }
 
 func (e CMDExecutor) ExecuteContext(ctx context.Context, command string, stdout, stderr io.Writer) error {
-	cmd := e.makeCMD(ctx, command, stdout, stderr)
+	cmd := e.MakeCmd(ctx, command)
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = stderr
+	cmd.Stdout = stdout
 	return cmd.Run()
 }
 
-func (e CMDExecutor) makeCMD(ctx context.Context, command string, stdout, stderr io.Writer) *exec.Cmd {
-	cmd := exec.CommandContext(ctx, "bash", "-c", command)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	cmd.Env = mergeEnvs(cmd.Environ(), e.env)
-	return cmd
-}
-
-func (e CMDExecutor) MakeCmdWithStart(ctx context.Context, command string) *exec.Cmd {
+func (e CMDExecutor) MakeCmd(ctx context.Context, command string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "bash", "-c", command)
 	cmd.Env = mergeEnvs(cmd.Environ(), e.env)
 	return cmd

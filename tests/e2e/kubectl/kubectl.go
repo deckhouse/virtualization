@@ -231,7 +231,7 @@ func (k KubectlCMD) LogStream(podName string, opts LogOptions) (*exec.Cmd, conte
 	ctx, cancel := context.WithCancel(context.Background())
 	command := fmt.Sprintf("%s logs %s", k.cmd, podName)
 	command = k.logOptions(command, opts)
-	cmd := k.MakeCmdWithStart(ctx, command)
+	cmd := k.MakeCmd(ctx, command)
 	return cmd, cancel
 }
 

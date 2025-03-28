@@ -44,6 +44,8 @@ const (
 	LevelError = "error"
 )
 
+type warning string
+
 type LogEntry struct {
 	Level       string `json:"level"`
 	Message     string `json:"msg"`
@@ -89,7 +91,8 @@ func (l *LogStream) ParseStderr() {
 
 	scanner := bufio.NewScanner(l.Stderr)
 	for scanner.Scan() {
-		GinkgoWriter.Write([]byte(fmt.Sprintf("%s%s%s\n", Red, scanner.Text(), Reset)))
+		_, writeErr := GinkgoWriter.Write([]byte(fmt.Sprintf("%s%s%s\n", Red, scanner.Text(), Reset)))
+		Expect(writeErr).NotTo(HaveOccurred())
 	}
 	parseScanError(scanner.Err(), "STDERR")
 }
@@ -106,7 +109,7 @@ func (l *LogStream) ParseStdout(exludedPatterns []string, startTime time.Time) {
 		rawEntry := strings.TrimPrefix(scanner.Text(), "0")
 		err := json.Unmarshal([]byte(rawEntry), &entry)
 		Expect(err).NotTo(HaveOccurred(), "error parsing JSON")
-		if entry.Level == LevelError && !filterMessage(rawEntry, exludedPatterns) {
+		if entry.Level == LevelError && !isMsgIgnoredByPattern(rawEntry, exludedPatterns) {
 			errTime, err := time.Parse(time.RFC3339, entry.Time)
 			Expect(err).NotTo(HaveOccurred(), "failed to parse error timestamp")
 			if errTime.After(startTime) {
@@ -118,7 +121,8 @@ func (l *LogStream) ParseStdout(exludedPatterns []string, startTime time.Time) {
 					string(jsonData),
 					Red,
 				)
-				GinkgoWriter.Write([]byte(msg))
+				_, writeErr := GinkgoWriter.Write([]byte(msg))
+				Expect(writeErr).NotTo(HaveOccurred())
 			}
 		}
 	}
@@ -126,7 +130,7 @@ func (l *LogStream) ParseStdout(exludedPatterns []string, startTime time.Time) {
 	Expect(errFlag).ShouldNot(BeTrue(), "errors have appeared in the `Virtualization-controller` logs")
 }
 
-func (l *LogStream) WaitCmd() error {
+func (l *LogStream) WaitCmd() (warning, error) {
 	err := l.LogStreamCmd.Wait()
 	if err != nil {
 		var exitErr *exec.ExitError
@@ -137,14 +141,12 @@ func (l *LogStream) WaitCmd() error {
 					fmt.Sprintf("The process was terminated with the %q signal.", status.Signal()),
 					Yellow,
 				)
-				GinkgoWriter.Write([]byte(msg))
-				return nil
-			} else {
-				return fmt.Errorf("the command %q has been finished with the error: %v", l.LogStreamCmd.String(), err)
+				return warning(msg), nil
 			}
 		}
+		return "", fmt.Errorf("the command %q has been finished with the error: %v", l.LogStreamCmd.String(), err)
 	}
-	return nil
+	return "", nil
 }
 
 func (l *LogStream) Start() {
@@ -166,7 +168,7 @@ func formatMessage(header, msg, color string) string {
 	)
 }
 
-func filterMessage(msg string, patterns []string) bool {
+func isMsgIgnoredByPattern(msg string, patterns []string) bool {
 	for _, s := range patterns {
 		if strings.Contains(msg, s) {
 			return true
@@ -184,7 +186,8 @@ func parseScanError(err error, stream string) {
 			"This may be caused by canceling the log stream process.",
 			Yellow,
 		)
-		GinkgoWriter.Write([]byte(msg))
+		_, writeErr := GinkgoWriter.Write([]byte(msg))
+		Expect(writeErr).NotTo(HaveOccurred())
 	} else {
 		Expect(err).NotTo(HaveOccurred(), "failed to scan the %q stream)", stream)
 	}
