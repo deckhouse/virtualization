@@ -96,7 +96,8 @@ shell:
 
     - echo ============== Build virt-launcher-monitor ============
     # virt-launcher-monitor is wrapped in the final image. Add suffix here to prevent image size increasing as effect of file renaming.
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-monitor ./cmd/virt-launcher-monitor/
+    - CGO_ENABLED=0 go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-monitor ./cmd/virt-launcher-monitor/
+    - setcap cap_net_bind_service=eip /kubevirt-binaries/virt-launcher-monitor
 
     - echo ============== Build virt-tail ========================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-tail ./cmd/virt-tail/

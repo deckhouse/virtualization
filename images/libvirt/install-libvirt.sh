@@ -18,7 +18,7 @@ usage() {
     cat <<EOF
     Usage: $0 [OPTIONS]
     Options:
-    
+
     Set the source base directory:      -s, --src-base PATH (example: /mysourcedir)
     Set the build base directory:       -b, --build-dir FOLDER (example: mybuildfolder)
     Set the destination base directory: -d, --dest-base PATH (example: /mydestdir)
@@ -103,9 +103,9 @@ fi
 lib_version=$(convert_version $VERSION_NUM)
 
 # List of files and destinations of libvirt
-# Commented lines - binary for additional features. 
+# Commented lines - binary for additional features.
 #
-# The specific format of the list, 'SOURCE_FILE to DESTINATION', 
+# The specific format of the list, 'SOURCE_FILE to DESTINATION',
 # is due to the output of the installation scripts. To make it easier to add them to this list.
 
 FILE_LIST=$(cat <<EOF
@@ -568,6 +568,11 @@ copy_file() {
     fi
     cp -p "$SOURCE_PATH" "$DEST_BASE$dest_dir"
     echo "Copied $SOURCE_PATH to $DEST_BASE$dest_dir"
+
+    if [[ "$SOURCE_PATH" == *virtqemud ]]; then
+        setcap cap_net_bind_service=eip "$DEST_BASE$dest_dir/virtqemud"
+        echo "SETCAP $SOURCE_PATH to $DEST_BASE$dest_dir"
+    fi
 }
 
 main() {

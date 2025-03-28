@@ -40,7 +40,6 @@ spec:
       - GPU
       - Snapshot
       - ExpandDisks
-      - Root
       - VMLiveUpdateFeatures
       - CPUManager
       - Sidecar
@@ -116,8 +115,8 @@ spec:
     {{- $kubeRbacProxySettings := dict }}
     {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-controller") 
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-controller")
     ) }}
     - resourceName: virt-controller
       resourceType: Deployment
@@ -125,8 +124,8 @@ spec:
       type: strategic
 
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-api") 
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-api")
     ) }}
     - resourceName: virt-api
       resourceType: Deployment
@@ -134,8 +133,8 @@ spec:
       type: strategic
 
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "resource" "daemonsets" "name" "kube-api-rewriter") 
-        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "resource" "daemonsets" "name" "virt-handler") 
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "resource" "daemonsets" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "resource" "daemonsets" "name" "virt-handler")
     ) }}
     - resourceName: virt-handler
       resourceType: DaemonSet
@@ -236,7 +235,11 @@ spec:
       resourceName: virt-handler
       patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
       type: strategic
-    # Patch service for https-metrics 
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: '{"spec":{"template":{"spec":{"initContainers":[{"name":"virt-launcher","securityContext":{"runAsNonRoot":false,"runAsUser":0,"privileged":true}}]}}}}'
+      type: strategic
+    # Patch service for https-metrics
     - resourceType: Service
       resourceName: kubevirt-prometheus-metrics
       patch: '[{"op": "replace", "path": "/spec/ports/0/targetPort", "value": "https-metrics"}]'
