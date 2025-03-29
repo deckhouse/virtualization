@@ -244,7 +244,7 @@ func (h *BlockDeviceHandler) updateCondition(cb *conditions.ConditionBuilder, vm
 }
 
 func (h *BlockDeviceHandler) getVirtualDisksState(vm *virtv2.VirtualMachine, vds map[string]*virtv2.VirtualDisk) virtualDisksState {
-	disksState := virtualDisksState{}
+	state := virtualDisksState{}
 
 	for _, vd := range vds {
 		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
@@ -252,27 +252,53 @@ func (h *BlockDeviceHandler) getVirtualDisksState(vm *virtv2.VirtualMachine, vds
 			continue
 		}
 
-		if inUseCondition.Status == metav1.ConditionTrue {
-			switch inUseCondition.Reason {
-			case vdcondition.UsedForImageCreation.String():
-				disksState.counts.creatingImage++
-				disksState.diskNames.imageCreation = vd.Name
-			case vdcondition.AttachedToVirtualMachine.String():
-				if !h.checkVDToUseCurrentVM(vd, vm) {
-					disksState.counts.onOtherVMs++
-					disksState.diskNames.usedByOtherVM = vd.Name
-				} else {
-					disksState.counts.ready++
-				}
-			}
-		} else {
-			if vm.Status.Phase == virtv2.MachineStopped && h.checkVDToUseCurrentVM(vd, vm) && len(vd.Status.AttachedToVirtualMachines) == 1 {
-				disksState.counts.ready++
-			}
-		}
+		h.handleImageCreationDisk(vd, inUseCondition, &state)
+		h.handleAttachedDisk(vd, vm, inUseCondition, &state)
+		h.handleReadyForUseDisk(vd, vm, inUseCondition, &state)
 	}
 
-	return disksState
+	return state
+}
+
+func (h *BlockDeviceHandler) handleImageCreationDisk(
+	vd *virtv2.VirtualDisk,
+	condition metav1.Condition,
+	state *virtualDisksState,
+) {
+	if condition.Status == metav1.ConditionTrue && condition.Reason == vdcondition.UsedForImageCreation.String() {
+		state.counts.creatingImage++
+		state.diskNames.imageCreation = vd.Name
+	}
+}
+
+func (h *BlockDeviceHandler) handleAttachedDisk(
+	vd *virtv2.VirtualDisk,
+	vm *virtv2.VirtualMachine,
+	condition metav1.Condition,
+	state *virtualDisksState,
+) {
+	if condition.Status == metav1.ConditionTrue && condition.Reason == vdcondition.AttachedToVirtualMachine.String() {
+		if !h.checkVDToUseCurrentVM(vd, vm) {
+			state.counts.onOtherVMs++
+			state.diskNames.usedByOtherVM = vd.Name
+		} else {
+			state.counts.ready++
+		}
+	}
+}
+
+func (h *BlockDeviceHandler) handleReadyForUseDisk(
+	vd *virtv2.VirtualDisk,
+	vm *virtv2.VirtualMachine,
+	condition metav1.Condition,
+	state *virtualDisksState,
+) {
+	if condition.Status != metav1.ConditionTrue &&
+		vm.Status.Phase == virtv2.MachineStopped &&
+		h.checkVDToUseCurrentVM(vd, vm) &&
+		len(vd.Status.AttachedToVirtualMachines) == 1 {
+		state.counts.ready++
+	}
 }
 
 func (h *BlockDeviceHandler) checkVDToUseCurrentVM(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine) bool {
