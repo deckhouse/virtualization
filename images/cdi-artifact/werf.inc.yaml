@@ -82,7 +82,6 @@ shell:
     - go build -ldflags="-s -w" -o /cdi-binaries/csv-generator ./tools/csv-generator
 
     - strip /cdi-binaries/*
-    - cp cmd/cdi-cloner/cloner_startup.sh /cdi-binaries
     - chmod +x /cdi-binaries/*
     - chown -R 64535:64535 /cdi-binaries/*
     - ls -la /cdi-binaries
