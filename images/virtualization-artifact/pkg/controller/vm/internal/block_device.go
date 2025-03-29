@@ -49,7 +49,7 @@ type virtualDisksState struct {
 	usingInOtherVMCount      int    // Number of disks attached to other VMs.
 	imageDiskName            string // Name of the disk used for image creation (if any).
 	otherVMDiskName          string // Name of the disk attached to another VM (if any).
-	message                  string // Status message describing the disk state (if applicable).
+	notReadyDiskName         string // Name of the disk that is not ready (if any).
 }
 
 func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger, blockDeviceService BlockDeviceService) *BlockDeviceHandler {
@@ -174,18 +174,48 @@ func (h *BlockDeviceHandler) checkBlockDevicesToBeReadyForUse(ctx context.Contex
 }
 
 func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, summaryCount int) string {
-	if diskState.message != "" {
-		return diskState.message
+	var msgBuilder strings.Builder
+	if summaryCount == 1 {
+		if diskState.readyForUseCount == 0 && diskState.usingInOtherVMCount == 0 && diskState.usingForCreateImageCount == 0 {
+			msgBuilder.WriteString(fmt.Sprintf("Waiting for block device %q to be ready to use.", diskState.notReadyDiskName))
+			return msgBuilder.String()
+		}
+
+		if diskState.usingForCreateImageCount == 1 {
+			msgBuilder.WriteString(fmt.Sprintf("Virtual disk %q is in use for image creation.", diskState.imageDiskName))
+			return msgBuilder.String()
+		}
+
+		if diskState.usingInOtherVMCount == 1 {
+			msgBuilder.WriteString(fmt.Sprintf("Virtual disk %q is in use by another VM.", diskState.otherVMDiskName))
+			return msgBuilder.String()
+		}
 	}
 
 	if diskState.readyForUseCount == 0 && diskState.usingInOtherVMCount == 0 && diskState.usingForCreateImageCount == 0 {
 		return fmt.Sprintf("Waiting for block devices to be ready to use: %d/%d.", 0, summaryCount)
 	}
 
-	if summaryCount > 1 {
-		return h.buildStatusMessage(diskState, summaryCount)
+	msgBuilder.WriteString(fmt.Sprintf("Waiting for block devices to be ready to use: %d/%d", diskState.readyForUseCount, summaryCount))
+
+	if diskState.usingForCreateImageCount > 0 {
+		if diskState.usingForCreateImageCount == 1 {
+			msgBuilder.WriteString(fmt.Sprintf("; Disk %q is in use for image creation", diskState.imageDiskName))
+		} else {
+			msgBuilder.WriteString(fmt.Sprintf("; Disks %d/%d are in use for image creation", diskState.usingForCreateImageCount, summaryCount))
+		}
 	}
-	return ""
+
+	if diskState.usingInOtherVMCount > 0 {
+		if diskState.usingInOtherVMCount == 1 {
+			msgBuilder.WriteString(fmt.Sprintf("; Disk %q is in use by another VM", diskState.otherVMDiskName))
+		} else {
+			msgBuilder.WriteString(fmt.Sprintf("; Disks %d/%d are in use by another VM", diskState.usingInOtherVMCount, summaryCount))
+		}
+	}
+
+	msgBuilder.WriteString(".")
+	return msgBuilder.String()
 }
 
 func (h *BlockDeviceHandler) updateCondition(cb *conditions.ConditionBuilder, vm *virtv2.VirtualMachine, ready bool, message string) {
@@ -214,16 +244,10 @@ func (h *BlockDeviceHandler) getVirtualDisksState(vm *virtv2.VirtualMachine, vds
 			switch inUseCondition.Reason {
 			case vdcondition.UsedForImageCreation.String():
 				disksState.usingForCreateImageCount++
-				if len(vds) == 1 {
-					disksState.message = fmt.Sprintf("Virtual disk %q is in use for image creation.", vd.Name)
-				}
 				disksState.imageDiskName = vd.Name
 			case vdcondition.AttachedToVirtualMachine.String():
 				if !h.checkVDToUseCurrentVM(vd, vm) {
 					disksState.usingInOtherVMCount++
-					if len(vds) == 1 {
-						disksState.message = fmt.Sprintf("Virtual disk %q is in use by another VM.", vd.Name)
-					}
 					disksState.otherVMDiskName = vd.Name
 				} else {
 					disksState.readyForUseCount++
@@ -232,37 +256,13 @@ func (h *BlockDeviceHandler) getVirtualDisksState(vm *virtv2.VirtualMachine, vds
 		} else {
 			if vm.Status.Phase == virtv2.MachineStopped && h.checkVDToUseCurrentVM(vd, vm) && len(vd.Status.AttachedToVirtualMachines) == 1 {
 				disksState.readyForUseCount++
-			} else if len(vds) == 1 {
-				disksState.message = fmt.Sprintf("Waiting for block device %q to be ready to use.", vd.Name)
+			} else {
+				disksState.notReadyDiskName = vd.Name
 			}
 		}
 	}
 
 	return disksState
-}
-
-func (h *BlockDeviceHandler) buildStatusMessage(diskState virtualDisksState, summaryCount int) string {
-	var msgBuilder strings.Builder
-	msgBuilder.WriteString(fmt.Sprintf("Waiting for block devices to be ready to use: %d/%d", diskState.readyForUseCount, summaryCount))
-
-	if diskState.usingForCreateImageCount > 0 {
-		if diskState.usingForCreateImageCount == 1 {
-			msgBuilder.WriteString(fmt.Sprintf("; Disk %q is in use for image creation", diskState.imageDiskName))
-		} else {
-			msgBuilder.WriteString(fmt.Sprintf("; Disks %d/%d are in use for image creation", diskState.usingForCreateImageCount, summaryCount))
-		}
-	}
-
-	if diskState.usingInOtherVMCount > 0 {
-		if diskState.usingInOtherVMCount == 1 {
-			msgBuilder.WriteString(fmt.Sprintf("; Disk %q is in use by another VM", diskState.otherVMDiskName))
-		} else {
-			msgBuilder.WriteString(fmt.Sprintf("; Disks %d/%d are in use by another VM", diskState.usingInOtherVMCount, summaryCount))
-		}
-	}
-
-	msgBuilder.WriteString(".")
-	return msgBuilder.String()
 }
 
 func (h *BlockDeviceHandler) checkVDToUseCurrentVM(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine) bool {
