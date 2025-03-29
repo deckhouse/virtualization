@@ -49,7 +49,7 @@ type virtualDisksState struct {
 	usingInOtherVMCount      int    // Number of disks attached to other VMs.
 	imageDiskName            string // Name of the disk used for image creation (if any).
 	otherVMDiskName          string // Name of the disk attached to another VM (if any).
-	notReadyDiskName         string // Name of the disk that is not ready (if any).
+	//notReadyDiskName         string // Name of the disk that is not ready for use (if any).
 }
 
 func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger, blockDeviceService BlockDeviceService) *BlockDeviceHandler {
@@ -167,17 +167,22 @@ func (h *BlockDeviceHandler) checkBlockDevicesToBeReadyForUse(ctx context.Contex
 	diskState := h.getVirtualDisksState(vm, vds)
 
 	ready := len(vds) == diskState.readyForUseCount
-	message := h.getStatusMessage(diskState, len(vds))
+	message := h.getStatusMessage(diskState, vds)
 
 	h.updateCondition(cb, vm, ready, message)
 	return nil
 }
 
-func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, summaryCount int) string {
+func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, vds map[string]*virtv2.VirtualDisk) string {
+	summaryCount := len(vds)
 	var msgBuilder strings.Builder
 	if summaryCount == 1 {
 		if diskState.readyForUseCount == 0 && diskState.usingInOtherVMCount == 0 && diskState.usingForCreateImageCount == 0 {
-			msgBuilder.WriteString(fmt.Sprintf("Waiting for block device %q to be ready to use.", diskState.notReadyDiskName))
+			vdName := ""
+			for _, vd := range vds {
+				vdName = vd.Name
+			}
+			msgBuilder.WriteString(fmt.Sprintf("Waiting for block device %q to be ready to use.", vdName))
 			return msgBuilder.String()
 		}
 
@@ -256,8 +261,6 @@ func (h *BlockDeviceHandler) getVirtualDisksState(vm *virtv2.VirtualMachine, vds
 		} else {
 			if vm.Status.Phase == virtv2.MachineStopped && h.checkVDToUseCurrentVM(vd, vm) && len(vd.Status.AttachedToVirtualMachines) == 1 {
 				disksState.readyForUseCount++
-			} else {
-				disksState.notReadyDiskName = vd.Name
 			}
 		}
 	}
