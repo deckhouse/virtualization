@@ -260,6 +260,12 @@ import:
   includePaths:
   - node-labeller
   - vlctl
+- image: {{ $.ImageName }}-cbuilder
+  add: /bins
+  to: /relocate/usr/bin
+  before: setup
+  includePaths:
+  - temp_pod
 shell:
   install:
   - |
@@ -415,3 +421,23 @@ shell:
       echo '== go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go =='
       go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go
       echo "Done"
+---
+image: {{ $.ImageName }}-cbuilder
+final: false
+from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+git:
+  - add: /images/{{ $.ImageName }}/static_binaries
+    to: /
+    stageDependencies:
+      install:
+        - '*.c'
+shell:
+  install:
+  - |
+    apt-get update && apt-get install --yes gcc musl-dev musl-tools
+    apt-get clean
+    
+    echo "Building simple app that prints I'am temp pod"
+    mkdir -p /bins
+    musl-gcc -static -Os -o /bins/temp_pod temp_pod.c
+    strip /bins/temp_pod
