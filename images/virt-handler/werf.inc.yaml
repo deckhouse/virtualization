@@ -57,12 +57,12 @@ binaries:
 - /usr/bin/getfacl
 - /usr/bin/setfacl
 # - /usr/bin/pgrep
-- /usr/bin/pidwait
-- /usr/bin/pmap
-- /usr/bin/pwdx
-- /usr/bin/vmstat
-- /usr/bin/w
-- /usr/bin/watch
+# - /usr/bin/pidwait
+# - /usr/bin/pmap
+# - /usr/bin/pwdx
+# - /usr/bin/vmstat
+# - /usr/bin/w
+# - /usr/bin/watch
 - /usr/sbin/nft
 - /usr/bin/xorriso
 - /usr/bin/xorrecord
