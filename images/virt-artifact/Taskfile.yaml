@@ -34,6 +34,7 @@ tasks:
         read -p "Delete these directories? [y/N] " answer
 
         if [[ "${answer}" != "${answer#[Yy]}" ]] ; then
+          echo "remove $PATH_KUBEVIRT"
           rm -rf $PATH_KUBEVIRT
         fi
 
