@@ -270,6 +270,7 @@ import:
   before: setup
   includePaths:
   - node-labeller
+  - vlctl
 shell:
   install:
   - |
@@ -387,10 +388,17 @@ shell:
 ---
 image: {{ $.ImageName }}-gobuilder
 final: false
-from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+from: {{ .Images.BASE_GOLANG_23_BOOKWORM }}
 git:
   - add: /images/{{ $.ImageName }}/node-labeller
     to: /node-labeller
+    includePaths:
+      - '**/*'
+    stageDependencies:
+      install:
+      - '**/*'
+  - add: /images/{{ $.ImageName }}/vlctl
+    to: /src-vlctl
     includePaths:
       - '**/*'
     stageDependencies:
@@ -402,10 +410,19 @@ shell:
       echo "install deps libvirt-dev"
       apt-get update && apt-get install -y libvirt-dev
       apt-get clean
-
+    - mkdir -p /binaries
+    - |
       echo "Build node-labeller binaries"
       cd /node-labeller
-      mkdir -p /binaries
-      echo 'go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller'
+      echo '== go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller =='
       go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller
+      echo "Done"
+    - |
+      cd /src-vlctl
+      export GO111MODULE=on
+      export GOOS=linux
+      export CGO_ENABLED=0
+      export GOARCH=amd64
+      echo '== go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go =='
+      go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go
       echo "Done"

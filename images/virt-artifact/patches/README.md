@@ -278,3 +278,19 @@ This patch modifies the behavior of domain reboot actions in virt-launcher by ov
 
 This patch modifies init container args in virt-launcher images from node-labeller.sh to node-labeller. 
 This bash script has been rewritten to golang.
+
+#### `042-restrict-libvirt-socket-to-qemu.patch`
+
+This patch enhances security by ensuring that `virtqemud` only accepts connections from its corresponding process. It achieves this by using the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable, which restricts access to the process ID (PID) of the `virt-launcher` process that started `virtqemud`.
+
+##### Changes
+- Configures `virtqemud` to use the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable, restricting access to the `virt-launcher` process.
+- Ensures that `virtqemud` only accepts connections from the process that initiated it.
+- Prevents unauthorized processes from accessing the libvirt socket, reducing security risks and the potential for privilege escalation.
+- Updates the migration mechanism: since virt-handler directly connects to the `virtqemud` socket during migration, the libvirt patch does not authorize it. To address this issue, an additional `migration-proxy` has been introduced in `virt-launcher`. This proxy receives traffic from `virt-handler` and forwards it to `virtqemud`.
+- A new gRPC call, MigrationProxy, has been added to start this migration proxy.
+
+
+
+##### Dependency
+This patch depends on the [002-auth-pid-restriction.patch](../../libvirt/patches/002-auth-pid-restriction.patch) in libvirt, which introduces the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable to restrict socket access based on PID.
