@@ -294,3 +294,7 @@ This patch enhances security by ensuring that `virtqemud` only accepts connectio
 
 ##### Dependency
 This patch depends on the [002-auth-pid-restriction.patch](../../libvirt/patches/002-auth-pid-restriction.patch) in libvirt, which introduces the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable to restrict socket access based on PID.
+
+#### `043-virt-launcher-image-holder-command-sleep.patch`
+
+This patch modifies virt-launcher-image-holder command from `sh -c "sleep infinity"` to `sleep infinity`. 
