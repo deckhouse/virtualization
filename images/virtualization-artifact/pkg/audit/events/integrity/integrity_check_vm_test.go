@@ -36,8 +36,6 @@ import (
 
 type integrityCheckVMTestArgs struct {
 	eventVerb           string
-	expectedName        string
-	expectedLevel       string
 	shouldLostVMI       bool
 	customObjectRef     *audit.ObjectReference
 	customObjectRefNil  bool
