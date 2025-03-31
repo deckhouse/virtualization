@@ -6,7 +6,7 @@ import:
   add: /relocate
   to: /
   before: setup
-# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.58.0/cmd/cdi-importer/BUILD.bazel
+# Source https://github.com/kubevirt/containerized-data-importer/blob/v1.60.3/cmd/cdi-importer/BUILD.bazel
 imageSpec:
   config:
     entrypoint: ["/usr/bin/cdi-importer", "-alsologtostderr"]
@@ -14,16 +14,18 @@ imageSpec:
 
 ---
 {{- define "cdi-importer-deps" -}}
+libraries:
+- libsqlite3
 packages:
   - qemu-img
-  - sqlite3
+  # - sqlite3
   - libnbd
   - nbd-client
   - nbd-server
 binaries:
-  - /usr/bin/sh
-  - /usr/bin/rm
-  - /usr/bin/grep
+  # - /usr/bin/sh
+  # - /usr/bin/rm
+  # - /usr/bin/grep
   # Qemu-img
   - /usr/bin/qemu-img
   - /usr/bin/qemu-io
@@ -32,10 +34,10 @@ binaries:
   - /usr/bin/nbd*
   # Mount
   - /usr/bin/mount /usr/bin/umount
+  # Sqlite libs
+  - /usr/lib64/libsqlite3.so.0 
   # Block device binaries
   - /usr/sbin/blockdev
-  # Sqlite3
-  - /usr/bin/sqldiff /usr/bin/sqlite3 /usr/bin/sqlite3_analyzer
   # CDI binaries
   - /usr/bin/cdi-containerimage-server /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
 {{- end -}}
@@ -59,7 +61,8 @@ shell:
   install:
   - |
     apt-get update && apt-get install --yes \
-      {{ $cdiImporterDependencies.packages | join " " }}
+      {{ $cdiImporterDependencies.packages | join " " }} \
+      {{ $cdiImporterDependencies.libraries | join " " }}
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   setup:
