@@ -60,7 +60,7 @@ func NewForbidEventLog(event *audit.Event) *ForbidEventLog {
 	}
 
 	if event.Annotations[annotations.AnnAuditReason] != "" {
-		eventLog.OperationResult = event.Annotations[annotations.AnnAuditReason]
+		eventLog.ForbidReason = event.Annotations[annotations.AnnAuditReason]
 	}
 
 	return eventLog
