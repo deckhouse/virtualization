@@ -56,8 +56,7 @@ binaries:
 - /usr/bin/chacl
 - /usr/bin/getfacl
 - /usr/bin/setfacl
-- /usr/sbin/sysctl
-- /usr/bin/pgrep
+# - /usr/bin/pgrep
 - /usr/bin/pidwait
 - /usr/bin/pmap
 - /usr/bin/pwdx
