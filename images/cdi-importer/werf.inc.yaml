@@ -18,17 +18,13 @@ libraries:
 - libsqlite3
 packages:
   - qemu-img
-  # - sqlite3
   - libnbd
   - nbd-client
   - nbd-server
 binaries:
-  # - /usr/bin/sh
-  # - /usr/bin/rm
-  # - /usr/bin/grep
   # Qemu-img
   - /usr/bin/qemu-img
-  - /usr/bin/qemu-io
+  # - /usr/bin/qemu-io
   - /usr/bin/qemu-nbd
   # All nbd binaries
   - /usr/bin/nbd*
