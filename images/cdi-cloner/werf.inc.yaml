@@ -14,8 +14,12 @@ imageSpec:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 binaries:
-- /usr/bin/mount
-- /usr/bin/umount
+# - /usr/bin/mount
+# - /usr/bin/umount
+# cdi
+- /usr/bin/cloner-startup
+- /usr/bin/hello
+- /usr/bin/cdi-cloner
 {{- end -}}
 
 {{ $virtCDIClonerDependencies := include "$name" . | fromYaml }}
@@ -26,19 +30,19 @@ fromImage: base-alt-p11-binaries
 import:
 - image: {{ $.ImageName }}-gobuild
   add: /cdi-binaries
-  to: /relocate/usr/bin
+  to: /usr/bin
   includePaths:
   - cloner-startup
   before: install
 - image: cdi-artifact-cbuilder
   add: /bins
-  to: /relocate/usr/bin
+  to: /usr/bin
   before: install
   includePaths:
   - hello
 - image: cdi-artifact
   add: /cdi-binaries
-  to: /relocate/usr/bin
+  to: /usr/bin
   includePaths:
   - cdi-cloner
   before: install
