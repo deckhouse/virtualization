@@ -234,7 +234,7 @@ func TypedObjectUnstructured(obj runtime.Object) (*unstructured.Unstructured, er
 	return unstructuredObj, nil
 }
 
-func CheckAccess(ctx context.Context, clientset *kubernetes.Clientset, user, verb, group, version, resource string) (bool, error) {
+func CheckAccess(ctx context.Context, clientset kubernetes.Interface, user, verb, group, version, resource string) (bool, error) {
 	subjectAccessReview := &authorizationv1.SubjectAccessReview{
 		Spec: authorizationv1.SubjectAccessReviewSpec{
 			User: user,

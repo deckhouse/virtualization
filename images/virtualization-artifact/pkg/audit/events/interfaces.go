@@ -43,7 +43,7 @@ type EventLoggerOptions interface {
 	GetCtx() context.Context
 	GetEvent() *audit.Event
 	GetInformerList() InformerList
-	GetClient() *kubernetes.Clientset
+	GetClient() kubernetes.Interface
 }
 
 type Indexer interface {

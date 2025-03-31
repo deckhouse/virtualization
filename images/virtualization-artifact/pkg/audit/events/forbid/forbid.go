@@ -32,35 +32,35 @@ import (
 
 func NewForbid(options events.EventLoggerOptions) events.EventLogger {
 	return &Forbid{
-		ctx:       options.GetCtx(),
-		event:     options.GetEvent(),
-		clientset: options.GetClient(),
-		ttlCache:  options.GetTTLCache(),
+		Ctx:      options.GetCtx(),
+		Event:    options.GetEvent(),
+		Client:   options.GetClient(),
+		TTLCache: options.GetTTLCache(),
 	}
 }
 
 type Forbid struct {
-	event     *audit.Event
-	eventLog  *ForbidEventLog
-	ctx       context.Context
-	ttlCache  events.TTLCache
-	clientset *kubernetes.Clientset
+	Event    *audit.Event
+	EventLog *ForbidEventLog
+	Ctx      context.Context
+	TTLCache events.TTLCache
+	Client   kubernetes.Interface
 }
 
 func (m *Forbid) Log() error {
-	return m.eventLog.Log()
+	return m.EventLog.Log()
 }
 
 func (m *Forbid) ShouldLog() bool {
-	return m.eventLog.shouldLog
+	return m.EventLog.shouldLog
 }
 
 func (m *Forbid) IsMatched() bool {
-	if m.event.ObjectRef == nil || m.event.Stage != audit.StageResponseComplete {
+	if m.Event.ObjectRef == nil || m.Event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if m.event.Annotations[annotations.AnnAuditDecision] == "forbid" {
+	if m.Event.Annotations[annotations.AnnAuditDecision] == "forbid" {
 		return true
 	}
 
@@ -68,42 +68,42 @@ func (m *Forbid) IsMatched() bool {
 }
 
 func (m *Forbid) Fill() error {
-	m.eventLog = NewForbidEventLog(m.event)
-	m.eventLog.Type = "Forbidden operation"
+	m.EventLog = NewForbidEventLog(m.Event)
+	m.EventLog.Type = "Forbidden operation"
 
-	m.eventLog.SourceIP = strings.Join(m.event.SourceIPs, ",")
+	m.EventLog.SourceIP = strings.Join(m.Event.SourceIPs, ",")
 
-	resource := m.event.ObjectRef.Resource
-	if m.event.ObjectRef.Namespace != "" {
-		resource += "/" + m.event.ObjectRef.Namespace
+	resource := m.Event.ObjectRef.Resource
+	if m.Event.ObjectRef.Namespace != "" {
+		resource += "/" + m.Event.ObjectRef.Namespace
 	}
-	if m.event.ObjectRef.Name != "" {
-		resource += "/" + m.event.ObjectRef.Name
+	if m.Event.ObjectRef.Name != "" {
+		resource += "/" + m.Event.ObjectRef.Name
 	}
 
-	m.eventLog.Name = fmt.Sprintf(
+	m.EventLog.Name = fmt.Sprintf(
 		"User (%s) attempted to perform a forbidden operation (%s) on resource (%s).",
-		m.event.User.Username,
-		m.event.Verb,
+		m.Event.User.Username,
+		m.Event.Verb,
 		resource)
 
-	isAdmin, err := m.isAdmin(m.event.User.Username)
+	isAdmin, err := m.isAdmin(m.Event.User.Username)
 	if err != nil {
 		log.Debug(err.Error())
 	}
 
-	m.eventLog.IsAdmin = isAdmin
+	m.EventLog.IsAdmin = isAdmin
 
 	return nil
 }
 
 func (m *Forbid) isAdmin(user string) (bool, error) {
-	isAdm, ok := m.ttlCache.Get("is_admin/" + user)
+	isAdm, ok := m.TTLCache.Get("is_admin/" + user)
 	if ok {
 		return isAdm.(bool), nil
 	}
 
-	canUpdateModuleConfigs, err := util.CheckAccess(m.ctx, m.clientset, user, "update", "authorization.k8s.io", "v1", "moduleconfigs")
+	canUpdateModuleConfigs, err := util.CheckAccess(m.Ctx, m.Client, user, "update", "authorization.k8s.io", "v1", "moduleconfigs")
 	if err != nil {
 		return false, err
 	}
@@ -112,7 +112,7 @@ func (m *Forbid) isAdmin(user string) (bool, error) {
 		return true, nil
 	}
 
-	canUpdateVMClasses, err := util.CheckAccess(m.ctx, m.clientset, user, "update", "authorization.k8s.io", "v1", "virtualmachineclasses")
+	canUpdateVMClasses, err := util.CheckAccess(m.Ctx, m.Client, user, "update", "authorization.k8s.io", "v1", "virtualmachineclasses")
 	if err != nil {
 		return false, err
 	}
