@@ -50,7 +50,7 @@ type moduleControlTestArgs struct {
 	shouldFailMatch        bool
 }
 
-var _ = Describe("VMOP Events", func() {
+var _ = Describe("Module control Events", func() {
 	var event *audit.Event
 	var modConfig *mcapi.ModuleConfig
 	var mod *module.Module
