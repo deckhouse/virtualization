@@ -26,35 +26,35 @@ import (
 
 func NewModuleControl(options events.EventLoggerOptions) events.EventLogger {
 	return &ModuleControl{
-		event:        options.GetEvent(),
-		informerList: options.GetInformerList(),
+		Event:        options.GetEvent(),
+		InformerList: options.GetInformerList(),
 	}
 }
 
 type ModuleControl struct {
-	event        *audit.Event
-	eventLog     *ModuleEventLog
-	informerList events.InformerList
+	Event        *audit.Event
+	EventLog     *ModuleEventLog
+	InformerList events.InformerList
 }
 
 func (m *ModuleControl) Log() error {
-	return m.eventLog.Log()
+	return m.EventLog.Log()
 }
 
 func (m *ModuleControl) ShouldLog() bool {
-	return m.eventLog.shouldLog
+	return m.EventLog.shouldLog
 }
 
 func (m *ModuleControl) IsMatched() bool {
-	if m.event.ObjectRef == nil || m.event.Stage != audit.StageResponseComplete {
+	if m.Event.ObjectRef == nil || m.Event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if m.event.Verb == "get" || m.event.Verb == "list" {
+	if m.Event.Verb == "get" || m.Event.Verb == "list" {
 		return false
 	}
 
-	if m.event.ObjectRef.Resource == "moduleconfigs" {
+	if m.Event.ObjectRef.Resource == "moduleconfigs" {
 		return true
 	}
 
@@ -62,41 +62,41 @@ func (m *ModuleControl) IsMatched() bool {
 }
 
 func (m *ModuleControl) Fill() error {
-	m.eventLog = NewModuleEventLog(m.event)
-	m.eventLog.Type = "Module control"
+	m.EventLog = NewModuleEventLog(m.Event)
+	m.EventLog.Type = "Module control"
 
-	m.eventLog.Component = m.event.ObjectRef.Name
+	m.EventLog.Component = m.Event.ObjectRef.Name
 
-	switch m.event.Verb {
+	switch m.Event.Verb {
 	case "create":
-		m.eventLog.Name = "Module creation"
-		m.eventLog.Level = "info"
+		m.EventLog.Name = "Module creation"
+		m.EventLog.Level = "info"
 	case "patch", "update":
-		m.eventLog.Name = "Module update"
-		m.eventLog.Level = "info"
+		m.EventLog.Name = "Module update"
+		m.EventLog.Level = "info"
 	case "delete":
-		m.eventLog.Name = "Module deletion"
-		m.eventLog.Level = "warn"
+		m.EventLog.Name = "Module deletion"
+		m.EventLog.Level = "warn"
 	}
 
-	moduleConfig, err := util.GetModuleConfigFromInformer(m.informerList.GetModuleConfigInformer(), m.event.ObjectRef.Name)
+	moduleConfig, err := util.GetModuleConfigFromInformer(m.InformerList.GetModuleConfigInformer(), m.Event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get moduleconfig from informer", log.Err(err))
 		return nil
 	}
 
-	if (m.event.Verb == "patch" || m.event.Verb == "update") || !*moduleConfig.Spec.Enabled {
-		m.eventLog.Name = "Module disable"
-		m.eventLog.Level = "warn"
+	if (m.Event.Verb == "patch" || m.Event.Verb == "update") && !*moduleConfig.Spec.Enabled {
+		m.EventLog.Name = "Module disabled"
+		m.EventLog.Level = "warn"
 	}
 
-	module, err := util.GetModuleFromInformer(m.informerList.GetModuleInformer(), m.event.ObjectRef.Name)
+	module, err := util.GetModuleFromInformer(m.InformerList.GetModuleInformer(), m.Event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get module from informer", log.Err(err))
 	}
 
 	if module != nil {
-		m.eventLog.VirtualizationVersion = module.Properties.Version
+		m.EventLog.VirtualizationVersion = module.Properties.Version
 	}
 
 	return nil

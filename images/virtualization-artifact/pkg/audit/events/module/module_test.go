@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vm_test
+package module_test
 
 import (
 	"testing"
@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestVMEvents(t *testing.T) {
+func TestModuleEvents(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "VM Events Test Suite")
+	RunSpecs(t, "Module Events Test Suite")
 }
