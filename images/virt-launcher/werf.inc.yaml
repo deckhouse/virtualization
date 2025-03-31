@@ -136,18 +136,7 @@ packages:
   - xorriso
 binaries:
   # GNU utilities
-  # - /usr/bin/sh
-  # - /usr/bin/bash
-  # - /usr/bin/uname
-  # - /usr/bin/nohup
   - /usr/bin/sleep
-  # - /usr/bin/cp
-  # - /usr/bin/rm
-  # - /usr/bin/mv
-  # - /usr/bin/cut
-  # - /usr/bin/grep
-  # - /usr/bin/sync
-  - /usr/bin/mknod
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
   - /usr/bin/gnutls-cli
