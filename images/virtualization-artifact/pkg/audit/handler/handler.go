@@ -36,7 +36,7 @@ type NewEventHandlerOptions struct {
 	Ctx          context.Context
 	Event        *audit.Event
 	InformerList events.InformerList
-	Client       *kubernetes.Clientset
+	Client       kubernetes.Interface
 	TTLCache     events.TTLCache
 }
 
@@ -52,7 +52,7 @@ func (o NewEventHandlerOptions) GetInformerList() events.InformerList {
 	return o.InformerList
 }
 
-func (o NewEventHandlerOptions) GetClient() *kubernetes.Clientset {
+func (o NewEventHandlerOptions) GetClient() kubernetes.Interface {
 	return o.Client
 }
 
@@ -68,7 +68,7 @@ type NewEventLogger func(events.EventLoggerOptions) events.EventLogger
 
 func NewEventHandler(
 	ctx context.Context,
-	client *kubernetes.Clientset,
+	client kubernetes.Interface,
 	informerList events.InformerList,
 	cache events.TTLCache,
 ) func([]byte) error {
