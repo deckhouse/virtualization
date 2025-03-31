@@ -222,6 +222,18 @@ func UnstructuredToTypedObject(unstructuredObj *unstructured.Unstructured, obj r
 	return nil
 }
 
+func TypedObjectUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
+	objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert object to unstructured: %w", err)
+	}
+
+	unstructuredObj := &unstructured.Unstructured{}
+	unstructuredObj.SetUnstructuredContent(objMap)
+
+	return unstructuredObj, nil
+}
+
 func CheckAccess(ctx context.Context, clientset *kubernetes.Clientset, user, verb, group, version, resource string) (bool, error) {
 	subjectAccessReview := &authorizationv1.SubjectAccessReview{
 		Spec: authorizationv1.SubjectAccessReviewSpec{
