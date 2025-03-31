@@ -3,6 +3,29 @@
 {{- $version := "1.3.1" }}
 {{- $goVersion := "1.22.7" }}
 
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- git
+- curl
+- pkg-config
+- libvirt-libs
+- libtool
+- libvirt-devel
+- libncurses-devel
+- libvirt-client
+- libvirt-daemon
+- libvirt
+- gcc
+- gcc-c++
+- glibc-devel-static
+- glibc
+- golang
+{{- end -}}
+
+{{ $virtArtifactDependencies := include "$name" . | fromYaml }}
+
+
 image: {{ $.ImageName }}
 final: false
 fromImage: base-alt-p11
@@ -24,12 +47,7 @@ shell:
     - apt-get update
     - |
       apt-get install -y \
-      git curl pkg-config \
-      libvirt-libs libtool libvirt-devel libncurses-devel \
-      libvirt-client libvirt-daemon libvirt \
-      gcc gcc-c++ glibc-devel-static \
-      glibc \
-      golang
+        {{ $virtArtifactDependencies.packages | join " " }}
     - apt-get clean
     - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
