@@ -28,44 +28,44 @@ import (
 
 func NewModuleComponentControl(options events.EventLoggerOptions) events.EventLogger {
 	return &ModuleComponentControl{
-		event:        options.GetEvent(),
-		informerList: options.GetInformerList(),
-		ttlCache:     options.GetTTLCache(),
+		Event:        options.GetEvent(),
+		InformerList: options.GetInformerList(),
+		TTLCache:     options.GetTTLCache(),
 	}
 }
 
 type ModuleComponentControl struct {
-	event        *audit.Event
-	eventLog     *ModuleEventLog
-	informerList events.InformerList
-	ttlCache     events.TTLCache
+	Event        *audit.Event
+	EventLog     *ModuleEventLog
+	InformerList events.InformerList
+	TTLCache     events.TTLCache
 }
 
 func (m *ModuleComponentControl) Log() error {
-	return m.eventLog.Log()
+	return m.EventLog.Log()
 }
 
 func (m *ModuleComponentControl) ShouldLog() bool {
-	return m.eventLog.shouldLog
+	return m.EventLog.shouldLog
 }
 
 func (m *ModuleComponentControl) IsMatched() bool {
-	if (m.event.ObjectRef == nil && m.event.ObjectRef.Name != "") || m.event.Stage != audit.StageResponseComplete {
+	if m.Event.ObjectRef == nil || m.Event.ObjectRef.Name == "" || m.Event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
 	// Skip control requests from internal k8s controllers because we get them with almost empty ObjectRef
-	if strings.Contains(m.event.User.Username, "system:serviceaccount:kube-system") {
+	if strings.Contains(m.Event.User.Username, "system:serviceaccount:kube-system") {
 		return false
 	}
 
-	if strings.Contains(m.event.ObjectRef.Name, "cvi-importer") {
+	if strings.Contains(m.Event.ObjectRef.Name, "cvi-importer") {
 		return false
 	}
 
-	if (m.event.Verb == "delete" || m.event.Verb == "create") &&
-		m.event.ObjectRef.Resource == "pods" &&
-		m.event.ObjectRef.Namespace == "d8-virtualization" {
+	if (m.Event.Verb == "delete" || m.Event.Verb == "create") &&
+		m.Event.ObjectRef.Resource == "pods" &&
+		m.Event.ObjectRef.Namespace == "d8-virtualization" {
 		return true
 	}
 
@@ -73,37 +73,37 @@ func (m *ModuleComponentControl) IsMatched() bool {
 }
 
 func (m *ModuleComponentControl) Fill() error {
-	m.eventLog = NewModuleEventLog(m.event)
-	m.eventLog.Type = "Virtualization control"
+	m.EventLog = NewModuleEventLog(m.Event)
+	m.EventLog.Type = "Virtualization control"
 
-	if m.event.Verb == "create" {
-		m.eventLog.Name = "Component creation"
-		m.eventLog.Level = "info"
-		m.eventLog.Component = m.event.ObjectRef.Name
+	if m.Event.Verb == "create" {
+		m.EventLog.Name = "Component creation"
+		m.EventLog.Level = "info"
+		m.EventLog.Component = m.Event.ObjectRef.Name
 	} else {
-		m.eventLog.Name = "Component deletion"
-		m.eventLog.Level = "warn"
-		m.eventLog.Component = m.event.ObjectRef.Name
+		m.EventLog.Name = "Component deletion"
+		m.EventLog.Level = "warn"
+		m.EventLog.Component = m.Event.ObjectRef.Name
 	}
 
-	pod, err := util.GetPodFromInformer(m.ttlCache, m.informerList.GetPodInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
+	pod, err := util.GetPodFromInformer(m.TTLCache, m.InformerList.GetPodInformer(), m.Event.ObjectRef.Namespace+"/"+m.Event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get pod from informer", log.Err(err))
 		return nil
 	}
 
-	err = m.eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), pod)
+	err = m.EventLog.fillNodeInfo(m.InformerList.GetNodeInformer(), pod)
 	if err != nil {
 		log.Debug("fail to fill node info", log.Err(err))
 	}
 
-	module, err := util.GetModuleFromInformer(m.informerList.GetModuleInformer(), "virtualization")
+	module, err := util.GetModuleFromInformer(m.InformerList.GetModuleInformer(), "virtualization")
 	if err != nil {
 		log.Debug("fail to get module from informer", log.Err(err))
 	}
 
 	if module != nil {
-		m.eventLog.VirtualizationVersion = module.Properties.Version
+		m.EventLog.VirtualizationVersion = module.Properties.Version
 	}
 
 	return nil
