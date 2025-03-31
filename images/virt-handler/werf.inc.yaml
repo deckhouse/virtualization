@@ -47,6 +47,8 @@ packages:
 - qemu-img
 - xorriso
 binaries:
+# deps for 031-hotplug-container-disk.patch
+- /usr/bin/cp
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
 - /usr/bin/mount
