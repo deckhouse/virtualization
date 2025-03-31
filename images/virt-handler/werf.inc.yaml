@@ -43,7 +43,6 @@ imageSpec:
 {{- define "$name" -}}
 packages:
 - acl
-- procps
 - nftables
 - qemu-img
 - xorriso
