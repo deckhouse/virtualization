@@ -306,6 +306,10 @@ We have our implementation in virtualization-controller.
 
 This patch modifies virt-launcher-image-holder command from `sh -c "sleep infinity"` to `sleep infinity`. 
 
-#### `043-disable-workload-updater.patch`
-This patch disables controller workload-updater in kubevirt.
-We have our implementation in virtualization-controller.
+#### `044-hotplug-attachment-trigger-pod-remove-bash.patch`
+
+This patch modifies init container by removing sh and bash util and replcae commands.
+- Init container tempPod change command from `"/bin/bash", "-c", "echo", "bound PVCs"` and `"/bin/bash","-c","exit", "0"` to static binary `temp_pod`. 
+- HotplugAttachmentPod change command from `"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"` to `"/usr/bin/container-disk", "--copy-path", "/path/hp"`
+
+Also fixed vmi_test.go, replce `Equal("/bin/bash -c echo bound PVCs")` to `Equal("temp_pod")`,
