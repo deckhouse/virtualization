@@ -1,5 +1,5 @@
 diff --git a/pkg/virt-controller/services/template.go b/pkg/virt-controller/services/template.go
-index 1221448946..1e9d6b8b47 100644
+index 1221448946..64fde0ded0 100644
 --- a/pkg/virt-controller/services/template.go
 +++ b/pkg/virt-controller/services/template.go
 @@ -88,16 +88,20 @@ const (
@@ -76,16 +76,15 @@ index 1221448946..1e9d6b8b47 100644
  	} else if affinity != nil {
  		affinity.NodeAffinity = nodeAffinity
  	} else {
-@@ -382,11 +390,14 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
+@@ -382,11 +390,12 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
  	if tempPod {
  		logger := log.DefaultLogger()
  		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
 -		command = []string{"/bin/bash",
-+		command = []string{
-+			"/bin/bash",
- 			"-c",
+-			"-c",
 -			"echo", "bound PVCs"}
-+			"echo", "bound PVCs",
++		command = []string{
++			"temp_pod",
 +		}
  	} else {
 -		command = []string{"/usr/bin/virt-launcher-monitor",
@@ -94,7 +93,7 @@ index 1221448946..1e9d6b8b47 100644
  			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
  			"--name", domain,
  			"--uid", string(vmi.UID),
-@@ -501,7 +512,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
+@@ -501,7 +510,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
  			volumeSource := k8sv1.VolumeSource{
  				ConfigMap: &k8sv1.ConfigMapVolumeSource{
  					LocalObjectReference: k8sv1.LocalObjectReference{Name: cm.Name},
@@ -103,17 +102,16 @@ index 1221448946..1e9d6b8b47 100644
  				},
  			}
  			vol := k8sv1.Volume{
-@@ -544,7 +555,8 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
+@@ -544,7 +553,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
  	var initContainers []k8sv1.Container
  
  	if HaveContainerDiskVolume(vmi.Spec.Volumes) || util.HasKernelBootContainerImage(vmi) {
 -		initContainerCommand := []string{"/usr/bin/cp",
 +		initContainerCommand := []string{
-+			"/usr/bin/cp",
  			"/usr/bin/container-disk",
  			"/init/usr/bin/container-disk",
  		}
-@@ -819,7 +831,6 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
+@@ -819,7 +828,6 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
  		t.containerDiskDir,
  		t.virtShareDir,
  		volumeOpts...)
@@ -121,7 +119,7 @@ index 1221448946..1e9d6b8b47 100644
  	if err != nil {
  		return nil, err
  	}
-@@ -921,7 +932,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
+@@ -921,7 +929,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
  	zero := int64(0)
  	runUser := int64(util.NonRootUID)
  	sharedMount := k8sv1.MountPropagationHostToContainer
@@ -130,17 +128,16 @@ index 1221448946..1e9d6b8b47 100644
  
  	tmpTolerations := make([]k8sv1.Toleration, len(ownerPod.Spec.Tolerations))
  	copy(tmpTolerations, ownerPod.Spec.Tolerations)
-@@ -1005,7 +1016,8 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
+@@ -1005,7 +1013,7 @@ func (t *templateService) RenderHotplugAttachmentPodTemplate(volumes []*v1.Volum
  		if first {
  			first = false
  			userId := int64(util.NonRootUID)
 -			initContainerCommand := []string{"/usr/bin/cp",
 +			initContainerCommand := []string{
-+				"/usr/bin/cp",
  				"/usr/bin/container-disk",
  				"/init/usr/bin/container-disk",
  			}
-@@ -1076,11 +1088,9 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
+@@ -1076,11 +1084,9 @@ func (t *templateService) RenderHotplugAttachmentTriggerPodTemplate(volume *v1.V
  	sharedMount := k8sv1.MountPropagationHostToContainer
  	var command []string
  	if tempPod {
@@ -154,7 +151,7 @@ index 1221448946..1e9d6b8b47 100644
  	}
  
  	annotationsList := make(map[string]string)
-@@ -1251,8 +1261,10 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
+@@ -1251,8 +1257,10 @@ func appendUniqueImagePullSecret(secrets []k8sv1.LocalObjectReference, newsecret
  // The virtProbeTotalAdditionalOverhead is added for the virt-probe binary we use for probing and
  // only added once, while the virtProbeOverhead is the general memory consumption of virt-probe
  // that we add per added probe.
@@ -167,7 +164,7 @@ index 1221448946..1e9d6b8b47 100644
  
  func addProbeOverheads(vmi *v1.VirtualMachineInstance, to *resource.Quantity) {
  	hasLiveness := addProbeOverhead(vmi.Spec.LivenessProbe, to)
-@@ -1308,7 +1320,6 @@ func NewTemplateService(launcherImage string,
+@@ -1308,7 +1316,6 @@ func NewTemplateService(launcherImage string,
  	namespaceStore cache.Store,
  	opts ...templateServiceOption,
  ) TemplateService {
