@@ -21,11 +21,12 @@ import (
 
 	"k8s.io/apiserver/pkg/apis/audit"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 )
 
 // import kubecache "k8s.io/client-go/tools/cache"
 
-//go:generate moq -rm -out mock.go . TTLCache Indexer InformerList
+//go:generate moq -rm -out mock.go . TTLCache InformerList
 
 type TTLCache interface {
 	Get(key string) (any, bool)
@@ -46,17 +47,13 @@ type EventLoggerOptions interface {
 	GetClient() kubernetes.Interface
 }
 
-type Indexer interface {
-	GetByKey(string) (any, bool, error)
-}
-
 type InformerList interface {
-	GetVMInformer() Indexer
-	GetVDInformer() Indexer
-	GetVMOPInformer() Indexer
-	GetPodInformer() Indexer
-	GetNodeInformer() Indexer
-	GetModuleInformer() Indexer
-	GetModuleConfigInformer() Indexer
-	GetInternalVMIInformer() Indexer
+	GetVMInformer() cache.Store
+	GetVDInformer() cache.Store
+	GetVMOPInformer() cache.Store
+	GetPodInformer() cache.Store
+	GetNodeInformer() cache.Store
+	GetModuleInformer() cache.Store
+	GetModuleConfigInformer() cache.Store
+	GetInternalVMIInformer() cache.Store
 }

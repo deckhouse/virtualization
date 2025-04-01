@@ -25,8 +25,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/tools/cache"
 
-	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
@@ -88,7 +88,7 @@ func (e ModuleEventLog) Log() error {
 	return nil
 }
 
-func (e *ModuleEventLog) fillNodeInfo(nodeInformer events.Indexer, pod *corev1.Pod) error {
+func (e *ModuleEventLog) fillNodeInfo(nodeInformer cache.Store, pod *corev1.Pod) error {
 	node, err := util.GetNodeFromInformer(nodeInformer, pod.Spec.NodeName)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)

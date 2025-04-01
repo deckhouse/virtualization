@@ -24,7 +24,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 )
 
-func NewVMAccess(options events.EventLoggerOptions) events.EventLogger {
+func NewVMAccess(options events.EventLoggerOptions) *VMAccess {
 	return &VMAccess{
 		Event:        options.GetEvent(),
 		InformerList: options.GetInformerList(),

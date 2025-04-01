@@ -73,14 +73,14 @@ func NewEventHandler(
 	cache events.TTLCache,
 ) func([]byte) error {
 	eL := []NewEventLogger{
-		forbid.NewForbid,
-		vm.NewVMManage,
-		vm.NewVMControl,
-		vm.NewVMOPControl,
-		vm.NewVMAccess,
-		module.NewModuleComponentControl,
-		module.NewModuleControl,
-		integrity.NewIntegrityCheckVM,
+		func(o events.EventLoggerOptions) events.EventLogger { return forbid.NewForbid(o) },
+		func(o events.EventLoggerOptions) events.EventLogger { return vm.NewVMManage(o) },
+		func(o events.EventLoggerOptions) events.EventLogger { return vm.NewVMControl(o) },
+		func(o events.EventLoggerOptions) events.EventLogger { return vm.NewVMOPControl(o) },
+		func(o events.EventLoggerOptions) events.EventLogger { return vm.NewVMAccess(o) },
+		func(o events.EventLoggerOptions) events.EventLogger { return module.NewModuleComponentControl(o) },
+		func(o events.EventLoggerOptions) events.EventLogger { return module.NewModuleControl(o) },
+		func(o events.EventLoggerOptions) events.EventLogger { return integrity.NewIntegrityCheckVM(o) },
 	}
 
 	return func(line []byte) error {

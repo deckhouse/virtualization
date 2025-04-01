@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	moduleevent "github.com/deckhouse/virtualization-controller/pkg/audit/events/module"
@@ -108,8 +109,8 @@ var _ = Describe("Module component control events", func() {
 			}
 
 			informerList := &events.InformerListMock{
-				GetModuleInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
+				GetModuleInformerFunc: func() cache.Store {
+					return &cache.FakeCustomStore{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							unstruct, err := util.TypedObjectUnstructured(mod)
 							Expect(err).To(BeNil())
@@ -118,15 +119,15 @@ var _ = Describe("Module component control events", func() {
 						},
 					}
 				},
-				GetPodInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
+				GetPodInformerFunc: func() cache.Store {
+					return &cache.FakeCustomStore{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							return pod, !args.shouldLostPod, nil
 						},
 					}
 				},
-				GetNodeInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
+				GetNodeInformerFunc: func() cache.Store {
+					return &cache.FakeCustomStore{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							return node, !args.shouldLostNode, nil
 						},

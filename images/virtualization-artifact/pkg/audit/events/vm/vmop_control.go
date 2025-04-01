@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func NewVMOPControl(options events.EventLoggerOptions) events.EventLogger {
+func NewVMOPControl(options events.EventLoggerOptions) *VMOPControl {
 	return &VMOPControl{
 		Event:        options.GetEvent(),
 		InformerList: options.GetInformerList(),
