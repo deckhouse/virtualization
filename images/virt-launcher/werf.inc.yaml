@@ -310,7 +310,14 @@ shell:
     echo "relocate additional list of files"
     ./relocate_binaries.sh -i "$LIST" -o /VBINS
 
+    echo "List libs in VBINS"
+    ls -la /VBINS/usr/lib64/
+
     cp -a /VBINS/. /relocate
+    
+    echo "List libs in relocate"
+    ls -la /relocate/usr/lib64/
+
 
     echo "Copy libtpms"
     cp -a /usr/include/libtpms/. /relocate/usr/include/libtpms
