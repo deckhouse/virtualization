@@ -280,8 +280,6 @@ shell:
 
   install:
   - |
-    FILES=""
-    LIBS=""
     # apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
     # apt-get clean
@@ -305,36 +303,16 @@ shell:
     LIBS+=" /usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*"
     LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s*"
 
-    echo "relocate additional libs for files in /VBINS"
+    echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
+    
+    echo "Relocate additional libs to /VBINS"
+    ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
     cp -a /VBINS/. /relocate
-    
-    # echo "Try copy libjson"
-    # cp -a /usr/lib64/libjson-c.so* /relocate/usr/lib64
-    # echo "List libs in relocate"
-    # ls -la /relocate/usr/lib64/
 
-
-    # echo "Copy libtpms"
-    # cp -a /usr/include/libtpms/. /relocate/usr/include/libtpms
-
-
-    echo "== reloc additional libs =="
-    ./relocate_binaries.sh -i "$LIBS" -o /relocate
-
-    # echo "= $LIBS ="
-    # for lib in "${LIBS[@]}"; do
-    #   echo "relocate $lib"
-    #   cp -a "$lib" /relocate/usr/lib64/
-    # done
-
-    echo "find json libs /relocate/usr/lib64/"
-    find /relocate/usr/lib64/ -name *json*
-
-    echo "List libs in relocate/usr/lib64/"
-    ls -la /relocate/usr/lib64/
-
+    echo "Show libs after relocation in /relocate/usr/lib64"
+    ls -la /relocate/usr/lib64
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins}
 
