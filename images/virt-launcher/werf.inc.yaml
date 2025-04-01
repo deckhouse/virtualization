@@ -302,8 +302,8 @@ shell:
     echo "find and copy additional bins"
     LIST=($(find /VBINS/usr/bin/ -type f))
     LIST+=($(find /VBINS/usr/sbin/ -type f))
-    LIBS+=("/usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3")
-    LIBS+=("/usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4")
+    LIBS+=("/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*")
+    LIBS+=("/usr/lib64/libjson-c.so* /usr/lib64/libssh.so*")
     LIBS+=("/usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*")
     LIBS+=("/usr/lib64/libxml2.so* /usr/lib64/libgcc_s.so*")
 
