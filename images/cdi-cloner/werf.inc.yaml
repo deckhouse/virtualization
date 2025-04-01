@@ -14,9 +14,6 @@ imageSpec:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 binaries:
-# - /usr/bin/mount
-# - /usr/bin/umount
-# cdi
 - /usr/bin/cloner-startup
 - /usr/bin/hello
 - /usr/bin/cdi-cloner
