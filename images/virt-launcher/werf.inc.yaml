@@ -2,7 +2,6 @@
 image: {{ $.ImageName }}
 final: true
 fromImage: distroless
-cacheVersion: "1042025.4"
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
@@ -114,6 +113,7 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
+  - libcap-utils 
 packages:
   - acl
   - attr
@@ -182,6 +182,7 @@ binaries:
   - /usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr
   # SELinux policy core utilities
   - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
+  - 
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
@@ -270,7 +271,6 @@ import:
   before: setup
   includePaths:
   - temp_pod
-cacheVersion: "1042025.4"
 shell:
   beforeInstall:
   - |
@@ -407,7 +407,9 @@ shell:
   - |
     cp -a etc/libvirt etc/libvirt-init
   - |
-    echo "Version 1" >> /relocate/.build_version
+    echo "Setting capability for virt-launcher-monitor"
+    setcap 'cap_net_bind_service=+eip' /relocate/usr/bin/virt-launcher-monitor
+    getcap /relocate/usr/bin/virt-launcher-monitor
 
 ---
 image: {{ $.ImageName }}-gobuilder
