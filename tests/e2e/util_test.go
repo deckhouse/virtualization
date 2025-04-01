@@ -597,7 +597,7 @@ func GenerateVMOPWithSuffix(vmName, suffix string, labels map[string]string, vmo
 func StopVirtualMachinesBySSH(virtualMachines ...string) {
 	GinkgoHelper()
 
-	cmd := "sudo poweroff -f"
+	cmd := "sudo nohup poweroff -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
 		ExecSshCommand(vm, cmd)
@@ -607,7 +607,7 @@ func StopVirtualMachinesBySSH(virtualMachines ...string) {
 func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	GinkgoHelper()
 
-	cmd := "sudo reboot -f"
+	cmd := "sudo nohup reboot -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
 		ExecSshCommand(vm, cmd)
