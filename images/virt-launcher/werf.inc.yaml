@@ -294,32 +294,17 @@ shell:
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
-    echo "== show VBINS =="
-    ls -la /VBINS/usr/bin/
-    echo "========="
-
-    echo "find and copy additional bins"
+    echo "find and copy additional libs"
     FILES=($(find /VBINS/usr/bin/ -type f))
     FILES+=($(find /VBINS/usr/sbin/ -type f))
+    
     LIBS=("/usr/lib64/libbsd.so*" "/usr/lib64/libnbd.so*" "/usr/lib64/libfuse3.so*")
     LIBS+=("/usr/lib64/libjson-c.so*" "/usr/lib64/libssh.so*")
     LIBS+=("/usr/lib64/libtpms.so*" "/usr/lib64/swtpm/libswtpm_libtpms.so*")
     LIBS+=("/usr/lib64/libxml2.so*" "/usr/lib64/libgcc_s*")
 
-    echo "relocate additional list of files"
+    echo "relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
-    
-    echo "json libs"
-    find /usr/lib64 -name *json*
-
-    echo "== reloc libs =="
-    ./relocate_binaries.sh -i "$LIBS" -o /VBINS
-
-    echo "List libs in /VBINS"
-    ls -la /VBINS/usr/lib64/
-
-    echo "find json libs /VBINS/usr/lib64/"
-    find /VBINS/usr/lib64/ -name *json*
 
     cp -a /VBINS/. /relocate
     
@@ -329,14 +314,17 @@ shell:
     # ls -la /relocate/usr/lib64/
 
 
-    echo "Copy libtpms"
-    cp -a /usr/include/libtpms/. /relocate/usr/include/libtpms
+    # echo "Copy libtpms"
+    # cp -a /usr/include/libtpms/. /relocate/usr/include/libtpms
 
-    echo "== reloc libs =="
+    echo "== reloc additional libs =="
     ./relocate_binaries.sh -i "$LIBS" -o /relocate
 
     echo "find json libs /relocate/usr/lib64/"
     find /relocate/usr/lib64/ -name *json*
+
+    echo "List libs in relocate/usr/lib64/"
+    ls -la /relocate/usr/lib64/
 
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins}
