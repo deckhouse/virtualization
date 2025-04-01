@@ -1,24 +1,30 @@
 ---
-title: "Deckhouse Virtualization Platform"
-menuTitle: "Deckhouse Virtualization Platform"
+title: "Virtualization"
+menuTitle: "Virtualization"
 moduleStatus: preview
 weight: 10
 ---
 
-Deckhouse Virtualization Platform (DVP) позволяет декларативно создавать, запускать и управлять виртуальными машинами и их ресурсами.
-DVP функционирует на базе [Deckhouse Kubernetes Platform](https://deckhouse.ru/products/kubernetes-platform/). Для управления ресурсами DKP/DVP используется утилита командной строки [d8](https://deckhouse.ru/documentation/v1/deckhouse-cli/).
+Модуль Virtualization позволяет декларативно создавать, запускать и управлять виртуальными машинами и их ресурсами.
+
+Для управления ресурсами кластера используется утилита командной строки [d8](https://deckhouse.ru/documentation/v1/deckhouse-cli/).
 
 ## Сценарии использования
 
-- Запуск виртуальных машин с x86_64 совместимой ОС.
-- Запуск виртуальных машин и контейнеризованных приложений в одном окружении.
+Запуск виртуальных машин с x86_64 совместимой ОС.
 
-  ![](./images/cases-vms.ru.png)
+![](./images/cases-vms.ru.png)
 
-  ![](./images/cases-pods-and-vms.ru.png)
+Запуск виртуальных машин и контейнеризованных приложений в одном окружении.
+
+![](./images/cases-pods-and-vms.ru.png)
+
+Создание кластеров DKP
+
+![](./images/cases.dkp.ru.png)
 
 {{< alert level="warning" >}}
-Если вы планируете использовать Deckhouse Virtualization Platform в production-среде, рекомендуется разворачивать её на физических серверах. Развертывание Deckhouse Virtualization Platform на виртуальных машинах также возможно, но в этом случае необходимо включить nested-виртуализацию.
+Если вы планируете использовать Virtualization в production-среде, рекомендуется использовать кластер, развернутый на физических (bare-metal) серверах. Допускается в целях тестирования использовать модуль, в кластере, развернутом на виртуальных машинах, при этом на виртуальных машинах должна быть включена вложенная виртуализация (nested virtualization).
 {{< /alert >}}
 
 ## Архитектура
