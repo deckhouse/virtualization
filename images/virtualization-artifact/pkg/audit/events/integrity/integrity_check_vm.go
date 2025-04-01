@@ -26,7 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
-func NewIntegrityCheckVM(options events.EventLoggerOptions) *IntegrityCheckVM {
+func NewIntegrityCheckVM(options events.EventLoggerOptions) events.EventLogger {
 	return &IntegrityCheckVM{
 		Event:        options.GetEvent(),
 		InformerList: options.GetInformerList(),

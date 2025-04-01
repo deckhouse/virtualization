@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
-func NewForbid(options events.EventLoggerOptions) *Forbid {
+func NewForbid(options events.EventLoggerOptions) events.EventLogger {
 	return &Forbid{
 		Ctx:      options.GetCtx(),
 		Event:    options.GetEvent(),
