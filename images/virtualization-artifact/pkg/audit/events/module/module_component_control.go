@@ -26,7 +26,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 )
 
-func NewModuleComponentControl(options events.EventLoggerOptions) events.EventLogger {
+func NewModuleComponentControl(options events.EventLoggerOptions) *ModuleComponentControl {
 	return &ModuleComponentControl{
 		Event:        options.GetEvent(),
 		InformerList: options.GetInformerList(),
