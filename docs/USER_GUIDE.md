@@ -146,6 +146,8 @@ Example of creating a virtual machine with Ubuntu 22.04.
 
 The `VirtualImage` resource is designed to load virtual machine images and then use them to create virtual machine disks. This resource is available only in the nymspace or project in which it was created.
 
+When connected to a virtual machine, the image is accessed in read-only mode.
+
 The image creation process includes the following steps:
 
 - The user creates a `VirtualImage` resource.
