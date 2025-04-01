@@ -2,7 +2,7 @@
 image: {{ $.ImageName }}
 final: true
 fromImage: distroless
-cacheVersion: "1042025.3"
+cacheVersion: "1042025.4"
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
@@ -270,7 +270,7 @@ import:
   before: setup
   includePaths:
   - temp_pod
-cacheVersion: "1042025.3"
+cacheVersion: "1042025.4"
 shell:
   beforeInstall:
   - |
