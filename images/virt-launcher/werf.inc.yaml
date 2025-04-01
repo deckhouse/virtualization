@@ -104,14 +104,12 @@ libs:
   - libbsd-devel
   - libsystemd-devel
   - libjson-c-devel
-  - libjson-c5
   - systemtap-sdt-devel
   - libacl-devel
   - libtpms-devel libtpms
   - glib2-devel
   - libgio-devel
   - libxml2-devel
-  - libxml2
   - libgcc1
   - libtirpc-devel
   - libclocale
@@ -304,21 +302,24 @@ shell:
     FILES=($(find /VBINS/usr/bin/ -type f))
     FILES+=($(find /VBINS/usr/sbin/ -type f))
     LIBS=("/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*")
-    LIBS+=("/usr/lib64/libjson-c.so* /usr/lib64/libssh.so*")
+    LIBS+=("/usr/lib64/libjson-c.so.* /usr/lib64/libssh.so*")
     LIBS+=("/usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*")
     LIBS+=("/usr/lib64/libxml2.so* /usr/lib64/libgcc_s*")
 
     echo "relocate additional list of files"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
+    
+    echo "json libs"
+    find /usr/lib64 -name *json*
+
+    echo "== reloc libs =="
     ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
-    # for lib in "${LIBS[@]}"; do
-    #   echo "relocate $lib"
-    #   copy -a $lib /VBINS/usr/lib64
-    # done
-
-    echo "List libs in VBINS"
+    echo "List libs in /VBINS"
     ls -la /VBINS/usr/lib64/
+
+    echo "find json libs /VBINS/usr/lib64/"
+    find /VBINS/usr/lib64/ -name *json*
 
     cp -a /VBINS/. /relocate
     
