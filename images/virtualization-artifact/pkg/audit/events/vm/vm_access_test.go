@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
@@ -117,22 +118,22 @@ var _ = Describe("VMOP Events", func() {
 			}
 
 			informerList := &events.InformerListMock{
-				GetVMInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
+				GetVMInformerFunc: func() cache.Store {
+					return &cache.FakeCustomStore{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							return vm, !args.shouldLostVM, nil
 						},
 					}
 				},
-				GetVDInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
+				GetVDInformerFunc: func() cache.Store {
+					return &cache.FakeCustomStore{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							return vd, !args.shouldLostVD, nil
 						},
 					}
 				},
-				GetNodeInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
+				GetNodeInformerFunc: func() cache.Store {
+					return &cache.FakeCustomStore{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							return node, !args.shouldLostNode, nil
 						},

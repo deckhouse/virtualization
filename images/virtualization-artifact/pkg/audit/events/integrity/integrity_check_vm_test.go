@@ -26,6 +26,7 @@ import (
 	authnv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
@@ -91,8 +92,8 @@ var _ = Describe("Integrity Check VM Events", func() {
 			}
 
 			informerList := &events.InformerListMock{
-				GetInternalVMIInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
+				GetInternalVMIInformerFunc: func() cache.Store {
+					return &cache.FakeCustomStore{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							if args.shouldChecksumMatch {
 								vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied] = vmi.Annotations[annotations.AnnIntegrityCoreChecksum]

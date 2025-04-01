@@ -26,6 +26,7 @@ import (
 	authnv1 "k8s.io/api/authentication/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
@@ -93,8 +94,8 @@ var _ = Describe("Module control Events", func() {
 	DescribeTable("Checking Module events",
 		func(args moduleControlTestArgs) {
 			informerList := &events.InformerListMock{
-				GetModuleInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
+				GetModuleInformerFunc: func() cache.Store {
+					return &cache.FakeCustomStore{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							unstruct, err := util.TypedObjectUnstructured(mod)
 							Expect(err).To(BeNil())
@@ -103,8 +104,8 @@ var _ = Describe("Module control Events", func() {
 						},
 					}
 				},
-				GetModuleConfigInformerFunc: func() events.Indexer {
-					return &events.IndexerMock{
+				GetModuleConfigInformerFunc: func() cache.Store {
+					return &cache.FakeCustomStore{
 						GetByKeyFunc: func(s string) (any, bool, error) {
 							unstruct, err := util.TypedObjectUnstructured(modConfig)
 							Expect(err).To(BeNil())

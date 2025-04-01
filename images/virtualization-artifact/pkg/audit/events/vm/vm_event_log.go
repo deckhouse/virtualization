@@ -25,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
@@ -90,7 +91,7 @@ func (e VMEventLog) Log() error {
 	return nil
 }
 
-func (e *VMEventLog) fillVDInfo(ttlCache events.TTLCache, vdInformer events.Indexer, vm *v1alpha2.VirtualMachine) error {
+func (e *VMEventLog) fillVDInfo(ttlCache events.TTLCache, vdInformer cache.Store, vm *v1alpha2.VirtualMachine) error {
 	storageClasses := []string{}
 
 	for _, bd := range vm.Spec.BlockDeviceRefs {
@@ -113,7 +114,7 @@ func (e *VMEventLog) fillVDInfo(ttlCache events.TTLCache, vdInformer events.Inde
 	return nil
 }
 
-func (e *VMEventLog) fillNodeInfo(nodeInformer events.Indexer, vm *v1alpha2.VirtualMachine) error {
+func (e *VMEventLog) fillNodeInfo(nodeInformer cache.Store, vm *v1alpha2.VirtualMachine) error {
 	node, err := util.GetNodeFromInformer(nodeInformer, vm.Status.Node)
 	if err != nil {
 		return fmt.Errorf("fail to get node from informer: %w", err)

@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
@@ -47,7 +48,7 @@ func RemoveAllQueryParams(uri string) (string, error) {
 	return parsedURL.String(), nil
 }
 
-func GetVMFromInformer(cache events.TTLCache, vmInformer events.Indexer, vmName string) (*v1alpha2.VirtualMachine, error) {
+func GetVMFromInformer(cache events.TTLCache, vmInformer cache.Store, vmName string) (*v1alpha2.VirtualMachine, error) {
 	vmObj, exist, err := vmInformer.GetByKey(vmName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -67,7 +68,7 @@ func GetVMFromInformer(cache events.TTLCache, vmInformer events.Indexer, vmName 
 	return vm, nil
 }
 
-func GetVDFromInformer(cache events.TTLCache, vdInformer events.Indexer, vdName string) (*v1alpha2.VirtualDisk, error) {
+func GetVDFromInformer(cache events.TTLCache, vdInformer cache.Store, vdName string) (*v1alpha2.VirtualDisk, error) {
 	vdObj, exist, err := vdInformer.GetByKey(vdName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -87,7 +88,7 @@ func GetVDFromInformer(cache events.TTLCache, vdInformer events.Indexer, vdName 
 	return vd, nil
 }
 
-func GetNodeFromInformer(nodeInformer events.Indexer, nodeName string) (*corev1.Node, error) {
+func GetNodeFromInformer(nodeInformer cache.Store, nodeName string) (*corev1.Node, error) {
 	nodeObj, exist, err := nodeInformer.GetByKey(nodeName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -104,7 +105,7 @@ func GetNodeFromInformer(nodeInformer events.Indexer, nodeName string) (*corev1.
 	return node, nil
 }
 
-func GetPodFromInformer(cache events.TTLCache, podInformer events.Indexer, podName string) (*corev1.Pod, error) {
+func GetPodFromInformer(cache events.TTLCache, podInformer cache.Store, podName string) (*corev1.Pod, error) {
 	podObj, exist, err := podInformer.GetByKey(podName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get pod from informer: %w", err)
@@ -124,7 +125,7 @@ func GetPodFromInformer(cache events.TTLCache, podInformer events.Indexer, podNa
 	return pod, nil
 }
 
-func GetVMOPFromInformer(vmopInformer events.Indexer, vmopName string) (*v1alpha2.VirtualMachineOperation, error) {
+func GetVMOPFromInformer(vmopInformer cache.Store, vmopName string) (*v1alpha2.VirtualMachineOperation, error) {
 	vmopObj, exist, err := vmopInformer.GetByKey(vmopName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get vmop from informer: %w", err)
@@ -141,7 +142,7 @@ func GetVMOPFromInformer(vmopInformer events.Indexer, vmopName string) (*v1alpha
 	return vmop, nil
 }
 
-func GetInternalVMIFromInformer(cache events.TTLCache, internalVMIInformer events.Indexer, internalVMIName string) (*virtv1.VirtualMachineInstance, error) {
+func GetInternalVMIFromInformer(cache events.TTLCache, internalVMIInformer cache.Store, internalVMIName string) (*virtv1.VirtualMachineInstance, error) {
 	intVMIObj, exist, err := internalVMIInformer.GetByKey(internalVMIName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get intVMI from informer: %w", err)
@@ -167,7 +168,7 @@ func GetInternalVMIFromInformer(cache events.TTLCache, internalVMIInformer event
 	return intVMI, nil
 }
 
-func GetModuleFromInformer(moduleInformer events.Indexer, moduleName string) (*module.Module, error) {
+func GetModuleFromInformer(moduleInformer cache.Store, moduleName string) (*module.Module, error) {
 	moduleObj, exist, err := moduleInformer.GetByKey(moduleName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get module from informer: %w", err)
@@ -190,7 +191,7 @@ func GetModuleFromInformer(moduleInformer events.Indexer, moduleName string) (*m
 	return module, nil
 }
 
-func GetModuleConfigFromInformer(moduleConfigInformer events.Indexer, moduleConfigName string) (*mcapi.ModuleConfig, error) {
+func GetModuleConfigFromInformer(moduleConfigInformer cache.Store, moduleConfigName string) (*mcapi.ModuleConfig, error) {
 	mcObj, exist, err := moduleConfigInformer.GetByKey(moduleConfigName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get module config from informer: %w", err)
