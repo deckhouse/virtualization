@@ -2,6 +2,7 @@
 image: {{ $.ImageName }}
 final: true
 fromImage: distroless
+cacheVersion: "1042025.1"
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
@@ -270,12 +271,19 @@ import:
   before: setup
   includePaths:
   - temp_pod
+cacheVersion: "1042025.1"
 shell:
-  install:
+  beforeInstall:
   - |
     apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
     apt-get clean
+
+  install:
+  - |
+    # apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
+
+    # apt-get clean
 
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
