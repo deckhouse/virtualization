@@ -105,9 +105,12 @@ libs:
   - libjson-c-devel
   - systemtap-sdt-devel
   - libacl-devel
+  - libtpms-devel libtpms
   - glib2-devel
   - libgio-devel
   - libxml2-devel
+  - libxml2
+  - libgcc1
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
@@ -179,6 +182,8 @@ binaries:
   - /usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr
   # SELinux policy core utilities
   - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
+  # custom utils
+  - /usr/bin/node-labeller /usr/bin/vlctl
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
@@ -256,7 +261,7 @@ import:
   - virt-tail
 - image: {{ $.ImageName }}-gobuilder
   add: /binaries
-  to: /relocate/usr/bin
+  to: /usr/bin
   before: setup
   includePaths:
   - node-labeller
@@ -284,14 +289,25 @@ shell:
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
-    LIST="$(find /VBINS/usr/bin/ -type f)"
-    LIST+=" $(find /VBINS/usr/sbin/ -type f)"
-    LIST+=" /usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3"
-    LIST+=" /usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4"
+    echo "== show VBINS =="
+    ls -la /VBINS/usr/bin/
+    echo "========="
 
+    echo "find and copy additional bins"
+    LIST=($(find /VBINS/usr/bin/ -type f))
+    LIST+=($(find /VBINS/usr/sbin/ -type f))
+    LIST+=("/usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3")
+    LIST+=("/usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4")
+    LIST+=("/usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*")
+    LIST+=("/usr/lib64/libxml2.so* /usr/lib64/libgcc_s.so.1")
+
+    echo "relocate additional list of files"
     ./relocate_binaries.sh -i "$LIST" -o /VBINS
 
     cp -a /VBINS/. /relocate
+
+    echo "Copy libtpms"
+    cp -a /usr/include/libtpms/. /relocate/usr/include/libtpms
 
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins}
@@ -366,6 +382,12 @@ shell:
       ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
     done <<< "$SYMLINC_LIST"
 
+    echo "List files in usr/local/lib64"
+    ls -la usr/local/lib64
+    
+    echo "List files in usr/lib64"
+    ls -la usr/lib64
+  
   - |
     cd /relocate
 
