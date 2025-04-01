@@ -3,18 +3,18 @@ title: "Installation"
 weight: 15
 ---
 
-> **Warning.** The platform components must be deployed on physical servers (bare-metal servers).
+> **WARNING.** Module components must be deployed on physical servers (bare-metal).
 >
-> Installation on virtual machines is allowed for demonstration purposes only, but nested virtualization must be enabled. If the platform is deployed on virtual machines, technical support will not be provided.
+> Installation on virtual machines is allowed for demonstration purposes only, but nested virtualization must be enabled. If the module is deployed on virtual machines, technical support is not provided.
 
-## Platform scalability
+## Scaling options
 
 The platform supports the following configuration:
 
-- Maximum number of nodes: 1000.
-- Maximum number of virtual machines: 50000.
+- Maximum number of nodes: `1000`.
+- Maximum number of virtual machines: `50000`.
 
-The platform has no other restrictions and is compatible with any hardware that is supported by [operating systems](#supported-os-for-platform-nodes) on which it can be installed.
+The module has no additional restrictions and is compatible with any hardware that is supported by [operating systems](#supported-os-for-platform-nodes) on which it can be installed.
 
 ## Hardware Requirements
 
@@ -94,6 +94,12 @@ The platform has no other restrictions and is compatible with any hardware that 
 | Debian                      | 10, 11, 12                      |
 | Ubuntu                      | 20.04, 22.04, 24.04      |
 
+{{< alert level=“warning”>}}
+Ensuring stable operation of live migration mechanisms requires the use of an identical version of the Linux kernel on all cluster nodes.
+
+This is because differences in kernel versions can lead to incompatible interfaces, system calls, and resource handling, which can disrupt the virtual machine migration process.
+{{{< /alert >}}
+
 ## Supported guest operating systems
 
 The virtualization platform supports operating systems running on `x86` and `x86_64` architectures as guest operating systems. For correct operation in paravirtualization mode, `VirtIO` drivers must be installed to ensure efficient interaction between the virtual machine and the hypervisor.
@@ -119,8 +125,8 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
 
 | Storage System                              | Disk Location              |
 |---------------------------------------------|----------------------------|
-| LVM (Logical Volume Manager)                | Local                     |
-| DRBD (Distributed Replicated Block Device)  | Replicas on cluster nodes |
+| sds-local-volume                            | Local                     |
+| sds-replicated-volume                       | Replicas on cluster nodes |
 | Ceph Cluster                                | External storage          |
 | NFS (Network File System)                   | External storage          |
 | TATLIN.UNIFIED (Yadro)                      | External storage          |
@@ -131,6 +137,7 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
 
 2. To store virtual machine data (virtual disks and images), you must enable one or more supported [storage](#supported-storage-systems).
 
+<<<<<<< HEAD
 3. Set default `StorageClass`.
 
    ```shell
@@ -138,6 +145,9 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
    DEFAULT_STORAGE_CLASS=replicated-storage-class
    sudo -i d8 k patch mc global --type='json' -p='[{"op": "replace", "path": "/spec/settings/defaultClusterStorageClass", "value": "'"$DEFAULT_STORAGE_CLASS"'"}]'
    ```
+=======
+3. In the `global` module, set `StorageClass` as the default.
+>>>>>>> 771cd5e4 (docs(module): update install)
 
 4. Turn on the [console](https://deckhouse.io/modules/console/stable/) module, which will allow you to manage virtualization components through via UI (This feature is available only to users of the EE edition).
 
@@ -175,7 +185,9 @@ spec:
 EOF
 ```
 
-The `.spec.settings.dvcr` block describes the settings for the repository for storing virtual machine images, this block specifies the size of the storage provided for storing images `.spec.settings.dvcr.storage.persistentVolumeClaim.size`. The `.spec.settings.virtualMachineCIDRs` block specifies the list of subnets. Virtual machine addresses will be allocated automatically or on request from the specified subnet ranges in order.
+The `.spec.settings.dvcr` block describes the settings for the repository for storing virtual machine images, it specifies the size of the storage provided for storing images `.spec.settings.dvcr.storage.persistentVolumeClaim.size` and the storage class `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`.
+
+The `.spec.settings.virtualMachineCIDRs` block specifies the list of subnets. Virtual machine addresses will be allocated automatically or on request from the specified subnet ranges in order.
 
 You can track the readiness of the module using the following command:
 
