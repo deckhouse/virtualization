@@ -383,11 +383,8 @@ shell:
       ln -s ../local/lib64/$TARGET usr/lib64/$SYMLINK
     done <<< "$SYMLINC_LIST"
 
-    echo "List files in usr/local/lib64"
+    echo "List files in /relocate/usr/local/lib64"
     ls -la usr/local/lib64
-    
-    echo "List files in usr/lib64"
-    ls -la usr/lib64
   
   - |
     cd /relocate
