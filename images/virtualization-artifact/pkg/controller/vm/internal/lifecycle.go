@@ -229,26 +229,34 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(vm.GetGeneration())
 
-	if kvvm != nil && isInternalVirtualMachineError(kvvm.Status.PrintableStatus) {
-		// TODO: not internal for VirtualMachineStatusUnschedulable.
-		msg := fmt.Sprintf("Internal virtual machine error: %s", kvvm.Status.PrintableStatus)
-		if kvvmi != nil {
-			msg = fmt.Sprintf("%s, %s", msg, kvvmi.Status.Phase)
+	if kvvm != nil {
+		podScheduled := service.GetKVVMCondition(string(corev1.PodScheduled), kvvm.Status.Conditions)
+		if podScheduled != nil && podScheduled.Status == corev1.ConditionFalse {
+			vm.Status.Phase = virtv2.MachinePending
+			return
 		}
 
-		synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
-		if synchronized != nil && synchronized.Status == corev1.ConditionFalse && synchronized.Message != "" {
-			msg = fmt.Sprintf("%s; %s: %s", msg, synchronized.Reason, synchronized.Message)
+		if isInternalVirtualMachineError(kvvm.Status.PrintableStatus) {
+			msg := fmt.Sprintf("Internal virtual machine error: %s", kvvm.Status.PrintableStatus)
+			if kvvmi != nil {
+				msg = fmt.Sprintf("%s, %s", msg, kvvmi.Status.Phase)
+			}
+
+			synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), kvvm.Status.Conditions)
+			if synchronized != nil && synchronized.Status == corev1.ConditionFalse && synchronized.Message != "" {
+				msg = fmt.Sprintf("%s; %s: %s", msg, synchronized.Reason, synchronized.Message)
+			}
+
+			log.Error(msg)
+			h.recorder.Event(vm, corev1.EventTypeWarning, vmcondition.ReasonInternalVirtualMachineError.String(), msg)
+
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonInternalVirtualMachineError).
+				Message(msg)
+			conditions.SetCondition(cb, &vm.Status.Conditions)
+			return
 		}
-
-		log.Error(msg)
-		h.recorder.Event(vm, corev1.EventTypeWarning, vmcondition.ReasonInternalVirtualMachineError.String(), msg)
-
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonInternalVirtualMachineError).
-			Message(msg)
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return
 	}
 
 	if kvvmi != nil {
