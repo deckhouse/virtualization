@@ -323,14 +323,20 @@ shell:
 
     cp -a /VBINS/. /relocate
     
-    echo "Try copy libjson"
-    cp -a /usr/lib64/libjson-c.so* /relocate/usr/lib64
-    echo "List libs in relocate"
-    ls -la /relocate/usr/lib64/
+    # echo "Try copy libjson"
+    # cp -a /usr/lib64/libjson-c.so* /relocate/usr/lib64
+    # echo "List libs in relocate"
+    # ls -la /relocate/usr/lib64/
 
 
     echo "Copy libtpms"
     cp -a /usr/include/libtpms/. /relocate/usr/include/libtpms
+
+    echo "== reloc libs =="
+    ./relocate_binaries.sh -i "$LIBS" -o /relocate
+
+    echo "find json libs /relocate/usr/lib64/"
+    find /relocate/usr/lib64/ -name *json*
 
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins}
