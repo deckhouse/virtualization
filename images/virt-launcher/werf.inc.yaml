@@ -182,8 +182,6 @@ binaries:
   - /usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr
   # SELinux policy core utilities
   - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
-  # custom utils
-  - /usr/bin/node-labeller /usr/bin/vlctl
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
@@ -261,7 +259,7 @@ import:
   - virt-tail
 - image: {{ $.ImageName }}-gobuilder
   add: /binaries
-  to: /usr/bin
+  to: /relocate/usr/bin
   before: setup
   includePaths:
   - node-labeller
@@ -299,7 +297,7 @@ shell:
     LIST+=("/usr/lib64/libbsd.so.0 /usr/lib64/libnbd.so.0 /usr/lib64/libfuse3.so.3")
     LIST+=("/usr/lib64/libjson-c.so.5 /usr/lib64/libssh.so.4")
     LIST+=("/usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*")
-    LIST+=("/usr/lib64/libxml2.so* /usr/lib64/libgcc_s.so.1")
+    LIST+=("/usr/lib64/libxml2.so* /usr/lib64/libgcc_s.so*")
 
     echo "relocate additional list of files"
     ./relocate_binaries.sh -i "$LIST" -o /VBINS
@@ -402,6 +400,8 @@ shell:
   # DO NOT REMOVE. node-labeler.sh uses /etc/libvirt.
   - |
     cp -a etc/libvirt etc/libvirt-init
+  - |
+    echo "Version 1" >> /relocate/.build_version
 
 ---
 image: {{ $.ImageName }}-gobuilder
