@@ -1,26 +1,32 @@
 ---
-title: "Deckhouse Virtualization Platform"
-menuTitle: "Deckhouse Virtualization Platform"
+title: "Virtualization"
+menuTitle: "Virtualization"
 moduleStatus: preview
 weight: 10
 ---
 
 ## Description
 
-Deckhouse Virtualization Platform (DVP) allows you to declaratively create, run, and manage virtual machines and their resources.
-DVP is powered by [Deckhouse Kubernetes Platform](https://deckhouse.io/products/kubernetes-platform/). The [d8](https://deckhouse.io/documentation/v1/deckhouse-cli/) command line utility is used to manage DKP/DVP resources.
+The Virtualization module allows you to declaratively create, start and manage virtual machines and their resources.
+
+The command line utility [d8](https://deckhouse.ru/documentation/v1/deckhouse-cli/) is used to manage cluster resources.
 
 Scenarios of using the module:
 
-- Running virtual machines with x86_64 compatible OS.
-- Running virtual machines and containerized applications in the same environment.
+Running virtual machines with x86_64 compatible OS.
 
 ![](./images/cases-vms.png)
 
+Running virtual machines and containerized applications in the same environment.
+
 ![](./images/cases-pods-and-vms.png)
 
+Creation of DKP clusters
+
+![](./images/cases.dkp.png)
+
 {{< alert level="info" >}}
-If you plan to use Deckhouse Virtualization Platform in a production environment, it is recommended to deploy it on physical servers. Deploying Deckhouse Virtualization Platform on virtual machines is also possible, but in this case you must enable nested virtualization.
+If you plan to use Virtualization in a production environment, it is recommended to use a cluster deployed on physical (bare-metal) servers. For testing purposes, it is allowed to use the module in a cluster deployed on virtual machines, with nested virtualization enabled on virtual machines.
 {{< /alert >}}
 
 ## Architecture
