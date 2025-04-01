@@ -34,12 +34,8 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 binaries:
-# - /usr/bin/sh
-# - /usr/bin/rm
-# - /usr/bin/grep
 - /usr/local/bin/dvcr-importer
 - /usr/bin/qemu-img
-# - /usr/bin/qemu-io
 - /usr/bin/qemu-nbd
 - /usr/bin/nbd*
 - /usr/bin/file
