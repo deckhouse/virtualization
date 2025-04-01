@@ -113,7 +113,8 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
-  - libcap-utils 
+  - libcap-utils
+  - libswtpm-devel
 packages:
   - acl
   - attr
@@ -280,10 +281,6 @@ shell:
 
   install:
   - |
-    # apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
-
-    # apt-get clean
-
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
     mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
@@ -299,7 +296,7 @@ shell:
     FILES+=" $(find /VBINS/usr/sbin/ -type f)"
     
     LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
-    LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so*"
+    LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
     LIBS+=" /usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*"
     LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s*"
 
@@ -326,7 +323,7 @@ shell:
     cp -a /etc/xattr.conf /relocate/etc
 
     # glibc-gconv-modules
-    cp -a /usr/lib64/gconv /relocate/usr/lib64
+    cp -a /usr/lib64/gconv /relocate/usr/lib64/gconv
 
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
