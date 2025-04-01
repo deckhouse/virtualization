@@ -2,7 +2,7 @@
 image: {{ $.ImageName }}
 final: true
 fromImage: distroless
-cacheVersion: "1042025.2"
+cacheVersion: "1042025.3"
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
@@ -270,7 +270,7 @@ import:
   before: setup
   includePaths:
   - temp_pod
-cacheVersion: "1042025.2"
+cacheVersion: "1042025.3"
 shell:
   beforeInstall:
   - |
@@ -302,7 +302,7 @@ shell:
     FILES=($(find /VBINS/usr/bin/ -type f))
     FILES+=($(find /VBINS/usr/sbin/ -type f))
     LIBS=("/usr/lib64/libbsd.so*" "/usr/lib64/libnbd.so*" "/usr/lib64/libfuse3.so*")
-    LIBS+=("/usr/lib64/libjson-c.so.5*" "/usr/lib64/libssh.so*")
+    LIBS+=("/usr/lib64/libjson-c.so*" "/usr/lib64/libssh.so*")
     LIBS+=("/usr/lib64/libtpms.so*" "/usr/lib64/swtpm/libswtpm_libtpms.so*")
     LIBS+=("/usr/lib64/libxml2.so*" "/usr/lib64/libgcc_s*")
 
@@ -323,6 +323,8 @@ shell:
 
     cp -a /VBINS/. /relocate
     
+    echo "Try copy libjson"
+    cp -a /usr/lib64/libjson-c.so* /relocate/usr/lib64
     echo "List libs in relocate"
     ls -la /relocate/usr/lib64/
 
