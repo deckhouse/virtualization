@@ -64,15 +64,13 @@ type logMessage struct {
 	Message string `json:"message"`
 }
 
-type NewEventLogger func(events.EventLoggerOptions) events.EventLogger
-
 func NewEventHandler(
 	ctx context.Context,
 	client kubernetes.Interface,
 	informerList events.InformerList,
 	cache events.TTLCache,
 ) func([]byte) error {
-	eL := []NewEventLogger{
+	eventLoggers := []func(events.EventLoggerOptions) events.EventLogger{
 		func(o events.EventLoggerOptions) events.EventLogger { return forbid.NewForbid(o) },
 		func(o events.EventLoggerOptions) events.EventLogger { return vm.NewVMManage(o) },
 		func(o events.EventLoggerOptions) events.EventLogger { return vm.NewVMControl(o) },
@@ -94,7 +92,7 @@ func NewEventHandler(
 			return fmt.Errorf("Error parsing JSON: %w", err)
 		}
 
-		for _, newEventLogger := range eL {
+		for _, newEventLogger := range eventLoggers {
 			eventLogger := newEventLogger(NewEventHandlerOptions{
 				Ctx:          ctx,
 				Client:       client,

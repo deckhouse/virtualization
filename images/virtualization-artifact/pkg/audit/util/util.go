@@ -31,11 +31,14 @@ import (
 	"k8s.io/client-go/tools/cache"
 	virtv1 "kubevirt.io/api/core/v1"
 
-	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/module"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
+
+type TTLCache interface {
+	Get(key string) (any, bool)
+}
 
 func RemoveAllQueryParams(uri string) (string, error) {
 	parsedURL, err := url.Parse(uri)
@@ -48,7 +51,7 @@ func RemoveAllQueryParams(uri string) (string, error) {
 	return parsedURL.String(), nil
 }
 
-func GetVMFromInformer(cache events.TTLCache, vmInformer cache.Store, vmName string) (*v1alpha2.VirtualMachine, error) {
+func GetVMFromInformer(cache TTLCache, vmInformer cache.Store, vmName string) (*v1alpha2.VirtualMachine, error) {
 	vmObj, exist, err := vmInformer.GetByKey(vmName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -68,7 +71,7 @@ func GetVMFromInformer(cache events.TTLCache, vmInformer cache.Store, vmName str
 	return vm, nil
 }
 
-func GetVDFromInformer(cache events.TTLCache, vdInformer cache.Store, vdName string) (*v1alpha2.VirtualDisk, error) {
+func GetVDFromInformer(cache TTLCache, vdInformer cache.Store, vdName string) (*v1alpha2.VirtualDisk, error) {
 	vdObj, exist, err := vdInformer.GetByKey(vdName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get node from informer: %w", err)
@@ -105,7 +108,7 @@ func GetNodeFromInformer(nodeInformer cache.Store, nodeName string) (*corev1.Nod
 	return node, nil
 }
 
-func GetPodFromInformer(cache events.TTLCache, podInformer cache.Store, podName string) (*corev1.Pod, error) {
+func GetPodFromInformer(cache TTLCache, podInformer cache.Store, podName string) (*corev1.Pod, error) {
 	podObj, exist, err := podInformer.GetByKey(podName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get pod from informer: %w", err)
@@ -142,7 +145,7 @@ func GetVMOPFromInformer(vmopInformer cache.Store, vmopName string) (*v1alpha2.V
 	return vmop, nil
 }
 
-func GetInternalVMIFromInformer(cache events.TTLCache, internalVMIInformer cache.Store, internalVMIName string) (*virtv1.VirtualMachineInstance, error) {
+func GetInternalVMIFromInformer(cache TTLCache, internalVMIInformer cache.Store, internalVMIName string) (*virtv1.VirtualMachineInstance, error) {
 	intVMIObj, exist, err := internalVMIInformer.GetByKey(internalVMIName)
 	if err != nil {
 		return nil, fmt.Errorf("fail to get intVMI from informer: %w", err)
