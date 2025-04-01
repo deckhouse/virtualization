@@ -280,6 +280,8 @@ shell:
 
   install:
   - |
+    FILES=""
+    LIBS=""
     # apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
     # apt-get clean
@@ -295,13 +297,13 @@ shell:
     cp -a /qemu-bins/. /VBINS/
 
     echo "find and copy additional libs"
-    FILES=($(find /VBINS/usr/bin/ -type f))
-    FILES+=($(find /VBINS/usr/sbin/ -type f))
+    FILES=$(find /VBINS/usr/bin/ -type f)
+    FILES+=" $(find /VBINS/usr/sbin/ -type f)"
     
-    LIBS=("/usr/lib64/libbsd.so*" "/usr/lib64/libnbd.so*" "/usr/lib64/libfuse3.so*")
-    LIBS+=("/usr/lib64/libjson-c.so*" "/usr/lib64/libssh.so*")
-    LIBS+=("/usr/lib64/libtpms.so*" "/usr/lib64/swtpm/libswtpm_libtpms.so*")
-    LIBS+=("/usr/lib64/libxml2.so*" "/usr/lib64/libgcc_s*")
+    LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
+    LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so*"
+    LIBS+=" /usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*"
+    LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s*"
 
     echo "relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
@@ -317,8 +319,15 @@ shell:
     # echo "Copy libtpms"
     # cp -a /usr/include/libtpms/. /relocate/usr/include/libtpms
 
+
     echo "== reloc additional libs =="
     ./relocate_binaries.sh -i "$LIBS" -o /relocate
+
+    # echo "= $LIBS ="
+    # for lib in "${LIBS[@]}"; do
+    #   echo "relocate $lib"
+    #   cp -a "$lib" /relocate/usr/lib64/
+    # done
 
     echo "find json libs /relocate/usr/lib64/"
     find /relocate/usr/lib64/ -name *json*
