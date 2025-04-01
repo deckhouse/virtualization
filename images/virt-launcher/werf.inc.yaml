@@ -136,6 +136,7 @@ packages:
   - xorriso
 binaries:
   # GNU utilities
+  - /usr/bin/cp
   - /usr/bin/sleep
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
