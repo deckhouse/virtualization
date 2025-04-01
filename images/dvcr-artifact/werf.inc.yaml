@@ -42,10 +42,10 @@ binaries:
 # - /usr/bin/qemu-io
 - /usr/bin/qemu-nbd
 - /usr/bin/nbd*
-# - /usr/bin/file
-# - /usr/share/file/magic
-# - /usr/share/file/magic.mgc
-# - /etc/magic
+- /usr/bin/file
+- /usr/share/file/magic
+- /usr/share/file/magic.mgc
+- /etc/magic
 - /usr/bin/mount
 - /usr/bin/umount
 - /usr/local/bin/dvcr-uploader
