@@ -301,10 +301,10 @@ shell:
     echo "find and copy additional bins"
     FILES=($(find /VBINS/usr/bin/ -type f))
     FILES+=($(find /VBINS/usr/sbin/ -type f))
-    LIBS=("/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*")
-    LIBS+=("/usr/lib64/libjson-c.so.* /usr/lib64/libssh.so*")
-    LIBS+=("/usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*")
-    LIBS+=("/usr/lib64/libxml2.so* /usr/lib64/libgcc_s*")
+    LIBS=("/usr/lib64/libbsd.so*" "/usr/lib64/libnbd.so*" "/usr/lib64/libfuse3.so*")
+    LIBS+=("/usr/lib64/libjson-c.so.5*" "/usr/lib64/libssh.so*")
+    LIBS+=("/usr/lib64/libtpms.so*" "/usr/lib64/swtpm/libswtpm_libtpms.so*")
+    LIBS+=("/usr/lib64/libxml2.so*" "/usr/lib64/libgcc_s*")
 
     echo "relocate additional list of files"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
