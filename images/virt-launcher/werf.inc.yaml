@@ -2,7 +2,7 @@
 image: {{ $.ImageName }}
 final: true
 fromImage: distroless
-cacheVersion: "1042025.1"
+cacheVersion: "1042025.2"
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
@@ -104,6 +104,7 @@ libs:
   - libbsd-devel
   - libsystemd-devel
   - libjson-c-devel
+  - libjson-c5
   - systemtap-sdt-devel
   - libacl-devel
   - libtpms-devel libtpms
@@ -271,7 +272,7 @@ import:
   before: setup
   includePaths:
   - temp_pod
-cacheVersion: "1042025.1"
+cacheVersion: "1042025.2"
 shell:
   beforeInstall:
   - |
@@ -300,20 +301,21 @@ shell:
     echo "========="
 
     echo "find and copy additional bins"
-    LIST=($(find /VBINS/usr/bin/ -type f))
-    LIST+=($(find /VBINS/usr/sbin/ -type f))
-    LIBS+=("/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*")
+    FILES=($(find /VBINS/usr/bin/ -type f))
+    FILES+=($(find /VBINS/usr/sbin/ -type f))
+    LIBS=("/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*")
     LIBS+=("/usr/lib64/libjson-c.so* /usr/lib64/libssh.so*")
     LIBS+=("/usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*")
-    LIBS+=("/usr/lib64/libxml2.so* /usr/lib64/libgcc_s.so*")
+    LIBS+=("/usr/lib64/libxml2.so* /usr/lib64/libgcc_s*")
 
     echo "relocate additional list of files"
-    ./relocate_binaries.sh -i "$LIST" -o /VBINS
+    ./relocate_binaries.sh -i "$FILES" -o /VBINS
+    ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
-    for lib in "${LIBS[@]}"; do
-      echo "relocate $lib"
-      copy -a $lib /VBINS
-    done
+    # for lib in "${LIBS[@]}"; do
+    #   echo "relocate $lib"
+    #   copy -a $lib /VBINS/usr/lib64
+    # done
 
     echo "List libs in VBINS"
     ls -la /VBINS/usr/lib64/
