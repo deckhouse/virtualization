@@ -172,7 +172,7 @@ jobs:
           JOB_STATUS: ${{ job.status }}
           STATUS_TARGET_COMMIT: ${{ github.event.pull_request.head.sha }}
         with:
-          github-token: ${{secrets.CHANGELOG_ACCESS_TOKEN}}
+          github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
             const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
 
