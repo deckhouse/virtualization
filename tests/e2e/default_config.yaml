@@ -37,7 +37,6 @@ testData:
 logFilter:
   - "pattern to exclude"
   - "Server rejected event (will not retry!)" # Msg.
-  - "Internal virtual machine error" # Msg.
   - "validation failed for data source objectref" # Err.
   - "error patching metadata: virtualdisks" # Err.
   - "error patching metadata: virtualmachineclasses" # Err.

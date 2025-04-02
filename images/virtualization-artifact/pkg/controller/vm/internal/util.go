@@ -238,7 +238,6 @@ func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) b
 		virtv1.VirtualMachineStatusDataVolumeError,
 		virtv1.VirtualMachineStatusPvcNotFound,
 		virtv1.VirtualMachineStatusCrashLoopBackOff,
-		virtv1.VirtualMachineStatusUnschedulable,
 		virtv1.VirtualMachineStatusUnknown,
 	}, phase)
 }
