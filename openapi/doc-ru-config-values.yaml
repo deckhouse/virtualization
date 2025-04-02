@@ -144,7 +144,7 @@ properties:
             type: string
             description: |
               OUI MAC-адреса для виртуальных машин.
-              Поддерживаемые форматы: xx-xx-xx-xx, xx:xx:xx:xx, xxxxxxx.
+              Поддерживаемые форматы: xx-xx-xx, xx:xx:xx, xxxxx.
   logLevel:
     type: string
     description: |

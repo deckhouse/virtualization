@@ -224,10 +224,12 @@ properties:
               type: string
             x-examples: ["sc-1", "sc-2"]
   network:
+    type: object
     description: |
       Configuring network settings for virtual machines.
     properties:
       macAddress:
+        type: object
         description: |
           Configuring MAC address for virtual machines.
         properties:
@@ -235,7 +237,7 @@ properties:
             type: string
             description: |
               MAC address oui for virtual machines.
-              Supported formats: xx-xx-xx-xx, xx:xx:xx:xx, xxxxxxxx.
+              Supported formats: xx-xx-xx, xx:xx:xx, xxxxxx.
   logLevel:
     type: string
     description: |
