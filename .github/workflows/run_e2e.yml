@@ -80,12 +80,6 @@ jobs:
         run: |
           go install github.com/google/go-containerregistry/cmd/crane@latest
 
-      - name: Install Deckhouse-cli
-        run: |
-          echo "Install d8"
-          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
-          bash d8-install.sh
-
       - uses: azure/k8s-set-context@v4
         with:
           method: kubeconfig
