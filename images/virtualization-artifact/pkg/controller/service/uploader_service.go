@@ -191,7 +191,7 @@ func (s UploaderService) Protect(ctx context.Context, pod *corev1.Pod, svc *core
 			return fmt.Errorf("failed to get networkPolicy for removing importer's supplements protection: %w", err)
 		}
 	}
-	err = s.protection.AddProtection(ctx, pod, svc, ing, networkPolicy)
+	err = s.protection.AddProtection(ctx, networkPolicy, pod, svc, ing)
 	if err != nil {
 		return fmt.Errorf("failed to add protection for uploader's supplements: %w", err)
 	}
@@ -208,7 +208,7 @@ func (s UploaderService) Unprotect(ctx context.Context, pod *corev1.Pod, svc *co
 			return fmt.Errorf("failed to get networkPolicy for removing importer's supplements protection: %w", err)
 		}
 	}
-	err = s.protection.RemoveProtection(ctx, pod, svc, ing, networkPolicy)
+	err = s.protection.RemoveProtection(ctx, networkPolicy, pod, svc, ing)
 	if err != nil {
 		return fmt.Errorf("failed to remove protection for uploader's supplements: %w", err)
 	}
