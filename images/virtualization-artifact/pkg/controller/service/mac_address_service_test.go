@@ -34,7 +34,7 @@ var _ = Describe("MACAddressService", func() {
 
 	BeforeEach(func() {
 		allocatedMACs = make(mac.AllocatedMACs)
-		service = NewMACAddressService("f6:e1:74:94")
+		service = NewMACAddressService("f6:e1:74")
 	})
 
 	Context("IsAvailableAddress", func() {
@@ -80,25 +80,25 @@ var _ = Describe("MACAddressService", func() {
 		It("should allocate a new unique MAC address with format oui xx:xx:xx:xx", func() {
 			address, err := service.AllocateNewAddress(allocatedMACs)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(address).To(HavePrefix("f6:e1:74:94"))
+			Expect(address).To(HavePrefix("f6:e1:74:"))
 		})
 
 		It("should allocate a new unique MAC address with format oui xx-xx-xx-xx", func() {
-			service := NewMACAddressService("f6-e1-74-94")
+			service := NewMACAddressService("f6-e1-74")
 			address, err := service.AllocateNewAddress(allocatedMACs)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(address).To(HavePrefix("f6:e1:74:94"))
+			Expect(address).To(HavePrefix("f6:e1:74"))
 		})
 
 		It("should allocate a new unique MAC address with format oui xxxxxxxx", func() {
-			service := NewMACAddressService("f6e17494")
+			service := NewMACAddressService("f6e174")
 			address, err := service.AllocateNewAddress(allocatedMACs)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(address).To(HavePrefix("f6:e1:74:94"))
+			Expect(address).To(HavePrefix("f6:e1:74"))
 		})
 
 		It("should return an error when MAC addresses oui wrong", func() {
-			service := NewMACAddressService("f6e1749")
+			service := NewMACAddressService("f6e17")
 			_, err := service.AllocateNewAddress(allocatedMACs)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(Equal("wrong format MAC address oui"))

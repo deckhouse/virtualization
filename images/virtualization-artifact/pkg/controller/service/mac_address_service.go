@@ -27,7 +27,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/mac"
 )
 
-const MaxCount int = 65536
+const MaxCount int = 16777216
 
 type MACAddressService struct {
 	oui string
@@ -51,7 +51,7 @@ func (s MACAddressService) IsAvailableAddress(address string, allocatedMACs mac.
 		return ErrMACAddressAlreadyExist
 	}
 
-	if address[:11] == s.oui {
+	if address[:8] == s.oui {
 		return nil
 	}
 
@@ -64,11 +64,11 @@ func formatOUI(prefix string) (string, error) {
 	re := regexp.MustCompile(`(?i)([0-9A-Fa-f]{2})`)
 	matches := re.FindAllString(prefix, -1)
 
-	if len(matches) != 4 {
+	if len(matches) != 3 {
 		return "", fmt.Errorf("wrong format MAC address oui")
 	}
 
-	return fmt.Sprintf("%s:%s:%s:%s", matches[0], matches[1], matches[2], matches[3]), nil
+	return fmt.Sprintf("%s:%s:%s", matches[0], matches[1], matches[2]), nil
 }
 
 func (s MACAddressService) AllocateNewAddress(allocatedMACs mac.AllocatedMACs) (string, error) {
@@ -82,7 +82,7 @@ func (s MACAddressService) AllocateNewAddress(allocatedMACs mac.AllocatedMACs) (
 	maxRetries := MaxCount - len(allocatedMACs)
 
 	for retry < maxRetries {
-		genAddress := fmt.Sprintf("%s:%02X:%02X", prefix, r.Intn(256), r.Intn(256))
+		genAddress := fmt.Sprintf("%s:%02X:%02X:%02X", prefix, r.Intn(256), r.Intn(256), r.Intn(256))
 		if _, ok := allocatedMACs[genAddress]; !ok {
 			return genAddress, nil
 		}
