@@ -70,36 +70,35 @@ func NewEventHandler(
 	informerList events.InformerList,
 	cache events.TTLCache,
 ) func([]byte) error {
-	eventLoggers := []func(events.EventLoggerOptions) events.EventLogger{
-		func(o events.EventLoggerOptions) events.EventLogger { return forbid.NewForbid(o) },
-		func(o events.EventLoggerOptions) events.EventLogger { return vm.NewVMManage(o) },
-		func(o events.EventLoggerOptions) events.EventLogger { return vm.NewVMControl(o) },
-		func(o events.EventLoggerOptions) events.EventLogger { return vm.NewVMOPControl(o) },
-		func(o events.EventLoggerOptions) events.EventLogger { return vm.NewVMAccess(o) },
-		func(o events.EventLoggerOptions) events.EventLogger { return module.NewModuleComponentControl(o) },
-		func(o events.EventLoggerOptions) events.EventLogger { return module.NewModuleControl(o) },
-		func(o events.EventLoggerOptions) events.EventLogger { return integrity.NewIntegrityCheckVM(o) },
-	}
-
 	return func(line []byte) error {
 		var message logMessage
 		if err := json.Unmarshal(line, &message); err != nil {
 			return fmt.Errorf("error parsing JSON: %w", err)
 		}
 
-		var event audit.Event
-		if err := json.Unmarshal([]byte(message.Message), &event); err != nil {
+		var event *audit.Event
+		if err := json.Unmarshal([]byte(message.Message), event); err != nil {
 			return fmt.Errorf("Error parsing JSON: %w", err)
 		}
 
-		for _, newEventLogger := range eventLoggers {
-			eventLogger := newEventLogger(NewEventHandlerOptions{
-				Ctx:          ctx,
-				Client:       client,
-				InformerList: informerList,
-				TTLCache:     cache,
-				Event:        &event,
-			})
+		options := &NewEventHandlerOptions{
+			Ctx:          ctx,
+			Client:       client,
+			InformerList: informerList,
+			TTLCache:     cache,
+			Event:        event,
+		}
+
+		for _, eventLogger := range []events.EventLogger{
+			forbid.NewForbid(options),
+			vm.NewVMManage(options),
+			vm.NewVMControl(options),
+			vm.NewVMOPControl(options),
+			vm.NewVMAccess(options),
+			module.NewModuleComponentControl(options),
+			module.NewModuleControl(options),
+			integrity.NewIntegrityCheckVM(options),
+		} {
 			if !eventLogger.IsMatched() {
 				continue
 			}
