@@ -183,7 +183,6 @@ binaries:
   - /usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr
   # SELinux policy core utilities
   - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
-  - 
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
@@ -323,6 +322,7 @@ shell:
     cp -a /etc/xattr.conf /relocate/etc
 
     # glibc-gconv-modules
+    # This package contains helper modules necessary to convert data between various charsets
     cp -a /usr/lib64/gconv /relocate/usr/lib64/gconv
 
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
