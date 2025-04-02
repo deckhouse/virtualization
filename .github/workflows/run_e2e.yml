@@ -1,0 +1,178 @@
+name: Run e2e
+on:
+  pull_request_target:
+    types: 
+      - labeled
+
+env:
+  GO_VERSION: "1.22.7"
+
+jobs:
+  skip_e2e:
+    if: ${{ github.event.label.name == 'skip/e2e' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip E2E tests
+        id: skip_e2e
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
+            e2eStatus.onLabeledForSkip({
+              github,
+              context,
+              core,
+              labeled: true,
+              commitSha: context.payload.pull_request.head.sha
+            })
+
+  run_e2e:
+    if: ${{ github.event.label.name == 'e2e/run' }}
+    name: Run E2E tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select user
+        id: select_user
+        uses: actions/github-script@v6
+        env:
+          KUBECONFIGS: ${{ secrets.K8S_CLUSTER_SECRET }}
+        with:
+          script: |
+            const ci = require('./.github/scripts/js/ci');
+            const userId = await ci.getClusterUser({context, core})
+            // core.setOutput("user_id", user_id)
+            // core.exportVariable("user_id", user_id);
+            const kubeconfigs = JSON.parse(process.env.KUBECONFIGS);
+            const kubeconfig = kubeconfigs.find(config => config.id === userId)?.kubeconfig;
+            if (!kubeconfig) {
+              core.setFailed(`No kubeconfig found for user with ID ${userId}.`);
+            } else {
+              core.info(`Found kubeconfig for user with ID ${userId}`);
+              core.setSecret(kubeconfig);
+              core.setOutput('kubeconfig_data', kubeconfig);
+            }
+      
+      - name: Install Deckhouse-cli
+        run: |
+          echo "Install d8"
+          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+          bash d8-install.sh
+
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+
+      - name: Install ginkgo
+        working-directory: ./tests/e2e/
+        run: |
+          echo "Install ginkgo"
+          GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
+          go install "github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}"
+
+      - name: Install crane
+        run: |
+          go install github.com/google/go-containerregistry/cmd/crane@latest
+
+      - name: Install Deckhouse-cli
+        run: |
+          echo "Install d8"
+          curl -fsSL -o d8-install.sh https://raw.githubusercontent.com/deckhouse/deckhouse-cli/main/d8-install.sh
+          bash d8-install.sh
+
+      - uses: azure/k8s-set-context@v4
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ steps.select_user.outputs.kubeconfig_data }}
+          
+      - name: Checkout cluster to revision
+        env:
+          v12n_tag: pr${{ github.event.pull_request.number }}
+        run: |
+          d8 k patch mpo virtualization --type merge -p '{"spec":{"imageTag":"$v12n_tag"}}'
+          local images_hash=$(crane export "dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:$v12n_tag" - | tar -Oxf - images_digests.json)
+          local v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
+          local retry_count=0
+          local max_retries=120
+          local sleep_interval=5 
+
+          while true; do
+            all_hashes_found=true
+
+            # Fetch current pods information
+            local v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
+
+            # Process each image entry
+            while IFS= read -r image_entry; do
+              local image=$(echo "$image_entry" | jq -r '.key')
+              local hash=$(echo "$image_entry" | jq -r '.value')
+
+              if [[ "${image,,}" =~ (libguestfs|predeletehook) ]]; then
+                continue
+              fi
+
+              if echo "$v12n_pods" | grep -q "$hash"; then
+                echo "- ✅ $image $hash"
+              else
+                echo "- 🟥 $image $hash"
+                all_hashes_found=false
+              fi
+            done < <(echo "$images_hash" | jq -c '. | to_entries | sort_by(.key)[]')
+
+            # If all hashes are found, break the loop
+            if [ "$all_hashes_found" = true ]; then
+              echo "All image hashes found in pods."
+              break
+            fi 
+
+            ((retry_count++))
+            echo "Some hashes are missing, rechecking... Attempt: $retry_count"
+
+            # Check if the retry limit has been reached
+            if [ "$retry_count" -ge "$max_retries" ]; then
+              echo "Error: Timeout reached after $((retry_count * sleep_interval)) seconds. Some image hashes are still missing."
+              exit 1
+            fi
+            # Wait for the specified interval before retrying
+            sleep "$sleep_interval"
+          done
+
+      - name: Download dependencies
+        working-directory: ./tests/e2e/
+        run: |
+          echo "Download dependencies"
+          go mod download
+
+      - name: Run E2E
+        id: e2e-tests
+        working-directory: ./tests/e2e/
+        run: |
+          task run:ci -v
+
+  last_comment:
+    name: Update comment on finish
+    needs:
+      - run_e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3.5.2
+
+      - name: Set commit status after e2e run
+        id: set_e2e_requirement_status
+        if: ${{ always() }}
+        uses: actions/github-script@v6.4.1
+        env:
+          JOB_STATUS: ${{ job.status }}
+          STATUS_TARGET_COMMIT: ${{ github.event.pull_request.head.sha }}
+        with:
+          github-token: ${{secrets.CHANGELOG_ACCESS_TOKEN}}
+          script: |
+            const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
+
+            await e2eStatus.setStatusAfterE2eRun({github, context, core});
