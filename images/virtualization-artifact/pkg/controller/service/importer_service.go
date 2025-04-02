@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,8 +100,8 @@ func (s ImporterService) Start(
 		}
 	}
 
-	pod, err := importer.NewImporter(podSettings, settings).CreatePod(ctx, s.client)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	pod, err := importer.NewImporter(podSettings, settings).GetOrCreatePod(ctx, s.client)
+	if err != nil {
 		return err
 	}
 
@@ -116,8 +117,8 @@ func (s ImporterService) StartWithPodSetting(ctx context.Context, settings *impo
 	settings.Verbose = s.verbose
 	podSettings.Finalizer = s.protection.finalizer
 
-	pod, err := importer.NewImporter(podSettings, settings).CreatePod(ctx, s.client)
-	if err != nil && !k8serrors.IsAlreadyExists(err) {
+	pod, err := importer.NewImporter(podSettings, settings).GetOrCreatePod(ctx, s.client)
+	if err != nil {
 		return err
 	}
 
@@ -214,47 +215,37 @@ func (s ImporterService) CleanUpSupplements(ctx context.Context, sup *supplement
 	return hasDeleted, nil
 }
 
-func (s ImporterService) Protect(ctx context.Context, pod *corev1.Pod) error {
-	err := s.protection.AddProtection(ctx, pod)
-	if err != nil {
-		return fmt.Errorf("failed to add protection for importer's supplements: %w", err)
-	}
+func (s ImporterService) Protect(ctx context.Context, pod *corev1.Pod) (err error) {
+	var networkPolicy *netv1.NetworkPolicy
 
 	if pod != nil {
-		networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod)
+		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for importer's supplements protection: %w", err)
 		}
+	}
 
-		if networkPolicy != nil {
-			err = s.protection.AddProtection(ctx, networkPolicy)
-			if err != nil {
-				return fmt.Errorf("failed to add protection for importer's networkPolicy: %w", err)
-			}
-		}
+	err = s.protection.AddProtection(ctx, networkPolicy, pod)
+	if err != nil {
+		return fmt.Errorf("failed to add protection for importer's supplements: %w", err)
 	}
 
 	return nil
 }
 
-func (s ImporterService) Unprotect(ctx context.Context, pod *corev1.Pod) error {
-	err := s.protection.RemoveProtection(ctx, pod)
-	if err != nil {
-		return fmt.Errorf("failed to remove protection for importer's supplements: %w", err)
-	}
+func (s ImporterService) Unprotect(ctx context.Context, pod *corev1.Pod) (err error) {
+	var networkPolicy *netv1.NetworkPolicy
 
 	if pod != nil {
-		networkPolicy, err := networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod)
+		networkPolicy, err = networkpolicy.GetNetworkPolicyFromObject(ctx, s.client, pod)
 		if err != nil {
 			return fmt.Errorf("failed to get networkPolicy for removing importer's supplements protection: %w", err)
 		}
+	}
 
-		if networkPolicy != nil {
-			err = s.protection.RemoveProtection(ctx, networkPolicy)
-			if err != nil {
-				return fmt.Errorf("failed to remove protection for importer's supplements: %w", err)
-			}
-		}
+	err = s.protection.RemoveProtection(ctx, networkPolicy, pod)
+	if err != nil {
+		return fmt.Errorf("failed to remove protection for importer's supplements: %w", err)
 	}
 
 	return nil
