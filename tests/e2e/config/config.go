@@ -130,6 +130,7 @@ type Config struct {
 	Namespace        string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
 	LogFilter        []string         `yaml:"logFilter"`
+	RegexpLogFilter  []string         `yaml:"regexpLogFilter"`
 	StorageClass     StorageClass
 }
 

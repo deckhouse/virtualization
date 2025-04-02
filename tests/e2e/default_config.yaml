@@ -51,3 +51,5 @@ logFilter:
   - "does not have a pvc reference" # "err": "kvvm head-345e7b6a-testcases-image-hotplug/head-345e7b6a-vm-image-hotplug spec volume vi-head-345e7b6a-vi-alpine-http does not have a pvc reference"
   - "get storage class specified in spec: storage class not found" # Err.
   - "lastTransitionTime: Required value" # Err.
+regexpLogFilter:
+  - ".* not found"
