@@ -77,7 +77,7 @@ spec:
       type: json
     - resourceType: Deployment
       resourceName: virt-controller
-      patch: '[{"op":"add","path":"/spec/template/spec/containers/0/env","value":[{"name":"QEMU_VERSION","value":"0.9.9"},{"name":"LIBVIRT_VERSION","value":"1.6.9"}]}]'
+      patch: '[{"op":"add","path":"/spec/template/spec/containers/2/env","value":[{"name":"QEMU_VERSION","value":"0.9.9"},{"name":"LIBVIRT_VERSION","value":"1.6.9"}]}]'
       type: json
     - resourceType: DaemonSet
       resourceName: virt-handler
