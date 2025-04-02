@@ -84,6 +84,12 @@ jobs:
         with:
           method: kubeconfig
           kubeconfig: ${{ steps.select_user.outputs.kubeconfig_data }}
+
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
           
       - name: Checkout cluster to revision
         env:
