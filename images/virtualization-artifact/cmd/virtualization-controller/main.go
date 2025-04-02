@@ -214,8 +214,8 @@ func main() {
 
 	virtualMachineMACAddressOUI := os.Getenv(virtualMachineMACAddressOUIEnv)
 	if virtualMachineMACAddressOUI == "" {
-		log.Info("virtualMachineMACAddressOUIEnv, but required")
-		os.Exit(1)
+		log.Info("virtualMachineMACAddressOUIEnv, but required. Set default value 'f6:e1:74'")
+		virtualMachineMACAddressOUI = "f6:e1:74"
 	}
 
 	// Create a new Manager to provide shared dependencies and start components
