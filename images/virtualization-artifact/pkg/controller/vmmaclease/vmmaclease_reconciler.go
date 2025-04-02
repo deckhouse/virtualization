@@ -18,7 +18,6 @@ package vmmaclease
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 
@@ -33,9 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/mac"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -92,9 +90,7 @@ func (r *Reconciler) enqueueRequestsFromVMMAC(_ context.Context, obj client.Obje
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
-	log := logger.FromContext(ctx)
-
-	lease := service.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	lease := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	var err error
 	err = lease.Fetch(ctx)
@@ -106,49 +102,30 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	log.Debug("Start reconcile VMMACLease")
-
 	s := state.New(r.client, lease.Changed())
-	var handlerErrs []error
 
-	var result reconcile.Result
-	for _, h := range r.handlers {
-		log.Debug("Run handler", logger.SlogHandler(h.Name()))
-
-		var res reconcile.Result
-		res, err = h.Handle(ctx, s)
-		if err != nil {
-			log.Error("Failed to handle VMMACLease", "err", err, logger.SlogHandler(h.Name()))
-			handlerErrs = append(handlerErrs, err)
+	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
+		return h.Handle(ctx, s)
+	})
+	rec.SetResourceUpdater(func(ctx context.Context) error {
+		if s.ShouldDeletion() {
+			return r.client.Delete(ctx, lease.Changed())
 		}
 
-		result = service.MergeResults(result, res)
-	}
-	// fixme dlopatin
-	if !reflect.DeepEqual(lease.Current().Spec, lease.Changed().Spec) {
-		leaseStatus := lease.Changed().Status.DeepCopy()
-		err = r.client.Update(ctx, lease.Changed())
-		if err != nil {
-			log.Error("Failed to update VirtualMachineMACAddressLease", "err", err)
-			handlerErrs = append(handlerErrs, err)
+		if !reflect.DeepEqual(lease.Current().Spec, lease.Changed().Spec) {
+			leaseStatus := lease.Changed().Status.DeepCopy()
+			err = r.client.Update(ctx, lease.Changed())
+			if err != nil {
+				return fmt.Errorf("failed to update spec: %w", err)
+			}
+			lease.Changed().Status = *leaseStatus
 		}
-		lease.Changed().Status = *leaseStatus
-	}
 
-	err = lease.Update(ctx)
+		return lease.Update(ctx)
+	})
 
-	handlerErrs = append(handlerErrs, err)
-
-	if s.ShouldDeletion() {
-		err = r.client.Delete(ctx, lease.Changed())
-	}
-
-	err = errors.Join(handlerErrs...)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return result, nil
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachineMACAddressLease {
