@@ -336,7 +336,43 @@ jobs:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: "$MODULES_MODULE_TAG"
-
+  pull_request_info:
+    name: Get PR info
+    runs-on: ubuntu-latest
+    outputs:
+      labels: ${{ steps.pr_labels.outputs.labels }}
+    steps:
+      - name: Get PR labels
+        id: pr_labels
+        uses: actions/github-script@v6.4.1
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: prNumber
+            });
+            core.setOutput('labels', JSON.stringify(labels));
+  set_e2e_requirement_status:
+    name: Set 'waiting for e2e' commit status
+    needs:
+      - pull_request_info
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3.5.2
+      - name: Set commit status after e2e run
+        id: set_e2e_requirement_status
+        uses: actions/github-script@v6.4.1
+        env:
+          STATUS_TARGET_COMMIT: ${{ github.event.pull_request.head.sha }}
+          PR_LABELS: ${{ needs.pull_request_info.outputs.labels }}
+        with:
+          github-token: ${{secrets.CHANGELOG_ACCESS_TOKEN}}
+          script: |
+            const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
+            await e2eStatus.setInitialStatus({github, context, core});
   cve_scan_on_pr:
     name: Trivy images check
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
