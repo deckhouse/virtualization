@@ -96,22 +96,22 @@ jobs:
           v12n_tag: pr${{ github.event.pull_request.number }}
         run: |
           d8 k patch mpo virtualization --type merge -p '{"spec":{"imageTag":"$v12n_tag"}}' -v3
-          local images_hash=$(crane export "dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:$v12n_tag" - | tar -Oxf - images_digests.json)
-          local v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
-          local retry_count=0
-          local max_retries=120
-          local sleep_interval=5 
+          images_hash=$(crane export "dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:$v12n_tag" - | tar -Oxf - images_digests.json)
+          v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
+          retry_count=0
+          max_retries=120
+          sleep_interval=5 
 
           while true; do
             all_hashes_found=true
 
             # Fetch current pods information
-            local v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
+            v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
 
             # Process each image entry
             while IFS= read -r image_entry; do
-              local image=$(echo "$image_entry" | jq -r '.key')
-              local hash=$(echo "$image_entry" | jq -r '.value')
+              image=$(echo "$image_entry" | jq -r '.key')
+              hash=$(echo "$image_entry" | jq -r '.value')
 
               if [[ "${image,,}" =~ (libguestfs|predeletehook) ]]; then
                 continue
