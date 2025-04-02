@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"slices"
 	"strconv"
 
@@ -130,6 +131,7 @@ type Config struct {
 	Namespace        string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
 	LogFilter        []string         `yaml:"logFilter"`
+	RegexpLogFilter  []regexp.Regexp  `yaml:"regexpLogFilter"`
 	StorageClass     StorageClass
 }
 
@@ -278,7 +280,7 @@ func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {
 		return readErr
 	}
 
-	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
+	unmarshalErr := yamlv3.Unmarshal(data, &kustomizeFile)
 	if unmarshalErr != nil {
 		return unmarshalErr
 	}
@@ -310,7 +312,7 @@ func (k *Kustomize) GetNamespace(filePath string) (string, error) {
 		return "", fmt.Errorf("cannot get namespace from %s: %w", filePath, readErr)
 	}
 
-	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
+	unmarshalErr := yamlv3.Unmarshal(data, &kustomizeFile)
 	if unmarshalErr != nil {
 		return "", fmt.Errorf("cannot get namespace from %s: %w", filePath, unmarshalErr)
 	}
@@ -326,7 +328,7 @@ func (k *Kustomize) ExcludeResource(filePath, resourceName string) error {
 		return readErr
 	}
 
-	unmarshalErr := yamlv3.Unmarshal([]byte(data), &kustomizeFile)
+	unmarshalErr := yamlv3.Unmarshal(data, &kustomizeFile)
 	if unmarshalErr != nil {
 		return unmarshalErr
 	}

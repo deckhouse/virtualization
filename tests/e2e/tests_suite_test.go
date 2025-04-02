@@ -282,7 +282,7 @@ func StartV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) {
 		logStream.LogStreamWaitGroup.Add(1)
 		go logStream.ParseStderr()
 		logStream.LogStreamWaitGroup.Add(1)
-		go logStream.ParseStdout(conf.LogFilter, startTime)
+		go logStream.ParseStdout(conf.LogFilter, conf.RegexpLogFilter, startTime)
 	}
 }
 

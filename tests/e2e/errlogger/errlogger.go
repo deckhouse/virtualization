@@ -25,6 +25,7 @@ import (
 	"io"
 	"io/fs"
 	"os/exec"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -97,7 +98,7 @@ func (l *LogStream) ParseStderr() {
 	parseScanError(scanner.Err(), "STDERR")
 }
 
-func (l *LogStream) ParseStdout(exludedPatterns []string, startTime time.Time) {
+func (l *LogStream) ParseStdout(excludedPatterns []string, excludedRegexpPattens []regexp.Regexp, startTime time.Time) {
 	GinkgoHelper()
 	defer GinkgoRecover()
 	defer l.LogStreamWaitGroup.Done()
@@ -109,7 +110,7 @@ func (l *LogStream) ParseStdout(exludedPatterns []string, startTime time.Time) {
 		rawEntry := strings.TrimPrefix(scanner.Text(), "0")
 		err := json.Unmarshal([]byte(rawEntry), &entry)
 		Expect(err).NotTo(HaveOccurred(), "error parsing JSON")
-		if entry.Level == LevelError && !isMsgIgnoredByPattern(rawEntry, exludedPatterns) {
+		if entry.Level == LevelError && !isMsgIgnoredByPattern(rawEntry, excludedPatterns, excludedRegexpPattens) {
 			errTime, err := time.Parse(time.RFC3339, entry.Time)
 			Expect(err).NotTo(HaveOccurred(), "failed to parse error timestamp")
 			if errTime.After(startTime) {
@@ -168,9 +169,14 @@ func formatMessage(header, msg, color string) string {
 	)
 }
 
-func isMsgIgnoredByPattern(msg string, patterns []string) bool {
+func isMsgIgnoredByPattern(msg string, patterns []string, regexpPatterns []regexp.Regexp) bool {
 	for _, s := range patterns {
 		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	for _, r := range regexpPatterns {
+		if r.MatchString(msg) {
 			return true
 		}
 	}
