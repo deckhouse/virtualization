@@ -32,15 +32,15 @@ var _ = Describe("MAC Utilities", func() {
 	Context("AddressToLeaseName", func() {
 		It("should convert MAC address to Lease Name correctly", func() {
 			address := "00:1A:2B:3C:4D:5E"
-			expectedLeaseName := "mac-00-1A-2B-3C-4D-5E"
+			expectedLeaseName := "mac-00-1a-2b-3c-4d-5e"
 			Expect(AddressToLeaseName(address)).To(Equal(expectedLeaseName))
 		})
 	})
 
 	Context("LeaseNameToAddress", func() {
 		It("should convert Lease Name back to MAC address correctly", func() {
-			leaseName := "mac-00-1A-2B-3C-4D-5E"
-			expectedAddress := "00:1A:2B:3C:4D:5E"
+			leaseName := "mac-00-1a-2b-3c-4d-5e"
+			expectedAddress := "00:1a:2b:3c:4d:5e"
 			Expect(LeaseNameToAddress(leaseName)).To(Equal(expectedAddress))
 		})
 
