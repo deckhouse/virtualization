@@ -406,7 +406,7 @@ shell:
     cp -a etc/libvirt etc/libvirt-init
   - |
     echo "Setting capability for virt-launcher-monitor"
-    setcap 'cap_net_bind_service=+ep' /relocate/usr/bin/virt-launcher-monitor
+    setcap 'cap_net_bind_service=+eip' /relocate/usr/bin/virt-launcher-monitor
     getcap /relocate/usr/bin/virt-launcher-monitor
 
 ---
