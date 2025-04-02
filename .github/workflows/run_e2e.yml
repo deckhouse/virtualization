@@ -131,7 +131,7 @@ jobs:
               break
             fi 
 
-            ((retry_count++))
+            retry_count=$((retry_count + 1))
             echo "Some hashes are missing, rechecking... Attempt: $retry_count"
 
             # Check if the retry limit has been reached
