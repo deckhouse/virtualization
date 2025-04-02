@@ -19,7 +19,6 @@ package e2e
 import (
 	"fmt"
 	"log"
-	"regexp"
 	"sync"
 	"testing"
 	"time"
@@ -238,13 +237,6 @@ func Cleanup() []error {
 
 // This function is used to detect `v12n-controller` errors while the test suite is running.
 func StartV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) {
-	var regexpFilter []regexp.Regexp
-	for _, r := range conf.RegexpLogFilter {
-		re, err := regexp.Compile(r)
-		Expect(err).ShouldNot(HaveOccurred(), "failed to compile regexp")
-		regexpFilter = append(regexpFilter, *re)
-	}
-
 	startTime := time.Now()
 
 	pods := &corev1.PodList{}
@@ -290,7 +282,7 @@ func StartV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) {
 		logStream.LogStreamWaitGroup.Add(1)
 		go logStream.ParseStderr()
 		logStream.LogStreamWaitGroup.Add(1)
-		go logStream.ParseStdout(conf.LogFilter, regexpFilter, startTime)
+		go logStream.ParseStdout(conf.LogFilter, conf.RegexpLogFilter, startTime)
 	}
 }
 
