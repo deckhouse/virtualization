@@ -114,6 +114,7 @@ libs:
   - libclocale
   - libLLVMSPIRVLib-devel
   - libcap-utils
+  - libcap-devel
   - libswtpm-devel
 packages:
   - acl
@@ -300,6 +301,7 @@ shell:
     LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
     LIBS+=" /usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*"
     LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s*"
+    LIBS+=" /usr/include/sys/psx_syscall.h /usr/include/sys/capability.h /usr/lib64/libcap.so* /usr/lib64/libpsx.so*"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
@@ -404,7 +406,7 @@ shell:
     cp -a etc/libvirt etc/libvirt-init
   - |
     echo "Setting capability for virt-launcher-monitor"
-    setcap 'cap_net_bind_service=+eip' /relocate/usr/bin/virt-launcher-monitor
+    setcap 'cap_net_bind_service=+ep' /relocate/usr/bin/virt-launcher-monitor
     getcap /relocate/usr/bin/virt-launcher-monitor
 
 ---
