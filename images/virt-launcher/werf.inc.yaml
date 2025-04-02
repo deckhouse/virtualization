@@ -183,6 +183,8 @@ binaries:
   - /usr/bin/attr /usr/bin/getfattr /usr/bin/setfattr
   # SELinux policy core utilities
   - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
+  # Caps
+  - /usr/sbin/setcap /usr/sbin/getcap /usr/sbin/getpcaps /usr/sbin/capsh
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
