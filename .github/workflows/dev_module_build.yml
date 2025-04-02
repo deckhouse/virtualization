@@ -36,10 +36,6 @@ on:
         type: number
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
-    # for testing
-    branches:
-      - main
-      - feat/ci/run-golint-all-needed-dirs
   push:
     branches:
       - main
