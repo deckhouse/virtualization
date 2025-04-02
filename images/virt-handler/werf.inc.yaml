@@ -53,7 +53,6 @@ binaries:
 - /usr/bin/qemu-nbd
 - /usr/bin/mount
 - /usr/bin/umount
-# - /usr/bin/chacl
 - /usr/bin/getfacl
 - /usr/bin/setfacl
 - /usr/sbin/nft
