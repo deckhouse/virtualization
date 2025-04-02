@@ -1,0 +1,41 @@
+diff --git a/pkg/virt-controller/watch/vm.go b/pkg/virt-controller/watch/vm.go
+index 0b4ab053d8..654a07106e 100644
+--- a/pkg/virt-controller/watch/vm.go
++++ b/pkg/virt-controller/watch/vm.go
+@@ -27,6 +27,7 @@ import (
+ 	"maps"
+ 	"math"
+ 	"math/rand"
++	"os"
+ 	"strconv"
+ 	"strings"
+ 	"time"
+@@ -1822,6 +1823,11 @@ func hasCompletedMemoryDump(vm *virtv1.VirtualMachine) bool {
+ 	return vm.Status.MemoryDumpRequest != nil && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpAssociating && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpInProgress
+ }
+ 
++const (
++	libvirtAnn = "virtualization.deckhouse.io/libvirt-version"
++	qemuAnn    = "virtualization.deckhouse.io/qemu-version"
++)
++
+ // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
+ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.VirtualMachineInstance {
+ 	vmi := virtv1.NewVMIReferenceFromNameWithNS(vm.ObjectMeta.Namespace, "")
+@@ -1849,6 +1855,16 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
+ 		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
+ 	}
+ 
++	libvirtVersion := os.Getenv("LIBVIRT_VERSION")
++	qemuVersion := os.Getenv("QEMU_VERSION")
++
++	if libvirtVersion != "" {
++		vmi.Annotations[libvirtAnn] = libvirtVersion
++	}
++	if qemuVersion != "" {
++		vmi.Annotations[qemuAnn] = qemuVersion
++	}
++
+ 	return vmi
+ }
+ 

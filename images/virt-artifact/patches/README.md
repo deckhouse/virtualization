@@ -22,7 +22,7 @@ The provided fix will always run the job in same place where virt-operator runs
 Added the ability for virt-api to authenticate clients with certificates signed by our rootCA located in the config-map virtualization-ca.
 
 #### `012-support-kubeconfig-env.patch`
-Support `KUBECONFIG` environment variable. 
+Support `KUBECONFIG` environment variable.
 
 #### `013-virt-api-rate-limiter.patch`
 A patch has been added to enable the configuration of the rate limiter via the environment variables VIRT_API_RATE_LIMITER_QPS and VIRT_API_RATE_LIMITER_BURST.
@@ -81,7 +81,7 @@ This is necessary because of the kube-api-rewriter that changes the labels.
 
 #### `024-cover-kubevirt-metrics.patch`
 
-Configure kubevirt's components metrics web servers to listen on localhost. 
+Configure kubevirt's components metrics web servers to listen on localhost.
 This is necessary for ensuring that the metrics can be accessed only by Prometheus via kube-rbac-proxy sidecar.
 
 Currently covered metrics:
@@ -104,7 +104,7 @@ How does it work?
 1. When changing the affinity or nodeSelector in the vm, the vm controller updates the vmi specification.
 2. When changing the affinity or nodeSelector in vmi, the vmi controller will set the `NodePlacementNotMatched` condition to True in vmi.
 3. The workload-updater controller monitors the vmi and starts migration when there is a `NodePlacementNotMatched` conditions on the vmi.
-4. When the migration is completed, virt-handler will remove the condition `NodePlacementNotMatched` from the vmi 
+4. When the migration is completed, virt-handler will remove the condition `NodePlacementNotMatched` from the vmi
 
 #### `028-inject-placement-anynode.patch`
 
@@ -118,8 +118,8 @@ It works fine with original CentOS based virt-launcher in both secboot modes.
 We use ALTLinux based virt-launcher, and it fails to start Linux VM with more than 12 CPUs in secboot disabled mode.
 
 Kubevirt uses flags to detect firmware combinations in converter.
-EFIConfiguration, so we can't set needed files directly. 
-But there is combination for SEV: OVFM_CODE.cc.fd + OVMF_VARS.fd that works for Linux, because OVFM_CODE.cc.fd is actually a symlink to OVFM_CODE.fd. 
+EFIConfiguration, so we can't set needed files directly.
+But there is combination for SEV: OVFM_CODE.cc.fd + OVMF_VARS.fd that works for Linux, because OVFM_CODE.cc.fd is actually a symlink to OVFM_CODE.fd.
 So, we set true for the second flag to force OVFM_CODE.cc.fd + OVMF_VARS.fd for non-Windows virtual machines._
 
 #### `030-prevent-adding-node-selector-for-dvp-generic-cpu-model.patch`
@@ -143,13 +143,13 @@ The `container-disk` is a program written in C used within KubeVirt to facilitat
 ##### Socket Creation
 
 - The `container-disk` program creates a socket in the `emptyDir` volume.
-- This shared volume allows the `virt-handler` to locate the socket on the host machine at:  
+- This shared volume allows the `virt-handler` to locate the socket on the host machine at:
   `/var/lib/kubelet/pods/.../volumes/kubernetes.io~empty-dir/`.
 
 ##### Socket Detection and Mounting
 
 - Upon detecting the socket, `virt-handler` identifies it as a `container-disk` volume and retrieves its parent mount point.
-- For a container runtime like `containerd`, the mount point resolves to the root filesystem of the pulled image, typically at:  
+- For a container runtime like `containerd`, the mount point resolves to the root filesystem of the pulled image, typically at:
   `/run/containerd/io.containerd.runtime.v2.task/k8s.io/<uid>/rootfs/`.
 - The disk image must be located at `disk/disk.img` within this filesystem and is mounted into the VM.
 
@@ -161,7 +161,7 @@ The HotPlug mechanism allows dynamic attachment of PVCs and `container-disk` vol
 - The `container-disk` program runs in the `hotplug` pod to create the necessary sockets for these volumes.
 
 ### Volume Detection and Mounting
-- The `virt-handler` locates the sockets on the host system at:  
+- The `virt-handler` locates the sockets on the host system at:
   `/var/lib/kubelet/pods/<uid-hotplug-pod>/volumes/empty-dir/hp-disks/...`.
 - For block devices, `virt-handler` creates a block device on the VM using `mknodat`.
 - For file systems, the volume is mounted as a file.
@@ -181,10 +181,10 @@ ginkgo -succinct /home/dmitrii/Base/Flant/kubevirt/pkg/virt-controller/...
 
 #### `033-manage-pods-network-priotity-during-migration-using-cilium-label.patch`
 
-**Problem:**  
+**Problem:**
 During the VM migration process, two pods with the same address are created and packets are randomly delivered to them.
 
-**Solution**:  
+**Solution**:
 To force delivery of packages to only one VM pod, the special label `network.deckhouse.io/pod-common-ip-priority` were added.
 The label allows setting the priority of pod for cilium relative to other pods with the same IP address.
 Network traffic will be directed to the pod with the higher priority.
@@ -201,16 +201,16 @@ Thus, packets are delivered as expected: initially only to the source pod during
 
 #### `034-allow-update-kvvmi-for-virtualization-sas.patch`
 
-By default, the KVVMI spec can update only KubeVirt service accounts. This patch adds our virtualization accounts to the allowed list.  
+By default, the KVVMI spec can update only KubeVirt service accounts. This patch adds our virtualization accounts to the allowed list.
 (`virtualization-controller`, `virtualization-api`)
 
 #### `035-allow-change-serial-on-kvvmi.patch`
 
-By default, the disk specification is immutable, but for backward compatibility, we need to allow modifying the serial. 
+By default, the disk specification is immutable, but for backward compatibility, we need to allow modifying the serial.
 
 #### `036-enhance-SCSI-disk-serial-validation.patch`
 
-**Related Issue:** [#13858](https://github.com/kubevirt/kubevirt/issues/13858)  
+**Related Issue:** [#13858](https://github.com/kubevirt/kubevirt/issues/13858)
 **Pull Request:** [#13859](https://github.com/kubevirt/kubevirt/pull/13859)
 
 ##### What this PR does
@@ -276,7 +276,7 @@ This patch modifies the behavior of domain reboot actions in virt-launcher by ov
 
 #### `041-rename-node-labeller-virt-launcher-init.patch`
 
-This patch modifies init container args in virt-launcher images from node-labeller.sh to node-labeller. 
+This patch modifies init container args in virt-launcher images from node-labeller.sh to node-labeller.
 This bash script has been rewritten to golang.
 
 #### `042-restrict-libvirt-socket-to-qemu.patch`
