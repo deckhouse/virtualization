@@ -135,7 +135,13 @@ weight: 15
 
 2. Для хранения данных виртуальных машин (виртуальные диски и образы) необходимо включить один или несколько поддерживаемых [хранилищ](#поддерживаемые-хранилища).
 
-3. [Установите](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) `StorageClass` по умолчанию.
+3. Установите `StorageClass` по умолчанию.
+
+   ```shell
+   # Укажите имя своего объекта StorageClass.
+   DEFAULT_STORAGE_CLASS=replicated-storage-class
+   sudo -i d8 k patch mc global --type='json' -p='[{"op": "replace", "path": "/spec/settings/defaultClusterStorageClass", "value": "'"$DEFAULT_STORAGE_CLASS"'"}]'
+   ```
 
 4. Включите модуль [console](https://deckhouse.ru/modules/console/stable/), который позволит управлять компонентами виртуализации через графический интерфейс (данная возможность доступна только пользователям EE-редакции).
 
