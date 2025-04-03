@@ -260,11 +260,13 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 		}
 	}
 
-	if kvvmi != nil {
-		vm.Status.Node = kvvmi.Status.NodeName
-
+	if kvvmi != nil && vm.Status.Phase == virtv2.MachineRunning {
 		vm.Status.HypervisorVersions.LibvirtVersion = kvvmi.Annotations[annotations.AnnLibvirtVersion]
 		vm.Status.HypervisorVersions.QemuVersion = kvvmi.Annotations[annotations.AnnQemuVersion]
+	}
+
+	if kvvmi != nil {
+		vm.Status.Node = kvvmi.Status.NodeName
 
 		if vm.Status.Phase == virtv2.MachineRunning {
 			cb.Reason(vmcondition.ReasonVmIsRunning).Status(metav1.ConditionTrue)
