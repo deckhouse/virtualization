@@ -379,9 +379,9 @@ type MemoryStatus struct {
 // HypervisorVersions defines statistics about the hypervisor versions.
 type HypervisorVersions struct {
 	// QemuVersion is the version of the qemu hypervisor.
-	QemuVersion string `json:"qemu_version,omitempty"`
+	QemuVersion string `json:"qemuVersion,omitempty"`
 	// LibvirtVersion is the version of the libvirt.
-	LibvirtVersion string `json:"libvirt_version,omitempty"`
+	LibvirtVersion string `json:"libvirtVersion,omitempty"`
 }
 
 // MachinePhase defines current phase of the virtual machine:
