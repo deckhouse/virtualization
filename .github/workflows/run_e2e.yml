@@ -99,7 +99,7 @@ jobs:
         env:
           v12n_tag: pr${{ github.event.pull_request.number }}
         run: |
-          d8 k patch mpo virtualization --type merge -p '{"spec":{"imageTag":"$v12n_tag"}}' -v3
+          d8 k patch mpo virtualization --type merge -p "{\"spec\":{\"imageTag\":\"$v12n_tag\"}}" 
           images_hash=$(crane export "dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:$v12n_tag" - | tar -Oxf - images_digests.json)
           v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
           retry_count=0
