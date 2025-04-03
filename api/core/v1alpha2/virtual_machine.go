@@ -274,7 +274,9 @@ type VirtualMachineStatus struct {
 	RestartAwaitingChanges []apiextensionsv1.JSON `json:"restartAwaitingChanges,omitempty"`
 	// List of virtual machine pods.
 	VirtualMachinePods []VirtualMachinePod `json:"virtualMachinePods,omitempty"`
-	Resources          ResourcesStatus     `json:"resources,omitempty"`
+	// Hypervisor versions.
+	HypervisorVersions HypervisorVersions `json:"hypervisorVersions,omitempty"`
+	Resources          ResourcesStatus    `json:"resources,omitempty"`
 }
 
 type VirtualMachineStats struct {
@@ -372,6 +374,14 @@ type MemoryStatus struct {
 	Size resource.Quantity `json:"size"`
 	// Memory runtime overhead.
 	RuntimeOverhead resource.Quantity `json:"runtimeOverhead,omitempty"`
+}
+
+// HypervisorVersions defines statistics about the hypervisor versions.
+type HypervisorVersions struct {
+	// QemuVersion is the version of the qemu hypervisor.
+	QemuVersion string `json:"qemu_version,omitempty"`
+	// LibvirtVersion is the version of the libvirt.
+	LibvirtVersion string `json:"libvirt_version,omitempty"`
 }
 
 // MachinePhase defines current phase of the virtual machine:

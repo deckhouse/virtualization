@@ -13,10 +13,10 @@ index 0b4ab053d8..654a07106e 100644
 @@ -1822,6 +1823,11 @@ func hasCompletedMemoryDump(vm *virtv1.VirtualMachine) bool {
  	return vm.Status.MemoryDumpRequest != nil && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpAssociating && vm.Status.MemoryDumpRequest.Phase != virtv1.MemoryDumpInProgress
  }
- 
+
 +const (
-+	libvirtAnn = "virtualization.deckhouse.io/libvirt-version"
-+	qemuAnn    = "virtualization.deckhouse.io/qemu-version"
++	libvirtAnn = "kubevirt.internal.virtualization.deckhouse.io/libvirt-version"
++	qemuAnn    = "kubevirt.internal.virtualization.deckhouse.io/qemu-version"
 +)
 +
  // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
@@ -25,7 +25,7 @@ index 0b4ab053d8..654a07106e 100644
 @@ -1849,6 +1855,16 @@ func (c *VMController) setupVMIFromVM(vm *virtv1.VirtualMachine) *virtv1.Virtual
  		*metav1.NewControllerRef(vm, virtv1.VirtualMachineGroupVersionKind),
  	}
- 
+
 +	libvirtVersion := os.Getenv("LIBVIRT_VERSION")
 +	qemuVersion := os.Getenv("QEMU_VERSION")
 +
@@ -38,4 +38,4 @@ index 0b4ab053d8..654a07106e 100644
 +
  	return vmi
  }
- 
+
