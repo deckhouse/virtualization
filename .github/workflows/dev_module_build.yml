@@ -339,3 +339,23 @@ jobs:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: "$MODULES_MODULE_TAG"
+
+  cve_scan_on_pr:
+    name: Trivy images check
+    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
+    needs:
+      - set_vars
+      - dev_setup_build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/cve_scan@v2
+        with:
+          image: ${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}
+          tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          module_name: ${{ vars.MODULE_NAME }}
+          dd_url: ${{vars.DEFECTDOJO_HOST}}
+          dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
+          trivy_registry: ${{ vars.PROD_REGISTRY }}
+          trivy_registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
+          trivy_registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+          deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
