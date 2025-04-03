@@ -82,7 +82,7 @@ func (s MACAddressService) AllocateNewAddress(allocatedMACs mac.AllocatedMACs) (
 	maxRetries := MaxCount - len(allocatedMACs)
 
 	for retry < maxRetries {
-		genAddress := fmt.Sprintf("%s:%02X:%02X:%02X", prefix, r.Intn(256), r.Intn(256), r.Intn(256))
+		genAddress := fmt.Sprintf("%s:%02x:%02x:%02x", prefix, r.Intn(256), r.Intn(256), r.Intn(256))
 		if _, ok := allocatedMACs[genAddress]; !ok {
 			return genAddress, nil
 		}
