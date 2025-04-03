@@ -15,8 +15,8 @@ index 0b4ab053d8..654a07106e 100644
  }
 
 +const (
-+	libvirtAnn = "kubevirt.internal.virtualization.deckhouse.io/libvirt-version"
-+	qemuAnn    = "kubevirt.internal.virtualization.deckhouse.io/qemu-version"
++	libvirtAnn = "versions.virtualization.deckhouse.io/libvirt-version"
++	qemuAnn    = "versions.virtualization.deckhouse.io/qemu-version"
 +)
 +
  // setupVMIfromVM creates a VirtualMachineInstance object from one VirtualMachine object.
