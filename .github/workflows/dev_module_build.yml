@@ -22,6 +22,7 @@ env:
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   GO_VERSION: "1.22.7"
+  GOLANGCI_LINT_VERSION: "1.64.8"
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
 
 on:
@@ -177,10 +178,85 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Run lint virtualization-controller
+      - name: Install golangci-lint
         run: |
-          task virtualization-controller:init
-          task virtualization-controller:lint:go
+          echo "Installing golangci-lint..."
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v${{ env.GOLANGCI_LINT_VERSION}}
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          echo "golangci-lint v${{ env.GOLANGCI_LINT_VERSION}} installed successfully!"
+
+      - name: Lint all directories with golangci-lint
+        id: linters
+        # continue-on-error: true
+        shell: bash
+        run: |
+          # Find directories containing .golangci.yaml
+          mapfile -t config_dirs < <(find . -type f -name '.golangci.yaml' -printf '%h\0' | xargs -0 -n1 | sort -u)
+          count=${#config_dirs[@]}
+          echo "::notice title=Lint Setup::🔍 Found $count directories with linter configurations"
+
+          report=""
+          error_count=0
+          find_errors=0
+
+          for dir in "${config_dirs[@]}"; do
+            # echo "::group::📂 Linting directory: $dir"
+            # cd "$dir" || { echo "::error::Failed to access directory $dir"; exit 1; }
+
+            cd "$dir" || { echo "::error::Failed to access directory $dir"; continue; }
+            
+            # Run linter with multiple formats
+            
+            output=$(golangci-lint run --out-format=json 2>/dev/null | jq '{warning: .Report.Warnings, error: .Report.Error}' || true)
+            find_errors=$(echo $output | jq '.error | select(.!=null)' | wc -l)
+            
+            # Track errors
+            if [ $find_errors -ne 0 ]; then
+              error_count=$(( error_count + 1 ))
+              echo "::group::📂 Linting directory ❌: $dir"
+            else
+              echo "::group::📂 Linting directory ✅: $dir"
+            fi
+            
+            report_out_warning=$(echo $output | jq '.warning')
+            report_out_error=$(echo $output | jq '.error')
+
+            # Build report section
+            report+="\n\n### Directory: $dir\n"
+            report+="Find Errors: $find_errors\n"
+            report+="Output:\n\`\`\`\n$report_out_warning\n$report_out_error\n\`\`\`\n"
+            report+="---\n"
+
+            cd - &>/dev/null
+            
+            if [ $find_errors -ne 0 ]; then
+              echo -e "⚠️ Warnings:\n$report_out_warning"
+              echo -e "❌ Errors:\n$report_out_error\n"
+            else
+              echo -e "✅ All check passed\n"
+            fi
+
+            echo "::endgroup::"
+          done
+
+          echo "directory_count=$count" >> "$GITHUB_OUTPUT"
+
+          has_errors=$( [[ "$error_count" -gt 0 ]] && echo true || echo false)
+          echo "has_errors=$has_errors" >> "$GITHUB_OUTPUT"
+
+          if [ $error_count -gt 0 ]; then
+            exit 1
+          fi
+
+      - name: Final status check
+        if: always()
+        run: |
+          if ${{ steps.linters.outputs.has_errors }}; then
+            echo "::error::🔥 Lint errors found in $error_count directories. Check step 'Lint all directories with golangci-lint' for details."
+            exit 1
+          else
+            echo "::notice::✅ All linters passed successfully in ${{ steps.linters.outputs.directory_count }} directories"
+          fi
 
   lint_yaml:
     runs-on: ubuntu-latest
@@ -252,6 +328,14 @@ jobs:
         if: ${{ !contains(needs.set_vars.outputs.runner_type, 'self-hosted') }}
         uses: ./.github/actions/remove-unwanted-software
 
-      - uses: deckhouse/modules-actions/setup@v1
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v1
+      - uses: deckhouse/modules-actions/build@v2
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE}}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: "$MODULES_MODULE_TAG"
