@@ -6,10 +6,10 @@
 {{- if (.Values.global.enabledModules | has "priority-class") }}
 {{- $priorityClassName = include "priorityClassName" . | quote }}
 {{- end }}
-{{- $versions := dict }}
-{{- $versions_ctx := (.Files.Get "cv/version_map.yml" | fromYaml) }}
+{{ $_ := set . "Version" dict }}
+{{- $versions_ctx := (.Files.Get "../cv/version_map.yml" | fromYaml) }}
 {{- range $k, $v := $versions_ctx.firmware }}
-  {{- $_ := set $versions $k $v}}
+  {{- $_ := set $.Version $k $v}}
 {{- end }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
@@ -82,7 +82,7 @@ spec:
       type: json
     - resourceType: Deployment
       resourceName: virt-controller
-      patch: '[{"op":"add","path":"/spec/template/spec/containers/0/env","value":[{"name":"QEMU_VERSION","value":"{{$versions.qemu}}"},{"name":"LIBVIRT_VERSION","value":"{{$versions.libvirt}}"}]}]'
+      patch: '[{"op":"add","path":"/spec/template/spec/containers/0/env","value":[{"name":"QEMU_VERSION","value":"{{$.Version.qemu}}"},{"name":"LIBVIRT_VERSION","value":"{{$.Version.libvirt}}"}]}]'
       type: json
     - resourceType: DaemonSet
       resourceName: virt-handler
