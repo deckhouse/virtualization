@@ -163,9 +163,9 @@ binaries:
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
   # Ethtool
   # - /usr/sbin/ethlist /usr/sbin/ethtool /usr/sbin/iptables /usr/sbin/bridge
-  - /usr/sbin/ip /usr/sbin/nft
+  # - /usr/sbin/ip /usr/sbin/nft
   # Procps utils
-  - /usr/sbin/sysctl
+  # - /usr/sbin/sysctl
   # Passt (User-mode networking daemons for virtual machines and namespaces)
   - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
   # Swtpm
@@ -179,12 +179,12 @@ binaries:
   # - /usr/bin/clock_unsynced /etc/adjtime /usr/sbin/clock
   - /usr/sbin/hwclock
   # Libffi8
-  - "/usr/lib64/libffi.so*"
+  # - "/usr/lib64/libffi.so*"
   # Attr
   # - /usr/bin/attr 
   # - /usr/bin/getfattr /usr/bin/setfattr
   # SELinux policy core utilities
-  - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
+  # - /usr/sbin/semanage /usr/bin/sestatus /usr/sbin/restorecon_xattr /usr/sbin/setfiles /usr/sbin/unsetfiles /usr/sbin/load_policy /usr/sbin/setsebool
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
