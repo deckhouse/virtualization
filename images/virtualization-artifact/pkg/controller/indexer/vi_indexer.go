@@ -19,10 +19,12 @@ package indexer
 import (
 	"context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 func IndexVIByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
@@ -59,5 +61,22 @@ func IndexVIByStorageClass(ctx context.Context, mgr manager.Manager) error {
 		default:
 			return []string{DefaultStorageClass}
 		}
+	})
+}
+
+func IndexVIByNotReadyStorageClass(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByNotReadyStorageClass, func(object client.Object) []string {
+		vi, ok := object.(*virtv2.VirtualImage)
+		if !ok || vi == nil {
+			return nil
+		}
+
+		for _, condition := range vi.Status.Conditions {
+			if condition.Type == string(vicondition.StorageClassReadyType) && condition.Status == metav1.ConditionTrue {
+				return []string{condition.Type}
+			}
+		}
+
+		return nil
 	})
 }
