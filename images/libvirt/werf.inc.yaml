@@ -126,6 +126,8 @@ shell:
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
 
+    git config --global http.postBuffer 157286400
+    
     git clone --depth=1 --branch v{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
 
     cd {{ $gitRepoName }}-{{ $version }}
