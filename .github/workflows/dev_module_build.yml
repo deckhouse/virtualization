@@ -173,10 +173,6 @@ jobs:
         with:
           version: 3.37.2
 
-      
-      - run: |
-          git config --global http.postBuffer 157286400
-
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -258,12 +254,4 @@ jobs:
 
       - uses: deckhouse/modules-actions/setup@v1
 
-      - name: Set git postBuffer 1048576000
-        run: |
-          git config --global http.postBuffer 1048576000
-
       - uses: deckhouse/modules-actions/build@v1
-      
-      - name: Echo done
-        run: |
-          echo "Done"
