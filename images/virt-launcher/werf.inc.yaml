@@ -167,7 +167,7 @@ binaries:
   # Procps utils
   # - /usr/sbin/sysctl
   # Passt (User-mode networking daemons for virtual machines and namespaces)
-  - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
+  # - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
   # Swtpm
   - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
   # Dmidecode
