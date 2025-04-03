@@ -173,6 +173,10 @@ jobs:
         with:
           version: 3.37.2
 
+      
+      - run: |
+          git config --global http.postBuffer 157286400
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
