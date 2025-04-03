@@ -1,0 +1,27 @@
+diff --git a/pkg/virt-controller/watch/application.go b/pkg/virt-controller/watch/application.go
+index 17711edba5..b92556074c 100644
+--- a/pkg/virt-controller/watch/application.go
++++ b/pkg/virt-controller/watch/application.go
+@@ -91,10 +91,10 @@ import (
+ )
+ 
+ const (
+-	defaultPort = 8182
++	defaultPort        = 8182
+ 	defaultMetricsPort = 8080
+ 
+-	defaultHost = "0.0.0.0"
++	defaultHost        = "0.0.0.0"
+ 	defaultMetricsHost = defaultHost
+ 
+ 	launcherImage       = "virt-launcher"
+@@ -446,7 +446,8 @@ func Execute() {
+ 	app.initSnapshotController()
+ 	app.initRestoreController()
+ 	app.initExportController()
+-	app.initWorkloadUpdaterController()
++	// Disable workload-updater
++	// app.initWorkloadUpdaterController()
+ 	app.initCloneController()
+ 	go app.Run()
+ 
