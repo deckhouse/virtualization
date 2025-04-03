@@ -80,9 +80,9 @@ jobs:
           GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
           go install "github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}"
 
-      - name: Install crane
-        run: |
-          go install github.com/google/go-containerregistry/cmd/crane@latest
+      # - name: Install crane
+      #   run: |
+      #     go install github.com/google/go-containerregistry/cmd/crane@latest
 
       - uses: azure/k8s-set-context@v4
         with:
