@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -261,6 +262,9 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 
 	if kvvmi != nil {
 		vm.Status.Node = kvvmi.Status.NodeName
+
+		vm.Status.HypervisorVersions.LibvirtVersion = kvvmi.Annotations[annotations.AnnLibvirtVersion]
+		vm.Status.HypervisorVersions.QemuVersion = kvvmi.Annotations[annotations.AnnQemuVersion]
 
 		if vm.Status.Phase == virtv2.MachineRunning {
 			cb.Reason(vmcondition.ReasonVmIsRunning).Status(metav1.ConditionTrue)
