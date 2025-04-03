@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -48,121 +48,1139 @@ func TestBlockDeviceHandler(t *testing.T) {
 	RunSpecs(t, "BlockDeviceHandler Suite")
 }
 
-var _ = Describe("func areVirtualDisksAllowedToUse", func() {
-	var h *BlockDeviceHandler
-	var vdFoo *virtv2.VirtualDisk
-	var vdBar *virtv2.VirtualDisk
-
-	blockDeviceHandlerMock := &BlockDeviceServiceMock{}
-	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
-		return 1, nil
-	}
+var _ = Describe("Test BlockDeviceReady condition", func() {
+	var (
+		ctx          context.Context
+		recorderMock *eventrecord.EventRecorderLoggerMock
+	)
 
 	BeforeEach(func() {
-		h = NewBlockDeviceHandler(nil, &eventrecord.EventRecorderLoggerMock{
-			EventFunc: func(_ client.Object, _, _, _ string) {},
-		}, blockDeviceHandlerMock)
-		vdFoo = &virtv2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Name: "vd-foo"},
-			Status: virtv2.VirtualDiskStatus{
-				Conditions: []metav1.Condition{
+		ctx = logger.ToContext(context.TODO(), slog.Default())
+
+		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(_ client.Object, _, _, _ string) {},
+			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
+		}
+	})
+
+	okBlockDeviceServiceMock := &BlockDeviceServiceMock{
+		CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+			return 1, nil
+		},
+	}
+
+	scheme := apiruntime.NewScheme()
+	for _, f := range []func(*apiruntime.Scheme) error{
+		virtv2.AddToScheme,
+		virtv1.AddToScheme,
+		corev1.AddToScheme,
+	} {
+		err := f(scheme)
+		Expect(err).NotTo(HaveOccurred(), "failed to add scheme: %s", err)
+	}
+
+	namespacedName := types.NamespacedName{
+		Namespace: "ns",
+		Name:      "vm",
+	}
+
+	getVMWithOneVD := func(phase virtv2.MachinePhase) *virtv2.VirtualMachine {
+		return &virtv2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      namespacedName.Name,
+				Namespace: namespacedName.Namespace,
+			},
+			Spec: virtv2.VirtualMachineSpec{
+				BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
 					{
-						Type:   vdcondition.InUseType.String(),
-						Reason: vdcondition.AttachedToVirtualMachine.String(),
-						Status: metav1.ConditionTrue,
+						Kind: virtv2.DiskDevice,
+						Name: "vd1",
+					},
+				},
+			},
+			Status: virtv2.VirtualMachineStatus{
+				Phase: phase,
+				BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+					{
+						Kind: virtv2.DiskDevice,
+						Name: "vd1",
 					},
 				},
 			},
 		}
-		vdBar = &virtv2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Name: "vd-bar"},
+	}
+
+	getNotReadyVD := func(name string, status metav1.ConditionStatus, reason string) *virtv2.VirtualDisk {
+		return &virtv2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespacedName.Namespace,
+			},
 			Status: virtv2.VirtualDiskStatus{
-				Conditions: []metav1.Condition{
+				Conditions: []metav1.Condition{{
+					Type:   vdcondition.InUseType.String(),
+					Status: status,
+					Reason: reason,
+				}},
+			},
+		}
+	}
+
+	nameVD1 := "vd1"
+	nameVD2 := "vd2"
+
+	DescribeTable("One not ready disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
+
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		err := vmResource.Fetch(ctx)
+		Expect(err).NotTo(HaveOccurred())
+
+		vmState := state.New(fakeClient, vmResource)
+		handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+		_, err = handler.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+
+		bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+		Expect(bdCond.Message).To(Equal(msg))
+		Expect(bdCond.Status).To(Equal(status))
+	},
+		Entry(
+			"vd AttachedToVirtualMachine & Pending VM",
+			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithOneVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready.",
+		),
+		Entry(
+			"vd AttachedToVirtualMachine & Running VM",
+			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithOneVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready.",
+		),
+		Entry(
+			"vd AttachedToVirtualMachine & Stopped VM",
+			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithOneVD(virtv2.MachineStopped),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready.",
+		),
+		// --
+		Entry(
+			"vd UsedForImageCreation & Pending VM",
+			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithOneVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready.",
+		),
+		Entry(
+			"vd UsedForImageCreation & Running VM",
+			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithOneVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready.",
+		),
+		Entry(
+			"vd UsedForImageCreation & Stopped VM",
+			getNotReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithOneVD(virtv2.MachineStopped),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready.",
+		),
+		// --
+		Entry(
+			"vd NotInUse & Pending VM",
+			getNotReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithOneVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready.",
+		),
+		Entry(
+			"vd NotInUse & Running VM",
+			getNotReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithOneVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready.",
+		),
+		Entry(
+			"vd NotInUse & Stopped VM",
+			getNotReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithOneVD(virtv2.MachineStopped),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready.",
+		),
+	)
+
+	getWFFCVD := func(status metav1.ConditionStatus, reason string) *virtv2.VirtualDisk {
+		return &virtv2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vd1",
+				Namespace: namespacedName.Namespace,
+			},
+			Status: virtv2.VirtualDiskStatus{
+				Phase: virtv2.DiskWaitForFirstConsumer,
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: "testPvc",
+				},
+				Conditions: []metav1.Condition{{
+					Type:   vdcondition.InUseType.String(),
+					Status: status,
+					Reason: reason,
+				}},
+				AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
 					{
-						Type:   vdcondition.InUseType.String(),
-						Reason: vdcondition.AttachedToVirtualMachine.String(),
-						Status: metav1.ConditionTrue,
+						Name:    namespacedName.Name,
+						Mounted: true,
 					},
 				},
 			},
 		}
-	})
+	}
 
-	Context("VirtualDisk is not allowed", func() {
-		It("returns false", func() {
-			anyVd := &virtv2.VirtualDisk{
-				ObjectMeta: metav1.ObjectMeta{Name: "anyVd"},
-				Status: virtv2.VirtualDiskStatus{
-					Conditions: []metav1.Condition{
+	DescribeTable("One wffc disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
+
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		err := vmResource.Fetch(ctx)
+		Expect(err).NotTo(HaveOccurred())
+
+		vmState := state.New(fakeClient, vmResource)
+		handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+		_, err = handler.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+
+		bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+		Expect(bdCond.Message).To(Equal(msg))
+		Expect(bdCond.Status).To(Equal(status))
+	},
+		Entry(
+			"vd AttachedToVirtualMachine & Pending VM",
+			getWFFCVD(metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithOneVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the underlying PVC to be bound.",
+		),
+		Entry(
+			"vd AttachedToVirtualMachine & Running VM",
+			getWFFCVD(metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithOneVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the underlying PVC to be bound.",
+		),
+		Entry(
+			"vd AttachedToVirtualMachine & Stopped VM",
+			getWFFCVD(metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithOneVD(virtv2.MachineStopped),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the virtual machine to be starting.",
+		),
+		// --
+		Entry(
+			"vd NotInUse & Pending VM",
+			getWFFCVD(metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithOneVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready to use.",
+		),
+		Entry(
+			"vd NotInUse & Running VM",
+			getWFFCVD(metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithOneVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready to use.",
+		),
+		Entry(
+			"vd NotInUse & Stopped VM",
+			getWFFCVD(metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithOneVD(virtv2.MachineStopped),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the virtual machine to be starting.",
+		),
+	)
+
+	getReadyVD := func(name string, status metav1.ConditionStatus, reason string) *virtv2.VirtualDisk {
+		return &virtv2.VirtualDisk{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespacedName.Namespace,
+			},
+			Status: virtv2.VirtualDiskStatus{
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: "testPvc",
+				},
+				Phase: virtv2.DiskReady,
+				Conditions: []metav1.Condition{
+					{
+						Type:    vdcondition.ReadyType.String(),
+						Status:  metav1.ConditionTrue,
+						Reason:  vdcondition.Ready.String(),
+						Message: "",
+					},
+					{
+						Type:   vdcondition.InUseType.String(),
+						Status: status,
+						Reason: reason,
+					},
+				},
+				AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+					{
+						Name:    namespacedName.Name,
+						Mounted: true,
+					},
+				},
+			},
+		}
+	}
+
+	DescribeTable("One ready disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
+
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		err := vmResource.Fetch(ctx)
+		Expect(err).NotTo(HaveOccurred())
+
+		vmState := state.New(fakeClient, vmResource)
+		handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+		_, err = handler.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+
+		bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+		Expect(bdCond.Message).To(Equal(msg))
+		Expect(bdCond.Status).To(Equal(status))
+	},
+		Entry(
+			"vd AttachedToVirtualMachine & Pending VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithOneVD(virtv2.MachinePending),
+			metav1.ConditionTrue,
+			"",
+		),
+		Entry(
+			"vd AttachedToVirtualMachine & Running VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithOneVD(virtv2.MachineRunning),
+			metav1.ConditionTrue,
+			"",
+		),
+		Entry(
+			"vd AttachedToVirtualMachine & Stopped VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithOneVD(virtv2.MachineStopped),
+			metav1.ConditionTrue,
+			"",
+		),
+		// --
+		Entry(
+			"vd UsedForImageCreation & Pending VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithOneVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Virtual disk \"vd1\" is in use for image creation.",
+		),
+		Entry(
+			"vd UsedForImageCreation & Running VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithOneVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Virtual disk \"vd1\" is in use for image creation.",
+		),
+		Entry(
+			"vd UsedForImageCreation & Stopped VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithOneVD(virtv2.MachineStopped),
+			metav1.ConditionFalse,
+			"Virtual disk \"vd1\" is in use for image creation.",
+		),
+		// --
+		Entry(
+			"vd NotInUse & Pending VM",
+			getReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithOneVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready to use.",
+		),
+		Entry(
+			"vd NotInUse & Running VM",
+			getReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithOneVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block device \"vd1\" to be ready to use.",
+		),
+		Entry(
+			"vd NotInUse & Stopped VM",
+			getReadyVD(nameVD1, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithOneVD(virtv2.MachineStopped),
+			metav1.ConditionTrue,
+			"",
+		),
+	)
+
+	getVMWithTwoVD := func(phase virtv2.MachinePhase) *virtv2.VirtualMachine {
+		return &virtv2.VirtualMachine{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      namespacedName.Name,
+				Namespace: namespacedName.Namespace,
+			},
+			Spec: virtv2.VirtualMachineSpec{
+				BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+					{
+						Kind: virtv2.DiskDevice,
+						Name: "vd1",
+					},
+					{
+						Kind: virtv2.DiskDevice,
+						Name: "vd2",
+					},
+				},
+			},
+			Status: virtv2.VirtualMachineStatus{
+				Phase: phase,
+				BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+					{
+						Kind: virtv2.DiskDevice,
+						Name: "vd1",
+					},
+					{
+						Kind: virtv2.DiskDevice,
+						Name: "vd2",
+					},
+				},
+			},
+		}
+	}
+
+	DescribeTable("two disks: not ready disk & ready disk", func(vd1, vd2 *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2).Build()
+
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		err := vmResource.Fetch(ctx)
+		Expect(err).NotTo(HaveOccurred())
+
+		vmState := state.New(fakeClient, vmResource)
+		handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+		_, err = handler.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+
+		bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+		Expect(bdCond.Message).To(Equal(msg))
+		Expect(bdCond.Status).To(Equal(status))
+	},
+		Entry(
+			"vd2 AttachedToVirtualMachine & Pending VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithTwoVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready: 1/2.",
+		),
+		Entry(
+			"vd2 AttachedToVirtualMachine & Running VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithTwoVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready: 1/2.",
+		),
+		Entry(
+			"vd2 AttachedToVirtualMachine & Stopped VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithTwoVD(virtv2.MachineStopped),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready: 1/2.",
+		),
+		// --
+		Entry(
+			"vd2 UsedForImageCreation & Pending VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithTwoVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready: 1/2.",
+		),
+		Entry(
+			"vd2 UsedForImageCreation & Running VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithTwoVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready: 1/2.",
+		),
+		Entry(
+			"vd2 UsedForImageCreation & Stopped VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getNotReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithTwoVD(virtv2.MachineStopped),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready: 1/2.",
+		),
+		// --
+		Entry(
+			"vd NotInUse & Pending VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getNotReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithTwoVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready: 1/2.",
+		),
+		Entry(
+			"vd2 NotInUse & Running VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getNotReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithTwoVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready: 1/2.",
+		),
+		Entry(
+			"vd2 NotInUse & Stopped VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getNotReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithTwoVD(virtv2.MachineStopped),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready: 1/2.",
+		),
+	)
+
+	DescribeTable("two disks: two ready disks", func(vd1, vd2 *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
+		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2).Build()
+
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		err := vmResource.Fetch(ctx)
+		Expect(err).NotTo(HaveOccurred())
+
+		vmState := state.New(fakeClient, vmResource)
+		handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+		_, err = handler.Handle(ctx, vmState)
+		Expect(err).NotTo(HaveOccurred())
+
+		bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+		Expect(bdCond.Message).To(Equal(msg))
+		Expect(bdCond.Status).To(Equal(status))
+	},
+		Entry(
+			"vd2 AttachedToVirtualMachine & Pending VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithTwoVD(virtv2.MachinePending),
+			metav1.ConditionTrue,
+			"",
+		),
+		Entry(
+			"vd2 AttachedToVirtualMachine & Running VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithTwoVD(virtv2.MachineRunning),
+			metav1.ConditionTrue,
+			"",
+		),
+		Entry(
+			"vd2 AttachedToVirtualMachine & Stopped VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getVMWithTwoVD(virtv2.MachineStopped),
+			metav1.ConditionTrue,
+			"",
+		),
+		// --
+		Entry(
+			"vd2 UsedForImageCreation & Pending VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithTwoVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready to use: 1/2; Virtual disk \"vd2\" is in use for image creation.",
+		),
+		Entry(
+			"vd2 UsedForImageCreation & Running VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithTwoVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready to use: 1/2; Virtual disk \"vd2\" is in use for image creation.",
+		),
+		Entry(
+			"vd2 UsedForImageCreation & Stopped VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getReadyVD(nameVD2, metav1.ConditionTrue, vdcondition.UsedForImageCreation.String()),
+			getVMWithTwoVD(virtv2.MachineStopped),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready to use: 1/2; Virtual disk \"vd2\" is in use for image creation.",
+		),
+		// --
+		Entry(
+			"vd NotInUse & Pending VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithTwoVD(virtv2.MachinePending),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready to use: 1/2.",
+		),
+		Entry(
+			"vd2 NotInUse & Running VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithTwoVD(virtv2.MachineRunning),
+			metav1.ConditionFalse,
+			"Waiting for block devices to be ready to use: 1/2.",
+		),
+		Entry(
+			"vd2 NotInUse & Stopped VM",
+			getReadyVD(nameVD1, metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String()),
+			getReadyVD(nameVD2, metav1.ConditionFalse, vdcondition.NotInUse.String()),
+			getVMWithTwoVD(virtv2.MachineStopped),
+			metav1.ConditionTrue,
+			"",
+		),
+	)
+
+	Context("three not ready disks", func() {
+		It("blockDeviceReady condition set Status = False and Message = Waiting for block devices to be ready: 0/3.", func() {
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedName.Name,
+					Namespace: namespacedName.Namespace,
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
 						{
-							Type:   vdcondition.InUseType.String(),
-							Reason: conditions.ReasonUnknown.String(),
-							Status: metav1.ConditionUnknown,
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd2",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd3",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd2",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd3",
 						},
 					},
 				},
 			}
+			vd1 := getNotReadyVD("vd1", metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String())
+			vd2 := getNotReadyVD("vd2", metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String())
+			vd3 := getNotReadyVD("vd3", metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String())
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3).Build()
 
-			vds := map[string]*virtv2.VirtualDisk{
-				vdFoo.Name: vdFoo,
-				vdBar.Name: vdBar,
-				anyVd.Name: anyVd,
-			}
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			err := vmResource.Fetch(ctx)
+			Expect(err).NotTo(HaveOccurred())
 
-			allowedCount := h.areVirtualDisksAllowedToUse(vds)
-			Expect(allowedCount).To(Equal(2))
+			vmState := state.New(fakeClient, vmResource)
+			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			_, err = handler.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+			Expect(bdCond.Message).To(Equal("Waiting for block devices to be ready: 0/3."))
+			Expect(bdCond.Status).To(Equal(metav1.ConditionFalse))
 		})
 	})
 
-	Context("VirtualDisk is used to create image", func() {
-		It("returns false", func() {
-			anyVd := &virtv2.VirtualDisk{
-				ObjectMeta: metav1.ObjectMeta{Name: "anyVd"},
-				Status: virtv2.VirtualDiskStatus{
-					Phase:  virtv2.DiskReady,
-					Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
-					Conditions: []metav1.Condition{
+	Context("five disks: "+
+		"- two not ready for use disks, "+
+		"- one ready disk, "+
+		"- two disk using for create image", func() {
+		It("blockDeviceReady condition set Status = False and complex message.", func() {
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedName.Name,
+					Namespace: namespacedName.Namespace,
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
 						{
-							Type:   vdcondition.ReadyType.String(),
-							Reason: vdcondition.Ready.String(),
-							Status: metav1.ConditionTrue,
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
 						},
 						{
-							Type:   vdcondition.InUseType.String(),
-							Reason: vdcondition.UsedForImageCreation.String(),
-							Status: metav1.ConditionTrue,
+							Kind: virtv2.DiskDevice,
+							Name: "vd2",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd3",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd4",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd5",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd2",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd3",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd4",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd5",
 						},
 					},
 				},
 			}
+			vd1 := getReadyVD("vd1", metav1.ConditionFalse, vdcondition.NotInUse.String())
+			vd2 := getReadyVD("vd2", metav1.ConditionFalse, vdcondition.NotInUse.String())
+			vd3 := getReadyVD("vd3", metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String())
+			vd4 := getReadyVD("vd4", metav1.ConditionTrue, vdcondition.UsedForImageCreation.String())
+			vd5 := getReadyVD("vd5", metav1.ConditionTrue, vdcondition.UsedForImageCreation.String())
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3, vd4, vd5).Build()
 
-			vds := map[string]*virtv2.VirtualDisk{
-				vdFoo.Name: vdFoo,
-				vdBar.Name: vdBar,
-				anyVd.Name: anyVd,
-			}
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			err := vmResource.Fetch(ctx)
+			Expect(err).NotTo(HaveOccurred())
 
-			allowed := h.areVirtualDisksAllowedToUse(vds)
-			Expect(allowed).To(Equal(2))
+			vmState := state.New(fakeClient, vmResource)
+			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			_, err = handler.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+			Expect(bdCond.Message).To(Equal("Waiting for block devices to be ready to use: 1/5; Virtual disks 2/5 are in use for image creation."))
+			Expect(bdCond.Status).To(Equal(metav1.ConditionFalse))
 		})
 	})
 
-	Context("VirtualDisk is allowed", func() {
-		It("returns true", func() {
-			vds := map[string]*virtv2.VirtualDisk{
-				vdFoo.Name: vdFoo,
-				vdBar.Name: vdBar,
+	Context("five disks: "+
+		"- two not ready for use disks, "+
+		"- one ready disk, one disk using for create image, "+
+		"- one disk attached to another vm", func() {
+		It("blockDeviceReady condition set Status = False and complex message.", func() {
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedName.Name,
+					Namespace: namespacedName.Namespace,
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd2",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd3",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd4",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd5",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd2",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd3",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd4",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd5",
+						},
+					},
+				},
 			}
+			vd1 := getReadyVD("vd1", metav1.ConditionFalse, vdcondition.NotInUse.String())
+			vd2 := getReadyVD("vd2", metav1.ConditionFalse, vdcondition.NotInUse.String())
+			vd3 := getReadyVD("vd3", metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String())
+			vd4 := getReadyVD("vd4", metav1.ConditionTrue, vdcondition.UsedForImageCreation.String())
+			vd5 := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vd5",
+					Namespace: namespacedName.Namespace,
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Target: virtv2.DiskTarget{
+						PersistentVolumeClaim: "testPvc",
+					},
+					Phase: virtv2.DiskReady,
+					Conditions: []metav1.Condition{
+						{
+							Type:    vdcondition.ReadyType.String(),
+							Status:  metav1.ConditionTrue,
+							Reason:  vdcondition.Ready.String(),
+							Message: "",
+						},
+						{
+							Type:   vdcondition.InUseType.String(),
+							Status: metav1.ConditionTrue,
+							Reason: vdcondition.AttachedToVirtualMachine.String(),
+						},
+					},
+					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						{
+							Name:    "a-vm",
+							Mounted: true,
+						},
+					},
+				},
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3, vd4, vd5).Build()
 
-			allowed := h.areVirtualDisksAllowedToUse(vds)
-			Expect(allowed).To(Equal(2))
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			err := vmResource.Fetch(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			vmState := state.New(fakeClient, vmResource)
+			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			_, err = handler.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+			Expect(bdCond.Message).To(Equal("Waiting for block devices to be ready to use: 1/5; Virtual disk \"vd4\" is in use for image creation; Virtual disk \"vd5\" is in use by another VM."))
+			Expect(bdCond.Status).To(Equal(metav1.ConditionFalse))
+		})
+	})
+
+	Context("five disks: "+
+		"- one ready disk, "+
+		"- two disks using for create image, "+
+		"- two disks attached to another vm", func() {
+		It("blockDeviceReady condition set Status = False and complex message.", func() {
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedName.Name,
+					Namespace: namespacedName.Namespace,
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd2",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd3",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd4",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd5",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd2",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd3",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd4",
+						},
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd5",
+						},
+					},
+				},
+			}
+			vd1 := getReadyVD("vd1", metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String())
+			vd2 := getReadyVD("vd2", metav1.ConditionTrue, vdcondition.UsedForImageCreation.String())
+			vd3 := getReadyVD("vd3", metav1.ConditionTrue, vdcondition.UsedForImageCreation.String())
+			vd4 := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vd4",
+					Namespace: namespacedName.Namespace,
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Target: virtv2.DiskTarget{
+						PersistentVolumeClaim: "testPvc",
+					},
+					Phase: virtv2.DiskReady,
+					Conditions: []metav1.Condition{
+						{
+							Type:    vdcondition.ReadyType.String(),
+							Status:  metav1.ConditionTrue,
+							Reason:  vdcondition.Ready.String(),
+							Message: "",
+						},
+						{
+							Type:   vdcondition.InUseType.String(),
+							Status: metav1.ConditionTrue,
+							Reason: vdcondition.AttachedToVirtualMachine.String(),
+						},
+					},
+					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						{
+							Name:    "b-vm",
+							Mounted: true,
+						},
+					},
+				},
+			}
+			vd5 := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vd5",
+					Namespace: namespacedName.Namespace,
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Target: virtv2.DiskTarget{
+						PersistentVolumeClaim: "testPvc",
+					},
+					Phase: virtv2.DiskReady,
+					Conditions: []metav1.Condition{
+						{
+							Type:    vdcondition.ReadyType.String(),
+							Status:  metav1.ConditionTrue,
+							Reason:  vdcondition.Ready.String(),
+							Message: "",
+						},
+						{
+							Type:   vdcondition.InUseType.String(),
+							Status: metav1.ConditionTrue,
+							Reason: vdcondition.AttachedToVirtualMachine.String(),
+						},
+					},
+					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						{
+							Name:    "a-vm",
+							Mounted: true,
+						},
+					},
+				},
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3, vd4, vd5).Build()
+
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			err := vmResource.Fetch(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			vmState := state.New(fakeClient, vmResource)
+			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			_, err = handler.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+			Expect(bdCond.Message).To(Equal("Waiting for block devices to be ready to use: 1/5; Virtual disks 2/5 are in use for image creation; Virtual disks 2/5 are in use by another VM."))
+			Expect(bdCond.Status).To(Equal(metav1.ConditionFalse))
+		})
+	})
+
+	Context("one disk attached to another vm", func() {
+		It("blockDeviceReady condition set Status = False and Message = Virtual disk \"vd1\" is in use by another VM.", func() {
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedName.Name,
+					Namespace: namespacedName.Namespace,
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+					},
+				},
+			}
+			vd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vd1",
+					Namespace: namespacedName.Namespace,
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Target: virtv2.DiskTarget{
+						PersistentVolumeClaim: "testPvc",
+					},
+					Phase: virtv2.DiskReady,
+					Conditions: []metav1.Condition{
+						{
+							Type:    vdcondition.ReadyType.String(),
+							Status:  metav1.ConditionTrue,
+							Reason:  vdcondition.Ready.String(),
+							Message: "",
+						},
+						{
+							Type:   vdcondition.InUseType.String(),
+							Status: metav1.ConditionTrue,
+							Reason: vdcondition.AttachedToVirtualMachine.String(),
+						},
+					},
+					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						{
+							Name:    "a-vm",
+							Mounted: true,
+						},
+					},
+				},
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
+
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			err := vmResource.Fetch(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			vmState := state.New(fakeClient, vmResource)
+			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			_, err = handler.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+			Expect(bdCond.Message).To(Equal("Virtual disk \"vd1\" is in use by another VM."))
+			Expect(bdCond.Status).To(Equal(metav1.ConditionFalse))
+		})
+	})
+
+	Context("one not ready disk attached to another vm", func() {
+		It("return false and message = Waiting for block device \"vd1\" to be ready", func() {
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      namespacedName.Name,
+					Namespace: namespacedName.Namespace,
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "vd1",
+						},
+					},
+				},
+			}
+			vd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vd1",
+					Namespace: namespacedName.Namespace,
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Target: virtv2.DiskTarget{
+						PersistentVolumeClaim: "testPvc",
+					},
+					Phase: virtv2.DiskProvisioning,
+					Conditions: []metav1.Condition{
+						{
+							Type:    vdcondition.ReadyType.String(),
+							Status:  metav1.ConditionFalse,
+							Reason:  vdcondition.Provisioning.String(),
+							Message: "",
+						},
+						{
+							Type:   vdcondition.InUseType.String(),
+							Status: metav1.ConditionTrue,
+							Reason: vdcondition.AttachedToVirtualMachine.String(),
+						},
+					},
+					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						{
+							Name:    "a-vm",
+							Mounted: true,
+						},
+					},
+				},
+			}
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
+
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			err := vmResource.Fetch(ctx)
+			Expect(err).NotTo(HaveOccurred())
+
+			vmState := state.New(fakeClient, vmResource)
+			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			_, err = handler.Handle(ctx, vmState)
+			Expect(err).NotTo(HaveOccurred())
+
+			bdCond, _ := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, vmState.VirtualMachine().Changed().Status.Conditions)
+			Expect(bdCond.Message).To(Equal("Waiting for block device \"vd1\" to be ready; Virtual disk vd1 is waiting for the underlying PVC to be bound."))
+			Expect(bdCond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(bdCond.Reason).To(Equal(vmcondition.ReasonBlockDevicesNotReady.String()))
 		})
 	})
 })
 
 var _ = Describe("BlockDeviceHandler", func() {
 	var h *BlockDeviceHandler
-	var logger *slog.Logger
 	var vm *virtv2.VirtualMachine
 	var vi *virtv2.VirtualImage
 	var cvi *virtv2.ClusterVirtualImage
@@ -183,7 +1201,6 @@ var _ = Describe("BlockDeviceHandler", func() {
 	}
 
 	BeforeEach(func() {
-		logger = slog.Default()
 		h = NewBlockDeviceHandler(nil, &eventrecord.EventRecorderLoggerMock{
 			EventFunc: func(_ client.Object, _, _, _ string) {},
 		}, blockDeviceHandlerMock)
@@ -196,7 +1213,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 			Status:     virtv2.ClusterVirtualImageStatus{Phase: virtv2.ImageReady},
 		}
 		vdFoo = &virtv2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Name: "vd-foo"},
+			ObjectMeta: metav1.ObjectMeta{Name: "vd1-foo"},
 			Status: virtv2.VirtualDiskStatus{
 				Phase:  virtv2.DiskReady,
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-foo"},
@@ -215,7 +1232,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 			},
 		}
 		vdBar = &virtv2.VirtualDisk{
-			ObjectMeta: metav1.ObjectMeta{Name: "vd-bar"},
+			ObjectMeta: metav1.ObjectMeta{Name: "vd1-bar"},
 			Status: virtv2.VirtualDiskStatus{
 				Phase:  virtv2.DiskReady,
 				Target: virtv2.DiskTarget{PersistentVolumeClaim: "pvc-bar"},
@@ -247,7 +1264,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 
 	Context("VirtualMachine is nil", func() {
 		It("Not ready, cannot start, no warnings", func() {
-			ready, canStart, warnings := h.countReadyBlockDevices(nil, BlockDevicesState{}, logger)
+			ready, canStart, warnings := h.countReadyBlockDevices(nil, BlockDevicesState{}, false)
 			Expect(ready).To(Equal(0))
 			Expect(canStart).To(BeFalse())
 			Expect(warnings).To(BeNil())
@@ -257,7 +1274,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 	Context("BlockDevices are ready", func() {
 		It("Ready, can start, no warnings", func() {
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, logger)
+			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, false)
 			Expect(ready).To(Equal(4))
 			Expect(canStart).To(BeTrue())
 			Expect(warnings).To(BeNil())
@@ -268,7 +1285,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 		It("VirtualImage not ready: cannot start, no warnings", func() {
 			vi.Status.Phase = virtv2.ImagePending
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, logger)
+			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, false)
 			Expect(ready).To(Equal(3))
 			Expect(canStart).To(BeFalse())
 			Expect(warnings).To(BeNil())
@@ -277,35 +1294,10 @@ var _ = Describe("BlockDeviceHandler", func() {
 		It("ClusterVirtualImage not ready: cannot start, no warnings", func() {
 			cvi.Status.Phase = virtv2.ImagePending
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, logger)
+			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, false)
 			Expect(ready).To(Equal(3))
 			Expect(canStart).To(BeFalse())
 			Expect(warnings).To(BeNil())
-		})
-	})
-
-	Context("Cannot attach VirtualDisk ", func() {
-		It("VirtualDisk is attached to different virtual machine", func() {
-			vdFoo.Status.AttachedToVirtualMachines = []virtv2.AttachedVirtualMachine{
-				{Name: "different"},
-			}
-			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, logger)
-			Expect(ready).To(Equal(3))
-			Expect(canStart).To(BeFalse())
-			Expect(warnings).NotTo(BeEmpty())
-		})
-
-		It("VirtualDisk is attached to multiple virtual machines", func() {
-			vdFoo.Status.AttachedToVirtualMachines = []virtv2.AttachedVirtualMachine{
-				{Name: vm.Name},
-				{Name: "different"},
-			}
-			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, logger)
-			Expect(ready).To(Equal(3))
-			Expect(canStart).To(BeFalse())
-			Expect(warnings).ToNot(BeEmpty())
 		})
 	})
 
@@ -314,7 +1306,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 			vdFoo.Status.Phase = virtv2.DiskProvisioning
 			vdFoo.Status.Target.PersistentVolumeClaim = ""
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, logger)
+			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, false)
 			Expect(ready).To(Equal(3))
 			Expect(canStart).To(BeFalse())
 			Expect(warnings).To(BeNil())
@@ -335,7 +1327,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 				},
 			}
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
-			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, logger)
+			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, false)
 			Expect(ready).To(Equal(3))
 			Expect(canStart).To(BeTrue())
 			Expect(warnings).ToNot(BeEmpty())
