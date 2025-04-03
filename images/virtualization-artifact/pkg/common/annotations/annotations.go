@@ -93,9 +93,9 @@ const (
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
 
 	// AnnQemuVersion is a pod annotation indicating qemu version.
-	AnnQemuVersion = AnnInternalKubevirt + "qemu-version"
+	AnnQemuVersion = AnnInternalKubevirt + "/qemu-version"
 	// AnnLibvirtVersion is a pod annotation indicating libvirt version.
-	AnnLibvirtVersion = AnnInternalKubevirt + "libvirt-version"
+	AnnLibvirtVersion = AnnInternalKubevirt + "/libvirt-version"
 
 	// AppLabel is the app name label.
 	AppLabel = "app"
