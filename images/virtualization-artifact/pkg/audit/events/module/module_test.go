@@ -1,5 +1,6 @@
 /*
 Copyright 2025 Flant JSC
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -13,15 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package module_test
 
-const (
-	MODULE_NAME      string = "virtualization"
-	MODULE_NAMESPACE string = "d8-virtualization"
+import (
+	"testing"
 
-	CONTROLLER_CERT_CN string = "virtualization-controller"
-	DVCR_CERT_CN       string = "dvcr"
-	API_CERT_CN        string = "virtualization-api"
-	API_PROXY_CERT_CN  string = "virtualization-api-proxy"
-	AUDIT_CERT_CN      string = "virtualization-audit"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
+
+func TestModuleEvents(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Module Events Test Suite")
+}

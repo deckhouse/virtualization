@@ -86,6 +86,23 @@ properties:
               key:
                 type: string
                 default: ""
+      audit:
+        type: object
+        default: {}
+        properties:
+          cert:
+            type: object
+            default: {}
+            properties:
+              ca:
+                type: string
+                default: ""
+              crt:
+                type: string
+                default: ""
+              key:
+                type: string
+                default: ""
       rootCA:
         type: object
         default: {}
