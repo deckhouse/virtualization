@@ -259,3 +259,7 @@ jobs:
           git config --global http.postBuffer 1048576000
 
       - uses: deckhouse/modules-actions/build@v1
+      
+      - name: Echo done
+        run: |
+          echo "Done"
