@@ -8,6 +8,10 @@ on:
 env:
   GO_VERSION: "1.22.7"
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   skip_e2e:
     if: ${{ github.event.label.name == 'skip/e2e' }}
