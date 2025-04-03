@@ -32,9 +32,6 @@ const (
 	// AnnAPIGroup is the APIGroup for virtualization-controller.
 	AnnAPIGroup = "virt.deckhouse.io"
 
-	// AnnInternalKubevirt is the internal APIGroup for virtualization-controller.
-	AnnInternalKubevirt = "kubevirt.internal.virtualization.deckhouse.io"
-
 	// AnnCreatedBy is a pod annotation indicating if the pod was created by the PVC.
 	AnnCreatedBy = AnnAPIGroup + "/storage.createdByController"
 
@@ -92,10 +89,12 @@ const (
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
 
+	// AnnVersionsGroup is the internal APIGroup for virtualization-controller.
+	AnnVersionsGroup = "versions." + AnnAPIGroupV
 	// AnnQemuVersion is a pod annotation indicating qemu version.
-	AnnQemuVersion = AnnInternalKubevirt + "/qemu-version"
+	AnnQemuVersion = AnnVersionsGroup + "/qemu-version"
 	// AnnLibvirtVersion is a pod annotation indicating libvirt version.
-	AnnLibvirtVersion = AnnInternalKubevirt + "/libvirt-version"
+	AnnLibvirtVersion = AnnVersionsGroup + "/libvirt-version"
 
 	// AppLabel is the app name label.
 	AppLabel = "app"
