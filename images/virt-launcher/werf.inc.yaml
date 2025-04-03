@@ -152,7 +152,7 @@ binaries:
   # - /usr/bin/findmnt
   # Blk utilites
   # - /usr/sbin/blkid
-  - /usr/sbin/blockdev
+  # - /usr/sbin/blockdev
   # Openssl
   - /usr/bin/openssl
   # Acl utils
