@@ -27,7 +27,6 @@ import (
 	"k8s.io/klog/v2"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/util"
-	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
 )
 
 const (
@@ -40,7 +39,7 @@ const (
 )
 
 type ProgressMeter struct {
-	*prometheusutil.ProgressReader
+	*ProgressReader
 
 	total                uint64
 	avgSpeed             ProgressMetric
@@ -123,7 +122,7 @@ func NewProgressMeter(rdr io.ReadCloser, total uint64) *ProgressMeter {
 	importProgress := NewProgress(registryProgress, ownerUID)
 
 	return &ProgressMeter{
-		ProgressReader: prometheusutil.NewProgressReader(rdr, importProgress, total),
+		ProgressReader: NewProgressReader(rdr, importProgress, total),
 		total:          total,
 		avgSpeed:       NewProgress(registryAvgSpeed, ownerUID),
 		curSpeed:       NewProgress(registryCurSpeed, ownerUID),
@@ -143,11 +142,11 @@ func (p *ProgressMeter) Start() {
 		for {
 			select {
 			case <-p.stop:
-				p.ProgressReader.Done = true
+				p.ProgressReader.Cancel = true
 				return
 			case <-ticker.C:
 				if !p.updateSpeed() {
-					p.ProgressReader.Done = true
+					p.ProgressReader.Cancel = true
 					return
 				}
 			}
