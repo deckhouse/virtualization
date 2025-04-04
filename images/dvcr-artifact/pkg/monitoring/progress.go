@@ -139,6 +139,7 @@ func (p *ProgressMeter) Start() {
 	go func() {
 		ticker := time.NewTicker(p.emitInterval)
 		defer ticker.Stop()
+		// defer p.ProgressReader.Close()
 
 		for {
 			select {
