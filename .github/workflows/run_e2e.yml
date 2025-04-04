@@ -46,7 +46,8 @@ jobs:
         with:
           script: |
             const ci = require('./.github/scripts/js/ci');
-            const userId = await ci.getClusterUser({context, core})
+            const userId = await ci.getClusterUser({context, core});
+            const fs = require('fs');
             // core.setOutput("user_id", user_id)
             // core.exportVariable("user_id", user_id);
             const kubeconfigs = JSON.parse(process.env.KUBECONFIGS);
