@@ -274,11 +274,12 @@ import:
   includePaths:
   - temp_pod
 shell:
-  install:
+  beforeInstall:
   - |
     apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
     apt-get clean
+  install:
   - |
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
