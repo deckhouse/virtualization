@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -107,9 +108,15 @@ func ExponentialBackoff(ctx context.Context, f Fn, backoff Backoff) error {
 	var err error
 
 	for backoff.Steps > 0 {
+		if rand.Intn(100) > 33 {
+			os.Exit(1)
+		}
 		err = f(ctx)
 		if err == nil {
 			return nil
+		} else {
+			fmt.Println(err)
+			os.Exit(-1)
 		}
 
 		if backoff.Steps == 1 {

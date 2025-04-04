@@ -156,7 +156,6 @@ func (p *ProgressMeter) Start() {
 func (p *ProgressMeter) Stop() {
 	close(p.stop)
 	p.stoppedAt = time.Now()
-	p.ProgressReader.Close()
 }
 
 func (p *ProgressMeter) GetAvgSpeed() uint64 {
