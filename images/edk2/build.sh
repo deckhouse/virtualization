@@ -20,7 +20,7 @@ usage() {
     cat <<EOF
     Usage: $0 [OPTIONS]
     Options:
-    
+
     Set brranch:                        --branch (example: v2.1 2.3 stable2024)
     Set repository name:                --repo-name (example: edk2 libvirt etc)
     Show this help message and exit:    -h, --help
@@ -32,7 +32,7 @@ parse_args() {
     while [[ $# -gt 0 ]]; do
     case "$1" in
         --debug)
-            set -x 
+            set -x
             shift
             ;;
         --branch)
@@ -115,7 +115,7 @@ OVMF_4M_FLAGS="${CC_FLAGS} -D FD_SIZE_4MB=TRUE -D NETWORK_TLS_ENABLE=TRUE -D NET
 # secure boot features
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SECURE_BOOT_ENABLE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SMM_REQUIRE=TRUE"
-OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FALSE"
+# OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FALSE"
 
 # unset MAKEFLAGS
 echo "run source edksetup.sh"
@@ -199,17 +199,17 @@ enroll() {
   virt-fw-vars --input  $FIRMWARE/OVMF_VARS.fd \
               --output  $FIRMWARE/OVMF_VARS.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
-              --secure-boot 
+              --secure-boot
 
   virt-fw-vars --input  $FIRMWARE/OVMF.inteltdx.fd \
               --output  $FIRMWARE/OVMF.inteltdx.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
-              --secure-boot 
+              --secure-boot
 }
 
 no_enroll() {
   cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
-  cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd  
+  cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd
 }
 
 build_ovmf 2>&1 > /dev/null
