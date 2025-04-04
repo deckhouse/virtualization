@@ -283,6 +283,10 @@ This bash script has been rewritten to golang.
 
 This patch enhances security by ensuring that `virtqemud` only accepts connections from its corresponding process. It achieves this by using the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable, which restricts access to the process ID (PID) of the `virt-launcher` process that started `virtqemud`.
 
+#### `043-add-qemu-and-libvirt-versions`
+
+This path adds annotations to the VMI with the versions of libvirt and qemu used to create the VMI.
+
 ##### Changes
 - Configures `virtqemud` to use the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable, restricting access to the `virt-launcher` process.
 - Ensures that `virtqemud` only accepts connections from the process that initiated it.
