@@ -37,7 +37,7 @@ const (
 var _ = registry.RegisterFunc(configModuleOUI, handlerModuleOUI)
 
 var configModuleOUI = &pkg.HookConfig{
-	OnBeforeHelm: &pkg.OrderedConfig{Order: 10},
+	OnBeforeHelm: &pkg.OrderedConfig{Order: 5},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
 			Name:       virtualizationPodName,
@@ -60,6 +60,7 @@ var configModuleOUI = &pkg.HookConfig{
 }
 
 func handlerModuleOUI(_ context.Context, input *pkg.HookInput) error {
+	input.Logger.Info("dlopatin Start to generate OUI for MAC address")
 	podSnapshots := input.Snapshots.Get(virtualizationPodName)
 	if len(podSnapshots) == 0 {
 		input.Logger.Info("No virtualization-controller pods found")
@@ -142,6 +143,7 @@ func handlerModuleOUI(_ context.Context, input *pkg.HookInput) error {
 		}
 	}
 
+	input.Logger.Info("dlopatin Stop to generate OUI for MAC address")
 	return nil
 }
 
