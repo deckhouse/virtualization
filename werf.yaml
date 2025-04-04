@@ -179,6 +179,7 @@ git:
       - Chart.yaml
       - .helmignore
     excludePaths:
+      - cv/README.md
       - hooks/lib/tests
       - hooks/test*
 ---
