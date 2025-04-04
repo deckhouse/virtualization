@@ -143,9 +143,11 @@ func (p *ProgressMeter) Start() {
 		for {
 			select {
 			case <-p.stop:
+				p.ProgressReader.Done = true
 				return
 			case <-ticker.C:
 				if !p.updateSpeed() {
+					p.ProgressReader.Done = true
 					return
 				}
 			}
