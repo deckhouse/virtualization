@@ -147,9 +147,9 @@ binaries:
   - /usr/bin/p11tool
   - /usr/bin/psktool
   # Utilities for mount
-  - /usr/bin/mount
-  - /usr/bin/umount
-  - /usr/bin/findmnt
+  # - /usr/bin/mount
+  # - /usr/bin/umount
+  # - /usr/bin/findmnt
   # Blk utilites
   # - /usr/sbin/blkid
   # - /usr/sbin/blockdev
