@@ -57,7 +57,7 @@ jobs:
             } else {
               core.info(`Found kubeconfig for user with ID ${userId}`);
               const runnerTempDir = process.env['RUNNER_TEMP'];
-              const kubeconfigFile: string = path.join(runnerTempDir, `kubeconfig_${Date.now()}`);
+              const kubeconfigFile = path.join(runnerTempDir, `kubeconfig_${Date.now()}`);
               fs.writeFileSync(kubeconfigFile, kubeconfig);
               fs.chmodSync(kubeconfigFile, '600');
               core.exportVariable('KUBECONFIG', kubeconfigFile)
