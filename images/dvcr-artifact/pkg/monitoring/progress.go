@@ -139,7 +139,6 @@ func (p *ProgressMeter) Start() {
 	go func() {
 		ticker := time.NewTicker(p.emitInterval)
 		defer ticker.Stop()
-		// defer p.ProgressReader.Close()
 
 		for {
 			select {
@@ -157,6 +156,7 @@ func (p *ProgressMeter) Start() {
 func (p *ProgressMeter) Stop() {
 	close(p.stop)
 	p.stoppedAt = time.Now()
+	p.ProgressReader.Close()
 }
 
 func (p *ProgressMeter) GetAvgSpeed() uint64 {
