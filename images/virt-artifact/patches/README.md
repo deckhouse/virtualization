@@ -294,3 +294,15 @@ This patch enhances security by ensuring that `virtqemud` only accepts connectio
 
 ##### Dependency
 This patch depends on the [002-auth-pid-restriction.patch](../../libvirt/patches/002-auth-pid-restriction.patch) in libvirt, which introduces the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable to restrict socket access based on PID.
+
+#### `043-virt-launcher-image-holder-command-sleep.patch`
+
+This patch modifies virt-launcher-image-holder command from `sh -c "sleep infinity"` to `sleep infinity`. 
+
+#### `044-hotplug-attachment-trigger-pod-remove-bash.patch`
+
+This patch modifies init container by removing sh and bash util and replcae commands.
+- Init container tempPod change command from `"/bin/bash", "-c", "echo", "bound PVCs"` and `"/bin/bash","-c","exit", "0"` to static binary `temp_pod`. 
+- HotplugAttachmentPod change command from `"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"` to `"/usr/bin/container-disk", "--copy-path", "/path/hp"`
+
+Also fixed vmi_test.go, replce `Equal("/bin/bash -c echo bound PVCs")` to `Equal("temp_pod")`,
