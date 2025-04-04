@@ -170,6 +170,7 @@ git:
     includePaths:
       - charts
       - crds
+      - cv
       - docs
       - hooks
       - openapi
