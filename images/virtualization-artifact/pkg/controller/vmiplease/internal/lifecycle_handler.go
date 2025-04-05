@@ -56,20 +56,17 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 	}
 
 	if vmip != nil {
-		if leaseStatus.Phase != virtv2.VirtualMachineIPAddressLeasePhaseBound {
-			leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
-			cb.Status(metav1.ConditionTrue).
-				Reason(vmiplcondition.Bound)
-			conditions.SetCondition(cb, &leaseStatus.Conditions)
-		}
+		leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
+		cb.Status(metav1.ConditionTrue).
+			Reason(vmiplcondition.Bound)
+		conditions.SetCondition(cb, &leaseStatus.Conditions)
+
 	} else {
-		if leaseStatus.Phase != virtv2.VirtualMachineIPAddressLeasePhaseReleased {
-			leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
-			cb.Status(metav1.ConditionFalse).
-				Reason(vmiplcondition.Released).
-				Message("VirtualMachineIPAddress lease is not used by any VirtualMachineIPAddress")
-			conditions.SetCondition(cb, &leaseStatus.Conditions)
-		}
+		leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
+		cb.Status(metav1.ConditionFalse).
+			Reason(vmiplcondition.Released).
+			Message("VirtualMachineIPAddress lease is not used by any VirtualMachineIPAddress")
+		conditions.SetCondition(cb, &leaseStatus.Conditions)
 	}
 
 	leaseStatus.ObservedGeneration = lease.GetGeneration()
