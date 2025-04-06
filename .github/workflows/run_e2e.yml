@@ -165,7 +165,7 @@ jobs:
         id: e2e-tests
         working-directory: ./tests/e2e/
         run: |
-          task run:ci -v
+          task run -v
 
   last_comment:
     name: Update comment on finish
