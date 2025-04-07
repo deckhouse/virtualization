@@ -7,6 +7,7 @@ vars:
     # Should hide curly brackets from task templater.
     sh: go list -f '{{`{{.Version}}`}}' -m github.com/onsi/ginkgo/v2
   VERSION: "v1.0.0"
+  TIMEOUT: "2h"
 
 tasks:
   copy:
@@ -55,7 +56,7 @@ tasks:
     cmds:
       - |
         bash -c 'GINKGO_RESULT=$(mktemp)
-        ginkgo -v | tee $GINKGO_RESULT
+        ginkgo -v --race --timeout=$TIMEOUT | tee $GINKGO_RESULT
         EXIT_CODE="${PIPESTATUS[0]}"
         RESULT=$(sed -e "s/\x1b\[[0-9;]*m//g" $GINKGO_RESULT | grep --color=never -E "FAIL!|SUCCESS!")
         if [[ $RESULT == FAIL!* || $EXIT_CODE -ne "0" ]]; then
@@ -101,6 +102,12 @@ tasks:
     cmds:
       - |
         ginkgo -v \
+          --race \
+          {{if .TIMEOUT -}}
+          --timeout={{ .TIMEOUT }}
+          {{else -}}
+          --timeout=2h
+          {{end}}
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}"
           {{end}}
