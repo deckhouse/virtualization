@@ -28,7 +28,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/array"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
@@ -447,7 +446,7 @@ func (b *KVVM) SetOsType(osType virtv2.OsType) error {
 	switch osType {
 	case virtv2.Windows:
 		// Need for `029-use-OFVM_CODE-for-linux.patch`
-		b.SetKVVMIAnnotation(annotations.AnnOsType, string(virtv2.Windows))
+		// b.SetKVVMIAnnotation(annotations.AnnOsType, string(virtv2.Windows))
 
 		b.Resource.Spec.Template.Spec.Domain.Machine = &virtv1.Machine{
 			Type: "q35",
