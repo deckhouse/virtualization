@@ -416,7 +416,7 @@ jobs:
     if: ${{ github.event.label.name == 'e2e/run' }}
     name: Run E2E tests
     runs-on: ubuntu-latest
-    needs: 
+    needs:
       - dev_setup_build
       - set_e2e_requirement_status
     steps:
@@ -449,7 +449,7 @@ jobs:
               // core.setSecret(kubeconfig);
               // core.setOutput('kubeconfig_data', kubeconfig);
             }
-      
+
       - name: Install Deckhouse-cli
         run: |
           echo "Install d8"
@@ -485,7 +485,7 @@ jobs:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
-          
+
       - name: Checkout cluster to revision
         env:
           v12n_tag: pr${{ github.event.pull_request.number }}
