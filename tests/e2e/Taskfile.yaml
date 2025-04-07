@@ -110,3 +110,16 @@ tasks:
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}"
           {{end -}}
+  cleanup:
+    desc: "Cleanup namespaces & resources left from e2e tests"
+    deps:
+      - kubectl
+      - d8
+    cmds: 
+      - |
+        E2E_PREFIX=head-$(git rev-parse --short HEAD)
+        readarray -t CLEANUP_RESOURCES < <(yq .cleanupResources[] default_config.yaml)
+        for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do 
+            kubectl get $RESOURCE --no-headers | awk "/$E2E_PREFIX/{print \$1}" | xargs kubectl delete $RESOURCE 
+        done
+        kubectl get namespaces --no-headers | awk "/$E2E_PREFIX/{print \$1}" | xargs kubectl delete namespaces

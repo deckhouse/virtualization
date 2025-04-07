@@ -210,26 +210,19 @@ func Cleanup() []error {
 			continue
 		}
 	}
-
-	res = kubectl.Delete(kc.DeleteOptions{
-		IgnoreNotFound: true,
-		Labels:         map[string]string{"id": namePrefix},
-		Resource:       kc.ResourceCVI,
-	})
-	if res.Error() != nil {
-		cleanupErrs = append(
-			cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
-		)
-	}
-	res = kubectl.Delete(kc.DeleteOptions{
-		IgnoreNotFound: true,
-		Labels:         map[string]string{"id": namePrefix},
-		Resource:       kc.ResourceVMClass,
-	})
-	if res.Error() != nil {
-		cleanupErrs = append(
-			cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
-		)
+	
+	for _, r := range conf.CleanupResources {
+		res = kubectl.Delete(kc.DeleteOptions{
+			IgnoreNotFound: true,
+			Labels:         map[string]string{"id": namePrefix},
+			Resource: 		kc.Resource(r),
+		})
+		if res.Error() != nil {
+			cleanupErrs = append(
+				cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
+			)
+			continue
+		}
 	}
 
 	return cleanupErrs
