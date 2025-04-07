@@ -557,6 +557,7 @@ func (s DiskService) GetVirtualDiskSnapshot(ctx context.Context, name, namespace
 	return object.FetchObject(ctx, types.NamespacedName{Name: name, Namespace: namespace}, s.client, &virtv2.VirtualDiskSnapshot{})
 }
 
+// Deprecated.
 func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
 	if dv == nil {
 		return nil

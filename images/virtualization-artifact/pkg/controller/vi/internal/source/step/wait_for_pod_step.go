@@ -41,20 +41,17 @@ type WaitForPodStepStat interface {
 
 type WaitForPodStep struct {
 	pod  *corev1.Pod
-	pvc  *corev1.PersistentVolumeClaim
 	stat WaitForPodStepStat
 	cb   *conditions.ConditionBuilder
 }
 
 func NewWaitForPodStep(
 	pod *corev1.Pod,
-	pvc *corev1.PersistentVolumeClaim,
 	stat WaitForPodStepStat,
 	cb *conditions.ConditionBuilder,
 ) *WaitForPodStep {
 	return &WaitForPodStep{
 		pod:  pod,
-		pvc:  pvc,
 		stat: stat,
 		cb:   cb,
 	}

@@ -16,7 +16,10 @@ limitations under the License.
 
 package conditions
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+)
 
 func GetPodCondition(condType corev1.PodConditionType, conds []corev1.PodCondition) (corev1.PodCondition, bool) {
 	for _, cond := range conds {
@@ -26,4 +29,20 @@ func GetPodCondition(condType corev1.PodConditionType, conds []corev1.PodConditi
 	}
 
 	return corev1.PodCondition{}, false
+}
+
+const (
+	DataVolumeConditionTypeRunning          cdiv1.DataVolumeConditionType = "Running"
+	DataVolumeConditionTypeQoutaNotExceeded cdiv1.DataVolumeConditionType = "QuotaNotExceeded"
+
+	DataVolumeConditionReasonImagePullFailed = "ImagePullFailed"
+)
+
+func GetDataVolumeCondition(conditionType cdiv1.DataVolumeConditionType, conditions []cdiv1.DataVolumeCondition) *cdiv1.DataVolumeCondition {
+	for i, condition := range conditions {
+		if condition.Type == conditionType {
+			return &conditions[i]
+		}
+	}
+	return nil
 }

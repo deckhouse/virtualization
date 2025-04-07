@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -21,8 +21,6 @@ import (
 	"errors"
 	"fmt"
 
-	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,43 +31,45 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source/step"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
-type ObjectRefVirtualDiskSnapshotCR struct {
-	importer     Importer
-	stat         Stat
+type ObjectRefVirtualDiskCR struct {
 	client       client.Client
+	importer     Importer
+	diskService  *service.DiskService
+	stat         Stat
 	dvcrSettings *dvcr.Settings
-	diskService  Disk
 	recorder     eventrecord.EventRecorderLogger
 }
 
-func NewObjectRefVirtualDiskSnapshotCR(
-	importer Importer,
-	statService Stat,
-	diskService Disk,
+func NewObjectRefVirtualDiskCR(
 	client client.Client,
+	importer Importer,
+	diskService *service.DiskService,
+	stat Stat,
 	dvcrSettings *dvcr.Settings,
 	recorder eventrecord.EventRecorderLogger,
-) *ObjectRefVirtualDiskSnapshotCR {
-	return &ObjectRefVirtualDiskSnapshotCR{
-		importer:     importer,
+) *ObjectRefVirtualDiskCR {
+	return &ObjectRefVirtualDiskCR{
 		client:       client,
-		recorder:     recorder,
-		stat:         statService,
+		importer:     importer,
 		diskService:  diskService,
+		stat:         stat,
 		dvcrSettings: dvcrSettings,
+		recorder:     recorder,
 	}
 }
 
-func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot {
+func (ds ObjectRefVirtualDiskCR) Sync(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDisk {
 		return reconcile.Result{}, errors.New("object ref missed for data source")
 	}
 
@@ -78,11 +78,6 @@ func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *virtv2.Vi
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
 
-	pvc, err := object.FetchObject(ctx, supgen.PersistentVolumeClaim(), ds.client, &corev1.PersistentVolumeClaim{})
-	if err != nil {
-		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
-	}
-
 	pod, err := importer.FindPod(ctx, ds.client, supgen)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("fetch pod: %w", err)
@@ -90,46 +85,57 @@ func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *virtv2.Vi
 
 	return blockdevice.NewStepTakers[*virtv2.VirtualImage](
 		step.NewReadyContainerRegistryStep(pod, ds.importer, ds.diskService, ds.stat, ds.recorder, cb),
-		step.NewTerminatingStep(pvc),
-		step.NewCreatePersistentVolumeClaimStep(pvc, ds.recorder, ds.client, cb),
+		step.NewTerminatingStep(pod),
 		step.NewCreatePodStep(pod, ds.dvcrSettings, ds.recorder, ds.importer, ds.stat, ds.GetPodSettings, cb),
 		step.NewWaitForPodStep(pod, ds.stat, cb),
 	).Run(ctx, vi)
 }
 
-func (ds ObjectRefVirtualDiskSnapshotCR) GetPodSettings(_ context.Context, vi *virtv2.VirtualImage) (*importer.PodSettings, error) {
+func (ds ObjectRefVirtualDiskCR) GetPodSettings(ctx context.Context, vi *virtv2.VirtualImage) (*importer.PodSettings, error) {
+	vdRefKey := types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}
+	vdRef, err := object.FetchObject(ctx, vdRefKey, ds.client, &virtv2.VirtualDisk{})
+	if err != nil {
+		return nil, fmt.Errorf("fetch vd %q: %w", vdRefKey, err)
+	}
+
+	if vdRef == nil {
+		return nil, fmt.Errorf("vd object ref %q is nil", vdRefKey)
+	}
+
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
-	pvcKey := supgen.PersistentVolumeClaim()
-	return ds.importer.GetPodSettingsWithPVC(ownerRef, supgen, pvcKey.Name, pvcKey.Namespace), nil
+	return ds.importer.GetPodSettingsWithPVC(ownerRef, supgen, vdRef.Status.Target.PersistentVolumeClaim, vdRef.Namespace), nil
 }
 
-func (ds ObjectRefVirtualDiskSnapshotCR) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
-	return validateVirtualDiskSnapshot(ctx, vi, ds.client)
+func (ds ObjectRefVirtualDiskCR) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
+	return validateVirtualDisk(ctx, vi, ds.client)
 }
 
-func validateVirtualDiskSnapshot(ctx context.Context, vi *virtv2.VirtualImage, client client.Client) error {
-	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot {
+func validateVirtualDisk(ctx context.Context, vi *virtv2.VirtualImage, client client.Client) error {
+	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDisk {
 		return errors.New("object ref missed for data source")
 	}
 
-	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, client, &virtv2.VirtualDiskSnapshot{})
+	vd, err := object.FetchObject(ctx, types.NamespacedName{Name: vi.Spec.DataSource.ObjectRef.Name, Namespace: vi.Namespace}, client, &virtv2.VirtualDisk{})
 	if err != nil {
-		return fmt.Errorf("fetch virtual disk snapshot: %w", err)
+		return fmt.Errorf("fetch virtual disk: %w", err)
 	}
 
-	if vdSnapshot == nil || vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady {
-		return NewVirtualDiskSnapshotNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
+	if vd == nil || vd.Status.Phase != virtv2.DiskReady {
+		return NewVirtualDiskNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
 
-	vs, err := object.FetchObject(ctx, types.NamespacedName{Name: vdSnapshot.Status.VolumeSnapshotName, Namespace: vdSnapshot.Namespace}, client, &vsv1.VolumeSnapshot{})
-	if err != nil {
-		return fmt.Errorf("fetch volume snapshot: %w", err)
+	inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+	if inUseCondition.Status != metav1.ConditionTrue || inUseCondition.ObservedGeneration != vd.Generation {
+		return NewVirtualDiskNotReadyForUseError(vd.Name)
 	}
 
-	if vs == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
-		return NewVirtualDiskSnapshotNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
+	switch inUseCondition.Reason {
+	case vdcondition.UsedForImageCreation.String():
+		return nil
+	case vdcondition.AttachedToVirtualMachine.String():
+		return NewVirtualDiskAttachedToVirtualMachineError(vd.Name)
+	default:
+		return NewVirtualDiskNotReadyForUseError(vd.Name)
 	}
-
-	return nil
 }
