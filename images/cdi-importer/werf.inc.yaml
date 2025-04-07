@@ -24,7 +24,6 @@ packages:
 binaries:
   # Qemu-img
   - /usr/bin/qemu-img
-  # - /usr/bin/qemu-io
   - /usr/bin/qemu-nbd
   # All nbd binaries
   - /usr/bin/nbd*
