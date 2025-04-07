@@ -7,7 +7,6 @@ vars:
     # Should hide curly brackets from task templater.
     sh: go list -f '{{`{{.Version}}`}}' -m github.com/onsi/ginkgo/v2
   VERSION: "v1.0.0"
-  TIMEOUT: "2h"
 
 tasks:
   copy:
@@ -104,10 +103,10 @@ tasks:
         ginkgo -v \
           --race \
           {{if .TIMEOUT -}}
-          --timeout={{ .TIMEOUT }}
+          --timeout={{ .TIMEOUT }} \
           {{else -}}
-          --timeout=2h
-          {{end}}
+          --timeout=2h \
+          {{end -}}
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}"
-          {{end}}
+          {{end -}}
