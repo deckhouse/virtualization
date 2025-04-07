@@ -2,7 +2,6 @@
 image: {{ $.ImageName }}
 final: true
 fromImage: distroless
-cacheVersion: "04042025.1"
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
@@ -169,7 +168,6 @@ binaries:
 image: {{ $.ImageName }}-binaries
 final: false
 fromImage: base-alt-p11-binaries
-cacheVersion: "04042025.1"
 git:
   # Add qemu and virtqemud configs
   - add: /images/{{ $.ImageName }}/configs
