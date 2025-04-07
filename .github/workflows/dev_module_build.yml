@@ -415,10 +415,11 @@ jobs:
   run_e2e:
     if: ${{ github.event.label.name == 'e2e/run' }}
     name: Run E2E tests
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     needs:
       - dev_setup_build
       - set_e2e_requirement_status
+      - set_vars
     steps:
       - uses: actions/checkout@v4
       - name: Select user
