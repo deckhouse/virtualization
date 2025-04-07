@@ -20,7 +20,7 @@ import "strings"
 
 const (
 	FormatISO = "iso"
-	FormatRAW = "raw"
+	FormatRaw = "raw"
 )
 
 func IsISO(format string) bool {

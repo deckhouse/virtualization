@@ -20,17 +20,12 @@ import (
 	"context"
 	"log/slog"
 
-	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	importersettings "github.com/deckhouse/virtualization-controller/pkg/controller/importer"
@@ -42,21 +37,18 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
-var _ = Describe("ObjectRef VirtualDiskSnapshot ContainerRegistry", func() {
+var _ = Describe("ObjectRef VirtualDisk ContainerRegistry", func() {
 	var (
-		ctx         context.Context
-		scheme      *runtime.Scheme
-		vi          *virtv2.VirtualImage
-		vs          *vsv1.VolumeSnapshot
-		sc          *storagev1.StorageClass
-		vdSnapshot  *virtv2.VirtualDiskSnapshot
-		pvc         *corev1.PersistentVolumeClaim
-		pod         *corev1.Pod
-		settings    *dvcr.Settings
-		recorder    eventrecord.EventRecorderLogger
-		diskService *DiskMock
-		importer    *ImporterMock
-		stat        *StatMock
+		ctx      context.Context
+		scheme   *runtime.Scheme
+		vi       *virtv2.VirtualImage
+		vd       *virtv2.VirtualDisk
+		pod      *corev1.Pod
+		settings *dvcr.Settings
+		recorder eventrecord.EventRecorderLogger
+		importer *ImporterMock
+		disk     *DiskMock
+		stat     *StatMock
 	)
 
 	BeforeEach(func() {
@@ -65,115 +57,56 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot ContainerRegistry", func() {
 		scheme = runtime.NewScheme()
 		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
-		Expect(vsv1.AddToScheme(scheme)).To(Succeed())
-		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
 
-		importer, diskService, stat, recorder, _ = getServiceMocks()
+		importer, disk, stat, recorder, _ = getServiceMocks()
 		settings = &dvcr.Settings{}
 
-		sc = &storagev1.StorageClass{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "sc",
-			},
-		}
-
-		vs = &vsv1.VolumeSnapshot{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "vs",
-			},
-			Status: &vsv1.VolumeSnapshotStatus{
-				ReadyToUse: ptr.To(true),
-			},
-		}
-
-		vdSnapshot = &virtv2.VirtualDiskSnapshot{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "vd-snapshot",
-				UID:  "11111111-1111-1111-1111-111111111111",
-			},
-			Spec: virtv2.VirtualDiskSnapshotSpec{},
-			Status: virtv2.VirtualDiskSnapshotStatus{
-				Phase:              virtv2.VirtualDiskSnapshotPhaseReady,
-				VolumeSnapshotName: vs.Name,
-			},
-		}
-
+		vd = getVirtualDisk()
 		vi = getVirtualImage(virtv2.StorageContainerRegistry, virtv2.VirtualImageDataSource{
 			Type: virtv2.DataSourceTypeObjectRef,
 			ObjectRef: &virtv2.VirtualImageObjectRef{
-				Kind: virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot,
-				Name: vdSnapshot.Name,
+				Kind: virtv2.VirtualImageObjectRefKindVirtualDisk,
+				Name: vd.Name,
 			},
 		})
-
-		pvc = getPVC(vi, sc.Name)
 		pod = getPod(vi)
 	})
 
 	Context("VirtualImage has just been created", func() {
-		It("must create PVC and Pod", func() {
-			var pvcCreated bool
+		It("must create Pod", func() {
 			var podCreated bool
-
-			importer.GetPodSettingsWithPVCFunc = func(_ *metav1.OwnerReference, _ *supplements.Generator, _, _ string) *importersettings.PodSettings {
-				return nil
-			}
 			importer.StartWithPodSettingFunc = func(_ context.Context, _ *importersettings.Settings, _ *supplements.Generator, _ *datasource.CABundle, _ *importersettings.PodSettings) error {
 				podCreated = true
 				return nil
 			}
 
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
+
 			vi.Status = virtv2.VirtualImageStatus{}
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vdSnapshot, vs).
-				WithInterceptorFuncs(interceptor.Funcs{
-					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
-						switch obj.(type) {
-						case *corev1.PersistentVolumeClaim:
-							pvcCreated = true
-						}
 
-						return nil
-					},
-				}).Build()
-
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, settings, recorder)
+			syncer := NewObjectRefVirtualDiskCR(client, importer, nil, stat, settings, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
 
-			Expect(pvcCreated).To(BeTrue())
 			Expect(podCreated).To(BeTrue())
 
 			ExpectCondition(vi, metav1.ConditionFalse, vicondition.Provisioning, true)
 			Expect(vi.Status.SourceUID).ToNot(BeNil())
 			Expect(*vi.Status.SourceUID).ToNot(BeEmpty())
 			Expect(vi.Status.Phase).To(Equal(virtv2.ImageProvisioning))
+			Expect(vi.Status.Target.RegistryURL).ToNot(BeEmpty())
 			Expect(vi.Status.Target.PersistentVolumeClaim).To(BeEmpty())
 		})
 	})
 
 	Context("VirtualImage waits for the Pod to be Completed", func() {
-		It("waits for the PVC to be Bound", func() {
-			pvc.Status.Phase = corev1.ClaimPending
-			pod.Status.Phase = corev1.PodPending
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
-
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
-
-			res, err := syncer.Sync(ctx, vi)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(res.IsZero()).To(BeTrue())
-
-			ExpectCondition(vi, metav1.ConditionFalse, vicondition.Provisioning, true)
-			Expect(vi.Status.Phase).To(Equal(virtv2.ImageProvisioning))
-		})
-
 		It("waits for the Pod to be Running", func() {
 			pod.Status.Phase = corev1.PodPending
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskCR(client, importer, nil, stat, settings, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -185,9 +118,9 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot ContainerRegistry", func() {
 
 		It("waits for the Pod to be Succeeded", func() {
 			pod.Status.Phase = corev1.PodRunning
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, pod).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskCR(client, importer, nil, stat, settings, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -203,7 +136,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot ContainerRegistry", func() {
 			pod.Status.Phase = corev1.PodSucceeded
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pod).Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskCR(client, importer, disk, stat, settings, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())
@@ -224,7 +157,7 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot ContainerRegistry", func() {
 
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewObjectRefVirtualDiskSnapshotCR(importer, stat, diskService, client, nil, recorder)
+			syncer := NewObjectRefVirtualDiskCR(client, importer, nil, stat, settings, recorder)
 
 			res, err := syncer.Sync(ctx, vi)
 			Expect(err).ToNot(HaveOccurred())

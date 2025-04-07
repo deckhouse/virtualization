@@ -36,6 +36,7 @@ func CapitalizeFirstLetter(s string) string {
 	return string(runes)
 }
 
+// Deprecated. Use conditions.GetDataVolumeCondition instead.
 func GetDataVolumeCondition(conditionType cdiv1.DataVolumeConditionType, conditions []cdiv1.DataVolumeCondition) *cdiv1.DataVolumeCondition {
 	for i, condition := range conditions {
 		if condition.Type == conditionType {

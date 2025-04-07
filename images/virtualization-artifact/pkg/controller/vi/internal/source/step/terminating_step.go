@@ -20,6 +20,7 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -28,12 +29,13 @@ import (
 )
 
 type TerminatingStep struct {
-	pvc *corev1.PersistentVolumeClaim
+	pvc  *corev1.PersistentVolumeClaim
+	objs []client.Object
 }
 
-func NewTerminatingStep(pvc *corev1.PersistentVolumeClaim) *TerminatingStep {
+func NewTerminatingStep(obj client.Object, objs ...client.Object) *TerminatingStep {
 	return &TerminatingStep{
-		pvc: pvc,
+		objs: append(objs, obj),
 	}
 }
 
@@ -42,9 +44,9 @@ func (s TerminatingStep) Take(ctx context.Context, _ *virtv2.VirtualImage) (*rec
 		return nil, nil
 	}
 
-	if object.IsTerminating(s.pvc) {
+	if object.AnyTerminating(s.objs...) {
 		log, _ := logger.GetDataSourceContext(ctx, "objectref")
-		log.Info("The PVC is terminating during an unfinished import process.")
+		log.Info("Some object is terminating during an unfinished import process.")
 		return &reconcile.Result{Requeue: true}, nil
 	}
 

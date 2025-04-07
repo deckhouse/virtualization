@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -125,6 +126,7 @@ func (s ReadyPersistentVolumeClaimStep) Take(ctx context.Context, vi *virtv2.Vir
 			return nil, errors.New("failed to convert quantity to int64")
 		}
 
+		vi.Status.Format = imageformat.FormatRaw
 		vi.Status.Size = virtv2.ImageStatusSize{
 			Stored:        res.String(),
 			StoredBytes:   strconv.FormatInt(intQ, 10),

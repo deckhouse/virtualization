@@ -51,13 +51,16 @@ type CreatePodStepStat interface {
 	GetCDROM(pod *corev1.Pod) bool
 }
 
+type PodSettingsGetter func(ctx context.Context, vi *virtv2.VirtualImage) (*importer.PodSettings, error)
+
 type CreatePodStep struct {
-	pod          *corev1.Pod
-	dvcrSettings *dvcr.Settings
-	recorder     eventrecord.EventRecorderLogger
-	importer     CreatePodStepImporter
-	stat         CreatePodStepStat
-	cb           *conditions.ConditionBuilder
+	pod            *corev1.Pod
+	dvcrSettings   *dvcr.Settings
+	recorder       eventrecord.EventRecorderLogger
+	importer       CreatePodStepImporter
+	stat           CreatePodStepStat
+	getPodSettings PodSettingsGetter
+	cb             *conditions.ConditionBuilder
 }
 
 func NewCreatePodStep(
@@ -66,15 +69,17 @@ func NewCreatePodStep(
 	recorder eventrecord.EventRecorderLogger,
 	importer CreatePodStepImporter,
 	stat CreatePodStepStat,
+	getPodSettings PodSettingsGetter,
 	cb *conditions.ConditionBuilder,
 ) *CreatePodStep {
 	return &CreatePodStep{
-		pod:          pod,
-		dvcrSettings: dvcrSettings,
-		recorder:     recorder,
-		importer:     importer,
-		stat:         stat,
-		cb:           cb,
+		pod:            pod,
+		dvcrSettings:   dvcrSettings,
+		recorder:       recorder,
+		importer:       importer,
+		stat:           stat,
+		getPodSettings: getPodSettings,
+		cb:             cb,
 	}
 }
 
@@ -83,14 +88,15 @@ func (s CreatePodStep) Take(ctx context.Context, vi *virtv2.VirtualImage) (*reco
 		return nil, nil
 	}
 
-	ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
 	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
-	pvcKey := supgen.PersistentVolumeClaim()
-	podSettings := s.importer.GetPodSettingsWithPVC(ownerRef, supgen, pvcKey.Name, pvcKey.Namespace)
-
 	envSettings := s.getEnvSettings(vi, supgen)
 
-	err := s.importer.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings)
+	podSettings, err := s.getPodSettings(ctx, vi)
+	if err != nil {
+		return nil, fmt.Errorf("get pod settings: %w", err)
+	}
+
+	err = s.importer.StartWithPodSetting(ctx, envSettings, supgen, datasource.NewCABundleForVMI(vi.GetNamespace(), vi.Spec.DataSource), podSettings)
 	switch {
 	case err == nil:
 		// OK.

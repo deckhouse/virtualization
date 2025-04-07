@@ -74,5 +74,7 @@ type Bounder interface {
 }
 
 type Disk interface {
+	step.CreateDataVolumeStepDisk
+	step.WaitForDVStepDisk
 	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 }
