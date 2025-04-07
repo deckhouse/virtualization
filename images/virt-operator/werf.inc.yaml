@@ -6,7 +6,6 @@ import:
   add: /kubevirt-binaries/
   to: /usr/bin
   includePaths:
-  - 'virtctl'
   - csv-generator
   - virt-operator
   before: setup
