@@ -336,6 +336,7 @@ jobs:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: "$MODULES_MODULE_TAG"
+
   pull_request_info:
     name: Get PR info
     runs-on: ubuntu-latest
@@ -354,6 +355,7 @@ jobs:
               issue_number: prNumber
             });
             core.setOutput('labels', JSON.stringify(labels));
+
   set_e2e_requirement_status:
     name: Set 'waiting for e2e' commit status
     needs:
@@ -373,6 +375,7 @@ jobs:
           script: |
             const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
             await e2eStatus.setInitialStatus({github, context, core});
+
   cve_scan_on_pr:
     name: Trivy images check
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
@@ -415,7 +418,7 @@ jobs:
   run_e2e:
     if: ${{ github.event.label.name == 'e2e/run' }}
     name: Run E2E tests
-    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
+    runs-on: ubuntu-latest
     needs:
       - dev_setup_build
       - set_e2e_requirement_status
@@ -471,15 +474,6 @@ jobs:
           echo "Install ginkgo"
           GINKGO_VERSION=$(go list -f '{{.Version}}' -m github.com/onsi/ginkgo/v2)
           go install "github.com/onsi/ginkgo/v2/ginkgo@${GINKGO_VERSION}"
-
-      # - name: Install crane
-      #   run: |
-      #     go install github.com/google/go-containerregistry/cmd/crane@latest
-
-      # - uses: azure/k8s-set-context@v4
-      #   with:
-      #     method: kubeconfig
-      #     kubeconfig: ${{ steps.select_user.outputs.kubeconfig_data }}
 
       - uses: deckhouse/modules-actions/setup@v2
         with:
