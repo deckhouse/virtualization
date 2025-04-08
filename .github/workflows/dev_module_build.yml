@@ -436,8 +436,6 @@ jobs:
             const userId = await ci.getClusterUser({context, core});
             const fs = require('fs');
             const path = require('path');
-            // core.setOutput("user_id", user_id)
-            // core.exportVariable("user_id", user_id);
             const kubeconfigs = JSON.parse(process.env.KUBECONFIGS);
             const kubeconfig = kubeconfigs.find(config => config.id === userId)?.kubeconfig;
             if (!kubeconfig) {
@@ -449,9 +447,6 @@ jobs:
               fs.writeFileSync(kubeconfigFile, kubeconfig);
               fs.chmodSync(kubeconfigFile, '600');
               core.exportVariable('KUBECONFIG', kubeconfigFile)
-
-              // core.setSecret(kubeconfig);
-              // core.setOutput('kubeconfig_data', kubeconfig);
             }
 
       - name: Install Deckhouse-cli

@@ -85,8 +85,6 @@ const getClusterUser = async ({context, core}) => {
     const prAuthorId = context.payload.pull_request.user.id;
     core.info(`PR author: ${prAuthorId}`);
     return prAuthorId.toString();
-    // const authorLabel = [{'name': `e2e/user/${prAuthor}`}];
-    // retry check for PR author's cluster label
   } else if (userLabelsInPR.length > 1) {
     return core.setFailed(`Error: PR has multiple user labels: ${userLabelsInPR.join(', ')}`);
   }
