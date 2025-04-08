@@ -38,7 +38,11 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 
 	testCaseLabel := map[string]string{"testcase": "vm-versions"}
 
-	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel)
+		}
+	})
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {

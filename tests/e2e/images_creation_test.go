@@ -43,7 +43,11 @@ var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators()
 		}
 	})
 
-	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel)
+		}
+	})
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {

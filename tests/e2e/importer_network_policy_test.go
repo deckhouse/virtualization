@@ -42,7 +42,11 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 		}
 	})
 
-	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel)
+		}
+	})
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {

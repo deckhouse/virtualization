@@ -126,7 +126,11 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 		vmName             string
 	)
 
-	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel)
+		}
+	})
 
 	Context("Preparing the environment", func() {
 		vdAttach = fmt.Sprintf("%s-vd-attach-%s", namePrefix, nameSuffix)

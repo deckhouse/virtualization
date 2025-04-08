@@ -654,10 +654,8 @@ func IsContainerRestarted(podName, containerName, namespace string, startedAt v1
 	return false, fmt.Errorf("failed to compare the `startedAt` field before and after the tests ran: %s", podName)
 }
 
-func OnFailureSaveTestResources(labels map[string]string) {
-	if CurrentSpecReport().Failed() {
-		cmdr := kubectl.Get("virtualization -A", kc.GetOptions{Output: "yaml", Labels: labels})
-		err := os.WriteFile("/tmp/e2e_failed__"+labels["testcase"]+".yaml", cmdr.StdOutBytes(), 0644)
-		Expect(err).NotTo(HaveOccurred())
-	}
+func SaveTestResources(labels map[string]string) {
+	cmdr := kubectl.Get("virtualization -A", kc.GetOptions{Output: "yaml", Labels: labels})
+	err := os.WriteFile("/tmp/e2e_failed__"+labels["testcase"]+".yaml", cmdr.StdOutBytes(), 0644)
+	Expect(err).NotTo(HaveOccurred())
 }
