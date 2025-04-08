@@ -82,6 +82,7 @@ spec:
       type: json
     - resourceType: Deployment
       resourceName: virt-controller
+      type: strategic
       patch: >
         spec:
           template:
@@ -93,7 +94,6 @@ spec:
                       value: {{$.Version.qemu}}
                     - name: LIBVIRT_VERSION
                       value: {{$.Version.libvirt}}
-      type: json
     - resourceType: DaemonSet
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
