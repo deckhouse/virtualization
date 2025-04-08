@@ -1,21 +1,21 @@
-*                                                         @fl64 @Isteb4k
-/.github/                                                 @universal-itengineer @nevermarine
+*                                                         @fl64
+/.github/                                                 @universal-itengineer
 
 /crds/                                                    @fl64 @z9r5 @goganat
 /docs/                                                    @fl64 @z9r5 @goganat
 /openapi/                                                 @fl64 @z9r5 @goganat
-/monitoring/                                              @fl64 @Isteb4k
-/tests/                                                   @hardcoretime @danilrwx
+/monitoring/                                              @fl64
+/tests/                                                   @hardcoretime
 
-/images/                                                  @universal-itengineer @nevermarine
-/images/cdi-artifact/                                     @Isteb4k @yaroslavborbat @diafour
-/images/virt-artifact/                                    @Isteb4k @yaroslavborbat @diafour
-/images/dvcr-artifact/                                    @Isteb4k @yaroslavborbat @diafour
-/images/vm-route-forge/                                   @yaroslavborbat @diafour
-/images/kube-api-rewriter/                                @diafour @yaroslavborbat
-/images/virtualization-artifact/                          @Isteb4k @yaroslavborbat
-/images/virtualization-artifact/pkg/controller/vm/        @yaroslavborbat @Isteb4k
-/images/virtualization-artifact/pkg/controller/vmip/      @LopatinDmitr @Isteb4k
-/images/virtualization-artifact/pkg/controller/vmiplease/ @LopatinDmitr @Isteb4k
+/images/                                                  @universal-itengineer
+/images/cdi-artifact/                                     @Isteb4k
+/images/virt-artifact/                                    @yaroslavborbat
+/images/dvcr-artifact/                                    @Isteb4k
+/images/vm-route-forge/                                   @yaroslavborbat
+/images/kube-api-rewriter/                                @diafour
+/images/virtualization-artifact/                          @Isteb4k
+/images/virtualization-artifact/pkg/controller/vm/        @yaroslavborbat
+/images/virtualization-artifact/pkg/controller/vmip/      @LopatinDmitr
+/images/virtualization-artifact/pkg/controller/vmiplease/ @LopatinDmitr
 
-*werf*                                                    @universal-itengineer @nevermarine
+*werf*                                                    @universal-itengineer
