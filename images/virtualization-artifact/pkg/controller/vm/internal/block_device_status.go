@@ -186,11 +186,7 @@ func (h *BlockDeviceHandler) getBlockDeviceRefSize(ctx context.Context, ref virt
 
 func (h *BlockDeviceHandler) getBlockDeviceTarget(volume virtv1.Volume, kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus) (string, bool) {
 	vs, ok := kvvmiVolumeStatusByName[volume.Name]
-	if !ok {
-		return "", false
-	}
-
-	return vs.Target, true
+	return vs.Target, ok
 }
 
 func (h *BlockDeviceHandler) isHotplugged(ctx context.Context, volume virtv1.Volume, kvvmiVolumeStatusByName map[string]virtv1.VolumeStatus, s state.VirtualMachineState) (bool, error) {

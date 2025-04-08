@@ -35,7 +35,7 @@ import (
 type virtualDisksState struct {
 	// Counters for disks in different states
 	counts struct {
-		ready         int // Available for use by the current VM
+		readyToUse    int // Available for use by the current VM
 		creatingImage int // Currently used for image creation
 		onOtherVMs    int // Attached to other virtual machines
 	}
@@ -63,48 +63,45 @@ func (h *BlockDeviceHandler) checkVirtualDisksToBeWFFC(ctx context.Context, s st
 	return false, nil
 }
 
-func (h *BlockDeviceHandler) validateVirtualDisksToBeReadyForUse(ctx context.Context, s state.VirtualMachineState) error {
+func (h *BlockDeviceHandler) handleVirtualDisksReadyForUse(ctx context.Context, s state.VirtualMachineState) (bool, error) {
 	vm := s.VirtualMachine().Changed()
-	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
-		Generation(vm.Generation)
+
 	vds, err := s.VirtualDisksByName(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	diskState := h.getVirtualDisksState(vm, vds)
 
-	ready := len(vds) == diskState.counts.ready
+	ready := len(vds) == diskState.counts.readyToUse
 	if !ready {
 		message := h.getStatusMessage(diskState, vds)
-		h.setConditionNotReady(cb, vm, message)
-		return ErrBlockDeviceNotReadyForUse
+		h.setConditionNotReady(vm, message)
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
-type DiskUsageType string
-
 const (
-	UsageTypeImageCreation DiskUsageType = "for image creation"
-	UsageTypeAnotherVM     DiskUsageType = "by another VM"
+	UsageTypeImageCreation string = "for image creation"
+	UsageTypeAnotherVM     string = "by another VM"
 )
 
 func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, vds map[string]*virtv2.VirtualDisk) string {
 	summaryCount := len(vds)
 
 	if summaryCount == 1 {
-		return h.getSingleDiskMessage(diskState, vds)
+		var diskName string
+		for _, vd := range vds {
+			diskName = vd.Name
+		}
+
+		return h.getSingleDiskMessage(diskState, diskName)
 	}
 	return h.getMultipleDisksMessage(diskState, summaryCount)
 }
 
-func (h *BlockDeviceHandler) getSingleDiskMessage(diskState virtualDisksState, vds map[string]*virtv2.VirtualDisk) string {
-	var diskName string
-	for _, vd := range vds {
-		diskName = vd.Name
-	}
-
+func (h *BlockDeviceHandler) getSingleDiskMessage(diskState virtualDisksState, diskName string) string {
 	switch {
 	case diskState.counts.creatingImage == 1:
 		return h.getDiskUsageMessage(1, 1, diskState.diskNames.imageCreation, UsageTypeImageCreation) + "."
@@ -120,7 +117,7 @@ func (h *BlockDeviceHandler) getMultipleDisksMessage(diskState virtualDisksState
 
 	messages = append(messages, fmt.Sprintf(
 		"Waiting for block devices to be ready to use: %d/%d",
-		diskState.counts.ready, summaryCount))
+		diskState.counts.readyToUse, summaryCount))
 
 	if diskState.counts.creatingImage > 0 {
 		messages = append(messages, h.getDiskUsageMessage(
@@ -141,7 +138,7 @@ func (h *BlockDeviceHandler) getMultipleDisksMessage(diskState virtualDisksState
 	return strings.Join(messages, "; ") + "."
 }
 
-func (h *BlockDeviceHandler) getDiskUsageMessage(count, total int, diskName string, usageType DiskUsageType) string {
+func (h *BlockDeviceHandler) getDiskUsageMessage(count, total int, diskName string, usageType string) string {
 	if count == 1 {
 		return fmt.Sprintf("Virtual disk %q is in use %s", diskName, usageType)
 	}
@@ -149,19 +146,25 @@ func (h *BlockDeviceHandler) getDiskUsageMessage(count, total int, diskName stri
 }
 
 func (h *BlockDeviceHandler) setConditionReady(vm *virtv2.VirtualMachine) {
-	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
-		Generation(vm.Generation)
-	cb.Status(metav1.ConditionTrue).
-		Reason(vmcondition.ReasonBlockDevicesReady).
-		Message("")
-	conditions.SetCondition(cb, &vm.Status.Conditions)
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
+			Generation(vm.Generation).
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonBlockDevicesReady).
+			Message(""),
+		&vm.Status.Conditions,
+	)
 }
 
-func (h *BlockDeviceHandler) setConditionNotReady(cb *conditions.ConditionBuilder, vm *virtv2.VirtualMachine, message string) {
-	cb.Status(metav1.ConditionFalse).
-		Reason(vmcondition.ReasonBlockDevicesNotReady).
-		Message(message)
-	conditions.SetCondition(cb, &vm.Status.Conditions)
+func (h *BlockDeviceHandler) setConditionNotReady(vm *virtv2.VirtualMachine, message string) {
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
+			Generation(vm.Generation).
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonBlockDevicesNotReady).
+			Message(message),
+		&vm.Status.Conditions,
+	)
 }
 
 func (h *BlockDeviceHandler) getVirtualDisksState(vm *virtv2.VirtualMachine, vds map[string]*virtv2.VirtualDisk) virtualDisksState {
@@ -203,7 +206,7 @@ func (h *BlockDeviceHandler) handleAttachedDisk(
 			state.counts.onOtherVMs++
 			state.diskNames.usedByOtherVM = vd.Name
 		} else {
-			state.counts.ready++
+			state.counts.readyToUse++
 		}
 	}
 }
@@ -216,9 +219,8 @@ func (h *BlockDeviceHandler) handleReadyForUseDisk(
 ) {
 	if condition.Status != metav1.ConditionTrue &&
 		vm.Status.Phase == virtv2.MachineStopped &&
-		h.checkVDToUseCurrentVM(vd, vm) &&
-		len(vd.Status.AttachedToVirtualMachines) == 1 {
-		state.counts.ready++
+		h.checkVDToUseCurrentVM(vd, vm) {
+		state.counts.readyToUse++
 	}
 }
 
@@ -226,22 +228,19 @@ func (h *BlockDeviceHandler) checkVDToUseCurrentVM(vd *virtv2.VirtualDisk, vm *v
 	attachedVMs := vd.Status.AttachedToVirtualMachines
 
 	for _, attachedVM := range attachedVMs {
-		if attachedVM.Name == vm.Name && attachedVM.Mounted {
-			return true
+		if attachedVM.Name == vm.Name {
+			return attachedVM.Mounted
 		}
 	}
 
 	return false
 }
 
-func (h *BlockDeviceHandler) validateBlockDevicesToBeReady(ctx context.Context, s state.VirtualMachineState, bdState BlockDevicesState) error {
+func (h *BlockDeviceHandler) handleBlockDevicesReady(ctx context.Context, s state.VirtualMachineState, bdState BlockDevicesState) error {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameBlockDeviceHandler))
 
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
-
-	cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
-		Generation(changed.Generation)
 
 	isWFFC, err := h.checkVirtualDisksToBeWFFC(ctx, s)
 	if err != nil {
@@ -265,18 +264,20 @@ func (h *BlockDeviceHandler) validateBlockDevicesToBeReady(ctx context.Context, 
 		log.Info(msg, "actualReady", readyCount, "expectedReady", len(current.Spec.BlockDeviceRefs))
 		h.recorder.Event(changed, corev1.EventTypeNormal, reason.String(), msg)
 
-		cb.Status(metav1.ConditionFalse).
+		cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
+			Generation(changed.Generation).
+			Status(metav1.ConditionFalse).
 			Message(msg)
 
 		if canStartVM && isWFFC {
 			cb.Reason(vmcondition.ReasonWaitingForProvisioningToPVC)
 			conditions.SetCondition(cb, &changed.Status.Conditions)
-			return ErrBlockDeviceWaitForProvisioning
-		} else {
-			cb.Reason(vmcondition.ReasonBlockDevicesNotReady)
-			conditions.SetCondition(cb, &changed.Status.Conditions)
-			return ErrBlockDeviceNotReady
+			return errBlockDeviceWaitForProvisioning
 		}
+
+		cb.Reason(vmcondition.ReasonBlockDevicesNotReady)
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+		return errBlockDeviceNotReady
 	}
 
 	return nil

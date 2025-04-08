@@ -62,11 +62,8 @@ type BlockDeviceHandler struct {
 }
 
 var (
-	ErrBlockDeviceLimitExceeded       = errors.New("block device limit exceeded")
-	ErrBlockDeviceNotReady            = errors.New("block device not ready")
-	ErrBlockDeviceNotReadyForUse      = errors.New("block device not ready for use")
-	ErrConflictedVirtualDisksDetected = errors.New("conflicted virtual disks detected")
-	ErrBlockDeviceWaitForProvisioning = errors.New("block device wait for provisioning")
+	errBlockDeviceNotReady            = errors.New("block device not ready")
+	errBlockDeviceWaitForProvisioning = errors.New("block device wait for provisioning")
 )
 
 func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -80,11 +77,13 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 
 	_, ok := conditions.GetCondition(vmcondition.TypeBlockDevicesReady, changed.Status.Conditions)
 	if !ok {
-		cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Generation(changed.Generation)
-		conditions.SetCondition(cb, &changed.Status.Conditions)
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
+				Status(metav1.ConditionUnknown).
+				Reason(conditions.ReasonUnknown).
+				Generation(changed.Generation),
+			&changed.Status.Conditions,
+		)
 	}
 
 	bdState := NewBlockDeviceState(s)
@@ -101,11 +100,14 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, fmt.Errorf("unable to add block devices finalizers: %w", err)
 	}
 
-	if err = h.checkBlockDeviceLimit(ctx, changed); err != nil {
-		if errors.Is(err, ErrBlockDeviceLimitExceeded) {
-			return reconcile.Result{}, nil
-		}
+	var shouldStop bool
+	shouldStop, err = h.handleBlockDeviceLimit(ctx, changed)
+	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	if shouldStop {
+		return reconcile.Result{}, nil
 	}
 
 	changed.Status.BlockDeviceRefs, err = h.getBlockDeviceStatusRefs(ctx, s)
@@ -113,43 +115,47 @@ func (h *BlockDeviceHandler) Handle(ctx context.Context, s state.VirtualMachineS
 		return reconcile.Result{}, fmt.Errorf("failed to get block device status refs: %w", err)
 	}
 
-	if err = h.checkBlockDeviceConflicts(ctx, s, log); err != nil {
-		if errors.Is(err, ErrConflictedVirtualDisksDetected) {
-			return reconcile.Result{}, nil
-		}
+	shouldStop, err = h.handleBlockDeviceConflicts(ctx, s, log)
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	beReadyErr := h.validateBlockDevicesToBeReady(ctx, s, bdState)
-	if beReadyErr != nil {
-		if !errors.Is(beReadyErr, ErrBlockDeviceWaitForProvisioning) {
-			if errors.Is(beReadyErr, ErrBlockDeviceNotReady) {
-				return reconcile.Result{}, nil
-			}
-			return reconcile.Result{}, beReadyErr
-		}
+	if shouldStop {
+		return reconcile.Result{}, nil
 	}
 
-	if err = h.validateVirtualDisksToBeReadyForUse(ctx, s); err != nil {
-		if errors.Is(err, ErrBlockDeviceNotReadyForUse) {
-			return reconcile.Result{}, nil
-		}
+	readyErr := h.handleBlockDevicesReady(ctx, s, bdState)
+	switch {
+	case errors.Is(readyErr, errBlockDeviceWaitForProvisioning):
+		// No action needed for ErrBlockDeviceWaitForProvisioning
+	case errors.Is(readyErr, errBlockDeviceNotReady):
+		return reconcile.Result{}, nil
+	case readyErr != nil:
+		return reconcile.Result{}, readyErr
+	}
+
+	shouldStop, err = h.handleVirtualDisksReadyForUse(ctx, s)
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if !errors.Is(beReadyErr, ErrBlockDeviceWaitForProvisioning) {
+	if shouldStop {
+		return reconcile.Result{}, nil
+	}
+
+	if !errors.Is(readyErr, errBlockDeviceWaitForProvisioning) {
 		h.setConditionReady(s.VirtualMachine().Changed())
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (h *BlockDeviceHandler) checkBlockDeviceConflicts(ctx context.Context, s state.VirtualMachineState, log *slog.Logger) error {
+func (h *BlockDeviceHandler) handleBlockDeviceConflicts(ctx context.Context, s state.VirtualMachineState, log *slog.Logger) (bool, error) {
 	changed := s.VirtualMachine().Changed()
 
 	conflictWarning, err := h.getBlockDeviceWarnings(ctx, s)
 	if err != nil {
-		return fmt.Errorf("failed to get hotplugged block devices: %w", err)
+		return false, fmt.Errorf("failed to get hotplugged block devices: %w", err)
 	}
 
 	// Update the BlockDevicesReady condition if there are conflicted virtual disks.
@@ -160,32 +166,33 @@ func (h *BlockDeviceHandler) checkBlockDeviceConflicts(ctx context.Context, s st
 			Message(conflictWarning).
 			Generation(changed.Generation)
 		conditions.SetCondition(cd, &changed.Status.Conditions)
-		return ErrConflictedVirtualDisksDetected
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
-func (h *BlockDeviceHandler) checkBlockDeviceLimit(ctx context.Context, vm *virtv2.VirtualMachine) error {
+func (h *BlockDeviceHandler) handleBlockDeviceLimit(ctx context.Context, vm *virtv2.VirtualMachine) (bool, error) {
 	// Get number of connected block devices.
 	// If it's greater than the limit, then set the condition to false.
 	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVm(ctx, vm)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
-		cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
-			Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonBlockDeviceLimitExceeded).
-			Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, vm.Name)).
-			Generation(vm.Generation)
-
-		conditions.SetCondition(cb, &vm.Status.Conditions)
-		return ErrBlockDeviceLimitExceeded
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
+				Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonBlockDeviceLimitExceeded).
+				Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, vm.Name)).
+				Generation(vm.Generation),
+			&vm.Status.Conditions,
+		)
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
 func (h *BlockDeviceHandler) Name() string {
