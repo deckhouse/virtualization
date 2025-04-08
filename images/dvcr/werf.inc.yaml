@@ -5,16 +5,14 @@ import:
 - image: {{ $.ImageName }}-builder
   add: /container-registry-binary
   to: /usr/bin
-  after: install
+  before: setup
   includePaths:
   - registry
 # Registry configuration is stored in configmap: templates/dvcr/configmap.yaml
 - image: {{ $.ImageName }}-artifact-bins
-  add: /relocate
-  to: /
-  after: install
-  includePaths:
-  - '**/dvcr-cleaner'
+  add: /relocate/usr/local/bin/dvcr-cleaner
+  to: /usr/local/bin/dvcr-cleaner
+  before: setup
 imageSpec:
   config:
     user: 64535
