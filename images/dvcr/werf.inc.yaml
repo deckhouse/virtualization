@@ -13,9 +13,8 @@ import:
   add: /relocate
   to: /
   after: install
-  excludePaths:
-  - '**/dvcr-uploader'
-  - '**/dvcr-importer'
+  includePaths:
+  - '**/dvcr-cleaner'
 imageSpec:
   config:
     user: 64535
