@@ -89,6 +89,13 @@ const (
 	// AppKubernetesComponentLabel is the Kubernetes recommended component label
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
 
+	// AnnVersionsGroup is the internal APIGroup for virtualization-controller.
+	AnnVersionsGroup = "versions." + AnnAPIGroupV
+	// AnnQemuVersion is a pod annotation indicating qemu version.
+	AnnQemuVersion = AnnVersionsGroup + "/qemu-version"
+	// AnnLibvirtVersion is a pod annotation indicating libvirt version.
+	AnnLibvirtVersion = AnnVersionsGroup + "/libvirt-version"
+
 	// AppLabel is the app name label.
 	AppLabel = "app"
 	// CDILabelValue provides a constant  for CDI Pod label values.

@@ -668,6 +668,16 @@ spec:
                         description: Отметка активного пода.
                       name:
                         description: Имя пода.
+                versions:
+                  description: Версии гипервизора.
+                  properties:
+                    libvirt:
+                      description: Версия libvirt.
+                      type: string
+                    qemu:
+                      description: Версия qemu.
+                      type: string
+                  type: object
                 resources:
                   description: Статистика использования ресурсов.
                   properties:

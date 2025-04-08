@@ -6,6 +6,11 @@
 {{- if (.Values.global.enabledModules | has "priority-class") }}
 {{- $priorityClassName = include "priorityClassName" . | quote }}
 {{- end }}
+{{ $_ := set . "Version" dict }}
+{{- $versions_ctx := (.Files.Get "cv/version_map.yml" | fromYaml) }}
+{{- range $k, $v := $versions_ctx.firmware }}
+  {{- $_ := set $.Version $k $v}}
+{{- end }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt
@@ -75,6 +80,20 @@ spec:
       resourceName: virt-controller
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsSystem }}}]'
       type: json
+    - resourceType: Deployment
+      resourceName: virt-controller
+      type: strategic
+      patch: >
+        spec:
+          template:
+            spec:
+              containers:
+                - name: virt-controller
+                  env:
+                    - name: QEMU_VERSION
+                      value: {{$.Version.qemu}}
+                    - name: LIBVIRT_VERSION
+                      value: {{$.Version.libvirt}}
     - resourceType: DaemonSet
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
@@ -116,8 +135,8 @@ spec:
     {{- $kubeRbacProxySettings := dict }}
     {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-controller") 
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-controller")
     ) }}
     - resourceName: virt-controller
       resourceType: Deployment
@@ -125,8 +144,8 @@ spec:
       type: strategic
 
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-api") 
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-api")
     ) }}
     - resourceName: virt-api
       resourceType: Deployment
@@ -134,8 +153,8 @@ spec:
       type: strategic
 
     {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "resource" "daemonsets" "name" "kube-api-rewriter") 
-        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "resource" "daemonsets" "name" "virt-handler") 
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "resource" "daemonsets" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "resource" "daemonsets" "name" "virt-handler")
     ) }}
     - resourceName: virt-handler
       resourceType: DaemonSet
@@ -236,7 +255,7 @@ spec:
       resourceName: virt-handler
       patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
       type: strategic
-    # Patch service for https-metrics 
+    # Patch service for https-metrics
     - resourceType: Service
       resourceName: kubevirt-prometheus-metrics
       patch: '[{"op": "replace", "path": "/spec/ports/0/targetPort", "value": "https-metrics"}]'
