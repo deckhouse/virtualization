@@ -117,10 +117,31 @@ tasks:
       - d8
     cmds:
       - |
-        E2E_PREFIX=head-$(git rev-parse --short HEAD)
-        kubectl get namespaces --no-headers | awk "/$E2E_PREFIX/{print \$1}" | xargs kubectl delete namespaces
-        kubectl get projects --no-headers | awk "/$E2E_PREFIX/{print \$1}" | xargs kubectl delete projects
-        readarray -t CLEANUP_RESOURCES < <(yq .cleanupResources[] default_config.yaml)
-        for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do 
-            kubectl get $RESOURCE --no-headers | awk "/$E2E_PREFIX/{print \$1}" | xargs kubectl delete $RESOURCE 
+        E2E_PREFIX="head-$(git rev-parse --short HEAD)"
+
+        # Delete matching namespaces
+        namespaces=$(kubectl get namespaces --no-headers | awk "/$E2E_PREFIX/ {print \$1}")
+        if [[ -n "$namespaces" ]]; then
+          echo "$namespaces" | xargs -r kubectl delete namespaces
+        else
+          echo "No namespaces found with prefix $E2E_PREFIX"
+        fi
+
+        # Delete matching projects
+        projects=$(kubectl get projects --no-headers | awk "/$E2E_PREFIX/ {print \$1}")
+        if [[ -n "$projects" ]]; then
+          echo "$projects" | xargs -r kubectl delete projects
+        else
+          echo "No projects found with prefix $E2E_PREFIX"
+        fi
+
+        # Load cleanup resources from yaml, and delete resources matching the prefix
+        readarray -t CLEANUP_RESOURCES < <(yq '.cleanupResources[]' default_config.yaml)
+        for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do
+          items=$(kubectl get "$RESOURCE" --no-headers 2>/dev/null | awk "/$E2E_PREFIX/ {print \$1}")
+          if [[ -n "$items" ]]; then
+            echo "$items" | xargs -r kubectl delete "$RESOURCE"
+          else
+            echo "No $RESOURCE found with prefix $E2E_PREFIX"
+          fi
         done
