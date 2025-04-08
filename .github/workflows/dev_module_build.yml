@@ -416,7 +416,7 @@ jobs:
             })
 
   run_e2e:
-    if: ${{ github.event.label.name == 'e2e/run' }}
+    if: ${{ github.event_name == 'pull_request' && github.event.action == 'labeled' && github.event.label.name == 'e2e/run' }}
     name: Run E2E tests
     runs-on: ubuntu-latest
     needs:
