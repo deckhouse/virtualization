@@ -119,6 +119,7 @@ tasks:
       - |
         E2E_PREFIX=head-$(git rev-parse --short HEAD)
         kubectl get namespaces --no-headers | awk "/$E2E_PREFIX/{print \$1}" | xargs kubectl delete namespaces
+        kubectl get projects --no-headers | awk "/$E2E_PREFIX/{print \$1}" | xargs kubectl delete projects
         readarray -t CLEANUP_RESOURCES < <(yq .cleanupResources[] default_config.yaml)
         for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do 
             kubectl get $RESOURCE --no-headers | awk "/$E2E_PREFIX/{print \$1}" | xargs kubectl delete $RESOURCE 
