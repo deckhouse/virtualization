@@ -352,7 +352,7 @@ jobs:
           module_name: ${{ vars.MODULE_NAME }}
           dd_url: ${{vars.DEFECTDOJO_HOST}}
           dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
-          trivy_registry: ${{ vars.PROD_REGISTRY }}
+          trivy_registry: ${{ vars.TRIVY_REGISTRY }}
           trivy_registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           trivy_registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
