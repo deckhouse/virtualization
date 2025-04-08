@@ -77,8 +77,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: resources_from_failed_tests
-          path: |
-            /tmp/e2e_failed__*
+          path: /tmp/e2e_failed__*
+          if-no-files-found: ignore
 
       - name: Send results to Loop
         working-directory: ./tests/e2e/
