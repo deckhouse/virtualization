@@ -1178,7 +1178,7 @@ spec:
                       - name
                     type: object
                   type: array
-                Versions:
+                versions:
                   description: Hypervisor versions.
                   properties:
                     libvirt:

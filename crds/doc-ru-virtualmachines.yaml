@@ -668,7 +668,7 @@ spec:
                         description: Отметка активного пода.
                       name:
                         description: Имя пода.
-                Versions:
+                versions:
                   description: Версии гипервизора.
                   properties:
                     libvirt:
