@@ -25,7 +25,6 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 
-	// . "github.com/deckhouse/virtualization/tests/e2e/helper"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -38,6 +37,8 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 	})
 
 	testCaseLabel := map[string]string{"testcase": "vm-versions"}
+
+	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {

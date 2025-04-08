@@ -69,6 +69,8 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		notAlwaysOnLabel   = map[string]string{"notAlwaysOn": "complex-test"}
 	)
 
+	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
+
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml")

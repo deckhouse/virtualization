@@ -48,7 +48,7 @@ type Kubectl interface {
 	Apply(opts ApplyOptions) *executor.CMDResult
 	Create(filepath string, opts CreateOptions) *executor.CMDResult
 	CreateResource(resource Resource, name string, opts CreateOptions) *executor.CMDResult
-	Get(filepath string, opts GetOptions) *executor.CMDResult
+	Get(resource string, opts GetOptions) *executor.CMDResult
 	GetResource(resource Resource, name string, opts GetOptions) *executor.CMDResult
 	Delete(opts DeleteOptions) *executor.CMDResult
 	List(resource Resource, opts GetOptions) *executor.CMDResult
@@ -197,8 +197,8 @@ func (k KubectlCMD) CreateResource(resource Resource, name string, opts CreateOp
 	return k.ExecContext(ctx, cmd)
 }
 
-func (k KubectlCMD) Get(filepath string, opts GetOptions) *executor.CMDResult {
-	cmd := fmt.Sprintf("%s get -f %s", k.cmd, filepath)
+func (k KubectlCMD) Get(resource string, opts GetOptions) *executor.CMDResult {
+	cmd := fmt.Sprintf("%s get %s", k.cmd, resource)
 	cmd = k.getOptions(cmd, opts)
 	ctx, cancel := context.WithTimeout(context.Background(), MediumTimeout)
 	defer cancel()

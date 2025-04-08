@@ -113,6 +113,8 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 	testCaseLabel := map[string]string{"testcase": "vm-label-annotation"}
 	specialKeyValue := map[string]string{specialKey: specialValue}
 
+	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
+
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmLabelAnnotation, "kustomization.yaml")

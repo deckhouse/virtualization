@@ -143,6 +143,8 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 		testCaseLabel = map[string]string{"testcase": "image-hotplug"}
 	)
 
+	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
+
 	BeforeAll(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImageHotplug, "kustomization.yaml")
 		ns, err := kustomize.GetNamespace(kustomization)

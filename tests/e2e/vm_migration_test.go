@@ -42,6 +42,8 @@ func MigrateVirtualMachines(label map[string]string, templatePath string, virtua
 var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration"}
 
+	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
+
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml")

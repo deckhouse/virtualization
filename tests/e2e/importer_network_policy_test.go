@@ -29,6 +29,8 @@ import (
 )
 
 var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators(), func() {
+	testCaseLabel := map[string]string{"testcase": "importer-network-policy"}
+
 	AfterAll(func() {
 		By("Delete manifests")
 		DeleteTestCaseResources(ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
@@ -40,7 +42,7 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 		}
 	})
 
-	testCaseLabel := map[string]string{"testcase": "importer-network-policy"}
+	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {

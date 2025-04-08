@@ -43,6 +43,8 @@ var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators()
 		}
 	})
 
+	AfterEach(func() { OnFailureSaveTestResources(testCaseLabel) })
+
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImagesCreation, "kustomization.yaml")
