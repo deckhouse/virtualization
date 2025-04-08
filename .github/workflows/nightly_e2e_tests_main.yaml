@@ -17,6 +17,7 @@ name: Nightly E2E tests(main)
 env:
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   GO_VERSION: "1.22.7"
+  TIMEOUT: "2h"
 
 on:
   workflow_dispatch:
