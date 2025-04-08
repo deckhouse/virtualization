@@ -46,6 +46,7 @@ func NewModuleConfigValidator(client client.Client) *validator.Validator[*mcapi.
 
 	cidrs := newCIDRsValidator(client)
 	reduceCIDRs := newRemoveCIDRsValidator(client)
+	viStorageClasses := newViStorageClassValidator(client)
 
 	return validator.NewValidator[*mcapi.ModuleConfig](logger).
 		WithPredicate(&validator.Predicate[*mcapi.ModuleConfig]{
@@ -54,5 +55,5 @@ func NewModuleConfigValidator(client client.Client) *validator.Validator[*mcapi.
 					oldMC.GetGeneration() != newMC.GetGeneration()
 			},
 		}).
-		WithUpdateValidators(cidrs, reduceCIDRs)
+		WithUpdateValidators(cidrs, reduceCIDRs, viStorageClasses)
 }

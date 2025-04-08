@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sync"
 )
 
@@ -45,6 +46,9 @@ var _ DiskService = &DiskServiceMock{}
 //			GetStorageClassFunc: func(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error) {
 //				panic("mock out the GetStorageClass method")
 //			},
+//			GetStorageProfileFunc: func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+//				panic("mock out the GetStorageProfile method")
+//			},
 //		}
 //
 //		// use mockedDiskService in code that requires DiskService
@@ -57,6 +61,9 @@ type DiskServiceMock struct {
 
 	// GetStorageClassFunc mocks the GetStorageClass method.
 	GetStorageClassFunc func(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error)
+
+	// GetStorageProfileFunc mocks the GetStorageProfile method.
+	GetStorageProfileFunc func(ctx context.Context, name string) (*cdiv1.StorageProfile, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -74,9 +81,17 @@ type DiskServiceMock struct {
 			// StorageClassName is the storageClassName argument value.
 			StorageClassName *string
 		}
+		// GetStorageProfile holds details about calls to the GetStorageProfile method.
+		GetStorageProfile []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Name is the name argument value.
+			Name string
+		}
 	}
 	lockGetPersistentVolumeClaim sync.RWMutex
 	lockGetStorageClass          sync.RWMutex
+	lockGetStorageProfile        sync.RWMutex
 }
 
 // GetPersistentVolumeClaim calls GetPersistentVolumeClaimFunc.
@@ -148,6 +163,42 @@ func (mock *DiskServiceMock) GetStorageClassCalls() []struct {
 	mock.lockGetStorageClass.RLock()
 	calls = mock.calls.GetStorageClass
 	mock.lockGetStorageClass.RUnlock()
+	return calls
+}
+
+// GetStorageProfile calls GetStorageProfileFunc.
+func (mock *DiskServiceMock) GetStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+	if mock.GetStorageProfileFunc == nil {
+		panic("DiskServiceMock.GetStorageProfileFunc: method is nil but DiskService.GetStorageProfile was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Name string
+	}{
+		Ctx:  ctx,
+		Name: name,
+	}
+	mock.lockGetStorageProfile.Lock()
+	mock.calls.GetStorageProfile = append(mock.calls.GetStorageProfile, callInfo)
+	mock.lockGetStorageProfile.Unlock()
+	return mock.GetStorageProfileFunc(ctx, name)
+}
+
+// GetStorageProfileCalls gets all the calls that were made to GetStorageProfile.
+// Check the length with:
+//
+//	len(mockedDiskService.GetStorageProfileCalls())
+func (mock *DiskServiceMock) GetStorageProfileCalls() []struct {
+	Ctx  context.Context
+	Name string
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Name string
+	}
+	mock.lockGetStorageProfile.RLock()
+	calls = mock.calls.GetStorageProfile
+	mock.lockGetStorageProfile.RUnlock()
 	return calls
 }
 
