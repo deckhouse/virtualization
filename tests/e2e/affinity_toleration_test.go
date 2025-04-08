@@ -189,6 +189,12 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 		masterNodeLabel                = map[string]string{"node.deckhouse.io/group": "master"}
 	)
 
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel)
+		}
+	})
+
 	Context("When the virtualization resources are applied:", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{

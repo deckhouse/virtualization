@@ -126,6 +126,12 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 		manualLabel    = map[string]string{"vm": "manual-conf"}
 	)
 
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel)
+		}
+	})
+
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml")
