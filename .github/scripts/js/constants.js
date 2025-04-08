@@ -27,7 +27,16 @@ const labels = {
 module.exports.knownLabels = labels;
 const userClusterLables = {
   'e2e/user/nevermarine' : { type: 'e2e-user', id: '72984806'},
-  'e2e/user/Isteb4k' : { type: 'e2e-user', id: '93128416'}
+  'e2e/user/Isteb4k' : { type: 'e2e-user', id: '93128416'},
+  'e2e/user/fl64' : { type: 'e2e-user', id: '2950658'},
+  'e2e/user/hardcoretime' : { type: 'e2e-user', id: '36233932'},
+  'e2e/user/yaroslavborbat' : { type: 'e2e-user', id: '86148689'},
+  'e2e/user/danilrwx' : { type: 'e2e-user', id: '22664775'},
+  'e2e/user/eofff' : { type: 'e2e-user', id: '7936159'},
+  'e2e/user/LopatinDmitr' : { type: 'e2e-user', id: '93423466'},
+  'e2e/user/universal-itengineer' : { type: 'e2e-user', id: '141920865'},
+  'e2e/user/hayer969' : { type: 'e2e-user', id: '74240854'},
+
 };
 module.exports.userClusterLabels = userClusterLables;
 
