@@ -31,6 +31,7 @@ testData:
   vmLabelAnnotation: "/tmp/testdata/vm-label-annotation"
   vmMigration: "/tmp/testdata/vm-migration"
   vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
+  vmVersions: "/tmp/testdata/vm-versions"
   vdSnapshots: "/tmp/testdata/vd-snapshots"
   sshKey: "/tmp/testdata/sshkeys/id_ed"
   sshUser: "cloud"
