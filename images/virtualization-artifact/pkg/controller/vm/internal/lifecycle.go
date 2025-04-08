@@ -261,8 +261,8 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 	}
 
 	if kvvmi != nil && vm.Status.Phase == virtv2.MachineRunning {
-		vm.Status.HypervisorVersions.LibvirtVersion = kvvmi.Annotations[annotations.AnnLibvirtVersion]
-		vm.Status.HypervisorVersions.QemuVersion = kvvmi.Annotations[annotations.AnnQemuVersion]
+		vm.Status.Versions.Libvirt = kvvmi.Annotations[annotations.AnnLibvirtVersion]
+		vm.Status.Versions.Qemu = kvvmi.Annotations[annotations.AnnQemuVersion]
 	}
 
 	if kvvmi != nil {

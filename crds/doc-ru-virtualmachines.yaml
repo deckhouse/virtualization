@@ -668,13 +668,13 @@ spec:
                         description: Отметка активного пода.
                       name:
                         description: Имя пода.
-                hypervisorVersions:
+                Versions:
                   description: Версии гипервизора.
                   properties:
-                    libvirtVersion:
+                    libvirt:
                       description: Версия libvirt.
                       type: string
-                    qemuVersion:
+                    qemu:
                       description: Версия qemu.
                       type: string
                   type: object

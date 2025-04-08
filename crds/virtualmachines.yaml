@@ -1178,13 +1178,13 @@ spec:
                       - name
                     type: object
                   type: array
-                hypervisorVersions:
+                Versions:
                   description: Hypervisor versions.
                   properties:
-                    libvirtVersion:
+                    libvirt:
                       description: Libvirt version.
                       type: string
-                    qemuVersion:
+                    qemu:
                       description: Qemu version.
                       type: string
                   type: object
