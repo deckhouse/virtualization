@@ -26,7 +26,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -34,7 +33,7 @@ import (
 
 type Handler interface {
 	Sync(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error)
-	CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error)
+	CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error)
 	Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error
 }
 
@@ -61,31 +60,31 @@ func (s Sources) Changed(_ context.Context, cvi *virtv2.ClusterVirtualImage) boo
 	return cvi.Generation != cvi.Status.ObservedGeneration
 }
 
-func (s Sources) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
-	var mergedResult reconcile.Result
+func (s Sources) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
+	var requeue bool
 
 	for _, source := range s.sources {
-		result, err := source.CleanUp(ctx, cvi)
+		ok, err := source.CleanUp(ctx, cvi)
 		if err != nil {
-			return reconcile.Result{}, err
+			return false, err
 		}
 
-		mergedResult = reconciler.MergeResults(mergedResult, result)
+		requeue = requeue || ok
 	}
 
-	return mergedResult, nil
+	return requeue, nil
 }
 
 type Cleaner interface {
-	CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error)
+	CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error)
 }
 
-func CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage, c Cleaner) (reconcile.Result, error) {
+func CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage, c Cleaner) (bool, error) {
 	if object.ShouldCleanupSubResources(cvi) {
 		return c.CleanUp(ctx, cvi)
 	}
 
-	return reconcile.Result{}, nil
+	return false, nil
 }
 
 func isDiskProvisioningFinished(c metav1.Condition) bool {
