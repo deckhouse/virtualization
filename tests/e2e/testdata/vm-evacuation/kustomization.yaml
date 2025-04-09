@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: testcases
+namePrefix: pr-number-or-commit-hash-
+resources:
+  - vi
+  - vm
+  - ns.yaml
+configurations:
+  - transformer.yaml
+labels:
+  - includeSelectors: true
+    pairs:
+      id: pr-number-or-commit-hash
+      testcase: vm-evacuation

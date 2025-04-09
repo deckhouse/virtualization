@@ -58,6 +58,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&VirtualMachineRemoveVolume{},
 		&VirtualMachineFreeze{},
 		&VirtualMachineUnfreeze{},
+		&VirtualMachineCancelEvacuation{},
 		&virtv2.VirtualMachine{},
 		&virtv2.VirtualMachineList{},
 	)

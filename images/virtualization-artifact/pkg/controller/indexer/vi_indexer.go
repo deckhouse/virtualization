@@ -17,16 +17,13 @@ limitations under the License.
 package indexer
 
 import (
-	"context"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func IndexVIByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByVDSnapshot, func(object client.Object) []string {
+func IndexVIByVDSnapshot() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualImage{}, IndexFieldVIByVDSnapshot, func(object client.Object) []string {
 		vi, ok := object.(*virtv2.VirtualImage)
 		if !ok || vi == nil {
 			return nil
@@ -41,11 +38,11 @@ func IndexVIByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
 		}
 
 		return []string{vi.Spec.DataSource.ObjectRef.Name}
-	})
+	}
 }
 
-func IndexVIByStorageClass(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByStorageClass, func(object client.Object) []string {
+func IndexVIByStorageClass() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualImage{}, IndexFieldVIByStorageClass, func(object client.Object) []string {
 		vi, ok := object.(*virtv2.VirtualImage)
 		if !ok || vi == nil {
 			return nil
@@ -59,5 +56,5 @@ func IndexVIByStorageClass(ctx context.Context, mgr manager.Manager) error {
 		default:
 			return []string{DefaultStorageClass}
 		}
-	})
+	}
 }

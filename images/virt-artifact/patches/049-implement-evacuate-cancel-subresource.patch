@@ -1,0 +1,597 @@
+diff --git a/api/openapi-spec/swagger.json b/api/openapi-spec/swagger.json
+index d6bb534249..df85d78315 100644
+--- a/api/openapi-spec/swagger.json
++++ b/api/openapi-spec/swagger.json
+@@ -8255,6 +8255,67 @@
+      }
+     ]
+    },
++   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/evacuatecancel": {
++    "put": {
++     "description": "Cancel evacuation Virtual Machine Instance",
++     "consumes": [
++      "*/*"
++     ],
++     "operationId": "v1vmi-evacuatecancel",
++     "parameters": [
++      {
++       "name": "body",
++       "in": "body",
++       "required": true,
++       "schema": {
++        "$ref": "#/definitions/v1.EvacuateCancelOptions"
++       }
++      }
++     ],
++     "responses": {
++      "200": {
++       "description": "OK",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "400": {
++       "description": "Bad Request",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "401": {
++       "description": "Unauthorized"
++      },
++      "404": {
++       "description": "Not Found",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "500": {
++       "description": "Internal Server Error",
++       "schema": {
++        "type": "string"
++       }
++      }
++     }
++    },
++    "parameters": [
++     {
++      "uniqueItems": true,
++      "type": "string",
++      "description": "Name of the resource",
++      "name": "name",
++      "in": "path",
++      "required": true
++     },
++     {
++      "$ref": "#/parameters/namespace-nfszEHZ0"
++     }
++    ]
++   },
+    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachineinstances/{name}/filesystemlist": {
+     "get": {
+      "description": "Get list of active filesystems on guest machine via guest agent",
+@@ -9024,6 +9085,67 @@
+      }
+     ]
+    },
++   "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/evacuatecancel": {
++    "put": {
++     "description": "Cancel evacuation Virtual Machine",
++     "consumes": [
++      "*/*"
++     ],
++     "operationId": "v1vm-evacuatecancel",
++     "parameters": [
++      {
++       "name": "body",
++       "in": "body",
++       "required": true,
++       "schema": {
++        "$ref": "#/definitions/v1.EvacuateCancelOptions"
++       }
++      }
++     ],
++     "responses": {
++      "200": {
++       "description": "OK",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "400": {
++       "description": "Bad Request",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "401": {
++       "description": "Unauthorized"
++      },
++      "404": {
++       "description": "Not Found",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "500": {
++       "description": "Internal Server Error",
++       "schema": {
++        "type": "string"
++       }
++      }
++     }
++    },
++    "parameters": [
++     {
++      "uniqueItems": true,
++      "type": "string",
++      "description": "Name of the resource",
++      "name": "name",
++      "in": "path",
++      "required": true
++     },
++     {
++      "$ref": "#/parameters/namespace-nfszEHZ0"
++     }
++    ]
++   },
+    "/apis/subresources.kubevirt.io/v1/namespaces/{namespace}/virtualmachines/{name}/expand-spec": {
+     "get": {
+      "description": "Get VirtualMachine object with expanded instancetype and preference.",
+@@ -9723,6 +9845,67 @@
+      }
+     ]
+    },
++   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/evacuatecancel": {
++    "put": {
++     "description": "Cancel evacuation Virtual Machine Instance",
++     "consumes": [
++      "*/*"
++     ],
++     "operationId": "v1alpha3vmi-evacuatecancel",
++     "parameters": [
++      {
++       "name": "body",
++       "in": "body",
++       "required": true,
++       "schema": {
++        "$ref": "#/definitions/v1.EvacuateCancelOptions"
++       }
++      }
++     ],
++     "responses": {
++      "200": {
++       "description": "OK",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "400": {
++       "description": "Bad Request",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "401": {
++       "description": "Unauthorized"
++      },
++      "404": {
++       "description": "Not Found",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "500": {
++       "description": "Internal Server Error",
++       "schema": {
++        "type": "string"
++       }
++      }
++     }
++    },
++    "parameters": [
++     {
++      "uniqueItems": true,
++      "type": "string",
++      "description": "Name of the resource",
++      "name": "name",
++      "in": "path",
++      "required": true
++     },
++     {
++      "$ref": "#/parameters/namespace-nfszEHZ0"
++     }
++    ]
++   },
+    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachineinstances/{name}/filesystemlist": {
+     "get": {
+      "description": "Get list of active filesystems on guest machine via guest agent",
+@@ -10492,6 +10675,67 @@
+      }
+     ]
+    },
++   "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/evacuatecancel": {
++    "put": {
++     "description": "Cancel evacuation Virtual Machine",
++     "consumes": [
++      "*/*"
++     ],
++     "operationId": "v1alpha3vm-evacuatecancel",
++     "parameters": [
++      {
++       "name": "body",
++       "in": "body",
++       "required": true,
++       "schema": {
++        "$ref": "#/definitions/v1.EvacuateCancelOptions"
++       }
++      }
++     ],
++     "responses": {
++      "200": {
++       "description": "OK",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "400": {
++       "description": "Bad Request",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "401": {
++       "description": "Unauthorized"
++      },
++      "404": {
++       "description": "Not Found",
++       "schema": {
++        "type": "string"
++       }
++      },
++      "500": {
++       "description": "Internal Server Error",
++       "schema": {
++        "type": "string"
++       }
++      }
++     }
++    },
++    "parameters": [
++     {
++      "uniqueItems": true,
++      "type": "string",
++      "description": "Name of the resource",
++      "name": "name",
++      "in": "path",
++      "required": true
++     },
++     {
++      "$ref": "#/parameters/namespace-nfszEHZ0"
++     }
++    ]
++   },
+    "/apis/subresources.kubevirt.io/v1alpha3/namespaces/{namespace}/virtualmachines/{name}/expand-spec": {
+     "get": {
+      "description": "Get VirtualMachine object with expanded instancetype and preference.",
+@@ -10999,7 +11243,7 @@
+    "/healthz": {
+     "get": {
+      "description": "Health endpoint",
+-     "operationId": "func13",
++     "operationId": "func15",
+      "responses": {
+       "401": {
+        "description": "Unauthorized"
+@@ -13582,6 +13826,29 @@
+      }
+     }
+    },
++   "v1.EvacuateCancelOptions": {
++    "description": "EvacuateCancelOptions may be provided on evacuate cancel request.",
++    "type": "object",
++    "properties": {
++     "apiVersion": {
++      "description": "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
++      "type": "string"
++     },
++     "dryRun": {
++      "description": "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
++      "type": "array",
++      "items": {
++       "type": "string",
++       "default": ""
++      },
++      "x-kubernetes-list-type": "atomic"
++     },
++     "kind": {
++      "description": "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
++      "type": "string"
++     }
++    }
++   },
+    "v1.FeatureAPIC": {
+     "type": "object",
+     "properties": {
+diff --git a/pkg/virt-api/api.go b/pkg/virt-api/api.go
+index 6d9ccd800f..f8e85fbaf2 100644
+--- a/pkg/virt-api/api.go
++++ b/pkg/virt-api/api.go
+@@ -81,11 +81,11 @@ import (
+ 
+ const (
+ 	// Default port that virt-api listens on.
+-	defaultPort = 443
++	defaultPort        = 443
+ 	defaultMetricsPort = 8080
+ 
+ 	// Default address that virt-api listens on.
+-	defaultHost = "0.0.0.0"
++	defaultHost        = "0.0.0.0"
+ 	defaultMetricsHost = defaultHost
+ 
+ 	DefaultConsoleServerPort = 8186
+@@ -581,6 +581,30 @@ func (app *virtAPIApp) composeSubresources() {
+ 			Returns(http.StatusOK, "OK", "").
+ 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+ 
++		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("evacuatecancel")).
++			To(subresourceApp.EvacuateCancelHandler(subresourceApp.FetchVirtualMachineInstanceForVM)).
++			Consumes(mime.MIME_ANY).
++			Reads(v1.EvacuateCancelOptions{}).
++			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
++			Operation(version.Version+"vm-evacuatecancel").
++			Doc("Cancel evacuation Virtual Machine").
++			Returns(http.StatusOK, "OK", "").
++			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
++			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
++			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
++
++		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("evacuatecancel")).
++			To(subresourceApp.EvacuateCancelHandler(subresourceApp.FetchVirtualMachineInstance)).
++			Consumes(mime.MIME_ANY).
++			Reads(v1.EvacuateCancelOptions{}).
++			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
++			Operation(version.Version+"vmi-evacuatecancel").
++			Doc("Cancel evacuation Virtual Machine Instance").
++			Returns(http.StatusOK, "OK", "").
++			Returns(http.StatusNotFound, httpStatusNotFoundMessage, "").
++			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, "").
++			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
++
+ 		// Return empty api resource list.
+ 		// K8s expects to be able to retrieve a resource list for each aggregated
+ 		// app in order to discover what resources it provides. Without returning
+@@ -651,6 +675,10 @@ func (app *virtAPIApp) composeSubresources() {
+ 						Name:       "virtualmachines/expand-spec",
+ 						Namespaced: true,
+ 					},
++					{
++						Name:       "virtualmachines/evacuatecancel",
++						Namespaced: true,
++					},
+ 					{
+ 						Name:       "virtualmachineinstances/guestosinfo",
+ 						Namespaced: true,
+@@ -687,6 +715,10 @@ func (app *virtAPIApp) composeSubresources() {
+ 						Name:       "virtualmachineinstances/sev/injectlaunchsecret",
+ 						Namespaced: true,
+ 					},
++					{
++						Name:       "virtualmachineinstances/evacuatecancel",
++						Namespaced: true,
++					},
+ 				}
+ 
+ 				response.WriteAsJson(list)
+diff --git a/pkg/virt-api/rest/evacuate-cancel.go b/pkg/virt-api/rest/evacuate-cancel.go
+new file mode 100644
+index 0000000000..63c39a0aa3
+--- /dev/null
++++ b/pkg/virt-api/rest/evacuate-cancel.go
+@@ -0,0 +1,64 @@
++package rest
++
++import (
++	"context"
++	"fmt"
++	"io"
++	"net/http"
++
++	"github.com/emicklei/go-restful/v3"
++	"k8s.io/apimachinery/pkg/api/errors"
++	k8smetav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
++	"k8s.io/apimachinery/pkg/types"
++	"k8s.io/apimachinery/pkg/util/yaml"
++	v1 "kubevirt.io/api/core/v1"
++	"kubevirt.io/client-go/log"
++
++	"kubevirt.io/kubevirt/pkg/apimachinery/patch"
++)
++
++func (app *SubresourceAPIApp) EvacuateCancelHandler(fetcher vmiFetcher) restful.RouteFunction {
++	return func(request *restful.Request, response *restful.Response) {
++		name := request.PathParameter("name")
++		namespace := request.PathParameter("namespace")
++
++		vmi, statusErr := fetcher(namespace, name)
++		if statusErr != nil {
++			writeError(statusErr, response)
++			return
++		}
++
++		if vmi.Status.EvacuationNodeName == "" {
++			writeError(errors.NewBadRequest(fmt.Sprintf("vmi %s/%s is not evacuated", namespace, name)), response)
++			return
++		}
++
++		opts := &v1.EvacuateCancelOptions{}
++		if request.Request.Body != nil {
++			defer request.Request.Body.Close()
++			err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
++			switch err {
++			case io.EOF, nil:
++				break
++			default:
++				writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
++				return
++			}
++		}
++
++		patchBytes, err := patch.GenerateTestReplacePatch("/status/evacuationNodeName", vmi.Status.EvacuationNodeName, "")
++		if err != nil {
++			writeError(errors.NewInternalError(err), response)
++			return
++		}
++
++		_, err = app.virtCli.VirtualMachineInstance(namespace).Patch(context.Background(), vmi.GetName(), types.JSONPatchType, patchBytes, k8smetav1.PatchOptions{DryRun: opts.DryRun})
++		if err != nil {
++			log.Log.Object(vmi).V(2).Reason(err).Info("Failed to patching VMI")
++			writeError(errors.NewInternalError(err), response)
++			return
++		}
++
++		response.WriteHeader(http.StatusOK)
++	}
++}
+diff --git a/staging/src/kubevirt.io/api/core/v1/deepcopy_generated.go b/staging/src/kubevirt.io/api/core/v1/deepcopy_generated.go
+index 7372b22a9a..dc7c448650 100644
+--- a/staging/src/kubevirt.io/api/core/v1/deepcopy_generated.go
++++ b/staging/src/kubevirt.io/api/core/v1/deepcopy_generated.go
+@@ -1407,6 +1407,28 @@ func (in *EphemeralVolumeSource) DeepCopy() *EphemeralVolumeSource {
+ 	return out
+ }
+ 
++// DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
++func (in *EvacuateCancelOptions) DeepCopyInto(out *EvacuateCancelOptions) {
++	*out = *in
++	out.TypeMeta = in.TypeMeta
++	if in.DryRun != nil {
++		in, out := &in.DryRun, &out.DryRun
++		*out = make([]string, len(*in))
++		copy(*out, *in)
++	}
++	return
++}
++
++// DeepCopy is an autogenerated deepcopy function, copying the receiver, creating a new EvacuateCancelOptions.
++func (in *EvacuateCancelOptions) DeepCopy() *EvacuateCancelOptions {
++	if in == nil {
++		return nil
++	}
++	out := new(EvacuateCancelOptions)
++	in.DeepCopyInto(out)
++	return out
++}
++
+ // DeepCopyInto is an autogenerated deepcopy function, copying the receiver, writing into out. in must be non-nil.
+ func (in *FeatureAPIC) DeepCopyInto(out *FeatureAPIC) {
+ 	*out = *in
+diff --git a/staging/src/kubevirt.io/api/core/v1/types.go b/staging/src/kubevirt.io/api/core/v1/types.go
+index 403a28610e..fe861ba646 100644
+--- a/staging/src/kubevirt.io/api/core/v1/types.go
++++ b/staging/src/kubevirt.io/api/core/v1/types.go
+@@ -2239,6 +2239,19 @@ type MigrateOptions struct {
+ 	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,1,rep,name=dryRun"`
+ }
+ 
++// EvacuateCancelOptions may be provided on evacuate cancel request.
++type EvacuateCancelOptions struct {
++	metav1.TypeMeta `json:",inline"`
++	// When present, indicates that modifications should not be
++	// persisted. An invalid or unrecognized dryRun directive will
++	// result in an error response and no further processing of the
++	// request. Valid values are:
++	// - All: all dry run stages will be processed
++	// +optional
++	// +listType=atomic
++	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,1,rep,name=dryRun"`
++}
++
+ // VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent
+ //
+ // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+diff --git a/staging/src/kubevirt.io/api/core/v1/types_swagger_generated.go b/staging/src/kubevirt.io/api/core/v1/types_swagger_generated.go
+index 728136ed63..3ef31eae5d 100644
+--- a/staging/src/kubevirt.io/api/core/v1/types_swagger_generated.go
++++ b/staging/src/kubevirt.io/api/core/v1/types_swagger_generated.go
+@@ -613,6 +613,13 @@ func (MigrateOptions) SwaggerDoc() map[string]string {
+ 	}
+ }
+ 
++func (EvacuateCancelOptions) SwaggerDoc() map[string]string {
++	return map[string]string{
++		"":       "EvacuateCancelOptions may be provided on evacuate cancel request.",
++		"dryRun": "When present, indicates that modifications should not be\npersisted. An invalid or unrecognized dryRun directive will\nresult in an error response and no further processing of the\nrequest. Valid values are:\n- All: all dry run stages will be processed\n+optional\n+listType=atomic",
++	}
++}
++
+ func (VirtualMachineInstanceGuestAgentInfo) SwaggerDoc() map[string]string {
+ 	return map[string]string{
+ 		"":                  "VirtualMachineInstanceGuestAgentInfo represents information from the installed guest agent\n\n+k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object",
+diff --git a/staging/src/kubevirt.io/client-go/api/openapi_generated.go b/staging/src/kubevirt.io/client-go/api/openapi_generated.go
+index b982b1620c..2cc9306a85 100644
+--- a/staging/src/kubevirt.io/client-go/api/openapi_generated.go
++++ b/staging/src/kubevirt.io/client-go/api/openapi_generated.go
+@@ -374,6 +374,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
+ 		"kubevirt.io/api/core/v1.EFI":                                                                schema_kubevirtio_api_core_v1_EFI(ref),
+ 		"kubevirt.io/api/core/v1.EmptyDiskSource":                                                    schema_kubevirtio_api_core_v1_EmptyDiskSource(ref),
+ 		"kubevirt.io/api/core/v1.EphemeralVolumeSource":                                              schema_kubevirtio_api_core_v1_EphemeralVolumeSource(ref),
++		"kubevirt.io/api/core/v1.EvacuateCancelOptions":                                              schema_kubevirtio_api_core_v1_EvacuateCancelOptions(ref),
+ 		"kubevirt.io/api/core/v1.FeatureAPIC":                                                        schema_kubevirtio_api_core_v1_FeatureAPIC(ref),
+ 		"kubevirt.io/api/core/v1.FeatureHyperv":                                                      schema_kubevirtio_api_core_v1_FeatureHyperv(ref),
+ 		"kubevirt.io/api/core/v1.FeatureKVM":                                                         schema_kubevirtio_api_core_v1_FeatureKVM(ref),
+@@ -18909,6 +18910,53 @@ func schema_kubevirtio_api_core_v1_EphemeralVolumeSource(ref common.ReferenceCal
+ 	}
+ }
+ 
++func schema_kubevirtio_api_core_v1_EvacuateCancelOptions(ref common.ReferenceCallback) common.OpenAPIDefinition {
++	return common.OpenAPIDefinition{
++		Schema: spec.Schema{
++			SchemaProps: spec.SchemaProps{
++				Description: "EvacuateCancelOptions may be provided on evacuate cancel request.",
++				Type:        []string{"object"},
++				Properties: map[string]spec.Schema{
++					"kind": {
++						SchemaProps: spec.SchemaProps{
++							Description: "Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds",
++							Type:        []string{"string"},
++							Format:      "",
++						},
++					},
++					"apiVersion": {
++						SchemaProps: spec.SchemaProps{
++							Description: "APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources",
++							Type:        []string{"string"},
++							Format:      "",
++						},
++					},
++					"dryRun": {
++						VendorExtensible: spec.VendorExtensible{
++							Extensions: spec.Extensions{
++								"x-kubernetes-list-type": "atomic",
++							},
++						},
++						SchemaProps: spec.SchemaProps{
++							Description: "When present, indicates that modifications should not be persisted. An invalid or unrecognized dryRun directive will result in an error response and no further processing of the request. Valid values are: - All: all dry run stages will be processed",
++							Type:        []string{"array"},
++							Items: &spec.SchemaOrArray{
++								Schema: &spec.Schema{
++									SchemaProps: spec.SchemaProps{
++										Default: "",
++										Type:    []string{"string"},
++										Format:  "",
++									},
++								},
++							},
++						},
++					},
++				},
++			},
++		},
++	}
++}
++
+ func schema_kubevirtio_api_core_v1_FeatureAPIC(ref common.ReferenceCallback) common.OpenAPIDefinition {
+ 	return common.OpenAPIDefinition{
+ 		Schema: spec.Schema{

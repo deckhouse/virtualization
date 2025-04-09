@@ -17,16 +17,13 @@ limitations under the License.
 package indexer
 
 import (
-	"context"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func IndexVDByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByVDSnapshot, func(object client.Object) []string {
+func IndexVDByVDSnapshot() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualDisk{}, IndexFieldVDByVDSnapshot, func(object client.Object) []string {
 		vd, ok := object.(*virtv2.VirtualDisk)
 		if !ok || vd == nil {
 			return nil
@@ -41,11 +38,11 @@ func IndexVDByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
 		}
 
 		return []string{vd.Spec.DataSource.ObjectRef.Name}
-	})
+	}
 }
 
-func IndexVDByStorageClass(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByStorageClass, func(object client.Object) []string {
+func IndexVDByStorageClass() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualDisk{}, IndexFieldVDByStorageClass, func(object client.Object) []string {
 		vd, ok := object.(*virtv2.VirtualDisk)
 		if !ok || vd == nil {
 			return nil
@@ -59,5 +56,5 @@ func IndexVDByStorageClass(ctx context.Context, mgr manager.Manager) error {
 		default:
 			return []string{DefaultStorageClass}
 		}
-	})
+	}
 }
