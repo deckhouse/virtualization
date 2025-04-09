@@ -434,7 +434,16 @@ jobs:
         with:
           script: |
             const ci = require('./.github/scripts/js/ci');
-            const userClusterLabels = JSON.parse(process.env.USER_CLUSTER_LABELS);
+            let userClusterLabels;
+            try {
+              if (!process.env.USER_CLUSTER_LABELS || process.env.USER_CLUSTER_LABELS.trim() === '') {
+                throw new Error('USER_CLUSTER_LABELS is empty or not provided.');
+              }
+              userClusterLabels = JSON.parse(process.env.USER_CLUSTER_LABELS);
+            } catch (error) {
+              core.setFailed(`Failed to parse USER_CLUSTER_LABELS: ${error.message}`);
+              return;
+            }
             const userId = await ci.getClusterUser({context, core, userClusterLabels});
             const fs = require('fs');
             const path = require('path');
