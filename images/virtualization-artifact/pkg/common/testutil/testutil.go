@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -58,6 +59,10 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 
 func NewNoOpLogger() *log.Logger {
 	return log.NewNop()
+}
+
+func NewNoOpSlogLogger() *slog.Logger {
+	return slog.New(log.NewNop().Handler())
 }
 
 func ToContext(ctx context.Context, log *log.Logger) context.Context {

@@ -51,10 +51,10 @@ func (s *OneShotMigrationService) SetLogger(log *slog.Logger) {
 	s.log = log
 }
 
-func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) error {
+func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	if err := s.client.Get(ctx, object.NamespacedName(vm), kvvmi); err != nil {
-		return client.IgnoreNotFound(err)
+		return false, client.IgnoreNotFound(err)
 	}
 
 	desiredValue := kvvmi.GetAnnotations()[annotationKey]
@@ -63,17 +63,17 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 		s.log.Debug("Migration already attempted for this trigger. Skipping...",
 			slog.String("annotationKey", annotationKey),
 			slog.String("annotationValue", annotationExpectedValue))
-		return nil
+		return false, nil
 	}
 
 	workloadUpdateVmops, unmanagedVmops, err := s.listVmopMigrate(ctx, vm.GetName(), vm.GetNamespace())
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if commonvmop.InProgressOrPendingExists(unmanagedVmops) {
 		s.log.Debug("The virtual machine has already been migrated. Skipping...")
-		return nil
+		return false, nil
 	}
 
 	if len(workloadUpdateVmops) > 0 {
@@ -82,15 +82,15 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 		s.log.Info("Create VMOP")
 		vmop := newVMOP(s.prefix, vm.GetNamespace(), vm.GetName())
 		if err = s.client.Create(ctx, vmop); err != nil {
-			return err
+			return false, err
 		}
 	}
 
 	if err = s.setAnnoExpectedValueToKVVMI(ctx, kvvmi, annotationKey, annotationExpectedValue); err != nil {
-		return err
+		return false, err
 	}
 
-	return nil
+	return true, nil
 }
 
 func (s *OneShotMigrationService) listVmopMigrate(ctx context.Context, vmName, vmNamespace string) ([]v1alpha2.VirtualMachineOperation, []v1alpha2.VirtualMachineOperation, error) {

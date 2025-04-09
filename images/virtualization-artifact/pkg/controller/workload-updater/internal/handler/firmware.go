@@ -58,7 +58,12 @@ func (h *FirmwareHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachin
 	log := logger.FromContext(ctx).With(logger.SlogHandler(firmwareHandler))
 	h.oneShotMigration.SetLogger(log)
 
-	return reconcile.Result{}, h.oneShotMigration.OnceMigrate(ctx, vm, annotations.AnnVMOPWorkloadUpdateImage, h.firmwareImage)
+	migrate, err := h.oneShotMigration.OnceMigrate(ctx, vm, annotations.AnnVMOPWorkloadUpdateImage, h.firmwareImage)
+	if migrate {
+		log.Info("The virtual machine was triggered to migrate by the firmware handler.")
+	}
+
+	return reconcile.Result{}, err
 }
 
 func (h *FirmwareHandler) Name() string {

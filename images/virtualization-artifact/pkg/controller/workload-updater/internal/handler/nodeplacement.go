@@ -74,7 +74,12 @@ func (h *NodePlacementHandler) Handle(ctx context.Context, vm *virtv2.VirtualMac
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nodePlacementHandler))
 	h.oneShotMigration.SetLogger(log)
 
-	return reconcile.Result{}, h.oneShotMigration.OnceMigrate(ctx, vm, annotations.AnnVMOPWorkloadUpdateNodePlacementSum, sum)
+	migrate, err := h.oneShotMigration.OnceMigrate(ctx, vm, annotations.AnnVMOPWorkloadUpdateNodePlacementSum, sum)
+	if migrate {
+		log.Info("The virtual machine was triggered to migrate by the nodeplacement handler.")
+	}
+
+	return reconcile.Result{}, err
 }
 
 func (h *NodePlacementHandler) Name() string {
