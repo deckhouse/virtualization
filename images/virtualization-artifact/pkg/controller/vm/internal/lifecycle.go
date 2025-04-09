@@ -48,7 +48,10 @@ var lifeCycleConditions = []vmcondition.Type{
 const nameLifeCycleHandler = "LifeCycleHandler"
 
 func NewLifeCycleHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *LifeCycleHandler {
-	return &LifeCycleHandler{client: client, recorder: recorder}
+	return &LifeCycleHandler{
+		client:   client,
+		recorder: recorder,
+	}
 }
 
 type LifeCycleHandler struct {

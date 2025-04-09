@@ -5183,6 +5183,13 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus"),
 						},
 					},
+					"firmwareVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Firmware version.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"phase", "nodeName", "virtualMachineIPAddressName", "ipAddress"},
 			},

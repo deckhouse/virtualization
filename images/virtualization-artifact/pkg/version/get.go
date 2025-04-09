@@ -14,16 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package builder
+package version
 
-import (
-	"testing"
-
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-)
-
-func TestBuilder(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Builder Suite")
+func GetEdition() string {
+	return edition
 }

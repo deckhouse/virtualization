@@ -39,6 +39,9 @@ const (
 	TypeFilesystemFrozen    Type = "FilesystemFrozen"
 	TypeSizingPolicyMatched Type = "SizingPolicyMatched"
 	TypeSnapshotting        Type = "Snapshotting"
+	// TypeFirmwareUpToDate indicates whether the firmware on the virtual machine is up to date.
+	// This condition is used to determine if a migration or update is required due to changes in the firmware version.
+	TypeFirmwareUpToDate Type = "FirmwareUpToDate"
 )
 
 type Reason string
@@ -104,8 +107,13 @@ const (
 	// ReasonBlockDeviceLimitExceeded indicates that the limit for attaching block devices has been exceeded
 	ReasonBlockDeviceLimitExceeded Reason = "BlockDeviceLimitExceeded"
 
-	ReasonPodTerminatingReason      Reason = "PodTerminating"
-	ReasonPodNotExistsReason        Reason = "PodNotExists"
-	ReasonPodConditionMissingReason Reason = "PodConditionMissing"
-	ReasonGuestNotRunningReason     Reason = "GuestNotRunning"
+	ReasonPodTerminating      Reason = "PodTerminating"
+	ReasonPodNotExists        Reason = "PodNotExists"
+	ReasonPodConditionMissing Reason = "PodConditionMissing"
+	ReasonGuestNotRunning     Reason = "GuestNotRunning"
+
+	// ReasonFirmwareUpToDate indicates that the firmware up to date.
+	ReasonFirmwareUpToDate Reason = "FirmwareUpToDate"
+	// ReasonFirmwareOutOfDate indicates that the firmware out of date.
+	ReasonFirmwareOutOfDate Reason = "FirmwareOutOfDate"
 )

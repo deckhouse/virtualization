@@ -16,7 +16,10 @@ limitations under the License.
 
 package conditions
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+	virtv1 "kubevirt.io/api/core/v1"
+)
 
 func GetPodCondition(condType corev1.PodConditionType, conds []corev1.PodCondition) (corev1.PodCondition, bool) {
 	for _, cond := range conds {
@@ -27,3 +30,16 @@ func GetPodCondition(condType corev1.PodConditionType, conds []corev1.PodConditi
 
 	return corev1.PodCondition{}, false
 }
+
+func GetKVVMICondition(condType virtv1.VirtualMachineInstanceConditionType, conds []virtv1.VirtualMachineInstanceCondition) (virtv1.VirtualMachineInstanceCondition, bool) {
+	for _, cond := range conds {
+		if cond.Type == condType {
+			return cond, true
+		}
+	}
+	return virtv1.VirtualMachineInstanceCondition{}, false
+}
+
+const (
+	VirtualMachineInstanceNodePlacementNotMatched virtv1.VirtualMachineInstanceConditionType = "NodePlacementNotMatched"
+)

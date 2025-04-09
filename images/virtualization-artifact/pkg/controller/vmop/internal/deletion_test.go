@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	"github.com/deckhouse/virtualization-controller/pkg/builder"
+	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -37,11 +37,17 @@ import (
 )
 
 var _ = Describe("DeletionHandler", func() {
+	const (
+		name      = "test"
+		namespace = "default"
+	)
+
 	var (
 		fakeClient client.WithWatch
 		srv        *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
 		s          state.VMOperationState
 	)
+
 	AfterEach(func() {
 		fakeClient = nil
 		srv = nil
@@ -55,6 +61,13 @@ var _ = Describe("DeletionHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 		err = srv.Update(context.Background())
 		Expect(err).NotTo(HaveOccurred())
+	}
+
+	newVmop := func(phase virtv2.VMOPPhase, opts ...vmopbuilder.Option) *virtv2.VirtualMachineOperation {
+		vmop := vmopbuilder.NewEmpty(name, namespace)
+		vmop.Status.Phase = phase
+		vmopbuilder.ApplyOptions(vmop, opts)
+		return vmop
 	}
 
 	DescribeTable("Should be protected", func(vmop *virtv2.VirtualMachineOperation, protect bool) {
@@ -79,64 +92,40 @@ var _ = Describe("DeletionHandler", func() {
 		}
 	},
 		Entry("VMOP Start 1",
-			builder.NewVMOPBuilder("test-vmop-start-1", "test").
-				WithType(virtv2.VMOPTypeStart).
-				WithStatusPhase(virtv2.VMOPPhaseInProgress).
-				Complete(),
+			newVmop(virtv2.VMOPPhaseInProgress, vmopbuilder.WithType(virtv2.VMOPTypeStart)),
 			true,
 		),
 		Entry("VMOP Start 2",
-			builder.NewVMOPBuilder("test-vmop-start-2", "test").
-				WithType(virtv2.VMOPTypeStart).
-				WithStatusPhase(virtv2.VMOPPhasePending).
-				Complete(),
+			newVmop(virtv2.VMOPPhasePending, vmopbuilder.WithType(virtv2.VMOPTypeStart)),
 			false,
 		),
 		Entry("VMOP Stop 1",
-			builder.NewVMOPBuilder("test-vmop-stop-1", "test").
-				WithType(virtv2.VMOPTypeStop).
-				WithStatusPhase(virtv2.VMOPPhaseInProgress).
-				Complete(),
+			newVmop(virtv2.VMOPPhaseInProgress, vmopbuilder.WithType(virtv2.VMOPTypeStop)),
 			true,
 		),
 		Entry("VMOP Stop 2",
-			builder.NewVMOPBuilder("test-vmop-stop-2", "test").
-				WithType(virtv2.VMOPTypeStop).
-				WithStatusPhase(virtv2.VMOPPhaseCompleted).
-				Complete(),
+			newVmop(virtv2.VMOPPhaseCompleted, vmopbuilder.WithType(virtv2.VMOPTypeStop)),
 			false,
 		),
 		Entry("VMOP Restart 1",
-			builder.NewVMOPBuilder("test-vmop-restart-1", "test").
-				WithType(virtv2.VMOPTypeRestart).
-				WithStatusPhase(virtv2.VMOPPhaseInProgress).
-				Complete(),
+			newVmop(virtv2.VMOPPhaseInProgress, vmopbuilder.WithType(virtv2.VMOPTypeRestart)),
 			true,
 		),
 		Entry("VMOP Restart 2",
-			builder.NewVMOPBuilder("test-vmop-restart-2", "test").
-				WithType(virtv2.VMOPTypeRestart).
-				WithStatusPhase(virtv2.VMOPPhaseFailed).
-				Complete(),
+			newVmop(virtv2.VMOPPhaseFailed, vmopbuilder.WithType(virtv2.VMOPTypeRestart)),
 			false,
 		),
 		Entry("VMOP Evict 1",
-			builder.NewVMOPBuilder("test-vmop-evict-1", "test").
-				WithType(virtv2.VMOPTypeEvict).
-				WithStatusPhase(virtv2.VMOPPhaseInProgress).
-				Complete(), true,
+			newVmop(virtv2.VMOPPhaseInProgress, vmopbuilder.WithType(virtv2.VMOPTypeEvict)),
+			true,
 		),
 		Entry("VMOP Evict 2",
-			builder.NewVMOPBuilder("test-vmop-evict-1", "test").
-				WithType(virtv2.VMOPTypeEvict).
-				WithStatusPhase(virtv2.VMOPPhasePending).
-				Complete(), true,
+			newVmop(virtv2.VMOPPhasePending, vmopbuilder.WithType(virtv2.VMOPTypeEvict)),
+			true,
 		),
 		Entry("VMOP Evict 3",
-			builder.NewVMOPBuilder("test-vmop-evict-1", "test").
-				WithType(virtv2.VMOPTypeEvict).
-				WithStatusPhase(virtv2.VMOPPhaseCompleted).
-				Complete(), true,
+			newVmop(virtv2.VMOPPhaseCompleted, vmopbuilder.WithType(virtv2.VMOPTypeEvict)),
+			true,
 		),
 	)
 
@@ -158,18 +147,12 @@ var _ = Describe("DeletionHandler", func() {
 			Expect(len(migs.Items)).To(Equal(expectLength))
 		},
 			Entry("VMOP Evict 1",
-				builder.NewVMOPBuilder("test-vmop-evict-1", "test").
-					WithType(virtv2.VMOPTypeEvict).
-					WithStatusPhase(virtv2.VMOPPhaseInProgress).
-					Complete(),
-				newSimpleMigration("vmop-test-vmop-evict-1", "test", "test-vm"), true,
+				newVmop(virtv2.VMOPPhaseInProgress, vmopbuilder.WithType(virtv2.VMOPTypeEvict), vmopbuilder.WithVirtualMachine("test-vm")),
+				newSimpleMigration("vmop-"+name, namespace, "test-vm"), true,
 			),
 			Entry("VMOP Evict 2",
-				builder.NewVMOPBuilder("test-vmop-evict-2", "test").
-					WithType(virtv2.VMOPTypeEvict).
-					WithStatusPhase(virtv2.VMOPPhaseCompleted).
-					Complete(),
-				newSimpleMigration("vmop-test-vmop-evict-2", "test", "test-vm"), false,
+				newVmop(virtv2.VMOPPhaseCompleted, vmopbuilder.WithType(virtv2.VMOPTypeEvict), vmopbuilder.WithVirtualMachine("test-vm")),
+				newSimpleMigration("vmop-"+name, namespace, "test-vm"), false,
 			),
 		)
 	})

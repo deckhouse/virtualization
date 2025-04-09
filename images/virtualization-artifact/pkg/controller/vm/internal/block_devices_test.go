@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -42,11 +41,6 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
-
-func TestBlockDeviceHandler(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "BlockDeviceHandler Suite")
-}
 
 var _ = Describe("Test BlockDeviceReady condition", func() {
 	var (

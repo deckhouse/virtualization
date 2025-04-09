@@ -115,11 +115,11 @@ func TestRestartVM(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NotEmpty(t, newKVVM.Status.StateChangeRequests)
-			require.Equal(t, len(newKVVM.Status.StateChangeRequests), 2)
-			require.Equal(t, newKVVM.Status.StateChangeRequests[0].Action, virtv1.StopRequest)
+			require.Len(t, newKVVM.Status.StateChangeRequests, 2)
+			require.Equal(t, virtv1.StopRequest, newKVVM.Status.StateChangeRequests[0].Action)
 			require.NotNil(t, newKVVM.Status.StateChangeRequests[0].UID)
-			require.Equal(t, *newKVVM.Status.StateChangeRequests[0].UID, uid)
-			require.Equal(t, newKVVM.Status.StateChangeRequests[1].Action, virtv1.StartRequest)
+			require.Equal(t, uid, *newKVVM.Status.StateChangeRequests[0].UID)
+			require.Equal(t, virtv1.StartRequest, newKVVM.Status.StateChangeRequests[1].Action)
 
 			pod := &corev1.Pod{}
 			err = c.Get(context.Background(), key, pod)
