@@ -51,6 +51,242 @@ var _ = Describe("InUseHandler", func() {
 		ctx = context.TODO()
 	})
 
+	Context("when handling VirtualDisk usage", func() {
+		It("should correctly update status for a disk used by a running VM", func() {
+			vd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vd",
+					Namespace: "default",
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Conditions: []metav1.Condition{},
+					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						{
+							Name:    "test-vm",
+							Mounted: false,
+						},
+						{
+							Name:    "test-vm2",
+							Mounted: true,
+						},
+						{
+							Name:    "test-vm3",
+							Mounted: false,
+						},
+					},
+				},
+			}
+
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: "default",
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+			}
+
+			vm2 := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm2",
+					Namespace: "default",
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachineRunning,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+			}
+
+			vm3 := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm3",
+					Namespace: "default",
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachinePending,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+			}
+
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vm, vm2, vm3).Build()
+			handler = &InUseHandler{client: k8sClient}
+
+			result, err := handler.Handle(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
+
+			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionTrue))
+			Expect(cond.Reason).To(Equal(vdcondition.AttachedToVirtualMachine.String()))
+
+			Expect(len(vd.Status.AttachedToVirtualMachines)).To(Equal(3))
+
+			found := false
+			for _, attachedVM := range vd.Status.AttachedToVirtualMachines {
+				if attachedVM.Name == "test-vm2" && attachedVM.Mounted {
+					found = true
+					break
+				}
+			}
+			Expect(found).To(BeTrue(), "Expected to find 'test-vm' with Mounted true in AttachedToVirtualMachines")
+		})
+
+		It("should correctly update status for a disk used by a stopped VM", func() {
+			vd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vd",
+					Namespace: "default",
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Conditions: []metav1.Condition{},
+					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						{
+							Name:    "test-vm",
+							Mounted: true,
+						},
+					},
+				},
+			}
+
+			vm := &virtv2.VirtualMachine{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm",
+					Namespace: "default",
+				},
+				Spec: virtv2.VirtualMachineSpec{
+					BlockDeviceRefs: []virtv2.BlockDeviceSpecRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachineStopped,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.DiskDevice,
+							Name: "test-vd",
+						},
+					},
+				},
+			}
+
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd, vm).Build()
+			handler = &InUseHandler{client: k8sClient}
+
+			result, err := handler.Handle(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
+
+			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vdcondition.NotInUse.String()))
+
+			Expect(len(vd.Status.AttachedToVirtualMachines)).To(Equal(1))
+			Expect(vd.Status.AttachedToVirtualMachines[0].Name).To(Equal("test-vm"))
+			Expect(vd.Status.AttachedToVirtualMachines[0].Mounted).To(BeFalse())
+		})
+
+		It("should update the status to NotInUse if no VM uses the disk", func() {
+			vd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vd",
+					Namespace: "default",
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Conditions: []metav1.Condition{},
+				},
+			}
+
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
+			handler = &InUseHandler{client: k8sClient}
+
+			result, err := handler.Handle(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
+
+			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vdcondition.NotInUse.String()))
+
+			Expect(len(vd.Status.AttachedToVirtualMachines)).To(Equal(0))
+		})
+
+		It("should handle VM disappearance and update status accordingly", func() {
+			vd := &virtv2.VirtualDisk{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vd",
+					Namespace: "default",
+				},
+				Status: virtv2.VirtualDiskStatus{
+					Conditions: []metav1.Condition{},
+					AttachedToVirtualMachines: []virtv2.AttachedVirtualMachine{
+						{Name: "missing-vm", Mounted: true},
+					},
+				},
+			}
+
+			k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vd).Build()
+			handler = &InUseHandler{client: k8sClient}
+
+			result, err := handler.Handle(ctx, vd)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(result).To(Equal(ctrl.Result{}))
+
+			cond, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+			Expect(cond).ToNot(BeNil())
+			Expect(cond.Status).To(Equal(metav1.ConditionFalse))
+			Expect(cond.Reason).To(Equal(vdcondition.NotInUse.String()))
+
+			Expect(len(vd.Status.AttachedToVirtualMachines)).To(Equal(0))
+		})
+	})
+
 	Context("when VirtualDisk is not in use", func() {
 		It("must set status Unknown and reason Unknown", func() {
 			vd := &virtv2.VirtualDisk{
@@ -215,6 +451,7 @@ var _ = Describe("InUseHandler", func() {
 					Namespace: "default",
 				},
 				Status: virtv2.VirtualDiskStatus{
+					Phase:      virtv2.DiskReady,
 					Conditions: []metav1.Condition{},
 				},
 			}
@@ -261,6 +498,7 @@ var _ = Describe("InUseHandler", func() {
 					Namespace: "default",
 				},
 				Status: virtv2.VirtualDiskStatus{
+					Phase:      virtv2.DiskReady,
 					Conditions: []metav1.Condition{},
 				},
 			}
@@ -421,6 +659,7 @@ var _ = Describe("InUseHandler", func() {
 					Namespace: "default",
 				},
 				Status: virtv2.VirtualDiskStatus{
+					Phase: virtv2.DiskReady,
 					Conditions: []metav1.Condition{
 						{
 							Type:   vdcondition.InUseType.String(),
