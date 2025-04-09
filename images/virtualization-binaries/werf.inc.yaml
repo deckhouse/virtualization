@@ -68,4 +68,5 @@ shell:
   setup:
     - |
       /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
+      mkdir -p /relocate/usr/include/swtpm
       cp -an /usr/include/swtpm /relocate/usr/include/swtpm
