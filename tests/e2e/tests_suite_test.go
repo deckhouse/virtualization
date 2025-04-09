@@ -68,7 +68,7 @@ var (
 	namePrefix                   string
 	defaultStorageClass          *storagev1.StorageClass
 	phaseByVolumeBindingMode     string
-	logStreamByV12nControllerPod map[string]*el.LogStream
+	logStreamByV12nControllerPod = make(map[string]*el.LogStream, 0)
 )
 
 func init() {
@@ -154,20 +154,20 @@ func TestTests(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	pods := &corev1.PodList{}
-	err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{
-		Labels:    map[string]string{"app": VirtualizationController},
-		Namespace: VirtualizationNamespace,
-	})
-	Expect(err).NotTo(HaveOccurred(), "failed to obtain the `Virtualization-controller` pods")
-	Expect(pods.Items).ShouldNot(BeEmpty())
-
-	logStreamByV12nControllerPod = make(map[string]*el.LogStream, len(pods.Items))
 	StartV12nControllerLogStream(logStreamByV12nControllerPod)
 })
 
 var _ = AfterSuite(func() {
-	StopV12nControllerLogStream(logStreamByV12nControllerPod)
+	errs := make([]error, 0)
+	checkErrs := CheckV12nControllerRestarts(logStreamByV12nControllerPod)
+	if len(checkErrs) != 0 {
+		errs = append(errs, checkErrs...)
+	}
+	stopErrs := StopV12nControllerLogStream(logStreamByV12nControllerPod)
+	if len(stopErrs) != 0 {
+		errs = append(errs, stopErrs...)
+	}
+	Expect(errs).Should(BeEmpty())
 })
 
 func Cleanup() []error {
@@ -287,7 +287,9 @@ func StartV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) {
 	}
 }
 
-func StopV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) {
+func StopV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) []error {
+	mu := &sync.Mutex{}
+	errs := make([]error, 0)
 	for _, logStream := range logStreamByPod {
 		logStream.Cancel()
 		logStream.LogStreamWaitGroup.Add(1)
@@ -295,14 +297,25 @@ func StopV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) {
 			defer GinkgoRecover()
 			defer logStream.LogStreamWaitGroup.Done()
 			warn, err := logStream.WaitCmd()
-			Expect(err).NotTo(HaveOccurred())
+			mu.Lock()
+			if err != nil {
+				errs = append(errs, err)
+			}
 			if warn != "" {
 				_, err := GinkgoWriter.Write([]byte(warn))
-				Expect(err).NotTo(HaveOccurred())
+				if err != nil {
+					errs = append(errs, err)
+				}
 			}
+			mu.Unlock()
 		}()
 		logStream.LogStreamWaitGroup.Wait()
 	}
+	return errs
+}
+
+func CheckV12nControllerRestarts(logStreamByPod map[string]*el.LogStream) []error {
+	errs := make([]error, 0)
 	for pod, logStream := range logStreamByPod {
 		isRestarted, err := IsContainerRestarted(
 			pod,
@@ -310,11 +323,12 @@ func StopV12nControllerLogStream(logStreamByPod map[string]*el.LogStream) {
 			VirtualizationNamespace,
 			logStream.ContainerStartedAt,
 		)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(isRestarted).ShouldNot(BeTrue(),
-			"the container %q was restarted: %s",
-			VirtualizationController,
-			pod,
-		)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		if isRestarted {
+			errs = append(errs, fmt.Errorf("the container %q was restarted: %s", VirtualizationController, pod))
+		}
 	}
+	return errs
 }
