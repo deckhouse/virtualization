@@ -20,13 +20,21 @@ import (
 	"context"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . BlankDataSourceDiskService ObjectRefVirtualDiskSnapshotDiskService
+//go:generate moq -rm -out mock.go . Handler BlankDataSourceDiskService ObjectRefVirtualDiskSnapshotDiskService
+
+type Handler interface {
+	Name() string
+	Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
+	CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
+	Validate(ctx context.Context, vd *virtv2.VirtualDisk) error
+}
 
 type BlankDataSourceDiskService interface {
 	step.VolumeAndAccessModesGetter

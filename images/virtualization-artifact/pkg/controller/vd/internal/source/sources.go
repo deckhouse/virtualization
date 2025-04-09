@@ -40,15 +40,6 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-//go:generate moq -rm -out mock.go . Handler
-
-type Handler interface {
-	Name() string
-	Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error)
-	CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error)
-	Validate(ctx context.Context, vd *virtv2.VirtualDisk) error
-}
-
 type Sources struct {
 	sources map[virtv2.DataSourceType]Handler
 }
