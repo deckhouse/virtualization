@@ -150,8 +150,14 @@ binaries:
   - /usr/bin/openssl
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
-  # Swtpm
-  - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
+  # Ethtool
+  - /usr/sbin/ethlist /usr/sbin/ethtool /usr/sbin/iptables /usr/sbin/ip /usr/sbin/bridge /usr/sbin/nft
+  # Procps utils
+  - /usr/sbin/sysctl
+  # Passt (User-mode networking daemons for virtual machines and namespaces)
+  - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
+  # # Swtpm
+  # - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
   # Dmidecode
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
@@ -240,6 +246,10 @@ import:
   includePaths:
   - node-labeller
   - vlctl
+- image: swtpm
+  add: /out
+  to: /relocate
+  after: setup
 - image: {{ $.ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin
