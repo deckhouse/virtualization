@@ -100,6 +100,5 @@ func run(c *cobra.Command, opts Options) error {
 		log.Fatal("failed to create server", log.Err(err))
 	}
 
-	// TODO: add TLS support
 	return srv.Run(c.Context(), server.WithTLS(opts.Certfile, opts.Keyfile))
 }
