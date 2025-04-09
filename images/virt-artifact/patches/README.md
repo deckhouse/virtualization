@@ -313,3 +313,7 @@ This patch modifies init container by removing sh and bash util and replcae comm
 - HotplugAttachmentPod change command from `"/bin/sh", "-c", "/usr/bin/container-disk --copy-path /path/hp"` to `"/usr/bin/container-disk", "--copy-path", "/path/hp"`
 
 Also fixed vmi_test.go, replce `Equal("/bin/bash -c echo bound PVCs")` to `Equal("temp_pod")`,
+
+#### `045-node-labeller-rereplace-sysctl-readfile.patch`
+
+This patch modifies function `isNodeRealtimeCapable` in `node_labeller.go`, replacing linux util `sysctl` to `os.ReadFile("/proc/sys/kernel/sched_rt_runtime_us")`
