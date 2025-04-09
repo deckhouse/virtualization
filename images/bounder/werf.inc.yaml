@@ -20,11 +20,12 @@ git:
       install:
         - '*.c'
 shell:
-  install:
+  beforeInstall:
   - |
     apt-get update && apt-get install --yes gcc musl-dev musl-tools
     apt-get clean
-    
+  install:
+  - |    
     echo "Building simple app that prints hello cdi"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/hello_bounder hello_bounder.c
