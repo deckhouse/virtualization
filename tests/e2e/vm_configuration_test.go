@@ -128,7 +128,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel)
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
 	})
 

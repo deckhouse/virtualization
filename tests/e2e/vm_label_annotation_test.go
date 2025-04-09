@@ -115,7 +115,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel)
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
 	})
 

@@ -145,7 +145,7 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel)
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
 	})
 

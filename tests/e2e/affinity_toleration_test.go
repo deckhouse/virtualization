@@ -191,7 +191,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel)
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
 	})
 
