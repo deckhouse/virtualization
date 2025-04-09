@@ -14,18 +14,20 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
+# libtpms libtpms-devel requares 0.10 ver which in sisyphus repo
 - expect socat twisted-core-tools gcc
 - git pkg-config trousers
 - automake autoconf make gcc
 - openssl cryptote
 - net-tools softhsm
 - tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
-- libtpms libtool
+- libtool
 - glib2-devel libgnutls-openssl-devel libssl-devel
 - libgnutls30 libfuse-devel libgnutls-devel gnutls-utils
 - libtasn1 libtasn1-devel libjson-glib-devel
 - libseccomp-devel libseccomp
-- libgmp-devel libtpms-devel
+- libgmp-devel
+- perl-podlators
 binaries:
 - /usr/bin/swtpm_bios
 - /usr/bin/swtpm_ioctl
@@ -54,6 +56,15 @@ shell:
       apt-get update && apt-get install -y \
         {{ $builderDependencies.packages | join " " }}
       
+      cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF 
+      rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic
+      rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic
+      EOF
+      apt-get update
+      apt-get install -y libtpms-devel
+      rm -f /etc/apt/sources.list.d/alt-sisyphus.list
+
+      apt-get update
       apt-get clean
       rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
@@ -61,7 +72,7 @@ shell:
     - |
       git clone --depth=1 --branch v{{ $version }} {{ $.SOURCE_REPO }}/stefanberger/swtpm.git /swtpm
       cd /swtpm
-      ./autogen.sh --with-openssl --prefix=/usr
+      ./autogen.sh --with-openssl --prefix=/usr --libdir=/usr/lib64
       make -j$(nproc)
       make install
 
@@ -69,4 +80,4 @@ shell:
     - |
       /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
       mkdir -p /relocate/usr/include/swtpm
-      cp -an /usr/include/swtpm /relocate/usr/include/swtpm
+      cp -an /usr/include/swtpm/. /relocate/usr/include/swtpm
