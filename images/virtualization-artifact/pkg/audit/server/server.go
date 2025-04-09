@@ -19,6 +19,7 @@ package server
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
 	"log/slog"
 	"net"
 	"time"
@@ -26,7 +27,6 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 )
 
-// "k8s.io/apiserver/pkg/apis/audit"
 type Server interface {
 	Run(ctx context.Context, opts ...Option) error
 }
@@ -46,10 +46,30 @@ type tcpServer struct {
 }
 
 func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
-	listener, err := net.Listen("tcp", s.addr)
-	if err != nil {
-		return err
+	o := options{}
+	for _, opt := range opts {
+		opt.Apply(&o)
 	}
+
+	var listener net.Listener
+	var err error
+	if o.TLS != nil {
+		cert, err := tls.LoadX509KeyPair(o.TLS.CertFile, o.TLS.KeyFile)
+		if err != nil {
+			return err
+		}
+
+		listener, err = tls.Listen("tcp", s.addr, &tls.Config{Certificates: []tls.Certificate{cert}})
+		if err != nil {
+			return err
+		}
+	} else {
+		listener, err = net.Listen("tcp", s.addr)
+		if err != nil {
+			return err
+		}
+	}
+
 	defer listener.Close()
 
 	// Accept connections in a loop that respects context cancellation

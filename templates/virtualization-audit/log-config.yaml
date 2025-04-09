@@ -65,10 +65,13 @@ spec:
     whenFull: Block
   socket:
     address: virtualization-audit.d8-virtualization.svc.cluster.local:443
+    mode: TCP
     encoding:
       codec: JSON
     tcp:
-      verifyCertificate: false
-      verifyHostname: false
-    mode: TCP
+      tls:
+        caFile: {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
+        clientCrt:
+          crtFile: {{ .Values.virtualization.internal.audit.cert.crt | b64enc }}
+          keyFile: {{ .Values.virtualization.internal.audit.cert.key | b64enc }}
   type: Socket
