@@ -302,6 +302,7 @@ This patch depends on the [002-auth-pid-restriction.patch](../../libvirt/patches
 #### `043-disable-workload-updater.patch`
 This patch disables controller workload-updater in kubevirt.
 We have our implementation in virtualization-controller.
+
 #### `043-virt-launcher-image-holder-command-sleep.patch`
 
 This patch modifies virt-launcher-image-holder command from `sh -c "sleep infinity"` to `sleep infinity`. 
