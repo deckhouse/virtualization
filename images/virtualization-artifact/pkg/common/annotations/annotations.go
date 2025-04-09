@@ -80,6 +80,8 @@ const (
 	AnnVMOPWorkloadUpdate                 = AnnAPIGroupV + "/workload-update"
 	AnnVMOPWorkloadUpdateImage            = AnnAPIGroupV + "/workload-update-image"
 	AnnVMOPWorkloadUpdateNodePlacementSum = AnnAPIGroupV + "/workload-update-node-placement-sum"
+	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
+	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
 

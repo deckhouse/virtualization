@@ -40,17 +40,18 @@ import (
 )
 
 type VirtualMachineStorage struct {
-	groupResource schema.GroupResource
-	vmLister      virtlisters.VirtualMachineLister
-	console       *vmrest.ConsoleREST
-	vnc           *vmrest.VNCREST
-	portforward   *vmrest.PortForwardREST
-	addVolume     *vmrest.AddVolumeREST
-	removeVolume  *vmrest.RemoveVolumeREST
-	freeze        *vmrest.FreezeREST
-	unfreeze      *vmrest.UnfreezeREST
-	convertor     rest.TableConvertor
-	vmClient      versionedv1alpha2.VirtualMachinesGetter
+	groupResource    schema.GroupResource
+	vmLister         virtlisters.VirtualMachineLister
+	console          *vmrest.ConsoleREST
+	vnc              *vmrest.VNCREST
+	portforward      *vmrest.PortForwardREST
+	addVolume        *vmrest.AddVolumeREST
+	removeVolume     *vmrest.RemoveVolumeREST
+	freeze           *vmrest.FreezeREST
+	unfreeze         *vmrest.UnfreezeREST
+	cancelEvacuation *vmrest.CancelEvacuationREST
+	convertor        rest.TableConvertor
+	vmClient         versionedv1alpha2.VirtualMachinesGetter
 }
 
 var (
@@ -88,17 +89,18 @@ func NewStorage(
 		}
 	}
 	return &VirtualMachineStorage{
-		groupResource: groupResource,
-		vmLister:      vmLister,
-		console:       vmrest.NewConsoleREST(vmLister, kubevirt, proxyCertManager),
-		vnc:           vmrest.NewVNCREST(vmLister, kubevirt, proxyCertManager),
-		portforward:   vmrest.NewPortForwardREST(vmLister, kubevirt, proxyCertManager),
-		addVolume:     vmrest.NewAddVolumeREST(vmLister, kubevirt, proxyCertManager),
-		removeVolume:  vmrest.NewRemoveVolumeREST(vmLister, kubevirt, proxyCertManager),
-		freeze:        vmrest.NewFreezeREST(vmLister, kubevirt, proxyCertManager),
-		unfreeze:      vmrest.NewUnfreezeREST(vmLister, kubevirt, proxyCertManager),
-		convertor:     convertor,
-		vmClient:      vmClient,
+		groupResource:    groupResource,
+		vmLister:         vmLister,
+		console:          vmrest.NewConsoleREST(vmLister, kubevirt, proxyCertManager),
+		vnc:              vmrest.NewVNCREST(vmLister, kubevirt, proxyCertManager),
+		portforward:      vmrest.NewPortForwardREST(vmLister, kubevirt, proxyCertManager),
+		addVolume:        vmrest.NewAddVolumeREST(vmLister, kubevirt, proxyCertManager),
+		removeVolume:     vmrest.NewRemoveVolumeREST(vmLister, kubevirt, proxyCertManager),
+		freeze:           vmrest.NewFreezeREST(vmLister, kubevirt, proxyCertManager),
+		unfreeze:         vmrest.NewUnfreezeREST(vmLister, kubevirt, proxyCertManager),
+		cancelEvacuation: vmrest.NewCancelEvacuationREST(vmLister, kubevirt, proxyCertManager),
+		convertor:        convertor,
+		vmClient:         vmClient,
 	}
 }
 
@@ -128,6 +130,10 @@ func (store VirtualMachineStorage) FreezeREST() *vmrest.FreezeREST {
 
 func (store VirtualMachineStorage) UnfreezeREST() *vmrest.UnfreezeREST {
 	return store.unfreeze
+}
+
+func (store VirtualMachineStorage) CancelEvacuationREST() *vmrest.CancelEvacuationREST {
+	return store.cancelEvacuation
 }
 
 // New implements rest.Storage interface

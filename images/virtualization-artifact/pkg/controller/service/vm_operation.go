@@ -19,8 +19,10 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
@@ -28,21 +30,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type VMOperationService struct {
-	client client.Client
+	client     client.Client
+	virtClient kubeclient.Client
 }
 
-func NewVMOperationService(client client.Client) VMOperationService {
+func NewVMOperationService(client client.Client, virtClient kubeclient.Client) VMOperationService {
 	return VMOperationService{
-		client: client,
+		client:     client,
+		virtClient: virtClient,
 	}
 }
 
@@ -74,6 +80,12 @@ func (s VMOperationService) Cancel(ctx context.Context, vmop *virtv2.VirtualMach
 	case virtv2.VMOPTypeStart, virtv2.VMOPTypeStop, virtv2.VMOPTypeRestart:
 		return fmt.Errorf("unsupported operation type %q", vmop.Spec.Type)
 	case virtv2.VMOPTypeEvict, virtv2.VMOPTypeMigrate:
+		if _, isEvacuate := vmop.GetAnnotations()[annotations.AnnVMOPEvacuation]; isEvacuate {
+			err := s.virtClient.VirtualMachines(vmop.GetNamespace()).CancelEvacuation(ctx, vmop.Spec.VirtualMachine, nil)
+			if err != nil && !strings.Contains(err.Error(), "not evacuated") && !k8serrors.IsNotFound(err) {
+				return err
+			}
+		}
 		return s.deleteMigration(ctx, vmop)
 	default:
 		return fmt.Errorf("unexpected operation type %q: %w", vmop.Spec.Type, common.ErrUnknownValue)

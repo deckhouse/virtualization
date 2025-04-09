@@ -55,7 +55,8 @@ var _ = Describe("DeletionHandler", func() {
 	})
 
 	reconcile := func() {
-		vmopSrv := service.NewVMOperationService(fakeClient)
+		// TODO: Make virtClient mock
+		vmopSrv := service.NewVMOperationService(fakeClient, nil)
 		h := NewDeletionHandler(vmopSrv)
 		_, err := h.Handle(testutil.ContextBackgroundWithNoOpLogger(), s)
 		Expect(err).NotTo(HaveOccurred())
