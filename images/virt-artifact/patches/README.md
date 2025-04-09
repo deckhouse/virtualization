@@ -302,3 +302,7 @@ This patch depends on the [002-auth-pid-restriction.patch](../../libvirt/patches
 #### `043-disable-workload-updater.patch`
 This patch disables controller workload-updater in kubevirt.
 We have our implementation in virtualization-controller.
+
+#### `044-disable-evacuation-controller.patch`
+This patch disables evacuation controller in kubevirt.
+We have our implementation in virtualization-controller.

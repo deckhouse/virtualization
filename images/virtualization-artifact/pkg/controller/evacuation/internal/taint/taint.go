@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,21 +14,22 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package indexer
+package taint
 
-import (
-	"sigs.k8s.io/controller-runtime/pkg/client"
+import corev1 "k8s.io/api/core/v1"
 
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-)
-
-func IndexVMRestoreByVMSnapshot() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachineRestore{}, IndexFieldVMRestoreByVMSnapshot, func(object client.Object) []string {
-		vmRestore, ok := object.(*virtv2.VirtualMachineRestore)
-		if !ok || vmRestore == nil {
-			return nil
-		}
-
-		return []string{vmRestore.Spec.VirtualMachineSnapshotName}
+func HasTaintNoSchedule(node *corev1.Node) bool {
+	taint := &corev1.Taint{
+		// Default key, Can be replaced in kubevirt resource. See spec.migrations.nodeDrainTaintKey
+		Key:    "kubevirt.io/drain",
+		Effect: corev1.TaintEffectNoSchedule,
 	}
+
+	for _, t := range node.Spec.Taints {
+		if t.MatchTaint(taint) {
+			return true
+		}
+	}
+
+	return false
 }
