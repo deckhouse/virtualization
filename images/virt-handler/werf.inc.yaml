@@ -46,7 +46,6 @@ packages:
 - nftables
 - qemu-img
 - xorriso
-# - procps
 binaries:
 # deps for 031-hotplug-container-disk.patch
 - /usr/bin/cp
@@ -62,7 +61,6 @@ binaries:
 - /usr/bin/osirrox
 - /usr/bin/xorriso-dd-target
 - /usr/bin/xorrisofs
-# - /usr/sbin/sysctl
 {{- end -}}
 
 {{ $virtHandlerDependencies := include "$name" . | fromYaml }}
