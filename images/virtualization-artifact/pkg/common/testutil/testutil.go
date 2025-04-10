@@ -21,15 +21,14 @@ import (
 	"log/slog"
 	"reflect"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/go-logr/logr"
-	corev1 "k8s.io/api/core/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	"github.com/deckhouse/deckhouse/pkg/log"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -40,7 +39,7 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 		virtv2.AddToScheme,
 		virtv1.AddToScheme,
 		cdiv1.AddToScheme,
-		corev1.AddToScheme,
+		clientgoscheme.AddToScheme,
 	} {
 		err := f(scheme)
 		if err != nil {
