@@ -73,6 +73,7 @@ shell:
       git clone --depth=1 --branch v{{ $version }} {{ $.SOURCE_REPO }}/stefanberger/swtpm.git /swtpm
       cd /swtpm
       ./autogen.sh --with-openssl --prefix=/usr --libdir=/usr/lib64
+      # ./configure --with-openssl --prefix=/usr --libdir=/usr/lib64 --enable-static -disable-shared LDFLAGS="-static"
       make -j$(nproc)
       make install
 
