@@ -137,15 +137,7 @@ func (h MACLeaseHandler) createNewLease(ctx context.Context, state state.VMMACSt
 		conditionBound := conditions.NewConditionBuilder(vmmaccondition.BoundType).
 			Generation(vmmac.GetGeneration())
 
-		switch {
-		case errors.Is(err, service.ErrMACAddressOutOfRange):
-			macStatus.Phase = virtv2.VirtualMachineMACAddressPhasePending
-			conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmmaccondition.VirtualMachineMACAddressIsOutOfTheValidRange).
-				Message(fmt.Sprintf("The requested MAC address %s is out of the valid range",
-					vmmac.Spec.Address))
-			h.recorder.Event(vmmac, corev1.EventTypeWarning, vmmaccondition.VirtualMachineMACAddressIsOutOfTheValidRange.String(), msg)
-		case errors.Is(err, service.ErrMACAddressAlreadyExist):
+		if errors.Is(err, service.ErrMACAddressAlreadyExist) {
 			macStatus.Phase = virtv2.VirtualMachineMACAddressPhasePending
 			conditionBound.Status(metav1.ConditionFalse).
 				Reason(vmmaccondition.VirtualMachineMACAddressLeaseAlreadyExists).
