@@ -36,7 +36,7 @@ type ModuleEventLog struct {
 	Level           string `json:"level"`
 	Name            string `json:"name"`
 	Datetime        string `json:"datetime"`
-	Uid             string `json:"uid"`
+	UID             string `json:"uid"`
 	RequestSubject  string `json:"request_subject"`
 	OperationResult string `json:"operation_result"`
 
@@ -45,7 +45,8 @@ type ModuleEventLog struct {
 	NodeNetworkAddress    string `json:"node_network_address"`
 	VirtualizationVersion string `json:"virtualization_version"`
 	VirtualizationName    string `json:"virtualization_name"`
-	FirmwareVersion       string `json:"firmware_version"`
+	QemuVersion           string `json:"qemu_version"`
+	LibvirtVersion        string `json:"libvirt_version"`
 
 	shouldLog bool
 }
@@ -56,7 +57,7 @@ func NewModuleEventLog(event *audit.Event) *ModuleEventLog {
 		Level:           "info",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
-		Uid:             string(event.AuditID),
+		UID:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
 		OperationResult: "unknown",
 
@@ -65,7 +66,8 @@ func NewModuleEventLog(event *audit.Event) *ModuleEventLog {
 		NodeNetworkAddress:    "unknown",
 		VirtualizationName:    "Deckhouse Virtualization Platform",
 		VirtualizationVersion: "unknown",
-		FirmwareVersion:       "unknown",
+		QemuVersion:           "unknown",
+		LibvirtVersion:        "unknown",
 
 		shouldLog: true,
 	}

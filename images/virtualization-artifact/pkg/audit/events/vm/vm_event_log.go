@@ -46,7 +46,8 @@ type VMEventLog struct {
 	VirtualmachineUID  string `json:"virtualmachine_uid"`
 	VirtualmachineOS   string `json:"virtualmachine_os"`
 	StorageClasses     string `json:"storageclasses"`
-	FirmwareVersion    string `json:"firmware_version"`
+	QemuVersion        string `json:"qemu_version"`
+	LibvirtVersion     string `json:"libvirt_version"`
 
 	OperationResult string `json:"operation_result"`
 
@@ -68,7 +69,8 @@ func NewVMEventLog(event *audit.Event) *VMEventLog {
 		VirtualmachineUID:  "unknown",
 		VirtualmachineOS:   "unknown",
 		StorageClasses:     "unknown",
-		FirmwareVersion:    "unknown",
+		LibvirtVersion:     "unknown",
+		QemuVersion:        "unknown",
 
 		shouldLog: true,
 	}

@@ -24,6 +24,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
 func NewModuleComponentControl(options events.EventLoggerOptions) *ModuleComponentControl {
@@ -91,6 +92,9 @@ func (m *ModuleComponentControl) Fill() error {
 		log.Debug("fail to get pod from informer", log.Err(err))
 		return nil
 	}
+
+	m.EventLog.QemuVersion = pod.Annotations[annotations.AnnQemuVersion]
+	m.EventLog.LibvirtVersion = pod.Annotations[annotations.AnnLibvirtVersion]
 
 	err = m.EventLog.fillNodeInfo(m.InformerList.GetNodeInformer(), pod)
 	if err != nil {
