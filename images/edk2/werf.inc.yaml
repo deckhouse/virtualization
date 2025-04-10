@@ -65,16 +65,16 @@ shell:
     
     git clone {{ $.SOURCE_REPO }}/tianocore/edk2-platforms.git
 
-    cd {{ $gitRepoName }}-{{ $version }}
+    cd /{{ $gitRepoName }}-{{ $version }}
     git submodule update --init --recursive
 
   setup:
   - |
-    cd {{ $gitRepoName }}-{{ $version }}
+    cd /{{ $gitRepoName }}-{{ $version }}
 
     # Set env edk
     # export EDK_TOOLS_PATH=$(pwd)/BaseTools
-    # export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
+    export PACKAGES_PATH="/{{ $gitRepoName }}-{{ $version }}":/edk2-platforms
     
     echo "== list FIRMWARE =="
     ls -la /FIRMWARE
@@ -84,6 +84,6 @@ shell:
     make -C BaseTools -j$(nproc) 2>&1 > /dev/null
 
     source ./edksetup.sh
-    
+
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
 
