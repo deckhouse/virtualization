@@ -25,25 +25,29 @@ type options struct {
 }
 
 type TLSPair struct {
+	CaFile   string
 	CertFile string
 	KeyFile  string
 }
 
-func WithTLS(certFile, keyFile string) Option {
+func WithTLS(caFile, certFile, keyFile string) Option {
 	return tlsOption{
 		CertFile: certFile,
 		KeyFile:  keyFile,
+		CaFile:   caFile,
 	}
 }
 
 type tlsOption struct {
 	CertFile string
 	KeyFile  string
+	CaFile   string
 }
 
 func (t tlsOption) Apply(o *options) {
 	o.TLS = &TLSPair{
 		CertFile: t.CertFile,
 		KeyFile:  t.KeyFile,
+		CaFile:   t.CaFile,
 	}
 }

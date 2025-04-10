@@ -44,6 +44,7 @@ const long = `
 
 type Options struct {
 	Port     string
+	Cafile   string
 	Certfile string
 	Keyfile  string
 	Verbose  uint8
@@ -55,6 +56,7 @@ func NewOptions() Options {
 
 func (o *Options) Flags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.Port, "secure-port", "8443", "The port to listen on")
+	fs.StringVar(&o.Cafile, "tls-ca-file", "/etc/virtualization-audit/certificate/ca.crt", "Path to TLS CA certificate")
 	fs.StringVar(&o.Certfile, "tls-cert-file", "/etc/virtualization-audit/certificate/tls.crt", "Path to TLS certificate")
 	fs.StringVar(&o.Keyfile, "tls-private-key-file", "/etc/virtualization-audit/certificate/tls.key", "Path to TLS key")
 	fs.Uint8VarP(&o.Verbose, "verbose", "v", 1, "verbose output")
@@ -100,5 +102,6 @@ func run(c *cobra.Command, opts Options) error {
 		log.Fatal("failed to create server", log.Err(err))
 	}
 
-	return srv.Run(c.Context(), server.WithTLS(opts.Certfile, opts.Keyfile))
+	return srv.Run(c.Context(), server.WithTLS(opts.Cafile, opts.Certfile, opts.Keyfile))
+	// return srv.Run(c.Context())
 }
