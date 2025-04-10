@@ -109,9 +109,6 @@ func (h *FirmwareHandler) isVirtControllerUpToDate(ctx context.Context) (ready b
 }
 
 func getVirtLauncherImage(deploy *appsv1.Deployment) string {
-	var foundLauncherImage string
-
-loop:
 	for _, container := range deploy.Spec.Template.Spec.Containers {
 		if container.Name != "virt-controller" {
 			continue
@@ -120,17 +117,14 @@ loop:
 
 		for i, arg := range allArgs {
 			if strings.HasPrefix(arg, "--launcher-image=") {
-				value := strings.TrimPrefix(arg, "--launcher-image=")
-				foundLauncherImage = value
-				break loop
+				return strings.TrimPrefix(arg, "--launcher-image=")
 			} else if arg == "--launcher-image" {
 				if i+1 < len(allArgs) {
-					foundLauncherImage = allArgs[i+1]
+					return allArgs[i+1]
 				}
-				break loop
 			}
 		}
 	}
 
-	return foundLauncherImage
+	return ""
 }
