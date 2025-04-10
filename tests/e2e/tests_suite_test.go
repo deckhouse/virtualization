@@ -221,7 +221,6 @@ func Cleanup() []error {
 			cleanupErrs = append(
 				cleanupErrs, fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr()),
 			)
-			continue
 		}
 	}
 
