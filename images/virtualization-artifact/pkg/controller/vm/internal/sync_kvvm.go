@@ -225,11 +225,6 @@ func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
 				return true
 			}
 
-		case vmcondition.TypeMACAddressReady:
-			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonMACAddressNotAssigned.String() {
-				return true
-			}
-
 		case vmcondition.TypeProvisioningReady,
 			vmcondition.TypeClassReady:
 			if c.Status != metav1.ConditionTrue {
