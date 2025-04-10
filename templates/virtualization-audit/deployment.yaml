@@ -72,6 +72,7 @@ spec:
             {{- else }}
             - --verbose=3
             {{- end }}
+            - --tls-ca-file=/etc/virtualization-audit/certificates/ca.crt
             - --tls-cert-file=/etc/virtualization-audit/certificates/tls.crt
             - --tls-private-key-file=/etc/virtualization-audit/certificates/tls.key
           image: {{ include "helm_lib_module_image" (list . "virtualizationAudit") }}

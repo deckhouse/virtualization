@@ -20,8 +20,11 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"log/slog"
 	"net"
+	"os"
 	"time"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
@@ -54,12 +57,28 @@ func (s *tcpServer) Run(ctx context.Context, opts ...Option) error {
 	var listener net.Listener
 	var err error
 	if o.TLS != nil {
+		certPool, err := x509.SystemCertPool()
+		if err != nil {
+			return fmt.Errorf("fail to get system cert pool: %w", err)
+		}
+
+		if caCertPEM, err := os.ReadFile(o.TLS.CaFile); err != nil {
+			return fmt.Errorf("fail to read CA PEM: %w", err)
+		} else if ok := certPool.AppendCertsFromPEM(caCertPEM); !ok {
+			return fmt.Errorf("invalid cert in CA PEM: %w", err)
+		}
+
 		cert, err := tls.LoadX509KeyPair(o.TLS.CertFile, o.TLS.KeyFile)
 		if err != nil {
 			return err
 		}
 
-		listener, err = tls.Listen("tcp", s.addr, &tls.Config{Certificates: []tls.Certificate{cert}})
+		config := &tls.Config{
+			RootCAs:      certPool,
+			Certificates: []tls.Certificate{cert},
+		}
+
+		listener, err = tls.Listen("tcp", s.addr, config)
 		if err != nil {
 			return err
 		}
