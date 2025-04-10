@@ -153,7 +153,7 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			CheckExternalConnection(externalHost, httpStatusOk, vms...)
+			CheckExternalConnection(externalHost, httpStatusOk, conf.Namespace, vms...)
 		})
 	})
 

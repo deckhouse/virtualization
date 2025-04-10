@@ -43,6 +43,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	. "github.com/deckhouse/virtualization/tests/e2e/config"
+	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -600,7 +601,7 @@ func StopVirtualMachinesBySSH(virtualMachines ...string) {
 	cmd := "sudo nohup poweroff -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
-		ExecSshCommand(vm, cmd)
+		ExecSshCommandDeprecated(vm, cmd)
 	}
 }
 
@@ -610,8 +611,25 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	cmd := "sudo nohup reboot -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
-		ExecSshCommand(vm, cmd)
+		ExecSshCommandDeprecated(vm, cmd)
 	}
+}
+
+// Deprecated.
+func ExecSshCommandDeprecated(vmName, cmd string) {
+	GinkgoHelper()
+
+	Eventually(func() error {
+		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+			Namespace:   conf.Namespace,
+			Username:    conf.TestData.SshUser,
+			IdenityFile: conf.TestData.Sshkey,
+		})
+		if res.Error() != nil {
+			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return nil
+	}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred())
 }
 
 func IsContainsAnnotation(obj client.Object, annotation string) bool {

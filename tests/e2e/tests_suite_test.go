@@ -211,12 +211,12 @@ func Cleanup() []error {
 			continue
 		}
 	}
-	
+
 	for _, r := range conf.CleanupResources {
 		res = kubectl.Delete(kc.DeleteOptions{
 			IgnoreNotFound: true,
 			Labels:         map[string]string{"id": namePrefix},
-			Resource: 		kc.Resource(r),
+			Resource:       kc.Resource(r),
 		})
 		if res.Error() != nil {
 			cleanupErrs = append(
