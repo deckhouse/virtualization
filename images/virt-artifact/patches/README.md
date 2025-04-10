@@ -294,20 +294,18 @@ This path adds annotations to the VMI with the versions of libvirt and qemu used
 - Updates the migration mechanism: since virt-handler directly connects to the `virtqemud` socket during migration, the libvirt patch does not authorize it. To address this issue, an additional `migration-proxy` has been introduced in `virt-launcher`. This proxy receives traffic from `virt-handler` and forwards it to `virtqemud`.
 - A new gRPC call, MigrationProxy, has been added to start this migration proxy.
 
-
-
 ##### Dependency
 This patch depends on the [002-auth-pid-restriction.patch](../../libvirt/patches/002-auth-pid-restriction.patch) in libvirt, which introduces the `LIBVIRT_UNIX_SOCKET_AUTH_PID` environment variable to restrict socket access based on PID.
 
-#### `043-disable-workload-updater.patch`
+#### `044-disable-workload-updater.patch`
 This patch disables controller workload-updater in kubevirt.
 We have our implementation in virtualization-controller.
 
-#### `043-virt-launcher-image-holder-command-sleep.patch`
+#### `045-virt-launcher-image-holder-command-sleep.patch`
 
 This patch modifies virt-launcher-image-holder command from `sh -c "sleep infinity"` to `sleep infinity`. 
 
-#### `044-hotplug-attachment-trigger-pod-remove-bash.patch`
+#### `046-hotplug-attachment-trigger-pod-remove-bash.patch`
 
 This patch modifies init container by removing sh and bash util and replcae commands.
 - Init container tempPod change command from `"/bin/bash", "-c", "echo", "bound PVCs"` and `"/bin/bash","-c","exit", "0"` to static binary `temp_pod`. 
@@ -315,6 +313,6 @@ This patch modifies init container by removing sh and bash util and replcae comm
 
 Also fixed vmi_test.go, replace `Equal("/bin/bash -c echo bound PVCs")` to `Equal("temp_pod")`,
 
-#### `045-node-labeller-rereplace-sysctl-readfile.patch`
+#### `047-node-labeller-rereplace-sysctl-readfile.patch`
 
 This patch modifies function `isNodeRealtimeCapable` in `node_labeller.go`, replacing linux util `sysctl` to `os.ReadFile("/proc/sys/kernel/sched_rt_runtime_us")`
