@@ -119,7 +119,7 @@ func CheckCPUCoresNumberFromVirtualMachine(requiredValue string, virtualMachines
 	}
 }
 
-var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineConfiguration", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel  = map[string]string{"testcase": "vm-configuration"}
 		automaticLabel = map[string]string{"vm": "automatic-conf"}
