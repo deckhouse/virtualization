@@ -18,6 +18,7 @@ package vmmac
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -40,6 +41,9 @@ const (
 func NewController(ctx context.Context, mgr manager.Manager, log *log.Logger, macAddressOUI string, clusterUUID string) (controller.Controller, error) {
 	recorder := mgr.GetEventRecorderFor(ControllerName)
 	macService := service.NewMACAddressService(macAddressOUI, clusterUUID)
+	if macService == nil {
+		return nil, fmt.Errorf("failed to create MAC address service")
+	}
 
 	handlers := []Handler{
 		internal.NewProtectionHandler(mgr.GetClient()),

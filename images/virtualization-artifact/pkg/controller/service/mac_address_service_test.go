@@ -125,9 +125,7 @@ var _ = Describe("MACAddressService", func() {
 
 			It("should return an error when MAC addresses oui wrong", func() {
 				service := NewMACAddressService("f6e17", "")
-				_, err := service.AllocateNewAddress(allocatedMACs)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(Equal("wrong format MAC address oui"))
+				Expect(service).To(BeNil())
 			})
 
 			It("should return an error when no MAC addresses are available", func() {
