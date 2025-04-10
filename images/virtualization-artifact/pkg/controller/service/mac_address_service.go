@@ -36,9 +36,6 @@ type MACAddressService struct {
 func NewMACAddressService(oui string, clusterUUID string) *MACAddressService {
 	if oui == "" {
 		oui = generateOUI(clusterUUID)
-		if oui == "" {
-			return nil
-		}
 	}
 
 	return &MACAddressService{
@@ -70,6 +67,12 @@ func generateOUI(clusterUID string) string {
 
 	oui := cleanUID[:6]
 	oui = oui[:1] + "2" + oui[2:]
+
+	oui, err := formatOUI(oui)
+	if err != nil {
+		return ""
+	}
+
 	return oui
 }
 
