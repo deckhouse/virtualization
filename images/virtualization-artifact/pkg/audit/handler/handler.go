@@ -76,9 +76,9 @@ func NewEventHandler(
 			return fmt.Errorf("error parsing JSON: %w", err)
 		}
 
-		var event *audit.Event
+		event := &audit.Event{}
 		if err := json.Unmarshal([]byte(message.Message), event); err != nil {
-			return fmt.Errorf("Error parsing JSON: %w", err)
+			return fmt.Errorf("error parsing JSON: %w", err)
 		}
 
 		options := &NewEventHandlerOptions{
