@@ -90,12 +90,6 @@ var _ = Describe("MACAddressService", func() {
 				Expect(err).To(Equal(ErrMACAddressAlreadyExist))
 			})
 
-			It("should return error for a MAC address out of oui range", func() {
-				err := service.IsAvailableAddress("00:11:22:33:44:55", allocatedMACs)
-				Expect(err).To(HaveOccurred())
-				Expect(err).To(Equal(ErrMACAddressOutOfRange))
-			})
-
 			It("should return nil for a valid MAC address", func() {
 				err := service.IsAvailableAddress("f6:e1:74:94:12:34", allocatedMACs)
 				Expect(err).NotTo(HaveOccurred())

@@ -91,11 +91,7 @@ func (s MACAddressService) IsAvailableAddress(address string, allocatedMACs mac.
 		return ErrMACAddressAlreadyExist
 	}
 
-	if address[:8] == s.oui {
-		return nil
-	}
-
-	return ErrMACAddressOutOfRange
+	return nil
 }
 
 func formatOUI(prefix string) (string, error) {
