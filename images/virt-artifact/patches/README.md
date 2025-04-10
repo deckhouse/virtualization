@@ -313,6 +313,6 @@ This patch modifies init container by removing sh and bash util and replcae comm
 
 Also fixed vmi_test.go, replace `Equal("/bin/bash -c echo bound PVCs")` to `Equal("temp_pod")`,
 
-#### `047-node-labeller-rereplace-sysctl-readfile.patch`
+#### `047-node-labeller-replace-sysctl-command-with-readfile.patch`
 
 This patch modifies function `isNodeRealtimeCapable` in `node_labeller.go`, replacing linux util `sysctl` to `os.ReadFile("/proc/sys/kernel/sched_rt_runtime_us")`
