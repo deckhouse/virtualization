@@ -515,7 +515,6 @@ jobs:
 
   update_comment_on_finish:
     name: Update comment on finish
-    if: ${{ always() }}
     needs:
       - run_e2e
     runs-on: ubuntu-latest
@@ -524,6 +523,7 @@ jobs:
         uses: actions/checkout@v3.5.2
 
       - name: Set commit status after e2e run and remove label
+        if: ${{ always() }}
         id: set_e2e_requirement_status
         uses: actions/github-script@v6.4.1
         env:
