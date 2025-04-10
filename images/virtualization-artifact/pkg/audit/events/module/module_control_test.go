@@ -154,10 +154,11 @@ var _ = Describe("Module control Events", func() {
 			Expect(eventLog.EventLog.Level).To(Equal(args.expectedLevel))
 			Expect(eventLog.EventLog.Name).To(Equal(args.expectedName))
 			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
-			Expect(eventLog.EventLog.Uid).To(Equal("0000-0000-0000"))
+			Expect(eventLog.EventLog.UID).To(Equal("0000-0000-0000"))
 			Expect(eventLog.EventLog.OperationResult).To(Equal("allow"))
 			Expect(eventLog.EventLog.ActionType).To(Equal(args.expectedActionType))
-			Expect(eventLog.EventLog.FirmwareVersion).To(Equal("unknown"))
+			Expect(eventLog.EventLog.LibvirtVersion).To(Equal("unknown"))
+			Expect(eventLog.EventLog.QemuVersion).To(Equal("unknown"))
 			Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
 			Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("unknown"))
 

@@ -117,6 +117,10 @@ var _ = Describe("VMOP Events", func() {
 				GuestOSInfo: virtv1.VirtualMachineInstanceGuestOSInfo{
 					Name: "test-os",
 				},
+				Versions: v1alpha.Versions{
+					Qemu:    "9.9.9",
+					Libvirt: "1.1.1",
+				},
 			},
 		}
 
@@ -236,7 +240,8 @@ var _ = Describe("VMOP Events", func() {
 
 			Expect(eventLog.EventLog.VirtualmachineUID).To(Equal("0000-0000-4567"))
 			Expect(eventLog.EventLog.VirtualmachineOS).To(Equal("test-os"))
-			Expect(eventLog.EventLog.FirmwareVersion).To(Equal("unknown"))
+			Expect(eventLog.EventLog.QemuVersion).To(Equal("9.9.9"))
+			Expect(eventLog.EventLog.LibvirtVersion).To(Equal("1.1.1"))
 
 			if args.customEventUser != "" {
 				Expect(eventLog.EventLog.RequestSubject).To(Equal(args.customEventUser))

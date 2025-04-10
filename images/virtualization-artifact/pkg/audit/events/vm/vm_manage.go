@@ -98,6 +98,9 @@ func (m *VMManage) Fill() error {
 		return nil
 	}
 
+	m.EventLog.QemuVersion = vm.Status.Versions.Qemu
+	m.EventLog.LibvirtVersion = vm.Status.Versions.Libvirt
+
 	m.EventLog.VirtualmachineUID = string(vm.UID)
 
 	if vm.Status.GuestOSInfo.Name != "" {

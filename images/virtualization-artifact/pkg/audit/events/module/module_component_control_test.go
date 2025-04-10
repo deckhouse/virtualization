@@ -86,7 +86,15 @@ var _ = Describe("Module component control events", func() {
 		}
 
 		pod = &corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{Name: "virt-handler", Namespace: "d8-virtualization", UID: "0000-0000-4567"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "virt-handler",
+				Namespace: "d8-virtualization",
+				UID:       "0000-0000-4567",
+				Annotations: map[string]string{
+					annotations.AnnQemuVersion:    "9.9.9",
+					annotations.AnnLibvirtVersion: "1.1.1",
+				},
+			},
 			Spec: corev1.PodSpec{
 				NodeName: "test-node",
 			},
@@ -174,11 +182,19 @@ var _ = Describe("Module component control events", func() {
 			Expect(eventLog.EventLog.Level).To(Equal(args.expectedLevel))
 			Expect(eventLog.EventLog.Name).To(Equal(args.expectedName))
 			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
-			Expect(eventLog.EventLog.Uid).To(Equal("0000-0000-0000"))
+			Expect(eventLog.EventLog.UID).To(Equal("0000-0000-0000"))
 			Expect(eventLog.EventLog.OperationResult).To(Equal("allow"))
 			Expect(eventLog.EventLog.ActionType).To(Equal(args.expectedActionType))
-			Expect(eventLog.EventLog.FirmwareVersion).To(Equal("unknown"))
 			Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
+
+			if args.shouldLostPod {
+				Expect(eventLog.EventLog.QemuVersion).To(Equal("unknown"))
+				Expect(eventLog.EventLog.LibvirtVersion).To(Equal("unknown"))
+			} else {
+
+				Expect(eventLog.EventLog.QemuVersion).To(Equal("9.9.9"))
+				Expect(eventLog.EventLog.LibvirtVersion).To(Equal("1.1.1"))
+			}
 
 			if args.shouldLostNode || args.shouldLostPod {
 				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("unknown"))
