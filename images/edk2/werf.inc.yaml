@@ -73,8 +73,8 @@ shell:
     cd {{ $gitRepoName }}-{{ $version }}
 
     # Set env edk
-    export EDK_TOOLS_PATH=$(pwd)/BaseTools
-    export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
+    # export EDK_TOOLS_PATH=$(pwd)/BaseTools
+    # export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
     
     echo "== list FIRMWARE =="
     ls -la /FIRMWARE
@@ -83,5 +83,7 @@ shell:
     ln /usr/bin/python3 /usr/bin/python
     make -C BaseTools -j$(nproc) 2>&1 > /dev/null
 
+    source ./edksetup.sh
+    
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
 

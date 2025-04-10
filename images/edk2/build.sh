@@ -118,9 +118,9 @@ OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SMM_REQUIRE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FALSE"
 
 # unset MAKEFLAGS
-echo "run source ./edksetup.sh"
+# echo "run source ./edksetup.sh"
 # source ./edksetup.sh BaseTools
-source ./edksetup.sh
+# source ./edksetup.sh
 
 echo "sleep 10 sec"
 sleep 10
