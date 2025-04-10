@@ -64,7 +64,7 @@ func (h *FirmwareHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachin
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(firmwareHandler))
 
-	if ready, err := h.waitVirtControllerReady(ctx); err != nil {
+	if ready, err := h.isVirtControllerUpToDate(ctx); err != nil {
 		return reconcile.Result{}, err
 	} else if !ready {
 		log.Info("Wait for virt-controller to be ready")
@@ -92,7 +92,7 @@ func (h *FirmwareHandler) needUpdate(vm *v1alpha2.VirtualMachine) bool {
 	return false
 }
 
-func (h *FirmwareHandler) waitVirtControllerReady(ctx context.Context) (ready bool, err error) {
+func (h *FirmwareHandler) isVirtControllerUpToDate(ctx context.Context) (ready bool, err error) {
 	deploy := &appsv1.Deployment{}
 	if err = h.client.Get(ctx, client.ObjectKey{
 		Name:      h.virtControllerName,
@@ -105,14 +105,18 @@ func (h *FirmwareHandler) waitVirtControllerReady(ctx context.Context) (ready bo
 		return false, nil
 	}
 
+	return getVirtLauncherImage(deploy) == h.firmwareImage, nil
+}
+
+func getVirtLauncherImage(deploy *appsv1.Deployment) string {
 	var foundLauncherImage string
 
 loop:
-	for _, ctr := range deploy.Spec.Template.Spec.Containers {
-		if ctr.Name != "virt-controller" {
+	for _, container := range deploy.Spec.Template.Spec.Containers {
+		if container.Name != "virt-controller" {
 			continue
 		}
-		allArgs := append(ctr.Command, ctr.Args...)
+		allArgs := append(container.Command, container.Args...)
 
 		for i, arg := range allArgs {
 			if strings.HasPrefix(arg, "--launcher-image=") {
@@ -128,5 +132,5 @@ loop:
 		}
 	}
 
-	return foundLauncherImage == h.firmwareImage, nil
+	return foundLauncherImage
 }
