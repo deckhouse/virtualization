@@ -161,7 +161,7 @@ var _ = Describe("Forbid Events", func() {
 			Expect(eventLog.EventLog.Name).To(Equal("User (test-user) attempted to perform a forbidden operation (create) on resource (pods/test/test-vmi)."))
 
 			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
-			Expect(eventLog.EventLog.Uid).To(Equal("0000-0000-0000"))
+			Expect(eventLog.EventLog.UID).To(Equal("0000-0000-0000"))
 			Expect(eventLog.EventLog.OperationResult).To(Equal("forbid"))
 			Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
 

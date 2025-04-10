@@ -31,7 +31,7 @@ type ForbidEventLog struct {
 	Level           string `json:"level"`
 	Name            string `json:"name"`
 	Datetime        string `json:"datetime"`
-	Uid             string `json:"uid"`
+	UID             string `json:"uid"`
 	RequestSubject  string `json:"request_subject"`
 	OperationResult string `json:"operation_result"`
 	IsAdmin         bool   `json:"is_admin"`
@@ -47,7 +47,7 @@ func NewForbidEventLog(event *audit.Event) *ForbidEventLog {
 		Level:           "warn",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
-		Uid:             string(event.AuditID),
+		UID:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
 		OperationResult: "forbid",
 		ForbidReason:    "unknown",
