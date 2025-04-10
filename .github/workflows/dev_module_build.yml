@@ -565,25 +565,3 @@ jobs:
             const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
 
             await e2eStatus.setStatusAfterE2eRun({github, context, core});
-            const issueNumber = context.issue.number;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const labelToRemove = 'e2e/run';
-
-            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
-              owner,
-              repo,
-              issue_number: issueNumber,
-            });
-
-            if (labels.some(label => label.name === labelToRemove)) {
-              await github.rest.issues.removeLabel({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                name: labelToRemove,
-              });
-              console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
-            } else {
-              console.log(`Label '${labelToRemove}' not found on PR #${issueNumber}`);
-            }
