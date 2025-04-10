@@ -31,7 +31,7 @@ type IntegrityCheckEventLog struct {
 	Level           string `json:"level"`
 	Name            string `json:"name"`
 	Datetime        string `json:"datetime"`
-	Uid             string `json:"uid"`
+	UID             string `json:"uid"`
 	RequestSubject  string `json:"request_subject"`
 	OperationResult string `json:"operation_result"`
 
@@ -52,7 +52,7 @@ func NewIntegrityCheckEventLog(event *audit.Event) *IntegrityCheckEventLog {
 		Level:           "critical",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
-		Uid:             string(event.AuditID),
+		UID:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
 		OperationResult: "unknown",
 
