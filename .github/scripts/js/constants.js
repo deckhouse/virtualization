@@ -12,9 +12,7 @@
 //@ts-check
 
 const skipE2eLabel = 'skip/e2e';
-const abortFailedE2eCommand = '/e2e/abort';
 module.exports.skipE2eLabel = skipE2eLabel;
-module.exports.abortFailedE2eCommand = abortFailedE2eCommand;
 
 // Labels available for pull requests.
 const labels = {
@@ -25,41 +23,3 @@ const labels = {
 
 };
 module.exports.knownLabels = labels;
-
-// Label to detect if issue is a release issue.
-const releaseIssueLabel = 'issue/release';
-module.exports.releaseIssueLabel = releaseIssueLabel;
-
-const slashCommands = {
-  deploy: ['deploy/alpha', 'deploy/beta', 'deploy/early-access', 'deploy/stable', 'deploy/rock-solid'],
-  suspend: ['suspend/alpha', 'suspend/beta', 'suspend/early-access', 'suspend/stable', 'suspend/rock-solid']
-};
-module.exports.knownSlashCommands = slashCommands;
-
-module.exports.labelsSrv = {
-  /**
-   * Search for known label name using its type and property:
-   * - search by provider property for e2e-run labels
-   * - search by env property for deploy-web labels
-   *
-   * @param {object} inputs
-   * @param {string} inputs.labelType
-   * @param {string} inputs.labelSubject
-   * @returns {string}
-   */
-  findLabel: ({ labelType, labelSubject }) => {
-    return (Object.entries(labels).find(([name, info]) => {
-      if (info.type === labelType) {
-        if (labelType === 'e2e-run') {
-          return info.provider === labelSubject;
-        }
-        if (labelType === 'deploy-web') {
-          return info.env === labelSubject;
-        }
-
-        return true;
-      }
-      return false;
-    }) || [''])[0];
-  }
-};
