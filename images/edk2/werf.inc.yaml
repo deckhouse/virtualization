@@ -70,14 +70,14 @@ shell:
 
   setup:
   - |
+    cd {{ $gitRepoName }}-{{ $version }}
+
     # Set env edk
     export EDK_TOOLS_PATH=$(pwd)/BaseTools
     export PACKAGES_PATH=$(pwd)/BaseTools:/edk2-platforms
     
     echo "== list FIRMWARE =="
     ls -la /FIRMWARE
-
-    cd {{ $gitRepoName }}-{{ $version }}
 
     echo "Building BaseTools..."
     ln /usr/bin/python3 /usr/bin/python
