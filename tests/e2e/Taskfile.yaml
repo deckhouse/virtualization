@@ -138,7 +138,7 @@ tasks:
         for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do
             delete_resources_with_prefix "$RESOURCE"
         done
-  
+
   checkout-to-mpo:
     deps:
       - d8
