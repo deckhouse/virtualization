@@ -186,8 +186,8 @@ build_ovmf_secboot() {
 		-DCC_MEASUREMENT_ENABLE=TRUE -DNETWORK_HTTP_BOOT_ENABLE=TRUE -DNETWORK_IP6_ENABLE=TRUE -DNETWORK_TLS_ENABLE --pcd PcdFirmwareVendor=L"DVP distribution of EDK II\\0" --pcd PcdFirmwareVersionString=L"2025.02-1\\0" --pcd PcdFirmwareReleaseDateString=L"03/02/2025\\0" -DTPM2_ENABLE=TRUE -DFD_SIZE_4MB -DBUILD_SHELL=FALSE -DSECURE_BOOT_ENABLE=TRUE -DSMM_REQUIRE=TRUE -b RELEASE
     cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd           $FIRMWARE/OVMF_CODE.secboot.fd
     cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd           $FIRMWARE/OVMF_VARS.secboot.fd
-    cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
-    cp -p Build/OvmfX64/*/X64/Shell.efi             $FIRMWARE/
+    # cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+    # cp -p Build/OvmfX64/*/X64/Shell.efi             $FIRMWARE/
   # build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} \
   #   -a X64 -p OvmfPkg/OvmfPkgX64.dsc \
   #   --pcd PcdFirmwareVendor=L"DVP distribution of EDK II\\0" \
@@ -221,14 +221,20 @@ build_ovmf_inteltdx() {
   cp -p Build/IntelTdx/*/FV/OVMF.fd $FIRMWARE/OVMF.inteltdx.fd
 }
 
+build_EnrollDefaultKeys() {
+  build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc -D ENROLL_DEFAULT_KEYS
+  cp Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+}
 # Build ovmf (x64) shell iso with EnrollDefaultKeys
 build_shell() {
   echo_dbg "build shell"
   build ${OVMF_4M_FLAGS} -a X64 -p ShellPkg/ShellPkg.dsc
-  build ${OVMF_4M_FLAGS} -a IA32 -p ShellPkg/ShellPkg.dsc
+  
+  cp Build/Shell/*/X64/Shell.efi $$FIRMWARE/
+  # build ${OVMF_4M_FLAGS} -a IA32 -p ShellPkg/ShellPkg.dsc
 
-  cp -p Build/Shell/*/X64/ShellPkg/Application/Shell/Shell/OUTPUT/Shell.efi $FIRMWARE/
-  cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+  # cp -p Build/Shell/*/X64/ShellPkg/Application/Shell/Shell/OUTPUT/Shell.efi $FIRMWARE/
+  # cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
 }
 
 
@@ -262,13 +268,19 @@ build_ovmf 2>&1 > /dev/null
 echo_dbg "build_ovmf_secboot"
 build_ovmf_secboot 2>&1 > /dev/null
 
-echo "build_ovmf_amdsev"
+echo_dbg "build_ovmf_amdsev"
 build_ovmf_amdsev 2>&1 > /dev/null
 
-echo "build_ovmf_inteltdx"
+echo_dbg "build_ovmf_inteltdx"
 build_ovmf_inteltdx 2>&1 > /dev/null
 
+echo_dbg "build_EnrollDefaultKeys"
+build_EnrollDefaultKeys 2>&1 > /dev/null
+
+echo_dbg "build_shell"
+build_shell 2>&1 > /dev/null
+
 build_iso $FIRMWARE
-enroll
+# enroll
 ls -la $FIRMWARE
 # no_enroll
