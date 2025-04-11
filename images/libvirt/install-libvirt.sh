@@ -185,7 +185,7 @@ $SRC_BUILD/src/libvirt_functions.stp to /usr/share/systemtap/tapset
 $SRC_BUILD/tools/virt-host-validate to /usr/bin
 # $SRC_BUILD/tools/virt-login-shell to /usr/bin
 # $SRC_BUILD/tools/virt-login-shell-helper to /usr/libexec
-$SRC_BUILD/tools/virsh to /usr/bin
+# $SRC_BUILD/tools/virsh to /usr/bin
 # $SRC_BUILD/tools/virt-admin to /usr/bin
 $SRC_BUILD/tools/virt-pki-validate to /usr/bin
 $SRC_BUILD/tools/virt-pki-query-dn to /usr/bin
