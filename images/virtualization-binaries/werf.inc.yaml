@@ -1,0 +1,69 @@
+---
+image: swtpm
+final: false
+from: {{ .Images.BASE_SCRATCH }}
+import:
+- image: {{ $.ImageName }}-builder
+  add: /relocate
+  to: /out
+  before: setup
+
+---
+{{- $version := "0.10.0" }}
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- git curl openssl-dev openssl-libs-static automake autoconf bash
+- build-base libtool make socat gawk
+- libtasn1-dev gnutls gnutls-utils gnutls-dev expect
+- libseccomp-dev softhsm py3-cryptography libtpms-dev
+- libgcc gcc
+- openssh
+binaries:
+- /usr/bin/swtpm_bios
+- /usr/bin/swtpm_ioctl
+- /usr/bin/swtpm_cert
+- /usr/bin/swtpm
+- /usr/bin/swtpm_setup
+- /usr/bin/swtpm_localca
+- /usr/bin/swtpm_cuse
+- /usr/lib64/swtpm/libswtpm_libtpms.a
+- /usr/lib64/swtpm/libswtpm_libtpms.so
+- /usr/lib64/swtpm/libswtpm_libtpms.so.0.0.0
+- /usr/lib64/swtpm/libswtpm_libtpms.la
+- /usr/lib64/swtpm/libswtpm_libtpms.so.0
+- /usr/lib64/libtss2-tcti-swtpm.so.0
+- /usr/lib64/libtss2-tcti-swtpm.so.0.0.0
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ $.ImageName }}-builder
+final: false
+from: alpine:3.21.3
+# from: alpine:3.20.6
+# fromImage: alpine-builder
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  beforeInstall:
+    - |
+      apk update
+      apk add {{ $builderDependencies.packages | join " " }}
+
+  install:
+    - |
+      git clone --depth=1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git /swtpm
+      cd /swtpm
+      ./autogen.sh --with-openssl --prefix=/usr --libdir=/usr/lib64
+      make -j$(nproc)
+      make install
+
+      # CC="/usr/bin/musl-gcc" LDFLAGS="-static" make -j$(nproc)
+  setup:
+    - |
+      /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
+      mkdir -p /relocate/usr/include/swtpm
+      cp -an /usr/include/swtpm/. /relocate/usr/include/swtpm
