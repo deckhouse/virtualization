@@ -1,6 +1,6 @@
 firmware:
   qemu: 9.2.0
   libvirt: 10.9.0
-  edk2: stable202411
+  edk2: stable202502
 package:
   swtpm: 0.10.0
