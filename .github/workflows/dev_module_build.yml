@@ -23,7 +23,7 @@ env:
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   GO_VERSION: "1.22.7"
   GOLANGCI_LINT_VERSION: "1.64.8"
-  SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
+  SOURCE_REPO: "${{secrets.SOURCE_REPO_GIT}}"
 
 on:
   workflow_dispatch:
@@ -35,7 +35,11 @@ on:
         required: false
         type: number
   pull_request:
-    types: [opened, reopened, synchronize, labeled]
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+    # delete befor merge ↓
+    branches:
+      - main
+      - chore/core/swtpm-build
   push:
     branches:
       - main
