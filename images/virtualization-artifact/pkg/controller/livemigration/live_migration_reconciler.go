@@ -103,8 +103,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, kvvmi.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-		//vd.Changed().Status.ObservedGeneration = vd.Changed().Generation
-		return kvvmi.Update(ctx)
+		// Directly update kvvmi and not use kvvmi.Update as kvvmi status is a regular field, not a subresource.
+		if err := r.client.Update(ctx, kvvmi.Changed()); err != nil {
+			return fmt.Errorf("error updating status subresource: %w", err)
+		}
+
+		return nil
 	})
 
 	return rec.Reconcile(ctx)
