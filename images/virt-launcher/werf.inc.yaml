@@ -152,6 +152,7 @@ binaries:
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
   # Swtpm
   - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
+  - /usr/lib64/swtpm/libswtpm_libtpms*
   # Dmidecode
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
