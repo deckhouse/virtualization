@@ -226,9 +226,9 @@ rules:
   - patch
   - update
 - apiGroups:
-  - apps/v1
+  - apps
   resources:
-  - deployment
+  - deployments
   verbs:
   - get
   - list
