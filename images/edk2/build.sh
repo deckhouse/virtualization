@@ -236,12 +236,14 @@ enroll() {
   virt-fw-vars --input  $FIRMWARE/OVMF_VARS.fd \
               --output  $FIRMWARE/OVMF_VARS.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
-              --secure-boot --enroll-generate dvp.deckhouse.io
+              --secure-boot 
+              # --enroll-generate dvp.deckhouse.io
 
   virt-fw-vars --input  $FIRMWARE/OVMF.inteltdx.fd \
               --output  $FIRMWARE/OVMF.inteltdx.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
-              --secure-boot --enroll-generate dvp.deckhouse.io
+              --secure-boot 
+              # --enroll-generate dvp.deckhouse.io
 }
 
 # no sec boot but makes json happy
@@ -267,6 +269,6 @@ echo "build_ovmf_inteltdx"
 build_ovmf_inteltdx 2>&1 > /dev/null
 
 build_iso $FIRMWARE
+enroll
 ls -la $FIRMWARE
-# enroll
 # no_enroll
