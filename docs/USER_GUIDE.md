@@ -1403,20 +1403,45 @@ EOF
 
 ![](images/lb-ingress.png)
 
-### Live Virtual Machine Migration
+### Virtual Machine LiveMigration
 
-Virtual machine migration is an important feature in managing virtualized infrastructure. It allows you to move running virtual machines from one physical host to another without shutting them down.
+Live virtual machine migration is an important feature in virtualized infrastructure management. It allows you to move running virtual machines from one physical host to another without shutting them down.
 
 Migration can be performed automatically when:
 
 - Updating the “firmware” of a virtual machine.
-- Rebalancing the load on the cluster nodes.
-- Transferring nodes to maintenance mode for work.
+- Redistribution of load in the cluster.
+- Transferring a node into maintenance mode.
 - When you change [VM placement settings](#placement-of-vms-by-nodes) (available in Enterprise edition only).
 
-Virtual machine migration can also be performed at the user's request. Let's take an example:
+The trigger for live migration is the appearance of the `VirtualMachineOperations` resource with the `Evict` type.
 
-Before starting the migration, view the current status of the virtual machine::
+This resource can be in the following states:
+
+- `Pending` - the operation is pending.
+- `InProgress` - live migration is in progress.
+- `Completed` - live migration of the virtual machine has been completed successfully.
+- `Failed` - the live migration of the virtual machine has failed.
+
+You can view active operations using the command:
+
+```bash
+d8 k get vmop
+```
+
+Example output:
+
+```txt
+# NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
+# firmware-update-fnbk2   Completed   Evict   static-vm-node-00   148m
+```
+
+You can interrupt any live migration while it is in the `Pending`, `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
+
+#### How to perform a live migration of a virtual machine using `VirtualMachineOperations`.
+
+Let's look at an example. Before starting the migration, view the current status of the virtual machine:
+
 
 ```bash
 d8 k get vm
@@ -1431,7 +1456,16 @@ Example output:
 
 We can see that it is currently running on the `virtlab-pt-1` node.
 
-To migrate a virtual machine from one node to another, taking into account the requirements for virtual machine placement, the `VirtualMachineOperations` (`vmop`) resource with the `Evict` type is used.
+To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the command is used:
+
+```bash
+d8 v evict -n <namespace> <vm-name>
+```
+
+execution of this command leads to the creation of the `VirtualMachineOperations` resource.
+
+You can also start the migration by creating a `VirtualMachineOperations` (`vmop`) resource with the `Evict` type manually:
+
 
 ```yaml
 d8 k create -f - <<EOF
@@ -1447,7 +1481,7 @@ spec:
 EOF
 ```
 
-Immediately after creating the `vmip` resource, run the command:
+To track the migration of a virtual machine immediately after the `vmop` resource is created, run the command:
 
 ```bash
 d8 k get vm -w
@@ -1463,11 +1497,32 @@ Example output:
 # linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
-You can also use the command to perform the migration:
+#### Live migration of virtual machine when changing placement parameters (not available in CE edition)
 
-```bash
-d8 v evict <vm-name>
+Let's consider the migration mechanism on the example of a cluster with two node groups (`NodeGroups`): green and blue. Suppose a virtual machine (VM) is initially running on a node in the green group and its configuration contains no placement restrictions.
+
+Step 1: Add the placement parameter
+Let's specify in the VM specification the requirement for placement in the green group :
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: green
 ```
+
+After saving the changes, the VM will continue to run on the current node, since the `nodeSelector` condition is already met.
+
+Step 2: Change the placement parameter
+Let's change the placement requirement to group blue :
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: blue
+```
+
+Now the current node (groups green) does not match the new conditions. The system will automatically create a `VirtualMachineOperations` object of type Evict, which will initiate a live migration of the VM to an available node in group blue .
+
 
 ## IP addresses of virtual machines
 
