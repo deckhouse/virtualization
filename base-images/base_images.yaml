@@ -1,4 +1,4 @@
-# version v0.4.1 
+# version v0.4.1
 # REGISTRY_PATH is a special key which is concatenated with other base images
 REGISTRY_PATH: registry.deckhouse.io/base_images
 base/distroless: "sha256:f2ac3320ce677484d7aef4608f99ddf0055d8907cc3509f8cccc8513f314c31a" # fromImage: builder/scratch

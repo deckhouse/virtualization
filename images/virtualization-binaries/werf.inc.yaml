@@ -14,9 +14,12 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- autoconf automake bash expect gawk gnutls gnutls-dev gnutls-utils
-- json-glib-dev libseccomp-dev libtasn1-dev libtool libtpms-dev openssl-dev
-- python3 socat
+- git curl openssl-dev openssl-libs-static automake autoconf bash
+- build-base libtool make socat gawk
+- libtasn1-dev gnutls gnutls-utils gnutls-dev expect
+- libseccomp-dev softhsm py3-cryptography libtpms-dev
+- libgcc gcc
+- openssh
 binaries:
 - /usr/bin/swtpm_bios
 - /usr/bin/swtpm_ioctl
@@ -38,7 +41,8 @@ binaries:
 
 image: {{ $.ImageName }}-builder
 final: false
-from: alpine:3.20.6
+from: alpine:3.21.3
+# from: alpine:3.20.6
 # fromImage: alpine-builder
 secrets:
 - id: SOURCE_REPO
@@ -47,16 +51,17 @@ shell:
   beforeInstall:
     - |
       apk update
-      apk add -y {{ $builderDependencies.packages | join " " }}
+      apk add {{ $builderDependencies.packages | join " " }}
 
   install:
     - |
       git clone --depth=1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git /swtpm
       cd /swtpm
       ./autogen.sh --with-openssl --prefix=/usr --libdir=/usr/lib64
-      CC="/usr/bin/musl-gcc" LDFLAGS="-static" make -j$(nproc)
+      make -j$(nproc)
       make install
 
+      # CC="/usr/bin/musl-gcc" LDFLAGS="-static" make -j$(nproc)
   setup:
     - |
       /relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
