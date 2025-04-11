@@ -31,6 +31,7 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -54,7 +55,12 @@ func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
 		}
 		newObjs = append(newObjs, obj)
 	}
-	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...).Build(), nil
+	b := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...)
+	for _, fn := range indexer.IndexGetters {
+		b.WithIndex(fn())
+	}
+
+	return b.Build(), nil
 }
 
 func NewNoOpLogger() *log.Logger {
