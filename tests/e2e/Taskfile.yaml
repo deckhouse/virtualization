@@ -110,3 +110,93 @@ tasks:
           {{if .FOCUS -}}
           --focus "{{ .FOCUS }}"
           {{end -}}
+  cleanup:
+    desc: "Cleanup namespaces & resources left from e2e tests"
+    deps:
+      - kubectl
+      - d8
+    cmds:
+      - |
+        E2E_PREFIX="head-$(git rev-parse --short HEAD)"
+
+        delete_resources_with_prefix() {
+            local RESOURCE_TYPE=$1
+            local RESOURCES=$(kubectl get "$RESOURCE_TYPE" --no-headers 2>/dev/null | awk "/$E2E_PREFIX/ {print \$1}")
+            
+            if [[ -n "$RESOURCES" ]]; then
+                echo "$RESOURCES" | xargs -r kubectl delete "$RESOURCE_TYPE"
+            else
+                echo "No $RESOURCE_TYPE found with prefix $E2E_PREFIX"
+            fi
+        }
+
+        delete_resources_with_prefix "namespaces"
+
+        delete_resources_with_prefix "projects"
+
+        readarray -t CLEANUP_RESOURCES < <(yq '.cleanupResources[]' default_config.yaml)
+        for RESOURCE in "${CLEANUP_RESOURCES[@]}"; do
+            delete_resources_with_prefix "$RESOURCE"
+        done
+
+  checkout-to-mpo:
+    deps:
+      - d8
+    cmds:
+      - |
+        if [ -z "$v12n_tag" ]; then
+          echo "Error: v12n_tag is not set."
+          exit 1
+        fi
+        DECKHOUSE_READY_STATUS=$(kubectl get po -n d8-system -l app=deckhouse -o json | jq -r '.items[0].status.conditions[] | select(.type=="ContainersReady") | .status')
+        if [ "$DECKHOUSE_READY_STATUS" != "True" ]; then
+          echo "Error: Deckhouse is not ready."
+          exit 1
+        fi
+        d8 k patch mpo virtualization --type merge -p "{\"spec\":{\"imageTag\":\"$v12n_tag\"}}" 
+        images_hash=$(crane export "dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:$v12n_tag" - | tar -Oxf - images_digests.json)
+        v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
+        retry_count=0
+        max_retries=120
+        sleep_interval=5 
+
+        while true; do
+          all_hashes_found=true
+
+          # Fetch current pods information
+          v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
+
+          # Process each image entry
+          while IFS= read -r image_entry; do
+            image=$(echo "$image_entry" | jq -r '.key')
+            hash=$(echo "$image_entry" | jq -r '.value')
+
+            if [[ "${image,,}" =~ (libguestfs|predeletehook) ]]; then
+              continue
+            fi
+
+            if echo "$v12n_pods" | grep -q "$hash"; then
+              echo "- ✅ $image $hash"
+            else
+              echo "- 🟥 $image $hash"
+              all_hashes_found=false
+            fi
+          done < <(echo "$images_hash" | jq -c '. | to_entries | sort_by(.key)[]')
+
+          # If all hashes are found, break the loop
+          if [ "$all_hashes_found" = true ]; then
+            echo "All image hashes found in pods."
+            break
+          fi 
+
+          retry_count=$((retry_count + 1))
+          echo "Some hashes are missing, rechecking... Attempt: $retry_count"
+
+          # Check if the retry limit has been reached
+          if [ "$retry_count" -ge "$max_retries" ]; then
+            echo "Error: Timeout reached after $((retry_count * sleep_interval)) seconds. Some image hashes are still missing."
+            exit 1
+          fi
+          # Wait for the specified interval before retrying
+          sleep "$sleep_interval"
+        done
