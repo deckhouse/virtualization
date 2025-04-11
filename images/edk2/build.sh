@@ -234,6 +234,7 @@ enroll() {
               --secure-boot --enroll-generate dvp.deckhouse.io
 }
 
+# no sec boot but makes json happy
 no_enroll() {
   cp -p $FIRMWARE/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.secboot.fd
   cp -p $FIRMWARE/OVMF.inteltdx.fd $FIRMWARE/OVMF.inteltdx.secboot.fd  
@@ -257,3 +258,4 @@ build_ovmf_inteltdx 2>&1 > /dev/null
 
 build_iso $FIRMWARE
 # enroll
+# no_enroll
