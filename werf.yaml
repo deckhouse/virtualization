@@ -51,6 +51,8 @@ build:
 # Source repo settings
 {{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
 
+{{- $_ := set . "SOURCE_REPO_GIT" (env "SOURCE_REPO_GIT" | default "https://github.com") }}
+
 # Edition module settings
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
 
@@ -93,6 +95,7 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "ImageBuildData" $content }}
   {{- $_ := set $ctx "Images" $Root.Images }}
   {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
+  {{- $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
   {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
   {{- $_ := set $ctx "Version" $Root.Version }}
 

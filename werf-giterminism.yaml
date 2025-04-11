@@ -5,6 +5,7 @@ config:
     - /CI_.+/
     - MODULES_MODULE_TAG
     - SOURCE_REPO
+    - SOURCE_REPO_GIT
     - MODULE_EDITION
   stapel:
     mount:

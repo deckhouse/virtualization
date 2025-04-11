@@ -42,7 +42,7 @@ from: alpine:3.20.6
 # fromImage: alpine-builder
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
     - |
