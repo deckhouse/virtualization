@@ -29,7 +29,7 @@ packages:
 image: {{ $.ImageName }}
 final: false
 fromImage: base-alt-p11
-cacheVersion: "11042025.1"
+cacheVersion: "11042025.2"
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
