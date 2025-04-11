@@ -146,6 +146,8 @@ Example of creating a virtual machine with Ubuntu 22.04.
 
 The `VirtualImage` resource is designed to load virtual machine images and then use them to create virtual machine disks. This resource is available only in the nymspace or project in which it was created.
 
+When connected to a virtual machine, the image is accessed in read-only mode.
+
 The image creation process includes the following steps:
 
 - The user creates a `VirtualImage` resource.
@@ -154,10 +156,36 @@ The image creation process includes the following steps:
 
 There are different types of images:
 
-- ISO image - an installation image used for the initial installation of an operating system. Such images are released by OS vendors and are used for installation on physical and virtual servers.
-- Preinstalled disk image - contains an already installed and configured operating system ready for use after the virtual machine is created. These images are offered by several vendors and can be provided in formats such as qcow2, raw, vmdk, and others.
+- **ISO image**: an installation image used for the initial installation of an operating system. Such images are released by OS vendors and are used for installation on physical and virtual servers.
+- **Preinstalled disk image**: contains an already installed and configured operating system ready for use after the virtual machine is created. Ready images can be obtained from the distribution developers' resources or created by yourself.
 
-Example of resource for obtaining virtual machine images [Ubuntu](https://cloud-images.ubuntu.com)
+Examples of resources for obtaining virtual machine images:
+
+- Ubuntu
+  - [24.04 LTS (Noble Numbat)](https://cloud-images.ubuntu.com/noble/current/)
+  - [22.04 LTS (Jammy Jellyfish)](https://cloud-images.ubuntu.com/jammy/current/)
+  - [20.04 LTS (Focal Fossa)](https://cloud-images.ubuntu.com/focal/current/)
+  - [Minimal images](https://cloud-images.ubuntu.com/minimal/releases/)
+- Debian
+  - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
+  - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
+- RockyLinux
+  - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
+  - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
+- CentOS
+  - [10 Stream](https://cloud.centos.org/centos/10-stream/x86_64/images/)
+  - [9 Stream](https://cloud.centos.org/centos/9-stream/x86_64/images/)
+  - [8 Stream](https://cloud.centos.org/centos/8-stream/x86_64/)
+  - [8](https://cloud.centos.org/centos/8/x86_64/images/)
+
+The following preinstalled image formats are supported:
+
+- qcow2
+- raw
+- vmdk
+- vdi
+
+Image files can also be compressed with one of the following compression algorithms: gz, xz.
 
 Once a share is created, the image type and size are automatically determined, and this information is reflected in the share status.
 
@@ -181,7 +209,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22.04
+  name: ubuntu-22-04
 spec:
   # Save the image to DVCR
   storage: ContainerRegistry
@@ -196,16 +224,16 @@ EOF
 Check the result of the `VirtualImage` creation:
 
 ```bash
-d8 k get virtualimage ubuntu-22.04
+d8 k get virtualimage ubuntu-22-04
 # or a shorter version
-d8 k get vi ubuntu-22.04
+d8 k get vi ubuntu-22-04
 ```
 
 Example output:
 
 ```txt
 # NAME           PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22.04   Ready   false   100%       23h
+# ubuntu-22-04   Ready   false   100%       23h
 ```
 
 After creation the `VirtualImage` resource can be in the following states (phases):
@@ -222,26 +250,26 @@ As long as the image has not entered the `Ready` phase, the contents of the `.sp
 You can trace the image creation process by adding the `-w` key to the previous command:
 
 ```bash
-d8 k get vi ubuntu-22.04 -w
+d8 k get vi ubuntu-22-04 -w
 ```
 
 Example output:
 
 ```txt
 # NAME           PHASE          CDROM   PROGRESS   AGE
-# ubuntu-22.04   Provisioning   false              4s
-# ubuntu-22.04   Provisioning   false   0.0%       4s
-# ubuntu-22.04   Provisioning   false   28.2%      6s
-# ubuntu-22.04   Provisioning   false   66.5%      8s
-# ubuntu-22.04   Provisioning   false   100.0%     10s
-# ubuntu-22.04   Provisioning   false   100.0%     16s
-# ubuntu-22.04   Ready          false   100%       18s
+# ubuntu-22-04   Provisioning   false              4s
+# ubuntu-22-04   Provisioning   false   0.0%       4s
+# ubuntu-22-04   Provisioning   false   28.2%      6s
+# ubuntu-22-04   Provisioning   false   66.5%      8s
+# ubuntu-22-04   Provisioning   false   100.0%     10s
+# ubuntu-22-04   Provisioning   false   100.0%     16s
+# ubuntu-22-04   Ready          false   100%       18s
 ```
 
 The `VirtualImage` resource description provides additional information about the downloaded image:
 
 ```bash
-d8 k describe vi ubuntu-22.04
+d8 k describe vi ubuntu-22-04
 ```
 
 Now let's look at an example of creating an image and storing it in PVC:
@@ -251,7 +279,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22.04-pvc
+  name: ubuntu-22-04-pvc
 spec:
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
@@ -268,14 +296,14 @@ EOF
 Check the result of the `VirtualImage` creation:
 
 ```bash
-d8 k get vi ubuntu-22.04-pvc
+d8 k get vi ubuntu-22-04-pvc
 ```
 
 Example output:
 
 ```txt
 # NAME              PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22.04-pvc  Ready   false   100%       23h
+# ubuntu-22-04-pvc  Ready   false   100%       23h
 ```
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-images).
@@ -509,8 +537,10 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 - `Provisioning` - disk creation process is in progress.
 - `Resizing` - the process of resizing the disk is in progress.
 - `WaitForFirstConsumer` - the disk is waiting for the virtual machine that will use it to be created.
+- `WaitForUserUpload` - the disk is waiting for the user to upload an image (type: Upload).
 - `Ready` - the disk has been created and is ready for use.
 - `Failed` - an error occurred during the creation process.
+- `PVCLost` - system error, PVC with data has been lost.
 - `Terminating` - the disk is being deleted. The disk may “hang” in this state if it is still connected to the virtual machine.
 
 As long as the disk has not entered the `Ready` phase, the contents of the entire `.spec` block can be changed. If changes are made, the disk creation process will start over.
@@ -539,14 +569,14 @@ When creating a disk, you can specify its desired size, which must be equal to o
 Using the example of the previously created image `VirtualImage`, let's consider the command that allows you to determine the size of the unpacked image:
 
 ```bash
-d8 k get vi ubuntu-22.04 -o wide
+d8 k get vi ubuntu-22-04 -o wide
 ```
 
 Example output:
 
 ```txt
 # NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-# ubuntu-22.04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22.04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+# ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 The size you are looking for is specified in the **UNPACKEDSIZE** column and is 2.5Gi.
@@ -571,7 +601,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -593,7 +623,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -1401,20 +1431,54 @@ EOF
 
 ![](images/lb-ingress.png)
 
-### Live Virtual Machine Migration
+### Virtual Machine LiveMigration
 
-Virtual machine migration is an important feature in managing virtualized infrastructure. It allows you to move running virtual machines from one physical host to another without shutting them down.
+Live virtual machine migration is an important feature in virtualized infrastructure management. It allows you to move running virtual machines from one physical host to another without shutting them down.
 
-Migration can be performed automatically when:
+Migration can be performed manually by the user, or automatically by the following system events:
 
 - Updating the “firmware” of a virtual machine.
-- Rebalancing the load on the cluster nodes.
-- Transferring nodes to maintenance mode for work.
-- When you change [VM placement settings](#placement-of-vms-by-nodes) (available in Enterprise edition only).
+- Redistribution of load in the cluster.
+- Transferring a node into maintenance mode (Node drain).
+- When you change [VM placement settings](#placement-of-vms-by-nodes) (not available in Community edition).
 
-Virtual machine migration can also be performed at the user's request. Let's take an example:
+The trigger for live migration is the appearance of the `VirtualMachineOperations` resource with the `Evict` type.
 
-Before starting the migration, view the current status of the virtual machine::
+The table shows the `VirtualMachineOperations` resource name prefixes with the `Evict` type that are created for live migrations caused by system events:
+
+| Type of system event | Resource name prefix |
+|----------------------------------|------------------------|
+| Firmware-update-* | firmware-update-* |
+| Load shifting | evacuation-* |
+| Drain node | evacuation-* |
+| Modify placement parameters | nodeplacement-update-* |
+
+This resource can be in the following states:
+
+- `Pending` - the operation is pending.
+- `InProgress` - live migration is in progress.
+- `Completed` - live migration of the virtual machine has been completed successfully.
+- `Failed` - the live migration of the virtual machine has failed.
+
+You can view active operations using the command:
+
+```bash
+d8 k get vmop
+```
+
+Example output:
+
+```txt
+# NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
+# firmware-update-fnbk2   Completed   Evict   static-vm-node-00   148m
+```
+
+You can interrupt any live migration while it is in the `Pending`, `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
+
+#### How to perform a live migration of a virtual machine using `VirtualMachineOperations`.
+
+Let's look at an example. Before starting the migration, view the current status of the virtual machine:
+
 
 ```bash
 d8 k get vm
@@ -1429,7 +1493,16 @@ Example output:
 
 We can see that it is currently running on the `virtlab-pt-1` node.
 
-To migrate a virtual machine from one node to another, taking into account the requirements for virtual machine placement, the `VirtualMachineOperations` (`vmop`) resource with the `Evict` type is used.
+To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the command is used:
+
+```bash
+d8 v evict -n <namespace> <vm-name>
+```
+
+execution of this command leads to the creation of the `VirtualMachineOperations` resource.
+
+You can also start the migration by creating a `VirtualMachineOperations` (`vmop`) resource with the `Evict` type manually:
+
 
 ```yaml
 d8 k create -f - <<EOF
@@ -1445,7 +1518,7 @@ spec:
 EOF
 ```
 
-Immediately after creating the `vmip` resource, run the command:
+To track the migration of a virtual machine immediately after the `vmop` resource is created, run the command:
 
 ```bash
 d8 k get vm -w
@@ -1461,11 +1534,32 @@ Example output:
 # linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
-You can also use the command to perform the migration:
+#### Live migration of virtual machine when changing placement parameters (not available in CE edition)
 
-```bash
-d8 v evict <vm-name>
+Let's consider the migration mechanism on the example of a cluster with two node groups (`NodeGroups`): green and blue. Suppose a virtual machine (VM) is initially running on a node in the green group and its configuration contains no placement restrictions.
+
+Step 1: Add the placement parameter
+Let's specify in the VM specification the requirement for placement in the green group :
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: green
 ```
+
+After saving the changes, the VM will continue to run on the current node, since the `nodeSelector` condition is already met.
+
+Step 2: Change the placement parameter
+Let's change the placement requirement to group blue :
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: blue
+```
+
+Now the current node (groups green) does not match the new conditions. The system will automatically create a `VirtualMachineOperations` object of type Evict, which will initiate a live migration of the VM to an available node in group blue .
+
 
 ## IP addresses of virtual machines
 

@@ -146,6 +146,8 @@ weight: 50
 
 Ресурс `VirtualImage` предназначен для загрузки образов виртуальных машин и их последующего использования для создания дисков виртуальных машин. Данный ресурс доступен только в неймспейсе или проекте в котором он был создан.
 
+При подключении к виртуальной машине доступ к образу предоставляется в режиме «только чтение».
+
 Процесс создания образа включает следующие шаги:
 
 - Пользователь создаёт ресурс `VirtualImage`.
@@ -154,14 +156,40 @@ weight: 50
 
 Существуют различные типы образов:
 
-- ISO-образ — установочный образ, используемый для начальной установки операционной системы. Такие образы выпускаются производителями ОС и используются для установки на физические и виртуальные серверы.
-- Образ диска с предустановленной системой — содержит уже установленную и настроенную операционную систему, готовую к использованию после создания виртуальной машины. Эти образы предлагаются несколькими производителями и могут быть представлены в таких форматах, как qcow2, raw, vmdk и другие.
+- **ISO-образ** — установочный образ, используемый для начальной установки операционной системы. Такие образы выпускаются производителями ОС и используются для установки на физические и виртуальные серверы.
+- **Образ диска с предустановленной системой** — содержит уже установленную и настроенную операционную систему, готовую к использованию после создания виртуальной машины. Готовые образы можно получить на ресурсах разработчиков дистрибутива, либо создать самостоятельно.
 
 Примеры ресурсов для получения образов виртуальной машины:
 
-- [Ubuntu](https://cloud-images.ubuntu.com)
-- [Alt Linux](https://ftp.altlinux.ru/pub/distributions/ALTLinux/platform/images/cloud/x86_64)
+- Ubuntu
+  - [24.04 LTS (Noble Numbat)](https://cloud-images.ubuntu.com/noble/current/)
+  - [22.04 LTS (Jammy Jellyfish)](https://cloud-images.ubuntu.com/jammy/current/)
+  - [20.04 LTS (Focal Fossa)](https://cloud-images.ubuntu.com/focal/current/)
+  - [Minimal images](https://cloud-images.ubuntu.com/minimal/releases/)
+- Debian
+  - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
+  - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
+- RockyLinux
+  - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
+  - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
+- CentOS
+  - [10 Stream](https://cloud.centos.org/centos/10-stream/x86_64/images/)
+  - [9 Stream](https://cloud.centos.org/centos/9-stream/x86_64/images/)
+  - [8 Stream](https://cloud.centos.org/centos/8-stream/x86_64/)
+  - [8](https://cloud.centos.org/centos/8/x86_64/images/)
+- Alt Linux
+  - [p10](https://ftp.altlinux.ru/pub/distributions/ALTLinux/p10/images/cloud/x86_64/)
+  - [p9](https://ftp.altlinux.ru/pub/distributions/ALTLinux/p9/images/cloud/x86_64/)
 - [Astra Linux](https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit)
+
+Поддерживаются следующие форматы образов с предустановленной системой:
+
+- qcow2
+- raw
+- vmdk
+- vdi
+
+Также файлы образов могут быть сжаты одним из следующих алгоритмов сжатия: gz, xz.
 
 После создания ресурса, тип и размер образа определяются автоматически и эта информация отражается в статусе ресурса.
 
@@ -187,7 +215,7 @@ weight: 50
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
    metadata:
-     name: ubuntu-22.04
+     name: ubuntu-22-04
    spec:
      # Сохраним образ в DVCR.
      storage: ContainerRegistry
@@ -202,16 +230,16 @@ weight: 50
 1. Проверьте результат создания `VirtualImage`:
 
    ```bash
-   d8 k get virtualimage ubuntu-22.04
+   d8 k get virtualimage ubuntu-22-04
    # или более короткий вариант
-   d8 k get vi ubuntu-22.04
+   d8 k get vi ubuntu-22-04
    ```
 
    Пример вывода:
 
    ```txt
    # NAME           PHASE   CDROM   PROGRESS   AGE
-   # ubuntu-22.04   Ready   false   100%       23h
+   # ubuntu-22-04   Ready   false   100%       23h
    ```
 
 После создания ресурс `VirtualImage` может находиться в следующих состояниях (фазах):
@@ -228,26 +256,26 @@ weight: 50
 Отследить процесс создания образа можно путем добавления ключа `-w` к предыдущей команде:
 
 ```bash
-d8 k get vi ubuntu-22.04 -w
+d8 k get vi ubuntu-22-04 -w
 ```
 
 Пример вывода:
 
 ```txt
 # NAME           PHASE          CDROM   PROGRESS   AGE
-# ubuntu-22.04   Provisioning   false              4s
-# ubuntu-22.04   Provisioning   false   0.0%       4s
-# ubuntu-22.04   Provisioning   false   28.2%      6s
-# ubuntu-22.04   Provisioning   false   66.5%      8s
-# ubuntu-22.04   Provisioning   false   100.0%     10s
-# ubuntu-22.04   Provisioning   false   100.0%     16s
-# ubuntu-22.04   Ready          false   100%       18s
+# ubuntu-22-04   Provisioning   false              4s
+# ubuntu-22-04   Provisioning   false   0.0%       4s
+# ubuntu-22-04   Provisioning   false   28.2%      6s
+# ubuntu-22-04   Provisioning   false   66.5%      8s
+# ubuntu-22-04   Provisioning   false   100.0%     10s
+# ubuntu-22-04   Provisioning   false   100.0%     16s
+# ubuntu-22-04   Ready          false   100%       18s
 ```
 
 В описание ресурса `VirtualImage` можно получить дополнительную информацию о скачанном образе:
 
 ```bash
-d8 k describe vi ubuntu-22.04
+d8 k describe vi ubuntu-22-04
 ```
 
 Теперь рассмотрим пример создания образа с хранением его в PVC:
@@ -257,7 +285,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22.04-pvc
+  name: ubuntu-22-04-pvc
 spec:
   # Настройки хранения проектного образа.
   storage: PersistentVolumeClaim
@@ -275,14 +303,14 @@ EOF
 Проверьте результат создания `VirtualImage`:
 
 ```bash
-d8 k get vi ubuntu-22.04-pvc
+d8 k get vi ubuntu-22-04-pvc
 ```
 
 Пример вывода:
 
 ```txt
 # NAME              PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22.04-pvc  Ready   false   100%       23h
+# ubuntu-22-04-pvc  Ready   false   100%       23h
 ```
 
 Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./ADMIN_GUIDE_RU.md#настройки-классов-хранения-для-образов).
@@ -516,8 +544,10 @@ EOF
 - `Provisioning` - идет процесс создания диска.
 - `Resizing` - идет процесс изменения размера диска.
 - `WaitForFirstConsumer` - диск ожидает создания виртуальной машины, которая будет его использовать.
+- `WaitForUserUpload` - диск ожидает от пользователя загрузки образа (type: Upload).
 - `Ready` - диск создан и готов для использования.
 - `Failed` - произошла ошибка в процессе создания.
+- `PVCLost` - системная ошибка, PVC с данными утерян.
 - `Terminating` - идет процесс удаления диска. Диск может «зависнуть» в данном состоянии, если он еще подключен к виртуальной машине.
 
 До тех пор пока диск не перешёл в фазу `Ready` содержимое всего блока `.spec` допускается изменять. При изменении процесс создании диска запустится заново.
@@ -546,14 +576,14 @@ d8 k get vd blank-disk
 На примере ранее созданного проектного образа `VirtualImage`, рассмотрим команду позволяющую определить размер распакованного образа:
 
 ```bash
-d8 k get cvi ubuntu-22.04 -o wide
+d8 k get cvi ubuntu-22-04 -o wide
 ```
 
 Пример вывода:
 
 ```txt
 # NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-# ubuntu-22.04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22.04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+# ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 Искомый размер указан в колонке **UNPACKEDSIZE** и равен 2.5Gi.
@@ -578,7 +608,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -600,7 +630,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -1409,16 +1439,49 @@ EOF
 
 ### Живая миграция виртуальной машины
 
-Миграция виртуальных машин является важной функцией в управлении виртуализованной инфраструктурой. Она позволяет перемещать работающие виртуальные машины с одного физического узла на другой без их отключения.
+Живая миграция виртуальных машин является важной функцией в управлении виртуализованной инфраструктурой. Она позволяет перемещать работающие виртуальные машины с одного физического узла на другой без их отключения.
 
-Миграция может осуществляться автоматически при:
+Миграция может осуществляться пользователем вручную, либо автоматически при следующих системных событиях:
 
 - Обновлении «прошивки» виртуальной машины.
-- Перебалансировке нагрузки на узлах кластера.
-- Переводе узлов в режим обслуживания для проведения работ.
-- При изменении [параметров размещения ВМ](#размещение-вм-по-узлам) (доступно только в Enterprise-редакции).
+- Перераспределение нагрузки в кластере.
+- Перевод узла в режим технического обслуживания (Drain узла)
+- При изменении [параметров размещения ВМ](#размещение-вм-по-узлам) (не доступно Community-редакции).
 
-Также миграция виртуальной машины может быть выполнена по требованию пользователя.
+Триггером к живой миграции является появление ресурса `VirtualMachineOperations` с типом `Evict`.
+
+В таблице приведены префиксы названия ресурса `VirtualMachineOperations` с типом `Evict`, создаваемые для живых миграций вызванных системными событиями:
+
+| Вид системного события           | Префикс имени ресурса  |
+|----------------------------------|------------------------|
+| Обновлении «прошивки»            | firmware-update-*      |
+| Перераспределение нагрузки       | evacuation-*           |
+| Drain узла                       | evacuation-*           |
+| Изменение параметров размещения  | nodeplacement-update-* |
+
+Данный ресурс может находится в следующих состояниях:
+
+- `Pending` - ожидается выполнение операции.
+- `InProgress` - живая миграция выполняется.
+- `Completed` - живая миграция виртуальной машины завершилась успешно.
+- `Failed` - живая миграция виртуальной машины завершилась неуспешно.
+
+Посмотреть активные операции можно с использованием команды:
+
+```bash
+d8 k get vmop
+```
+
+Пример вывода:
+
+```txt
+# NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
+# firmware-update-fnbk2   Completed   Evict   linux-vm            1m
+```
+
+Прервать любую живую миграцию пока она находится в фазе `Pending`, `InProgress` можно удалив соответствующий ресурс `VirtualMachineOperations`.
+
+#### Как выполнить живую миграцию виртуальной машины с использованием `VirtualMachineOperations`.
 
 Рассмотрим пример. Перед запуском миграции посмотрите текущий статус виртуальной машины:
 
@@ -1435,7 +1498,15 @@ d8 k get vm
 
 Мы видим что на данный момент она запущена на узле `virtlab-pt-1`.
 
-Для осуществления миграции виртуальной машины с одного узла на другой, с учетом требований к размещению виртуальной машины используется ресурс `VirtualMachineOperations` (`vmop`) с типом `Evict`.
+Для осуществления миграции виртуальной машины с одного узла на другой, с учетом требований к размещению виртуальной машины используется команда:
+
+```bash
+d8 v evict -n <namespace> <vm-name>
+```
+
+выполнение данной команды приводит к созданию ресурса `VirtualMachineOperations`.
+
+Запустить миграцию можно также создав ресурс `VirtualMachineOperations` (`vmop`) с типом `Evict` вручную:
 
 ```yaml
 d8 k create -f - <<EOF
@@ -1451,7 +1522,7 @@ spec:
 EOF
 ```
 
-Сразу после создания ресурса `vmip`, выполните команду:
+Для отслеживания миграции виртуальной машины сразу после создания ресурса `vmop`, выполните команду:
 
 ```bash
 d8 k get vm -w
@@ -1467,10 +1538,37 @@ d8 k get vm -w
 # linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
-Также для выполнения миграции можно использовать команду:
+#### Живая миграция виртуальной машиный при изменении параметров размещения (недоступно в CE редакции)
 
-```bash
-d8 v evict <vm-name>
+Рассмотрим механизм миграции на примере кластера с двумя группами узлов (`NodeGroups`): green и blue . Допустим, виртуальная машина (ВМ) изначально запущена на узле группы green , а её конфигурация не содержит ограничений на размещение.
+
+Шаг 1. Добавление параметра размещения
+Укажем в спецификации ВМ требование к размещению в группе green :
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: green
+```
+
+После сохранения изменений ВМ продолжит работать на текущем узле, так как условие `nodeSelector` уже выполняется.
+
+Шаг 2. Изменение группы размещения
+Изменим требование на размещение в группе blue :
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: blue
+```
+
+Теперь текущий узел (группы green) не соответствует новым условиям. Система автоматически создаст объект `VirtualMachineOperations` типа Evict, что инициирует живую миграцию ВМ на доступный узел группы blue.
+
+Пример вывода ресурса
+
+```txt
+# NAME                         PHASE       TYPE    VIRTUALMACHINE      AGE
+# nodeplacement-update-dabk4   Completed   Evict   linux-vm            1m
 ```
 
 ## IP-адреса виртуальных машин
