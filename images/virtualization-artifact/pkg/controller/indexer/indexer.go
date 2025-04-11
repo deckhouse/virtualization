@@ -41,8 +41,9 @@ const (
 	IndexFieldVIByVDSnapshot  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 	IndexFieldCVIByVDSnapshot = "cvi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 
-	IndexFieldVDByStorageClass = "vd.spec.PersistentVolumeClaim.StorageClass"
-	IndexFieldVIByStorageClass = "vi.spec.PersistentVolumeClaim.StorageClass"
+	IndexFieldVDByStorageClass         = "vd.spec.PersistentVolumeClaim.StorageClass"
+	IndexFieldVIByStorageClass         = "vi.spec.PersistentVolumeClaim.StorageClass"
+	IndexFieldVIByNotReadyStorageClass = "vi,status.conditions[].type,StorageClassReady"
 
 	IndexFieldVMSnapshotByVM         = "spec.virtualMachineName"
 	IndexFieldVMSnapshotByVDSnapshot = "status.virtualDiskSnapshotNames"
@@ -72,6 +73,7 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexVDByStorageClass,
 		IndexVIByVDSnapshot,
 		IndexVIByStorageClass,
+		IndexVIByNotReadyStorageClass,
 		IndexCVIByVDSnapshot,
 		IndexVMIPByAddress,
 		IndexVMBDAByVM,

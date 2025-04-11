@@ -44,6 +44,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -608,8 +609,32 @@ func (s DiskService) GetStorageClass(ctx context.Context, storageClassName *stri
 }
 
 func (s DiskService) GetDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
+	var (
+		moduleConfigViDefaultStorageClass string
+		moduleConfig                      mcapi.ModuleConfig
+		moduleConfigName                  = "virtualization"
+	)
+	err := s.client.Get(ctx, types.NamespacedName{Name: moduleConfigName}, &moduleConfig, &client.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	if virtualImages, ok := moduleConfig.Spec.Settings["virtualImages"].(map[string]interface{}); ok {
+		if defaultClass, ok := virtualImages["defaultStorageClassName"].(string); ok {
+			moduleConfigViDefaultStorageClass = defaultClass
+		}
+	}
+
+	if moduleConfigViDefaultStorageClass != "" {
+		moduleConfigViDefaultStorageClassObj, err := s.getStorageClass(ctx, moduleConfigViDefaultStorageClass)
+		if err != nil {
+			return nil, err
+		}
+		return moduleConfigViDefaultStorageClassObj, nil
+	}
+
 	var scs storev1.StorageClassList
-	err := s.client.List(ctx, &scs, &client.ListOptions{})
+	err = s.client.List(ctx, &scs, &client.ListOptions{})
 	if err != nil {
 		return nil, err
 	}
