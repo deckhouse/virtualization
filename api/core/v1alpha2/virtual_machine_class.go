@@ -199,7 +199,7 @@ const (
 
 type VirtualMachineClassLiveMigration struct {
 	// +kubebuilder:validation:Required
-	Policy VirtualMachineClassLiveMigrationPolicy
+	Policy VirtualMachineClassLiveMigrationPolicy `json:"policy"`
 }
 
 type VirtualMachineClassLiveMigrationPolicy struct {
