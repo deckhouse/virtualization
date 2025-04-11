@@ -39,6 +39,9 @@ binaries:
 image: {{ $.ImageName }}-builder
 final: false
 fromImage: alpine-builder
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO }}
 shell:
   beforeInstall:
     - |
@@ -47,7 +50,7 @@ shell:
 
   install:
     - |
-      git clone --depth=1 --branch v{{ $version }} {{ $.SOURCE_REPO }}/stefanberger/swtpm.git /swtpm
+      git clone --depth=1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git /swtpm
       cd /swtpm
       ./autogen.sh --with-openssl --prefix=/usr --libdir=/usr/lib64
       CC="/usr/bin/musl-gcc" LDFLAGS="-static" make -j$(nproc)
