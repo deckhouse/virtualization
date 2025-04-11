@@ -159,31 +159,45 @@ prep() {
 
 # Build with SB and SMM; exclude UEFI shell.
 build_ovmf() {
-  echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
-  build ${OVMF_4M_FLAGS} \
-    -a X64 -p OvmfPkg/OvmfPkgX64.dsc \
-    -DCC_MEASUREMENT_ENABLE=TRUE \
-    --pcd PcdFirmwareVendor=L"DVP distribution of EDK II\\0" \
-    --pcd PcdFirmwareVersionString=L"2025.02-1\\0" \
-    --pcd PcdFirmwareReleaseDateString=L"03/02/2025\\0"
+  # echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
+  build -a X64 \
+    -t GCC5 \
+    -p OvmfPkg/OvmfPkgX64.dsc \
+    -DCC_MEASUREMENT_ENABLE=TRUE -DNETWORK_HTTP_BOOT_ENABLE=TRUE -DNETWORK_IP6_ENABLE=TRUE -DNETWORK_TLS_ENABLE --pcd PcdFirmwareVendor=L"DVP distribution of EDK II\\0" --pcd PcdFirmwareVersionString=L"2025.02-1\\0" --pcd PcdFirmwareReleaseDateString=L"03/02/2025\\0" -DTPM2_ENABLE=TRUE -DFD_SIZE_4MB -b RELEASE
+    cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
+    cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
+  # build ${OVMF_4M_FLAGS} \
+  #   -a X64 -p OvmfPkg/OvmfPkgX64.dsc \
+  #   -DCC_MEASUREMENT_ENABLE=TRUE \
+  #   --pcd PcdFirmwareVendor=L"DVP distribution of EDK II\\0" \
+  #   --pcd PcdFirmwareVersionString=L"2025.02-1\\0" \
+  #   --pcd PcdFirmwareReleaseDateString=L"03/02/2025\\0"
   
-  cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
-  cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
+  # cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
+  # cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
 }
 
 # Build with SB and SMM with secure boot; exclude UEFI shell.
 build_ovmf_secboot() {
-  echo_dbg "build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
-  build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} \
-    -a X64 -p OvmfPkg/OvmfPkgX64.dsc \
-    --pcd PcdFirmwareVendor=L"DVP distribution of EDK II\\0" \
-    --pcd PcdFirmwareVersionString=L"2025.02-1\\0" \
-    --pcd PcdFirmwareReleaseDateString=L"03/02/2025\\0"
+  # echo_dbg "build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
+  build -a X64 \
+		-t GCC5 \
+		-p OvmfPkg/OvmfPkgX64.dsc \
+		-DCC_MEASUREMENT_ENABLE=TRUE -DNETWORK_HTTP_BOOT_ENABLE=TRUE -DNETWORK_IP6_ENABLE=TRUE -DNETWORK_TLS_ENABLE --pcd PcdFirmwareVendor=L"DVP distribution of EDK II\\0" --pcd PcdFirmwareVersionString=L"2025.02-1\\0" --pcd PcdFirmwareReleaseDateString=L"03/02/2025\\0" -DTPM2_ENABLE=TRUE -DFD_SIZE_4MB -DBUILD_SHELL=FALSE -DSECURE_BOOT_ENABLE=TRUE -DSMM_REQUIRE=TRUE -b RELEASE
+    cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd           $FIRMWARE/OVMF_CODE.secboot.fd
+    cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd           $FIRMWARE/OVMF_VARS.secboot.fd
+    cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+    cp -p Build/OvmfX64/*/X64/Shell.efi             $FIRMWARE/
+  # build ${OVMF_4M_FLAGS} ${OVMF_SB_FLAGS} \
+  #   -a X64 -p OvmfPkg/OvmfPkgX64.dsc \
+  #   --pcd PcdFirmwareVendor=L"DVP distribution of EDK II\\0" \
+  #   --pcd PcdFirmwareVersionString=L"2025.02-1\\0" \
+  #   --pcd PcdFirmwareReleaseDateString=L"03/02/2025\\0"
     
-  cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd           $FIRMWARE/OVMF_CODE.secboot.fd
-  cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd           $FIRMWARE/OVMF_VARS.secboot.fd
-  cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
-  cp -p Build/OvmfX64/*/X64/Shell.efi             $FIRMWARE/
+  # cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd           $FIRMWARE/OVMF_CODE.secboot.fd
+  # cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd           $FIRMWARE/OVMF_VARS.secboot.fd
+  # cp -p Build/OvmfX64/*/X64/EnrollDefaultKeys.efi $FIRMWARE/
+  # cp -p Build/OvmfX64/*/X64/Shell.efi             $FIRMWARE/
 }
 
 # Build AmdSev and IntelTdx variants
