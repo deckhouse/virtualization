@@ -339,6 +339,7 @@ jobs:
 
   pull_request_info:
     name: Get PR info
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     outputs:
       labels: ${{ steps.pr_labels.outputs.labels }}
