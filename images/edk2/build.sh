@@ -267,5 +267,6 @@ echo "build_ovmf_inteltdx"
 build_ovmf_inteltdx 2>&1 > /dev/null
 
 build_iso $FIRMWARE
-enroll
+ls -la $FIRMWARE
+# enroll
 # no_enroll
