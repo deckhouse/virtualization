@@ -656,6 +656,7 @@ func IsContainerRestarted(podName, containerName, namespace string, startedAt v1
 
 func SaveTestResources(labels map[string]string, additional string) {
 	cmdr := kubectl.Get("virtualization -A", kc.GetOptions{Output: "yaml", Labels: labels})
+	Expect(cmdr.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
 
 	additional = strings.ToLower(additional)
 	additional = strings.ReplaceAll(strings.ToLower(additional), " ", "_")
