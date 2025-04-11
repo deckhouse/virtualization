@@ -1409,14 +1409,23 @@ EOF
 
 Live virtual machine migration is an important feature in virtualized infrastructure management. It allows you to move running virtual machines from one physical host to another without shutting them down.
 
-Migration can be performed automatically when:
+Migration can be performed manually by the user, or automatically by the following system events:
 
 - Updating the “firmware” of a virtual machine.
 - Redistribution of load in the cluster.
-- Transferring a node into maintenance mode.
-- When you change [VM placement settings](#placement-of-vms-by-nodes) (available in Enterprise edition only).
+- Transferring a node into maintenance mode (Node drain).
+- When you change [VM placement settings](#placement-of-vms-by-nodes) (not available in Community edition).
 
 The trigger for live migration is the appearance of the `VirtualMachineOperations` resource with the `Evict` type.
+
+The table shows the `VirtualMachineOperations` resource name prefixes with the `Evict` type that are created for live migrations caused by system events:
+
+| Type of system event | Resource name prefix |
+|----------------------------------|------------------------|
+| Firmware-update-* | firmware-update-* |
+| Load shifting | evacuation-* |
+| Drain node | evacuation-* |
+| Modify placement parameters | nodeplacement-update-* |
 
 This resource can be in the following states:
 
