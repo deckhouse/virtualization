@@ -128,7 +128,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel)
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
 	})
 
