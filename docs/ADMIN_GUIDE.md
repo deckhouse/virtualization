@@ -50,7 +50,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: ubuntu-22.04
+  name: ubuntu-22-04
 spec:
   # Source for creating an image.
   dataSource:
@@ -63,16 +63,16 @@ EOF
 To verify that the ClusterVirtualImage has been created, run the following command:
 
 ```bash
-d8 k get clustervirtualimage ubuntu-22.04
+d8 k get clustervirtualimage ubuntu-22-04
 # Or use a shorter version of this command.
-d8 k get cvi ubuntu-22.04
+d8 k get cvi ubuntu-22-04
 ```
 
 In the output, you should see information about the resource:
 
 ```console
 NAME           PHASE   CDROM   PROGRESS   AGE
-ubuntu-22.04   Ready   false   100%       23h
+ubuntu-22-04   Ready   false   100%       23h
 ```
 
 Once created, the ClusterVirtualImage resource can be in one of the following states (phases):
@@ -89,27 +89,27 @@ As long as the image has not entered the `Ready` phase, the contents of the `.sp
 You can trace the image creation process by adding the `-w` key to the previous command:
 
 ```bash
-d8 k get cvi ubuntu-22.04 -w
+d8 k get cvi ubuntu-22-04 -w
 ```
 
 Example output:
 
 ```console
 NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-22.04   Provisioning   false              4s
-ubuntu-22.04   Provisioning   false   0.0%       4s
-ubuntu-22.04   Provisioning   false   28.2%      6s
-ubuntu-22.04   Provisioning   false   66.5%      8s
-ubuntu-22.04   Provisioning   false   100.0%     10s
-ubuntu-22.04   Provisioning   false   100.0%     16s
-ubuntu-22.04   Ready          false   100%       18s
+ubuntu-22-04   Provisioning   false              4s
+ubuntu-22-04   Provisioning   false   0.0%       4s
+ubuntu-22-04   Provisioning   false   28.2%      6s
+ubuntu-22-04   Provisioning   false   66.5%      8s
+ubuntu-22-04   Provisioning   false   100.0%     10s
+ubuntu-22-04   Provisioning   false   100.0%     16s
+ubuntu-22-04   Ready          false   100%       18s
 ```
 
 You can get additional information about the downloaded image from the description of the ClusterVirtualImage resource.
 To check on the description, run the following command:
 
 ```bash
-d8 k describe cvi ubuntu-22.04
+d8 k describe cvi ubuntu-22-04
 ```
 
 ### Creating an image from a container registry

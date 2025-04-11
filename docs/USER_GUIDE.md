@@ -183,7 +183,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22.04
+  name: ubuntu-22-04
 spec:
   # Save the image to DVCR
   storage: ContainerRegistry
@@ -198,16 +198,16 @@ EOF
 Check the result of the `VirtualImage` creation:
 
 ```bash
-d8 k get virtualimage ubuntu-22.04
+d8 k get virtualimage ubuntu-22-04
 # or a shorter version
-d8 k get vi ubuntu-22.04
+d8 k get vi ubuntu-22-04
 ```
 
 Example output:
 
 ```txt
 # NAME           PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22.04   Ready   false   100%       23h
+# ubuntu-22-04   Ready   false   100%       23h
 ```
 
 After creation the `VirtualImage` resource can be in the following states (phases):
@@ -224,26 +224,26 @@ As long as the image has not entered the `Ready` phase, the contents of the `.sp
 You can trace the image creation process by adding the `-w` key to the previous command:
 
 ```bash
-d8 k get vi ubuntu-22.04 -w
+d8 k get vi ubuntu-22-04 -w
 ```
 
 Example output:
 
 ```txt
 # NAME           PHASE          CDROM   PROGRESS   AGE
-# ubuntu-22.04   Provisioning   false              4s
-# ubuntu-22.04   Provisioning   false   0.0%       4s
-# ubuntu-22.04   Provisioning   false   28.2%      6s
-# ubuntu-22.04   Provisioning   false   66.5%      8s
-# ubuntu-22.04   Provisioning   false   100.0%     10s
-# ubuntu-22.04   Provisioning   false   100.0%     16s
-# ubuntu-22.04   Ready          false   100%       18s
+# ubuntu-22-04   Provisioning   false              4s
+# ubuntu-22-04   Provisioning   false   0.0%       4s
+# ubuntu-22-04   Provisioning   false   28.2%      6s
+# ubuntu-22-04   Provisioning   false   66.5%      8s
+# ubuntu-22-04   Provisioning   false   100.0%     10s
+# ubuntu-22-04   Provisioning   false   100.0%     16s
+# ubuntu-22-04   Ready          false   100%       18s
 ```
 
 The `VirtualImage` resource description provides additional information about the downloaded image:
 
 ```bash
-d8 k describe vi ubuntu-22.04
+d8 k describe vi ubuntu-22-04
 ```
 
 Now let's look at an example of creating an image and storing it in PVC:
@@ -253,7 +253,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22.04-pvc
+  name: ubuntu-22-04-pvc
 spec:
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
@@ -270,14 +270,14 @@ EOF
 Check the result of the `VirtualImage` creation:
 
 ```bash
-d8 k get vi ubuntu-22.04-pvc
+d8 k get vi ubuntu-22-04-pvc
 ```
 
 Example output:
 
 ```txt
 # NAME              PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22.04-pvc  Ready   false   100%       23h
+# ubuntu-22-04-pvc  Ready   false   100%       23h
 ```
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-images).
@@ -541,14 +541,14 @@ When creating a disk, you can specify its desired size, which must be equal to o
 Using the example of the previously created image `VirtualImage`, let's consider the command that allows you to determine the size of the unpacked image:
 
 ```bash
-d8 k get vi ubuntu-22.04 -o wide
+d8 k get vi ubuntu-22-04 -o wide
 ```
 
 Example output:
 
 ```txt
 # NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-# ubuntu-22.04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22.04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+# ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 The size you are looking for is specified in the **UNPACKEDSIZE** column and is 2.5Gi.
@@ -573,7 +573,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -595,7 +595,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 

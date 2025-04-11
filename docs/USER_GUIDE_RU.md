@@ -189,7 +189,7 @@ weight: 50
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
    metadata:
-     name: ubuntu-22.04
+     name: ubuntu-22-04
    spec:
      # Сохраним образ в DVCR.
      storage: ContainerRegistry
@@ -204,16 +204,16 @@ weight: 50
 1. Проверьте результат создания `VirtualImage`:
 
    ```bash
-   d8 k get virtualimage ubuntu-22.04
+   d8 k get virtualimage ubuntu-22-04
    # или более короткий вариант
-   d8 k get vi ubuntu-22.04
+   d8 k get vi ubuntu-22-04
    ```
 
    Пример вывода:
 
    ```txt
    # NAME           PHASE   CDROM   PROGRESS   AGE
-   # ubuntu-22.04   Ready   false   100%       23h
+   # ubuntu-22-04   Ready   false   100%       23h
    ```
 
 После создания ресурс `VirtualImage` может находиться в следующих состояниях (фазах):
@@ -230,26 +230,26 @@ weight: 50
 Отследить процесс создания образа можно путем добавления ключа `-w` к предыдущей команде:
 
 ```bash
-d8 k get vi ubuntu-22.04 -w
+d8 k get vi ubuntu-22-04 -w
 ```
 
 Пример вывода:
 
 ```txt
 # NAME           PHASE          CDROM   PROGRESS   AGE
-# ubuntu-22.04   Provisioning   false              4s
-# ubuntu-22.04   Provisioning   false   0.0%       4s
-# ubuntu-22.04   Provisioning   false   28.2%      6s
-# ubuntu-22.04   Provisioning   false   66.5%      8s
-# ubuntu-22.04   Provisioning   false   100.0%     10s
-# ubuntu-22.04   Provisioning   false   100.0%     16s
-# ubuntu-22.04   Ready          false   100%       18s
+# ubuntu-22-04   Provisioning   false              4s
+# ubuntu-22-04   Provisioning   false   0.0%       4s
+# ubuntu-22-04   Provisioning   false   28.2%      6s
+# ubuntu-22-04   Provisioning   false   66.5%      8s
+# ubuntu-22-04   Provisioning   false   100.0%     10s
+# ubuntu-22-04   Provisioning   false   100.0%     16s
+# ubuntu-22-04   Ready          false   100%       18s
 ```
 
 В описание ресурса `VirtualImage` можно получить дополнительную информацию о скачанном образе:
 
 ```bash
-d8 k describe vi ubuntu-22.04
+d8 k describe vi ubuntu-22-04
 ```
 
 Теперь рассмотрим пример создания образа с хранением его в PVC:
@@ -259,7 +259,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22.04-pvc
+  name: ubuntu-22-04-pvc
 spec:
   # Настройки хранения проектного образа.
   storage: PersistentVolumeClaim
@@ -277,14 +277,14 @@ EOF
 Проверьте результат создания `VirtualImage`:
 
 ```bash
-d8 k get vi ubuntu-22.04-pvc
+d8 k get vi ubuntu-22-04-pvc
 ```
 
 Пример вывода:
 
 ```txt
 # NAME              PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22.04-pvc  Ready   false   100%       23h
+# ubuntu-22-04-pvc  Ready   false   100%       23h
 ```
 
 Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./ADMIN_GUIDE_RU.md#настройки-классов-хранения-для-образов).
@@ -548,14 +548,14 @@ d8 k get vd blank-disk
 На примере ранее созданного проектного образа `VirtualImage`, рассмотрим команду позволяющую определить размер распакованного образа:
 
 ```bash
-d8 k get cvi ubuntu-22.04 -o wide
+d8 k get cvi ubuntu-22-04 -o wide
 ```
 
 Пример вывода:
 
 ```txt
 # NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-# ubuntu-22.04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22.04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+# ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 Искомый размер указан в колонке **UNPACKEDSIZE** и равен 2.5Gi.
@@ -580,7 +580,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -602,7 +602,7 @@ spec:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -1525,7 +1525,7 @@ spec:
     node.deckhouse.io/group: blue
 ```
 
-Теперь текущий узел (группы green ) не соответствует новым условиям. Система автоматически создаст объект VirtualMachineOperations типа Evict, что инициирует живую миграцию ВМ на доступный узел группы blue .
+Теперь текущий узел (группы green) не соответствует новым условиям. Система автоматически создаст объект `VirtualMachineOperations` типа Evict, что инициирует живую миграцию ВМ на доступный узел группы blue .
 
 ## IP-адреса виртуальных машин
 
