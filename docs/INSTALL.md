@@ -189,6 +189,12 @@ The `.spec.settings.dvcr` block describes the settings for the repository for st
 
 The `.spec.settings.virtualMachineCIDRs` block specifies the list of subnets. Virtual machine addresses will be allocated automatically or on request from the specified subnet ranges in order.
 
+{{< alert level=“warning”>}}
+Subnets of `.spec.settings.virtualMachineCIDRs` block must not overlap with subnets of nodes, subnet of services and pods.
+
+It is forbidden to delete subnets if addresses from them have already been given to virtual machines!
+{{< /alert >}}
+
 You can track the readiness of the module using the following command:
 
 ```bash
