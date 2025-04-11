@@ -113,10 +113,6 @@ OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SECURE_BOOT_ENABLE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D SMM_REQUIRE=TRUE"
 OVMF_SB_FLAGS="${OVMF_SB_FLAGS} -D EXCLUDE_SHELL_FROM_FD=TRUE -D BUILD_SHELL=FALSE"
 
-# unset MAKEFLAGS
-echo "run . edksetup.sh"
-. ./edksetup.sh
-
 if ! command -v build 2>&1 >/dev/null
 then
     echo "build could not be found"

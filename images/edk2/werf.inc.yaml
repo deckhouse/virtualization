@@ -79,5 +79,8 @@ shell:
     ln /usr/bin/python3 /usr/bin/python
     make -C BaseTools -j$(nproc) 2>&1 > /dev/null
 
+    echo "run . edksetup.sh"
+    . ./edksetup.sh
+
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
 
