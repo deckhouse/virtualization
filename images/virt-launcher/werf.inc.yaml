@@ -258,6 +258,7 @@ shell:
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
     mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
+    mkdir -p /VBINS/usr/{lib64/swtpm,share/swtpm}
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
@@ -279,6 +280,9 @@ shell:
     
     echo "Relocate additional libs to /VBINS"
     ./relocate_binaries.sh -i "$LIBS" -o /VBINS
+
+    cp -a /usr/lib64/swtpm/. /VBINS/usr/lib64/swtpm/
+    cp -a /usr/share/swtpm/swtpm-localca /VBINS/usr/share/swtpm/swtpm-localca
 
     cp -a /VBINS/. /relocate
 
