@@ -11,6 +11,9 @@ config:
       allowBuildDir: true
       allowFromPaths:
       - ~/go-pkg-cache
+  secrets:
+    allowValueIds:
+    - SOURCE_REPO
 helm:
   allowUncommittedFiles:
   - "Chart.lock"
