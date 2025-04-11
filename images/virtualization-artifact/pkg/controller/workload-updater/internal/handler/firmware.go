@@ -18,7 +18,10 @@ package handler
 
 import (
 	"context"
+	"strings"
+	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -32,18 +35,22 @@ import (
 
 const firmwareHandler = "FirmwareHandler"
 
-func NewFirmwareHandler(client client.Client, migration OneShotMigration, firmwareImage string) *FirmwareHandler {
+func NewFirmwareHandler(client client.Client, migration OneShotMigration, firmwareImage, namespace, virtControllerName string) *FirmwareHandler {
 	return &FirmwareHandler{
-		client:           client,
-		oneShotMigration: migration,
-		firmwareImage:    firmwareImage,
+		client:             client,
+		oneShotMigration:   migration,
+		firmwareImage:      firmwareImage,
+		namespace:          namespace,
+		virtControllerName: virtControllerName,
 	}
 }
 
 type FirmwareHandler struct {
-	client           client.Client
-	oneShotMigration OneShotMigration
-	firmwareImage    string
+	client             client.Client
+	oneShotMigration   OneShotMigration
+	firmwareImage      string
+	namespace          string
+	virtControllerName string
 }
 
 func (h *FirmwareHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
@@ -56,6 +63,14 @@ func (h *FirmwareHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachin
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(firmwareHandler))
+
+	if ready, err := h.isVirtControllerUpToDate(ctx); err != nil {
+		return reconcile.Result{}, err
+	} else if !ready {
+		log.Info("Wait for virt-controller to be ready")
+		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
+	}
+
 	h.oneShotMigration.SetLogger(log)
 
 	migrate, err := h.oneShotMigration.OnceMigrate(ctx, vm, annotations.AnnVMOPWorkloadUpdateImage, h.firmwareImage)
@@ -75,4 +90,41 @@ func (h *FirmwareHandler) needUpdate(vm *v1alpha2.VirtualMachine) bool {
 		return upToDate.Status == metav1.ConditionFalse
 	}
 	return false
+}
+
+func (h *FirmwareHandler) isVirtControllerUpToDate(ctx context.Context) (ready bool, err error) {
+	deploy := &appsv1.Deployment{}
+	if err = h.client.Get(ctx, client.ObjectKey{
+		Name:      h.virtControllerName,
+		Namespace: h.namespace,
+	}, deploy); err != nil {
+		return false, err
+	}
+
+	if deploy.Status.ReadyReplicas != deploy.Status.Replicas {
+		return false, nil
+	}
+
+	return getVirtLauncherImage(deploy) == h.firmwareImage, nil
+}
+
+func getVirtLauncherImage(deploy *appsv1.Deployment) string {
+	for _, container := range deploy.Spec.Template.Spec.Containers {
+		if container.Name != "virt-controller" {
+			continue
+		}
+		allArgs := append(container.Command, container.Args...)
+
+		for i, arg := range allArgs {
+			if strings.HasPrefix(arg, "--launcher-image=") {
+				return strings.TrimPrefix(arg, "--launcher-image=")
+			} else if arg == "--launcher-image" {
+				if i+1 < len(allArgs) {
+					return allArgs[i+1]
+				}
+			}
+		}
+	}
+
+	return ""
 }
