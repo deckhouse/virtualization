@@ -65,8 +65,9 @@ type VirtualMachineClassSpec struct {
 	// These tolerations will be merged with the tolerations specified in the VirtualMachine resource. VirtualMachine tolerations have a higher priority.
 	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 	// +kubebuilder:validation:Required
-	CPU            CPU            `json:"cpu"`
-	SizingPolicies []SizingPolicy `json:"sizingPolicies,omitempty"`
+	CPU            CPU                               `json:"cpu"`
+	SizingPolicies []SizingPolicy                    `json:"sizingPolicies,omitempty"`
+	LiveMigration  *VirtualMachineClassLiveMigration `json:"liveMigration,omitempty"`
 }
 
 // NodeSelector defines the nodes targeted for VM scheduling.
@@ -195,6 +196,16 @@ const (
 	CPUTypeModel           CPUType = "Model"
 	CPUTypeFeatures        CPUType = "Features"
 )
+
+type VirtualMachineClassLiveMigration struct {
+	// +kubebuilder:validation:Required
+	Policy VirtualMachineClassLiveMigrationPolicy
+}
+
+type VirtualMachineClassLiveMigrationPolicy struct {
+	Allowed []LiveMigrationPolicy `json:"allowed"`
+	Default LiveMigrationPolicy   `json:"default"`
+}
 
 type VirtualMachineClassStatus struct {
 	Phase       VirtualMachineClassPhase `json:"phase"`

@@ -1,0 +1,52 @@
+package livemigration
+
+import (
+	"context"
+	"time"
+
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/config"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
+)
+
+const (
+	ControllerName = "live-migration-controller"
+)
+
+func NewController(
+	ctx context.Context,
+	mgr manager.Manager,
+	log *log.Logger,
+	liveMigrationSettings config.LiveMigrationSettings,
+) error {
+	// recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
+	// mgrCache := mgr.GetCache()
+	client := mgr.GetClient()
+
+	handlers := []Handler{
+		internal.NewDynamicSettingsHandler(client, liveMigrationSettings),
+	}
+	r := NewReconciler(client, handlers...)
+
+	c, err := controller.New(ControllerName, mgr, controller.Options{
+		Reconciler:       r,
+		RecoverPanic:     ptr.To(true),
+		LogConstructor:   logger.NewConstructor(log),
+		CacheSyncTimeout: 10 * time.Minute,
+	})
+	if err != nil {
+		return err
+	}
+
+	if err = r.SetupController(ctx, mgr, c); err != nil {
+		return err
+	}
+
+	log.Info("Initialized LiveMigrationSettings controller")
+	return nil
+}
