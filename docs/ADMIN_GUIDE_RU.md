@@ -52,7 +52,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: ubuntu-22.04
+  name: ubuntu-22-04
 spec:
   # Источник для создания образа.
   dataSource:
@@ -65,16 +65,16 @@ EOF
 Проверьте результат создания ресурса ClusterVirtualImage, выполнив следующую команду:
 
 ```bash
-d8 k get clustervirtualimage ubuntu-22.04
+d8 k get clustervirtualimage ubuntu-22-04
 # Или более короткий вариант
-d8 k get cvi ubuntu-22.04
+d8 k get cvi ubuntu-22-04
 ```
 
 В результате будет выведена информация о ресурсе:
 
 ```console
 NAME           PHASE   CDROM   PROGRESS   AGE
-ubuntu-22.04   Ready   false   100%       23h
+ubuntu-22-04   Ready   false   100%       23h
 ```
 
 После создания ресурс ClusterVirtualImage может находиться в одном из следующих состояний (фаз):
@@ -91,27 +91,27 @@ ubuntu-22.04   Ready   false   100%       23h
 Отследить процесс создания образа можно путем добавления ключа `-w` к предыдущей команде:
 
 ```bash
-d8 k get cvi ubuntu-22.04 -w
+d8 k get cvi ubuntu-22-04 -w
 ```
 
 Пример вывода:
 
 ```console
 NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-22.04   Provisioning   false              4s
-ubuntu-22.04   Provisioning   false   0.0%       4s
-ubuntu-22.04   Provisioning   false   28.2%      6s
-ubuntu-22.04   Provisioning   false   66.5%      8s
-ubuntu-22.04   Provisioning   false   100.0%     10s
-ubuntu-22.04   Provisioning   false   100.0%     16s
-ubuntu-22.04   Ready          false   100%       18s
+ubuntu-22-04   Provisioning   false              4s
+ubuntu-22-04   Provisioning   false   0.0%       4s
+ubuntu-22-04   Provisioning   false   28.2%      6s
+ubuntu-22-04   Provisioning   false   66.5%      8s
+ubuntu-22-04   Provisioning   false   100.0%     10s
+ubuntu-22-04   Provisioning   false   100.0%     16s
+ubuntu-22-04   Ready          false   100%       18s
 ```
 
 В описании ресурса ClusterVirtualImage можно получить дополнительную информацию о скачанном образе.
 Для этого выполните следующую команду:
 
 ```bash
-d8 k describe cvi ubuntu-22.04
+d8 k describe cvi ubuntu-22-04
 ```
 
 ### Создание образа из реестра контейнеров
