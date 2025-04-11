@@ -156,13 +156,30 @@ weight: 50
 
 Существуют различные типы образов:
 
-- ISO-образ — установочный образ, используемый для начальной установки операционной системы. Такие образы выпускаются производителями ОС и используются для установки на физические и виртуальные серверы.
-- Образ диска с предустановленной системой — содержит уже установленную и настроенную операционную систему, готовую к использованию после создания виртуальной машины. Готовые образы можно получить на ресурсах разработчиков дистрибутива, либо создать самостоятельно.
+- **ISO-образ** — установочный образ, используемый для начальной установки операционной системы. Такие образы выпускаются производителями ОС и используются для установки на физические и виртуальные серверы.
+- **Образ диска с предустановленной системой** — содержит уже установленную и настроенную операционную систему, готовую к использованию после создания виртуальной машины. Готовые образы можно получить на ресурсах разработчиков дистрибутива, либо создать самостоятельно.
 
 Примеры ресурсов для получения образов виртуальной машины:
 
-- [Ubuntu](https://cloud-images.ubuntu.com)
-- [Alt Linux](https://ftp.altlinux.ru/pub/distributions/ALTLinux/platform/images/cloud/x86_64)
+- Ubuntu
+  - [24.04 LTS (Noble Numbat)](https://cloud-images.ubuntu.com/noble/current/)
+  - [22.04 LTS (Jammy Jellyfish)](https://cloud-images.ubuntu.com/jammy/current/)
+  - [20.04 LTS (Focal Fossa)](https://cloud-images.ubuntu.com/focal/current/)
+  - [Minimal images](https://cloud-images.ubuntu.com/minimal/releases/)
+- Debian
+  - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
+  - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
+- RockyLinux
+  - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
+  - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
+- CentOS
+  - [10 Stream](https://cloud.centos.org/centos/10-stream/x86_64/images/)
+  - [9 Stream](https://cloud.centos.org/centos/9-stream/x86_64/images/)
+  - [8 Stream](https://cloud.centos.org/centos/8-stream/x86_64/)
+  - [8](https://cloud.centos.org/centos/8/x86_64/images/)
+- Alt Linux
+  - [p10](https://ftp.altlinux.ru/pub/distributions/ALTLinux/p10/images/cloud/x86_64/)
+  - [p9](https://ftp.altlinux.ru/pub/distributions/ALTLinux/p9/images/cloud/x86_64/)
 - [Astra Linux](https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit)
 
 Поддерживаются следующие форматы образов с предустановленной системой:

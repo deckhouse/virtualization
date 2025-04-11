@@ -22,14 +22,35 @@ The image creation process includes the following steps:
 There are different types of images:
 
 - **ISO image**: An installation image used for the initial installation of an operating system. Such images are released by OS vendors and are used for installation on physical and virtual servers.
-- **Preinstalled disk image**: Contains an already installed and configured operating system ready for use after the virtual machine is created. These images are offered by several vendors and can be provided in formats such as qcow2, raw, vmdk, and others.
+- **Preinstalled disk image**: contains an already installed and configured operating system ready for use after the virtual machine is created. Ready images can be obtained from the distribution developers' resources or created by yourself.
 
 Examples of resources for obtaining virtual machine images:
 
-- [Ubuntu](https://cloud-images.ubuntu.com)
-- [Debian](https://cdimage.debian.org/images/cloud/)
-- [RockyLinux](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
-- [CentOS](https://cloud.centos.org/centos/7/images/)
+- Ubuntu
+  - [24.04 LTS (Noble Numbat)](https://cloud-images.ubuntu.com/noble/current/)
+  - [22.04 LTS (Jammy Jellyfish)](https://cloud-images.ubuntu.com/jammy/current/)
+  - [20.04 LTS (Focal Fossa)](https://cloud-images.ubuntu.com/focal/current/)
+  - [Minimal images](https://cloud-images.ubuntu.com/minimal/releases/)
+- Debian
+  - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
+  - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
+- RockyLinux
+  - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
+  - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
+- CentOS
+  - [10 Stream](https://cloud.centos.org/centos/10-stream/x86_64/images/)
+  - [9 Stream](https://cloud.centos.org/centos/9-stream/x86_64/images/)
+  - [8 Stream](https://cloud.centos.org/centos/8-stream/x86_64/)
+  - [8](https://cloud.centos.org/centos/8/x86_64/images/)
+
+The following preinstalled image formats are supported:
+
+- qcow2
+- raw
+- vmdk
+- vdi
+
+Image files can also be compressed with one of the following compression algorithms: gz, xz.
 
 Once a resource is created, the image type and size are automatically determined, and this information is reflected in the resource status.
 
