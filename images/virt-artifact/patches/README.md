@@ -316,3 +316,16 @@ Also fixed vmi_test.go, replace `Equal("/bin/bash -c echo bound PVCs")` to `Equa
 #### `047-node-labeller-replace-sysctl-command-with-readfile.patch`
 
 This patch modifies function `isNodeRealtimeCapable` in `node_labeller.go`, replacing linux util `sysctl` to `os.ReadFile("/proc/sys/kernel/sched_rt_runtime_us")`
+
+#### `048-set-migration-configuration-externally.patch`
+
+##### Problem
+
+We want to set MigrationConfiguration in vmi status from the virtualization-controller.
+It will use VM, VMOP, VMClass resources to construct migration options.
+
+##### Solution
+
+This patch disables setting migration configuration from MigrationPolicies,
+and makes source virt-handler wait for MigrationConfiguration before
+starting migration.
