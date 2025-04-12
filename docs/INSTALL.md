@@ -131,7 +131,14 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
 
 2. To store virtual machine data (virtual disks and images), you must enable one or more supported [storage](#supported-storage-systems).
 
-3. [Set](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) default `StorageClass`.
+3. Set default `StorageClass`.
+
+   ```shell
+   # Specify the name of your StorageClass object.
+   DEFAULT_STORAGE_CLASS=replicated-storage-class
+   sudo -i d8 k patch mc global --type='json' -p='[{"op": "replace", "path": "/spec/settings/defaultClusterStorageClass", "value": "'"$DEFAULT_STORAGE_CLASS"'"}]'
+   ```
+
 4. Turn on the [console](https://deckhouse.io/modules/console/stable/) module, which will allow you to manage virtualization components through via UI (This feature is available only to users of the EE edition).
 
 5. Enable the `virtualization` module:
