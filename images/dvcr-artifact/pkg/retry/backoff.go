@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	"k8s.io/klog/v2"
@@ -104,12 +105,19 @@ func (b *Backoff) Step() time.Duration {
 // In case (1) the returned error is what the condition function returned.
 // In all other cases, ErrWaitTimeout is returned.
 func ExponentialBackoff(ctx context.Context, f Fn, backoff Backoff) error {
+	const (
+		dvcrErrorPattern       = "UNKNOWN: unknown error; map[DriverName:filesystem Enclosed:map[Err:28 Op:mkdir"
+		internalDvcrErrMessage = "Internal DVCR error (could it be overloaded?)"
+	)
+
 	var err error
 
 	for backoff.Steps > 0 {
 		err = f(ctx)
 		if err == nil {
 			return nil
+		} else if strings.Contains(err.Error(), dvcrErrorPattern) {
+			return fmt.Errorf("%s: %w", internalDvcrErrMessage, err)
 		}
 
 		if backoff.Steps == 1 {
