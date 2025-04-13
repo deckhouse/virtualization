@@ -112,7 +112,7 @@ Successful startup of the operating system is determined by the following criter
 
 For Linux family operating systems it is recommended to use guest OS images with `cloud-init` support, which allows initializing virtual machines after their creation.
 
-For Windows operating systems, the platform supports initialization using the built-in sysprep utility.
+For Windows family operating systems, the platform supports initialization with [autounattend](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/windows-setup-automation-overview) installation.
 
 ## Supported virtual machine configurations
 
