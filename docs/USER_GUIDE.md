@@ -774,50 +774,66 @@ After creation, the virtual machine will automatically get an IP address from th
 
 ### Automatic CPU Topology Configuration
 
-The number of sockets is calculated automatically and depends on the number of cores.
+The CPU topology of a virtual machine (VM) determines how the CPU cores are allocated across sockets. This is important to ensure optimal performance and compatibility with applications that may depend on the CPU configuration. In the VM configuration, you specify only the total number of processor cores, and the topology (the number of sockets and cores in each socket) is automatically calculated based on this value.
 
-For .spec.cpu.cores <= 16:
+The number of processor cores is specified in the VM configuration as follows:
 
-- One socket is created with the number of cores equal to the specified value.
-- Core increment step: 1
-- Allowed values: any number from 1 to 16 inclusive.
+```yaml
+spec:
+  cpu:
+    cores: 1
+```
 
-For 16 < .spec.cpu.cores <= 32:
 
-- Two sockets are created with the same number of cores in each.
-- Core increment step: 2
-- Allowed values: 18, 20, 22, ..., 32.
-- Minimum cores per socket: 9
-- Maximum cores per socket: 16
+Next, the system automatically determines the topology depending on the specified number of cores. The calculation rules depend on the range of the number of cores and are described below.
 
-For 32 < .spec.cpu.cores <= 64:
+- If the number of cores is between 1 and 16 (1 ≤ `.spec.cpu.cores` ≤ 16):
+  - 1 socket is used.
+  - The number of cores in the socket is equal to the specified value.
+  - Change step: 1 (you can increase or decrease the number of cores one at a time).
+  - Valid values: any integer from 1 to 16 inclusive.
+  - Example: If `.spec.cpu.cores` = 8, topology: 1 socket with 8 cores.
+- If the number of cores is from 17 to 32 (16 < `.spec.cpu.cores` ≤ 32):
+  - 2 sockets are used.
+  - Cores are evenly distributed between sockets (the number of cores in each socket is the same).
+  - Change step: 2 (total number of cores must be even).
+  - Allowed values: 18, 20, 22, 24, 26, 28, 30, 32.
+  - Limitations: minimum 9 cores per socket, maximum 16 cores per socket.
+  - Example: If `.spec.cpu.cores` = 20, topology: 2 sockets with 10 cores each.
+- If the number of cores is between 33 and 64 (32 < `.spec.cpu.cores` ≤ 64):
+  - 4 sockets are used.
+  - Cores are evenly distributed among the sockets.
+  - Step change: 4 (the total number of cores must be a multiple of 4).
+  - Allowed values: 36, 40, 44, 48, 52, 56, 60, 64.
+  - Limitations: minimum 9 cores per socket, maximum 16 cores per socket.
+  - Example: If `.spec.cpu.cores` = 40, topology: 4 sockets with 10 cores each.
+- If the number of cores is greater than 64 (`.spec.cpu.cores` > 64):
+  - 8 sockets are used.
+  - Cores are evenly distributed among the sockets.
+  - Step change: 8 (the total number of cores must be a multiple of 8).
+  - Valid values: 72, 80, 88, 88, 96, and so on up to 248
+  - Limitations: minimum 9 cores per socket.
+  - Example: If `.spec.cpu.cores` = 80, topology: 8 sockets with 10 cores each.
 
-- Four sockets are created with the same number of cores in each.
-- Core increment step: 4
-- Allowed values: 36, 40, 44, ..., 64.
-- Minimum cores per socket: 9
-- Maximum cores per socket: 16
+The change step indicates by how much the total number of cores can be increased or decreased so that they are evenly distributed across the sockets.
 
-For .spec.cpu.cores > 64:
+The maximum possible number of cores is 248.
 
-- Eight sockets are created with the same number of cores in each.
-- Core increment step: 8
-- Allowed values: 72, 80, ...
-- Minimum cores per socket: 8
+Be careful to take these features into account when setting the sizingPolicy parameters for [VirtualMachineClass](cr.html#virtualmachineclass).
 
-The current VM topology (actual number of sockets and cores) is displayed in the VM status in the following format:
+The current VM topology (number of sockets and cores in each socket) is displayed in the VM status in the following format:
 
 ```yaml
 status:
   resources:
     cpu:
-      coreFraction: 100%
-      cores: 18
-      requestedCores: "18"
-      runtimeOverhead: "0"
+      coreFraction: 10%
+      cores: 1
+      requestedCores: “1”
+      runtimeOverhead: “0”
       topology:
-        sockets: 2
-        coresPerSocket: 9
+        sockets: 1
+        coresPerSocket: 1
 ```
 
 ### Connecting to a virtual machine
