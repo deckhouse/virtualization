@@ -747,16 +747,6 @@ spec:
 EOF
 ```
 
-After creation, `VirtualMachine` can be in the following states (phases):
-
-- `Pending` - waiting for the readiness of all dependent resources required to start the virtual machine.
-- `Starting` - the process of starting the virtual machine is in progress.
-- `Running` - the virtual machine is running.
-- `Stopping` - the virtual machine is in the process of stopping.
-- `Stopped` - the virtual machine is stopped.
-- `Terminating` - the virtual machine is being deleted.
-- `Migrating` - the virtual machine is in a live migration state to another host.
-
 Check the state of the virtual machine after creation:
 
 ```bash
@@ -771,6 +761,46 @@ Example output:
 ```
 
 After creation, the virtual machine will automatically get an IP address from the range specified in the module settings (`virtualMachineCIDRs` block).
+
+### Virtual Machine Life Cycle
+
+A virtual machine (VM) goes through several phases in its existence, from creation to deletion. These stages are called phases and reflect the current state of the VM. To understand what is happening with the VM, you should check its status (`.status.phase` field), and for more detailed information - `.status.conditions` block. All the main phases of the VM life cycle, their meaning and peculiarities are described below.
+
+![](./images/vm-lifecycle.png)
+
+- `Pending` - VM has just been created, restarted or started after a shutdown and is waiting for the necessary resources (disks, images, ip addresses, etc.) to be ready.
+  - Possible problems:
+    - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
+  - Diagnostics: In `.status.conditions` you can see what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
+- `Starting` - all dependent VM resources are ready and the system tries to start the VM on one of the cluster nodes.
+  - Possible problems:
+    - There is no suitable node to start.
+    - There is not enough CPU or memory on suitable nodes.
+    - Quotas have been exceeded.
+  - Diagnostics:
+    - If startup is delayed, check `.status.conditions`, condition `type: PodStarted`.
+- `Running` - The VM has successfully started and is running.
+  - Features:
+    - If qemu-guest-agent is installed in the guest system, the `AgentReady` condition will be true and `.status.guestOSInfo` will display information about the running guest OS.
+    - The `type: FirmwareUpToDate` condition displays information about the current firmware status of the VM.
+    - Condition `type: AwaitingRestartToApplyConfiguration` displays information about the need to manually reboot the VM because there are configuration changes that cannot be applied without a reboot.
+    - The `type: ConfigurationApplied` condition displays information that the configuration is applied to the running VM.
+  - Possible problems:
+    - An internal failure in the VM or hypervisor.
+  - Diagnosis:
+    - Check `.status.conditions`, condition `type: Running`.
+- `Stopping` - The VM is stopped or rebooted.
+- `Stopped` - The VM is stopped and is not consuming computing resources.
+- `Terminating` - The VM is deleted. This phase is irreversible. All resources associated with the VM are released, but are not automatically deleted.
+- `Migrating` - The VM is migrated to another cluster node (live migration).
+  - Features:
+    - VM migration is supported only for non-local disks, the `type: Migratable` condition displays information about whether the VM can migrate or not.
+  - Possible issues:
+    - Incompatibility of processor instructions (when using host or host-passthrough processor types).
+    - Version differences between hypervisor cores.
+    - Lack of resources or quotas.
+  - Diagnostics:
+    - Check the `.status.conditions` condition `type: Migrating` as well as the `.status.migrationState` block
 
 ### Automatic CPU Topology Configuration
 
