@@ -150,7 +150,7 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
 5. Enable the `virtualization` module:
 
 {{< alert level="warning" >}}
-Attention! Enabling the `virtualization` module involves restarting kubelet/containerd on all nodes where virtual machines are supposed to start. This is necessary to configure the connectivity of containerd and DVCR.
+Attention! Enabling the `virtualization` module involves restarting kubelet/containerd and cilium agents on all nodes where virtual machines are supposed to start. This is necessary to configure the connectivity of containerd and DVCR.
 {{< /alert >}}
 
 To enable the `virtualization` module, you need to create a `ModuleConfig` resource containing the module settings.
@@ -200,11 +200,11 @@ d8 k get modules virtualization
 Example output:
 
 ```txt
-# NAME             WEIGHT   STATE     SOURCE     STAGE   STATUS
-# virtualization   900      Enabled   Embedded           Ready
+NAME             WEIGHT   SOURCE      PHASE   ENABLED   READY
+virtualization   900      deckhouse   Ready   True      True
 ```
 
-The module status should be `Ready`.
+The module phase should be `Ready`.
 
 ## Module Update
 
