@@ -206,9 +206,9 @@ Example output:
 
 The module status should be `Ready`.
 
-## Platform Update
+## Module Update
 
-Deckhouse Virtualization Platform uses five update channels designed for use in different environments that have different requirements in terms of reliability:
+The Virtualization module uses five update channels designed for use in different environments that have different requirements in terms of reliability:
 
 | Update Channel | Description                                                                                                                                                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -218,8 +218,10 @@ Deckhouse Virtualization Platform uses five update channels designed for use in 
 | Stable         | Stable update channel for clusters where active work is finished and mostly operational. Functionality updates to this update channel do not reach this update channel until two weeks after they appear in the release.                                           |
 | Rock Solid     | The most stable update channel. Suitable for clusters that need a higher level of stability. Feature updates do not reach this channel until one month after they are released.                                                                                    |
 
+Virtualization module components can be updated automatically, or with manual confirmation as updates are released in update channels.
+
 {{< alert level="warning" >}}
-In platform upgrades, the components can be divided into two categories:
+In module upgrades, the components can be divided into two categories:
 
 - Virtualization resource management components (control plane)
 - Virtualization resource management components ("firmware").
