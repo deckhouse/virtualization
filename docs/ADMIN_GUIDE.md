@@ -213,6 +213,9 @@ An image stored in a container registry has a certain format. Let's look at an e
    }
    ```
 
+   - inCluster - this URL is used if you want to download the image directly from one of the cluster nodes
+   - external - used in all other cases
+
 1. As an example, download the Cirros image:
 
    ```bash
