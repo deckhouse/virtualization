@@ -107,6 +107,8 @@ Once created, the ClusterVirtualImage resource can be in one of the following st
 
 As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. Once it is in the `Ready` phase, the `.spec` block contents **cannot be changed**.
 
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
+
 You can trace the image creation process by adding the `-w` key to the previous command:
 
 ```bash

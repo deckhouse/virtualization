@@ -247,6 +247,8 @@ After creation the `VirtualImage` resource can be in the following states (phase
 
 As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. After entering the `Ready` phase, the contents of the `.spec` block cannot be changed!
 
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
+
 You can trace the image creation process by adding the `-w` key to the previous command:
 
 ```bash
@@ -546,6 +548,8 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 As long as the disk has not entered the `Ready` phase, the contents of the entire `.spec` block can be changed. If changes are made, the disk creation process will start over.
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-disks).
+
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
 
 Check the status of the disk after creation with the command:
 
@@ -1305,6 +1309,8 @@ After creation, `VirtualMachineBlockDeviceAttachment` can be in the following st
 - `InProgress` - the process of device connection is in progress.
 - `Attached` - the device is connected.
 
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
+
 Check the state of your resource::
 
 ```bash
@@ -1505,6 +1511,8 @@ This resource can be in the following states:
 - `InProgress` - live migration is in progress.
 - `Completed` - live migration of the virtual machine has been completed successfully.
 - `Failed` - the live migration of the virtual machine has failed.
+
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
 
 You can view active operations using the command:
 
@@ -1806,6 +1814,8 @@ After creation, `VirtualDiskSnapshot` can be in the following states (phases):
 - `Ready` - snapshot creation has been successfully completed and the virtual disk snapshot is available for use.
 - `Failed` - an error occurred during the virtual disk snapshot creation process.
 - `Terminating` - the resource is in the process of being deleted.
+
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
 
 A full description of the `VirtualDiskSnapshot` resource configuration parameters for machines can be found at [link](cr.html#virtualdisksnapshot)
 
