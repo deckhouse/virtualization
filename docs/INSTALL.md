@@ -224,7 +224,10 @@ In platform upgrades, the components can be divided into two categories:
 - Virtualization resource management components (control plane)
 - Virtualization resource management components ("firmware").
 
-Updating the control plane components does not affect the operation of virtual machines that are already running. However, changes to the "firmware" during a platform upgrade may require virtual machines to be migrated to the new "firmware" version.
+Updating control plane components does not affect the operation of already running virtual machines, but may cause a brief interruption of established VNC/serial port connections while the control plane component is restarted.
+
+Updates to virtual machine firmware during a platform upgrade may require virtual machines to be migrated to the new “firmware” version.
+Migration during the upgrade is performed once, if the migration was unsuccessful, the virtual machine owner will need to perform it themselves by either evict the virtual machine or reboot it.
 {{< /alert >}}
 
 Deckhouse Virtualization Platform components can be updated automatically, or with manual confirmation as updates are released in the update channels.
