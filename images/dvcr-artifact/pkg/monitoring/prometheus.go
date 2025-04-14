@@ -61,12 +61,10 @@ func (r *ProgressReader) StartTimedUpdate() {
 func (r *ProgressReader) timedUpdateProgress() {
 	cont := true
 	for cont {
-		// Update every second.
-		time.Sleep(time.Second)
 		select {
 		case <-r.ctx.Done():
 			break
-		default:
+	    case <- time.After(time.Second):
 			cont = r.updateProgress()
 		}
 	}
