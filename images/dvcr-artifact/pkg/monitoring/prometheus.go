@@ -17,16 +17,11 @@ limitations under the License.
 package monitoring
 
 import (
+	"context"
 	"fmt"
 	"io"
-	"net/http"
-	"os"
-	"path"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"k8s.io/client-go/util/cert"
 	"k8s.io/klog/v2"
 
 	"kubevirt.io/containerized-data-importer/pkg/util"
@@ -38,11 +33,11 @@ type ProgressReader struct {
 	metric ProgressMetric
 	total  uint64
 	final  bool
-	Cancel bool
+	ctx    context.Context
 }
 
 // NewProgressReader creates a new instance of a prometheus updating progress reader.
-func NewProgressReader(r io.ReadCloser, metric ProgressMetric, total uint64) *ProgressReader {
+func NewProgressReader(ctx context.Context, r io.ReadCloser, metric ProgressMetric, total uint64) *ProgressReader {
 	promReader := &ProgressReader{
 		CountingReader: util.CountingReader{
 			Reader:  r,
@@ -51,6 +46,7 @@ func NewProgressReader(r io.ReadCloser, metric ProgressMetric, total uint64) *Pr
 		metric: metric,
 		total:  total,
 		final:  true,
+		ctx:    ctx,
 	}
 
 	return promReader
@@ -67,10 +63,12 @@ func (r *ProgressReader) timedUpdateProgress() {
 	for cont {
 		// Update every second.
 		time.Sleep(time.Second)
-		if r.Cancel {
+		select {
+		case <-r.ctx.Done():
 			break
+		default:
+			cont = r.updateProgress()
 		}
-		cont = r.updateProgress()
 	}
 }
 
@@ -104,39 +102,4 @@ func (r *ProgressReader) SetNextReader(reader io.ReadCloser, final bool) {
 		Done:    false,
 	}
 	r.final = final
-}
-
-// StartPrometheusEndpoint starts an http server providing a prometheus endpoint using the passed
-// in directory to store the self signed certificates that will be generated before starting the
-// http server.
-func StartPrometheusEndpoint(certsDirectory string) {
-	certBytes, keyBytes, err := cert.GenerateSelfSignedCertKey("cloner_target", nil, nil)
-	if err != nil {
-		klog.Error("Error generating cert for prometheus")
-		return
-	}
-
-	certFile := path.Join(certsDirectory, "tls.crt")
-	if err = os.WriteFile(certFile, certBytes, 0600); err != nil {
-		klog.Error("Error writing cert file")
-		return
-	}
-
-	keyFile := path.Join(certsDirectory, "tls.key")
-	if err = os.WriteFile(keyFile, keyBytes, 0600); err != nil {
-		klog.Error("Error writing key file")
-		return
-	}
-
-	go func() {
-		server := &http.Server{
-			Addr:              ":8443",
-			ReadHeaderTimeout: 10 * time.Second,
-			Handler:           promhttp.Handler(),
-		}
-
-		if err := server.ListenAndServeTLS(certFile, keyFile); err != nil {
-			return
-		}
-	}()
 }
