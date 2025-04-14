@@ -46,11 +46,11 @@ var config = &pkg.HookConfig{
 
 			// ExecuteHookOnSynchronization: ptr.To(false),
 
-			NamespaceSelector: &pkg.NamespaceSelector{
-				NameSelector: &pkg.NameSelector{
-					MatchNames: []string{common.MODULE_NAMESPACE},
-				},
-			},
+			// NamespaceSelector: &pkg.NamespaceSelector{
+			// 	NameSelector: &pkg.NameSelector{
+			// 		MatchNames: []string{common.MODULE_NAMESPACE},
+			// 	},
+			// },
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"module": common.MODULE_NAME,
