@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,14 +51,13 @@ import (
 const objectRefDataSource = "objectref"
 
 type ObjectRefDataSource struct {
-	statService         Stat
-	importerService     Importer
-	bounderService      Bounder
-	dvcrSettings        *dvcr.Settings
-	client              client.Client
-	diskService         *service.DiskService
-	storageClassService *service.VirtualImageStorageClassService
-	recorder            eventrecord.EventRecorderLogger
+	statService     Stat
+	importerService Importer
+	bounderService  Bounder
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	diskService     *service.DiskService
+	recorder        eventrecord.EventRecorderLogger
 
 	viObjectRefOnPvc    *ObjectRefDataVirtualImageOnPVC
 	vdSyncer            *ObjectRefVirtualDisk
@@ -73,7 +73,6 @@ func NewObjectRefDataSource(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	storageClassService *service.VirtualImageStorageClassService,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
 		statService:         statService,
@@ -82,10 +81,9 @@ func NewObjectRefDataSource(
 		dvcrSettings:        dvcrSettings,
 		client:              client,
 		diskService:         diskService,
-		storageClassService: storageClassService,
 		recorder:            recorder,
-		viObjectRefOnPvc:    NewObjectRefDataVirtualImageOnPVC(recorder, statService, importerService, dvcrSettings, client, diskService, storageClassService),
-		vdSyncer:            NewObjectRefVirtualDisk(recorder, importerService, client, diskService, dvcrSettings, statService, storageClassService),
+		viObjectRefOnPvc:    NewObjectRefDataVirtualImageOnPVC(recorder, statService, importerService, dvcrSettings, client, diskService),
+		vdSyncer:            NewObjectRefVirtualDisk(recorder, importerService, client, diskService, dvcrSettings, statService),
 		vdSnapshotCRSyncer:  NewObjectRefVirtualDiskSnapshotCR(importerService, statService, diskService, client, dvcrSettings, recorder),
 		vdSnapshotPVCSyncer: NewObjectRefVirtualDiskSnapshotPVC(importerService, statService, bounderService, client, dvcrSettings, recorder),
 	}
@@ -101,12 +99,6 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
-
-	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
-	sc, err := ds.storageClassService.GetValidatedStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
-	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
-		return reconcile.Result{}, err
-	}
 
 	switch vi.Spec.DataSource.ObjectRef.Kind {
 	case virtv2.VirtualImageKind:
@@ -155,7 +147,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 	}
 
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsImageProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
@@ -217,6 +209,11 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 			return reconcile.Result{}, err
 		}
 
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, vi.Status.StorageClassName)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		err = ds.diskService.StartImmediate(ctx, diskSize, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
@@ -346,7 +343,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 	}
 
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsImageProvisioningFinished(condition):
 		log.Info("Virtual image provisioning finished: clean up")
 
 		cb.

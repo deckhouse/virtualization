@@ -47,13 +47,8 @@ func NewStorageClassReadyHandler(svc StorageClassService) *StorageClassReadyHand
 func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vdcondition.StorageClassReadyType).Generation(vd.Generation)
 
-	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
-
 	if vd.DeletionTimestamp != nil {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
+		conditions.RemoveCondition(cb.GetType(), &vd.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -102,6 +97,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.StorageClassNotReady).
 		Message("The default StorageClass was not found in either the cluster or the module settings. Please specify a StorageClass name explicitly in the spec.")
+	conditions.SetCondition(cb, &vd.Status.Conditions)
 	return reconcile.Result{}, nil
 }
 
@@ -122,6 +118,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *vi
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The StorageClass %q used by the underlying PersistentVolumeClaim was not found.", vd.Status.StorageClassName))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
 
@@ -130,6 +127,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *vi
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The StorageClass %q used by the underlying PersistentVolumeClaim is terminating and cannot be used.", vd.Status.StorageClassName))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
 
@@ -137,6 +135,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *vi
 		Status(metav1.ConditionTrue).
 		Reason(vdcondition.StorageClassReady).
 		Message("")
+	conditions.SetCondition(cb, &vd.Status.Conditions)
 	return nil
 }
 
@@ -148,6 +147,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.Vi
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The specified StorageClass %q is not allowed. Please check the module settings.", vd.Status.StorageClassName))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
 
@@ -161,6 +161,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.Vi
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The specified StorageClass %q was not found.", vd.Status.StorageClassName))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
 
@@ -169,6 +170,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.Vi
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The specified StorageClass %q is terminating and cannot be used.", vd.Status.StorageClassName))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
 
@@ -176,6 +178,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.Vi
 		Status(metav1.ConditionTrue).
 		Reason(vdcondition.StorageClassReady).
 		Message("")
+	conditions.SetCondition(cb, &vd.Status.Conditions)
 	return nil
 }
 
@@ -193,6 +196,8 @@ func (h StorageClassReadyHandler) setFromModuleSettings(vd *virtv2.VirtualDisk, 
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The default StorageClass %q, defined in the module settings, is terminating and cannot be used.", vd.Status.StorageClassName))
 	}
+
+	conditions.SetCondition(cb, &vd.Status.Conditions)
 }
 
 func (h StorageClassReadyHandler) setFromDefault(vd *virtv2.VirtualDisk, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
@@ -209,4 +214,6 @@ func (h StorageClassReadyHandler) setFromDefault(vd *virtv2.VirtualDisk, default
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The default StorageClass %q is terminating and cannot be used.", vd.Status.StorageClassName))
 	}
+
+	conditions.SetCondition(cb, &vd.Status.Conditions)
 }

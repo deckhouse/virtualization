@@ -190,6 +190,11 @@ func setPhaseConditionForPVCProvisioningDisk(
 	cb *conditions.ConditionBuilder,
 	checker CheckImportProcess,
 ) error {
+	if sc == nil {
+		// TODO
+		return nil
+	}
+
 	err := checker.CheckImportProcess(ctx, dv, pvc)
 	switch {
 	case err == nil:
