@@ -1486,9 +1486,71 @@ EOF
 
 ![](images/lb-ingress.png)
 
-### Virtual Machine LiveMigration
+### Live Virtual Machine Migration
 
-Live virtual machine migration is an important feature in virtualized infrastructure management. It allows you to move running virtual machines from one physical host to another without shutting them down.
+Live virtual machine (VM) migration is the process of moving a running VM from one physical host to another without shutting it down. This feature plays a key role in the management of virtualized infrastructure, ensuring application continuity during maintenance, load balancing, or upgrades.
+
+#### How live migration works
+
+The live migration process involves several steps:
+
+1. **Creation of a new VM instance**
+
+   A new VM is created on the target host in a suspended state. Its configuration (CPU, disks, network) is copied from the source node.
+
+2. **Primary Memory Transfer**
+
+   The entire RAM of the VM is copied to the target node over the network. This is called primary transfer.
+
+3. **Change Tracking (Dirty Pages)**
+
+    While memory is being transferred, the VM continues to run on the source node and may change some memory pages. These pages are called dirty pages and the hypervisor marks them.
+
+4. **Iterative synchronization**.
+
+   After the initial transfer, only the modified pages are resent. This process is repeated in several cycles:
+   - The higher the load on the VM, the more “dirty" pages appear, and the longer the migration takes.
+   - With good network bandwidth, the amount of unsynchronized data gradually decreases.
+
+5. **Final synchronization and switching**.
+
+    When the number of dirty pages becomes minimal, the VM on the source node is suspended (typically for 100 milliseconds):
+    - The remaining memory changes are transferred to the target node.
+    - The state of the CPU, devices, and open connections are synchronized.
+    - The VM is started on the new node and the source copy is deleted.
+
+{{< alert level="warning">}}
+Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
+{{{< /alert >}}
+
+#### AutoConverge mechanism
+
+What to do if the network cannot cope with data transfer and “dirty" pages are becoming more and more numerous? This is where the AutoConverge mechanism comes in. It helps to complete the migration even when network bandwidth is low. Here's how it works:
+
+1. **VM CPU slowdown**.
+
+    The hypervisor gradually reduces the CPU frequency of the source VM. This reduces the rate at which new “dirty" pages appear. The higher the load on the VM, the greater the slowdown.
+
+2. **Synchronization acceleration**.
+
+    Once the data transfer rate exceeds the memory change rate, final synchronization is started and the VM switches to the new node.
+
+3. **Automatic Termination**
+
+    Final synchronization is started when the data transfer rate exceeds the memory change rate.
+
+AutoConverge is a kind of “insurance" that ensures that the migration completes even if the network is not running perfectly. However, CPU slowdown can affect the performance of applications running on the VM, so its use should be monitored.
+
+### Configuring Migration Policy
+
+Migration behavior can be configured through the .spec.liveMigrationPolicy parameter in the VM configuration. The following options are available:
+
+- `AlwaysSafe` - Migration is performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximizing VM performance is important but requires high network bandwidth.
+- `PreferSafe` - (used as the default policy) By default, migration runs without AutoConverge, but CPU slowdown can be enabled manually if the migration fails to complete. This is done by using the VirtualMachineOperation resource with `type=Evict` and `force=true`.
+- `AlwaysForced` - Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This ensures that the migration completes even if the network is bad, but may degrade VM performance.
+- `PreferForced` - By default migration goes with AutoConverge, but slowdown can be manually disabled via VirtualMachineOperation with the parameter `type=Evict` and `force=false`.
+
+### Migration Types
 
 Migration can be performed manually by the user, or automatically by the following system events:
 
