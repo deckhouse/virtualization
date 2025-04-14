@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageType }}/{{ $.ImageName }}
 final: false
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: builder/scratch
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /relocate

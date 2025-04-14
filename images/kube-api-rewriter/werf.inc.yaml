@@ -28,7 +28,7 @@ shell:
 
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: builder/scratch
 import:
   - image: {{ $.ImageName }}-builder
     add: /src/kube-api-rewriter/kube-api-rewriter

@@ -81,7 +81,7 @@ shell:
     - pip3 install -r /requirements.txt -t /dist
 ---
 image: bundle
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: builder/scratch
 fromCacheVersion: "2024-11-07.1"
 import:
   - image: images-digests
@@ -116,7 +116,7 @@ git:
       - hooks/test*
 ---
 image: release-channel-version
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: builder/scratch
 shell:
   install:
     - echo  '{"version":"{{ env "MODULES_MODULE_TAG" }}"}' > version.json

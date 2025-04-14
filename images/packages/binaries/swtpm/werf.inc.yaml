@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageType }}/{{ $.ImageName }}
 final: false
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: builder/scratch
 import:
 - image: {{ $.ImageName }}-builder
   add: /relocate
@@ -49,7 +49,7 @@ binaries:
 
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: {{ $.Images."builder/alt" }}
+fromImage: builder/alt
 shell:
   beforeInstall:
     - |
