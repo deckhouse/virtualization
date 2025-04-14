@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: false
-from: {{ $.Images.BASE_SCRATCH }}
+fromImage: builder/scratch
 import:
   - image: {{ $.ImageName }}-artifact
     add: /relocate

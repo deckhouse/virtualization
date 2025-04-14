@@ -91,8 +91,14 @@ shell:
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git --branch v{{ $version }} /swtpm
       cd /swtpm
       ./autogen.sh --with-openssl --prefix=/usr --libdir=/usr/lib64
-      make -j$(nproc)
+      
+      CC="/usr/bin/musl-gcc" LDFLAGS="-static" make -j$(nproc)
       make install
+      
+      # make DESTDIR=/out install
+      # chown -R 64535:64535 /out
+
+      # make install
 
   setup:
     - |
