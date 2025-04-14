@@ -56,7 +56,8 @@ shell:
 
   install:
     - |
-      git clone --depth=1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git /swtpm
+      git clone --depth=1 --branch main $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git /swtpm
+      # git clone --depth=1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git /swtpm
       cd /swtpm
       ./autogen.sh --with-openssl --prefix=/usr --libdir=/usr/lib64
       make -j$(nproc)
