@@ -17,7 +17,7 @@ packages:
 - git curl openssl-dev openssl-libs-static automake autoconf bash
 - build-base libtool make socat gawk
 - libtasn1-dev gnutls gnutls-utils gnutls-dev expect
-- libseccomp-dev softhsm py3-cryptography libtpms-dev
+- libseccomp-dev softhsm py3-cryptography libtpms-dev json-glib-dev
 - libgcc gcc
 - openssh
 binaries:
@@ -52,12 +52,11 @@ shell:
     - |
       apk update
       apk add {{ $builderDependencies.packages | join " " }}
-      # echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
   install:
     - |
-      git clone --depth=1 --branch main $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git /swtpm
-      # git clone --depth=1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git /swtpm
+      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git --branch v{{ $version }} /swtpm
       cd /swtpm
       ./autogen.sh --with-openssl --prefix=/usr --libdir=/usr/lib64
       make -j$(nproc)
