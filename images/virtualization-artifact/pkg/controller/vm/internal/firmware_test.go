@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -74,7 +75,15 @@ var _ = Describe("TestFirmwareHandler", func() {
 
 	DescribeTable("Condition TypeFirmwareUpToDate should be in expected state",
 		func(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, expectedStatus metav1.ConditionStatus, expectedReason vmcondition.Reason) {
-			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
+			vmPod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-pod",
+					Namespace: namespace,
+					Labels:    map[string]string{virtv1.VirtualMachineNameLabel: name},
+				},
+			}
+
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi, vmPod)
 			reconcile()
 
 			newVM := &virtv2.VirtualMachine{}
