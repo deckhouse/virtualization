@@ -70,10 +70,7 @@ Parameter description
     The first and last subnet address is reserved and not available for use.
 
     {{< alert level="warning">}}
-    The `.spec.settings.virtualMachineCIDRs` block subnets must not overlap with:
-    - cluster node subnets;
-    - services subnet;
-    - pods subnet (podCIDRs).
+    The `.spec.settings.virtualMachineCIDRs` block subnets must not overlap with: cluster node subnets, services subnet, pods subnet (podCIDRs).
 
     It is forbidden to delete subnets if addresses from them have already been issued to virtual machines!
     {{< /alert >}}
