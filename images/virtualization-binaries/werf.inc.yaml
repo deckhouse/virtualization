@@ -18,7 +18,7 @@ packages:
 - build-base libtool make socat gawk
 - libtasn1-dev gnutls gnutls-utils gnutls-dev expect
 - libseccomp-dev softhsm py3-cryptography libtpms-dev json-glib-dev
-- libgcc gcc
+- libgcc gcc gmp-dev musl-dev
 - openssh
 binaries:
 - /usr/bin/swtpm_bios
@@ -27,14 +27,14 @@ binaries:
 - /usr/bin/swtpm
 - /usr/bin/swtpm_setup
 - /usr/bin/swtpm_localca
-- /usr/bin/swtpm_cuse
+# - /usr/bin/swtpm_cuse
 - /usr/lib64/swtpm/libswtpm_libtpms.a
 - /usr/lib64/swtpm/libswtpm_libtpms.so
 - /usr/lib64/swtpm/libswtpm_libtpms.so.0.0.0
-- /usr/lib64/swtpm/libswtpm_libtpms.la
 - /usr/lib64/swtpm/libswtpm_libtpms.so.0
-- /usr/lib64/libtss2-tcti-swtpm.so.0
-- /usr/lib64/libtss2-tcti-swtpm.so.0.0.0
+# - /usr/lib64/swtpm/libswtpm_libtpms.la
+# - /usr/lib64/libtss2-tcti-swtpm.so.0
+# - /usr/lib64/libtss2-tcti-swtpm.so.0.0.0
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -44,6 +44,15 @@ final: false
 from: alpine:3.21.3
 # from: alpine:3.20.6
 # fromImage: alpine-builder
+git:
+  - add: /images/base-alt-p11-binaries
+    to: /
+    stageDependencies:
+      setup:
+        - '**/*'
+    includePaths:
+    - relocate_binaries.sh
+
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
