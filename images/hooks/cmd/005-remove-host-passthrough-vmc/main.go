@@ -40,7 +40,7 @@ var config = &pkg.HookConfig{
 	Kubernetes: []pkg.KubernetesConfig{
 		{
 			Name:       removePassthroughHookName,
-			APIVersion: "v1",
+			APIVersion: "virtualization.deckhouse.io/v1alpha2",
 			Kind:       "VirtualMachineClass",
 			JqFilter:   removePassthroughHookJQFilter,
 
@@ -79,7 +79,7 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 				"value": "keep",
 			},
 		}
-		input.PatchCollector.JSONPatch(patch, "v1", "VirtualMachineClass", common.MODULE_NAMESPACE, name)
+		input.PatchCollector.JSONPatch(patch, "virtualization.deckhouse.io/v1alpha2", "VirtualMachineClass", common.MODULE_NAMESPACE, name)
 		input.Logger.Info(fmt.Sprintf("Added helm.sh/resource-policy=keep to VirtualMachineClass %s", name))
 	}
 
