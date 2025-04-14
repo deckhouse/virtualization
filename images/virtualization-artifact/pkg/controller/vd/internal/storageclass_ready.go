@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +28,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -76,7 +78,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 
 	// 3. Try to use default storage class from the module settings.
 	moduleStorageClass, err := h.svc.GetModuleStorageClass(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) {
 		return reconcile.Result{}, fmt.Errorf("get module storage class: %w", err)
 	}
 
@@ -87,7 +89,7 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 
 	// 4. Try to use default storage class from the cluster.
 	defaultStorageClass, err := h.svc.GetDefaultStorageClass(ctx)
-	if err != nil {
+	if err != nil && !errors.Is(err, service.ErrDefaultStorageClassNotFound) {
 		return reconcile.Result{}, fmt.Errorf("get default storage class: %w", err)
 	}
 
