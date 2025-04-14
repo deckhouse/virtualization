@@ -65,7 +65,7 @@ func NewController(
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	bounder := service.NewBounderPodService(dvcr, mgr.GetClient(), bounderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
-	scService := service.NewVirtualImageStorageClassService(storageClassSettings)
+	scService := service.NewVirtualImageStorageClassService(storageClassSettings, disk)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
 	sources := source.NewSources()
@@ -76,7 +76,7 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		internal.NewStorageClassReadyHandler(recorder, disk),
+		internal.NewStorageClassReadyHandler(recorder, scService),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
 		internal.NewDeletionHandler(sources),

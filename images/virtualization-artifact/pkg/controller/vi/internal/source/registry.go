@@ -99,7 +99,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 	}
 
 	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
-	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
+	sc, err := ds.storageClassService.GetValidatedStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
 	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
 		return reconcile.Result{}, err
 	}

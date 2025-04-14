@@ -79,8 +79,6 @@ const (
 	ProvisioningNotStarted ReadyReason = "ProvisioningNotStarted"
 	// ProvisioningFailed indicates that the provisioning process has failed.
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
-	// StorageClassNotReady indicates that the provisioning process pending because `StorageClass` not ready.
-	StorageClassNotReady ReadyReason = "StorageClassNotReady"
 	// Ready indicates that the import process is complete and the `VirtualImage` is ready for use.
 	Ready ReadyReason = "Ready"
 	// QuotaExceeded indicates that the VirtualImage is reached project quotas and can not be provisioned.
@@ -93,6 +91,8 @@ const (
 
 	// StorageClassReady indicates that the chosen StorageClass exists.
 	StorageClassReady StorageClassReadyReason = "StorageClassReady"
+	// StorageClassNotReady indicates that the provisioning process pending because `StorageClass` not ready.
+	StorageClassNotReady ReadyReason = "StorageClassNotReady"
 	// StorageClassNotFound indicates that the chosen StorageClass not found.
 	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
