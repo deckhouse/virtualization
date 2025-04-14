@@ -65,14 +65,14 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 	for _, vmc := range vmcs {
 		metadata := &metav1.ObjectMeta{}
 		if err := vmc.UnmarhalTo(metadata); err != nil {
-			input.Logger.Error("Failed to unmarshal metadata vmclass %v", err)
+			input.Logger.Error(fmt.Sprintf("Failed to unmarshal metadata vmclass %v", err))
 		}
 		op := "add"
 		if keep, found := metadata.GetAnnotations()["helm.sh/resource-policy"]; found && keep != "keep" {
 			op = "replace"
-			input.Logger.Info("VMC %s has helm.sh/resource-policy=%s, will be replaced with helm.sh/resource-policy=keep", metadata.Name, keep)
+			input.Logger.Info(fmt.Sprintf("VMC %s has helm.sh/resource-policy=%s, will be replaced with helm.sh/resource-policy=keep", metadata.Name, keep))
 		} else if keep == "keep" {
-			input.Logger.Info("VMC %s already has helm.sh/resource-policy=keep", metadata.Name)
+			input.Logger.Info(fmt.Sprintf("VMC %s already has helm.sh/resource-policy=keep", metadata.Name))
 			continue
 		}
 		patch := []any{
