@@ -44,7 +44,7 @@ var config = &pkg.HookConfig{
 			Kind:       "VirtualMachineClass",
 			JqFilter:   removePassthroughHookJQFilter,
 
-			ExecuteHookOnSynchronization: ptr.To(false),
+			// ExecuteHookOnSynchronization: ptr.To(false),
 
 			NamespaceSelector: &pkg.NamespaceSelector{
 				NameSelector: &pkg.NameSelector{
