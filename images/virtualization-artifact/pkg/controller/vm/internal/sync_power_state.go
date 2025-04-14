@@ -128,7 +128,7 @@ func (h *SyncPowerStateHandler) syncPowerState(
 
 	appliedCondition, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied,
 		s.VirtualMachine().Changed().Status.Conditions)
-	isConfigurationApplied := appliedCondition.Status == metav1.ConditionTrue &&
+	isConfigurationNotApplied := appliedCondition.Status == metav1.ConditionFalse &&
 		appliedCondition.ObservedGeneration == s.VirtualMachine().Changed().Generation
 
 	var vmAction VMAction
@@ -136,28 +136,28 @@ func (h *SyncPowerStateHandler) syncPowerState(
 	case virtv2.AlwaysOffPolicy:
 		vmAction = h.handleAlwaysOffPolicy(ctx, s, kvvmi)
 	case virtv2.AlwaysOnPolicy:
-		vmAction, err = h.handleAlwaysOnPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
+		vmAction, err = h.handleAlwaysOnPolicy(ctx, s, kvvm, kvvmi, isConfigurationNotApplied, shutdownInfo)
 		if err != nil {
 			return err
 		}
 	case virtv2.AlwaysOnUnlessStoppedManually:
-		vmAction, err = h.handleAlwaysOnUnlessStoppedManuallyPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
+		vmAction, err = h.handleAlwaysOnUnlessStoppedManuallyPolicy(ctx, s, kvvm, kvvmi, isConfigurationNotApplied, shutdownInfo)
 		if err != nil {
 			return err
 		}
 	case virtv2.ManualPolicy:
-		vmAction = h.handleManualPolicy(ctx, s, kvvm, kvvmi, isConfigurationApplied, shutdownInfo)
+		vmAction = h.handleManualPolicy(ctx, s, kvvm, kvvmi, isConfigurationNotApplied, shutdownInfo)
 	}
 
 	switch vmAction {
 	case Nothing:
 		return nil
 	case Start:
-		return h.start(ctx, s, kvvm, isConfigurationApplied)
+		return h.start(ctx, s, kvvm, isConfigurationNotApplied)
 	case Stop:
 		return h.deleteKVVMI(ctx, kvvmi)
 	case Restart:
-		return h.restart(ctx, s, kvvm, kvvmi, isConfigurationApplied)
+		return h.restart(ctx, s, kvvm, kvvmi, isConfigurationNotApplied)
 	}
 
 	return nil
@@ -183,11 +183,11 @@ func (h *SyncPowerStateHandler) handleManualPolicy(
 	s state.VirtualMachineState,
 	kvvm *virtv1.VirtualMachine,
 	kvvmi *virtv1.VirtualMachineInstance,
-	isConfigurationApplied bool,
+	isConfigurationNotApplied bool,
 	shutdownInfo powerstate.ShutdownInfo,
 ) VMAction {
 	if kvvmi == nil || kvvmi.DeletionTimestamp != nil {
-		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, virtv2.ManualPolicy) {
+		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationNotApplied, virtv2.ManualPolicy) {
 			return Start
 		}
 		return Nothing
@@ -228,7 +228,7 @@ func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(
 	s state.VirtualMachineState,
 	kvvm *virtv1.VirtualMachine,
 	kvvmi *virtv1.VirtualMachineInstance,
-	isConfigurationApplied bool,
+	isConfigurationNotApplied bool,
 	shutdownInfo powerstate.ShutdownInfo,
 ) (VMAction, error) {
 	if kvvmi == nil {
@@ -236,7 +236,7 @@ func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(
 			return Nothing, nil
 		}
 
-		if isConfigurationApplied {
+		if !isConfigurationNotApplied {
 			h.recordStartEventf(ctx, s.VirtualMachine().Current(), "Start initiated "+
 				"by controller for AlwaysOn policy")
 			return Start, nil
@@ -251,7 +251,7 @@ func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(
 	}
 
 	if kvvmi.DeletionTimestamp != nil {
-		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, virtv2.AlwaysOnPolicy) {
+		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationNotApplied, virtv2.AlwaysOnPolicy) {
 			return Start, nil
 		}
 		return Nothing, nil
@@ -284,11 +284,11 @@ func (h *SyncPowerStateHandler) handleAlwaysOnUnlessStoppedManuallyPolicy(
 	s state.VirtualMachineState,
 	kvvm *virtv1.VirtualMachine,
 	kvvmi *virtv1.VirtualMachineInstance,
-	isConfigurationApplied bool,
+	isConfigurationNotApplied bool,
 	shutdownInfo powerstate.ShutdownInfo,
 ) (VMAction, error) {
 	if kvvmi == nil || kvvmi.DeletionTimestamp != nil {
-		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationApplied, virtv2.AlwaysOnUnlessStoppedManually) {
+		if h.checkNeedStartVM(ctx, s, kvvm, isConfigurationNotApplied, virtv2.AlwaysOnUnlessStoppedManually) {
 			return Start, nil
 		}
 
@@ -357,10 +357,10 @@ func (h *SyncPowerStateHandler) checkNeedStartVM(
 	ctx context.Context,
 	s state.VirtualMachineState,
 	kvvm *virtv1.VirtualMachine,
-	isConfigurationApplied bool,
+	isConfigurationNotApplied bool,
 	runPolicy virtv2.RunPolicy,
 ) bool {
-	if isConfigurationApplied &&
+	if !isConfigurationNotApplied &&
 		(kvvm.Annotations[annotations.AnnVmStartRequested] == "true" || kvvm.Annotations[annotations.AnnVmRestartRequested] == "true") {
 		h.recordStartEventf(ctx, s.VirtualMachine().Current(), "Start initiated by controller for %v policy", runPolicy)
 		return true
@@ -373,9 +373,9 @@ func (h *SyncPowerStateHandler) start(
 	ctx context.Context,
 	s state.VirtualMachineState,
 	kvvm *virtv1.VirtualMachine,
-	isConfigurationApplied bool,
+	isConfigurationNotApplied bool,
 ) error {
-	if !isConfigurationApplied {
+	if isConfigurationNotApplied {
 		h.recordStopEventf(ctx, s.VirtualMachine().Current(),
 			"The virtual machine startup was interrupted because the provided configuration could not be applied.",
 		)
@@ -398,9 +398,9 @@ func (h *SyncPowerStateHandler) restart(
 	s state.VirtualMachineState,
 	kvvm *virtv1.VirtualMachine,
 	kvvmi *virtv1.VirtualMachineInstance,
-	isConfigurationApplied bool,
+	isConfigurationNotApplied bool,
 ) error {
-	if !isConfigurationApplied {
+	if isConfigurationNotApplied {
 		h.recordStopEventf(ctx, s.VirtualMachine().Current(),
 			"The virtual machine startup was interrupted because the provided configuration could not be applied.",
 		)

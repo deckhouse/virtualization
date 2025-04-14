@@ -111,7 +111,7 @@ var _ = Describe("Test power actions with VMs", func() {
 		setupKVVMAnnotations(kvvm, annotations.AnnVmStartRequested)
 		setupTestEnvironment()
 
-		err := handler.start(ctx, vmState, kvvm, true)
+		err := handler.start(ctx, vmState, kvvm, false)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvm.Status.StateChangeRequests[0].Action).To(Equal(virtv1.StateChangeRequestAction("Start")))
 		Expect(kvvm.Annotations[annotations.AnnVmStartRequested]).To(Equal(""))
@@ -122,7 +122,7 @@ var _ = Describe("Test power actions with VMs", func() {
 
 		setupTestEnvironment()
 
-		err := handler.restart(ctx, vmState, kvvm, kvvmi, true)
+		err := handler.restart(ctx, vmState, kvvm, kvvmi, false)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvm.Status.StateChangeRequests[0].Action).To(Equal(virtv1.StateChangeRequestAction("Stop")))
 		Expect(kvvm.Status.StateChangeRequests[1].Action).To(Equal(virtv1.StateChangeRequestAction("Start")))
@@ -142,7 +142,7 @@ var _ = Describe("Test power actions with VMs", func() {
 		}
 
 		setupTestEnvironment()
-		err := handler.restart(ctx, vmState, kvvm, kvvmi, false)
+		err := handler.restart(ctx, vmState, kvvm, kvvmi, true)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvm.Annotations[annotations.AnnVmStartRequested]).To(Equal("true"))
 	})
@@ -218,7 +218,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVmStartRequested)
 
 			action := handler.handleManualPolicy(
-				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, nil, false, powerstate.ShutdownInfo{},
 			)
 
 			Expect(action).To(Equal(Start))
@@ -228,7 +228,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			kvvmi.Status.Phase = virtv1.Succeeded
 
 			action := handler.handleManualPolicy(
-				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{PodCompleted: true},
+				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{PodCompleted: true},
 			)
 
 			Expect(action).To(Equal(Stop))
@@ -239,7 +239,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			kvvmi.Status.Phase = virtv1.Running
 
 			action := handler.handleManualPolicy(
-				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
 			)
 
 			Expect(action).To(Equal(Restart))
@@ -248,7 +248,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		It("should return nothing action when conditions are not met", func() {
 			kvvmi.Status.Phase = virtv1.Running
 			action := handler.handleManualPolicy(
-				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
 			Expect(action).To(Equal(Nothing))
 		})
@@ -261,7 +261,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			action, err := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, nil, false, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Nothing))
@@ -270,7 +270,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 
 		It("should return start action when kvvmi is nil and configuration applied", func() {
 			action, err := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, nil, false, powerstate.ShutdownInfo{},
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Start))
@@ -279,7 +279,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		It("should return nothing action when kvvmi is being deleted", func() {
 			kvvmi.DeletionTimestamp = &metav1.Time{}
 			action, err := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Nothing))
@@ -289,7 +289,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
 			kvvmi.Status.Phase = virtv1.Running
 			action, err := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Restart))
@@ -299,7 +299,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			kvvmi.Status.Phase = virtv1.Succeeded
 			shutdownInfo := powerstate.ShutdownInfo{PodCompleted: true, Reason: powerstate.GuestResetReason}
 			action, err := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, kvvmi, true, shutdownInfo,
+				ctx, vmState, kvvm, kvvmi, false, shutdownInfo,
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Restart))
@@ -308,7 +308,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		It("should return nothing action when no conditions are met", func() {
 			kvvmi.Status.Phase = virtv1.Running
 			action, err := handler.handleAlwaysOnPolicy(
-				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Nothing))
@@ -318,7 +318,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 	Context("handleAlwaysOnUnlessStoppedManuallyPolicy", func() {
 		It("should return nothing action when kvvmi is nil", func() {
 			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, nil, false, powerstate.ShutdownInfo{},
 			)
 
 			Expect(err).NotTo(HaveOccurred())
@@ -328,7 +328,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		It("should return nothing when kvvmi is being deleted", func() {
 			kvvmi.DeletionTimestamp = &metav1.Time{}
 			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
 			)
 
 			Expect(err).NotTo(HaveOccurred())
@@ -339,7 +339,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
 			kvvmi.Status.Phase = virtv1.Running
 			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
 
 			Expect(err).NotTo(HaveOccurred())
@@ -350,7 +350,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			kvvmi.Status.Phase = virtv1.Succeeded
 			shutdownInfo := powerstate.ShutdownInfo{PodCompleted: true, Reason: powerstate.GuestResetReason}
 			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, true, shutdownInfo,
+				ctx, vmState, kvvm, kvvmi, false, shutdownInfo,
 			)
 
 			Expect(err).NotTo(HaveOccurred())
@@ -361,7 +361,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			kvvmi.Status.Phase = virtv1.Succeeded
 			shutdownInfo := powerstate.ShutdownInfo{PodCompleted: true}
 			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, true, shutdownInfo,
+				ctx, vmState, kvvm, kvvmi, false, shutdownInfo,
 			)
 
 			Expect(err).NotTo(HaveOccurred())
@@ -371,7 +371,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		It("should return restart action for failed phase", func() {
 			kvvmi.Status.Phase = virtv1.Failed
 			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
 			)
 
 			Expect(err).NotTo(HaveOccurred())
@@ -381,7 +381,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		It("should return nothing action when no conditions are met", func() {
 			kvvmi.Status.Phase = virtv1.Running
 			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
-				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
+				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},
 			)
 
 			Expect(err).NotTo(HaveOccurred())
