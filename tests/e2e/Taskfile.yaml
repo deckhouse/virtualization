@@ -117,7 +117,12 @@ tasks:
       - d8
     cmds:
       - |
-        E2E_PREFIX="head-$(git rev-parse --short HEAD)"
+        if [ -z "$E2E_PREFIX" ]; then
+          E2E_PREFIX="head-$(git rev-parse --short HEAD)"
+          echo "E2E_PREFIX not set. Setting E2E_PREFIX to $E2E_PREFIX"
+        else
+          echo "Using existing E2E_PREFIX: $E2E_PREFIX"
+        fi
 
         delete_resources_with_prefix() {
             local RESOURCE_TYPE=$1
