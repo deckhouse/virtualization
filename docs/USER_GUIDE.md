@@ -286,7 +286,7 @@ spec:
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
     # Substitute your StorageClass name.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   # Source for image creation.
   dataSource:
     type: HTTP
@@ -500,14 +500,14 @@ d8 k get storageclass
 Example output:
 
 ```txt
-# NAME                          PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+# NAME                                 PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
 # i-sds-replicated-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# i-linstor-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# i-linstor-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+# i-sds-replicated-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+# i-sds-replicated-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
 # sds-replicated-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# linstor-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# linstor-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# nfs-4-1-wffc                  nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
+# sds-replicated-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+# sds-replicated-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+# nfs-4-1-wffc                         nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
 ```
 
 A full description of the disk configuration settings can be found at [link](cr.html#virtualdisk).
@@ -528,7 +528,7 @@ spec:
   # Disk storage parameter settings.
   persistentVolumeClaim:
     # Substitute your StorageClass name.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
     size: 100Mi
 EOF
 ```
@@ -599,7 +599,7 @@ spec:
     # Specify a size larger than the value of the unpacked image.
     size: 10Gi
     # Substitute your StorageClass name.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   # The source from which the disk is created.
   dataSource:
     type: ObjectRef
@@ -621,7 +621,7 @@ spec:
   # Disk storage settings.
   persistentVolumeClaim:
     # Substitute your StorageClass name.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   # The source from which the disk is created.
   dataSource:
     type: ObjectRef
@@ -1833,7 +1833,7 @@ spec:
   persistentVolumeClaim:
     size: 10Gi
     # Substitute your StorageClass name.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   dataSource:
     type: ObjectRef
     objectRef:
@@ -1900,7 +1900,7 @@ metadata:
 spec:
   virtualMachineName: linux-vm
   volumeSnapshotClasses:
-    - # Substitute your StorageClass name.: i-linstor-thin-r2 # Substitute your StorageClass name.
+    - # Substitute your StorageClass name.: i-sds-replicated-thin-r2 # Substitute your StorageClass name.
       volumeSnapshotClassName: sds-replicated-volume # Substitute your VolumeSnapshotClass name.
   requiredConsistency: true
   keepIPAddress: Never
