@@ -116,7 +116,7 @@ weight: 15
 
 Для операционных систем семейства Linux рекомендуется использовать образы гостевых ОС с поддержкой `cloud-init`, что позволяет выполнять инициализацию виртуальных машин после их создания.
 
-Для операционных систем семейства Windows платформа поддерживает инициализацию с помощью встроенной утилиты sysprep.
+Для операционных систем семейства Windows платформа поддерживает инициализацию с помощью [autounattend](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/windows-setup-automation-overview) установки.
 
 ## Поддерживаемые конфигурации виртуальных машин
 
@@ -154,7 +154,7 @@ weight: 15
 5. Включите модуль `virtualization`:
 
 {{< alert level="warning" >}}
-Внимание! Включение модуля `virtualization` предполагает рестарт kubelet/containerd на всех узлах, где предполагается запуск виртуальных машин. Это необходимо для настройки связности containerd и DVCR.
+Внимание! Включение модуля `virtualization` предполагает рестарт kubelet/containerd и агентов cilium на всех узлах, где предполагается запуск виртуальных машин. Это необходимо для настройки связности containerd и DVCR.
 {{< /alert >}}
 
 Для включения модуля `virtualization`, необходимо создать ресурс `ModuleConfig` содержащий настройки модуля.
@@ -178,7 +178,7 @@ spec:
       storage:
         persistentVolumeClaim:
           size: 50G
-          storageClassName: linstor-thin-r1
+          storageClassName: sds-replicated-thin-r1
         type: PersistentVolumeClaim
     virtualMachineCIDRs:
       - 10.66.10.0/24
@@ -205,11 +205,11 @@ d8 k get modules virtualization
 Пример вывода:
 
 ```txt
-# NAME             WEIGHT   STATE     SOURCE     STAGE   STATUS
-# virtualization   900      Enabled   Embedded           Ready
+NAME             WEIGHT   SOURCE      PHASE   ENABLED   READY
+virtualization   900      deckhouse   Ready   True      True
 ```
 
-Статус модуля должен быть `Ready`.
+Фаза модуля должен быть `Ready`.
 
 ## Обновление модуля
 
@@ -226,7 +226,7 @@ d8 k get modules virtualization
 Компоненты модуля Virtualization могут обновляться автоматически, либо с ручным подтверждением по мере выхода обновлений в каналах обновления.
 
 {{< alert level="warning" >}}
-При обновлении платформы компоненты можно разделить на две категории:
+При обновлении модуля компоненты можно разделить на две категории:
 
 - Компоненты управления ресурсами виртуализации (плоскость управления)
 - Компоненты запуска виртуальных машин ("прошивка")
