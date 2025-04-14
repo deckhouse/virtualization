@@ -49,8 +49,8 @@ spec:
 3. **Хранилище образов виртуальных машин (DVCR)**
 
    Блок `.spec.settings.dvcr.storage` настраивает постоянный том для хранения образов:
-  - Размер тома — `.spec.settings.dvcr.storage.persistentVolumeClaim.size` (например, - 50G). Для расширения хранилища увеличьте значение параметра.
-  - Класс хранения — `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` - (например, sds-replicated-thin-r1).
+  - Размер тома — `.spec.settings.dvcr.storage.persistentVolumeClaim.size` (например, `50G`). Для расширения хранилища увеличьте значение параметра.
+  - Класс хранения — `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` - (например, `sds-replicated-thin-r1`).
 
 4. **Сетевые настройки**
 
@@ -71,7 +71,9 @@ spec:
 
     {{< alert level="warning" >}}
     Подсети блока `.spec.settings.virtualMachineCIDRs` не должны пересекаться с: подсетями узлов кластера, подсетью сервисов, подсетью подов (podCIDR).
+    {{< /alert >}}
 
+    {{< alert level="warning" >}}
     Удалять подсети, в случае если адреса из них уже выданы виртуальным машинам - запрещено!
     {{< /alert >}}
 
@@ -140,6 +142,9 @@ spec:
 - Debian
   - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
   - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
+- AlmaLinux
+  - [9](https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/)
+  - [8](https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/)
 - RockyLinux
   - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
   - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)

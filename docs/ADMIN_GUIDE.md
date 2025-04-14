@@ -49,8 +49,8 @@ Parameter description
 3. **Deckhouse Virtualization Container Registry (DVCR)**
 
    The `.spec.settings.dvcr.storage` block configures a persistent volume for storing images:
-  - The size of the volume is `.spec.settings.dvcr.storage.persistentVolumeClaim.size` (for example - 50G). To expand the storage, increase the value of the parameter.
-  - Storage class - `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` - (for example, sds-replicated-thin-r1).
+  - The size of the volume is `.spec.settings.dvcr.storage.persistentVolumeClaim.size` (for example `50G`). To expand the storage, increase the value of the parameter.
+  - Storage class - `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` - (for example, `sds-replicated-thin-r1`).
 
 4. **Network Settings**.
 
@@ -71,7 +71,9 @@ Parameter description
 
     {{< alert level="warning">}}
     The `.spec.settings.virtualMachineCIDRs` block subnets must not overlap with: cluster node subnets, services subnet, pods subnet (podCIDRs).
+    {{< /alert >}}
 
+    {{< alert level="warning" >}}
     It is forbidden to delete subnets if addresses from them have already been issued to virtual machines!
     {{< /alert >}}
 
@@ -140,6 +142,9 @@ Examples of resources for obtaining virtual machine images:
 - Debian
   - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
   - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
+- AlmaLinux
+  - [9](https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/)
+  - [8](https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/)
 - RockyLinux
   - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
   - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
