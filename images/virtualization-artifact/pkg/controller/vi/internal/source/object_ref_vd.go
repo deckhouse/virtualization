@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,13 +51,12 @@ import (
 )
 
 type ObjectRefVirtualDisk struct {
-	importerService     Importer
-	diskService         *service.DiskService
-	statService         Stat
-	dvcrSettings        *dvcr.Settings
-	client              client.Client
-	storageClassService *service.VirtualImageStorageClassService
-	recorder            eventrecord.EventRecorderLogger
+	importerService Importer
+	diskService     *service.DiskService
+	statService     Stat
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	recorder        eventrecord.EventRecorderLogger
 }
 
 func NewObjectRefVirtualDisk(
@@ -66,23 +66,21 @@ func NewObjectRefVirtualDisk(
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	statService Stat,
-	storageClassService *service.VirtualImageStorageClassService,
 ) *ObjectRefVirtualDisk {
 	return &ObjectRefVirtualDisk{
-		importerService:     importerService,
-		client:              client,
-		recorder:            recorder,
-		diskService:         diskService,
-		statService:         statService,
-		dvcrSettings:        dvcrSettings,
-		storageClassService: storageClassService,
+		importerService: importerService,
+		client:          client,
+		recorder:        recorder,
+		diskService:     diskService,
+		statService:     statService,
+		dvcrSettings:    dvcrSettings,
 	}
 }
 
 func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImage, vdRef *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) (reconcile.Result, error) {
 	log, ctx := logger.GetDataSourceContext(ctx, "objectref")
 
-	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vdRef.Namespace, vi.UID)
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -90,7 +88,7 @@ func (ds ObjectRefVirtualDisk) StoreToDVCR(ctx context.Context, vi *virtv2.Virtu
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsImageProvisioningFinished(condition):
 		log.Info("Virtual image provisioning finished: clean up")
 
 		cb.
@@ -228,12 +226,6 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 		return reconcile.Result{}, err
 	}
 
-	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
-	sc, err := ds.storageClassService.GetValidatedStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
-	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
-		return reconcile.Result{}, err
-	}
-
 	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
 	var dvRunningCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
@@ -243,7 +235,7 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsImageProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
@@ -280,11 +272,17 @@ func (ds ObjectRefVirtualDisk) StoreToPVC(ctx context.Context, vi *virtv2.Virtua
 			},
 		}
 
-		size, err := resource.ParseQuantity(vdRef.Status.Capacity)
+		var size resource.Quantity
+		size, err = resource.ParseQuantity(vdRef.Status.Capacity)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, vi.Status.StorageClassName)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		err = ds.diskService.StartImmediate(ctx, size, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err

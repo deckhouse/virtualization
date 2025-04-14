@@ -22,8 +22,10 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -49,13 +51,12 @@ import (
 const uploadDataSource = "upload"
 
 type UploadDataSource struct {
-	statService         *service.StatService
-	uploaderService     *service.UploaderService
-	diskService         *service.DiskService
-	dvcrSettings        *dvcr.Settings
-	storageClassService *service.VirtualDiskStorageClassService
-	recorder            eventrecord.EventRecorderLogger
-	client              client.Client
+	statService     *service.StatService
+	uploaderService *service.UploaderService
+	diskService     *service.DiskService
+	dvcrSettings    *dvcr.Settings
+	recorder        eventrecord.EventRecorderLogger
+	client          client.Client
 }
 
 func NewUploadDataSource(
@@ -64,17 +65,15 @@ func NewUploadDataSource(
 	uploaderService *service.UploaderService,
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
-	storageClassService *service.VirtualDiskStorageClassService,
 	client client.Client,
 ) *UploadDataSource {
 	return &UploadDataSource{
-		statService:         statService,
-		uploaderService:     uploaderService,
-		diskService:         diskService,
-		dvcrSettings:        dvcrSettings,
-		storageClassService: storageClassService,
-		client:              client,
-		recorder:            recorder,
+		statService:     statService,
+		uploaderService: uploaderService,
+		diskService:     diskService,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		recorder:        recorder,
 	}
 }
 
@@ -104,12 +103,6 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	}
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
-	sc, err := ds.storageClassService.GetValidatedStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
-	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
 		return reconcile.Result{}, err
 	}
 
@@ -278,6 +271,11 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
@@ -349,10 +347,13 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		sc, err := ds.diskService.GetStorageClass(ctx, pvc.Spec.StorageClassName)
-		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
+
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, ptr.Deref(pvc.Spec.StorageClassName, ""))
+		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, cb, ds.diskService); err != nil {
 			return reconcile.Result{}, err
 		}

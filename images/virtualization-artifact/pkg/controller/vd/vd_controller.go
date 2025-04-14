@@ -28,9 +28,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -65,16 +67,16 @@ func NewController(
 	importer := service.NewImporterService(dvcr, mgr.GetClient(), importerImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
-	scService := service.NewVirtualDiskStorageClassService(storageClassSettings, disk)
+	scService := intsvc.NewVirtualDiskStorageClassService(service.NewBaseStorageClassService(mgr.GetClient()), storageClassSettings)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
 	blank := source.NewBlankDataSource(recorder, disk, mgr.GetClient())
 
 	sources := source.NewSources()
-	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, dvcr, scService, mgr.GetClient()))
-	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient(), scService))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, disk, mgr.GetClient(), scService))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, disk, dvcr, scService, mgr.GetClient()))
+	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
+	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
+	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, disk, mgr.GetClient()))
+	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, disk, dvcr, mgr.GetClient()))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),

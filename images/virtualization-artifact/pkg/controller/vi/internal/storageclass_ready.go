@@ -54,20 +54,13 @@ func NewStorageClassReadyHandler(recorder eventrecord.EventRecorderLogger, svc S
 func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vicondition.StorageClassReadyType).Generation(vi.Generation)
 
-	defer func() { conditions.SetCondition(cb, &vi.Status.Conditions) }()
-
 	if vi.DeletionTimestamp != nil {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Message("")
+		conditions.RemoveCondition(cb.GetType(), &vi.Status.Conditions)
+		return reconcile.Result{}, nil
 	}
 
 	if vi.Spec.Storage == virtv2.StorageContainerRegistry {
-		cb.
-			Status(metav1.ConditionUnknown).
-			Reason(vicondition.DVCRTypeUsed).
-			Message("Used dvcr storage")
+		conditions.RemoveCondition(cb.GetType(), &vi.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -123,6 +116,8 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 		Status(metav1.ConditionFalse).
 		Reason(vicondition.StorageClassNotFound).
 		Message(msg)
+	conditions.SetCondition(cb, &vi.Status.Conditions)
+
 	return reconcile.Result{}, nil
 }
 
@@ -134,6 +129,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *virtv2.Vi
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The specified StorageClass %q is not allowed. Please check the module settings.", vi.Status.StorageClassName))
+		conditions.SetCondition(cb, &vi.Status.Conditions)
 		return nil
 	}
 
@@ -147,6 +143,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *virtv2.Vi
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.StorageClassNotFound).
 			Message(fmt.Sprintf("The specified StorageClass %q was not found.", vi.Status.StorageClassName))
+		conditions.SetCondition(cb, &vi.Status.Conditions)
 		return nil
 	}
 
@@ -155,6 +152,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *virtv2.Vi
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The specified StorageClass %q is terminating and cannot be used.", vi.Status.StorageClassName))
+		conditions.SetCondition(cb, &vi.Status.Conditions)
 		return nil
 	}
 
@@ -162,6 +160,7 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *virtv2.Vi
 		Status(metav1.ConditionTrue).
 		Reason(vicondition.StorageClassReady).
 		Message("")
+	conditions.SetCondition(cb, &vi.Status.Conditions)
 	return nil
 }
 
@@ -182,6 +181,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vi *vi
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.StorageClassNotFound).
 			Message(fmt.Sprintf("The StorageClass %q used by the underlying PersistentVolumeClaim was not found.", vi.Status.StorageClassName))
+		conditions.SetCondition(cb, &vi.Status.Conditions)
 		return nil
 	}
 
@@ -190,6 +190,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vi *vi
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The StorageClass %q used by the underlying PersistentVolumeClaim is terminating and cannot be used.", vi.Status.StorageClassName))
+		conditions.SetCondition(cb, &vi.Status.Conditions)
 		return nil
 	}
 
@@ -197,6 +198,7 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vi *vi
 		Status(metav1.ConditionTrue).
 		Reason(vicondition.StorageClassReady).
 		Message("")
+	conditions.SetCondition(cb, &vi.Status.Conditions)
 	return nil
 }
 
@@ -214,6 +216,8 @@ func (h StorageClassReadyHandler) setFromModuleSettings(vi *virtv2.VirtualImage,
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The default StorageClass %q, defined in the module settings, is terminating and cannot be used.", vi.Status.StorageClassName))
 	}
+
+	conditions.SetCondition(cb, &vi.Status.Conditions)
 }
 
 func (h StorageClassReadyHandler) setFromDefault(vi *virtv2.VirtualImage, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
@@ -230,4 +234,6 @@ func (h StorageClassReadyHandler) setFromDefault(vi *virtv2.VirtualImage, defaul
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The default StorageClass %q is terminating and cannot be used.", vi.Status.StorageClassName))
 	}
+
+	conditions.SetCondition(cb, &vi.Status.Conditions)
 }
