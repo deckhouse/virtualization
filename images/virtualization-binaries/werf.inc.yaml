@@ -52,6 +52,7 @@ shell:
     - |
       apk update
       apk add {{ $builderDependencies.packages | join " " }}
+      echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
   install:
     - |
