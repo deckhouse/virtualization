@@ -117,6 +117,10 @@ Parameter description
     - `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a `VirtualDisk` that can be explicitly specified in the resource specification.
     - `defaultStorageClassName` (optional): The StorageClass used by default when creating a `VirtualDisk` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
 
+{{< alert level="info" >}}
+For a complete list of configuration options, see ["Settings"](./configuration.html)
+{{< /alert >}}
+
 ## Images
 
 The ClusterVirtualImage resource is used to load virtual machine images into the intra-cluster storage. After that it can be used to create virtual machine disks. It is available in all cluster namespaces and projects.
