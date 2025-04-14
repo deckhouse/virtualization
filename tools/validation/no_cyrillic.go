@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-var skipDocRe = regexp.MustCompile(`doc-ru-.+\.y[a]?ml$|_RU\.md$`)
+var skipDocRe = regexp.MustCompile(`doc-ru-.+\.y[a]?ml$|\.ru\.md$`)
 var skipI18NRe = regexp.MustCompile(`/i18n/`)
 var skipSelfRe = regexp.MustCompile(`no_cyrillic(_test)?.go$`)
 
