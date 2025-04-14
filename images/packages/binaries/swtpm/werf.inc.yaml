@@ -50,6 +50,17 @@ binaries:
 image: {{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
+git:
+  - add: /images/base-alt-p11-binaries
+    to: /
+    stageDependencies:
+      setup:
+        - '**/*'
+    includePaths:
+    - relocate_binaries.sh
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
     - |
@@ -70,10 +81,16 @@ shell:
 
   install:
     - |
-      git clone --depth=1 --branch v{{ $version }} {{ $.SOURCE_REPO }}/stefanberger/swtpm.git /swtpm
+      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+      
+      # git clone --depth=1 --branch v{{ $version }} {{ $.SOURCE_REPO }}/stefanberger/swtpm.git /swtpm
+      # cd /swtpm
+      # ./autogen.sh --with-openssl --prefix=/usr --libdir=/usr/lib64
+      # ./configure --with-openssl --prefix=/usr --libdir=/usr/lib64 --enable-static -disable-shared LDFLAGS="-static"
+      
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git --branch v{{ $version }} /swtpm
       cd /swtpm
       ./autogen.sh --with-openssl --prefix=/usr --libdir=/usr/lib64
-      # ./configure --with-openssl --prefix=/usr --libdir=/usr/lib64 --enable-static -disable-shared LDFLAGS="-static"
       make -j$(nproc)
       make install
 
