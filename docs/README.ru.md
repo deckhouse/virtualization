@@ -1,6 +1,6 @@
 ---
-title: "Virtualization"
-menuTitle: "Virtualization"
+title: "Виртуализация"
+menuTitle: "Виртуализация"
 moduleStatus: preview
 weight: 10
 ---
