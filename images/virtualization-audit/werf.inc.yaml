@@ -1,3 +1,4 @@
+{{- if eq .MODULE_EDITION "EE" }}
 ---
 image: {{ $.ImageName }}
 fromImage: distroless
@@ -11,3 +12,4 @@ imageSpec:
     user: 64535
     workingDir: "/app"
     entrypoint: ["/app/virtualization-audit"]
+{{- end }}

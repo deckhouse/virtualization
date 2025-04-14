@@ -34,4 +34,6 @@ shell:
   - export GOARCH=amd64
   - go build -tags {{ .MODULE_EDITION }} -v -a -o virtualization-controller ./cmd/virtualization-controller
   - go build -v -a -o virtualization-api ./cmd/virtualization-api
+{{- if eq .MODULE_EDITION "EE" }}
   - go build -v -a -o virtualization-audit ./cmd/virtualization-audit
+{{- end }}
