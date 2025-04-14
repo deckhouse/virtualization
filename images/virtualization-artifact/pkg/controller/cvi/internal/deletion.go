@@ -53,7 +53,7 @@ func (h DeletionHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualI
 			return reconcile.Result{}, nil
 		}
 
-		result, err := h.sources.CleanUp(ctx, cvi)
+		requeue, err := h.sources.CleanUp(ctx, cvi)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
