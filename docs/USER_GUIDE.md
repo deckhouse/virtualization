@@ -1543,7 +1543,7 @@ AutoConverge is a kind of “insurance" that ensures that the migration complete
 
 #### Configuring Migration Policy
 
-Migration behavior can be configured through the .spec.liveMigrationPolicy parameter in the VM configuration. The following options are available:
+Migration behavior can be configured through the `.spec.liveMigrationPolicy` parameter in the VM configuration. The following options are available:
 
 - `AlwaysSafe` - Migration is performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximizing VM performance is important but requires high network bandwidth.
 - `PreferSafe` - (used as the default policy) By default, migration runs without AutoConverge, but CPU slowdown can be enabled manually if the migration fails to complete. This is done by using the VirtualMachineOperation resource with `type=Evict` and `force=true`.
