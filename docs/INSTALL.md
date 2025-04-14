@@ -125,11 +125,13 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
 
 | Storage System                              | Disk Location              |
 |---------------------------------------------|----------------------------|
-| sds-local-volume                            | Local                     |
-| sds-replicated-volume                       | Replicas on cluster nodes |
-| Ceph Cluster                                | External storage          |
-| NFS (Network File System)                   | External storage          |
-| TATLIN.UNIFIED (Yadro)                      | External storage          |
+| sds-local-volume                            | Local                      |
+| sds-replicated-volume                       | Replicas on cluster nodes  |
+| Ceph Cluster                                | External storage           |
+| NFS (Network File System)                   | External storage           |
+| TATLIN.UNIFIED (Yadro)                      | External storage           |
+| Huawei Dorado                               | External storage           |
+| HPE 3par                                    | External storage           |
 
 ## Installation
 
