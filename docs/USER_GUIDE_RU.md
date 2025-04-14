@@ -253,7 +253,7 @@ weight: 50
 
 До тех пор пока образ не перешёл в фазу `Ready`, содержимое всего блока `.spec` допускается изменять. При изменении процесс создании диска запустится заново. После перехода в фазу `Ready` содержимое блока `.spec` менять нельзя!
 
-Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`
+Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`.
 
 Отследить процесс создания образа можно путем добавления ключа `-w` к предыдущей команде:
 
@@ -508,10 +508,10 @@ d8 k  get storageclass
 
 ```txt
 # NAME                          PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-# i-linstor-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+# i-sds-replicated-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
 # i-linstor-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
 # i-linstor-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# linstor-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+# sds-replicated-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
 # linstor-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
 # linstor-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
 # nfs-4-1-wffc                  nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
@@ -554,7 +554,7 @@ EOF
 
 До тех пор пока диск не перешёл в фазу `Ready` содержимое всего блока `.spec` допускается изменять. При изменении процесс создании диска запустится заново.
 
-Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`
+Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`.
 
 Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./ADMIN_GUIDE_RU.md#настройки-классов-хранения-для-дисков).
 
@@ -1315,7 +1315,7 @@ EOF
 - `InProgress` - идет процесс подключения устройства.
 - `Attached` - устройство подключено.
 
-Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`
+Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`.
 
 Проверьте состояние вашего ресурса:
 
@@ -1822,7 +1822,7 @@ d k get vdsnapshot
 - `Failed` — произошла ошибка во время процесса создания снимка виртуального диска.
 - `Terminating` — ресурс находится в процессе удаления.
 
-Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`
+Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`.
 
 С полным описанием параметров конфигурации ресурса `VirtualDiskSnapshot` машин можно ознакомиться [в документации ресурса](cr.html#virtualdisksnapshot).
 

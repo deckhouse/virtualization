@@ -9,6 +9,113 @@ weight: 40
 
 Также администратор обладает правами на управление проектными ресурсами, описание которых содержится [в Руководстве пользователя](./user_guide.html).
 
+## Параметры модуля
+
+Конфигурация модуля virtualization задается через ресурс ModuleConfig в формате YAML. Ниже приведен пример базовой настройки:
+
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  enabled: true
+  version: 1
+  settings:
+    dvcr:
+      storage:
+        persistentVolumeClaim:
+          size: 50G
+          storageClassName: sds-replicated-thin-r1
+        type: PersistentVolumeClaim
+    virtualMachineCIDRs:
+      - 10.66.10.0/24
+
+```
+
+Описание параметров
+
+1. **Включение/отключение модуля.**
+
+    Управление состоянием модуля осуществляется через поле `.spec.enabled`. Укажите:
+    - `true` — активировать модуль
+    - `false` — деактивировать модуль.
+
+2. **Версия конфигурации**
+
+    Параметр `.spec.version` определяет версию схемы настроек. Структура параметров может - меняться между версиями. Актуальные значения приведены в разделе настроек .
+
+3. **Хранилище образов виртуальных машин (DVCR)**
+
+   Блок `.spec.settings.dvcr.storage` настраивает постоянный том для хранения образов:
+  - Размер тома — `.spec.settings.dvcr.storage.persistentVolumeClaim.size` (например, - 50G). Для расширения хранилища увеличьте значение параметра.
+  - Класс хранения — `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` - (например, sds-replicated-thin-r1).
+
+4. **Сетевые настройки**
+
+    В блоке `.spec.settings.virtualMachineCIDRs` указываются подсети в формате CIDR (например, 10.66.10.0/24). IP-адреса для виртуальных машин распределяются из этих - диапазонов автоматически или по запросу.
+
+    Пример:
+
+    ```yaml
+    spec:
+      settings:
+        virtualMachineCIDRs:
+          - 10.66.10.0/24
+          - 10.66.20.0/24
+          - 10.77.20.0/16
+    ```
+
+    {{< alert level="warning" >}}
+    Подсети блока `.spec.settings.virtualMachineCIDRs` не должны пересекаться с:
+    - подсетями узлов кластера;
+    - подсетью сервисов;
+    - подсетью подов (podCIDR).
+
+    Удалять подсети, в случае если адреса из них уже выданы виртуальным машинам - запрещено!
+    {{< /alert >}}
+
+5. **Настройки классов хранения для образов**
+
+    Настройки классов хранения для образов определяется в параметре `.spec.settings.virtualImages` настроек модуля.
+
+    Пример:
+
+    ```yaml
+    spec:
+      ...
+      settings:
+        virtualImages:
+          allowedStorageClassNames:
+          - sc-1
+          - sc-2
+          defaultStorageClassName: sc-1
+    ```
+
+    - `allowedStorageClassNames` (опционально) — это список допустимых StorageClass для создания `VirtualImage`, которые можно явно указать в спецификации ресурса.
+    - `defaultStorageClassName` (опционально) — это StorageClass, используемый по умолчанию при создании `VirtualImage`, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
+
+6. **Настройки классов хранения для дисков**
+
+    Настройки классов хранения для дисков определяются в параметре `.spec.settings.virtualDisks` настроек модуля.
+
+    Пример:
+
+    ```yaml
+    spec:
+      ...
+      settings:
+        virtualDisks:
+          allowedStorageClassNames:
+          - sc-1
+          - sc-2
+          defaultStorageClassName: sc-1
+    ```
+
+    - `allowedStorageClassNames` (опционально) — это список допустимых StorageClass для создания `VirtualDisk`, которые можно явно указать в спецификации ресурса.
+    - `defaultStorageClassName` (опционально) — это StorageClass, используемый по умолчанию при создании `VirtualDisk`, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
+
 ## Образы
 
 Ресурс ClusterVirtualImage служит для загрузки образов виртуальных машин во внутрикластерное хранилище, после чего с его помощью можно создавать диски виртуальных машин. Он доступен во всех пространствах имен и проектах кластера.
@@ -633,7 +740,7 @@ d8 k get storageclass
 NAME                                       PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
 ceph-pool-r2-csi-rbd                       rbd.csi.ceph.com                      Delete          WaitForFirstConsumer   true                   49d
 ceph-pool-r2-csi-rbd-immediate (default)   rbd.csi.ceph.com                      Delete          Immediate              true                   49d
-linstor-thin-r1                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   28d
+sds-replicated-thin-r1                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   28d
 linstor-thin-r2                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   78d
 nfs-4-1-wffc                               nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   49d
 ```
@@ -644,47 +751,7 @@ nfs-4-1-wffc                               nfs.csi.k8s.io                       
 
 Также модуль `virtualization` позволяет задать индивидуальные настройки для хранения дисков и образов.
 
-### Настройки классов хранения для образов
-
-Настройки классов хранения для образов определяется в параметре `.spec.settings.virtualImages` настроек модуля.
-
-Пример:
-
-```yaml
-spec:
-  ...
-  settings:
-    virtualImages:
-       allowedStorageClassNames:
-       - sc-1
-       - sc-2
-       defaultStorageClassName: sc-1
-```
-
-- `allowedStorageClassNames` (опционально) — это список допустимых StorageClass для создания `VirtualImage`, которые можно явно указать в спецификации ресурса.
-- `defaultStorageClassName` (опционально) — это StorageClass, используемый по умолчанию при создании `VirtualImage`, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
-
-### Настройки классов хранения для дисков
-
-Настройки классов хранения для дисков определяются в параметре `.spec.settings.virtualDisks` настроек модуля.
-
-Пример:
-
-```yaml
-spec:
-  ...
-  settings:
-    virtualDisks:
-       allowedStorageClassNames:
-       - sc-1
-       - sc-2
-       defaultStorageClassName: sc-1
-```
-
-- `allowedStorageClassNames` (опционально) — это список допустимых StorageClass для создания `VirtualDisk`, которые можно явно указать в спецификации ресурса.
-- `defaultStorageClassName` (опционально) — это StorageClass, используемый по умолчанию при создании `VirtualDisk`, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
-
-### Тонкая настройка классов хранения для дисков
+### Свойства диска на основе класса хранения
 
 При создании диска контроллер автоматически выберет наиболее оптимальные параметры, поддерживаемые хранилищем, на основании известных ему данных.
 

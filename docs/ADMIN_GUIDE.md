@@ -9,6 +9,115 @@ This guide is intended for administrators of Deckhouse Virtualization Platform (
 
 The administrator also has rights to manage project resources, which are described in the [User guide](./user_guide.html).
 
+## Module Parameters
+
+The configuration of the virtualization module is specified via the ModuleConfig resource in YAML format. The following is an example of a basic configuration:
+
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  enabled: true
+  version: 1
+  settings:
+    dvcr:
+      storage:
+        persistentVolumeClaim:
+          size: 50G
+          storageClassName: sds-replicated-thin-r1
+        type: PersistentVolumeClaim
+    virtualMachineCIDRs:
+      - 10.66.10.0/24
+
+```
+
+Parameter description
+
+1. **Module enable/disable**
+
+    The module state is controlled through the `.spec.enabled` field. Specify:
+    - `true` - activate the module
+    - `false` - deactivate the module.
+
+2. **Configuration version**
+
+    The `.spec.version` parameter defines the version of the configuration schema. The parameter structure may - change between versions. The current values are given in the settings section .
+
+3. **Deckhouse Virtualization Container Registry (DVCR)**
+
+   The `.spec.settings.dvcr.storage` block configures a persistent volume for storing images:
+  - The size of the volume is `.spec.settings.dvcr.storage.persistentVolumeClaim.size` (for example - 50G). To expand the storage, increase the value of the parameter.
+  - Storage class - `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName` - (for example, sds-replicated-thin-r1).
+
+4. **Network Settings**.
+
+    The `.spec.settings.virtualMachineCIDRs` block specifies subnets in CIDR format (for example, 10.66.10.0/24). IP addresses for virtual machines are allocated from these - ranges automatically or on request.
+
+    Example:
+
+    ```yaml
+    spec:
+      settings:
+        virtualMachineCIDRs:
+          - 10.66.10.0/24
+          - 10.66.20.0/24
+          - 10.77.20.0/16
+    ```
+
+    The first and last subnet address is reserved and not available for use.
+
+    {{< alert level=“warning”>}}
+    The `.spec.settings.virtualMachineCIDRs` block subnets must not overlap with:
+    - cluster node subnets;
+    - services subnet;
+    - pods subnet (podCIDRs).
+
+    It is forbidden to delete subnets if addresses from them have already been issued to virtual machines!
+    {{< /alert >}}
+
+5. **Storage class settings for images**
+
+    The storage class settings for images are defined in the `.spec.settings.virtualImages` parameter of the module settings.
+
+    Example:
+
+    ```yaml
+    spec:
+      ...
+      settings:
+        virtualImages:
+          allowedStorageClassNames:
+          - sc-1
+          - sc-2
+          defaultStorageClassName: sc-1
+    ```
+
+    - `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a `VirtualImage` that can be explicitly specified in the resource specification.
+    - `defaultStorageClassName`(optional): The StorageClass used by default when creating a `VirtualImage` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not set.
+
+6. **Storage Class Settings for Disks**
+
+    The storage class settings for disks are defined in the `.spec.settings.virtualDisks` parameter of the module settings.
+
+    Example:
+
+    ```yaml
+    spec:
+      ...
+      settings:
+        virtualDisks:
+          allowedStorageClassNames:
+          - sc-1
+          - sc-2
+          defaultStorageClassName: sc-1
+    ```
+
+    - `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a `VirtualDisk` that can be explicitly specified in the resource specification.
+    - `defaultStorageClassName` (optional): The StorageClass used by default when creating a `VirtualDisk` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
+
 ## Images
 
 The ClusterVirtualImage resource is used to load virtual machine images into the intra-cluster storage. After that it can be used to create virtual machine disks. It is available in all cluster namespaces and projects.
@@ -629,7 +738,7 @@ Example of the executed command:
 NAME                                       PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
 ceph-pool-r2-csi-rbd                       rbd.csi.ceph.com                      Delete          WaitForFirstConsumer   true                   49d
 ceph-pool-r2-csi-rbd-immediate (default)   rbd.csi.ceph.com                      Delete          Immediate              true                   49d
-linstor-thin-r1                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   28d
+sds-replicated-thin-r1                     replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   28d
 linstor-thin-r2                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   78d
 nfs-4-1-wffc                               nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   49d
 ```
@@ -640,47 +749,7 @@ If the default StorageClass is not present in the cluster, the user must specify
 
 In addition, the virtualization module allows you to specify individual settings for disk and image storage.
 
-### Storage class settings for images
-
-The storage class settings for images are defined in the `.spec.settings.virtualImages` parameter of the module settings.
-
-Example:
-
-```yaml
-spec:
-  ...
-  settings:
-    virtualImages:
-       allowedStorageClassNames:
-       - sc-1
-       - sc-2
-       defaultStorageClassName: sc-1
-```
-
-- `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a `VirtualImage` that can be explicitly specified in the resource specification.
-- `defaultStorageClassName`(optional): The StorageClass used by default when creating a `VirtualImage` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not set.
-
-### Storage class settings for disks
-
-The storage class settings for disks are defined in the `.spec.settings.virtualDisks` parameter of the module settings.
-
-Example:
-
-```yaml
-spec:
-  ...
-  settings:
-    virtualDisks:
-       allowedStorageClassNames:
-       - sc-1
-       - sc-2
-       defaultStorageClassName: sc-1
-```
-
-- `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a `VirtualDisk` that can be explicitly specified in the resource specification.
-- `defaultStorageClassName` (optional): The StorageClass used by default when creating a `VirtualDisk` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
-
-### Fine-tuning the storage classes for disks
+### Disk properties based on storage class
 
 When you create a disk, the controller will automatically select the most optimal parameters supported by the storage based on the known data.
 
