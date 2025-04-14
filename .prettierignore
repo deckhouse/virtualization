@@ -3,6 +3,7 @@
 **/.hg
 **/werf*.yaml
 **/werf*.yml
+.werf/**
 **/templates
 **/ISSUE_TEMPLATE
 CHANGELOG/*.yml

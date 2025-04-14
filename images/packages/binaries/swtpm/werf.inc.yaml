@@ -1,9 +1,9 @@
 ---
-image: swtpm
+image: {{ $.ImageType }}/{{ $.ImageName }}
 final: false
 from: {{ .Images.BASE_SCRATCH }}
 import:
-- image: {{ $.ImageName }}-builder
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /relocate
   to: /out
   before: setup
@@ -39,11 +39,9 @@ binaries:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-builder
+image: {{ $.ImageType }}/{{ $.ImageName }}-builder
 final: false
 from: alpine:3.21.3
-# from: alpine:3.20.6
-# fromImage: alpine-builder
 git:
   - add: /images/base-alt-p11-binaries
     to: /

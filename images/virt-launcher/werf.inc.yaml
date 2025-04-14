@@ -246,7 +246,7 @@ import:
   includePaths:
   - node-labeller
   - vlctl
-- image: swtpm
+- image: packages/binaries/swtpm
   add: /out
   to: /relocate
   after: setup

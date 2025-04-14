@@ -11,42 +11,16 @@ build:
 
 {{ $_ := set . "Images" dict }}
 
-# Deckhouse Images
-{{- $BaseImagesPath := "base-images/deckhouse_image_versions.yml" }}
-{{ $baseImages := (.Files.Get $BaseImagesPath | fromYaml) }}
-
+{{ range $_, $contentFile :=  $.Files.Glob  "base-images/*.yml" }}
+  {{- $baseImages := $contentFile | fromYaml }}
   {{- range $k, $v := $baseImages }}
-    {{ $baseImagePath := (printf "%s%s" $baseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
+    {{- $imagePath := printf "%s%s" $baseImages.REGISTRY_PATH (trimSuffix "/" $v) }}
     {{- if ne $k "REGISTRY_PATH" }}
-      {{- $_ := set $.Images $k $baseImagePath }}
+      {{- $_ := set $.Images $k $imagePath }}
     {{- end }}
   {{- end }}
+{{- end }}
 
-# Base Images
-{{- $BaseVirtImagesPath := "base-images/image_versions.yml" }}
-{{ $baseImages := (.Files.Get $BaseVirtImagesPath | fromYaml) }}
-
-  {{- range $k, $v := $baseImages }}
-    {{ $baseVirtImagePath := (printf "%s%s" $baseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
-
-    {{- if ne $k "REGISTRY_PATH" }}
-      {{- $_ := set $.Images $k $baseVirtImagePath }}
-    {{- end }}
-
-  {{- end }}
-
-# Distroless altlinux Images
-{{- $AltDistroVirtImagesPath := "base-images/alt_image_versions.yml" }}
-{{ $baseImages := (.Files.Get $AltDistroVirtImagesPath | fromYaml) }}
-
-  {{- range $k, $v := $baseImages }}
-    {{ $altDistroVirtImagePath := (printf "%s%s" $baseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
-
-    {{- if ne $k "REGISTRY_PATH" }}
-      {{- $_ := set $.Images $k $altDistroVirtImagePath }}
-    {{- end }}
-
-  {{- end }}
 
 # Source repo settings
 {{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
@@ -63,52 +37,14 @@ build:
   {{- $_ := set $.Version $k $v}}
 {{- end }}
 
-# Modules_images
-{{- define "module_image_template" }}
-
-  {{- if eq .ImageInstructionType "Dockerfile" }}
----
-image: images/{{ .ImageName }}
-context: images/{{ .ImageName }}
-dockerfile: Dockerfile
-  {{- else }}
-{{ tpl .ImageBuildData . }}
-  {{- end }}
-
-{{- end }}
-
 {{- $Root := . }}
 {{- $ImagesIDList := list }}
-{{ $ImagesBuildFiles := .Files.Glob "images/*/{Dockerfile,werf.inc.yaml}" }}
 
-{{- range $path, $content := $ImagesBuildFiles }}
-  {{- $ctx := dict }}
-  {{- if regexMatch "/werf.inc.yaml$" $path }}
-    {{- $_ := set $ctx "ImageInstructionType" "Stapel" }}
-  {{- else }}
-    {{- $_ := set $ctx "ImageInstructionType" "Dockerfile" }}
-  {{- end }}
 
-  {{- $ImageData := $path | split "/" }}
+{{- range $path, $content := .Files.Glob ".werf/*.yaml" }}
+  {{- tpl $content $ }}
+{{- end }}
 
-  {{- $_ := set $ctx "ImageName" $ImageData._1 }}
-  {{- $_ := set $ctx "ImageBuildData" $content }}
-  {{- $_ := set $ctx "Images" $Root.Images }}
-  {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
-  {{- $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
-  {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
-  {{- $_ := set $ctx "Version" $Root.Version }}
-
-  {{- include "module_image_template" $ctx }}
-  {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
-    {{- $ImageManifest := $ImageYamlMainfest | fromYaml }}
-    {{- if $ImageManifest | dig "final" true }}
-      {{- if $ImageManifest.image }}
-        {{- $ImagesIDList = append $ImagesIDList $ImageManifest.image }}
-      {{- end }}
-    {{- end }}
-    {{- end }}
-  {{- end }}
 ---
 image: images-digests
 from: {{ .Images.BASE_ALPINE }}
