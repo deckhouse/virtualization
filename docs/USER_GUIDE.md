@@ -977,15 +977,15 @@ If the virtual machine is in a shutdown state (`.status.phase: Stopped`), the ch
 
 If the virtual machine is running (`.status.phase: Running`), the way the changes are applied depends on the type of change:
 
-| Configuration block                     | How changes are applied                            |
-| --------------------------------------- | -------------------------------------------------- |
-| `.metadata.labels`                      | Applies immediately                                |
-| `.metadata.annotations`                 | Applies immediately                                |
-| `.spec.runPolicy`                       | Applies immediately                                |
-| `.spec.disruptions.restartApprovalMode` | Applies immediately                                |
-| `.spec.affinity`                        | EE: Applies immediately, CE: Only after VM restart |
-| `.spec.nodeSelector`                    | EE: Applies immediately, CE: Only after VM restart |
-| `.spec.*`                               | Only after VM restart                              |
+| Configuration block                     | How changes are applied                                 |
+| --------------------------------------- | --------------------------------------------------------|
+| `.metadata.annotations`                 | Applies immediately                                     |
+| `.spec.liveMigrationPolicy`             | Applies immediately                                     |
+| `.spec.runPolicy`                       | Applies immediately                                     |
+| `.spec.disruptions.restartApprovalMode` | Applies immediately                                     |
+| `.spec.affinity`                        | EE, SE+: Applies immediately, CE: Only after VM restart |
+| `.spec.nodeSelector`                    | EE, SE+: Applies immediately, CE: Only after VM restart |
+| `.spec.*`                               | Only after VM restart                                   |
 
 Let's consider an example of changing the configuration of a virtual machine:
 
