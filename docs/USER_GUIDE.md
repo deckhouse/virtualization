@@ -1541,7 +1541,7 @@ What to do if the network cannot cope with data transfer and “dirty" pages are
 
 AutoConverge is a kind of “insurance" that ensures that the migration completes even if the network is not running perfectly. However, CPU slowdown can affect the performance of applications running on the VM, so its use should be monitored.
 
-### Configuring Migration Policy
+#### Configuring Migration Policy
 
 Migration behavior can be configured through the .spec.liveMigrationPolicy parameter in the VM configuration. The following options are available:
 
@@ -1550,7 +1550,7 @@ Migration behavior can be configured through the .spec.liveMigrationPolicy param
 - `AlwaysForced` - Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This ensures that the migration completes even if the network is bad, but may degrade VM performance.
 - `PreferForced` - By default migration goes with AutoConverge, but slowdown can be manually disabled via VirtualMachineOperation with the parameter `type=Evict` and `force=false`.
 
-### Migration Types
+#### Migration Types
 
 Migration can be performed manually by the user, or automatically by the following system events:
 
