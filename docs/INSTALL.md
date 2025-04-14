@@ -94,7 +94,7 @@ The module has no additional restrictions and is compatible with any hardware th
 | Debian                      | 10, 11, 12                      |
 | Ubuntu                      | 20.04, 22.04, 24.04      |
 
-{{< alert level=“warning”>}}
+{{< alert level="warning">}}
 Ensuring stable operation of live migration mechanisms requires the use of an identical version of the Linux kernel on all cluster nodes.
 
 This is because differences in kernel versions can lead to incompatible interfaces, system calls, and resource handling, which can disrupt the virtual machine migration process.
@@ -185,7 +185,7 @@ The `.spec.settings.dvcr` block describes the settings for the repository for st
 
 The `.spec.settings.virtualMachineCIDRs` block specifies the list of subnets. Virtual machine addresses will be allocated automatically or on request from the specified subnet ranges in order.
 
-{{< alert level=“warning”>}}
+{{< alert level="warning">}}
 Subnets of `.spec.settings.virtualMachineCIDRs` block must not overlap with subnets of nodes, subnet of services and pods.
 
 It is forbidden to delete subnets if addresses from them have already been given to virtual machines!
@@ -228,7 +228,7 @@ In module upgrades, the components can be divided into two categories:
 
 Updating control plane components does not affect the operation of already running virtual machines, but may cause a brief interruption of established VNC/serial port connections while the control plane component is restarted.
 
-Updates to virtual machine firmware during a platform upgrade may require virtual machines to be migrated to the new “firmware” version.
+Updates to virtual machine firmware during a platform upgrade may require virtual machines to be migrated to the new "firmware" version.
 Migration during the upgrade is performed once, if the migration was unsuccessful, the virtual machine owner will need to perform it themselves by either evict the virtual machine or reboot it.
 {{< /alert >}}
 

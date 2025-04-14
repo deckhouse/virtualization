@@ -69,7 +69,7 @@ Parameter description
 
     The first and last subnet address is reserved and not available for use.
 
-    {{< alert level=“warning”>}}
+    {{< alert level="warning">}}
     The `.spec.settings.virtualMachineCIDRs` block subnets must not overlap with:
     - cluster node subnets;
     - services subnet;
