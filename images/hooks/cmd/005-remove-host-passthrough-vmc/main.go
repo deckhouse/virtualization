@@ -24,8 +24,6 @@ import (
 	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 
-	// "k8s.io/utils/ptr"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -45,13 +43,6 @@ var config = &pkg.HookConfig{
 			Kind:       "VirtualMachineClass",
 			JqFilter:   removePassthroughHookJQFilter,
 
-			// ExecuteHookOnSynchronization: ptr.To(false),
-
-			// NamespaceSelector: &pkg.NamespaceSelector{
-			// 	NameSelector: &pkg.NameSelector{
-			// 		MatchNames: []string{common.MODULE_NAMESPACE},
-			// 	},
-			// },
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"module": common.MODULE_NAME,
@@ -76,9 +67,17 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 		if err := vmc.UnmarhalTo(metadata); err != nil {
 			input.Logger.Error("Failed to unmarshal metadata vmclass %v", err)
 		}
+		op := "add"
+		if keep, found := metadata.GetAnnotations()["helm.sh/resource-policy"]; found && keep != "keep" {
+			op = "replace"
+			input.Logger.Info("VMC %s has helm.sh/resource-policy=%s, will be replaced with helm.sh/resource-policy=keep", metadata.Name, keep)
+		} else if keep == "keep" {
+			input.Logger.Info("VMC %s already has helm.sh/resource-policy=keep", metadata.Name)
+			continue
+		}
 		patch := []any{
 			map[string]any{
-				"op":    "add",
+				"op":    op,
 				"path":  "/metadata/annotations/helm.sh~1resource-policy",
 				"value": "keep",
 			},
