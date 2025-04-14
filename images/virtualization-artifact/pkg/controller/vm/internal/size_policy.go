@@ -53,7 +53,13 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 		Status(metav1.ConditionUnknown).
 		Generation(current.GetGeneration())
 
-	defer func() { conditions.SetCondition(cb, &changed.Status.Conditions) }()
+	defer func() {
+		if cb.Condition().Status == metav1.ConditionFalse {
+			conditions.SetCondition(cb, &changed.Status.Conditions)
+		} else {
+			conditions.RemoveCondition(vmcondition.TypeSizingPolicyMatched, &changed.Status.Conditions)
+		}
+	}()
 
 	if isDeletion(current) {
 		return reconcile.Result{}, nil
@@ -75,10 +81,7 @@ func (h *SizePolicyHandler) Handle(ctx context.Context, s state.VirtualMachineSt
 			Status(metav1.ConditionFalse)
 	default:
 		err = h.service.CheckVMMatchedSizePolicy(changed, vmClass)
-		if err == nil {
-			cb.Reason(vmcondition.ReasonSizingPolicyMatched).
-				Status(metav1.ConditionTrue)
-		} else {
+		if err != nil {
 			cb.Message(fmt.Sprintf("Size policy matching errors: %s.", err.Error())).
 				Reason(vmcondition.ReasonSizingPolicyNotMatched).
 				Status(metav1.ConditionFalse)

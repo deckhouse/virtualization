@@ -29,7 +29,6 @@ const (
 	TypeRunning                             Type = "Running"
 	TypeMigrating                           Type = "Migrating"
 	TypeMigratable                          Type = "Migratable"
-	TypePodStarted                          Type = "PodStarted"
 	TypeProvisioningReady                   Type = "ProvisioningReady"
 	TypeAgentReady                          Type = "AgentReady"
 	TypeAgentVersionNotSupported            Type = "AgentVersionNotSupported"
@@ -81,15 +80,12 @@ const (
 	ReasonRestartAwaitingVMClassChangesExist Reason = "RestartAwaitingVMClassChangesExist"
 	ReasonRestartNoNeed                      Reason = "NoNeedRestart"
 
-	ReasonPodStarted    Reason = "PodStarted"
-	ReasonPodNotFound   Reason = "PodNotFound"
 	ReasonPodNotStarted Reason = "PodNotStarted"
 
 	ReasonMigratable    Reason = "VirtualMachineMigratable"
 	ReasonNotMigratable Reason = "VirtualMachineNotMigratable"
 
 	ReasonVmIsMigrating                  Reason = "VirtualMachineMigrating"
-	ReasonVmIsNotMigrating               Reason = "VirtualMachineNotMigrating"
 	ReasonLastMigrationFinishedWithError Reason = "LastMigrationFinishedWithError"
 	ReasonVmIsNotRunning                 Reason = "VirtualMachineNotRunning"
 	ReasonVmIsRunning                    Reason = "VirtualMachineRunning"
@@ -101,7 +97,6 @@ const (
 	WaitingForTheSnapshotToStart Reason = "WaitingForTheSnapshotToStart"
 	ReasonSnapshottingInProgress Reason = "SnapshottingInProgress"
 
-	ReasonSizingPolicyMatched            Reason = "SizingPolicyMatched"
 	ReasonSizingPolicyNotMatched         Reason = "SizingPolicyNotMatched"
 	ReasonVirtualMachineClassTerminating Reason = "VirtualMachineClassTerminating"
 	ReasonVirtualMachineClassNotExists   Reason = "VirtalMachineClassNotExists"
