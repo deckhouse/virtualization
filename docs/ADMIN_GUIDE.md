@@ -117,6 +117,21 @@ Parameter description
     - `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a `VirtualDisk` that can be explicitly specified in the resource specification.
     - `defaultStorageClassName` (optional): The StorageClass used by default when creating a `VirtualDisk` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
 
+7. **Migration Settings**.
+    Virtual machine migration parameters can be set in the `.spec.settings.liveMigration` block:
+    Example parameters:
+    ```yaml
+    spec:
+      enabled: true
+      settings:
+        liveMigration:
+          # The bandwidth of the network that will be used to migrate to the node
+          # 64 Mi -> (64 * 2^20 * 8) / 10^6 = 536 Mbps
+          bandwidthPerNode: 64Mi
+          # Maximum number of migrations per node (inbound and outbound)
+          maxMigrationsPerNode: 2
+    ```
+
 {{< alert level="info" >}}
 For a complete list of configuration options, see ["Settings"](./configuration.html)
 {{< /alert >}}

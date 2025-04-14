@@ -117,6 +117,25 @@ spec:
     - `allowedStorageClassNames` (опционально) — это список допустимых StorageClass для создания `VirtualDisk`, которые можно явно указать в спецификации ресурса.
     - `defaultStorageClassName` (опционально) — это StorageClass, используемый по умолчанию при создании `VirtualDisk`, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
 
+7. **Параметры миграции**
+
+    Параметры миграции виртуальных машин можно задать в блоке `.spec.settings.liveMigration`:
+
+    Пример параметров:
+
+    ```yaml
+    spec:
+      enabled: true
+      settings:
+        liveMigration:
+          # Пропускная способность канала связи, которая будет использоваться для миграции на узел
+          # 64 Mi -> (64 * 2^20 * 8) / 10^6 = 536 Mbps
+          bandwidthPerNode: 64Mi
+          # Максимальное количество миграций на узел (входящих и исходящих)
+          maxMigrationsPerNode: 2
+    ```
+
+
 {{< alert level="info" >}}
 Полный перечень параметров конфигурации приведен в разделе [Настройки](./configuration.html) и
 {{< /alert >}}
@@ -731,33 +750,6 @@ ColdStandby обеспечивает механизм восстановлени
 - Виртуальная машина `linux-vm` запускается на другом подходящем узле (workerB).
 
 ![Схема работы механизма ColdStandBy](./images/coldstandby.ru.png)
-
-## Настройки хранения дисков и образов
-
-Для хранения дисков (VirtualDisk) и образов (VirtualImage) с типом `PersistentVolumeClaim` используются хранилища, предоставляемые платформой.
-
-Перечень поддерживаемых платформой хранилищ можно посмотреть, выполнив команду для просмотра классов хранилищ (StorageClass):
-
-```bash
-d8 k get storageclass
-```
-
-Пример вывода команды:
-
-```console
-NAME                                       PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-ceph-pool-r2-csi-rbd                       rbd.csi.ceph.com                      Delete          WaitForFirstConsumer   true                   49d
-ceph-pool-r2-csi-rbd-immediate (default)   rbd.csi.ceph.com                      Delete          Immediate              true                   49d
-sds-replicated-thin-r1                     replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   28d
-sds-replicated-thin-r2                     replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   78d
-nfs-4-1-wffc                               nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   49d
-```
-
-Маркер `(default)` рядом с названием класса показывает, что данный StorageClass будет использоваться по умолчанию в случае, если пользователь не указал название класса явно в создаваемом ресурсе.
-
-Если StorageClass по умолчанию в кластере отсутствует, то пользователь должен явно указать требуемый StorageClass в спецификации ресурса.
-
-Также модуль `virtualization` позволяет задать индивидуальные настройки для хранения дисков и образов.
 
 ### Свойства диска на основе класса хранения
 
