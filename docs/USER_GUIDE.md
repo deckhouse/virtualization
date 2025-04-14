@@ -243,7 +243,7 @@ After creation the `VirtualImage` resource can be in the following states (phase
 - `Provisioning` - the image creation process is in progress.
 - `Ready` - the image is created and ready for use.
 - `Failed` - an error occurred during the image creation process.
-- `Terminating` - the image is being deleted. The image may “hang” in this state if it is still connected to the virtual machine.
+- `Terminating` - the image is being deleted. The image may "hang" in this state if it is still connected to the virtual machine.
 
 As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. After entering the `Ready` phase, the contents of the `.spec` block cannot be changed!
 
@@ -543,7 +543,7 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 - `Ready` - the disk has been created and is ready for use.
 - `Failed` - an error occurred during the creation process.
 - `PVCLost` - system error, PVC with data has been lost.
-- `Terminating` - the disk is being deleted. The disk may “hang” in this state if it is still connected to the virtual machine.
+- `Terminating` - the disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
 
 As long as the disk has not entered the `Ready` phase, the contents of the entire `.spec` block can be changed. If changes are made, the disk creation process will start over.
 
@@ -863,8 +863,8 @@ status:
     cpu:
       coreFraction: 10%
       cores: 1
-      requestedCores: “1”
-      runtimeOverhead: “0”
+      requestedCores: "1"
+      runtimeOverhead: "0"
       topology:
         sockets: 1
         coresPerSocket: 1
@@ -1076,7 +1076,7 @@ Example output:
 # 2
 ```
 
-The default behavior is to apply changes to the virtual machine through a “manual” restart. If you want to apply the changes immediately and automatically, you need to change the change application policy:
+The default behavior is to apply changes to the virtual machine through a "manual" restart. If you want to apply the changes immediately and automatically, you need to change the change application policy:
 
 ```yaml
 spec:
@@ -1489,7 +1489,7 @@ Live virtual machine migration is an important feature in virtualized infrastruc
 
 Migration can be performed manually by the user, or automatically by the following system events:
 
-- Updating the “firmware” of a virtual machine.
+- Updating the "firmware" of a virtual machine.
 - Redistribution of load in the cluster.
 - Transferring a node into maintenance mode (Node drain).
 - When you change [VM placement settings](#placement-of-vms-by-nodes) (not available in Community edition).
@@ -1754,9 +1754,9 @@ To guarantee data integrity and consistency, a disk snapshot can be created in t
 
 - the virtual disk is not attached to any virtual machine;
 - the virtual disk is attached to a virtual machine that is powered off;
-- the virtual disk is connected to a running virtual machine, an agent (`qemu-guest-agent`) is installed in the virtual machine OS, the operation to “freeze” the file system was successful.
+- the virtual disk is connected to a running virtual machine, an agent (`qemu-guest-agent`) is installed in the virtual machine OS, the operation to "freeze" the file system was successful.
 
-If integrity and consistency is not important, the snapshot can be performed on a running virtual machine without “freezing” the file system, for this purpose in the specification of the resource `VirtualDiskSnapshot` add:
+If integrity and consistency is not important, the snapshot can be performed on a running virtual machine without "freezing" the file system, for this purpose in the specification of the resource `VirtualDiskSnapshot` add:
 
 ```yaml
 spec:
@@ -1851,7 +1851,7 @@ To ensure data integrity and consistency, a virtual machine snapshot will be cre
 - the virtual machine is powered off;
 - an agent (qemu-guest-agent) is installed in the virtual machine's operating system, and the operation to freeze the file system was successful.
 
-If integrity and consistency are not important, a snapshot can be created on a running virtual machine without “freezing” the file system. To do this, specify in the `VirtualMachineSnapshot` resource specification:
+If integrity and consistency are not important, a snapshot can be created on a running virtual machine without "freezing" the file system. To do this, specify in the `VirtualMachineSnapshot` resource specification:
 
 ```yaml
 spec:
