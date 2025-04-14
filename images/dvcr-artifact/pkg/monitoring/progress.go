@@ -17,6 +17,7 @@ limitations under the License.
 package monitoring
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -48,10 +49,10 @@ type ProgressMeter struct {
 	stoppedAt            time.Time
 	prevTransmittedBytes float64
 
-	finalAvgSpeed float64
-
 	emitInterval time.Duration
 	stop         chan struct{}
+
+	cancel context.CancelFunc
 }
 
 // NewProgressMeter returns reader that will track bytes count into prometheus metric.
@@ -121,13 +122,16 @@ func NewProgressMeter(rdr io.ReadCloser, total uint64) *ProgressMeter {
 
 	importProgress := NewProgress(registryProgress, ownerUID)
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	return &ProgressMeter{
-		ProgressReader: NewProgressReader(rdr, importProgress, total),
+		ProgressReader: NewProgressReader(ctx, rdr, importProgress, total),
 		total:          total,
 		avgSpeed:       NewProgress(registryAvgSpeed, ownerUID),
 		curSpeed:       NewProgress(registryCurSpeed, ownerUID),
 		emitInterval:   time.Second,
 		stop:           make(chan struct{}),
+		cancel:         cancel,
 	}
 }
 
@@ -138,7 +142,7 @@ func (p *ProgressMeter) Start() {
 	go func() {
 		ticker := time.NewTicker(p.emitInterval)
 		defer func() {
-			p.ProgressReader.Cancel = true
+			p.cancel()
 			ticker.Stop()
 		}()
 
