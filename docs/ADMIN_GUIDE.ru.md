@@ -117,7 +117,7 @@ spec:
     - `allowedStorageClassNames` (опционально) — это список допустимых StorageClass для создания `VirtualDisk`, которые можно явно указать в спецификации ресурса.
     - `defaultStorageClassName` (опционально) — это StorageClass, используемый по умолчанию при создании `VirtualDisk`, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
 
-7. **Параметры миграции**
+7. **Настройки живой миграции**
 
     Параметры миграции виртуальных машин можно задать в блоке `.spec.settings.liveMigration`:
 

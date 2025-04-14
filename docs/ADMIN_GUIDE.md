@@ -117,7 +117,7 @@ Parameter description
     - `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a `VirtualDisk` that can be explicitly specified in the resource specification.
     - `defaultStorageClassName` (optional): The StorageClass used by default when creating a `VirtualDisk` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
 
-7. **Migration Settings**.
+7. **Live Migration Settings**.
     Virtual machine migration parameters can be set in the `.spec.settings.liveMigration` block:
     Example parameters:
     ```yaml
