@@ -134,6 +134,8 @@ weight: 15
 | Ceph-кластер                               | Внешнее хранилище          |
 | NFS (Network File System)                  | Внешнее хранилище          |
 | TATLIN.UNIFIED (Yadro)                     | Внешнее хранилище          |
+| Huawei Dorado                              | Внешнее хранилище          |
+| HPE 3par                                   | Внешнее хранилище          |
 
 ## Порядок установки
 
