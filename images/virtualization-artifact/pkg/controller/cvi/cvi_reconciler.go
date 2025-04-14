@@ -32,7 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	watcher "github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/watcher"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
