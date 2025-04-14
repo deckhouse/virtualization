@@ -169,6 +169,9 @@ Examples of resources for obtaining virtual machine images:
 - Debian
   - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
   - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
+- AlmaLinux
+  - [9](https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/)
+  - [8](https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/)
 - RockyLinux
   - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
   - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
