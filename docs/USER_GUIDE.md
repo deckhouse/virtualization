@@ -1492,8 +1492,6 @@ Live virtual machine (VM) migration is the process of moving a running VM from o
 
 #### How live migration works
 
-![](./images/migration.png)
-
 The live migration process involves several steps:
 
 1. **Creation of a new VM instance**
@@ -1520,6 +1518,8 @@ The live migration process involves several steps:
     - The remaining memory changes are transferred to the target node.
     - The state of the CPU, devices, and open connections are synchronized.
     - The VM is started on the new node and the source copy is deleted.
+
+![](./images/migration.png)
 
 {{< alert level="warning">}}
 Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
