@@ -1492,6 +1492,8 @@ Live virtual machine (VM) migration is the process of moving a running VM from o
 
 #### How live migration works
 
+![](./images/migration.png)
+
 The live migration process involves several steps:
 
 1. **Creation of a new VM instance**
