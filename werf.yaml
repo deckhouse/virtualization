@@ -118,6 +118,7 @@ git:
       - component_versions/README.md
       - hooks/lib/tests
       - hooks/test*
+      - docs/images/*.drawio
 ---
 image: release-channel-version
 fromImage: builder/scratch
