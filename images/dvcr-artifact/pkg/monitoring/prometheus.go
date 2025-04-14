@@ -37,7 +37,7 @@ type ProgressReader struct {
 }
 
 // NewProgressReader creates a new instance of a prometheus updating progress reader.
-func NewProgressReader(ctx context.Context, r io.ReadCloser, metric ProgressMetric, total uint64) *ProgressReader {
+func NewProgressReader(r io.ReadCloser, metric ProgressMetric, total uint64) *ProgressReader {
 	promReader := &ProgressReader{
 		CountingReader: util.CountingReader{
 			Reader:  r,
@@ -46,26 +46,28 @@ func NewProgressReader(ctx context.Context, r io.ReadCloser, metric ProgressMetr
 		metric: metric,
 		total:  total,
 		final:  true,
-		ctx:    ctx,
 	}
 
 	return promReader
 }
 
 // StartTimedUpdate starts the update timer to automatically update every second.
-func (r *ProgressReader) StartTimedUpdate() {
+func (r *ProgressReader) StartTimedUpdate(ctx context.Context) {
+	r.ctx = ctx
 	// Start the progress update thread.
 	go r.timedUpdateProgress()
 }
 
 func (r *ProgressReader) timedUpdateProgress() {
-	cont := true
-	for cont {
+	for {
 		select {
 		case <-r.ctx.Done():
-			break
-	    case <- time.After(time.Second):
-			cont = r.updateProgress()
+			return
+		case <-time.After(time.Second):
+			cont := r.updateProgress()
+			if !cont {
+				return
+			}
 		}
 	}
 }
