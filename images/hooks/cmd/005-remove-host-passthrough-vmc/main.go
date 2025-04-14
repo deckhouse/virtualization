@@ -66,7 +66,7 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 	vmcs := input.Snapshots.Get(removePassthroughHookName)
 
 	if len(vmcs) == 0 {
-		input.Logger.Info(fmt.Sprintf("No VMCs found in namespace %s, nothing to do", common.MODULE_NAMESPACE))
+		input.Logger.Info(fmt.Sprintf("No VMCs found, nothing to do")
 		return nil
 	}
 
@@ -79,7 +79,7 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 				"value": "keep",
 			},
 		}
-		input.PatchCollector.JSONPatch(patch, "virtualization.deckhouse.io/v1alpha2", "VirtualMachineClass", common.MODULE_NAMESPACE, name)
+		input.PatchCollector.JSONPatch(patch, "virtualization.deckhouse.io/v1alpha2", "VirtualMachineClass", name)
 		input.Logger.Info(fmt.Sprintf("Added helm.sh/resource-policy=keep to VirtualMachineClass %s", name))
 	}
 
