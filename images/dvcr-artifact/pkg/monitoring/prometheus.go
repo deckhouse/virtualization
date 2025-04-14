@@ -92,14 +92,3 @@ func (r *ProgressReader) updateProgress() bool {
 	}
 	return false
 }
-
-// SetNextReader replaces the current counting reader with a new one,
-// for tracking progress over multiple readers.
-func (r *ProgressReader) SetNextReader(reader io.ReadCloser, final bool) {
-	r.CountingReader = util.CountingReader{
-		Reader:  reader,
-		Current: r.Current,
-		Done:    false,
-	}
-	r.final = final
-}
