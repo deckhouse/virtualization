@@ -23,6 +23,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+
 	// "k8s.io/utils/ptr"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +31,7 @@ import (
 
 const (
 	removePassthroughHookName     = "Remove host-passthrough VMC"
-	removePassthroughHookJQFilter = `.metadata.name`
+	removePassthroughHookJQFilter = `.metadata`
 )
 
 var _ = registry.RegisterFunc(config, handler)
@@ -71,7 +72,10 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 	}
 
 	for _, vmc := range vmcs {
-		name := vmc.String() 
+		metadata := &metav1.ObjectMeta{}
+		if err := vmc.UnmarhalTo(metadata); err != nil {
+			input.Logger.Error("Failed to unmarshal metadata vmclass %v", err)
+		}
 		patch := []any{
 			map[string]any{
 				"op":    "add",
@@ -79,8 +83,8 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 				"value": "keep",
 			},
 		}
-		input.PatchCollector.JSONPatch(patch, "virtualization.deckhouse.io/v1alpha2", "VirtualMachineClass", "", name)
-		input.Logger.Info(fmt.Sprintf("Added helm.sh/resource-policy=keep to VirtualMachineClass %s", name))
+		input.PatchCollector.JSONPatch(patch, "virtualization.deckhouse.io/v1alpha2", "VirtualMachineClass", "", metadata.Name)
+		input.Logger.Info(fmt.Sprintf("Added helm.sh/resource-policy=keep to VirtualMachineClass %s", metadata.Name))
 	}
 
 	return nil
