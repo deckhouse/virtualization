@@ -24,10 +24,7 @@ dockerfile: Dockerfile
     {{- $_ := set $ctx "ImageInstructionType" "Dockerfile" }}
   {{- end }}
 
-  # some
   {{- $ImageData := regexReplaceAll "^images/(packages)/([0-9a-z-_]+)/([0-9a-z-_]+)/(Dockerfile|werf.inc.yaml)$" $path "${1}#${2}#${3}#${4}" | split "#" }}
-  # Print ImageData
-  {{/*{{ print $ImageData }}*/}}
 
   {{- $_ := set $ctx "ImageType" (printf "%s/%s" $ImageData._0 $ImageData._1) }}
   {{- $_ := set $ctx "ImageName" $ImageData._2 }}
@@ -42,7 +39,6 @@ dockerfile: Dockerfile
   {{- include "packages_template" $ctx }}
 
   {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "packages_template" $ctx) -1 }}
-
     {{- $ImageManifest := $ImageYamlMainfest | fromYaml }}
     
       {{- if $ImageManifest | dig "final" true }}

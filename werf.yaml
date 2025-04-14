@@ -9,18 +9,11 @@ build:
       removeLabels:
         - /.*/
 
-{{ $_ := set . "Images" dict }}
 
-{{ range $_, $contentFile :=  $.Files.Glob  "base-images/*.yml" }}
-  {{- $baseImages := $contentFile | fromYaml }}
-  {{- range $k, $v := $baseImages }}
-    {{- $imagePath := printf "%s%s" $baseImages.REGISTRY_PATH (trimSuffix "/" $v) }}
-    {{- if ne $k "REGISTRY_PATH" }}
-      {{- $_ := set $.Images $k $imagePath }}
-    {{- end }}
-  {{- end }}
-{{- end }}
-
+---
+# Base Images
+{{- include "parse_base_images_map" . }}
+---
 
 # Source repo settings
 {{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
