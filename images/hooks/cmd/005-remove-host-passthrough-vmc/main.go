@@ -30,7 +30,7 @@ import (
 
 const (
 	removePassthroughHookName     = "Remove host-passthrough VMC"
-	removePassthroughHookJQFilter = `.metadata.name`
+	removePassthroughHookJQFilter = `.items[].metadata.name`
 )
 
 var _ = registry.RegisterFunc(config, handler)
