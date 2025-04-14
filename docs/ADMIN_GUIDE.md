@@ -133,8 +133,21 @@ Parameter description
     ```
 
 {{< alert level="info" >}}
-For a complete list of configuration options, see ["Settings"](./configuration.html)
+For a complete list of configuration options, see ["Settings"](./configuration.html).
 {{< /alert >}}
+
+## Disk properties based on storage class
+
+When you create a disk, the controller will automatically select the most optimal parameters supported by the storage based on the known data.
+
+The following are the priorities of the `PersistentVolumeClaim` parameter settings when creating a disk by automatically defining the storage features:
+
+- `RWX + Block`
+- `RWX + FileSystem`
+- `RWO + Block`
+- `RWO + FileSystem`
+
+If the storage is unknown and it is impossible to automatically define its parameters, then `RWO + FileSystem` is used.
 
 ## Images
 
@@ -769,16 +782,3 @@ The `(default)` marker next to the class name indicates that this StorageClass w
 If the default StorageClass is not present in the cluster, the user must specify the required StorageClass explicitly in the resource specification.
 
 In addition, the virtualization module allows you to specify individual settings for disk and image storage.
-
-### Disk properties based on storage class
-
-When you create a disk, the controller will automatically select the most optimal parameters supported by the storage based on the known data.
-
-The following are the priorities of the `PersistentVolumeClaim` parameter settings when creating a disk by automatically defining the storage features:
-
-- `RWX + Block`
-- `RWX + FileSystem`
-- `RWO + Block`
-- `RWO + FileSystem`
-
-If the storage is unknown and it is impossible to automatically define its parameters, then `RWO + FileSystem` is used.
