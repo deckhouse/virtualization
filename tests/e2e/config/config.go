@@ -115,6 +115,33 @@ type Kustomize struct {
 	Namespace      string           `yaml:"namespace"`
 	NamePrefix     string           `yaml:"namePrefix"`
 	Resources      []string         `yaml:"resources"`
+	Patches        []Patch          `json:"patches,omitempty" yaml:"patches,omitempty"`
+}
+
+type Patch struct {
+	Path    string          `json:"path,omitempty" yaml:"path,omitempty"`
+	Patch   string          `json:"patch,omitempty" yaml:"patch,omitempty"`
+	Target  *Selector       `json:"target,omitempty" yaml:"target,omitempty"`
+	Options map[string]bool `json:"options,omitempty" yaml:"options,omitempty"`
+}
+
+type Selector struct {
+	ResId              `json:",inline,omitempty" yaml:",inline,omitempty"`
+	AnnotationSelector string `json:"annotationSelector,omitempty" yaml:"annotationSelector,omitempty"`
+	LabelSelector      string `json:"labelSelector,omitempty" yaml:"labelSelector,omitempty"`
+}
+
+type ResId struct {
+	Gvk       `json:",inline,omitempty" yaml:",inline,omitempty"`
+	Name      string `json:"name,omitempty" yaml:"name,omitempty"`
+	Namespace string `json:"namespace,omitempty" yaml:"namespace,omitempty"`
+}
+
+type Gvk struct {
+	Group           string `json:"group,omitempty" yaml:"group,omitempty"`
+	Version         string `json:"version,omitempty" yaml:"version,omitempty"`
+	Kind            string `json:"kind,omitempty" yaml:"kind,omitempty"`
+	isClusterScoped bool
 }
 
 type KustomizeLabel struct {
@@ -141,6 +168,7 @@ type TestData struct {
 	ComplexTest           string `yaml:"complexTest"`
 	Connectivity          string `yaml:"connectivity"`
 	DiskResizing          string `yaml:"diskResizing"`
+	DisksCreation         string `yaml:"disksCreation"`
 	SizingPolicy          string `yaml:"sizingPolicy"`
 	ImporterNetworkPolicy string `yaml:"importerNetworkPolicy"`
 	ImageHotplug          string `yaml:"imageHotplug"`

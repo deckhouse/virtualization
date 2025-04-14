@@ -1,0 +1,16 @@
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-http
+spec:
+  dataSource:
+    type: HTTP
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-pvc-http
+spec:
+  dataSource:
+    type: HTTP
