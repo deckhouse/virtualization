@@ -133,7 +133,7 @@ packages:
   - procps
   - policycoreutils
   - psmisc
-  - swtpm swtpm-tools
+  # - swtpm swtpm-tools
   - msulogin
   - xorriso
 binaries:
@@ -156,8 +156,6 @@ binaries:
   - /usr/sbin/sysctl
   # Passt (User-mode networking daemons for virtual machines and namespaces)
   - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
-  # # Swtpm
-  # - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
   # Dmidecode
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
@@ -280,7 +278,7 @@ shell:
     
     LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
     LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
-    LIBS+=" /usr/lib64/libtpms.so* /usr/lib64/swtpm/libswtpm_libtpms.so*"
+    LIBS+=" /usr/lib64/libtpms.so*"
     LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s*"
 
     echo "Relocate additional libs for files in /VBINS"
@@ -300,8 +298,6 @@ shell:
   - |
     ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
 
-    echo "Copy additional config swtpm"
-    cp -a /etc/{swtpm_setup.conf,swtpm-localca.conf,swtpm-localca.options} /relocate/etc/
     echo "Copy xattr config"
     cp -a /etc/xattr.conf /relocate/etc
 
