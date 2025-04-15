@@ -12,7 +12,7 @@ dockerfile: Dockerfile
 {{- end }}
 
 {{- $Root := . }}
-{{- $ImagesIDList := list }}
+
 
 {{ $ImagePackages := .Files.Glob "images/packages/*/*/{Dockerfile,werf.inc.yaml}" }}
 {{- range $path, $content := $ImagePackages }}
@@ -44,7 +44,7 @@ dockerfile: Dockerfile
       {{- if $ImageManifest | dig "final" true }}
         
         {{- if $ImageManifest.image }}
-          {{- $ImagesIDList = append $ImagesIDList $ImageManifest.image }}
+          {{- $_ := set $ "ImagesIDList" (append $.ImagesIDList $ImageManifest.image) }}
         {{- end }}
       
       {{- end }}
@@ -52,7 +52,3 @@ dockerfile: Dockerfile
   {{- end }}
 
 {{- end }}
-
-{{/*{{- end }}*/}}
-
-

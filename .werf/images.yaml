@@ -14,7 +14,7 @@ dockerfile: Dockerfile
 
 # Context inside folder images
 {{- $Root := . }}
-{{- $ImagesIDList := list }}
+
 {{ $ImagesBuildFiles := .Files.Glob "images/*/{Dockerfile,werf.inc.yaml}" }}
 
 {{- range $path, $content := $ImagesBuildFiles }}
@@ -44,9 +44,9 @@ dockerfile: Dockerfile
       {{- if $ImageManifest | dig "final" true }}
         
         {{- if $ImageManifest.image }}
-          {{- $ImagesIDList = append $ImagesIDList $ImageManifest.image }}
+          {{- $_ := set $ "ImagesIDList" (append $.ImagesIDList $ImageManifest.image) }}
         {{- end }}
-      
+
       {{- end }}
     
   {{- end }}

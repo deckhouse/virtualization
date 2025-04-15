@@ -28,19 +28,18 @@ build:
   {{- $_ := set $.Version $k $v}}
 {{- end }}
 
-{{- $Root := . }}
-{{- $ImagesIDList := list }}
-
+{{- $_ := set $ "ImagesIDList" list }}
 
 {{- range $path, $content := .Files.Glob ".werf/*.yaml" }}
   {{- tpl $content $ }}
 {{- end }}
 
+
 ---
 image: images-digests
 fromImage: BASE_ALPINE
 dependencies:
-  {{- range $ImageID := $ImagesIDList }}
+  {{- range $ImageID := $.ImagesIDList }}
   {{- $ImageNameCamel  := $ImageID | splitList "/" | last  | camelcase | untitle }}
 - image: {{ $ImageID }}
   before: setup
