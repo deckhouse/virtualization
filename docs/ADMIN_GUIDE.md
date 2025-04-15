@@ -717,7 +717,7 @@ When working on nodes with virtual machines running, there is a risk of disrupti
 To do this, run the following command:
 
 ```bash
-d8 k drain <nodename> --ignore-daemonsets --delete-emptydir-dat
+d8 k drain <nodename> --ignore-daemonsets --delete-emptydir-data
 ```
 
 Where `<nodename>` is a node scheduled for maintenance, which needs to be freed from all resources (including system resources).

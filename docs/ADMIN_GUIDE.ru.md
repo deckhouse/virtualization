@@ -725,7 +725,7 @@ spec:
 Для этого необходимо выполнить следующую команду:
 
 ```bash
-d8 k drain <nodename> --ignore-daemonsets --delete-emptydir-dat
+d8 k drain <nodename> --ignore-daemonsets --delete-emptydir-data
 ```
 
 где `<nodename>` - узел, на котором предполагается выполнить работы и который должен быть освобожден от всех ресурсов (в том числе и от системных).
