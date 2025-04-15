@@ -1,0 +1,103 @@
+diff --git a/pkg/image/qemu_format_stream.go b/pkg/image/qemu_format_stream.go
+index e775386ba..0d7f5a0f5 100644
+--- a/pkg/image/qemu_format_stream.go
++++ b/pkg/image/qemu_format_stream.go
+@@ -29,6 +29,9 @@ func convertTo(format, src, dest string, preallocate bool) error {
+ 		klog.V(1).Infof("Running qemu-img with args: %v", args)
+ 		_, err = qemuExecFunction(nil, reportProgress, "qemu-img", args...)
+ 	}
++
++	klog.V(1).Info("AAAAAAAAAAAAAAAA")
++
+ 	if err != nil {
+ 		os.Remove(dest)
+ 		errorMsg := fmt.Sprintf("could not convert image to %s", format)
+diff --git a/pkg/system/prlimit.go b/pkg/system/prlimit.go
+index 4971ef8a8..7d9bcb868 100644
+--- a/pkg/system/prlimit.go
++++ b/pkg/system/prlimit.go
+@@ -119,6 +119,9 @@ func ExecWithLimitsSilently(limits *ProcessLimitValues, callback func(string), c
+ 
+ func executeWithLimits(limits *ProcessLimitValues, callback func(string), logErr bool, command string, args ...string) ([]byte, error) {
+ 	// Args can potentially contain sensitive information, make sure NOT to write args to the logs.
++
++	klog.V(1).Info("000 executeWithLimits")
++
+ 	var buf, errBuf bytes.Buffer
+ 	var cmd *exec.Cmd
+ 
+@@ -126,11 +129,13 @@ func executeWithLimits(limits *ProcessLimitValues, callback func(string), logErr
+ 	stderrDone := make(chan bool)
+ 
+ 	if limits != nil && limits.CPUTimeLimit > 0 {
++		klog.V(1).Info("111 executeWithLimits execCommandContext")
+ 		klog.V(3).Infof("Setting CPU limit to %d\n", limits.CPUTimeLimit)
+ 		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(limits.CPUTimeLimit)*time.Second)
+ 		defer cancel()
+ 		cmd = execCommandContext(ctx, command, args...)
+ 	} else {
++		klog.V(1).Info("222 executeWithLimits execCommand")
+ 		cmd = execCommand(command, args...)
+ 	}
+ 	stdoutIn, err := cmd.StdoutPipe()
+@@ -147,31 +152,46 @@ func executeWithLimits(limits *ProcessLimitValues, callback func(string), logErr
+ 	errScanner := bufio.NewScanner(stderrIn)
+ 	errScanner.Split(scanLinesWithCR)
+ 
++	klog.V(1).Info("333 executeWithLimits Start")
++
+ 	err = cmd.Start()
+ 	if err != nil {
+ 		return nil, errors.Wrapf(err, "Couldn't start %s", command)
+ 	}
+ 	defer func() {
+ 		err = cmd.Process.Kill()
+-		klog.Errorf("failed to kill the process; %v", err)
++		klog.Errorf("failed to kill the process; %v; %s", err, cmd.String())
+ 	}()
+ 
+ 	go processScanner(scanner, &buf, stdoutDone, callback)
+ 	go processScanner(errScanner, &errBuf, stderrDone, callback)
+ 
++	klog.V(1).Info("444 executeWithLimits")
++
+ 	if limits != nil && limits.AddressSpaceLimit > 0 {
++		klog.V(1).Info("555 executeWithLimits")
++
+ 		klog.V(3).Infof("Setting Address space limit to %d\n", limits.AddressSpaceLimit)
+ 		err = SetAddressSpaceLimit(cmd.Process.Pid, limits.AddressSpaceLimit)
+ 		if err != nil {
+ 			return nil, errors.Wrap(err, "Couldn't set address space limit")
+ 		}
+ 	}
++
++	klog.V(1).Info("666 executeWithLimits")
++
+ 	<-stdoutDone
++
++	klog.V(1).Info("777 executeWithLimits")
+ 	<-stderrDone
+ 	// The wait has to be after the reading channels are finished otherwise there is a race where the wait completes and closes stdout/err before anything
+ 	// is read from it.
++
++	klog.V(1).Info("888 executeWithLimits")
+ 	err = cmd.Wait()
+ 
++	klog.V(1).Info("999 executeWithLimits")
++
+ 	output := buf.Bytes()
+ 	if err != nil {
+ 		if logErr {
+@@ -179,8 +199,12 @@ func executeWithLimits(limits *ProcessLimitValues, callback func(string), logErr
+ 			klog.Errorf("%s\n", string(output))
+ 			klog.Errorf("%s\n", errBuf.String())
+ 		}
++
++		klog.V(1).Infof("AAA executeWithLimits %v: %v", logErr, err)
+ 		return errBuf.Bytes(), errors.Wrapf(err, "%s execution failed", command)
+ 	}
++
++	klog.V(1).Info("BBB executeWithLimits")
+ 	return output, nil
+ }
+ 
