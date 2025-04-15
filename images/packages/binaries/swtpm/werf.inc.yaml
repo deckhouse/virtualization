@@ -79,3 +79,4 @@ shell:
       strip $OUTDIR/usr/bin/*
       # remove man files
       rm -rf $OUTDIR/usr/share/man
+      rm -rf $OUTDIR/usr/libexec/installed-tests
