@@ -1509,7 +1509,7 @@ The live migration process involves several steps:
 4. **Iterative synchronization**.
 
    After the initial transfer, only the modified pages are resent. This process is repeated in several cycles:
-   - The higher the load on the VM, the more “dirty" pages appear, and the longer the migration takes.
+   - The higher the load on the VM, the more "dirty" pages appear, and the longer the migration takes.
    - With good network bandwidth, the amount of unsynchronized data gradually decreases.
 
 5. **Final synchronization and switching**.
@@ -1527,11 +1527,11 @@ Network speed plays an important role. If bandwidth is low, there are more itera
 
 #### AutoConverge mechanism
 
-What to do if the network cannot cope with data transfer and “dirty" pages are becoming more and more numerous? This is where the AutoConverge mechanism comes in. It helps to complete the migration even when network bandwidth is low. Here's how it works:
+What to do if the network cannot cope with data transfer and "dirty" pages are becoming more and more numerous? This is where the AutoConverge mechanism comes in. It helps to complete the migration even when network bandwidth is low. Here's how it works:
 
 1. **VM CPU slowdown**.
 
-    The hypervisor gradually reduces the CPU frequency of the source VM. This reduces the rate at which new “dirty" pages appear. The higher the load on the VM, the greater the slowdown.
+    The hypervisor gradually reduces the CPU frequency of the source VM. This reduces the rate at which new "dirty" pages appear. The higher the load on the VM, the greater the slowdown.
 
 2. **Synchronization acceleration**.
 
@@ -1541,7 +1541,7 @@ What to do if the network cannot cope with data transfer and “dirty" pages are
 
     Final synchronization is started when the data transfer rate exceeds the memory change rate.
 
-AutoConverge is a kind of “insurance" that ensures that the migration completes even if the network is not running perfectly. However, CPU slowdown can affect the performance of applications running on the VM, so its use should be monitored.
+AutoConverge is a kind of "insurance" that ensures that the migration completes even if the network is not running perfectly. However, CPU slowdown can affect the performance of applications running on the VM, so its use should be monitored.
 
 #### Configuring Migration Policy
 
@@ -1913,7 +1913,7 @@ EOF
 
 The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
 
-{{< alert level=“info”>}}
+{{< alert level="info">}}
 A snapshot contains the configuration of the virtual machine and snapshots of all its disks.
 
 Restoring a snapshot assumes that the virtual machine is fully restored to the time when the snapshot was created.
@@ -1990,7 +1990,7 @@ The following resources will be created in the cluster during the restore proces
 - VirtualBlockDeviceAttachment (if they existed at the moment of creation)
 - Secret with cloud-init/sysprep configuration (if they were connected to the VM at the time of creation)
 
-{{< alert level=“warning”>}}
+{{< alert level="warning">}}
 To restore a virtual machine with the same name, it is necessary to delete the previous configuration of the VM and all its disks, because restoration implies restoring the configuration of the VM and all its disks at the moment of snapshot creation.
 {{< /alert >}}
 
