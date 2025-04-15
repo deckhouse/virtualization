@@ -1913,6 +1913,12 @@ EOF
 
 The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
 
+{{< alert level=“info”>}}
+A snapshot contains the configuration of the virtual machine and snapshots of all its disks.
+
+Restoring a snapshot assumes that the virtual machine is fully restored to the time when the snapshot was created.
+{{{< /alert >}}
+
 To ensure data integrity and consistency, a virtual machine snapshot will be created if at least one of the following conditions is met:
 
 - the virtual machine is powered off;
@@ -1976,9 +1982,18 @@ EOF
 
 ### Restore virtual machines from snapshots
 
-The `VirtualMachineRestore` resource is used to restore virtual machines from snapshots.
+The `VirtualMachineRestore` resource is used to restore a virtual machine from snapshots.
 
-The restore process will create a new virtual machine and all its dependent resources (disks, IP address, resource with automation script (`Secret`) and resources for dynamic disk attachment (`VirtualMachineBlockDeviceAttachment`)).
+The following resources will be created in the cluster during the restore process:
+- VirtualMachine
+- VirtualDisk (if they were connected to the VM at the moment of creation)
+- VirtualBlockDeviceAttachment (if they existed at the moment of creation)
+- Secret with cloud-init/sysprep configuration (if they were connected to the VM at the time of creation)
+
+{{< alert level=“warning”>}}
+To restore a virtual machine with the same name, it is necessary to delete the previous configuration of the VM and all its disks, because restoration implies restoring the configuration of the VM and all its disks at the moment of snapshot creation.
+{{< /alert >}}
+
 
 If there is a name conflict between existing and restored resources for `VirtualMachine`, `VirtualDisk`, or `VirtualMachineBlockDeviceAttachment`, the restore will fail. To avoid this, use the `nameReplacements` parameter.
 
