@@ -34,12 +34,12 @@ const (
 	removePassthroughHookJQFilter = `.metadata`
 	// see https://helm.sh/docs/howto/charts_tips_and_tricks/#tell-helm-not-to-uninstall-a-resource
 	helmResourcePolicyKey           = "helm.sh/resource-policy"
-	helmResourcePolicyValue         = "keep"
+	helmResourcePolicyKeep          = "keep"
 	apiVersion 						= core.GroupName + "/" + v1alpha2.Version
 
 )
 
-var _ = registry.RegisterFunc(config, handler)
+var _ = registry.RegisterFunc(config, Reconcile)
 
 var config = &pkg.HookConfig{
 	OnBeforeHelm: &pkg.OrderedConfig{Order: 10},
@@ -61,7 +61,7 @@ var config = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
 }
 
-func handler(_ context.Context, input *pkg.HookInput) error {
+func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	vmcs := input.Snapshots.Get(removePassthroughHookName)
 
 	if len(vmcs) == 0 {
@@ -76,7 +76,7 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 		}
 
 		policy := metadata.GetAnnotations()[helmResourcePolicyKey]
-		if policy == helmResourcePolicyValue {
+		if policy == helmResourcePolicyKeep {
 			input.Logger.Info(fmt.Sprintf("VirtualMachineClass %s already has helm.sh/resource-policy=keep", metadata.Name))
 			continue
 		}
@@ -86,11 +86,11 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 			op = "replace"
 			input.Logger.Info(fmt.Sprintf("VirtualMachineClass %s has helm.sh/resource-policy=%s, will be replaced with helm.sh/resource-policy=keep", metadata.Name, policy))
 		}
-		patch := []any{
+		patch := []interface{}{
 			map[string]string{
 				"op":    op,
 				"path":  "/metadata/annotations/helm.sh~1resource-policy",
-				"value": "keep",
+				"value": helmResourcePolicyKeep,
 			},
 		}
 		input.PatchCollector.JSONPatch(patch, apiVersion, v1alpha2.VirtualMachineClassKind, "", metadata.Name)
