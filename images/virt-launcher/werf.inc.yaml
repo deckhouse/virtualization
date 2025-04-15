@@ -133,7 +133,6 @@ packages:
   - procps
   - policycoreutils
   - psmisc
-  # - swtpm swtpm-tools
   - msulogin
   - xorriso
 binaries:

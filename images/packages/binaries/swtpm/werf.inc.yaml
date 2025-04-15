@@ -3,7 +3,7 @@ image: {{ $.ImageType }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageName }}-builder
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /swtpm
   to: /swtpm
   before: setup
@@ -27,26 +27,11 @@ packages:
 - libseccomp-devel libseccomp
 - libgmp-devel
 - perl-podlators
-binaries:
-- /usr/bin/swtpm_bios
-- /usr/bin/swtpm_ioctl
-- /usr/bin/swtpm_cert
-- /usr/bin/swtpm
-- /usr/bin/swtpm_setup
-- /usr/bin/swtpm_localca
-- /usr/bin/swtpm_cuse
-- /usr/lib64/swtpm/libswtpm_libtpms.a
-- /usr/lib64/swtpm/libswtpm_libtpms.so
-- /usr/lib64/swtpm/libswtpm_libtpms.so.0.0.0
-- /usr/lib64/swtpm/libswtpm_libtpms.la
-- /usr/lib64/swtpm/libswtpm_libtpms.so.0
-- /usr/lib64/libtss2-tcti-swtpm.so.0
-- /usr/lib64/libtss2-tcti-swtpm.so.0.0.0
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-builder
+image: {{ $.ImageType }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 secrets:
@@ -87,13 +72,13 @@ shell:
         --with-gnutls \
         --with-cuse \
         --prefix=/usr \
-        --with-tss-user=deckhouse \
-        --with-tss-group=deckhouse \
+        --with-tss-user=root \
+        --with-tss-group=root \
         --libdir=/usr/lib64
       
       CC="/usr/bin/musl-gcc" LDFLAGS="-static" make -j$(nproc)
       
       make DESTDIR=$OUTDIR install
       strip $OUTDIR/usr/bin/*
+      # remove man files
       rm -rf $OUTDIR/usr/share/man
-      chown -R 64535:64535 $OUTDIR
