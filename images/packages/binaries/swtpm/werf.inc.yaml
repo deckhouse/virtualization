@@ -16,11 +16,10 @@ import:
 packages:
 - expect socat twisted-core-tools gcc
 - git pkg-config trousers
-- automake autoconf make gcc
+- automake autoconf make libtool
 - openssl cryptote
 - net-tools softhsm
 - tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
-- libtool
 - glib2-devel libgnutls-openssl-devel libssl-devel
 - libgnutls30 libfuse-devel libgnutls-devel gnutls-utils
 - libtasn1 libtasn1-devel libjson-glib-devel
