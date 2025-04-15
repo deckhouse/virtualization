@@ -127,9 +127,10 @@ tasks:
         delete_resources_with_prefix() {
             local RESOURCE_TYPE=$1
             local RESOURCES=$(kubectl get "$RESOURCE_TYPE" --no-headers 2>/dev/null | awk "/$E2E_PREFIX/ {print \$1}")
-            
             if [[ -n "$RESOURCES" ]]; then
-                echo "$RESOURCES" | xargs -r kubectl delete "$RESOURCE_TYPE"
+              echo "Deleting $RESOURCE_TYPE:"
+              echo "$RESOURCES" | awk '{print "  - " $1}'
+              echo "$RESOURCES" | xargs -r kubectl delete "$RESOURCE_TYPE"
             else
                 echo "No $RESOURCE_TYPE found with prefix $E2E_PREFIX"
             fi
