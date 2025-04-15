@@ -4,7 +4,7 @@ final: false
 fromImage: builder/scratch
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-  add: /swtpm
+  add: /out
   to: /swtpm
   before: setup
 
@@ -58,18 +58,16 @@ shell:
 
   install:
     - |
-      OUTDIR=/swtpm
+      OUTDIR=/out
       mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
       
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git --branch v{{ $version }} /src
       cd /src
       
-      # we dont need man and test files
-      rm tests/Makefile.am
-      rm man/Makefile.am
+      # we dont need man, test and semples files
+      rm -f {tests,man,samples,include/swtpm}/Makefile.am
       
       ./autogen.sh \
-        --enable-static \
         --disable-tests \
         --with-openssl \
         --with-gnutls \
@@ -79,7 +77,7 @@ shell:
         --with-tss-group=root \
         --libdir=/usr/lib64
       
-      CC="/usr/bin/musl-gcc" LDFLAGS="-static" make -j$(nproc)
+      CC="/usr/bin/musl-gcc" make -j$(nproc)
       
       make DESTDIR=$OUTDIR install
       strip $OUTDIR/usr/bin/*
