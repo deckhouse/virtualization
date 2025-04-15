@@ -53,14 +53,17 @@ func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 				if !ok {
 					return false
 				}
+
 				c, _ := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions)
-				upToDate := c.Status == metav1.ConditionTrue
+				outOfDate := c.Status == metav1.ConditionFalse
+
 				c, _ = conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
 				running := c.Status == metav1.ConditionTrue
+
 				c, _ = conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
 				migrating := c.Status == metav1.ConditionTrue
 
-				return !upToDate && running && !migrating
+				return outOfDate && running && !migrating
 			},
 		},
 	); err != nil {
