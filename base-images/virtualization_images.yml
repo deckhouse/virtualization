@@ -1,0 +1,13 @@
+# REGISTRY_PATH is a special key which is concatenated with other base images
+REGISTRY_PATH: "docker.io/"
+
+# Virtualization images
+BASE_DEBIAN_BOOKWORM_SLIM: "debian:bookworm-slim@sha256:e9ac68ffde903b241342267a51cd74c5417414af652cb2e380c6ddcf522589bc"
+BASE_CONTAINER_REGISTRY: "registry:2.8.3@sha256:ac0192b549007e22998eb74e8d8488dcfe70f1489520c3b144a6047ac5efbe90"
+BASE_GOLANG_22_BOOKWORM: "golang:1.22.8-bookworm@sha256:9e7db50b9858e9cd804043200f1e6acd5a11111151ce886951c9fe3523002cea"
+BASE_GOLANG_23_BOOKWORM: "golang:1.23.6-bookworm@sha256:441f59f8a2104b99320e1f5aaf59a81baabbc36c81f4e792d5715ef09dd29355"
+
+BASE_ALT_P10: "alt:p10@sha256:4fab03b8d23eb16147397b0bc41a5025ba59f4e834f7fb4b933ac5206431d740"
+# Digest for image created at 2024-09-20.
+BASE_ALT_P11: "alt:p11@sha256:39f03d3bca1a92dc36835c28c2ba2f22ec15257e950b3930e0a3f034466e8dfb"
+BASE_ALPINE: "alpine:3.17.10@sha256:3451da08fc6ef554a100da3e2df5ac6d598c82f2a774d5f6ed465c3d80cd163a"
