@@ -81,3 +81,4 @@ shell:
       # we dont need man, test and semples files
       rm -rf $OUTDIR/usr/include
       rm -rf $OUTDIR/usr/share
+      rm -rf $OUTDIR/usr/libexec/installed-tests
