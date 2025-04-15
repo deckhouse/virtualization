@@ -7,9 +7,9 @@ spec:
   virtualMachineClassName: generic
   cpu:
     cores: 1
-    coreFraction: 5%
+    coreFraction: 10%
   memory:
-    size: 256Mi
+    size: 512Mi
   disruptions:
     restartApprovalMode: Manual
   provisioning:
