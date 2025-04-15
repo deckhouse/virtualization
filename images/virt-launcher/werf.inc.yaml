@@ -247,7 +247,7 @@ import:
   - node-labeller
   - vlctl
 - image: packages/binaries/swtpm
-  add: /out
+  add: /swtpm
   to: /relocate
   after: setup
 - image: {{ $.ImageName }}-cbuilder
