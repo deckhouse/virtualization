@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"hooks/pkg/common"
+	"github.com/deckhouse/virtualization/api/core"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 
 	"github.com/deckhouse/module-sdk/pkg"
@@ -34,6 +35,7 @@ const (
 	// see https://helm.sh/docs/howto/charts_tips_and_tricks/#tell-helm-not-to-uninstall-a-resource
 	helmResourcePolicyKey           = "helm.sh/resource-policy"
 	helmResourcePolicyValue         = "keep"
+	apiVersion 						= core.GroupName + "/" + v1alpha2.Version
 
 )
 
@@ -44,7 +46,7 @@ var config = &pkg.HookConfig{
 	Kubernetes: []pkg.KubernetesConfig{
 		{
 			Name:       removePassthroughHookName,
-			APIVersion: "virtualization.deckhouse.io/v1alpha2",
+			APIVersion: apiVersion,
 			Kind:       v1alpha2.VirtualMachineClassKind,
 			JqFilter:   removePassthroughHookJQFilter,
 
@@ -91,7 +93,7 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 				"value": "keep",
 			},
 		}
-		input.PatchCollector.JSONPatch(patch, "virtualization.deckhouse.io/v1alpha2", v1alpha2.VirtualMachineClassKind, "", metadata.Name)
+		input.PatchCollector.JSONPatch(patch, apiVersion, v1alpha2.VirtualMachineClassKind, "", metadata.Name)
 		input.Logger.Info(fmt.Sprintf("Added helm.sh/resource-policy=keep to VirtualMachineClass %s", metadata.Name))
 	}
 
