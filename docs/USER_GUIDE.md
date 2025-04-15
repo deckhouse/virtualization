@@ -889,8 +889,6 @@ The change step indicates by how much the total number of cores can be increased
 
 The maximum possible number of cores is 248.
 
-Be careful to take these features into account when setting the sizingPolicy parameters for [VirtualMachineClass](cr.html#virtualmachineclass).
-
 The current VM topology (number of sockets and cores in each socket) is displayed in the VM status in the following format:
 
 ```yaml

@@ -419,8 +419,11 @@ Since changing the `.spec.nodeSelector` parameter affects all virtual machines u
 - For the Community edition, this may cause virtual machines to restart according to the automatic change application policy set in the `.spec.disruptions.restartApprovalMode` parameter.
 {{< /alert >}}
 
-DVP provides three predefined VirtualMachineClass resources.
-To get information on these resources, run the following command:
+{{< alert level="warning" >}}
+When configuring sizingPolicies, be careful to consider [CPU topology](./USER_GUIDE.md#automatic-cpu-topology-configuration) for virtual machines.
+{{< /alert >}}
+
+By default, a single VirtualMachineClass generic resource is automatically created, which represents a universal CPU model that uses the rather old but supported by most modern processors Nehalem model. This allows you to run VMs on any nodes in the cluster with the possibility of live migration.
 
 ```bash
 d8 k get virtualmachineclass
@@ -430,14 +433,8 @@ Example output:
 
 ```console
 NAME               PHASE   AGE
-host               Ready   6d1h
-host-passthrough   Ready   6d1h
 generic            Ready   6d1h
 ```
-
-- `host`: This class uses a virtual CPU with an instruction set that is closely matching the platform node's CPU. This provides high performance and functionality, as well as compatibility with "live" migration for nodes with similar processor types. For example, you can't migrate a VM from an Intel-based node to an AMD-based node. This is also true for different generations of processors, as their instruction set is different.
-- `host-passthrough`: Uses a physical CPU of the platform node directly, without any modifications. When using this class, a guest VM can only be migrated to a target node that has a CPU exactly matching the CPU of the source node.
-- `generic`: A universal CPU model that uses the Nehalem microarchitecture, which is fairly old but still supported by the most modern CPUs. This allows running VMs on any node within a cluster with the "live" migration capability.
 
 Make sure to specify the VirtualMachineClass resource in the virtual machine configuration.
 The following is an example of specifying a class in the VM specification:
@@ -623,22 +620,49 @@ The following are fragments of the VirtualMachineClass configurations for differ
       type: Discovery
   ```
 
+
+
+- The vmclass with `type: Host` uses a virtual vCPU that matches the platform node's vCPU instruction set as closely as possible, ensuring high performance and functionality. It also guarantees compatibility with live migration for nodes with similar vCPU types. For example, it is not possible to migrate a virtual machine between nodes with Intel and AMD processors. This also applies to processors of different generations, as their instruction sets may differ.
+
+  ```yaml
+  spec:
+    cpu:
+      type: Host
+  ```
+
+- A vmclass with `type: HostPassthrough`, this class uses the physical CPU of the platform node without modification. A virtual machine using this class can only be migrated to a node that has a CPU that exactly matches the CPU of the source node.
+
+  ```yaml
+  spec:
+    cpu:
+      type: HostPassthrough
+  ```
+
 - To create a vCPU of a specific CPU with a predefined instruction set, we use `type: Model`. To get a list of supported CPU names for the cluster node, run the command in advance:
 
   ```bash
-  d8 k get nodes <node-name> -o json | jq '.metadata.labels | to_entries[] | select(.key | test("cpu-model")) | .key | split("/")[1]'' -r
+  d8 k get nodes <node-name> -o json | jq '.metadata.labels | to_entries[] | select(.key | test("cpu-model.node.virtualization.deckhouse.io")) | .key | split("/")[1]' -r
   ```
 
   Example output:
 
   ```console
+  Broadwell-noTSX
+  Broadwell-noTSX-IBRS
+  Haswell-noTSX
+  Haswell-noTSX-IBRS
   IvyBridge
+  IvyBridge-IBRS
   Nehalem
-  Opteron_G1
+  Nehalem-IBRS
   Penryn
   SandyBridge
+  SandyBridge-IBRS
+  Skylake-Client-noTSX-IBRS
   Westmere
+  Westmere-IBRS
   ```
+
 
   After that specify the following in the VirtualMachineClass resource specification:
 
