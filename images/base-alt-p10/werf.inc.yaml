@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: false
-from: {{ $.Images.BASE_ALT_P10 }}
+fromImage: BASE_ALT_P10
 shell:
   setup:
   # Create nonroot-user group and user.

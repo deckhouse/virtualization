@@ -8,8 +8,6 @@ build:
       clearWerfLabels: true
       removeLabels:
         - /.*/
-
-
 ---
 # Base Images
 {{- include "parse_base_images_map" . }}
