@@ -56,9 +56,6 @@ shell:
       apt-get clean
       rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
-      groupadd deckhouse -g 64535
-      useradd -u 64535 -m -s /bin/bash -g deckhouse deckhouse
-
   install:
     - |
       OUTDIR=/swtpm
