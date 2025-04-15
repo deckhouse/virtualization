@@ -1,3 +1,0 @@
----
-image: {{ $.ImageName }}
-from: alpine:3.20.6
