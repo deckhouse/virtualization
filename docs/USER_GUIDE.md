@@ -782,6 +782,10 @@ A virtual machine (VM) goes through several phases in its existence, from creati
       - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
     - Diagnostics: In `.status.conditions` you should pay attention to `*Ready` conditions. By them you can determine what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
 
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type | test(".*Ready"))'
+      ```
+
 - `Starting` - starting the virtual machine
 
     All dependent VM resources are ready and the system is attempting to start the VM on one of the cluster nodes.
@@ -790,7 +794,11 @@ A virtual machine (VM) goes through several phases in its existence, from creati
       - There is not enough CPU or memory on suitable nodes.
       - Neumspace or project quotas have been exceeded.
     - Diagnostics:
-      - If the startup is delayed, check `.status.conditions`, the `type: PodStarted` condition
+      - If the startup is delayed, check `.status.conditions`, the `type: Running` condition
+
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
+      ```
 
 - `Running` - the virtual machine is running
 
@@ -804,6 +812,10 @@ A virtual machine (VM) goes through several phases in its existence, from creati
       - An internal failure in the VM or hypervisor.
     - Diagnosis:
       - Check `.status.conditions`, condition `type: Running`.
+
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
+      ```
 
 - `Stopping` - The VM is stopped or rebooted.
 
@@ -825,6 +837,10 @@ A virtual machine (VM) goes through several phases in its existence, from creati
       - Neumspace or project quotas have been exceeded.
     - Diagnostics:
       - Check the `.status.conditions` condition `type: Migrating` as well as the `.status.migrationState` block
+
+    ```bash
+    d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
+    ```
 
 ### Automatic CPU Topology Configuration
 

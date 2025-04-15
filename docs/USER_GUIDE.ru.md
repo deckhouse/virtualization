@@ -789,6 +789,10 @@ d8 k get vm linux-vm
       - не готовы зависимые ресурсы: диски, образы, классы ВМ, секрет со сценарием начальной конфигурации и пр.
     - Диагностика: В `.status.conditions` стоит обратить внимание на условия `*Ready`. По ним можно определить, что блокирует переход к следующей фазе, например, ожидание готовности дисков (BlockDevicesReady) или класса ВМ (VirtualMachineClassReady).
 
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type | test(".*Ready"))'
+      ```
+
 - `Starting` - запуск виртуальной машины
 
     Все зависимые ресурсы ВМ - готовы, и система пытается запустить ВМ на одном из узлов кластера.
@@ -797,7 +801,11 @@ d8 k get vm linux-vm
       - На подходящих узлах недостаточно CPU или памяти.
       - Превышены квоты неймспейса или проекта.
     - Диагностика:
-      - Если запуск затягивается, проверьте `.status.conditions`, условие `type: PodStarted`
+      - Если запуск затягивается, проверьте `.status.conditions`, условие `type: Running`
+
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
+      ```
 
 - `Running` - виртуальная машина запущена
 
@@ -811,6 +819,10 @@ d8 k get vm linux-vm
       - Внутренний сбой в работе ВМ или гипервизора.
     - Диагностика:
       - Проверьте `.status.conditions`, условие `type: Running`
+
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
+      ```
 
 - `Stopping` - ВМ останавливается или перезагружается
 
@@ -832,6 +844,10 @@ d8 k get vm linux-vm
       - Превышены квоты неймспейса или проекта.
     - Диагностика:
       - Проверьте `.status.conditions` условие `type: Migrating`, а также блок `.status.migrationState`
+
+    ```bash
+    d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
+    ```
 
 ### Автоматическая конфигурация топологии CPU
 
