@@ -4,8 +4,8 @@ final: false
 fromImage: builder/scratch
 import:
 - image: {{ $.ImageName }}-builder
-  add: /relocate
-  to: /out
+  add: /swtpm
+  to: /swtpm
   before: setup
 
 ---
