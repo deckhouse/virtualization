@@ -4,7 +4,7 @@
 
 image: {{ $.ImageName }}
 final: false
-from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+fromImage: BASE_GOLANG_22_BOOKWORM
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
@@ -89,7 +89,7 @@ shell:
 ---
 image: {{ $.ImageName }}-cbuilder
 final: false
-from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+fromImage: BASE_DEBIAN_BOOKWORM_SLIM
 git:
   - add: /images/{{ $.ImageName }}/static_binaries
     to: /

@@ -40,7 +40,7 @@ build:
 
 ---
 image: images-digests
-from: {{ .Images.BASE_ALPINE }}
+fromImage: BASE_ALPINE
 dependencies:
   {{- range $ImageID := $ImagesIDList }}
   {{- $ImageNameCamel  := $ImageID | splitList "/" | last  | camelcase | untitle }}
@@ -68,7 +68,7 @@ shell:
       cat images_digests.json
 ---
 image: python-dependencies
-from: {{ .Images.BASE_ALT_P11 }}
+fromImage: BASE_ALT_P11
 fromCacheVersion: "2024-11-07.1"
 git:
   - add: /lib/python/requirements.txt

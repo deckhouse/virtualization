@@ -383,7 +383,7 @@ shell:
 ---
 image: {{ $.ImageName }}-gobuilder
 final: false
-from: {{ .Images.BASE_GOLANG_23_BOOKWORM }}
+fromImage: BASE_GOLANG_23_BOOKWORM
 git:
   - add: /images/{{ $.ImageName }}/node-labeller
     to: /node-labeller
@@ -424,7 +424,7 @@ shell:
 ---
 image: {{ $.ImageName }}-cbuilder
 final: false
-from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+fromImage: BASE_DEBIAN_BOOKWORM_SLIM
 git:
   - add: /images/{{ $.ImageName }}/static_binaries
     to: /
