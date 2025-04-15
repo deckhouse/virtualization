@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	removePassthroughHookName     = "Remove host-passthrough VirtualMachineClass"
+	removePassthroughHookName     = "Prevent default VirtualMachineClasses deletion"
 	removePassthroughHookJQFilter = `.metadata`
 	// see https://helm.sh/docs/howto/charts_tips_and_tricks/#tell-helm-not-to-uninstall-a-resource
 	helmResourcePolicyKey           = "helm.sh/resource-policy"
