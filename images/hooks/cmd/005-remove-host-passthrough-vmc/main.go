@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"hooks/pkg/common"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/app"
@@ -28,8 +29,12 @@ import (
 )
 
 const (
-	removePassthroughHookName     = "Remove host-passthrough VMC"
+	removePassthroughHookName     = "Remove host-passthrough VirtualMachineClass"
 	removePassthroughHookJQFilter = `.metadata`
+	// see https://helm.sh/docs/howto/charts_tips_and_tricks/#tell-helm-not-to-uninstall-a-resource
+	helmResourcePolicyKey           = "helm.sh/resource-policy"
+	helmResourcePolicyValue         = "keep"
+
 )
 
 var _ = registry.RegisterFunc(config, handler)
@@ -40,7 +45,7 @@ var config = &pkg.HookConfig{
 		{
 			Name:       removePassthroughHookName,
 			APIVersion: "virtualization.deckhouse.io/v1alpha2",
-			Kind:       "VirtualMachineClass",
+			Kind:       v1alpha2.VirtualMachineClassKind,
 			JqFilter:   removePassthroughHookJQFilter,
 
 			LabelSelector: &metav1.LabelSelector{
@@ -58,31 +63,35 @@ func handler(_ context.Context, input *pkg.HookInput) error {
 	vmcs := input.Snapshots.Get(removePassthroughHookName)
 
 	if len(vmcs) == 0 {
-		input.Logger.Info("No VMCs found, nothing to do")
+		input.Logger.Info("No VirtualMachineClasses found, nothing to do")
 		return nil
 	}
 
 	for _, vmc := range vmcs {
 		metadata := &metav1.ObjectMeta{}
 		if err := vmc.UnmarhalTo(metadata); err != nil {
-			input.Logger.Error(fmt.Sprintf("Failed to unmarshal metadata vmclass %v", err))
+			input.Logger.Error(fmt.Sprintf("Failed to unmarshal metadata VirtualMachineClasses %v", err))
 		}
-		op := "add"
-		if keep, found := metadata.GetAnnotations()["helm.sh/resource-policy"]; found && keep != "keep" {
-			op = "replace"
-			input.Logger.Info(fmt.Sprintf("VMC %s has helm.sh/resource-policy=%s, will be replaced with helm.sh/resource-policy=keep", metadata.Name, keep))
-		} else if keep == "keep" {
-			input.Logger.Info(fmt.Sprintf("VMC %s already has helm.sh/resource-policy=keep", metadata.Name))
+
+		policy := metadata.GetAnnotations()[helmResourcePolicyKey]
+		if policy == helmResourcePolicyValue {
+			input.Logger.Info(fmt.Sprintf("VirtualMachineClass %s already has helm.sh/resource-policy=keep", metadata.Name))
 			continue
 		}
+
+		op := "add"
+		if policy != "" {
+			op = "replace"
+			input.Logger.Info(fmt.Sprintf("VirtualMachineClass %s has helm.sh/resource-policy=%s, will be replaced with helm.sh/resource-policy=keep", metadata.Name, policy))
+		}
 		patch := []any{
-			map[string]any{
+			map[string]string{
 				"op":    op,
 				"path":  "/metadata/annotations/helm.sh~1resource-policy",
 				"value": "keep",
 			},
 		}
-		input.PatchCollector.JSONPatch(patch, "virtualization.deckhouse.io/v1alpha2", "VirtualMachineClass", "", metadata.Name)
+		input.PatchCollector.JSONPatch(patch, "virtualization.deckhouse.io/v1alpha2", v1alpha2.VirtualMachineClassKind, "", metadata.Name)
 		input.Logger.Info(fmt.Sprintf("Added helm.sh/resource-policy=keep to VirtualMachineClass %s", metadata.Name))
 	}
 
