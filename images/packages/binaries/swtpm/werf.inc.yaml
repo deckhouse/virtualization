@@ -61,10 +61,16 @@ shell:
       OUTDIR=/swtpm
       mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
       
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git --branch v{{ $version }} /swtpm
-      cd /swtpm
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git --branch v{{ $version }} /src
+      cd /src
+      
+      # we dont need man and test files
+      rm tests/Makefile.am
+      rm man/Makefile.am
+      
       ./autogen.sh \
         --enable-static \
+        --disable-tests \
         --with-openssl \
         --with-gnutls \
         --with-cuse \
@@ -77,6 +83,3 @@ shell:
       
       make DESTDIR=$OUTDIR install
       strip $OUTDIR/usr/bin/*
-      # remove man files
-      rm -rf $OUTDIR/usr/share/man
-      rm -rf $OUTDIR/usr/libexec/installed-tests
