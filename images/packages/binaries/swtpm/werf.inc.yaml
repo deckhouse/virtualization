@@ -64,9 +64,6 @@ shell:
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git --branch v{{ $version }} /src
       cd /src
       
-      # we dont need man, test and semples files
-      rm -f {tests,man,samples,include/swtpm}/Makefile.am
-      
       ./autogen.sh \
         --disable-tests \
         --with-openssl \
@@ -81,3 +78,7 @@ shell:
       
       make DESTDIR=$OUTDIR install
       strip $OUTDIR/usr/bin/*
+
+      # we dont need man, test and semples files
+      rm -rf $OUTDIR/usr/include
+      rm -rf $OUTDIR/usr/share
