@@ -775,39 +775,56 @@ A virtual machine (VM) goes through several phases in its existence, from creati
 
 ![](./images/vm-lifecycle.png)
 
-- `Pending` - VM has just been created, restarted or started after a shutdown and is waiting for the necessary resources (disks, images, ip addresses, etc.) to be ready.
-  - Possible problems:
-    - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
-  - Diagnostics: In `.status.conditions` you can see what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
-- `Starting` - all dependent VM resources are ready and the system tries to start the VM on one of the cluster nodes.
-  - Possible problems:
-    - There is no suitable node to start.
-    - There is not enough CPU or memory on suitable nodes.
-    - Quotas have been exceeded.
-  - Diagnostics:
-    - If startup is delayed, check `.status.conditions`, condition `type: PodStarted`.
-- `Running` - The VM has successfully started and is running.
-  - Features:
-    - If qemu-guest-agent is installed in the guest system, the `AgentReady` condition will be true and `.status.guestOSInfo` will display information about the running guest OS.
-    - The `type: FirmwareUpToDate` condition displays information about the current firmware status of the VM.
-    - Condition `type: AwaitingRestartToApplyConfiguration` displays information about the need to manually reboot the VM because there are configuration changes that cannot be applied without a reboot.
-    - The `type: ConfigurationApplied` condition displays information that the configuration is applied to the running VM.
-  - Possible problems:
-    - An internal failure in the VM or hypervisor.
-  - Diagnosis:
-    - Check `.status.conditions`, condition `type: Running`.
+- `Pending` - waiting for resources to be ready
+
+    A VM has just been created, restarted or started after a shutdown and is waiting for the necessary resources (disks, images, ip addresses, etc.) to be ready.
+    - Possible problems:
+      - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
+    - Diagnostics: In `.status.conditions` you should pay attention to `*Ready` conditions. By them you can determine what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
+
+- `Starting` - starting the virtual machine
+
+    All dependent VM resources are ready and the system is attempting to start the VM on one of the cluster nodes.
+    - Possible problems:
+      - There is no suitable node to start.
+      - There is not enough CPU or memory on suitable nodes.
+      - Neumspace or project quotas have been exceeded.
+    - Diagnostics:
+      - If the startup is delayed, check `.status.conditions`, the `type: PodStarted` condition
+
+- `Running` - the virtual machine is running
+
+    The VM is successfully started and running.
+    - Features:
+      - When qemu-guest-agent is installed in the guest system, the `AgentReady` condition will be true and `.status.guestOSInfo` will display information about the running guest OS.
+      - The `type: FirmwareUpToDate` condition displays information about the current firmware status of the VM.
+      - Condition `type: AwaitingRestartToApplyConfiguration` displays information about the need to manually reboot the VM, as some configuration changes cannot be applied without rebooting the VM.
+      - The `type: ConfigurationApplied` condition displays information that the configuration is applied to the running VM.
+    - Possible problems:
+      - An internal failure in the VM or hypervisor.
+    - Diagnosis:
+      - Check `.status.conditions`, condition `type: Running`.
+
 - `Stopping` - The VM is stopped or rebooted.
-- `Stopped` - The VM is stopped and is not consuming computing resources.
-- `Terminating` - The VM is deleted. This phase is irreversible. All resources associated with the VM are released, but are not automatically deleted.
-- `Migrating` - The VM is migrated to another cluster node (live migration).
-  - Features:
-    - VM migration is supported only for non-local disks, the `type: Migratable` condition displays information about whether the VM can migrate or not.
-  - Possible issues:
-    - Incompatibility of processor instructions (when using host or host-passthrough processor types).
-    - Version differences between hypervisor cores.
-    - Lack of resources or quotas.
-  - Diagnostics:
-    - Check the `.status.conditions` condition `type: Migrating` as well as the `.status.migrationState` block
+
+- `Stopped` - The VM is stopped and is not consuming computational resources
+
+- `Terminating` - the VM is deleted.
+
+    This phase is irreversible. All resources associated with the VM are released, but are not automatically deleted.
+
+- `Migrating` - live migration of a VM
+
+    The VM is migrated to another node in the cluster (live migration).
+    - Features:
+      - VM migration is supported only for non-local disks, the `type: Migratable` condition displays information about whether the VM can migrate or not.
+    - Possible issues:
+      - Incompatibility of processor instructions (when using host or host-passthrough processor types).
+      - Version differences between hypervisor cores.
+      - Not enough CPU or memory on eligible nodes.
+      - Neumspace or project quotas have been exceeded.
+    - Diagnostics:
+      - Check the `.status.conditions` condition `type: Migrating` as well as the `.status.migrationState` block
 
 ### Automatic CPU Topology Configuration
 
