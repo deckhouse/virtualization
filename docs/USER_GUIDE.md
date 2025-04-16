@@ -850,7 +850,7 @@ Conditions display information about the state of the VM, as well as on problems
 d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
 ```
 
-### Agent Installation
+### Guest OS Agent
 
 To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
 
