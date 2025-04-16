@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -344,24 +345,8 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 					Op:   "remove",
 					Path: "/spec/affinity/virtualMachineAndPodAntiAffinity",
 				}
-				wg.Add(1)
-				go func() {
-					defer GinkgoRecover()
-					defer wg.Done()
-					Eventually(func() error {
-						updatedVmObjC := &virtv2.VirtualMachine{}
-						err := GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVmObjC, kc.GetOptions{
-							Namespace: conf.Namespace,
-						})
-						if err != nil {
-							return err
-						}
-						if updatedVmObjC.Status.Phase != virtv2.MachineMigrating {
-							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
-						}
-						return nil
-					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
-				}()
+
+				migrationInitiatedAt := time.Now().UTC()
 				res := kubectl.PatchResource(kc.ResourceVM, vmObjC.Name, kc.PatchOptions{
 					JsonPatch: []*kc.JsonPatch{
 						jsonPatchAdd,
@@ -370,6 +355,40 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 					Namespace: conf.Namespace,
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmC)
+
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					Eventually(func() error {
+						updatedVmObjC = &virtv2.VirtualMachine{}
+						err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVmObjC, kc.GetOptions{
+							Namespace: conf.Namespace,
+						})
+						if err != nil {
+							return err
+						}
+
+						if updatedVmObjC.Status.MigrationState == nil || updatedVmObjC.Status.MigrationState.StartTimestamp == nil || updatedVmObjC.Status.MigrationState.StartTimestamp.UTC().Before(migrationInitiatedAt) {
+							return fmt.Errorf("couldn't wait for the migration to start: %s is before %s", updatedVmObjC.Status.MigrationState.StartTimestamp.UTC(), migrationInitiatedAt)
+						}
+
+						if updatedVmObjC.Status.MigrationState.Source.Node == vmObjA.Status.Node {
+							return errors.New("migration should start from a different node")
+						}
+
+						if updatedVmObjC.Status.MigrationState.Target.Node != vmObjA.Status.Node {
+							return errors.New("migration should end at the same node")
+						}
+
+						if updatedVmObjC.Status.Node != vmObjA.Status.Node {
+							return errors.New("migration should end at the same node")
+						}
+
+						return nil
+					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
+				}()
+
 				wg.Wait()
 
 				WaitVmAgentReady(kc.WaitOptions{
@@ -377,14 +396,6 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				updatedVmObjC = &virtv2.VirtualMachine{}
-				err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVmObjC, kc.GetOptions{
-					Namespace: conf.Namespace,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmC)
-				Expect(updatedVmObjC.Status.MigrationState.Source.Node).ShouldNot(Equal(vmObjA.Status.Node))
-				Expect(updatedVmObjC.Status.MigrationState.Target.Node).Should(Equal(vmObjA.Status.Node))
-				Expect(updatedVmObjC.Status.Node).Should(Equal(vmObjA.Status.Node))
 			})
 		})
 	})
