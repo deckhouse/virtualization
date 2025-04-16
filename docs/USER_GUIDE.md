@@ -832,7 +832,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
       - VM migration is supported only for non-local disks, the `type: Migratable` condition displays information about whether the VM can migrate or not.
     - Possible issues:
       - Incompatibility of processor instructions (when using host or host-passthrough processor types).
-      - Version differences between hypervisor cores.
+      - Difference in kernel versions on hypervisor nodes.
       - Not enough CPU or memory on eligible nodes.
       - Neumspace or project quotas have been exceeded.
     - Diagnostics:
@@ -841,6 +841,62 @@ A virtual machine (VM) goes through several phases in its existence, from creati
     ```bash
     d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
     ```
+
+The `type: SizingPolicyMatched` condition indicates whether the resource configuration conforms to the sizing policy of the VirtualMachineClass being used. If the policy is violated, it is impossible to save the VM parameters without making the resources conform to the policy.
+
+### Agent Installation
+
+To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
+
+How will the agent help?
+
+- It will provide consistent snapshots of disks and VMs.
+- Will provide information about the running OS, which will be reflected in the status of the VM.
+  Example:
+
+  ```yaml
+  status:
+    guestOSInfo:
+      id: fedora
+      kernelRelease: 6.11.4-301.fc41.x86_64
+      kernelVersion: '#1 SMP PREEMPT_DYNAMIC Sun Oct 20 15:02:33 UTC 2024'
+      machine: x86_64
+      name: Fedora Linux
+      prettyName: Fedora Linux 41 (Cloud Edition)
+      version: 41 (Cloud Edition)
+      versionId: “41”
+  ```
+
+- Will allow tracking that the OS has actually booted:
+  ```bash
+  d8 k get vm -o wide
+  ```
+
+  Sample output (`AGENT` column):
+  ```console
+  NAME     PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS    AGE
+  fedora   Running   6       5%             8000Mi   False          True    True         virtlab-pt-1   10.66.10.1   5d21h
+  ```
+
+How to install QEMU Guest Agent:
+
+For debian-based OS:
+
+```bash
+sudo apt install qemu-guest-agent
+```
+
+For Centos-based OS:
+
+```bash
+sudo yum install qemu-guest-agent
+```
+
+Starting the agent service:
+
+```bash
+sudo systemctl enable --now qemu-guest-agent
+```
 
 ### Automatic CPU Topology Configuration
 
