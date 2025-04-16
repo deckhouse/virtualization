@@ -844,6 +844,12 @@ A virtual machine (VM) goes through several phases in its existence, from creati
 
 The `type: SizingPolicyMatched` condition indicates whether the resource configuration conforms to the sizing policy of the VirtualMachineClass being used. If the policy is violated, it is impossible to save the VM parameters without making the resources conform to the policy.
 
+Conditions display information about the state of the VM, as well as on problems that arise. You can understand what is wrong with the VM by analyzing them:
+
+```bash
+d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
+```
+
 ### Agent Installation
 
 To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
@@ -868,6 +874,7 @@ How will the agent help?
   ```
 
 - Will allow tracking that the OS has actually booted:
+
   ```bash
   d8 k get vm -o wide
   ```
@@ -880,7 +887,7 @@ How will the agent help?
 
 How to install QEMU Guest Agent:
 
-For debian-based OS:
+For Debian-based OS:
 
 ```bash
 sudo apt install qemu-guest-agent

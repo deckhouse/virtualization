@@ -848,7 +848,15 @@ d8 k get vm linux-vm
     ```bash
     d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
     ```
+
 Условие `type: SizingPolicyMatched` отображает соответствие конфигурации ресурсов политике сайзинга используемого VirtualMachineClass. При нарушении политики сохранить параметры ВМ без приведения ресурсов в соответствие политике - невозможно.
+
+Условия отображают информацию о состоянии ВМ, а также на возникающие проблемы. Понять, что не так с ВМ можно путем их анализа:
+
+```
+d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
+```
+
 
 ### Установка агента
 
@@ -874,6 +882,7 @@ d8 k get vm linux-vm
   ```
 
 - Позволит отслеживать, что ОС действительно загрузилась:
+
   ```bash
   d8 k get vm -o wide
   ```
@@ -886,7 +895,7 @@ d8 k get vm linux-vm
 
 Как установить QEMU Guest Agent:
 
-Для debian-based ОС:
+Для Debian-based ОС:
 
 ```bash
 sudo apt install qemu-guest-agent
