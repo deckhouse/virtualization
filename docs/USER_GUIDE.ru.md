@@ -107,14 +107,14 @@ weight: 50
    Пример вывода:
 
    ```txt
-   # NAME                                                 PHASE   CDROM   PROGRESS   AGE
-   # virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+   NAME                                                 PHASE   CDROM   PROGRESS   AGE
+   virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
    #
-   # NAME                                                 PHASE   CAPACITY   AGE
-   # virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+   NAME                                                 PHASE   CAPACITY   AGE
+   virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
    #
-   # NAME                                                 PHASE     NODE           IPADDRESS     AGE
-   # virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+   NAME                                                 PHASE     NODE           IPADDRESS     AGE
+   virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
    ```
 
 1. Подключитесь с помощью консоли к виртуальной машине (для выхода из консоли необходимо нажать `Ctrl+]`):
@@ -126,12 +126,12 @@ weight: 50
    Пример вывода:
 
    ```txt
-   # Successfully connected to linux-vm console. The escape sequence is ^]
+   Successfully connected to linux-vm console. The escape sequence is ^]
    #
-   # linux-vm login: cloud
-   # Password: cloud
-   # ...
-   # cloud@linux-vm:~$
+   linux-vm login: cloud
+   Password: cloud
+   ...
+   cloud@linux-vm:~$
    ```
 
 1. Для удаления созданных ранее ресурсов используйте следующие команды:
@@ -241,8 +241,8 @@ weight: 50
    Пример вывода:
 
    ```txt
-   # NAME           PHASE   CDROM   PROGRESS   AGE
-   # ubuntu-22-04   Ready   false   100%       23h
+   NAME           PHASE   CDROM   PROGRESS   AGE
+   ubuntu-22-04   Ready   false   100%       23h
    ```
 
 После создания ресурс `VirtualImage` может находиться в следующих состояниях (фазах):
@@ -267,14 +267,14 @@ d8 k get vi ubuntu-22-04 -w
 Пример вывода:
 
 ```txt
-# NAME           PHASE          CDROM   PROGRESS   AGE
-# ubuntu-22-04   Provisioning   false              4s
-# ubuntu-22-04   Provisioning   false   0.0%       4s
-# ubuntu-22-04   Provisioning   false   28.2%      6s
-# ubuntu-22-04   Provisioning   false   66.5%      8s
-# ubuntu-22-04   Provisioning   false   100.0%     10s
-# ubuntu-22-04   Provisioning   false   100.0%     16s
-# ubuntu-22-04   Ready          false   100%       18s
+NAME           PHASE          CDROM   PROGRESS   AGE
+ubuntu-22-04   Provisioning   false              4s
+ubuntu-22-04   Provisioning   false   0.0%       4s
+ubuntu-22-04   Provisioning   false   28.2%      6s
+ubuntu-22-04   Provisioning   false   66.5%      8s
+ubuntu-22-04   Provisioning   false   100.0%     10s
+ubuntu-22-04   Provisioning   false   100.0%     16s
+ubuntu-22-04   Ready          false   100%       18s
 ```
 
 В описание ресурса `VirtualImage` можно получить дополнительную информацию о скачанном образе:
@@ -314,8 +314,8 @@ d8 k get vi ubuntu-22-04-pvc
 Пример вывода:
 
 ```txt
-# NAME              PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22-04-pvc  Ready   false   100%       23h
+NAME              PHASE   CDROM   PROGRESS   AGE
+ubuntu-22-04-pvc  Ready   false   100%       23h
 ```
 
 Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./ADMIN_GUIDE_RU.md#настройки-классов-хранения-для-образов).
@@ -397,11 +397,11 @@ d8 k get vi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
 
 Пример вывода:
 
-```txt
-# {
-#   "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
-#   "inCluster":"http://10.222.165.239/upload"
-# }
+```json
+{
+  "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
+  "inCluster":"http://10.222.165.239/upload"
+}
 ```
 
 В качестве примера загрузите образ Cirros:
@@ -425,8 +425,8 @@ d8 k get vi some-image
 Пример вывода:
 
 ```txt
-# NAME         PHASE   CDROM   PROGRESS   AGE
-# some-image   Ready   false   100%       1m
+NAME         PHASE   CDROM   PROGRESS   AGE
+some-image   Ready   false   100%       1m
 ```
 
 ### Создание образа из диска
@@ -510,14 +510,14 @@ d8 k  get storageclass
 Пример вывода:
 
 ```txt
-# NAME                                 PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-# i-sds-replicated-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# i-sds-replicated-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# i-sds-replicated-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# sds-replicated-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# sds-replicated-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# sds-replicated-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# nfs-4-1-wffc                         nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
+NAME                                 PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+i-sds-replicated-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+i-sds-replicated-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+i-sds-replicated-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+sds-replicated-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+sds-replicated-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+sds-replicated-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+nfs-4-1-wffc                         nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
 ```
 
 С полным описанием параметров конфигурации дисков можно ознакомиться [в документации ресурса](cr.html#virtualdisk).
@@ -570,8 +570,8 @@ d8 k get vd blank-disk
 Пример вывода:
 
 ```txt
-# NAME       PHASE   CAPACITY   AGE
-# blank-disk   Ready   100Mi      1m2s
+NAME       PHASE   CAPACITY   AGE
+blank-disk   Ready   100Mi      1m2s
 ```
 
 ### Создание диска из образа
@@ -589,8 +589,8 @@ d8 k get cvi ubuntu-22-04 -o wide
 Пример вывода:
 
 ```txt
-# NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-# ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
+ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 Искомый размер указан в колонке **UNPACKEDSIZE** и равен 2.5Gi.
@@ -650,9 +650,9 @@ d8 k get vd
 Пример вывода:
 
 ```txt
-# NAME           PHASE   CAPACITY   AGE
-# linux-vm-root    Ready   10Gi       7m52s
-# linux-vm-root-2  Ready   2590Mi     7m15s
+NAME           PHASE   CAPACITY   AGE
+linux-vm-root    Ready   10Gi       7m52s
+linux-vm-root-2  Ready   2590Mi     7m15s
 ```
 
 ### Изменение размера диска
@@ -668,8 +668,8 @@ d8 k get vd linux-vm-root
 Пример вывода:
 
 ```txt
-# NAME          PHASE   CAPACITY   AGE
-# linux-vm-root   Ready   10Gi       10m
+NAME          PHASE   CAPACITY   AGE
+linux-vm-root   Ready   10Gi       10m
 ```
 
 Примените изменения:
@@ -687,8 +687,8 @@ d8 k get vd linux-vm-root
 Пример вывода:
 
 ```txt
-# NAME          PHASE   CAPACITY   AGE
-# linux-vm-root   Ready   11Gi       12m
+NAME          PHASE   CAPACITY   AGE
+linux-vm-root   Ready   11Gi       12m
 ```
 
 ## Виртуальные машины
@@ -770,8 +770,8 @@ d8 k get vm linux-vm
 Пример вывода:
 
 ```txt
-# NAME        PHASE     NODE           IPADDRESS     AGE
-# linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
+NAME        PHASE     NODE           IPADDRESS     AGE
+linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
 ```
 
 После создания виртуальная машина автоматически получит IP-адрес из диапазона, указанного в настройках модуля (блок `virtualMachineCIDRs`).
@@ -853,10 +853,9 @@ d8 k get vm linux-vm
 
 Условия отображают информацию о состоянии ВМ, а также на возникающие проблемы. Понять, что не так с ВМ можно путем их анализа:
 
-```
+```bash
 d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
 ```
-
 
 ### Установка агента
 
@@ -991,9 +990,9 @@ d8 v console linux-vm
 Пример вывода:
 
 ```txt
-# Successfully connected to linux-vm console. The escape sequence is ^]
-# linux-vm login: cloud
-# Password: cloud
+Successfully connected to linux-vm console. The escape sequence is ^]
+linux-vm login: cloud
+Password: cloud
 ```
 
 Нажмите `Ctrl+]` для завершения работы с серийной консолью.
@@ -1100,7 +1099,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Пример вывода:
 
 ```txt
-# 1
+1
 ```
 
 Примените следующий патч к виртуальной машине, чтобы изменить количество ядер с 1 на 2.
@@ -1124,7 +1123,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Пример вывода:
 
 ```txt
-# 1
+1
 ```
 
 Для применения этого изменения необходим перезапуск виртуальной машины. Выполните следующую команду, чтобы увидеть изменения, ожидающие применения (требующие перезапуска):
@@ -1135,15 +1134,15 @@ d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
 
 Пример вывода:
 
-```txt
-# [
-#   {
-#     "currentValue": 1,
-#     "desiredValue": 2,
-#     "operation": "replace",
-#     "path": "cpu.cores"
-#   }
-# ]
+```json
+[
+  {
+    "currentValue": 1,
+    "desiredValue": 2,
+    "operation": "replace",
+    "path": "cpu.cores"
+  }
+]
 ```
 
 Выполните команду:
@@ -1155,8 +1154,8 @@ d8 k get vm linux-vm -o wide
 Пример вывода:
 
 ```txt
-# NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
-# linux-vm    Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
+NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
+linux-vm    Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
 ```
 
 В колонке `NEED RESTART` мы видим значение `True`, а это значит что для применения изменений требуется перезагрузка.
@@ -1178,7 +1177,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Пример вывода:
 
 ```txt
-# 2
+2
 ```
 
 Порядок применения изменений виртуальной машины через «ручной» рестарт является поведением по умолчанию. Если есть необходимость применять внесенные изменения сразу и автоматически, для этого нужно изменить политику применения изменений:
@@ -1424,8 +1423,9 @@ d8 k get vmbda attach-blank-disk
 
 Пример вывода:
 
-```txt# NAME              PHASE      VIRTUAL MACHINE NAME   AGE
-# attach-blank-disk   Attached   linux-vm              3m7s
+```txt
+NAME                PHASE      VIRTUAL MACHINE NAME   AGE
+attach-blank-disk   Attached   linux-vm              3m7s
 ```
 
 Подключитесь к виртуальной машине и удостоверитесь, что диск подключен:
@@ -1437,13 +1437,13 @@ d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 Пример вывода:
 
 ```txt
-# NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
-# sda       8:0    0   10G  0 disk <--- статично подключенный диск linux-vm-root
-# |-sda1    8:1    0  9.9G  0 part /
-# |-sda14   8:14   0    4M  0 part
-# `-sda15   8:15   0  106M  0 part /boot/efi
-# sdb       8:16   0    1M  0 disk <--- cloudinit
-# sdc       8:32   0 95.9M  0 disk <--- динамически подключенный диск blank-disk
+NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sda       8:0    0   10G  0 disk <--- статично подключенный диск linux-vm-root
+|-sda1    8:1    0  9.9G  0 part /
+|-sda14   8:14   0    4M  0 part
+`-sda15   8:15   0  106M  0 part /boot/efi
+sdb       8:16   0    1M  0 disk <--- cloudinit
+sdc       8:32   0 95.9M  0 disk <--- динамически подключенный диск blank-disk
 ```
 
 Для отключения диска от виртуальной машины удалите ранее созданный ресурс:
@@ -1481,7 +1481,7 @@ d8 k label vm linux-vm app=nginx
 Пример вывода:
 
 ```txt
-# virtualmachine.virtualization.deckhouse.io/linux-vm labeled
+virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 ```
 
 #### Публикация сервисов виртуальной машины с использованием сервиса с типом NodePort
@@ -1689,8 +1689,8 @@ d8 k get vmop
 Пример вывода:
 
 ```txt
-# NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
-# firmware-update-fnbk2   Completed   Evict   linux-vm            1m
+NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
+firmware-update-fnbk2   Completed   Evict   linux-vm            1m
 ```
 
 Прервать любую живую миграцию пока она находится в фазе `Pending`, `InProgress` можно удалив соответствующий ресурс `VirtualMachineOperations`.
@@ -1706,8 +1706,8 @@ d8 k get vm
 Пример вывода:
 
 ```txt
-# NAME                                   PHASE     NODE           IPADDRESS     AGE
-# linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
+NAME                                   PHASE     NODE           IPADDRESS     AGE
+linux-vm                               Running   virtlab-pt-1   10.66.10.14   79m
 ```
 
 Мы видим что на данный момент она запущена на узле `virtlab-pt-1`.
@@ -1747,11 +1747,11 @@ d8 k get vm -w
 Пример вывода:
 
 ```txt
-# NAME                                  PHASE       NODE           IPADDRESS     AGE
-# linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
+NAME                                  PHASE       NODE           IPADDRESS     AGE
+linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
 #### Живая миграция виртуальной машиный при изменении параметров размещения (недоступно в CE редакции)
@@ -1783,8 +1783,8 @@ spec:
 Пример вывода ресурса
 
 ```txt
-# NAME                         PHASE       TYPE    VIRTUALMACHINE      AGE
-# nodeplacement-update-dabk4   Completed   Evict   linux-vm            1m
+NAME                         PHASE       TYPE    VIRTUALMACHINE      AGE
+nodeplacement-update-dabk4   Completed   Evict   linux-vm            1m
 ```
 
 ## IP-адреса виртуальных машин
@@ -1802,8 +1802,8 @@ d8 k get vmipl
 Пример вывода:
 
 ```txt
-# NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
-# ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
+NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
+ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
 Ресурс `VirtualMachineIPAddress` (`vmip`): проектный/неймспейсный ресурс, который отвечает за резервирование арендованных IP-адресов и их привязку к виртуальным машинам. IP-адреса могут выделяться автоматически или по явному запросу.
@@ -1817,8 +1817,8 @@ d8 k get vmipl
 Пример вывода:
 
 ```txt
-# NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
-# ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
+NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
+ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
 По умолчанию IP-адрес виртуальной машине назначается автоматически из подсетей, определенных в модуле и закрепляется за ней до её удаления. Проверить назначенный IP-адрес можно с помощью команды:
@@ -1830,8 +1830,8 @@ k get vmip
 Пример вывода:
 
 ```txt
-# NAME             ADDRESS       STATUS     VM         AGE
-# linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
+NAME             ADDRESS       STATUS     VM         AGE
+linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
 
 Алгоритм автоматического присвоения IP-адреса виртуальной машине выглядит следующим образом:
@@ -1884,7 +1884,7 @@ d8 k get vm linux-vm -o jsonpath="{.status.virtualMachineIPAddressName}"
 Пример вывода:
 
 ```txt
-# linux-vm-7prpx
+linux-vm-7prpx
 ```
 
 Удалите блоки `.metadata.ownerReferences` из найденного ресурса:
@@ -1946,9 +1946,9 @@ d8 k get volumesnapshotclasses
 Пример вывода:
 
 ```txt
-# NAME                     DRIVER                                DELETIONPOLICY   AGE
-# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+NAME                     DRIVER                                DELETIONPOLICY   AGE
+csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 Пример манифеста для создания снимка диска:
@@ -1975,8 +1975,8 @@ d k get vdsnapshot
 Пример вывода:
 
 ```txt
-# NAME                   PHASE     CONSISTENT   AGE
-# linux-vm-root-snapshot Ready     true         3m2s
+NAME                   PHASE     CONSISTENT   AGE
+linux-vm-root-snapshot Ready     true         3m2s
 ```
 
 После создания `VirtualDiskSnapshot` может находиться в следующих состояниях (фазах):
@@ -2051,9 +2051,9 @@ d8 k get volumesnapshotclasses
 Пример вывода:
 
 ```txt
-# NAME                     DRIVER                                DELETIONPOLICY   AGE
-# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+NAME                     DRIVER                                DELETIONPOLICY   AGE
+csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 Создание снимка виртуальной машины будет неудачным, если выполнится хотя бы одно из следующих условий:

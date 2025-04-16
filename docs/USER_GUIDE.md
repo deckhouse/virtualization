@@ -107,14 +107,14 @@ Example of creating a virtual machine with Ubuntu 22.04.
    Example output:
 
    ```txt
-   # NAME                                                 PHASE   CDROM   PROGRESS   AGE
-   # virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+   NAME                                                 PHASE   CDROM   PROGRESS   AGE
+   virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
    #
-   # NAME                                                 PHASE   CAPACITY   AGE
-   # virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+   NAME                                                 PHASE   CAPACITY   AGE
+   virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
    #
-   # NAME                                                 PHASE     NODE           IPADDRESS     AGE
-   # virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+   NAME                                                 PHASE     NODE           IPADDRESS     AGE
+   virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
    ```
 
 1. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
@@ -126,12 +126,12 @@ Example of creating a virtual machine with Ubuntu 22.04.
    Example output:
 
    ```txt
-   # Successfully connected to linux-vm console. The escape sequence is ^]
+   Successfully connected to linux-vm console. The escape sequence is ^]
    #
-   # linux-vm login: cloud
-   # Password: cloud
-   # ...
-   # cloud@linux-vm:~$
+   linux-vm login: cloud
+   Password: cloud
+   ...
+   cloud@linux-vm:~$
    ```
 
 1. Use the following commands to delete previously created resources:
@@ -235,8 +235,8 @@ d8 k get vi ubuntu-22-04
 Example output:
 
 ```txt
-# NAME           PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22-04   Ready   false   100%       23h
+NAME           PHASE   CDROM   PROGRESS   AGE
+ubuntu-22-04   Ready   false   100%       23h
 ```
 
 After creation the `VirtualImage` resource can be in the following states (phases):
@@ -261,14 +261,14 @@ d8 k get vi ubuntu-22-04 -w
 Example output:
 
 ```txt
-# NAME           PHASE          CDROM   PROGRESS   AGE
-# ubuntu-22-04   Provisioning   false              4s
-# ubuntu-22-04   Provisioning   false   0.0%       4s
-# ubuntu-22-04   Provisioning   false   28.2%      6s
-# ubuntu-22-04   Provisioning   false   66.5%      8s
-# ubuntu-22-04   Provisioning   false   100.0%     10s
-# ubuntu-22-04   Provisioning   false   100.0%     16s
-# ubuntu-22-04   Ready          false   100%       18s
+NAME           PHASE          CDROM   PROGRESS   AGE
+ubuntu-22-04   Provisioning   false              4s
+ubuntu-22-04   Provisioning   false   0.0%       4s
+ubuntu-22-04   Provisioning   false   28.2%      6s
+ubuntu-22-04   Provisioning   false   66.5%      8s
+ubuntu-22-04   Provisioning   false   100.0%     10s
+ubuntu-22-04   Provisioning   false   100.0%     16s
+ubuntu-22-04   Ready          false   100%       18s
 ```
 
 The `VirtualImage` resource description provides additional information about the downloaded image:
@@ -307,8 +307,8 @@ d8 k get vi ubuntu-22-04-pvc
 Example output:
 
 ```txt
-# NAME              PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22-04-pvc  Ready   false   100%       23h
+NAME              PHASE   CDROM   PROGRESS   AGE
+ubuntu-22-04-pvc  Ready   false   100%       23h
 ```
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-images).
@@ -388,11 +388,11 @@ d8 k get vi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
 
 Example output:
 
-```txt
-# {
-#   "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
-#   "inCluster":"http://10.222.165.239/upload"
-# }
+```json
+{
+  "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
+  "inCluster":"http://10.222.165.239/upload"
+}
 ```
 
 As an example, download the Cirros image:
@@ -416,8 +416,8 @@ d8 k get vi some-image
 Example output:
 
 ```txt
-# NAME         PHASE   CDROM   PROGRESS   AGE
-# some-image   Ready   false   100%       1m
+NAME         PHASE   CDROM   PROGRESS   AGE
+some-image   Ready   false   100%       1m
 ```
 
 ### Creating an image from a disk
@@ -503,19 +503,19 @@ d8 k get storageclass
 Example output:
 
 ```txt
-# NAME                                 PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-# i-sds-replicated-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# i-sds-replicated-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# i-sds-replicated-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# sds-replicated-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# sds-replicated-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# sds-replicated-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# nfs-4-1-wffc                         nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
+NAME                                 PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+i-sds-replicated-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+i-sds-replicated-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+i-sds-replicated-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+sds-replicated-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+sds-replicated-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+sds-replicated-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+nfs-4-1-wffc                         nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
 ```
 
 A full description of the disk configuration settings can be found at [link](cr.html#virtualdisk).
 
-### Create an empty disk
+##Create an empty disk
 
 Empty disks are usually used to install an OS on them, or to store some data.
 
@@ -563,8 +563,8 @@ d8 k get vd blank-disk
 Example output:
 
 ```txt
-# NAME       PHASE   CAPACITY   AGE
-# blank-disk   Ready   100Mi      1m2s
+NAME       PHASE   CAPACITY   AGE
+blank-disk   Ready   100Mi      1m2s
 ```
 
 ### Creating a disk from an image
@@ -582,8 +582,8 @@ d8 k get vi ubuntu-22-04 -o wide
 Example output:
 
 ```txt
-# NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-# ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
+ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 The size you are looking for is specified in the **UNPACKEDSIZE** column and is 2.5Gi.
@@ -643,9 +643,9 @@ d8 k get vd
 Example output:
 
 ```txt
-# NAME           PHASE   CAPACITY   AGE
-# linux-vm-root    Ready   10Gi       7m52s
-# linux-vm-root-2  Ready   2590Mi     7m15s
+NAME           PHASE   CAPACITY   AGE
+linux-vm-root    Ready   10Gi       7m52s
+linux-vm-root-2  Ready   2590Mi     7m15s
 ```
 
 ### Change disk size
@@ -661,8 +661,8 @@ d8 k get vd linux-vm-root
 Example output:
 
 ```txt
-# NAME          PHASE   CAPACITY   AGE
-# linux-vm-root   Ready   10Gi       10m
+NAME          PHASE   CAPACITY   AGE
+linux-vm-root   Ready   10Gi       10m
 ```
 
 Let's apply the changes:
@@ -680,8 +680,8 @@ d8 k get vd linux-vm-root
 Example output:
 
 ```txt
-# NAME          PHASE   CAPACITY   AGE
-# linux-vm-root   Ready   11Gi       12m
+NAME          PHASE   CAPACITY   AGE
+linux-vm-root   Ready   11Gi       12m
 ```
 
 ## Virtual Machines
@@ -763,8 +763,8 @@ d8 k get vm linux-vm
 Example output:
 
 ```txt
-# NAME        PHASE     NODE           IPADDRESS     AGE
-# linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
+NAME        PHASE     NODE           IPADDRESS     AGE
+linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
 ```
 
 After creation, the virtual machine will automatically get an IP address from the range specified in the module settings (`virtualMachineCIDRs` block).
@@ -984,10 +984,10 @@ d8 v console linux-vm
 Example output:
 
 ```txt
-# Successfully connected to linux-vm console. The escape sequence is ^]
+Successfully connected to linux-vm console. The escape sequence is ^]
 #
-# linux-vm login: cloud
-# Password: cloud
+linux-vm login: cloud
+Password: cloud
 ```
 
 Press `Ctrl+]` to finalize the serial console.
@@ -1092,7 +1092,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Example output:
 
 ```txt
-# 1
+1
 ```
 
 Apply the following patch to the virtual machine to change the number of cores from 1 to 2.
@@ -1116,7 +1116,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Example output:
 
 ```txt
-# 1
+1
 ```
 
 A restart of the virtual machine is required to apply this change. Run the following command to see the changes waiting to be applied (requiring a restart):
@@ -1127,15 +1127,15 @@ d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
 
 Example output:
 
-```txt
-# [
-#   {
-#     "currentValue": 1,
-#     "desiredValue": 2,
-#     "operation": "replace",
-#     "path": "cpu.cores"
-#   }
-# ]
+```json
+[
+  {
+    "currentValue": 1,
+    "desiredValue": 2,
+    "operation": "replace",
+    "path": "cpu.cores"
+  }
+]
 ```
 
 Run the command:
@@ -1147,8 +1147,8 @@ d8 k get vm linux-vm -o wide
 Example output:
 
 ```txt
-# NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
-# linux-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
+NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
+linux-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
 ```
 
 In the `NEED RESTART` column we see the value `True`, which means that a reboot is required to apply the changes.
@@ -1170,7 +1170,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Example output:
 
 ```txt
-# 2
+2
 ```
 
 The default behavior is to apply changes to the virtual machine through a "manual" restart. If you want to apply the changes immediately and automatically, you need to change the change application policy:
@@ -1417,8 +1417,8 @@ d8 k get vmbda attach-blank-disk
 Example output:
 
 ```txt
-# NAME              PHASE      VIRTUAL MACHINE NAME   AGE
-# attach-blank-disk   Attached   linux-vm              3m7s
+NAME              PHASE      VIRTUAL MACHINE NAME   AGE
+attach-blank-disk   Attached   linux-vm              3m7s
 ```
 
 Connect to the virtual machine and make sure the disk is connected:
@@ -1430,13 +1430,13 @@ d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 Example output:
 
 ```txt
-# NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
-# sda       8:0    0   10G  0 disk <--- statically mounted linux-vm-root disk
-# |-sda1    8:1    0  9.9G  0 part /
-# |-sda14   8:14   0    4M  0 part
-# `-sda15   8:15   0  106M  0 part /boot/efi
-# sdb       8:16   0    1M  0 disk <--- cloudinit
-# sdc       8:32   0 95.9M  0 disk <--- dynamically mounted disk blank-disk
+NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sda       8:0    0   10G  0 disk <--- statically mounted linux-vm-root disk
+|-sda1    8:1    0  9.9G  0 part /
+|-sda14   8:14   0    4M  0 part
+`-sda15   8:15   0  106M  0 part /boot/efi
+sdb       8:16   0    1M  0 disk <--- cloudinit
+sdc       8:32   0 95.9M  0 disk <--- dynamically mounted disk blank-disk
 ```
 
 To detach the disk from the virtual machine, delete the previously created resource:
@@ -1458,7 +1458,7 @@ d8 k label vm linux-vm app=nginx
 Example output:
 
 ```txt
-# virtualmachine.virtualization.deckhouse.io/linux-vm labeled
+virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 ```
 
 Attaching images is done by analogy. To do this, specify `VirtualImage` or `ClusterVirtualImage` and the image name as `kind`:
@@ -1684,8 +1684,8 @@ d8 k get vmop
 Example output:
 
 ```txt
-# NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
-# firmware-update-fnbk2   Completed   Evict   static-vm-node-00   148m
+NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
+firmware-update-fnbk2   Completed   Evict   static-vm-node-00   148m
 ```
 
 You can interrupt any live migration while it is in the `Pending`, `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
@@ -1702,8 +1702,8 @@ d8 k get vm
 Example output:
 
 ```txt
-# NAME                                   PHASE     NODE           IPADDRESS     AGE
-# linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
+NAME                                   PHASE     NODE           IPADDRESS     AGE
+linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
 
 We can see that it is currently running on the `virtlab-pt-1` node.
@@ -1742,11 +1742,11 @@ d8 k get vm -w
 Example output:
 
 ```txt
-# NAME                                   PHASE       NODE           IPADDRESS     AGE
-# linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
+NAME                                   PHASE       NODE           IPADDRESS     AGE
+linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
 #### Live migration of virtual machine when changing placement parameters (not available in CE edition)
@@ -1791,8 +1791,8 @@ d8 k get vmipl
 Example output:
 
 ```txt
-# NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
-# ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
+NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
+ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
 `VirtualMachineIPAddress` (`vmip`) resource: A project/namespace resource that is responsible for reserving leased IP addresses and binding them to virtual machines. IP addresses can be allocated automatically or by explicit request.
@@ -1806,8 +1806,8 @@ d8 k get vmipl
 Example output:
 
 ```txt
-# NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
-# ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
+NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
+ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
 By default, an ip address is automatically assigned to a virtual machine from the subnets defined in the module and is assigned to it until it is deleted. You can check the assigned ip address using the command:
@@ -1819,8 +1819,8 @@ k get vmip
 Example output:
 
 ```txt
-# NAME              ADDRESS       STATUS     VM          AGE
-# linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
+NAME              ADDRESS       STATUS     VM          AGE
+linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
 
 The algorithm for automatically assigning an ip address to a virtual machine is as follows:
@@ -1935,9 +1935,9 @@ d8 k get volumesnapshotclasses
 Example output:
 
 ```txt
-# NAME                     DRIVER                                DELETIONPOLICY   AGE
-# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+NAME                     DRIVER                                DELETIONPOLICY   AGE
+csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 An example manifest for creating a disk snapshot:
@@ -1964,8 +1964,8 @@ d k get vdsnapshot
 Example output:
 
 ```txt
-# NAME                     PHASE     CONSISTENT   AGE
-# linux-vm-root-1728027905   Ready                  3m2s
+NAME                     PHASE     CONSISTENT   AGE
+linux-vm-root-1728027905   Ready                  3m2s
 ```
 
 After creation, `VirtualDiskSnapshot` can be in the following states (phases):
@@ -2036,9 +2036,9 @@ d8 k get volumesnapshotclasses
 Example output:
 
 ```txt
-# NAME                     DRIVER                                DELETIONPOLICY   AGE
-# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+NAME                     DRIVER                                DELETIONPOLICY   AGE
+csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 Creating a virtual machine snapshot will fail if at least one of the following conditions is met:
