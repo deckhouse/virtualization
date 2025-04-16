@@ -151,8 +151,6 @@ binaries:
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
   # Ethtool
   - /usr/sbin/ethlist /usr/sbin/ethtool /usr/sbin/iptables /usr/sbin/ip /usr/sbin/bridge /usr/sbin/nft
-  # Procps utils
-  - /usr/sbin/sysctl
   # Passt (User-mode networking daemons for virtual machines and namespaces)
   - /usr/bin/passt /usr/bin/passt.avx2 /usr/bin/pasta /usr/bin/pasta.avx2 /usr/bin/qrap
   # Dmidecode
