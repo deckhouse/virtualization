@@ -391,39 +391,11 @@ An image stored in a container registry has a certain format. Let's look at an e
 
 The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
 
-The VirtualMachineClass resource structure is as follows:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass
-metadata:
-  name: <vmclass-name>
-spec:
-  # The section describes virtual processor parameters for virtual machines.
-  # This block cannot be changed after the resource has been created.
-  cpu: ...
-
-  # (optional) Describes the rules for allocating virtual machines between nodes.
-  # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
-  nodeSelector: ...
-
-  # (optional) Describes the sizing policy for configuring virtual machine resources.
-  # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
-  sizingPolicies: ...
-```
-
-{{< alert level="warning" >}}
-Since changing the `.spec.nodeSelector` parameter affects all virtual machines using this `VirtualMachineClass`, consider the following:
-
-- For the Enterprise edition, this may cause virtual machines to be migrated to new destination nodes if the current nodes do not meet placement requirements.
-- For the Community edition, this may cause virtual machines to restart according to the automatic change application policy set in the `.spec.disruptions.restartApprovalMode` parameter.
-{{< /alert >}}
-
-{{< alert level="warning" >}}
-When configuring sizingPolicies, be careful to consider [CPU topology](./USER_GUIDE.md#automatic-cpu-topology-configuration) for virtual machines.
-{{< /alert >}}
-
 By default, a single VirtualMachineClass generic resource is automatically created, which represents a universal CPU model that uses the rather old but supported by most modern processors Nehalem model. This allows you to run VMs on any nodes in the cluster with the possibility of live migration.
+
+{{< alert level="info" >}}
+It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
+{{< /alert >}}
 
 ```bash
 d8 k get virtualmachineclass
@@ -449,153 +421,40 @@ spec:
   ...
 ```
 
-{{< alert level="info" >}}
-It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
-{{< /alert >}}
+### VirtualMachineClass settings
 
-DVP administrators can create the required classes of virtual machines according to their needs, but a general recommendation is to at least create the required minimum. Consider examples from the following sections.
-
-### VirtualMachineClass configuration example
-
-![VirtualMachineClass configuration example](./images/vmclass-examples.png)
-
-Let's imagine that we have a cluster of four nodes. Two of these nodes labeled `group=blue` have a "CPU X" processor with three instruction sets, and the other two nodes labeled `group=green` have a newer "CPU Y" processor with four instruction sets.
-
-To optimally utilize the resources of this cluster, it is recommended that you create three additional virtual machine classes (VirtualMachineClass):
-
-- `universal`: This class will allow virtual machines to run on all nodes in the platform and migrate between them. It will use the instruction set for the lowest CPU model to ensure the greatest compatibility.
-- `cpuX`: This class will be for virtual machines that should only run on nodes with a "CPU X" processor. VMs will be able to migrate between these nodes using the available "CPU X" instruction sets.
-- `cpuY`: This class is for VMs that should only run on nodes with a "CPU Y" processor. VMs will be able to migrate between these nodes using the available "CPU Y" instruction sets.
-
-{{< alert level="info" >}}
-A CPU instruction set is a list of all the instructions that a processor can execute, such as addition, subtraction, or memory operations. They determine what operations are possible, affect program compatibility and performance, and can vary from one generation of processors to the next.
-{{< /alert >}}
-
-Sample resource configurations for a given cluster:
-
-```yaml
----
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass
-metadata:
-  name: universal
-spec:
-  cpu:
-    discovery: {}
-    type: Discovery
-  sizingPolicies: { ... }
----
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass
-metadata:
-  name: cpuX
-spec:
-  cpu:
-    discovery: {}
-    type: Discovery
-  nodeSelector:
-    matchExpressions:
-      - key: group
-        operator: In
-        values: ["blue"]
-  sizingPolicies: { ... }
----
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass
-metadata:
-  name: cpuY
-spec:
-  cpu:
-    discovery:
-      nodeSelector:
-        matchExpressions:
-          - key: group
-            operator: In
-            values: ["green"]
-    type: Discovery
-  sizingPolicies: { ... }
-```
-
-### Other configuration options
-
-Example of the VirtualMachineClass resource configuration:
+The VirtualMachineClass resource structure is as follows:
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass
 metadata:
-  name: discovery
+  name: <vmclass-name>
 spec:
-  cpu:
-    # Configure a generic vCPU for a given set of nodes.
-    discovery:
-      nodeSelector:
-        matchExpressions:
-          - key: node-role.kubernetes.io/control-plane
-            operator: DoesNotExist
-    type: Discovery
-  # Allow VMs with this class to run only on nodes in the `worker` group.
-  nodeSelector:
-    matchExpressions:
-      - key: node.deckhouse.io/group
-        operator: In
-        values:
-          - worker
-  # Resource configuration policy.
-  sizingPolicies:
-    # For a range of 1–4 cores, it is possible to use 1–8 GB of RAM in 512Mi increments,
-    # i.e., 1 GB, 1.5 GB, 2 GB, 2.5 GB, etc.
-    # No dedicated cores are allowed.
-    # All `corefraction` options are available.
-    - cores:
-        min: 1
-        max: 4
-      memory:
-        min: 1Gi
-        max: 8Gi
-        step: 512Mi
-      dedicatedCores: [false]
-      coreFractions: [5, 10, 20, 50, 100]
-    # For a range of 5–8 cores, it is possible to use 5–16 GB of RAM in 1 GB increments,
-    # i.e., 5 GB, 6 GB, 7 GB, etc.
-    # No dedicated cores are allowed.
-    # Some `corefraction` options are available.
-    - cores:
-        min: 5
-        max: 8
-      memory:
-        min: 5Gi
-        max: 16Gi
-        step: 1Gi
-      dedicatedCores: [false]
-      coreFractions: [20, 50, 100]
-    # For a range of 9–16 cores, it is possible to use 9–32 GB of RAM in 1 GB increments.
-    # You can use dedicated cores if needed.
-    # Some `corefraction` options are available.
-    - cores:
-        min: 9
-        max: 16
-      memory:
-        min: 9Gi
-        max: 32Gi
-        step: 1Gi
-      dedicatedCores: [true, false]
-      coreFractions: [50, 100]
-    # For the range of 17–1024 cores, it is possible to use 1–2 GB of RAM per core.
-    # Only the dedicated cores are available for use.
-    # The only available `corefraction` parameter is 100%.
-    - cores:
-        min: 17
-        max: 1024
-      memory:
-        perCore:
-          min: 1Gi
-          max: 2Gi
-      dedicatedCores: [true]
-      coreFractions: [100]
+  # The section describes virtual processor parameters for virtual machines.
+  # This block cannot be changed after the resource has been created.
+  cpu: ...
+
+  # (optional) Describes the rules for allocating virtual machines between nodes.
+  # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
+  nodeSelector: ...
+
+  # (optional) Describes the sizing policy for configuring virtual machine resources.
+  # When changed, it is automatically applied to all virtual machines using this VirtualMachineClass.
+  sizingPolicies: ...
 ```
 
-The following are fragments of the VirtualMachineClass configurations for different tasks:
+Next, let's look at the blocks settings in more detail:
+
+#### vCPU settings
+
+The `.spec.cpu` block allows you to specify or configure the vCPU for the VM.
+
+{{< alert level="warning">}}
+The `.spec.cpu` block settings cannot be changed after the VirtualMachineClass resource is created.
+{{{< /alert >}}
+
+examples of `.spec.cpu` block settings:
 
 - A class with a vCPU with the required set of processor instructions. In this case, we use `type: Features` to specify the required set of supported instructions for the processor:
 
@@ -672,6 +531,153 @@ The following are fragments of the VirtualMachineClass configurations for differ
       model: IvyBridge
       type: Model
   ```
+
+#### Placement settings
+
+The `.spec.nodeSelector` block is optional, it allows you to specify the nodes that will host VMs using this vmclass:
+
+```yaml
+  spec:
+    nodeSelector:
+      matchExpressions:
+        - key: node.deckhouse.io/group
+          operator: In
+          values:
+          - green
+```
+
+{{< alert level="warning" >}}
+Since changing the `.spec.nodeSelector` parameter affects all virtual machines using this `VirtualMachineClass`, consider the following:
+
+- For the Enterprise edition, this may cause virtual machines to be migrated to new destination nodes if the current nodes do not meet placement requirements.
+- For the Community edition, this may cause virtual machines to restart according to the automatic change application policy set in the `.spec.disruptions.restartApprovalMode` parameter.
+{{< /alert >}}
+
+#### Sizing Policy Settings
+
+The `.spec.sizingPolicy` block allows you to set sizing policies for virtual machine resources that use vmclass.
+
+{{< alert level="warning" >}}
+Changes to the `.spec.sizingPolicy` block can also affect virtual machines. For virtual machines whose sizing policy will not meet the new policy requirements, the `SizingPolicyMatched` condition in the `.status.conditions` block will be false (`status: False`).
+
+When configuring sizingPolicies, be careful to consider [CPU topology](./USER_GUIDE.md#automatic-cpu-topology-configuration) for virtual machines.
+{{< /alert >}}
+
+```yaml
+spec:
+  sizingPolicies:
+    # For a range of 1–4 cores, it is possible to use 1–8 GB of RAM in 512Mi increments,
+    # i.e., 1 GB, 1.5 GB, 2 GB, 2.5 GB, etc.
+    # No dedicated cores are allowed.
+    # All `corefraction` options are available.
+    - cores:
+        min: 1
+        max: 4
+      memory:
+        min: 1Gi
+        max: 8Gi
+        step: 512Mi
+      dedicatedCores: [false]
+      coreFractions: [5, 10, 20, 50, 100]
+    # For a range of 5–8 cores, it is possible to use 5–16 GB of RAM in 1 GB increments,
+    # i.e., 5 GB, 6 GB, 7 GB, etc.
+    # No dedicated cores are allowed.
+    # Some `corefraction` options are available.
+    - cores:
+        min: 5
+        max: 8
+      memory:
+        min: 5Gi
+        max: 16Gi
+        step: 1Gi
+      dedicatedCores: [false]
+      coreFractions: [20, 50, 100]
+    # For a range of 9–16 cores, it is possible to use 9–32 GB of RAM in 1 GB increments.
+    # You can use dedicated cores if needed.
+    # Some `corefraction` options are available.
+    - cores:
+        min: 9
+        max: 16
+      memory:
+        min: 9Gi
+        max: 32Gi
+        step: 1Gi
+      dedicatedCores: [true, false]
+      coreFractions: [50, 100]
+    # For the range of 17–248 cores, it is possible to use 1–2 GB of RAM per core.
+    # Only the dedicated cores are available for use.
+    # The only available `corefraction` parameter is 100%.
+    - cores:
+        min: 17
+        max: 248
+      memory:
+        perCore:
+          min: 1Gi
+          max: 2Gi
+      dedicatedCores: [true]
+      coreFractions: [100]
+```
+
+### vCPU Discovery configuration example
+
+![VirtualMachineClass configuration example](./images/vmclass-examples.png)
+
+Let's imagine that we have a cluster of four nodes. Two of these nodes labeled `group=blue` have a "CPU X" processor with three instruction sets, and the other two nodes labeled `group=green` have a newer "CPU Y" processor with four instruction sets.
+
+To optimally utilize the resources of this cluster, it is recommended that you create three additional virtual machine classes (VirtualMachineClass):
+
+- `universal`: This class will allow virtual machines to run on all nodes in the platform and migrate between them. It will use the instruction set for the lowest CPU model to ensure the greatest compatibility.
+- `cpuX`: This class will be for virtual machines that should only run on nodes with a "CPU X" processor. VMs will be able to migrate between these nodes using the available "CPU X" instruction sets.
+- `cpuY`: This class is for VMs that should only run on nodes with a "CPU Y" processor. VMs will be able to migrate between these nodes using the available "CPU Y" instruction sets.
+
+{{< alert level="info" >}}
+A CPU instruction set is a list of all the instructions that a processor can execute, such as addition, subtraction, or memory operations. They determine what operations are possible, affect program compatibility and performance, and can vary from one generation of processors to the next.
+{{< /alert >}}
+
+Sample resource configurations for a given cluster:
+
+```yaml
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: universal
+spec:
+  cpu:
+    discovery: {}
+    type: Discovery
+  sizingPolicies: { ... }
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: cpuX
+spec:
+  cpu:
+    discovery: {}
+    type: Discovery
+  nodeSelector:
+    matchExpressions:
+      - key: group
+        operator: In
+        values: ["blue"]
+  sizingPolicies: { ... }
+---
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineClass
+metadata:
+  name: cpuY
+spec:
+  cpu:
+    discovery:
+      nodeSelector:
+        matchExpressions:
+          - key: group
+            operator: In
+            values: ["green"]
+    type: Discovery
+  sizingPolicies: { ... }
+```
 
 ## Reliability mechanisms
 
