@@ -839,7 +839,7 @@ d8 k get vm linux-vm
       - Миграция ВМ поддерживается только для нелокальных дисков, условие `type: Migratable` отображает информацию о том может ли ВМ мигрировать или нет.
     - Возможные проблемы:
       - Несовместимость процессорных инструкций (при использовании типов процессоров host или host-passthrough).
-      - Разница в версиях ядер гипервизора.
+      - Различие версиях ядер на узлах гипервизоров.
       - На подходящих узлах недостаточно CPU или памяти.
       - Превышены квоты неймспейса или проекта.
     - Диагностика:
@@ -848,6 +848,61 @@ d8 k get vm linux-vm
     ```bash
     d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
     ```
+Условие `type: SizingPolicyMatched` отображает соответствие конфигурации ресурсов политике сайзинга используемого VirtualMachineClass. При нарушении политики сохранить параметры ВМ без приведения ресурсов в соответствие политике - невозможно.
+
+### Установка агента
+
+Для повышения эффективности управления ВМ рекомендуется установить QEMU Guest Agent — инструмент, который обеспечивает взаимодействие между гипервизором и операционной системой внутри ВМ.
+
+Чем поможет агент?
+
+- Обеспечит создание консистентных снимков дисков и ВМ.
+- Позволит получать информацию о работающей ОС, которая будет отражена в статусе ВМ.
+  Пример:
+
+  ```yaml
+  status:
+    guestOSInfo:
+      id: fedora
+      kernelRelease: 6.11.4-301.fc41.x86_64
+      kernelVersion: '#1 SMP PREEMPT_DYNAMIC Sun Oct 20 15:02:33 UTC 2024'
+      machine: x86_64
+      name: Fedora Linux
+      prettyName: Fedora Linux 41 (Cloud Edition)
+      version: 41 (Cloud Edition)
+      versionId: "41"
+  ```
+
+- Позволит отслеживать, что ОС действительно загрузилась:
+  ```bash
+  d8 k get vm -o wide
+  ```
+
+  Пример вывода (колонка `AGENT`):
+  ```console
+  NAME     PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS    AGE
+  fedora   Running   6       5%             8000Mi   False          True    True         virtlab-pt-1   10.66.10.1   5d21h
+  ```
+
+Как установить QEMU Guest Agent:
+
+Для debian-based ОС:
+
+```bash
+sudo apt install qemu-guest-agent
+```
+
+Для Centos-based ОС:
+
+```bash
+sudo yum install qemu-guest-agent
+```
+
+Запуск службы агента:
+
+```bash
+sudo systemctl enable --now qemu-guest-agent
+```
 
 ### Автоматическая конфигурация топологии CPU
 
