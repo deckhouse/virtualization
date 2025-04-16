@@ -408,6 +408,8 @@ spec:
                   description: Deprecated. Use `imageUploadURLs` instead.
                   type: string
                 usedInNamespaces:
+                  description: |
+                    Displays the list of namespaces where the image is currently used when attempting to delete it.
                   items:
                     type: string
                   type: array
