@@ -395,6 +395,8 @@ By default, a single VirtualMachineClass generic resource is automatically creat
 
 {{< alert level="info" >}}
 It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
+
+For a configuration example, see [vCPU Discovery configuration example](#vcpu-discovery-configuration-example)
 {{< /alert >}}
 
 ```bash
