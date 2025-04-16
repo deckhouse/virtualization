@@ -103,4 +103,40 @@ var _ = Describe("TestFirmwareHandler", func() {
 		Entry("Should be out of date 4", newVM(), newKVVMI("other-image-4"), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate),
 		Entry("Should be out of date 5", newVM(), newKVVMI("other-image-5"), metav1.ConditionFalse, vmcondition.ReasonFirmwareOutOfDate),
 	)
+
+	Describe("Test TypeFirmwareUpToDate condition presence with a missing pod", func() {
+		It("Should remove condition if pod is missing", func() {
+			vm := newVM()
+			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
+				Type:   vmcondition.TypeFirmwareUpToDate.String(),
+				Status: metav1.ConditionFalse,
+				Reason: vmcondition.ReasonFirmwareOutOfDate.String(),
+			})
+
+			fakeClient, resource, vmState = setupEnvironment(vm, newKVVMI(expectedImage))
+			reconcile()
+
+			newVM := new(virtv2.VirtualMachine)
+			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, exists := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, newVM.Status.Conditions)
+			Expect(exists).To(BeFalse())
+		})
+
+		It("Should not add condition if pod is missing and condition was absent", func() {
+			vm := newVM()
+			vm.Status.Conditions = []metav1.Condition{}
+
+			fakeClient, resource, vmState = setupEnvironment(vm, newKVVMI(expectedImage))
+			reconcile()
+
+			newVM := new(virtv2.VirtualMachine)
+			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, exists := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, newVM.Status.Conditions)
+			Expect(exists).To(BeFalse())
+		})
+	})
 })
