@@ -370,7 +370,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 						}
 
 						if updatedVmObjC.Status.MigrationState == nil || updatedVmObjC.Status.MigrationState.StartTimestamp == nil || updatedVmObjC.Status.MigrationState.StartTimestamp.UTC().Before(migrationInitiatedAt) {
-							return fmt.Errorf("couldn't wait for the migration to start: %s is before %s", updatedVmObjC.Status.MigrationState.StartTimestamp.UTC(), migrationInitiatedAt)
+							return errors.New("couldn't wait for the migration to start")
 						}
 
 						if updatedVmObjC.Status.MigrationState.Source.Node == vmObjA.Status.Node {
