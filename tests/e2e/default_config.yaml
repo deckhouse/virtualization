@@ -56,6 +56,7 @@ logFilter:
 regexpLogFilter:
   - "failed to detach: .* not found" # "err" "failed to detach: virtualmachine.kubevirt.io \"head-497d17b-vm-automatic-with-hotplug\" not found",
   - "error patching .* not found" # "err" "error patching *** virtualimages.virtualization.deckhouse.io \"head-497d17b-vi-pvc-oref-vi-oref-vd\" not found",
+  - "IP address \\(\\b((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\b\\) is not among addresses assigned to 'default' network interface \\(\\b((25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\.){3}(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])\\b\\)" # "msg": "IP address (10.66.10.61) is not among addresses assigned to 'default' network interface (10.66.10.60)"
 
 cleanupResources:
   - clustervirtualimages.virtualization.deckhouse.io
