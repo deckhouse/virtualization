@@ -23,7 +23,7 @@ build:
 
 # Component versions
 {{ $_ := set . "Version" dict }}
-{{- $versions_ctx := (.Files.Get "cv/version_map.yml" | fromYaml) }}
+{{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
 {{- range $k, $v := $versions_ctx.firmware }}
   {{- $_ := set $.Version $k $v}}
 {{- end }}
@@ -99,7 +99,7 @@ git:
     includePaths:
       - charts
       - crds
-      - cv
+      - component_versions
       - docs
       - hooks
       - openapi
@@ -108,7 +108,7 @@ git:
       - Chart.yaml
       - .helmignore
     excludePaths:
-      - cv/README.md
+      - component_versions/README.md
       - hooks/lib/tests
       - hooks/test*
 ---
