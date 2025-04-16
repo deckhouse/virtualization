@@ -73,7 +73,7 @@ shell:
         --with-tss-group=root \
         --libdir=/usr/lib64
       
-      CC="/usr/bin/musl-gcc" make -j$(nproc)
+      make -j$(nproc)
       
       make DESTDIR=$OUTDIR install
       strip $OUTDIR/usr/bin/*
