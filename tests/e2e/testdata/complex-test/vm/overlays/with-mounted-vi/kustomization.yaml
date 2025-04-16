@@ -9,7 +9,7 @@ patches:
         path: /spec/blockDeviceRefs/-
         value: {
               "kind": "VirtualImage",
-              "name": "vi-alpine-http"
+              "name": "vi-ubuntu-http"
           }
     target:
       kind: VirtualMachine

@@ -4,7 +4,7 @@ metadata:
   name: vd-from-vi-alpine-registry
 spec:
   persistentVolumeClaim:
-    size: 370Mi
+    size: 3600Mi
   dataSource:
     type: ObjectRef
     objectRef:
