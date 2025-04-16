@@ -1,5 +1,5 @@
 ---
-{{- $gitRepoName := "edk2" }}
+{{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := cat $.SOURCE_REPO "/tianocore/edk2.git" | nospace }}
 

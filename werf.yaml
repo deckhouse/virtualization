@@ -23,10 +23,17 @@ build:
 
 # Component versions
 {{ $_ := set . "Version" dict }}
+{{ $_ := set . "Packages" dict }}
 {{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
+
 {{- range $k, $v := $versions_ctx.firmware }}
   {{- $_ := set $.Version $k $v}}
 {{- end }}
+
+{{- range $k, $v := $versions_ctx.package }}
+  {{- $_ := set $.Packages $k $v}}
+{{- end }}
+
 
 {{- $_ := set $ "ImagesIDList" list }}
 

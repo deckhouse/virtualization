@@ -9,7 +9,8 @@ import:
   before: setup
 
 ---
-{{- $version := "0.10.0" }}
+{{- $version := get $.Package $.ImageName }}
+{{- $gitRepoUrl := "stefanberger/swtpm.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -60,7 +61,7 @@ shell:
       OUTDIR=/out
       mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
       
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/stefanberger/swtpm.git --branch v{{ $version }} /src
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
       cd /src
       
       ./autogen.sh \
@@ -78,7 +79,7 @@ shell:
       make DESTDIR=$OUTDIR install
       strip $OUTDIR/usr/bin/*
 
-      # we dont need man, test and semples files
+      # We don't need man, test and samples files
       rm -rf $OUTDIR/usr/include
       rm -rf $OUTDIR/usr/share
       rm -rf $OUTDIR/usr/libexec/installed-tests

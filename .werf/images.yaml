@@ -30,7 +30,6 @@ dockerfile: Dockerfile
 
   {{- $_ := set $ctx "ImageName" $ImageData._1 }}
   {{- $_ := set $ctx "ImageBuildData" $content }}
-  {{- $_ := set $ctx "Images" $Root.Images }}
   {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
   {{- $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
   {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
