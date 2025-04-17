@@ -532,43 +532,12 @@ jobs:
         run: |
           task run -v
 
-      - name: Remove label
-        if: ${{ always() }}
-        id: remove-label
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
-          script: |
-            const issueNumber = context.issue.number;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const labelToRemove = 'e2e/run';
-
-            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
-              owner,
-              repo,
-              issue_number: issueNumber,
-            });
-
-            if (labels.some(label => label.name === labelToRemove)) {
-              await github.rest.issues.removeLabel({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                name: labelToRemove,
-              });
-              console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
-            } else {
-              console.log(`Label '${labelToRemove}' not found on PR #${issueNumber}`);
-            }
-
       - name: Cleanup E2E resources on cancel
         if: always() && steps.e2e-tests.outcome == 'cancelled'
-        timeout-minutes: 3
+        timeout-minutes: 60
         id: e2e-tests-cleanup
         working-directory: ./tests/e2e/
         run: |
-          sleep 300
           task cleanup
 
   update_comment_on_finish:
@@ -593,3 +562,36 @@ jobs:
             const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
 
             await e2eStatus.setStatusAfterE2eRun({github, context, core});
+  
+  remove_label:
+    name: Remove label
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - name: Remove label
+        id: remove-label
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
+          script: |
+            const issueNumber = context.issue.number; const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const labelToRemove = 'e2e/run';
+
+            const { data: labels } = await github.rest.issues.listLabelsOnIssue({
+              owner,
+              repo,
+              issue_number: issueNumber,
+            });
+
+            if (labels.some(label => label.name === labelToRemove)) {
+              await github.rest.issues.removeLabel({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                name: labelToRemove,
+              });
+              console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
+            } else {
+              console.log(`Label '${labelToRemove}' not found on PR #${issueNumber}`);
+            }
