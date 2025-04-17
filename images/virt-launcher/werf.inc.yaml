@@ -436,3 +436,16 @@ shell:
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/temp_pod temp_pod.c
     strip /bins/temp_pod
+---
+image: {{ $.ImageName }}-test
+final: false
+fromImage: base-alt-p11-binaries
+import: 
+  - image: tools/coreutils
+    add: /usr/bin
+    to: /tools/coreutils/usr/bin
+    before: install
+shell:
+  setup:
+  - |
+    ls -lah /tools/coreutils/usr/bin
