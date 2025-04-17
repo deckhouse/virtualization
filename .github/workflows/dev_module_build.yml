@@ -564,10 +564,11 @@ jobs:
 
       - name: Cleanup E2E resources on cancel
         if: always() && steps.e2e-tests.outcome == 'cancelled'
-        timeout-minutes: 60
+        timeout-minutes: 3
         id: e2e-tests-cleanup
         working-directory: ./tests/e2e/
         run: |
+          sleep 300
           task cleanup
 
   update_comment_on_finish:
