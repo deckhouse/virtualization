@@ -1,5 +1,0 @@
-# REGISTRY_PATH is a special key which is concatenated with other base images
-REGISTRY_PATH: "registry.altlinux.org/"
-
-# Virtualization images
-DISTROLESS_ALT_P11: "alt/distroless-base:p11@sha256:0026e22d332e49303b8a39756accb7c782a52e41d85fa903584e253c9b87a9fc"

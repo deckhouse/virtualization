@@ -5,12 +5,16 @@ config:
     - /CI_.+/
     - MODULES_MODULE_TAG
     - SOURCE_REPO
+    - SOURCE_REPO_GIT
     - MODULE_EDITION
   stapel:
     mount:
       allowBuildDir: true
       allowFromPaths:
       - ~/go-pkg-cache
+  secrets:
+    allowValueIds:
+    - SOURCE_REPO
 helm:
   allowUncommittedFiles:
   - "Chart.lock"

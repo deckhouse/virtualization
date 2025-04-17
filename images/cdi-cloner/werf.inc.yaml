@@ -51,7 +51,7 @@ shell:
 ---
 image: {{ $.ImageName }}-gobuild
 final: false
-from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+fromImage: BASE_GOLANG_22_BOOKWORM
 git:
   - add: /images/{{ $.ImageName }}/cloner-startup
     to: /app
