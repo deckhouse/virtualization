@@ -183,9 +183,11 @@ git:
       - hooks/lib/tests
       - hooks/test*
     {{- if eq .MODULE_EDITION "CE" }}
+    {{- if .Values.virtualization.audit.enabled }}
     {{- if (.Values.global.enabledModules | has "log-shipper") }}
     {{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
       - templates/virtualization-audit
+    {{- end }}
     {{- end }}
     {{- end }}
     {{- end }}
