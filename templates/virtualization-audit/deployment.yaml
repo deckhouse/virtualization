@@ -5,6 +5,10 @@ cpu: 10m
 memory: 150Mi
 {{- end }}
 
+{{- if .Values.virtualization.audit.enabled }}
+{{- if (.Values.global.enabledModules | has "log-shipper") }}
+{{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
+
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
 apiVersion: autoscaling.k8s.io/v1
@@ -103,3 +107,6 @@ spec:
             defaultMode: 420
             optional: true
             secretName: virtualization-audit-tls
+{{- end }}
+{{- end }}
+{{- end }}

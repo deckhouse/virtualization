@@ -1,3 +1,6 @@
+{{- if .Values.virtualization.audit.enabled }}
+{{- if (.Values.global.enabledModules | has "log-shipper") }}
+{{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -38,3 +41,6 @@ subjects:
   - kind: ServiceAccount
     name: virtualization-audit
     namespace: d8-{{ .Chart.Name }}
+{{- end }}
+{{- end }}
+{{- end }}
