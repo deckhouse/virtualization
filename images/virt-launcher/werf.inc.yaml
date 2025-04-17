@@ -448,4 +448,5 @@ import:
 shell:
   setup:
   - |
+    echo "=========================="
     ls -lah /tools/coreutils/usr/bin
