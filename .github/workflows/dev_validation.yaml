@@ -32,7 +32,7 @@ defaults:
 jobs:
   paths_filter:
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'validation/skip/helm_templates') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Filter changed paths
     outputs:
       helm_templates: ${{ steps.paths_filter.outputs.helm_templates }}
@@ -53,7 +53,7 @@ jobs:
 
   no_cyrillic:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/no_cyrillic')"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Validation no-cyrillic
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
@@ -77,7 +77,7 @@ jobs:
 
   doc_changes:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/doc_changes')"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Validation doc-changes
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
@@ -101,7 +101,7 @@ jobs:
 
   copyright:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/copyright')"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Validation copyright
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
@@ -127,7 +127,7 @@ jobs:
   helm_templates:
     needs: paths_filter
     if: ${{ needs.paths_filter.outputs.helm_templates == 'true' && !contains(github.event.pull_request.labels.*.name, 'validation/skip/helm_templates') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     name: Validate helm templates with OpenAPI schemas
     steps:
       - name: Install Task
