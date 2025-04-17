@@ -1,5 +1,5 @@
 ---
-{{- $gitRepoName := "qemu" }}
+{{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := cat $.SOURCE_REPO "/qemu/qemu.git" | nospace }}
 

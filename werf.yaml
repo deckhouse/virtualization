@@ -8,109 +8,45 @@ build:
       clearWerfLabels: true
       removeLabels:
         - /.*/
-
-{{ $_ := set . "Images" dict }}
-
-# Deckhouse Images
-{{- $BaseImagesPath := "base-images/deckhouse_image_versions.yml" }}
-{{ $baseImages := (.Files.Get $BaseImagesPath | fromYaml) }}
-
-  {{- range $k, $v := $baseImages }}
-    {{ $baseImagePath := (printf "%s%s" $baseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
-    {{- if ne $k "REGISTRY_PATH" }}
-      {{- $_ := set $.Images $k $baseImagePath }}
-    {{- end }}
-  {{- end }}
-
+---
 # Base Images
-{{- $BaseVirtImagesPath := "base-images/image_versions.yml" }}
-{{ $baseImages := (.Files.Get $BaseVirtImagesPath | fromYaml) }}
-
-  {{- range $k, $v := $baseImages }}
-    {{ $baseVirtImagePath := (printf "%s%s" $baseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
-
-    {{- if ne $k "REGISTRY_PATH" }}
-      {{- $_ := set $.Images $k $baseVirtImagePath }}
-    {{- end }}
-
-  {{- end }}
-
-# Distroless altlinux Images
-{{- $AltDistroVirtImagesPath := "base-images/alt_image_versions.yml" }}
-{{ $baseImages := (.Files.Get $AltDistroVirtImagesPath | fromYaml) }}
-
-  {{- range $k, $v := $baseImages }}
-    {{ $altDistroVirtImagePath := (printf "%s%s" $baseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
-
-    {{- if ne $k "REGISTRY_PATH" }}
-      {{- $_ := set $.Images $k $altDistroVirtImagePath }}
-    {{- end }}
-
-  {{- end }}
+{{- include "parse_base_images_map" . }}
+---
 
 # Source repo settings
 {{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
+
+{{- $_ := set . "SOURCE_REPO_GIT" (env "SOURCE_REPO_GIT" | default "https://github.com") }}
 
 # Edition module settings
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
 
 # Component versions
 {{ $_ := set . "Version" dict }}
-{{- $versions_ctx := (.Files.Get "cv/version_map.yml" | fromYaml) }}
+{{ $_ := set . "Packages" dict }}
+{{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
+
 {{- range $k, $v := $versions_ctx.firmware }}
   {{- $_ := set $.Version $k $v}}
 {{- end }}
 
-# Modules_images
-{{- define "module_image_template" }}
-
-  {{- if eq .ImageInstructionType "Dockerfile" }}
----
-image: images/{{ .ImageName }}
-context: images/{{ .ImageName }}
-dockerfile: Dockerfile
-  {{- else }}
-{{ tpl .ImageBuildData . }}
-  {{- end }}
-
+{{- range $k, $v := $versions_ctx.package }}
+  {{- $_ := set $.Packages $k $v}}
 {{- end }}
 
-{{- $Root := . }}
-{{- $ImagesIDList := list }}
-{{ $ImagesBuildFiles := .Files.Glob "images/*/{Dockerfile,werf.inc.yaml}" }}
 
-{{- range $path, $content := $ImagesBuildFiles }}
-  {{- $ctx := dict }}
-  {{- if regexMatch "/werf.inc.yaml$" $path }}
-    {{- $_ := set $ctx "ImageInstructionType" "Stapel" }}
-  {{- else }}
-    {{- $_ := set $ctx "ImageInstructionType" "Dockerfile" }}
-  {{- end }}
+{{- $_ := set $ "ImagesIDList" list }}
 
-  {{- $ImageData := $path | split "/" }}
+{{- range $path, $content := .Files.Glob ".werf/*.yaml" }}
+  {{- tpl $content $ }}
+{{- end }}
 
-  {{- $_ := set $ctx "ImageName" $ImageData._1 }}
-  {{- $_ := set $ctx "ImageBuildData" $content }}
-  {{- $_ := set $ctx "Images" $Root.Images }}
-  {{- $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
-  {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
-  {{- $_ := set $ctx "Version" $Root.Version }}
 
-  {{- include "module_image_template" $ctx }}
-  {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
-    {{- $ImageManifest := $ImageYamlMainfest | fromYaml }}
-    {{- if $ImageManifest | dig "final" true }}
-      {{- if $ImageManifest.image }}
-        {{- $ImagesIDList = append $ImagesIDList $ImageManifest.image }}
-      {{- end }}
-    {{- end }}
-    {{- end }}
-  {{- end }}
 ---
 image: images-digests
-from: {{ .Images.BASE_ALPINE }}
+fromImage: BASE_ALPINE
 dependencies:
-  {{- range $ImageID := $ImagesIDList }}
+  {{- range $ImageID := $.ImagesIDList }}
   {{- $ImageNameCamel  := $ImageID | splitList "/" | last  | camelcase | untitle }}
 - image: {{ $ImageID }}
   before: setup
@@ -136,7 +72,7 @@ shell:
       cat images_digests.json
 ---
 image: python-dependencies
-from: {{ .Images.BASE_ALT_P11 }}
+fromImage: BASE_ALT_P11
 fromCacheVersion: "2024-11-07.1"
 git:
   - add: /lib/python/requirements.txt
@@ -149,7 +85,7 @@ shell:
     - pip3 install -r /requirements.txt -t /dist
 ---
 image: bundle
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: builder/scratch
 fromCacheVersion: "2024-11-07.1"
 import:
   - image: images-digests
@@ -170,7 +106,7 @@ git:
     includePaths:
       - charts
       - crds
-      - cv
+      - component_versions
       - docs
       - hooks
       - openapi
@@ -179,12 +115,12 @@ git:
       - Chart.yaml
       - .helmignore
     excludePaths:
-      - cv/README.md
+      - component_versions/README.md
       - hooks/lib/tests
       - hooks/test*
 ---
 image: release-channel-version
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: builder/scratch
 shell:
   install:
     - echo  '{"version":"{{ env "MODULES_MODULE_TAG" }}"}' > version.json

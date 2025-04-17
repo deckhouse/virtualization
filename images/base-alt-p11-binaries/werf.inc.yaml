@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: false
-from: {{ $.Images.BASE_ALT_P11 }}
+fromImage: BASE_ALT_P11
 git:
   - add: /images/{{ $.ImageName }}
     to: /

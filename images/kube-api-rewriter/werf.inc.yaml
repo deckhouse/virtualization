@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}-builder
 final: false
-from: {{ .Images.BASE_GOLANG_22_BOOKWORM }}
+fromImage: BASE_GOLANG_22_BOOKWORM
 git:
   - add: /images/{{ $.ImageName }}
     to: /src/kube-api-rewriter
@@ -28,7 +28,7 @@ shell:
 
 ---
 image: {{ $.ImageName }}
-from: {{ .Images.BASE_SCRATCH }}
+fromImage: builder/scratch
 import:
   - image: {{ $.ImageName }}-builder
     add: /src/kube-api-rewriter/kube-api-rewriter

@@ -10,3 +10,4 @@ openapi
 release.yaml
 werf*.yaml
 NOTES.txt
+.git
