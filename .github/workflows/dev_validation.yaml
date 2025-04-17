@@ -32,7 +32,7 @@ defaults:
 jobs:
   paths_filter:
     if: ${{ !contains(github.event.pull_request.labels.*.name, 'validation/skip/helm_templates') }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     name: Filter changed paths
     outputs:
       helm_templates: ${{ steps.paths_filter.outputs.helm_templates }}
@@ -53,7 +53,7 @@ jobs:
 
   no_cyrillic:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/no_cyrillic')"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     name: Validation no-cyrillic
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
@@ -77,7 +77,7 @@ jobs:
 
   doc_changes:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/doc_changes')"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     name: Validation doc-changes
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
@@ -101,7 +101,7 @@ jobs:
 
   copyright:
     if: "!contains(github.event.pull_request.labels.*.name, 'validation/skip/copyright')"
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     name: Validation copyright
     steps:
       - name: Set up Go ${{ env.GO_VERSION }}
@@ -127,6 +127,8 @@ jobs:
   helm_templates:
     needs: paths_filter
     if: ${{ needs.paths_filter.outputs.helm_templates == 'true' && !contains(github.event.pull_request.labels.*.name, 'validation/skip/helm_templates') }}
+    # 22.04 image contains Helm v3.17.2, it is not affected by MaxDecompressedFileSize limit.
+    # TODO change back to latest after Helm people fix this issue: https://github.com/helm/helm/issues/30738
     runs-on: ubuntu-22.04
     name: Validate helm templates with OpenAPI schemas
     steps:
