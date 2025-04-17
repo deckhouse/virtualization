@@ -31,8 +31,8 @@ shell:
 {{- if eq .MODULE_EDITION "EE" }}
 {{- if (.Values.global.enabledModules | has "log-shipper") }}
 {{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
-  - go build -ldflags="-s -w" -o /hooks/005-tls-certificates-audit ./cmd/006-tls-certificates-audit
+  - go build -ldflags="-s -w" -o /hooks/005-tls-certificates-audit ./cmd/005-tls-certificates-audit
 {{- end }}
 {{- end }}
 {{- end }}
-  - go build -ldflags="-s -w" -o /hooks/006-prevent-default-vmclasses-deletion ./cmd/005-prevent-default-vmclasses-deletion
+  - go build -ldflags="-s -w" -o /hooks/006-prevent-default-vmclasses-deletion ./cmd/006-prevent-default-vmclasses-deletion
