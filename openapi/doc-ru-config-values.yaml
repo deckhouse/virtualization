@@ -132,6 +132,16 @@ properties:
             type: array
             items:
               type: string
+  audit:
+    type: object
+    description: |
+      Настройки для контроллера аудита.
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: |
+          Включение контроллера аудита.
   logLevel:
     type: string
     description: |

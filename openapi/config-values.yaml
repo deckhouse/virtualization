@@ -179,6 +179,16 @@ properties:
             properties:
               type:
                 enum: ["ObjectStorage"]
+  audit:
+    type: object
+    description: |
+      Parameters for audit controller.
+    properties:
+      enabled:
+        type: boolean
+        default: false
+        description: |
+          Enable audit controlller.
   virtualImages:
     type: object
     description: |
