@@ -24,6 +24,7 @@ env:
   MODULES_REGISTRY_PASSWORD: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
+  SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
 
 on:
   workflow_dispatch:
@@ -58,7 +59,7 @@ on:
 
 jobs:
   print-vars:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, large]
     name: Print vars
     steps:
       - name: PRINT VARS
@@ -73,7 +74,7 @@ jobs:
 
   job-CE:
     name: Edition CE
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, large]
     if: github.event.inputs.ce == 'true'
     steps:
       - run: echo "CE"
@@ -87,10 +88,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Remove unwanted software
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
@@ -122,7 +119,7 @@ jobs:
 
   job-EE:
     name: Edition EE
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, large]
     if: github.event.inputs.ee == 'true'
     steps:
       - run: echo "EE"
@@ -136,10 +133,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Remove unwanted software
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: ./.github/actions/remove-unwanted-software
 
       - uses: deckhouse/modules-actions/setup@v2
         with:
@@ -178,7 +171,7 @@ jobs:
   job-SE-Plus:
     name: Edition SE Plus
     needs: job-EE
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, large]
     steps:
       - run: echo "SE Plus"
       - name: SET VAR
@@ -191,10 +184,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Remove unwanted software
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
@@ -227,7 +216,7 @@ jobs:
   job-FE:
     name: Edition FE
     needs: job-EE
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, large]
     steps:
       - run: echo "FE"
       - name: SET VAR
@@ -244,10 +233,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Remove unwanted software
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
