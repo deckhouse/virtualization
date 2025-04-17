@@ -63,7 +63,6 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 		Expect(err).ToNot(HaveOccurred())
 
 		oneShotMigration := NewOneShotMigrationService(fakeClient, prefix)
-		oneShotMigration.SetLogger(testutil.NewNoOpSlogLogger())
 
 		migrateCount := 0
 
@@ -72,7 +71,7 @@ var _ = Describe("TestOnceShotMigrationService", func() {
 			err := fakeClient.Get(context.Background(), client.ObjectKey{Namespace: vmNamespace, Name: vmName}, vm)
 			Expect(err).ToNot(HaveOccurred())
 
-			migrate, err := oneShotMigration.OnceMigrate(context.Background(), vm, "key", "value")
+			migrate, err := oneShotMigration.OnceMigrate(testutil.ContextBackgroundWithNoOpLogger(), vm, "key", "value")
 			Expect(err).ToNot(HaveOccurred())
 			if migrate {
 				migrateCount++

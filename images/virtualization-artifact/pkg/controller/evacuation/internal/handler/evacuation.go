@@ -18,8 +18,8 @@ package handler
 
 import (
 	"context"
+	"time"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -28,8 +28,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation/internal/taint"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -46,37 +44,34 @@ type EvacuationHandler struct {
 	client client.Client
 }
 
-func (h *EvacuationHandler) Handle(ctx context.Context, node *corev1.Node) (reconcile.Result, error) {
-	if node == nil {
+func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachine) (reconcile.Result, error) {
+	if vm == nil {
 		return reconcile.Result{}, nil
 	}
 
-	vms, err := h.listVirtualMachineByNode(ctx, node.GetName())
+	if !isVMNeedEvict(vm) {
+		return reconcile.Result{}, nil
+	}
+
+	// Need retry and starting evacuation if migration failed
+	if isVMMigrating(vm) {
+		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+
+	evacuationVMOPs, err := h.getVMOPSByVM(ctx, vm)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	vmsToMigrate := filterVirtualMachinesToMigrate(node, vms)
-	if len(vmsToMigrate) == 0 {
-		return reconcile.Result{}, nil
+	// Need retry and starting evacuation if migration failed
+	if len(evacuationVMOPs) > 0 {
+		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	evacuationVMOPs, err := h.getVMOPSByVM(ctx)
-	if err != nil {
+	vmop := newEvacuationVMOP(vm.GetName(), vm.GetNamespace())
+	if err = h.client.Create(ctx, vmop); err != nil {
 		return reconcile.Result{}, err
 	}
-
-	for _, vm := range vmsToMigrate {
-		if isVMMigrating(vm) || h.vmopInProgressOrPendingOrTerminatingExists(client.ObjectKeyFromObject(vm), evacuationVMOPs) {
-			continue
-		}
-
-		vmop := newEvacuationVMOP(vm.GetName(), vm.GetNamespace())
-		if err = h.client.Create(ctx, vmop); err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
 	return reconcile.Result{}, nil
 }
 
@@ -84,47 +79,28 @@ func (h *EvacuationHandler) Name() string {
 	return nameDrainHandler
 }
 
-func (h *EvacuationHandler) vmopInProgressOrPendingOrTerminatingExists(vmKey client.ObjectKey, evacuationVMOPs map[client.ObjectKey][]*v1alpha2.VirtualMachineOperation) bool {
-	for _, vmop := range evacuationVMOPs[vmKey] {
-		if commonvmop.IsInProgressOrPending(vmop) || vmop.Status.Phase == v1alpha2.VMOPPhaseTerminating {
-			return true
-		}
-	}
-	return false
-}
-
-func (h *EvacuationHandler) listVirtualMachineByNode(ctx context.Context, nodeName string) ([]*v1alpha2.VirtualMachine, error) {
-	vms := &v1alpha2.VirtualMachineList{}
-	err := h.client.List(ctx, vms, client.MatchingFields{
-		indexer.IndexFieldVMByNode: nodeName,
-	})
-	if err != nil {
-		return nil, err
-	}
-	result := make([]*v1alpha2.VirtualMachine, len(vms.Items))
-	for i := range vms.Items {
-		result[i] = &vms.Items[i]
-	}
-	return result, nil
-}
-
-func (h *EvacuationHandler) getVMOPSByVM(ctx context.Context) (map[client.ObjectKey][]*v1alpha2.VirtualMachineOperation, error) {
+func (h *EvacuationHandler) getVMOPSByVM(ctx context.Context, vm *v1alpha2.VirtualMachine) ([]*v1alpha2.VirtualMachineOperation, error) {
 	vmops := v1alpha2.VirtualMachineOperationList{}
-	err := h.client.List(ctx, &vmops)
+	err := h.client.List(ctx, &vmops, client.InNamespace(vm.GetNamespace()))
 	if err != nil {
 		return nil, err
 	}
 
-	evacuationVMOPs := make(map[client.ObjectKey][]*v1alpha2.VirtualMachineOperation)
+	var evacuationVMOPs []*v1alpha2.VirtualMachineOperation
 
-	for i := range vmops.Items {
-		vmop := &vmops.Items[i]
+	for _, vmop := range vmops.Items {
+		if vmop.Spec.VirtualMachine != vm.GetName() {
+			continue
+		}
 		if !(vmop.Spec.Type == v1alpha2.VMOPTypeEvict || vmop.Spec.Type == v1alpha2.VMOPTypeMigrate) {
 			continue
 		}
-		key := client.ObjectKey{Name: vmop.Spec.VirtualMachine, Namespace: vmop.Namespace}
-		evacuationVMOPs[key] = append(evacuationVMOPs[key], vmop)
+		if commonvmop.IsFinished(&vmop) {
+			continue
+		}
+		evacuationVMOPs = append(evacuationVMOPs, &vmop)
 	}
+
 	return evacuationVMOPs, nil
 }
 
@@ -136,27 +112,6 @@ func newEvacuationVMOP(vmName, namespace string) *v1alpha2.VirtualMachineOperati
 		vmopbuilder.WithType(v1alpha2.VMOPTypeEvict),
 		vmopbuilder.WithVirtualMachine(vmName),
 	)
-}
-
-func filterVirtualMachinesToMigrate(node *corev1.Node, vms []*v1alpha2.VirtualMachine) []*v1alpha2.VirtualMachine {
-	if taint.IsTaintedToDrain(node) {
-		return vms
-	}
-	if evictVms := filterVirtualMachinesWithNeedsEvict(vms); len(evictVms) > 0 {
-		return evictVms
-	}
-
-	return nil
-}
-
-func filterVirtualMachinesWithNeedsEvict(vms []*v1alpha2.VirtualMachine) []*v1alpha2.VirtualMachine {
-	var needEvict []*v1alpha2.VirtualMachine
-	for i := range vms {
-		if isVMNeedEvict(vms[i]) {
-			needEvict = append(needEvict, vms[i])
-		}
-	}
-	return needEvict
 }
 
 func isVMNeedEvict(vm *v1alpha2.VirtualMachine) bool {

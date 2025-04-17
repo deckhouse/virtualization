@@ -21,10 +21,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func TestEvacuationHandlers(t *testing.T) {
@@ -32,10 +32,10 @@ func TestEvacuationHandlers(t *testing.T) {
 	RunSpecs(t, "Evacuation Handlers Suite")
 }
 
-func setupEnvironment(node *corev1.Node, objs ...client.Object) client.WithWatch {
+func setupEnvironment(vm *v1alpha2.VirtualMachine, objs ...client.Object) client.WithWatch {
 	GinkgoHelper()
-	Expect(node).ToNot(BeNil())
-	allObjects := []client.Object{node}
+	Expect(vm).ToNot(BeNil())
+	allObjects := []client.Object{vm}
 	allObjects = append(allObjects, objs...)
 
 	fakeClient, err := testutil.NewFakeClientWithObjects(allObjects...)

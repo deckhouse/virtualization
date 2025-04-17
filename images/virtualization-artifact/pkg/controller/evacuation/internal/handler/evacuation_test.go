@@ -22,7 +22,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -49,30 +48,6 @@ var _ = Describe("TestEvacuationHandler", func() {
 		fakeClient = nil
 	})
 
-	newNode := func(drained bool) *corev1.Node {
-		node := &corev1.Node{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "v1",
-				Kind:       "Node",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: nodeName,
-			},
-		}
-		if drained {
-			node.Spec = corev1.NodeSpec{
-				Taints: []corev1.Taint{
-					{
-						Key:    "kubevirt.io/drain",
-						Effect: corev1.TaintEffectNoSchedule,
-					},
-				},
-				Unschedulable: true,
-			}
-		}
-		return node
-	}
-
 	newVM := func(needEvict bool) *v1alpha2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(vmName, vmNamespace)
 		vm.Status.Node = nodeName
@@ -92,15 +67,11 @@ var _ = Describe("TestEvacuationHandler", func() {
 	}
 
 	DescribeTable("Trigger Evacuate vm",
-		func(node *corev1.Node, vm *v1alpha2.VirtualMachine, vmop *v1alpha2.VirtualMachineOperation, shouldEvict bool) {
-			fakeClient = setupEnvironment(node, vm, vmop)
-
-			newNode := &corev1.Node{}
-			err := fakeClient.Get(ctx, client.ObjectKey{Name: nodeName}, newNode)
-			Expect(err).NotTo(HaveOccurred())
+		func(vm *v1alpha2.VirtualMachine, vmop *v1alpha2.VirtualMachineOperation, shouldEvict bool) {
+			fakeClient = setupEnvironment(vm, vmop)
 
 			h := NewEvacuationHandler(fakeClient)
-			_, err = h.Handle(ctx, newNode)
+			_, err := h.Handle(ctx, vm)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmops := v1alpha2.VirtualMachineOperationList{}
@@ -127,11 +98,9 @@ var _ = Describe("TestEvacuationHandler", func() {
 				Expect(len(vmops.Items)).To(Equal(vmopCount))
 			}
 		},
-		Entry("Should create vmop because Node drained", newNode(true), newVM(false), nil, true),
-		Entry("Should create vmop because VM evicted", newNode(false), newVM(true), nil, true),
-		Entry("Should do nothing", newNode(false), newVM(false), nil, false),
-		Entry("Should do nothing because VM already migrating", newNode(true), newVM(true), newVMOP(v1alpha2.VMOPPhaseInProgress), false),
-		Entry("Should create vmop because Node drained but old vmop finished", newNode(true), newVM(false), newVMOP(v1alpha2.VMOPPhaseFailed), true),
-		Entry("Should create vmop because VM evicted but old vmop finished", newNode(true), newVM(false), newVMOP(v1alpha2.VMOPPhaseCompleted), true),
+		Entry("Should create vmop because VM evicted", newVM(true), nil, true),
+		Entry("Should do nothing", newVM(false), nil, false),
+		Entry("Should do nothing because VM already migrating", newVM(true), newVMOP(v1alpha2.VMOPPhaseInProgress), false),
+		Entry("Should create vmop because VM evicted but old vmop finished", newVM(true), newVMOP(v1alpha2.VMOPPhaseCompleted), true),
 	)
 })

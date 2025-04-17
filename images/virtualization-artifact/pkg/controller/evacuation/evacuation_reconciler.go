@@ -19,7 +19,6 @@ package evacuation
 import (
 	"context"
 
-	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -28,10 +27,11 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, node *corev1.Node) (reconcile.Result, error)
+	Handle(ctx context.Context, node *v1alpha2.VirtualMachine) (reconcile.Result, error)
 	Name() string
 }
 
@@ -53,7 +53,6 @@ type Reconciler struct {
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	for _, w := range []Watcher{
-		watcher.NewNodeWatcher(),
 		watcher.NewVMWatcher(),
 	} {
 		if err := w.Watch(mgr, ctr); err != nil {
@@ -66,21 +65,21 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
 
-	node := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
+	vm := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
-	err := node.Fetch(ctx)
+	err := vm.Fetch(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if node.IsEmpty() {
-		log.Info("Reconcile observe an absent VirtualMachineInstance: it may be deleted")
+	if vm.IsEmpty() {
+		log.Info("Reconcile observe an absent VirtualMachine: it may be deleted")
 		return reconcile.Result{}, nil
 	}
 
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
-		return h.Handle(ctx, node.Current())
+		return h.Handle(ctx, vm.Current())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		// Do nothing
@@ -90,10 +89,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return rec.Reconcile(ctx)
 }
 
-func (r *Reconciler) factory() *corev1.Node {
-	return &corev1.Node{}
+func (r *Reconciler) factory() *v1alpha2.VirtualMachine {
+	return &v1alpha2.VirtualMachine{}
 }
 
-func (r *Reconciler) statusGetter(obj *corev1.Node) corev1.NodeStatus {
+func (r *Reconciler) statusGetter(obj *v1alpha2.VirtualMachine) v1alpha2.VirtualMachineStatus {
 	return obj.Status
 }

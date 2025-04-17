@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -35,20 +36,12 @@ func NewOneShotMigrationService(client client.Client, prefix string) *OneShotMig
 	return &OneShotMigrationService{
 		client: client,
 		prefix: prefix,
-
-		log: slog.Default(),
 	}
 }
 
 type OneShotMigrationService struct {
 	client client.Client
 	prefix string
-
-	log *slog.Logger
-}
-
-func (s *OneShotMigrationService) SetLogger(log *slog.Logger) {
-	s.log = log
 }
 
 func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
@@ -59,8 +52,10 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 
 	desiredValue := kvvmi.GetAnnotations()[annotationKey]
 
+	log := logger.FromContext(ctx)
+
 	if desiredValue == annotationExpectedValue {
-		s.log.Debug("Migration already attempted for this trigger. Skipping...",
+		log.Debug("Migration already attempted for this trigger. Skipping...",
 			slog.String("annotationKey", annotationKey),
 			slog.String("annotationValue", annotationExpectedValue))
 		return false, nil
@@ -72,14 +67,14 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 	}
 
 	if commonvmop.InProgressOrPendingExists(unmanagedVMOPs) {
-		s.log.Debug("The virtual machine has already been migrated. Skipping...")
+		log.Debug("The virtual machine has already been migrated. Skipping...")
 		return false, nil
 	}
 
 	if len(workloadUpdateVMOPs) > 0 {
-		s.log.Debug("The virtual machine has already been migrated by the workload updater. Skipping...")
+		log.Debug("The virtual machine has already been migrated by the workload updater. Skipping...")
 	} else {
-		s.log.Info("Create VMOP")
+		log.Info("Create VMOP")
 		vmop := newVMOP(s.prefix, vm.GetNamespace(), vm.GetName())
 		if err = s.client.Create(ctx, vmop); err != nil {
 			return false, err
