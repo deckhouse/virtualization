@@ -127,7 +127,9 @@ jobs:
   helm_templates:
     needs: paths_filter
     if: ${{ needs.paths_filter.outputs.helm_templates == 'true' && !contains(github.event.pull_request.labels.*.name, 'validation/skip/helm_templates') }}
-    runs-on: ubuntu-latest
+    # 22.04 image contains Helm v3.17.2, it is not affected by MaxDecompressedFileSize limit.
+    # TODO change back to latest after Helm people fix this issue: https://github.com/helm/helm/issues/30738
+    runs-on: ubuntu-22.04
     name: Validate helm templates with OpenAPI schemas
     steps:
       - name: Install Task
