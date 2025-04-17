@@ -89,10 +89,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Remove unwanted software
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: ./.github/actions/remove-unwanted-software
-
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
         with:
@@ -137,10 +133,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Remove unwanted software
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: ./.github/actions/remove-unwanted-software
 
       - uses: deckhouse/modules-actions/setup@v2
         with:
@@ -193,10 +185,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Remove unwanted software
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: ./.github/actions/remove-unwanted-software
-
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
         with:
@@ -245,10 +233,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Remove unwanted software
-        if: ${{ github.event.inputs.enableBuild == 'true' }}
-        uses: ./.github/actions/remove-unwanted-software
 
       - name: Login to PROD_REGISTRY
         uses: deckhouse/modules-actions/setup@v2
