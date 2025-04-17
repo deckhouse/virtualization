@@ -562,11 +562,17 @@ jobs:
             const e2eStatus = require('./.github/scripts/js/e2e-commit-status');
 
             await e2eStatus.setStatusAfterE2eRun({github, context, core});
-  
+
   remove_label:
     name: Remove label
     runs-on: ubuntu-latest
+    # run the job at the end
     if: ${{ always() }}
+    needs:
+      - dev_setup_build
+      - set_e2e_requirement_status
+      - set_vars
+      - run_e2e
     steps:
       - name: Remove label
         id: remove-label
