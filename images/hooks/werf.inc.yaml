@@ -28,11 +28,11 @@ shell:
   - go build -ldflags="-s -w" -o /hooks/002-tls-certificates-dvcr ./cmd/002-tls-certificates-dvcr
   - go build -ldflags="-s -w" -o /hooks/003-tls-certificates-api ./cmd/003-tls-certificates-api
   - go build -ldflags="-s -w" -o /hooks/004-tls-certificates-api-proxy ./cmd/004-tls-certificates-api-proxy
-  - go build -ldflags="-s -w" -o /hooks/005-prevent-default-vmclasses-deletion ./cmd/005-prevent-default-vmclasses-deletion
 {{- if eq .MODULE_EDITION "EE" }}
 {{- if (.Values.global.enabledModules | has "log-shipper") }}
 {{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
-  - go build -ldflags="-s -w" -o /hooks/006-tls-certificates-audit ./cmd/006-tls-certificates-audit
+  - go build -ldflags="-s -w" -o /hooks/005-tls-certificates-audit ./cmd/006-tls-certificates-audit
 {{- end }}
 {{- end }}
 {{- end }}
+  - go build -ldflags="-s -w" -o /hooks/006-prevent-default-vmclasses-deletion ./cmd/005-prevent-default-vmclasses-deletion
