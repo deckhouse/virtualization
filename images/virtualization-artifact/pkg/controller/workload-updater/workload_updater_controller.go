@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -38,12 +39,14 @@ func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *log.Logger,
-	firmwareImage string,
+	firmwareImage,
+	namespace,
+	virtControllerName string,
 ) error {
 	client := mgr.GetClient()
 
 	handlers := []Handler{
-		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, "firmware-update-"), firmwareImage),
+		handler.NewFirmwareHandler(client, service.NewOneShotMigrationService(client, "firmware-update-"), firmwareImage, namespace, virtControllerName),
 		handler.NewNodePlacementHandler(client, service.NewOneShotMigrationService(client, "nodeplacement-update-")),
 	}
 	r := NewReconciler(client, handlers)

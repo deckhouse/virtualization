@@ -38,6 +38,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
@@ -75,7 +76,8 @@ const (
 	virtualMachineCIDRsEnv                     = "VIRTUAL_MACHINE_CIDRS"
 	virtualMachineIPLeasesRetentionDurationEnv = "VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION"
 
-	FirmwareImageEnv = "FIRMWARE_IMAGE"
+	FirmwareImageEnv      = "FIRMWARE_IMAGE"
+	VirtControllerNameEnv = "VIRT_CONTROLLER_NAME"
 )
 
 func main() {
@@ -116,6 +118,9 @@ func main() {
 	var firmwareImage string
 	flag.StringVar(&firmwareImage, "firmware-image", os.Getenv(FirmwareImageEnv), "Firmware image")
 
+	var virtControllerName string
+	flag.StringVar(&virtControllerName, "virt-controller-name", getEnv(VirtControllerNameEnv, "virt-controller"), "Virt controller name")
+
 	flag.Parse()
 
 	log := logger.NewLogger(logLevel, logOutput, logDebugVerbosity)
@@ -125,6 +130,11 @@ func main() {
 
 	if firmwareImage == "" {
 		log.Error("firmware image is required")
+		os.Exit(1)
+	}
+
+	if virtControllerName == "" {
+		log.Error("virt-controller name is required")
 		os.Exit(1)
 	}
 
@@ -338,7 +348,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = workloadupdater.SetupController(ctx, mgr, log, firmwareImage); err != nil {
+	if err = workloadupdater.SetupController(ctx, mgr, log, firmwareImage, controllerNamespace, virtControllerName); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
