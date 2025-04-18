@@ -1,0 +1,83 @@
+{{- if .Values.virtualization.audit.enabled }}
+{{- if (.Values.global.enabledModules | has "log-shipper") }}
+{{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLoggingConfig
+metadata:
+  name: virtualization-audit-apigroups
+spec:
+  destinationRefs:
+  - to-virtualization-audit
+  file:
+    include:
+      - /var/log/kube-audit/audit.log
+  logFilter:
+    - field: objectRef.apiGroup
+      operator: In
+      values:
+        - virtualization.deckhouse.io
+        - internal.virtualization.deckhouse.io
+        - subresources.virtualization.deckhouse.io
+  type: File
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLoggingConfig
+metadata:
+  name: virtualization-audit-resources
+spec:
+  destinationRefs:
+  - to-virtualization-audit
+  file:
+    include:
+      - /var/log/kube-audit/audit.log
+  logFilter:
+    - field: objectRef.resource
+      operator: In
+      values:
+        - pods
+        - moduleconfigs
+  type: File
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLoggingConfig
+metadata:
+  name: virtualization-audit-namespaces
+spec:
+  destinationRefs:
+  - to-virtualization-audit
+  file:
+    include:
+      - /var/log/kube-audit/audit.log
+  logFilter:
+    - field: objectRef.namespace
+      operator: In
+      values:
+        - d8-virtualization
+  type: File
+---
+apiVersion: deckhouse.io/v1alpha1
+kind: ClusterLogDestination
+metadata:
+  name: to-virtualization-audit
+spec:
+  buffer:
+    memory:
+      maxEvents: 4096
+    type: Memory
+    whenFull: Block
+  socket:
+    address: virtualization-audit.d8-virtualization.svc.cluster.local:443
+    mode: TCP
+    encoding:
+      codec: JSON
+    tcp:
+      tls:
+        caFile: {{ .Values.virtualization.internal.audit.cert.ca | b64enc }}
+        clientCrt:
+          crtFile: {{ .Values.virtualization.internal.audit.cert.crt | b64enc }}
+          keyFile: {{ .Values.virtualization.internal.audit.cert.key | b64enc }}
+  type: Socket
+{{- end }}
+{{- end }}
+{{- end }}
