@@ -53,6 +53,14 @@ const (
 	IndexFieldVMIPByAddress = "spec.staticIP|status.address"
 
 	IndexFieldVMBDAByVM = "spec.virtualMachineName"
+
+	IndexFieldVDByCVIDataSourceNotReady  = "vd,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage,.Phase!=Ready"
+	IndexFieldVIByCVIDataSourceNotReady  = "vi,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage,.Phase!=Ready"
+	IndexFieldCVIByCVIDataSourceNotReady = "cvi,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage,.Phase!=Ready"
+
+	IndexFieldVDByVIDataSourceNotReady  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage,.Phase!=Ready"
+	IndexFieldVIByVIDataSourceNotReady  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage,.Phase!=Ready"
+	IndexFieldCVIByVIDataSourceNotReady = "cvi,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage,.Phase!=Ready"
 )
 
 type indexFunc func(ctx context.Context, mgr manager.Manager) error
@@ -75,6 +83,12 @@ func IndexALL(ctx context.Context, mgr manager.Manager) error {
 		IndexCVIByVDSnapshot,
 		IndexVMIPByAddress,
 		IndexVMBDAByVM,
+		IndexVDByCVIDataSource,
+		IndexVIByCVIDataSource,
+		IndexCVIByCVIDataSource,
+		IndexVDByVIDataSource,
+		IndexVIByVIDataSource,
+		IndexCVIByVIDataSource,
 	} {
 		if err := fn(ctx, mgr); err != nil {
 			return err

@@ -26,6 +26,48 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+func IndexCVIByCVIDataSource(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.ClusterVirtualImage{}, IndexFieldCVIByCVIDataSourceNotReady, IndexCVIByCVIDataSourceIndexerFunc)
+}
+
+func IndexCVIByCVIDataSourceIndexerFunc(object client.Object) []string {
+	cvi, ok := object.(*virtv2.ClusterVirtualImage)
+	if !ok || cvi == nil {
+		return nil
+	}
+
+	if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || cvi.Status.Phase == virtv2.ImageReady {
+		return nil
+	}
+
+	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageKind {
+		return nil
+	}
+
+	return []string{cvi.Spec.DataSource.ObjectRef.Name}
+}
+
+func IndexCVIByVIDataSource(ctx context.Context, mgr manager.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVIDataSourceNotReady, IndexCVIByVIDataSourceIndexerFunc)
+}
+
+func IndexCVIByVIDataSourceIndexerFunc(object client.Object) []string {
+	cvi, ok := object.(*virtv2.ClusterVirtualImage)
+	if !ok || cvi == nil {
+		return nil
+	}
+
+	if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || cvi.Status.Phase == virtv2.ImageReady {
+		return nil
+	}
+
+	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageKind {
+		return nil
+	}
+
+	return []string{cvi.Spec.DataSource.ObjectRef.Name}
+}
+
 func IndexCVIByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
 	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVDSnapshot, func(object client.Object) []string {
 		cvi, ok := object.(*virtv2.ClusterVirtualImage)
