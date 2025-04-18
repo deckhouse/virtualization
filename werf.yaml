@@ -113,6 +113,7 @@ git:
       - monitoring
       - templates
       - Chart.yaml
+      - module.yaml
       - .helmignore
     excludePaths:
       - component_versions/README.md
