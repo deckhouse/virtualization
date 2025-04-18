@@ -250,6 +250,7 @@ spec:
 
 # Additional environment variables for virt-controller.
 {{ define "virt-controller-additional-envs" }}
+env:
 # Firmware component versions.
 - name: QEMU_VERSION
   value: {{$.Version.qemu}}
@@ -262,18 +263,19 @@ spec:
     - resourceType: Deployment
       resourceName: virt-controller
       type: strategic
-      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-controller","env":{{ include "virt-controller-additional-envs" . | fromYaml | toJson }} } ]}}}}'
+      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-controller","env":{{ include "virt-controller-additional-envs" . | fromYaml | .env | toJson }} } ]}}}}'
 
 # Additional environment variables for virt-handler.
 {{ define "virt-handler-additional-envs" }}
+env:
 # Enable external migration configuration.
 - name: ENABLE_EXTERNAL_MIGRATION_CONFIGURATION
   value: "yes"
 {{ end }}
     - resourceType: Deployment
-      resourceName: virt-controller
+      resourceName: virt-handler
       type: strategic
-      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-handler","env":{{ include "virt-handler-additional-envs" . | fromYaml | toJson }} } ]}}}}'
+      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-handler","env":{{ include "virt-handler-additional-envs" . | fromYaml | .env | toJson }} } ]}}}}'
 
   imagePullPolicy: IfNotPresent
   imagePullSecrets:

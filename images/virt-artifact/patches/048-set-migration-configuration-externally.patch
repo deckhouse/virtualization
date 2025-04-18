@@ -1,5 +1,5 @@
 diff --git a/pkg/virt-controller/watch/migration.go b/pkg/virt-controller/watch/migration.go
-index 4cec8371df..fc7d184a8a 100644
+index 4cec8371df..8fdd43ae43 100644
 --- a/pkg/virt-controller/watch/migration.go
 +++ b/pkg/virt-controller/watch/migration.go
 @@ -23,6 +23,7 @@ import (
@@ -15,7 +15,7 @@ index 4cec8371df..fc7d184a8a 100644
  		}
  	case virtv1.MigrationScheduled:
 +		// If external migration configuration is enabled, switch to MigrationPreparingTarget on MigrationConfiguration presence.
-+		isExternalMigrationConfiguration := os.Getenv("ENABLE_EXTERNAL_MIGRATION_CONFIGURATION") != "yes"
++		isExternalMigrationConfiguration := os.Getenv("ENABLE_EXTERNAL_MIGRATION_CONFIGURATION") == "yes"
 +		migrationConfigurationPresence := vmi.Status.MigrationState != nil &&
 +			vmi.Status.MigrationState.MigrationConfiguration != nil
  		if vmi.Status.MigrationState != nil &&
