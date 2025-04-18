@@ -143,8 +143,7 @@ jobs:
       
       - uses: azure/setup-helm@v4.3.0
         with:
-          version: v3.17.2 # default is latest (stable)
-          # version: v3.13.3 # default is latest (stable)
+          version: v3.17.2
         id: install
 
       - uses: actions/checkout@v4
