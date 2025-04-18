@@ -103,9 +103,9 @@ libs:
   - libbsd-devel
   - libsystemd-devel
   - libjson-c-devel
+  - libjson-glib
   - systemtap-sdt-devel
   - libacl-devel
-  - libtpms-devel libtpms
   - glib2-devel
   - libgio-devel
   - libxml2-devel
@@ -113,7 +113,6 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
-  - libswtpm-devel
 packages:
   - acl
   - attr
@@ -239,8 +238,8 @@ import:
   - vlctl
 - image: packages/binaries/swtpm
   add: /swtpm
-  to: /relocate
-  after: setup
+  to: /VBINS
+  before: install
 - image: {{ $.ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin
@@ -252,12 +251,24 @@ shell:
   - |
     apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
+    # libtpms libtpms-devel requares version 0.10 that in sisyphus repo
+    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF 
+    rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic
+    rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic
+    EOF
+    apt-get update
+    apt-get install -y libtpms-devel
+    rm -f /etc/apt/sources.list.d/alt-sisyphus.list
+
+    apt-get update
     apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
   - |
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
     mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
+    mkdir -p /VBINS/usr/{lib64/swtpm,share/swtpm}
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
@@ -271,7 +282,7 @@ shell:
     
     LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
     LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
-    LIBS+=" /usr/lib64/libtpms.so*"
+    LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
     LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s*"
 
     echo "Relocate additional libs for files in /VBINS"
