@@ -223,6 +223,41 @@ properties:
             items:
               type: string
             x-examples: ["sc-1", "sc-2"]
+  liveMigration:
+    type: object
+    description: |
+      Live migration settings.
+    properties:
+      bandwidthPerNode:
+        type: string
+        pattern: "^[1-9][0-9]+([kMGTP]i)?$"
+        description: |
+          Maximum aggregated network bandwidth for migrations from one Node.
+      maxMigrationsPerNode:
+        type: integer
+        description: |
+          Maximum number of simultaneous migrations from one Node.
+      network:
+        type: string
+        description: |
+          Network type for migrations:
+          - Shared - use the same network with virtual machines.
+          - Dedicated - use a separated network for migrations. Specify interface in dedicated section.
+        enum:
+          - "Shared"
+          - "Dedicated"
+      dedicated:
+        type: object
+        description: |
+          Settings for the dedicated network.
+        properties:
+          interfaceName:
+            type: string
+            x-examples:
+              - "eth0"
+              - "veth2"
+            description: |
+              Interface name for the dedicated network.
   logLevel:
     type: string
     description: |

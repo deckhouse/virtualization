@@ -201,8 +201,14 @@ Thus, packets are delivered as expected: initially only to the source pod during
 
 #### `034-allow-update-kvvmi-for-virtualization-sas.patch`
 
-By default, the KVVMI spec can update only KubeVirt service accounts. This patch adds our virtualization accounts to the allowed list.
-(`virtualization-controller`, `virtualization-api`)
+##### Problem
+
+virt-controller mutating webhook silently reverts all changes to the KVVMI status field by
+unknown ServiceAccounts.
+
+##### Solution
+
+This patch adds virtualization module accounts to the allowed list: `virtualization-controller` and `virtualization-api`, so virtualization-controller can update KVVMI status field.
 
 #### `035-allow-change-serial-on-kvvmi.patch`
 
@@ -316,3 +322,15 @@ Also fixed vmi_test.go, replace `Equal("/bin/bash -c echo bound PVCs")` to `Equa
 #### `047-node-labeller-replace-sysctl-command-with-readfile.patch`
 
 This patch modifies function `isNodeRealtimeCapable` in `node_labeller.go`, replacing linux util `sysctl` to `os.ReadFile("/proc/sys/kernel/sched_rt_runtime_us")`
+
+#### `048-set-migration-configuration-externally.patch`
+
+##### Problem
+
+AllowAutoConverge is a global configuration option or should be changed in cluster scope resource. We want this flag be configurable in runtime, e.g. in VMOP resource.
+
+##### Solution
+
+This patch disables setting migration configuration from MigrationPolicies resources,
+and forces source virt-handler to wait for migrationConfiguration in KVVMI status before
+starting migration.

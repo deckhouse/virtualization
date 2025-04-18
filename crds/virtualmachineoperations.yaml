@@ -67,10 +67,11 @@ spec:
             spec:
               properties:
                 force:
-                  description:
-                    Force execution of an operation. Applies only to the
-                    `Restart` and `Stop` operations. In this case, the operation on
-                    a virtual machine is performed immediately.
+                  description: |-
+                    Force execution of an operation.
+
+                    * Effect on `Restart` and `Stop`: operation performs immediately.
+                    * Effect on `Evict`: enable AutoConverge feature to force migration via CPU throttling.
                   type: boolean
                 type:
                   description: |-
