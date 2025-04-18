@@ -82,6 +82,9 @@ const (
 	// ReasonVDResizingNotAvailable is event reason that VD Resizing is not available.
 	ReasonVDResizingNotAvailable = "VirtualDiskResizingNotAvailable"
 
+	// ReasonVIStorageClassNotFound is event reason that VIStorageClass not found.
+	ReasonVIStorageClassNotFound = "VirtualImageStorageClassNotFound"
+
 	// ReasonDataSourceSyncStarted is event reason that DataSource sync is started.
 	ReasonDataSourceSyncStarted = "DataSourceImportStarted"
 	// ReasonDataSourceSyncInProgress is event reason that DataSource sync is in progress.
