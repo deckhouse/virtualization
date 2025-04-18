@@ -22,8 +22,10 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -43,23 +45,20 @@ import (
 )
 
 type ObjectRefVirtualImagePVC struct {
-	diskService         *service.DiskService
-	storageClassService *service.VirtualDiskStorageClassService
-	client              client.Client
-	recorder            eventrecord.EventRecorderLogger
+	diskService *service.DiskService
+	client      client.Client
+	recorder    eventrecord.EventRecorderLogger
 }
 
 func NewObjectRefVirtualImagePVC(
 	recorder eventrecord.EventRecorderLogger,
 	diskService *service.DiskService,
-	storageClassService *service.VirtualDiskStorageClassService,
 	client client.Client,
 ) *ObjectRefVirtualImagePVC {
 	return &ObjectRefVirtualImagePVC{
-		diskService:         diskService,
-		storageClassService: storageClassService,
-		client:              client,
-		recorder:            recorder,
+		diskService: diskService,
+		client:      client,
+		recorder:    recorder,
 	}
 }
 
@@ -89,12 +88,6 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 	}
 	if vi == nil {
 		return reconcile.Result{}, errors.New("the source virtual image not found")
-	}
-
-	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
-	sc, err := ds.storageClassService.GetValidatedStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
-	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
-		return reconcile.Result{}, err
 	}
 
 	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
@@ -166,6 +159,12 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
 		err = ds.diskService.Start(ctx, size, sc, source, vd, supgen, service.WithNodePlacement(nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
@@ -234,7 +233,8 @@ func (ds ObjectRefVirtualImagePVC) Sync(ctx context.Context, vd *virtv2.VirtualD
 			return reconcile.Result{}, err
 		}
 
-		sc, err := ds.diskService.GetStorageClass(ctx, &vd.Status.StorageClassName)
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, ptr.Deref(pvc.Spec.StorageClassName, ""))
 		if err != nil {
 			return reconcile.Result{}, err
 		}

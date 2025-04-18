@@ -101,7 +101,7 @@ func CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner)
 	return reconcile.Result{}, nil
 }
 
-func isDiskProvisioningFinished(c metav1.Condition) bool {
+func IsImageProvisioningFinished(c metav1.Condition) bool {
 	return c.Reason == vicondition.Ready.String()
 }
 

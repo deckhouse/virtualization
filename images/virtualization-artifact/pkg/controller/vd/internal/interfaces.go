@@ -41,7 +41,6 @@ type Sources interface {
 type DiskService interface {
 	Resize(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
 	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-	GetStorageClass(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error)
 }
 
 type StorageClassService interface {

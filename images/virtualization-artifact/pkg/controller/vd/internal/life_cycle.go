@@ -73,7 +73,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 		h.recorder.Event(
 			vd,
 			corev1.EventTypeNormal,
-			virtv2.ReasonVDStorageClassWasDeleted,
+			virtv2.ReasonVDSpecHasBeenChanged,
 			"Spec changes are detected: import process is restarted by controller",
 		)
 

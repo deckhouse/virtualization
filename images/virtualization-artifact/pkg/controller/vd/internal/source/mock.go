@@ -9,7 +9,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sync"
 )
@@ -239,7 +239,7 @@ var _ BlankDataSourceDiskService = &BlankDataSourceDiskServiceMock{}
 //			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
 //				panic("mock out the GetCapacity method")
 //			},
-//			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+//			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
 //			},
 //		}
@@ -256,7 +256,7 @@ type BlankDataSourceDiskServiceMock struct {
 	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
 
 	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
-	GetVolumeAndAccessModesFunc func(ctx context.Context, sc *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
+	GetVolumeAndAccessModesFunc func(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -277,7 +277,7 @@ type BlankDataSourceDiskServiceMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sc is the sc argument value.
-			Sc *storev1.StorageClass
+			Sc *storagev1.StorageClass
 		}
 	}
 	lockCleanUp                 sync.RWMutex
@@ -354,13 +354,13 @@ func (mock *BlankDataSourceDiskServiceMock) GetCapacityCalls() []struct {
 }
 
 // GetVolumeAndAccessModes calls GetVolumeAndAccessModesFunc.
-func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, sc *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if mock.GetVolumeAndAccessModesFunc == nil {
 		panic("BlankDataSourceDiskServiceMock.GetVolumeAndAccessModesFunc: method is nil but BlankDataSourceDiskService.GetVolumeAndAccessModes was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
-		Sc  *storev1.StorageClass
+		Sc  *storagev1.StorageClass
 	}{
 		Ctx: ctx,
 		Sc:  sc,
@@ -377,11 +377,11 @@ func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModes(ctx context.
 //	len(mockedBlankDataSourceDiskService.GetVolumeAndAccessModesCalls())
 func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModesCalls() []struct {
 	Ctx context.Context
-	Sc  *storev1.StorageClass
+	Sc  *storagev1.StorageClass
 } {
 	var calls []struct {
 		Ctx context.Context
-		Sc  *storev1.StorageClass
+		Sc  *storagev1.StorageClass
 	}
 	mock.lockGetVolumeAndAccessModes.RLock()
 	calls = mock.calls.GetVolumeAndAccessModes

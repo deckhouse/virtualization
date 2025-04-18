@@ -64,12 +64,11 @@ const (
 	// ReasonVMOPInProgress is event reason that the operation is in progress
 	ReasonVMOPInProgress = "VirtualMachineOperationInProgress"
 
-	// ReasonVDStorageClassWasDeleted is event reason that VDStorageClass was deleted.
-	ReasonVDStorageClassWasDeleted = "VirtualDiskStorageClassWasDeleted"
-	// ReasonVDStorageClassNotFound is event reason that VDStorageClass not found.
-	ReasonVDStorageClassNotFound = "VirtualDiskStorageClassNotFound"
-	// ReasonVDSpecChanged is event reason that VDStorageClass is chanded.
-	ReasonVDSpecChanged = "VirtualDiskSpecChanged"
+	// ReasonVDSpecHasBeenChanged is event reason that spec of virtual disk has been changed.
+	ReasonVDSpecHasBeenChanged = "VirtualDiskSpecHasBeenChanged"
+	// ReasonVISpecHasBeenChanged is event reason that spec of virtual image has been changed.
+	ReasonVISpecHasBeenChanged = "VirtualImageSpecHasBeenChanged"
+
 	// ReasonVDContainerRegistrySecretNotFound is event reason that VDContainerRegistrySecret not found.
 	ReasonVDContainerRegistrySecretNotFound = "VirtualDiskContainerRegistrySecretNotFound"
 
