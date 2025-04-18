@@ -113,7 +113,6 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
-  - libswtpm-devel
 packages:
   - acl
   - attr
@@ -280,9 +279,6 @@ shell:
     
     echo "Relocate additional libs to /VBINS"
     ./relocate_binaries.sh -i "$LIBS" -o /VBINS
-
-    cp -a /usr/lib64/swtpm/. /VBINS/usr/lib64/swtpm/
-    cp -a /usr/share/swtpm/swtpm-localca /VBINS/usr/share/swtpm/swtpm-localca
 
     cp -a /VBINS/. /relocate
 
