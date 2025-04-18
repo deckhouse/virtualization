@@ -567,7 +567,7 @@ jobs:
     name: Remove label
     runs-on: ubuntu-latest
     # run the job at the end
-    if: ${{ always() }}
+    if: ${{ always() && github.event_name == 'pull_request' }}
     needs:
       - dev_setup_build
       - set_e2e_requirement_status
