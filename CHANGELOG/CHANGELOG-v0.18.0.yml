@@ -1,0 +1,15 @@
+api:
+  fixes:
+    - summary: ignore not found error while deleting finalizers
+      pull_request: https://github.com/deckhouse/virtualization/pull/936
+vd:
+  features:
+    - summary: implement conditions rfc
+      pull_request: https://github.com/deckhouse/virtualization/pull/780
+vm:
+  fixes:
+    - summary: Suppressed the output of internal virtual machine error when a pod is unschedulable.
+      pull_request: https://github.com/deckhouse/virtualization/pull/898
+    - summary: Improved the blockDeviceReady condition message.
+      pull_request: https://github.com/deckhouse/virtualization/pull/800
+
