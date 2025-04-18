@@ -30,6 +30,7 @@ testData:
   vmConfiguration: "/tmp/testdata/vm-configuration"
   vmLabelAnnotation: "/tmp/testdata/vm-label-annotation"
   vmMigration: "/tmp/testdata/vm-migration"
+  vmMigrationCancel: "/tmp/testdata/vm-migration-cancel"
   vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
   vmVersions: "/tmp/testdata/vm-versions"
   vdSnapshots: "/tmp/testdata/vd-snapshots"
