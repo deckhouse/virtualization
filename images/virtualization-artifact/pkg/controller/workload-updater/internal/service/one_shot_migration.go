@@ -67,12 +67,12 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 	}
 
 	if commonvmop.InProgressOrPendingExists(unmanagedVMOPs) {
-		log.Debug("The virtual machine has already been migrated. Skipping...")
+		log.Debug("The virtual machine is either in the process of migration or waiting to start migration. Skipping...")
 		return false, nil
 	}
 
 	if len(workloadUpdateVMOPs) > 0 {
-		log.Debug("The virtual machine has already been migrated by the workload updater. Skipping...")
+		log.Debug("The virtual machine is either being migrated by the workload updater or is scheduled for migration. Skipping...")
 	} else {
 		log.Info("Create VMOP")
 		vmop := newVMOP(s.prefix, vm.GetNamespace(), vm.GetName())
