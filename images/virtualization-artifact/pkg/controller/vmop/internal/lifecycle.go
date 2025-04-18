@@ -193,6 +193,23 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 		return reconcile.Result{}, nil
 	}
 
+	// Check if force flag is applicable for liveMigrationPolicy.
+	msg, isApplicable, err := h.vmopSrv.IsApplicableForLiveMigrationPolicy(ctx, changed, vm)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if !isApplicable {
+		changed.Status.Phase = virtv2.VMOPPhaseFailed
+		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, msg)
+		conditions.SetCondition(
+			completedCond.
+				Reason(vmopcondition.ReasonNotApplicableForLiveMigrationPolicy).
+				Status(metav1.ConditionFalse).
+				Message(msg),
+			&changed.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
 	return reconcile.Result{}, nil
 }
 

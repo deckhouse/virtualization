@@ -47,14 +47,14 @@ func StartVM(ctx context.Context, cl client.Client, kvvm *kvv1.VirtualMachine) e
 
 // StopVM stops VM via deleting kvvmi.
 // It implements force stop by immediately deleting VM's Pod.
-func StopVM(ctx context.Context, cl client.Client, kvvmi *kvv1.VirtualMachineInstance, force bool) error {
+func StopVM(ctx context.Context, cl client.Client, kvvmi *kvv1.VirtualMachineInstance, force *bool) error {
 	if kvvmi == nil {
 		return fmt.Errorf("kvvmi must not be empty")
 	}
 	if err := cl.Delete(ctx, kvvmi, &client.DeleteOptions{}); err != nil {
 		return err
 	}
-	if force {
+	if force != nil && *force {
 		return kvvmutil.DeletePodByKVVMI(ctx, cl, kvvmi, &client.DeleteOptions{GracePeriodSeconds: pointer.GetPointer(int64(0))})
 	}
 	return nil

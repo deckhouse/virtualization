@@ -5101,8 +5101,16 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 							Ref: ref("github.com/deckhouse/virtualization/api/core/v1alpha2.Provisioning"),
 						},
 					},
+					"liveMigrationPolicy": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Live migration policy type.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"virtualMachineClassName", "cpu", "memory", "blockDeviceRefs"},
+				Required: []string{"virtualMachineClassName", "cpu", "memory", "blockDeviceRefs", "liveMigrationPolicy"},
 			},
 		},
 		Dependencies: []string{
