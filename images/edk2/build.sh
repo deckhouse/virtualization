@@ -90,6 +90,7 @@ FIRMWARE="/FIRMWARE"
 
 mv -f /Logo.bmp $EDK2_DIR/MdeModulePkg/Logo/
 echo "=== cd $EDK2_DIR ==="
+
 cd $EDK2_DIR
 
 mkdir -p ${FIRMWARE}
@@ -158,6 +159,7 @@ prep() {
 }
 
 # Build with SB and SMM; exclude UEFI shell.
+
 build_ovmf() {
   # echo_dbg "build ${OVMF_4M_FLAGS} -a X64 -p OvmfPkg/OvmfPkgX64.dsc"
   build -a X64 \
@@ -176,66 +178,6 @@ build_ovmf() {
   
   # cp -p Build/OvmfX64/*/FV/OVMF_CODE.fd $FIRMWARE/OVMF_CODE.fd
   # cp -p Build/OvmfX64/*/FV/OVMF_VARS.fd $FIRMWARE/OVMF_VARS.fd
-}
-
-gen_custom_cert() {
-  RANDOM_HEX="4e32566d-8e9e-4ff2-81d3-5bb9715f9712"
-  
-  echo "Generating the PK (Platform Key)"
-  openssl req \
-    -x509 \
-    -newkey rsa:2048 \
-    -subj "/CN=DVP CA PK/"
-    -outform PEM \
-    -keyout PK.key \
-    -out PK.pem
-
-  echo "Getting the OEM string"
-  sed \
-    -e "s/^-----BEGIN CERTIFICATE-----$/$RANDOM_HEX:/" \
-    -e '/^-----END CERTIFICATE-----$/d' \
-    PK.pem \
-    | tr -d '\n' PK.oemstr
-
-  echo "Generating the KEK (Key Exchange Key)"
-  openssl req \
-    -new \
-    -newkey rsa:2048 \
-    -outform PEM \
-    -keyout KEK.key \
-    -out KEK.csr
-  
-  echo "KEK to sign PK"
-  openssl x509 \
-    -req \
-    -in KEK.csr \
-    -days 365 \
-    -CA PK.pem \
-    -CAkey PK.key \
-    -CAcreateserial \
-    -out KEK.pem
-  
-  echo "PK and PK-signed KEK. EFI understand DER format"
-  openssl x509 \
-    -inform PEM \
-    -in PK.pem \
-    -outform DER \
-    -out PK.cer
-
-  openssl x509 \
-    -inform PEM \
-    -in KEK.pem \
-    -outform DER \
-    -out KEK.cer
-
-  qemu-system-x86_64 \
-    -machine type=pc-q35-2.8 \
-    -enable-kvm \
-    -net none \
-    -smbios type=11,value=$RANDOM_HEX \
-    -drive if=pflash,format=raw,file=edk2/Build/OvmfX64/RELEASE_GCC5/FV/OVMF.fd
-    -drive if=ide,cache=unsafe,format=raw,media=disk,file=efi_disk.bin
-
 }
 
 # Build with SB and SMM with secure boot; exclude UEFI shell.
@@ -320,13 +262,15 @@ enroll() {
   virt-fw-vars --input  $FIRMWARE/OVMF_VARS.fd \
               --output  $FIRMWARE/OVMF_VARS.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
-              --secure-boot 
+              --secure-boot \
+              --enroll-altlinux
               # --enroll-generate dvp.deckhouse.io
 
   virt-fw-vars --input  $FIRMWARE/OVMF.inteltdx.fd \
               --output  $FIRMWARE/OVMF.inteltdx.secboot.fd \
               --set-dbx $FIRMWARE/DBXUpdate-20230509.x64.bin \
-              --secure-boot 
+              --secure-boot \
+              --enroll-altlinux
               # --enroll-generate dvp.deckhouse.io
 }
 
@@ -359,13 +303,15 @@ echo_dbg "build_shell"
 build_shell 2>&1 > /dev/null
 
 build_iso $FIRMWARE
-# enroll
+enroll
+
 ls -la $FIRMWARE
+
 # no_enroll
 
-echo_dbg "run edk2-vars-generator.py"
-/edk2-vars-generator.py -d \
-	-f OVMF_4M -e $FIRMWARE/EnrollDefaultKeys.efi -s $FIRMWARE/Shell.efi \
-	-c $FIRMWARE/OVMF_CODE.secboot.fd \
-	-V $FIRMWARE/OVMF_VARS.fd \
-	-C `< debian/oem-string-vendor` -o $FIRMWARE/OVMF_VARS.ms.fd
+# echo_dbg "run edk2-vars-generator.py"
+# /edk2-vars-generator.py -d \
+# 	-f OVMF_4M -e $FIRMWARE/EnrollDefaultKeys.efi -s $FIRMWARE/Shell.efi \
+# 	-c $FIRMWARE/OVMF_CODE.secboot.fd \
+# 	-V $FIRMWARE/OVMF_VARS.fd \
+# 	-C `< debian/oem-string-vendor` -o $FIRMWARE/OVMF_VARS.ms.fd
