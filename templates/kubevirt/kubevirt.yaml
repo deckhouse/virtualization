@@ -262,7 +262,7 @@ spec:
     - resourceType: Deployment
       resourceName: virt-controller
       type: strategic
-      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-controller","env":{{ include "virt-controller-additional-envs" | fromYaml | toJson }} } ]}}}}'
+      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-controller","env":{{ include "virt-controller-additional-envs" . | fromYaml | toJson }} } ]}}}}'
 
 # Additional environment variables for virt-handler.
 {{ define "virt-handler-additional-envs" }}
@@ -273,7 +273,7 @@ spec:
     - resourceType: Deployment
       resourceName: virt-controller
       type: strategic
-      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-handler","env":{{ include "virt-handler-additional-envs" | fromYaml | toJson }} } ]}}}}'
+      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-handler","env":{{ include "virt-handler-additional-envs" . | fromYaml | toJson }} } ]}}}}'
 
   imagePullPolicy: IfNotPresent
   imagePullSecrets:
