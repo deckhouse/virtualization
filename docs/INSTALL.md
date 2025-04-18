@@ -3,18 +3,18 @@ title: "Installation"
 weight: 15
 ---
 
-> **Warning.** The platform components must be deployed on physical servers (bare-metal servers).
+> **WARNING.** Module components must be deployed on physical servers (bare-metal).
 >
-> Installation on virtual machines is allowed for demonstration purposes only, but nested virtualization must be enabled. If the platform is deployed on virtual machines, technical support will not be provided.
+> Installation on virtual machines is allowed for demonstration purposes only, but nested virtualization must be enabled. If the module is deployed on virtual machines, technical support is not provided.
 
-## Platform scalability
+## Scaling options
 
 The platform supports the following configuration:
 
-- Maximum number of nodes: 1000.
-- Maximum number of virtual machines: 50000.
+- Maximum number of nodes: `1000`.
+- Maximum number of virtual machines: `50000`.
 
-The platform has no other restrictions and is compatible with any hardware that is supported by [operating systems](#supported-os-for-platform-nodes) on which it can be installed.
+The module has no additional restrictions and is compatible with any hardware that is supported by [operating systems](#supported-os-for-platform-nodes) on which it can be installed.
 
 ## Hardware Requirements
 
@@ -94,6 +94,12 @@ The platform has no other restrictions and is compatible with any hardware that 
 | Debian                      | 10, 11, 12                      |
 | Ubuntu                      | 20.04, 22.04, 24.04      |
 
+{{< alert level="warning">}}
+Ensuring stable operation of live migration mechanisms requires the use of an identical version of the Linux kernel on all cluster nodes.
+
+This is because differences in kernel versions can lead to incompatible interfaces, system calls, and resource handling, which can disrupt the virtual machine migration process.
+{{{< /alert >}}
+
 ## Supported guest operating systems
 
 The virtualization platform supports operating systems running on `x86` and `x86_64` architectures as guest operating systems. For correct operation in paravirtualization mode, `VirtIO` drivers must be installed to ensure efficient interaction between the virtual machine and the hypervisor.
@@ -106,7 +112,7 @@ Successful startup of the operating system is determined by the following criter
 
 For Linux family operating systems it is recommended to use guest OS images with `cloud-init` support, which allows initializing virtual machines after their creation.
 
-For Windows operating systems, the platform supports initialization using the built-in sysprep utility.
+For Windows family operating systems, the platform supports initialization with [autounattend](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/windows-setup-automation-overview) installation.
 
 ## Supported virtual machine configurations
 
@@ -119,11 +125,13 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
 
 | Storage System                              | Disk Location              |
 |---------------------------------------------|----------------------------|
-| LVM (Logical Volume Manager)                | Local                     |
-| DRBD (Distributed Replicated Block Device)  | Replicas on cluster nodes |
-| Ceph Cluster                                | External storage          |
-| NFS (Network File System)                   | External storage          |
-| TATLIN.UNIFIED (Yadro)                      | External storage          |
+| sds-local-volume                            | Local                      |
+| sds-replicated-volume                       | Replicas on cluster nodes  |
+| Ceph Cluster                                | External storage           |
+| NFS (Network File System)                   | External storage           |
+| TATLIN.UNIFIED (Yadro)                      | External storage           |
+| Huawei Dorado                               | External storage           |
+| HPE 3par                                    | External storage           |
 
 ## Installation
 
@@ -144,13 +152,13 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
 5. Enable the `virtualization` module:
 
 {{< alert level="warning" >}}
-Attention! Enabling the `virtualization` module involves restarting kubelet/containerd on all nodes where virtual machines are supposed to start. This is necessary to configure the connectivity of containerd and DVCR.
+Attention! Enabling the `virtualization` module involves restarting kubelet/containerd and cilium agents on all nodes where virtual machines are supposed to start. This is necessary to configure the connectivity of containerd and DVCR.
 {{< /alert >}}
 
 To enable the `virtualization` module, you need to create a `ModuleConfig` resource containing the module settings.
 
 {{< alert level="info" >}}
-For a complete list of configuration options, see ["Settings"](./configuration.html)
+Detailed settings are described in the [administrator's manual](./ADMIN_GUIDE.md#module-parameters).
 {{< /alert >}}
 
 Example of module configuration:
@@ -175,7 +183,15 @@ spec:
 EOF
 ```
 
-The `.spec.settings.dvcr` block describes the settings for the repository for storing virtual machine images, this block specifies the size of the storage provided for storing images `.spec.settings.dvcr.storage.persistentVolumeClaim.size`. The `.spec.settings.virtualMachineCIDRs` block specifies the list of subnets. Virtual machine addresses will be allocated automatically or on request from the specified subnet ranges in order.
+The `.spec.settings.dvcr` block describes the settings for the repository for storing virtual machine images, it specifies the size of the storage provided for storing images `.spec.settings.dvcr.storage.persistentVolumeClaim.size` and the storage class `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`.
+
+The `.spec.settings.virtualMachineCIDRs` block specifies the list of subnets. Virtual machine addresses will be allocated automatically or on request from the specified subnet ranges in order.
+
+{{< alert level="warning">}}
+Subnets of `.spec.settings.virtualMachineCIDRs` block must not overlap with subnets of nodes, subnet of services and pods.
+
+It is forbidden to delete subnets if addresses from them have already been given to virtual machines!
+{{< /alert >}}
 
 You can track the readiness of the module using the following command:
 
@@ -186,15 +202,15 @@ d8 k get modules virtualization
 Example output:
 
 ```txt
-# NAME             WEIGHT   STATE     SOURCE     STAGE   STATUS
-# virtualization   900      Enabled   Embedded           Ready
+NAME             WEIGHT   SOURCE      PHASE   ENABLED   READY
+virtualization   900      deckhouse   Ready   True      True
 ```
 
-The module status should be `Ready`.
+The module phase should be `Ready`.
 
-## Platform Update
+## Module Update
 
-Deckhouse Virtualization Platform uses five update channels designed for use in different environments that have different requirements in terms of reliability:
+The Virtualization module uses five update channels designed for use in different environments that have different requirements in terms of reliability:
 
 | Update Channel | Description                                                                                                                                                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -204,13 +220,18 @@ Deckhouse Virtualization Platform uses five update channels designed for use in 
 | Stable         | Stable update channel for clusters where active work is finished and mostly operational. Functionality updates to this update channel do not reach this update channel until two weeks after they appear in the release.                                           |
 | Rock Solid     | The most stable update channel. Suitable for clusters that need a higher level of stability. Feature updates do not reach this channel until one month after they are released.                                                                                    |
 
+Virtualization module components can be updated automatically, or with manual confirmation as updates are released in update channels.
+
 {{< alert level="warning" >}}
-In platform upgrades, the components can be divided into two categories:
+In module upgrades, the components can be divided into two categories:
 
 - Virtualization resource management components (control plane)
 - Virtualization resource management components ("firmware").
 
-Updating the control plane components does not affect the operation of virtual machines that are already running. However, changes to the "firmware" during a platform upgrade may require virtual machines to be migrated to the new "firmware" version.
+Updating control plane components does not affect the operation of already running virtual machines, but may cause a brief interruption of established VNC/serial port connections while the control plane component is restarted.
+
+Updates to virtual machine firmware during a platform upgrade may require virtual machines to be migrated to the new "firmware" version.
+Migration during the upgrade is performed once, if the migration was unsuccessful, the virtual machine owner will need to perform it themselves by either evict the virtual machine or reboot it.
 {{< /alert >}}
 
 Deckhouse Virtualization Platform components can be updated automatically, or with manual confirmation as updates are released in the update channels.
