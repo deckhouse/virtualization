@@ -149,6 +149,7 @@ type TestData struct {
 	VmLabelAnnotation     string `yaml:"vmLabelAnnotation"`
 	VmMigration           string `yaml:"vmMigration"`
 	VmMigrationCancel     string `yaml:"vmMigrationCancel"`
+	VmEvacuation          string `yaml:"vmEvacuation"`
 	VmDiskAttachment      string `yaml:"vmDiskAttachment"`
 	VmVersions            string `yaml:"vmVersions"`
 	VdSnapshots           string `yaml:"vdSnapshots"`
