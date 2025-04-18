@@ -729,6 +729,8 @@ The following is an example of migrating a selected virtual machine.
    linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
    ```
 
+2. If you need to abort the migration, delete the corresponding `vmop` resource while it is in the `Pending` or `InProgress` phase.
+
 #### Maintenance mode
 
 When working on nodes with virtual machines running, there is a risk of disrupting their performance. To avoid this, you can put a node into the maintenance mode and migrate the virtual machines to other free nodes.
@@ -747,7 +749,9 @@ If you need to evict only virtual machines off the node, run the following comma
 d8 k drain <nodename> --pod-selector vm.kubevirt.internal.virtualization.deckhouse.io/name --delete-emptydir-data
 ```
 
-After running the `d8 k drain` command, the node will go into the maintenance mode and no virtual machines will be able to start on it. To take it out of the maintenance mode, run the following command:
+After running the `d8 k drain` command, the node will enter maintenance mode and no virtual machines will be able to start on it.
+
+To take it out of maintenance mode, stop the `drain` command (Ctrl+C), then execute:
 
 ```bash
 d8 k uncordon <nodename>
