@@ -6,7 +6,6 @@ package handler
 import (
 	"context"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"log/slog"
 	"sync"
 )
 
@@ -23,9 +22,6 @@ var _ OneShotMigration = &OneShotMigrationMock{}
 //			OnceMigrateFunc: func(ctx context.Context, vm *virtv2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error) {
 //				panic("mock out the OnceMigrate method")
 //			},
-//			SetLoggerFunc: func(log *slog.Logger)  {
-//				panic("mock out the SetLogger method")
-//			},
 //		}
 //
 //		// use mockedOneShotMigration in code that requires OneShotMigration
@@ -35,9 +31,6 @@ var _ OneShotMigration = &OneShotMigrationMock{}
 type OneShotMigrationMock struct {
 	// OnceMigrateFunc mocks the OnceMigrate method.
 	OnceMigrateFunc func(ctx context.Context, vm *virtv2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error)
-
-	// SetLoggerFunc mocks the SetLogger method.
-	SetLoggerFunc func(log *slog.Logger)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -52,14 +45,8 @@ type OneShotMigrationMock struct {
 			// AnnotationExpectedValue is the annotationExpectedValue argument value.
 			AnnotationExpectedValue string
 		}
-		// SetLogger holds details about calls to the SetLogger method.
-		SetLogger []struct {
-			// Log is the log argument value.
-			Log *slog.Logger
-		}
 	}
 	lockOnceMigrate sync.RWMutex
-	lockSetLogger   sync.RWMutex
 }
 
 // OnceMigrate calls OnceMigrateFunc.
@@ -103,37 +90,5 @@ func (mock *OneShotMigrationMock) OnceMigrateCalls() []struct {
 	mock.lockOnceMigrate.RLock()
 	calls = mock.calls.OnceMigrate
 	mock.lockOnceMigrate.RUnlock()
-	return calls
-}
-
-// SetLogger calls SetLoggerFunc.
-func (mock *OneShotMigrationMock) SetLogger(log *slog.Logger) {
-	if mock.SetLoggerFunc == nil {
-		panic("OneShotMigrationMock.SetLoggerFunc: method is nil but OneShotMigration.SetLogger was just called")
-	}
-	callInfo := struct {
-		Log *slog.Logger
-	}{
-		Log: log,
-	}
-	mock.lockSetLogger.Lock()
-	mock.calls.SetLogger = append(mock.calls.SetLogger, callInfo)
-	mock.lockSetLogger.Unlock()
-	mock.SetLoggerFunc(log)
-}
-
-// SetLoggerCalls gets all the calls that were made to SetLogger.
-// Check the length with:
-//
-//	len(mockedOneShotMigration.SetLoggerCalls())
-func (mock *OneShotMigrationMock) SetLoggerCalls() []struct {
-	Log *slog.Logger
-} {
-	var calls []struct {
-		Log *slog.Logger
-	}
-	mock.lockSetLogger.RLock()
-	calls = mock.calls.SetLogger
-	mock.lockSetLogger.RUnlock()
 	return calls
 }

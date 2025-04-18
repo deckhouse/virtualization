@@ -84,6 +84,7 @@ type VirtualMachineInterface interface {
 	Unfreeze(ctx context.Context, name string) error
 	AddVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineAddVolume) error
 	RemoveVolume(ctx context.Context, name string, opts v1alpha2.VirtualMachineRemoveVolume) error
+	CancelEvacuation(ctx context.Context, name string, dryRun []string) error
 }
 
 type client struct {

@@ -18,7 +18,6 @@ package handler
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -27,5 +26,4 @@ import (
 
 type OneShotMigration interface {
 	OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error)
-	SetLogger(log *slog.Logger)
 }

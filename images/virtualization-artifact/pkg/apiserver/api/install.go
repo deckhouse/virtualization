@@ -58,14 +58,15 @@ func init() {
 func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 	apiGroupInfo := genericapiserver.NewDefaultAPIGroupInfo(subresources.GroupName, Scheme, ParameterCodec, Codecs)
 	resources := map[string]rest.Storage{
-		"virtualmachines":              store,
-		"virtualmachines/console":      store.ConsoleREST(),
-		"virtualmachines/vnc":          store.VncREST(),
-		"virtualmachines/portforward":  store.PortForwardREST(),
-		"virtualmachines/addvolume":    store.AddVolumeREST(),
-		"virtualmachines/removevolume": store.RemoveVolumeREST(),
-		"virtualmachines/freeze":       store.FreezeREST(),
-		"virtualmachines/unfreeze":     store.UnfreezeREST(),
+		"virtualmachines":                  store,
+		"virtualmachines/console":          store.ConsoleREST(),
+		"virtualmachines/vnc":              store.VncREST(),
+		"virtualmachines/portforward":      store.PortForwardREST(),
+		"virtualmachines/addvolume":        store.AddVolumeREST(),
+		"virtualmachines/removevolume":     store.RemoveVolumeREST(),
+		"virtualmachines/freeze":           store.FreezeREST(),
+		"virtualmachines/unfreeze":         store.UnfreezeREST(),
+		"virtualmachines/cancelevacuation": store.CancelEvacuationREST(),
 	}
 	apiGroupInfo.VersionedResourcesStorageMap[v1alpha2.SchemeGroupVersion.Version] = resources
 	return apiGroupInfo

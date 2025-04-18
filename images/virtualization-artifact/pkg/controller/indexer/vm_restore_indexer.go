@@ -17,21 +17,18 @@ limitations under the License.
 package indexer
 
 import (
-	"context"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func IndexVMRestoreByVMSnapshot(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachineRestore{}, IndexFieldVMRestoreByVMSnapshot, func(object client.Object) []string {
+func IndexVMRestoreByVMSnapshot() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachineRestore{}, IndexFieldVMRestoreByVMSnapshot, func(object client.Object) []string {
 		vmRestore, ok := object.(*virtv2.VirtualMachineRestore)
 		if !ok || vmRestore == nil {
 			return nil
 		}
 
 		return []string{vmRestore.Spec.VirtualMachineSnapshotName}
-	})
+	}
 }

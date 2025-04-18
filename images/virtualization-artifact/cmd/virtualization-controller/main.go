@@ -41,6 +41,7 @@ import (
 
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
@@ -334,7 +335,7 @@ func main() {
 	}
 
 	vmopLogger := logger.NewControllerLogger(vmop.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vmop.SetupController(ctx, mgr, vmopLogger); err != nil {
+	if err = vmop.SetupController(ctx, mgr, virtClient, vmopLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
@@ -349,6 +350,11 @@ func main() {
 	}
 
 	if err = workloadupdater.SetupController(ctx, mgr, log, firmwareImage, controllerNamespace, virtControllerName); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	if err = evacuation.SetupController(ctx, mgr, log); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

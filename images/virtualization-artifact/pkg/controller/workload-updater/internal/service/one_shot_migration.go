@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -35,20 +36,12 @@ func NewOneShotMigrationService(client client.Client, prefix string) *OneShotMig
 	return &OneShotMigrationService{
 		client: client,
 		prefix: prefix,
-
-		log: slog.Default(),
 	}
 }
 
 type OneShotMigrationService struct {
 	client client.Client
 	prefix string
-
-	log *slog.Logger
-}
-
-func (s *OneShotMigrationService) SetLogger(log *slog.Logger) {
-	s.log = log
 }
 
 func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
@@ -59,27 +52,29 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 
 	desiredValue := kvvmi.GetAnnotations()[annotationKey]
 
+	log := logger.FromContext(ctx)
+
 	if desiredValue == annotationExpectedValue {
-		s.log.Debug("Migration already attempted for this trigger. Skipping...",
+		log.Debug("Migration already attempted for this trigger. Skipping...",
 			slog.String("annotationKey", annotationKey),
 			slog.String("annotationValue", annotationExpectedValue))
 		return false, nil
 	}
 
-	workloadUpdateVmops, unmanagedVmops, err := s.listVmopMigrate(ctx, vm.GetName(), vm.GetNamespace())
+	workloadUpdateVMOPs, unmanagedVMOPs, err := s.listVMOPMigrate(ctx, vm.GetName(), vm.GetNamespace())
 	if err != nil {
 		return false, err
 	}
 
-	if commonvmop.InProgressOrPendingExists(unmanagedVmops) {
-		s.log.Debug("The virtual machine has already been migrated. Skipping...")
+	if commonvmop.InProgressOrPendingExists(unmanagedVMOPs) {
+		log.Debug("The virtual machine is either in the process of migration or waiting to start migration. Skipping...")
 		return false, nil
 	}
 
-	if len(workloadUpdateVmops) > 0 {
-		s.log.Debug("The virtual machine has already been migrated by the workload updater. Skipping...")
+	if len(workloadUpdateVMOPs) > 0 {
+		log.Debug("The virtual machine is either being migrated by the workload updater or is scheduled for migration. Skipping...")
 	} else {
-		s.log.Info("Create VMOP")
+		log.Info("Create VMOP")
 		vmop := newVMOP(s.prefix, vm.GetNamespace(), vm.GetName())
 		if err = s.client.Create(ctx, vmop); err != nil {
 			return false, err
@@ -93,25 +88,25 @@ func (s *OneShotMigrationService) OnceMigrate(ctx context.Context, vm *v1alpha2.
 	return true, nil
 }
 
-func (s *OneShotMigrationService) listVmopMigrate(ctx context.Context, vmName, vmNamespace string) ([]v1alpha2.VirtualMachineOperation, []v1alpha2.VirtualMachineOperation, error) {
+func (s *OneShotMigrationService) listVMOPMigrate(ctx context.Context, vmName, vmNamespace string) ([]v1alpha2.VirtualMachineOperation, []v1alpha2.VirtualMachineOperation, error) {
 	vmopList := &v1alpha2.VirtualMachineOperationList{}
 	if err := s.client.List(ctx, vmopList, client.InNamespace(vmNamespace)); err != nil {
 		return nil, nil, fmt.Errorf("failed to list virtual machine operations: %w", err)
 	}
 	var (
-		workloadUpdateVmops []v1alpha2.VirtualMachineOperation
-		unmanagedVmops      []v1alpha2.VirtualMachineOperation
+		workloadUpdateVMOPs []v1alpha2.VirtualMachineOperation
+		unmanagedVMOPs      []v1alpha2.VirtualMachineOperation
 	)
 	for _, vmop := range vmopList.Items {
 		if vmop.Spec.VirtualMachine == vmName && commonvmop.IsMigration(&vmop) && !commonvmop.IsFinished(&vmop) {
 			if _, exists := vmop.GetAnnotations()[annotations.AnnVMOPWorkloadUpdate]; exists {
-				workloadUpdateVmops = append(workloadUpdateVmops, vmop)
+				workloadUpdateVMOPs = append(workloadUpdateVMOPs, vmop)
 			} else {
-				unmanagedVmops = append(unmanagedVmops, vmop)
+				unmanagedVMOPs = append(unmanagedVMOPs, vmop)
 			}
 		}
 	}
-	return workloadUpdateVmops, unmanagedVmops, nil
+	return workloadUpdateVMOPs, unmanagedVMOPs, nil
 }
 
 func (s *OneShotMigrationService) setAnnoExpectedValueToKVVMI(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance, annotationKey, annotationExpectedValue string) error {

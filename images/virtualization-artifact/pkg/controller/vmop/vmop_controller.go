@@ -28,11 +28,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmopcollector "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/vmop"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -43,11 +45,12 @@ const (
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
+	virtClient kubeclient.Client,
 	log *log.Logger,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
-	vmopSrv := service.NewVMOperationService(client)
+	vmopSrv := service.NewVMOperationService(client, virtClient)
 
 	handlers := []Handler{
 		internal.NewLifecycleHandler(recorder, vmopSrv),

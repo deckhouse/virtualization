@@ -160,3 +160,12 @@ func (v vm) RemoveVolume(ctx context.Context, name string, opts v1alpha2.Virtual
 		Do(ctx).
 		Error()
 }
+
+func (v vm) CancelEvacuation(ctx context.Context, name string, dryRun []string) error {
+	path := fmt.Sprintf(subresourceURLTpl, v.namespace, v.resource, name, "cancelevacuation")
+	c := v.restClient.Put().AbsPath(path)
+	for _, value := range dryRun {
+		c.Param("dryRun", value)
+	}
+	return c.Do(ctx).Error()
+}
