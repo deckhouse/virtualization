@@ -137,23 +137,22 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 			&changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
-	if isMigration(changed) {
-		// Fail if there is at least one other migration in progress.
-		found, err = h.vmopSrv.OtherMigrationsAreInProgress(ctx, changed)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		if found {
-			changed.Status.Phase = virtv2.VMOPPhaseFailed
-			h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, "Other Migrations are in progress")
-			conditions.SetCondition(
-				completedCond.
-					Reason(vmopcondition.ReasonOtherMigrationInProgress).
-					Status(metav1.ConditionFalse).
-					Message("Other Migrations are in progress"),
-				&changed.Status.Conditions)
-			return reconcile.Result{}, nil
-		}
+
+	// Fail if there is at least one other migration in progress for migration related operations.
+	found, err = h.vmopSrv.OtherMigrationsAreInProgress(ctx, changed)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if found {
+		changed.Status.Phase = virtv2.VMOPPhaseFailed
+		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, "Other Migrations are in progress")
+		conditions.SetCondition(
+			completedCond.
+				Reason(vmopcondition.ReasonOtherMigrationInProgress).
+				Status(metav1.ConditionFalse).
+				Message("Other Migrations are in progress"),
+			&changed.Status.Conditions)
+		return reconcile.Result{}, nil
 	}
 
 	// Fail if VirtualMachineOperation is not applicable for run policy.
@@ -182,6 +181,23 @@ func (h LifecycleHandler) Handle(ctx context.Context, s state.VMOperationState) 
 				Reason(vmopcondition.ReasonNotApplicableForVMPhase).
 				Status(metav1.ConditionFalse).
 				Message(failMsg),
+			&changed.Status.Conditions)
+		return reconcile.Result{}, nil
+	}
+
+	// Check if force flag is applicable for liveMigrationPolicy.
+	msg, isApplicable, err := h.vmopSrv.IsApplicableForLiveMigrationPolicy(ctx, changed, vm)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if !isApplicable {
+		changed.Status.Phase = virtv2.VMOPPhaseFailed
+		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, msg)
+		conditions.SetCondition(
+			completedCond.
+				Reason(vmopcondition.ReasonNotApplicableForLiveMigrationPolicy).
+				Status(metav1.ConditionFalse).
+				Message(msg),
 			&changed.Status.Conditions)
 		return reconcile.Result{}, nil
 	}

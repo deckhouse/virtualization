@@ -88,7 +88,7 @@ func (s VMOperationService) DoStart(ctx context.Context, vmNamespace, vmName str
 	return kvvmutil.AddStartAnnotation(ctx, s.client, kvvm)
 }
 
-func (s VMOperationService) DoStop(ctx context.Context, vmNamespace, vmName string, force bool) error {
+func (s VMOperationService) DoStop(ctx context.Context, vmNamespace, vmName string, force *bool) error {
 	kvvmi, err := s.getKVVMI(ctx, vmNamespace, vmName)
 	if err != nil {
 		return fmt.Errorf("get kvvmi %q: %w", vmName, err)
@@ -96,7 +96,7 @@ func (s VMOperationService) DoStop(ctx context.Context, vmNamespace, vmName stri
 	return powerstate.StopVM(ctx, s.client, kvvmi, force)
 }
 
-func (s VMOperationService) DoRestart(ctx context.Context, vmNamespace, vmName string, force bool) error {
+func (s VMOperationService) DoRestart(ctx context.Context, vmNamespace, vmName string, force *bool) error {
 	kvvm, err := s.getKVVM(ctx, vmNamespace, vmName)
 	if err != nil {
 		return fmt.Errorf("get kvvm %q: %w", vmName, err)
@@ -152,6 +152,58 @@ func (s VMOperationService) IsApplicableForVMPhase(vmop *virtv2.VirtualMachineOp
 	}
 }
 
+func (s VMOperationService) IsApplicableForLiveMigrationPolicy(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (string, bool, error) {
+	// No need to check if operation is not related to migrations.
+	if !s.IsMigrateOperation(vmop) {
+		return "", true, nil
+	}
+
+	// No problems if force flag is not specified.
+	if vmop.Spec.Force == nil {
+		return "", true, nil
+	}
+
+	// Get effective migrationPolicy from vm/vmclass and global default.
+	effectiveLiveMigrationPolicy := virtv2.PreferSafeMigrationPolicy
+	if vm.Spec.LiveMigrationPolicy != "" {
+		effectiveLiveMigrationPolicy = vm.Spec.LiveMigrationPolicy
+	}
+
+	isApplicable := true
+	msg := ""
+
+	if effectiveLiveMigrationPolicy == virtv2.AlwaysSafeMigrationPolicy {
+		isApplicable = false
+		if *vmop.Spec.Force {
+			msg = fmt.Sprintf("Operation type %s is not applicable for liveMigrationPolicy %s with the force flag on", vmop.Spec.Type, effectiveLiveMigrationPolicy)
+		}
+	}
+
+	return msg, isApplicable, nil
+}
+
+// GetVMOPInProgressForVM check if there is at least one VMOP for the same VM in progress phase.
+func (s VMOperationService) GetVMOPInProgressForVM(ctx context.Context, vmKey client.ObjectKey) (*virtv2.VirtualMachineOperation, error) {
+	var vmopList virtv2.VirtualMachineOperationList
+	err := s.client.List(ctx, &vmopList, client.InNamespace(vmKey.Namespace))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, vmop := range vmopList.Items {
+		// Ignore VMOPs for other VMs.
+		if vmop.Spec.VirtualMachine != vmKey.Name {
+			continue
+		}
+
+		// Return if VMOP has phase InProgress.
+		if vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+			return &vmop, nil
+		}
+	}
+	return nil, nil
+}
+
 // OtherVMOPIsInProgress check if there is at least one VMOP for the same VM in progress phase.
 func (s VMOperationService) OtherVMOPIsInProgress(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
 	var vmopList virtv2.VirtualMachineOperationList
@@ -178,7 +230,7 @@ func (s VMOperationService) OtherVMOPIsInProgress(ctx context.Context, vmop *vir
 }
 
 func (s VMOperationService) OtherMigrationsAreInProgress(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
-	if !vmopIsMigrate(vmop) {
+	if !s.IsMigrateOperation(vmop) {
 		return false, nil
 	}
 	migList := &virtv1.VirtualMachineInstanceMigrationList{}
@@ -335,6 +387,6 @@ func migrationName(vmop *virtv2.VirtualMachineOperation) string {
 	return fmt.Sprintf("%s%s", vmopPrefix, vmop.GetName())
 }
 
-func vmopIsMigrate(vmop *virtv2.VirtualMachineOperation) bool {
+func (s VMOperationService) IsMigrateOperation(vmop *virtv2.VirtualMachineOperation) bool {
 	return vmop != nil && (vmop.Spec.Type == virtv2.VMOPTypeMigrate || vmop.Spec.Type == virtv2.VMOPTypeEvict)
 }

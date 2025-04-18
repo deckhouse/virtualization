@@ -48,7 +48,7 @@ func (h DeletionHandler) Handle(ctx context.Context, s state.VMOperationState) (
 		return reconcile.Result{}, nil
 	}
 
-	if isMigration(s.VirtualMachineOperation().Changed()) {
+	if h.vmopSrv.IsMigrateOperation(s.VirtualMachineOperation().Changed()) {
 		return h.migrateHandle(ctx, s)
 	}
 	return h.defaultHandle(ctx, s)
@@ -103,8 +103,4 @@ func (h DeletionHandler) defaultHandle(ctx context.Context, s state.VMOperationS
 
 func (h DeletionHandler) Name() string {
 	return deletionHandlerName
-}
-
-func isMigration(vmop *virtv2.VirtualMachineOperation) bool {
-	return vmop != nil && (vmop.Spec.Type == virtv2.VMOPTypeMigrate || vmop.Spec.Type == virtv2.VMOPTypeEvict)
 }
