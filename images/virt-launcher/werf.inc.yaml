@@ -106,7 +106,6 @@ libs:
   - libjson-glib
   - systemtap-sdt-devel
   - libacl-devel
-  - libtpms-devel libtpms
   - glib2-devel
   - libgio-devel
   - libxml2-devel
@@ -252,7 +251,18 @@ shell:
   - |
     apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
+    # libtpms libtpms-devel requares version 0.10 that in sisyphus repo
+    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF 
+    rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic
+    rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic
+    EOF
+    apt-get update
+    apt-get install -y libtpms-devel
+    rm -f /etc/apt/sources.list.d/alt-sisyphus.list
+
+    apt-get update
     apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   install:
   - |
     echo "Create folder hierarchy in VBINS"
