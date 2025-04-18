@@ -1,0 +1,129 @@
+{{/* 
+# ---
+# from: {{ .Images.BASE_DEBIAN_BOOKWORM_SLIM }}
+# final: false
+# fromImage: distroless
+# shell:
+#   beforeInstall:
+#   - |
+#     apt-get update && apt-get install -y \
+#     build-essential \
+#     git \
+#     tar \
+#     wget \
+#     libtool \
+#     autoconf \
+#     automake \
+#     pkg-config \
+#     libblkid-dev \
+#     libmount-dev \
+#     libselinux1-dev \
+#     libudev-dev \
+#     zlib1g-dev \
+#     && rm -rf /var/lib/apt/lists/*
+#     apt-get clean
+
+#     echo "Cloning util-linux"
+#     git clone --branch v2.41 https://github.com/util-linux/util-linux.git
+
+#   intall:
+#   - |
+#     mkdir -p /util-linux-binaries
+#     cd util-linux
+#     ./configure --prefix=/util-linux-binaries/usr/local && \
+#     make -j$(nproc) && \
+#     make install
+*/}}
+
+---
+image: all-bins
+from: {{ $.Images.BASE_ALT_P11 }}
+import:
+  - image: cdi-apiserver
+    add: /
+    to: /cdi-apiserver-bins
+    before: setup
+  # - image: cdi-cloner
+  #   add: /
+  #   to: /cdi-cloner-bins
+  #   before: setup
+  # - image: cdi-controller
+  #   add: /
+  #   to: /cdi-controller-bins
+  #   before: setup
+  # - image: cdi-importer
+  #   add: /
+  #   to: /cdi-importer-bins
+  #   before: setup
+  # - image: cdi-operator
+  #   add: /
+  #   to: /cdi-operator-bins
+  #   before: setup
+  # - image: dvcr
+  #   add: /
+  #   to: /dvcr-bins
+  #   before: setup
+  # - image: dvcr-importer
+  #   add: /
+  #   to: /dvcr-importer-bins
+  #   before: setup
+  # - image: dvcr-uploader
+  #   add: /
+  #   to: /dvcr-uploader-bins
+  #   before: setup
+  # - image: virt-api
+  #   add: /
+  #   to: /virt-api-bins
+  #   before: setup
+  # - image: virt-controller
+  #   add: /
+  #   to: /virt-controller-bins
+  #   before: setup
+  # - image: virt-handler
+  #   add: /
+  #   to: /virt-handler-bins
+  #   before: setup
+  # - image: virt-launcher
+  #   add: /
+  #   to: /virt-launcher-bins
+  #   before: setup
+  # - image: virt-operator
+  #   add: /
+  #   to: /virt-operator-bins
+  #   before: setup
+  # - image: virtualization-api
+  #   add: /
+  #   to: /virtualization-api-bins
+  #   before: setup
+  # - image: virtualization-controller
+  #   add: /
+  #   to: /virtualization-controller-bins
+  #   before: setup
+  # - image: vm-route-forge
+  #   add: /
+  #   to: /vm-route-forge-bins
+  #   before: setup
+shell:
+  beforeInstall:
+    - |
+      apt-get update && apt-get install -y \
+      glibc-utils \
+      libffi8
+  setup:
+    - |
+      DIRS="cdi-operator cdi-apiserver cdi-importer cdi-controller cdi-cloner"
+      DIRS+=" virt-handler virt-controller virt-launcher virt-operator virt-api bounder"
+      DIRS+=" virtualization-api virtualization-controller"
+      DIRS+=" dvcr dvcr-importer dvcr-uploader"
+      DIRS+=" vm-route-forge"
+
+      mkdir -p /common
+
+      for dir in $DIRS; do
+        if [ -d "/$dir-bins" ]; then
+          echo "copy $dir-bins /common"
+          cp -a "/$dir-bins"/. /
+        fi
+      done
+
+      echo "Done"
