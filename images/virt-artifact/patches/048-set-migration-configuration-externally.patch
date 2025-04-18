@@ -1,8 +1,16 @@
 diff --git a/pkg/virt-controller/watch/migration.go b/pkg/virt-controller/watch/migration.go
-index 4cec8371df..3d3d6dad61 100644
+index 4cec8371df..d01da4eef0 100644
 --- a/pkg/virt-controller/watch/migration.go
 +++ b/pkg/virt-controller/watch/migration.go
-@@ -583,6 +583,7 @@ func (c *MigrationController) processMigrationPhase(
+@@ -23,6 +23,7 @@ import (
+ 	"context"
+ 	"errors"
+ 	"fmt"
++	"os"
+ 	"sort"
+ 	"strconv"
+ 	"strings"
+@@ -583,6 +584,7 @@ func (c *MigrationController) processMigrationPhase(
  		}
  	case virtv1.MigrationScheduled:
  		if vmi.Status.MigrationState != nil &&
@@ -10,76 +18,65 @@ index 4cec8371df..3d3d6dad61 100644
  			vmi.Status.MigrationState.MigrationUID == migration.UID &&
  			vmi.Status.MigrationState.TargetNode != "" {
  			migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
-@@ -911,14 +912,19 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
+@@ -911,14 +913,23 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
  		}
  	}
-
+ 
 -	clusterMigrationConfigs := c.clusterConfig.GetMigrationConfiguration().DeepCopy()
 -	err := c.matchMigrationPolicy(vmiCopy, clusterMigrationConfigs)
 -	if err != nil {
 -		return fmt.Errorf("failed to match migration policy: %v", err)
 -	}
-+	//clusterMigrationConfigs := c.clusterConfig.GetMigrationConfiguration().DeepCopy()
-+	//err := c.matchMigrationPolicy(vmiCopy, clusterMigrationConfigs)
-+	//if err != nil {
-+	//	return fmt.Errorf("failed to match migration policy: %v", err)
-+	//}
-+	//
-+	//if !c.isMigrationPolicyMatched(vmiCopy) {
-+	//	vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
-+	//}
-
++	isExternalMigrationConfiguration := os.Getenv("ENABLE_EXTERNAL_MIGRATION_CONFIGURATION") == "yes"
++
++	if !isExternalMigrationConfiguration {
++		clusterMigrationConfigs := c.clusterConfig.GetMigrationConfiguration().DeepCopy()
++		err := c.matchMigrationPolicy(vmiCopy, clusterMigrationConfigs)
++		if err != nil {
++			return fmt.Errorf("failed to match migration policy: %v", err)
++		}
+ 
 -	if !c.isMigrationPolicyMatched(vmiCopy) {
 -		vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
-+	// Preserve migrationConfiguration if was set externally.
-+	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationConfiguration != nil {
-+		vmiCopy.Status.MigrationState.MigrationConfiguration = vmi.Status.MigrationState.MigrationConfiguration.DeepCopy()
++		if !c.isMigrationPolicyMatched(vmiCopy) {
++			vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
++		}
++	} else {
++		// Do not set migrationConfiguration from MigrationPolicies, just preserve it if was set externally.
++		if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationConfiguration != nil {
++			vmiCopy.Status.MigrationState.MigrationConfiguration = vmi.Status.MigrationState.MigrationConfiguration.DeepCopy()
++		}
  	}
-
+ 
  	if controller.VMIHasHotplugCPU(vmi) && vmi.IsCPUDedicated() {
-@@ -937,7 +943,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
+@@ -937,7 +948,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
  		vmiCopy.ObjectMeta.Labels[virtv1.VirtualMachinePodMemoryRequestsLabel] = memoryReq
  	}
-
+ 
 -	err = c.patchVMI(vmi, vmiCopy)
 +	err := c.patchVMI(vmi, vmiCopy)
  	if err != nil {
  		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
  		return err
 diff --git a/pkg/virt-handler/vm.go b/pkg/virt-handler/vm.go
-index 0e8825cfd2..edc5a28d12 100644
+index d342c93197..eb87ed5b89 100644
 --- a/pkg/virt-handler/vm.go
 +++ b/pkg/virt-handler/vm.go
-@@ -87,7 +87,7 @@ import (
- 	device_manager "kubevirt.io/kubevirt/pkg/virt-handler/device-manager"
- 	hotplug_volume "kubevirt.io/kubevirt/pkg/virt-handler/hotplug-disk"
-
--	ps "github.com/mitchellh/go-ps"
-+	"github.com/mitchellh/go-ps"
-
- 	v1 "kubevirt.io/api/core/v1"
- 	"kubevirt.io/client-go/kubecli"
-@@ -2751,16 +2751,18 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
+@@ -2767,6 +2767,17 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
  			return nil
  		}
-
-+		migrationConfiguration := origVMI.Status.MigrationState.MigrationConfiguration
-+		if migrationConfiguration == nil {
-+			// Wait for migration options.
-+			log.DefaultLogger().Errorf("vmi has no migration options yet, phase %s, possible opts: %+v", origVMI.Status.Phase, d.clusterConfig.GetMigrationConfiguration())
-+			return nil
+ 
++		isExternalMigrationConfiguration := os.Getenv("ENABLE_EXTERNAL_MIGRATION_CONFIGURATION") == "yes"
++
++		if isExternalMigrationConfiguration {
++			migrationConfiguration := origVMI.Status.MigrationState.MigrationConfiguration
++			if migrationConfiguration == nil {
++				// Wait for migration options.
++				log.DefaultLogger().Errorf("external migration configuration is enabled, wait until VMI receives migration configuration, vmi phase is %s", origVMI.Status.Phase)
++				return nil
++			}
 +		}
 +
  		err = d.handleSourceMigrationProxy(origVMI)
  		if err != nil {
  			return fmt.Errorf("failed to handle migration proxy: %v", err)
- 		}
-
--		migrationConfiguration := origVMI.Status.MigrationState.MigrationConfiguration
--		if migrationConfiguration == nil {
--			migrationConfiguration = d.clusterConfig.GetMigrationConfiguration()
--		}
--
- 		options := &cmdclient.MigrationOptions{
- 			Bandwidth:               *migrationConfiguration.BandwidthPerMigration,
- 			ProgressTimeout:         *migrationConfiguration.ProgressTimeout,
