@@ -20,6 +20,10 @@ env:
 on:
   pull_request:
     types: [opened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - chore/ci/add-install-helm
+
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -136,6 +140,12 @@ jobs:
         uses: arduino/setup-task@v2
         with:
           version: 3.37.2
+      
+      - uses: azure/setup-helm@v4.3.0
+        with:
+          version: v3.17.2 # default is latest (stable)
+          # version: v3.13.3 # default is latest (stable)
+        id: install
 
       - uses: actions/checkout@v4
 
