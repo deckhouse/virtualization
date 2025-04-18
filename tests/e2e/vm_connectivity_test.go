@@ -27,7 +27,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -39,68 +39,14 @@ const (
 	nginxActiveStatus = "active"
 )
 
-var httpStatusOk = fmt.Sprintf("%v", http.StatusOK)
-
-type PodEntrypoint struct {
-	Command string
-	Args    []string
-}
-
-func RunPod(podName, namespace, image string, entrypoint PodEntrypoint) *executor.CMDResult {
-	GinkgoHelper()
-	cmd := fmt.Sprintf("run %s --namespace %s --image=%s --labels='name=%s'", podName, namespace, image, podName)
-	if entrypoint.Command != "" {
-		cmd = fmt.Sprintf("%s --command %s", cmd, entrypoint.Command)
-	}
-	if entrypoint.Command != "" && len(entrypoint.Args) != 0 {
-		rawArgs := strings.Join(entrypoint.Args, " ")
-		cmd = fmt.Sprintf("%s -- %s", cmd, rawArgs)
-	}
-	return kubectl.RawCommand(cmd, ShortWaitDuration)
-}
-
-func GenerateServiceUrl(svc *corev1.Service, namespace string) string {
-	service := fmt.Sprintf("%s.%s.svc:%d", svc.Name, namespace, svc.Spec.Ports[0].Port)
-	return service
-}
-
-func GetResponseViaPodWithCurl(podName, namespace, host string) *executor.CMDResult {
-	cmd := fmt.Sprintf("exec --namespace %s %s -- curl -o - %s", namespace, podName, host)
-	return kubectl.RawCommand(cmd, ShortWaitDuration)
-}
-
-func CheckExternalConnection(host, httpCode string, vms ...string) {
-	GinkgoHelper()
-	for _, vm := range vms {
-		By(fmt.Sprintf("Response code from %q should be %q for %q", host, httpCode, vm))
-		cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
-		CheckResultSshCommand(vm, cmd, httpCode)
-	}
-}
-
-func CheckResultSshCommand(vmName, cmd, equal string) {
-	GinkgoHelper()
-	Eventually(func() (string, error) {
-		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
-			Namespace:   conf.Namespace,
-			Username:    conf.TestData.SshUser,
-			IdenityFile: conf.TestData.Sshkey,
-		})
-		if res.Error() != nil {
-			return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-		}
-		return strings.TrimSpace(res.StdOut()), nil
-	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(equal))
-}
-
-var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineConnectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
 		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)
 		bObjName      = fmt.Sprintf("%s-vm-connectivity-b", namePrefix)
 		vmA, vmB      virtv2.VirtualMachine
 		svcA, svcB    corev1.Service
-		err           error
+		ns            string
 
 		selectorA string
 		selectorB string
@@ -115,9 +61,9 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
+			var err error
+			ns, err = kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
 		})
 	})
 
@@ -126,7 +72,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			if config.IsReusable() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
@@ -149,7 +95,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -160,7 +106,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			By(fmt.Sprintf("VDs should be in %s phase", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -171,7 +117,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			By("Virtual machine agents should be ready")
 			WaitVmAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -181,7 +127,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		It(fmt.Sprintf("status should be in %s phase", PhaseRunning), func() {
 			jsonPath := "jsonpath={.status.phase}"
 			waitFor := fmt.Sprintf("%s=%s", jsonPath, PhaseRunning)
-			res := RunPod(CurlPod, conf.Namespace, conf.HelperImages.CurlImage, PodEntrypoint{
+			res := RunPod(CurlPod, ns, conf.HelperImages.CurlImage, PodEntrypoint{
 				Command: "sleep",
 				Args:    []string{"10000"},
 			})
@@ -193,24 +139,24 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 	Context("When virtual machine agents are ready", func() {
 		It("gets VMs and SVCs objects", func() {
 			vmA = virtv2.VirtualMachine{}
-			err = GetObject(kc.ResourceVM, aObjName, &vmA, kc.GetOptions{
-				Namespace: conf.Namespace,
+			err := GetObject(kc.ResourceVM, aObjName, &vmA, kc.GetOptions{
+				Namespace: ns,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			vmB = virtv2.VirtualMachine{}
 			err = GetObject(kc.ResourceVM, bObjName, &vmB, kc.GetOptions{
-				Namespace: conf.Namespace,
+				Namespace: ns,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
 			svcA = corev1.Service{}
 			err = GetObject(kc.ResourceService, aObjName, &svcA, kc.GetOptions{
-				Namespace: conf.Namespace,
+				Namespace: ns,
 			})
 			Expect(err).NotTo(HaveOccurred())
 			svcB = corev1.Service{}
 			err = GetObject(kc.ResourceService, bObjName, &svcB, kc.GetOptions{
-				Namespace: conf.Namespace,
+				Namespace: ns,
 			})
 			Expect(err).NotTo(HaveOccurred())
 		})
@@ -219,7 +165,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			cmd := "hostname"
 			for _, vmName := range []string{vmA.Name, vmB.Name} {
 				By(fmt.Sprintf("VirtualMachine %q", vmName))
-				CheckResultSshCommand(vmName, cmd, vmName)
+				CheckResultSshCommand(ns, vmName, cmd, vmName)
 			}
 		})
 
@@ -231,14 +177,14 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			cmd := "systemctl is-active nginx.service"
 			for _, vmName := range []string{vmA.Name, vmB.Name} {
 				By(fmt.Sprintf("VirtualMachine %q", vmName))
-				CheckResultSshCommand(vmName, cmd, nginxActiveStatus)
+				CheckResultSshCommand(ns, vmName, cmd, nginxActiveStatus)
 			}
 		})
 
 		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
-			service := GenerateServiceUrl(&svcA, conf.Namespace)
+			service := GenerateServiceUrl(&svcA, ns)
 			Eventually(func() (string, error) {
-				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
+				res := GetResponseViaPodWithCurl(CurlPod, ns, service)
 				if res.Error() != nil {
 					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 				}
@@ -247,9 +193,9 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It(fmt.Sprintf("gets page from service %s", bObjName), func() {
-			service := GenerateServiceUrl(&svcB, conf.Namespace)
+			service := GenerateServiceUrl(&svcB, ns)
 			Eventually(func() (string, error) {
-				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
+				res := GetResponseViaPodWithCurl(CurlPod, ns, service)
 				if res.Error() != nil {
 					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 				}
@@ -278,9 +224,9 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 
 		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
 			By(fmt.Sprintf("Response should be from virtual machine %q", vmB.Name))
-			service := GenerateServiceUrl(&svcA, conf.Namespace)
+			service := GenerateServiceUrl(&svcA, ns)
 			Eventually(func() (string, error) {
-				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
+				res := GetResponseViaPodWithCurl(CurlPod, ns, service)
 				if res.Error() != nil {
 					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 				}
@@ -324,3 +270,57 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 	})
 })
+
+var httpStatusOk = fmt.Sprintf("%v", http.StatusOK)
+
+type PodEntrypoint struct {
+	Command string
+	Args    []string
+}
+
+func RunPod(podName, namespace, image string, entrypoint PodEntrypoint) *executor.CMDResult {
+	GinkgoHelper()
+	cmd := fmt.Sprintf("run %s --namespace %s --image=%s --labels='name=%s'", podName, namespace, image, podName)
+	if entrypoint.Command != "" {
+		cmd = fmt.Sprintf("%s --command %s", cmd, entrypoint.Command)
+	}
+	if entrypoint.Command != "" && len(entrypoint.Args) != 0 {
+		rawArgs := strings.Join(entrypoint.Args, " ")
+		cmd = fmt.Sprintf("%s -- %s", cmd, rawArgs)
+	}
+	return kubectl.RawCommand(cmd, ShortWaitDuration)
+}
+
+func GenerateServiceUrl(svc *corev1.Service, namespace string) string {
+	service := fmt.Sprintf("%s.%s.svc:%d", svc.Name, namespace, svc.Spec.Ports[0].Port)
+	return service
+}
+
+func GetResponseViaPodWithCurl(podName, namespace, host string) *executor.CMDResult {
+	cmd := fmt.Sprintf("exec --namespace %s %s -- curl -o - %s", namespace, podName, host)
+	return kubectl.RawCommand(cmd, ShortWaitDuration)
+}
+
+func CheckExternalConnection(host, httpCode string, vmNamespace string, vmNames ...string) {
+	GinkgoHelper()
+	for _, vmName := range vmNames {
+		By(fmt.Sprintf("Response code from %q should be %q for %q", host, httpCode, vmName))
+		cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
+		CheckResultSshCommand(vmNamespace, vmName, cmd, httpCode)
+	}
+}
+
+func CheckResultSshCommand(vmNamespace, vmName, cmd, equal string) {
+	GinkgoHelper()
+	Eventually(func() (string, error) {
+		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+			Namespace:   vmNamespace,
+			Username:    conf.TestData.SshUser,
+			IdenityFile: conf.TestData.Sshkey,
+		})
+		if res.Error() != nil {
+			return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		}
+		return strings.TrimSpace(res.StdOut()), nil
+	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(equal))
+}

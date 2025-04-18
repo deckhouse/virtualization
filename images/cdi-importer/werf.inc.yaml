@@ -25,12 +25,20 @@ binaries:
   # Qemu-img
   - /usr/bin/qemu-img
   - /usr/bin/qemu-nbd
+  - /usr/bin/bash
+  - /usr/bin/pwd
+  - /usr/bin/ls
+  - /usr/bin/id
+  - /usr/bin/cat
+  - /usr/bin/ps
+  - /usr/bin/namei
+  - /usr/bin/whoami
   # All nbd binaries
   - /usr/bin/nbd*
   # Mount
   - /usr/bin/mount /usr/bin/umount
   # Sqlite libs
-  - /usr/lib64/libsqlite3.so.0 
+  - /usr/lib64/libsqlite3.so.0
   # Block device binaries
   - /usr/sbin/blockdev
   # CDI binaries
