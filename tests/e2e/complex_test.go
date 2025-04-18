@@ -509,7 +509,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				vms := strings.Split(res.StdOut(), " ")
 
-				MigrateVirtualMachines(testCaseLabel, conf.TestData.ComplexTest, vms...)
+				MigrateVirtualMachines(testCaseLabel, vms...)
 			})
 		})
 

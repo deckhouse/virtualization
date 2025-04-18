@@ -297,7 +297,10 @@ func WaitByLabel(resource kc.Resource, opts kc.WaitOptions) {
 	})
 	Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
-	resources := strings.Split(res.StdOut(), " ")
+	var resources []string
+	if stdout := res.StdOut(); stdout != "" {
+		resources = strings.Split(res.StdOut(), " ")
+	}
 	WaitResources(resources, resource, opts)
 }
 

@@ -24,6 +24,7 @@ env:
   RELEASE_CHANNEL: ${{ github.event.inputs.channel }}
   MODULES_MODULE_TAG: ${{ github.event.inputs.tag }}-dev
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
+  SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
   GO_VERSION: "1.22.7"
   MODULE_EDITION: "EE"
 

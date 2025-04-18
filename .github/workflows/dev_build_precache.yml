@@ -21,6 +21,8 @@ env:
   MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
   MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
   SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
+  SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
+
 on:
   workflow_dispatch:
   schedule:

@@ -29,17 +29,12 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-const (
-	InternalApiVersion = "internal.virtualization.deckhouse.io/v1"
-	KubevirtVMIMKind   = "InternalVirtualizationVirtualMachineInstanceMigration"
-)
-
-func MigrateVirtualMachines(label map[string]string, templatePath string, virtualMachines ...string) {
+func MigrateVirtualMachines(label map[string]string, virtualMachines ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, virtv2.VMOPTypeMigrate, virtualMachines...)
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeEvict, virtualMachines...)
 }
 
-var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration"}
 
 	AfterEach(func() {
@@ -80,28 +75,6 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 		})
 	})
 
-	Context("When virtual images are applied", func() {
-		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When virtual disks are applied", func() {
-		It("checks VDs phases", func() {
-			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
@@ -123,7 +96,7 @@ var _ = Describe("Virtual machine migration", ginkgoutil.CommonE2ETestDecorators
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			MigrateVirtualMachines(testCaseLabel, conf.TestData.VmMigration, vms...)
+			MigrateVirtualMachines(testCaseLabel, vms...)
 		})
 	})
 

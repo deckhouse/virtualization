@@ -86,6 +86,7 @@ type DeleteOptions struct {
 	IgnoreNotFound bool
 	Labels         map[string]string
 	Namespace      string
+	Name           string
 	Recursive      bool
 	Resource       Resource
 }
@@ -386,6 +387,9 @@ func (k KubectlCMD) deleteOptions(cmd string, opts DeleteOptions) string {
 	cmd = k.addNamespace(cmd, opts.Namespace)
 	cmd = k.addLabels(cmd, opts.Labels, opts.ExcludedLabels)
 	cmd = k.addIgnoreNotFound(cmd, opts.IgnoreNotFound)
+	if opts.Name != "" {
+		cmd += fmt.Sprintf(" %s", opts.Name)
+	}
 	return cmd
 }
 
