@@ -14,14 +14,17 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"fmt"
 	"hooks/pkg/common"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
+	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/app"
+	"github.com/deckhouse/module-sdk/pkg/registry"
 )
 
-var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{
+var conf = tlscertificate.GenSelfSignedTLSHookConf{
 	CN:            common.AUDIT_CERT_CN,
 	TLSSecretName: "virtualization-audit-tls",
 	Namespace:     common.MODULE_NAMESPACE,
@@ -38,7 +41,19 @@ var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLS
 
 	FullValuesPathPrefix: fmt.Sprintf("%s.internal.audit.cert", common.MODULE_NAME),
 	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", common.MODULE_NAME),
-})
+}
+
+var genSelfSignedTLS = func(conf tlscertificate.GenSelfSignedTLSHookConf) pkg.ReconcileFunc {
+	return func(ctx context.Context, input *pkg.HookInput) error {
+		if !input.Values.Get("virtualization.audit.enabled").Bool() {
+			return nil
+		}
+
+		return tlscertificate.GenSelfSignedTLS(conf)(ctx, input)
+	}
+}
+
+var _ = registry.RegisterFunc(tlscertificate.GenSelfSignedTLSConfig(conf), genSelfSignedTLS(conf))
 
 func main() {
 	app.Run()
