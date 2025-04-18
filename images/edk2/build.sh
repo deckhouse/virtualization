@@ -362,3 +362,10 @@ build_iso $FIRMWARE
 # enroll
 ls -la $FIRMWARE
 # no_enroll
+
+echo_dbg "run edk2-vars-generator.py"
+/edk2-vars-generator.py -d \
+	-f OVMF_4M -e $FIRMWARE/EnrollDefaultKeys.efi -s $FIRMWARE/Shell.efi \
+	-c $FIRMWARE/OVMF_CODE.secboot.fd \
+	-V $FIRMWARE/OVMF_VARS.fd \
+	-C `< debian/oem-string-vendor` -o $FIRMWARE/OVMF_VARS.ms.fd

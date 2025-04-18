@@ -11,6 +11,8 @@ git:
   to: /
   includePaths:
   - build.sh
+  - edk2-vars-generator.py
+  - python
   stageDependencies:
     setup:
       - build.sh
@@ -83,4 +85,7 @@ shell:
     . ./edksetup.sh
 
     /build.sh --repo-name {{ $gitRepoName }} --branch {{ $version }}
+
+    echo "List /FIRMWARE"
+    ls -lah /FIRMWARE
 
