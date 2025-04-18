@@ -22,6 +22,7 @@ import (
 	"maps"
 	"reflect"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/strings/slices"
@@ -205,6 +206,10 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 	}
 	jsonPatch := client.RawPatch(types.JSONPatchType, metadataPatchBytes)
 	if err = r.client.Patch(ctx, r.changedObj, jsonPatch); err != nil {
+		if r.changedObj.GetDeletionTimestamp() != nil && len(r.changedObj.GetFinalizers()) == 0 && kerrors.IsNotFound(err) {
+			return nil
+		}
+
 		return fmt.Errorf("error patching metadata: %w", err)
 	}
 
