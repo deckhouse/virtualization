@@ -574,6 +574,7 @@ jobs:
       - set_e2e_requirement_status
       - set_vars
       - run_e2e
+      - update_comment_on_finish
     steps:
       - name: Remove label
         id: remove-label
