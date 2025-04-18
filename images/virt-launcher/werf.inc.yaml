@@ -272,7 +272,7 @@ shell:
     
     LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
     LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
-    LIBS+=" /usr/lib64/libtpms.so* /usr/lib64/libjson* /usr/lib64/libfuse*"
+    LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
     LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s*"
 
     echo "Relocate additional libs for files in /VBINS"
