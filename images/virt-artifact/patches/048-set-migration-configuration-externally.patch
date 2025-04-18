@@ -1,5 +1,5 @@
 diff --git a/pkg/virt-controller/watch/migration.go b/pkg/virt-controller/watch/migration.go
-index 4cec8371df..d01da4eef0 100644
+index 4cec8371df..fc7d184a8a 100644
 --- a/pkg/virt-controller/watch/migration.go
 +++ b/pkg/virt-controller/watch/migration.go
 @@ -23,6 +23,7 @@ import (
@@ -10,15 +10,20 @@ index 4cec8371df..d01da4eef0 100644
  	"sort"
  	"strconv"
  	"strings"
-@@ -583,6 +584,7 @@ func (c *MigrationController) processMigrationPhase(
+@@ -582,7 +583,12 @@ func (c *MigrationController) processMigrationPhase(
+ 			}
  		}
  	case virtv1.MigrationScheduled:
++		// If external migration configuration is enabled, switch to MigrationPreparingTarget on MigrationConfiguration presence.
++		isExternalMigrationConfiguration := os.Getenv("ENABLE_EXTERNAL_MIGRATION_CONFIGURATION") != "yes"
++		migrationConfigurationPresence := vmi.Status.MigrationState != nil &&
++			vmi.Status.MigrationState.MigrationConfiguration != nil
  		if vmi.Status.MigrationState != nil &&
-+			vmi.Status.MigrationState.MigrationConfiguration != nil &&
++			(!isExternalMigrationConfiguration || migrationConfigurationPresence) &&
  			vmi.Status.MigrationState.MigrationUID == migration.UID &&
  			vmi.Status.MigrationState.TargetNode != "" {
  			migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
-@@ -911,14 +913,23 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
+@@ -911,14 +917,23 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
  		}
  	}
  
@@ -49,7 +54,7 @@ index 4cec8371df..d01da4eef0 100644
  	}
  
  	if controller.VMIHasHotplugCPU(vmi) && vmi.IsCPUDedicated() {
-@@ -937,7 +948,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
+@@ -937,7 +952,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
  		vmiCopy.ObjectMeta.Labels[virtv1.VirtualMachinePodMemoryRequestsLabel] = memoryReq
  	}
  
