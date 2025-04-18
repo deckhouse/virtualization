@@ -47,6 +47,9 @@ const (
 	// ReasonNotApplicableForVMPhase is a ReasonCompleted indicating that the specified operation type is not applicable for the virtual machine phase.
 	ReasonNotApplicableForVMPhase ReasonCompleted = "NotApplicableForVirtualMachinePhase"
 
+	// ReasonNotApplicableForLiveMigrationPolicy is a ReasonCompleted indicating that the specified operation type is not applicable for the virtual machine live migration policy.
+	ReasonNotApplicableForLiveMigrationPolicy ReasonCompleted = "NotApplicableForLiveMigrationPolicy"
+
 	// ReasonOtherOperationsAreInProgress is a ReasonCompleted indicating that there are other operations in progress.
 	ReasonOtherOperationsAreInProgress ReasonCompleted = "OtherOperationsAreInProgress"
 
