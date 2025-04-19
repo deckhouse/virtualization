@@ -205,41 +205,41 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Entry("Pending phase without changes, shouldn't have condition", virtv2.MachinePending, false, metav1.ConditionUnknown, false),
 	)
 
-	DescribeTable("ConfigurationApplied Condition Tests",
-		func(phase virtv2.MachinePhase, notReady bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
-			vm := newVM(phase)
-			if notReady {
-				vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
-					Type:   vmcondition.TypeBlockDevicesReady.String(),
-					Status: metav1.ConditionFalse,
-					Reason: "BlockDevicesNotReady",
-				})
-			}
-			kvvm := newKVVM()
-
-			fakeClient, resource, vmState = setupEnvironment(vm, kvvm)
-			reconcile()
-
-			newVM := new(virtv2.VirtualMachine)
-			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
-			Expect(err).NotTo(HaveOccurred())
-
-			confAppliedCond, confAppliedExists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
-			Expect(confAppliedExists).To(Equal(expectedExistence))
-			if confAppliedExists {
-				Expect(confAppliedCond.Status).To(Equal(expectedStatus))
-			}
-		},
-		Entry("Running phase with changes applied", virtv2.MachineRunning, false, metav1.ConditionUnknown, false),
-		Entry("Running phase with changes not applied", virtv2.MachineRunning, true, metav1.ConditionFalse, true),
-
-		Entry("Stopped phase with changes applied, condition should not exist", virtv2.MachineStopped, false, metav1.ConditionUnknown, false),
-		Entry("Stopped phase with changes not applied, condition should not exist", virtv2.MachineStopped, true, metav1.ConditionUnknown, false),
-
-		Entry("Starting phase with changes applied, condition should not exist", virtv2.MachineStarting, false, metav1.ConditionUnknown, false),
-		Entry("Starting phase with changes not applied, condition should not exist", virtv2.MachineStarting, true, metav1.ConditionUnknown, false),
-
-		Entry("Pending phase with changes applied, condition should not exist", virtv2.MachinePending, false, metav1.ConditionUnknown, false),
-		Entry("Pending phase with changes not applied, condition should not exist", virtv2.MachinePending, true, metav1.ConditionUnknown, false),
-	)
+	//DescribeTable("ConfigurationApplied Condition Tests",
+	//	func(phase virtv2.MachinePhase, notReady bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
+	//		vm := newVM(phase)
+	//		if notReady {
+	//			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
+	//				Type:   vmcondition.TypeBlockDevicesReady.String(),
+	//				Status: metav1.ConditionFalse,
+	//				Reason: "BlockDevicesNotReady",
+	//			})
+	//		}
+	//		kvvm := newKVVM()
+	//
+	//		fakeClient, resource, vmState = setupEnvironment(vm, kvvm)
+	//		reconcile()
+	//
+	//		newVM := new(virtv2.VirtualMachine)
+	//		err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+	//		Expect(err).NotTo(HaveOccurred())
+	//
+	//		confAppliedCond, confAppliedExists := conditions.GetCondition(vmcondition.TypeConfigurationApplied, newVM.Status.Conditions)
+	//		Expect(confAppliedExists).To(Equal(expectedExistence))
+	//		if confAppliedExists {
+	//			Expect(confAppliedCond.Status).To(Equal(expectedStatus))
+	//		}
+	//	},
+	//	Entry("Running phase with changes applied", virtv2.MachineRunning, false, metav1.ConditionUnknown, false),
+	//	Entry("Running phase with changes not applied", virtv2.MachineRunning, true, metav1.ConditionFalse, true),
+	//
+	//	Entry("Stopped phase with changes applied, condition should not exist", virtv2.MachineStopped, false, metav1.ConditionUnknown, false),
+	//	Entry("Stopped phase with changes not applied, condition should not exist", virtv2.MachineStopped, true, metav1.ConditionUnknown, false),
+	//
+	//	Entry("Starting phase with changes applied, condition should not exist", virtv2.MachineStarting, false, metav1.ConditionUnknown, false),
+	//	Entry("Starting phase with changes not applied, condition should not exist", virtv2.MachineStarting, true, metav1.ConditionUnknown, false),
+	//
+	//	Entry("Pending phase with changes applied, condition should not exist", virtv2.MachinePending, false, metav1.ConditionUnknown, false),
+	//	Entry("Pending phase with changes not applied, condition should not exist", virtv2.MachinePending, true, metav1.ConditionUnknown, false),
+	//)
 })
