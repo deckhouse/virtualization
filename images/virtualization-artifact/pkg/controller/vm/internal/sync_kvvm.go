@@ -86,21 +86,18 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 			conditions.RemoveCondition(vmcondition.TypeConfigurationApplied, &changed.Status.Conditions)
 			conditions.RemoveCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, &changed.Status.Conditions)
 
-		case virtv2.MachineRunning:
-			if cbConfApplied.Condition().Status == metav1.ConditionTrue {
-				conditions.RemoveCondition(vmcondition.TypeConfigurationApplied, &changed.Status.Conditions)
-			} else {
+		default:
+			if cbConfApplied.Condition().Status == metav1.ConditionFalse {
 				conditions.SetCondition(cbConfApplied, &changed.Status.Conditions)
+			} else {
+				conditions.RemoveCondition(vmcondition.TypeConfigurationApplied, &changed.Status.Conditions)
 			}
 
-			if cbAwaitingRestart.Condition().Status == metav1.ConditionFalse {
-				conditions.RemoveCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, &changed.Status.Conditions)
-			} else {
+			if cbAwaitingRestart.Condition().Status == metav1.ConditionTrue {
 				conditions.SetCondition(cbAwaitingRestart, &changed.Status.Conditions)
+			} else {
+				conditions.RemoveCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, &changed.Status.Conditions)
 			}
-		default:
-			conditions.SetCondition(cbConfApplied, &changed.Status.Conditions)
-			conditions.SetCondition(cbAwaitingRestart, &changed.Status.Conditions)
 		}
 	}()
 

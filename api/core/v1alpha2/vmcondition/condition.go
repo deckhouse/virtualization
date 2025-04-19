@@ -80,16 +80,16 @@ const (
 	ReasonRestartAwaitingVMClassChangesExist Reason = "RestartAwaitingVMClassChangesExist"
 	ReasonRestartNoNeed                      Reason = "NoNeedRestart"
 
-	ReasonPodNotStarted Reason = "PodNotStarted"
-
 	ReasonMigratable    Reason = "VirtualMachineMigratable"
 	ReasonNotMigratable Reason = "VirtualMachineNotMigratable"
 
 	ReasonVmIsMigrating                  Reason = "VirtualMachineMigrating"
+	ReasonVmIsNotMigrating               Reason = "VirtualMachineNotMigrating"
 	ReasonLastMigrationFinishedWithError Reason = "LastMigrationFinishedWithError"
 	ReasonVmIsNotRunning                 Reason = "VirtualMachineNotRunning"
 	ReasonVmIsRunning                    Reason = "VirtualMachineRunning"
 	ReasonInternalVirtualMachineError    Reason = "InternalVirtualMachineError"
+	ReasonPodNotStarted                  Reason = "PodNotStarted"
 
 	// 	ReasonFilesystemFrozen indicates that virtual machine's filesystem has been successfully frozen.
 	ReasonFilesystemFrozen Reason = "Frozen"

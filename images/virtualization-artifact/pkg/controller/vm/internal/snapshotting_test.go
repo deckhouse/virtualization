@@ -87,7 +87,7 @@ var _ = Describe("SnapshottingHandler", func() {
 
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -102,7 +102,7 @@ var _ = Describe("SnapshottingHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm, snapshot)
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -115,7 +115,7 @@ var _ = Describe("SnapshottingHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm)
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -134,7 +134,7 @@ var _ = Describe("SnapshottingHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm)
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 

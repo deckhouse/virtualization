@@ -62,6 +62,7 @@ var _ = Describe("AgentHandler Tests", func() {
 	}
 
 	newKVVMI := func(agentConnected bool, agentUnsupported bool) *virtv1.VirtualMachineInstance {
+		kvvmi := newEmptyKVVMI(name, namespace)
 		conditions := make([]virtv1.VirtualMachineInstanceCondition, 0)
 		if agentConnected {
 			conditions = append(conditions, virtv1.VirtualMachineInstanceCondition{
@@ -80,16 +81,9 @@ var _ = Describe("AgentHandler Tests", func() {
 				Status: corev1.ConditionFalse,
 			})
 		}
-		vmi := &virtv1.VirtualMachineInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-			},
-			Status: virtv1.VirtualMachineInstanceStatus{
-				Conditions: conditions,
-			},
-		}
-		return vmi
+
+		kvvmi.Status.Conditions = conditions
+		return kvvmi
 	}
 
 	reconcile := func() {
@@ -103,12 +97,12 @@ var _ = Describe("AgentHandler Tests", func() {
 	DescribeTable("AgentReady Condition Tests",
 		func(phase virtv2.MachinePhase, agentConnected bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
 			vm := newVM(phase)
-			vmi := newKVVMI(agentConnected, false)
-			fakeClient, resource, vmState = setupEnvironment(vm, vmi)
+			kvvmi := newKVVMI(agentConnected, false)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvmi)
 
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -127,14 +121,14 @@ var _ = Describe("AgentHandler Tests", func() {
 		Entry("Should add AgentReady as True if agent is connected", virtv2.MachineMigrating, true, metav1.ConditionTrue, true),
 		Entry("Should add AgentReady as False if agent is not connected", virtv2.MachineMigrating, false, metav1.ConditionFalse, true),
 
-		Entry("Should not add AgentReady if VM is in Pending phase if agent is connected", virtv2.MachinePending, true, metav1.ConditionUnknown, false),
-		Entry("Should not add AgentReady if VM is in Pending phase if agent is not connected", virtv2.MachinePending, false, metav1.ConditionUnknown, false),
+		Entry("Should not add AgentReady if VM is in Pending phase and the agent is connected", virtv2.MachinePending, true, metav1.ConditionUnknown, false),
+		Entry("Should not add AgentReady if VM is in Pending phase and the agent is not connected", virtv2.MachinePending, false, metav1.ConditionUnknown, false),
 
-		Entry("Should not add AgentReady if VM is in Starting phase if agent is connected", virtv2.MachineStarting, true, metav1.ConditionUnknown, false),
-		Entry("Should not add AgentReady if VM is in Starting phase if agent is not connected", virtv2.MachineStarting, false, metav1.ConditionUnknown, false),
+		Entry("Should not add AgentReady if VM is in Starting phase and the agent is connected", virtv2.MachineStarting, true, metav1.ConditionUnknown, false),
+		Entry("Should not add AgentReady if VM is in Starting phase and the agent is not connected", virtv2.MachineStarting, false, metav1.ConditionUnknown, false),
 
-		Entry("Should not add AgentReady if VM is in Stopped phase if agent is connected", virtv2.MachineStopped, true, metav1.ConditionUnknown, false),
-		Entry("Should not add AgentReady if VM is in Stopped phase if agent is not connected", virtv2.MachineStopped, false, metav1.ConditionUnknown, false),
+		Entry("Should not add AgentReady if VM is in Stopped phase and the agent is connected", virtv2.MachineStopped, true, metav1.ConditionUnknown, false),
+		Entry("Should not add AgentReady if VM is in Stopped phase and the agent is not connected", virtv2.MachineStopped, false, metav1.ConditionUnknown, false),
 	)
 
 	DescribeTable("AgentVersionNotSupported Condition Tests",
@@ -145,7 +139,7 @@ var _ = Describe("AgentHandler Tests", func() {
 
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -159,10 +153,10 @@ var _ = Describe("AgentHandler Tests", func() {
 		Entry("Should not set unsupported version condition as False in Running phase", virtv2.MachineRunning, false, metav1.ConditionUnknown, false),
 
 		Entry("Should set unsupported version condition as True in Stopping phase", virtv2.MachineStopping, true, metav1.ConditionTrue, true),
-		Entry("Should set unsupported version condition as False in Stopping phase", virtv2.MachineStopping, false, metav1.ConditionFalse, true),
+		Entry("Should set unsupported version condition as False in Stopping phase", virtv2.MachineStopping, false, metav1.ConditionUnknown, false),
 
 		Entry("Should set unsupported version condition as True in Migrating phase", virtv2.MachineMigrating, true, metav1.ConditionTrue, true),
-		Entry("Should set unsupported version condition as False in Migrating phase", virtv2.MachineMigrating, false, metav1.ConditionFalse, true),
+		Entry("Should set unsupported version condition as False in Migrating phase", virtv2.MachineMigrating, false, metav1.ConditionUnknown, false),
 
 		Entry("Should not set unsupported version condition as True in Pending phase", virtv2.MachinePending, true, metav1.ConditionUnknown, false),
 		Entry("Should not set unsupported version condition as False in Pending phase", virtv2.MachinePending, false, metav1.ConditionUnknown, false),

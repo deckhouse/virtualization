@@ -77,7 +77,7 @@ var _ = Describe("SizePolicyHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm)
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 			cond, exists := conditions.GetCondition(vmcondition.TypeSizingPolicyMatched, newVM.Status.Conditions)
@@ -102,7 +102,7 @@ var _ = Describe("SizePolicyHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm, vmClass)
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 			_, exists := conditions.GetCondition(vmcondition.TypeSizingPolicyMatched, newVM.Status.Conditions)
@@ -120,7 +120,7 @@ var _ = Describe("SizePolicyHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm, vmClass)
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 			_, exists := conditions.GetCondition(vmcondition.TypeSizingPolicyMatched, newVM.Status.Conditions)
