@@ -245,3 +245,36 @@ func isInternalVirtualMachineError(phase virtv1.VirtualMachinePrintableStatus) b
 func podFinal(pod corev1.Pod) bool {
 	return pod.Status.Phase == corev1.PodSucceeded || pod.Status.Phase == corev1.PodFailed
 }
+
+func checkVirtualMachineConfiguration(vm *virtv2.VirtualMachine) bool {
+	for _, c := range vm.Status.Conditions {
+		switch vmcondition.Type(c.Type) {
+		case vmcondition.TypeBlockDevicesReady:
+			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonWaitingForProvisioningToPVC.String() {
+				return false
+			}
+
+		case vmcondition.TypeSnapshotting:
+			if c.Status == metav1.ConditionTrue && c.Reason == vmcondition.ReasonSnapshottingInProgress.String() {
+				return false
+			}
+
+		case vmcondition.TypeIPAddressReady:
+			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonIPAddressNotAssigned.String() {
+				return false
+			}
+
+		case vmcondition.TypeProvisioningReady,
+			vmcondition.TypeClassReady:
+			if c.Status != metav1.ConditionTrue {
+				return false
+			}
+
+		case vmcondition.TypeSizingPolicyMatched:
+			if c.Status != metav1.ConditionTrue {
+				return false
+			}
+		}
+	}
+	return true
+}

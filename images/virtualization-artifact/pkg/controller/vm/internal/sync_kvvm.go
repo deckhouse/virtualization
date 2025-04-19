@@ -226,36 +226,7 @@ func (h *SyncKvvmHandler) Name() string {
 }
 
 func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
-	for _, c := range vm.Status.Conditions {
-		switch vmcondition.Type(c.Type) {
-		case vmcondition.TypeBlockDevicesReady:
-			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonWaitingForProvisioningToPVC.String() {
-				return true
-			}
-
-		case vmcondition.TypeSnapshotting:
-			if c.Status == metav1.ConditionTrue && c.Reason == vmcondition.ReasonSnapshottingInProgress.String() {
-				return true
-			}
-
-		case vmcondition.TypeIPAddressReady:
-			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonIPAddressNotAssigned.String() {
-				return true
-			}
-
-		case vmcondition.TypeProvisioningReady,
-			vmcondition.TypeClassReady:
-			if c.Status != metav1.ConditionTrue {
-				return true
-			}
-
-		case vmcondition.TypeSizingPolicyMatched:
-			if c.Status != metav1.ConditionTrue {
-				return true
-			}
-		}
-	}
-	return false
+	return !checkVirtualMachineConfiguration(vm)
 }
 
 func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineState, allChanges vmchange.SpecChanges) (bool, error) {
