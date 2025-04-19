@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -56,11 +57,16 @@ func (h *FirmwareHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		return reconcile.Result{}, err
 	}
 
-	h.syncFirmwareUpToDate(changed, kvvmi)
+	pod, err := s.Pod(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	h.syncFirmwareUpToDate(changed, kvvmi, pod)
 	return reconcile.Result{}, nil
 }
 
-func (h *FirmwareHandler) syncFirmwareUpToDate(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) {
+func (h *FirmwareHandler) syncFirmwareUpToDate(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod) {
 	if vm == nil {
 		return
 	}
@@ -68,6 +74,11 @@ func (h *FirmwareHandler) syncFirmwareUpToDate(vm *virtv2.VirtualMachine, kvvmi 
 	upToDate := kvvmi == nil || kvvmi.Status.LauncherContainerImageVersion == "" || kvvmi.Status.LauncherContainerImageVersion == h.image
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeFirmwareUpToDate).Generation(vm.GetGeneration())
+	if pod == nil {
+		conditions.RemoveCondition(vmcondition.TypeFirmwareUpToDate, &vm.Status.Conditions)
+		return
+	}
+
 	if upToDate {
 		cb.Status(metav1.ConditionTrue).
 			Reason(vmcondition.ReasonFirmwareUpToDate).
