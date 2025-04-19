@@ -119,14 +119,12 @@ func (h *AgentHandler) syncAgentVersionNotSupport(vm *virtv2.VirtualMachine, kvv
 		case virtv2.MachinePending, virtv2.MachineStarting, virtv2.MachineStopped:
 			conditions.RemoveCondition(vmcondition.TypeAgentVersionNotSupported, &vm.Status.Conditions)
 
-		case virtv2.MachineRunning:
-			if cb.Condition().Status == metav1.ConditionFalse {
-				conditions.RemoveCondition(vmcondition.TypeAgentVersionNotSupported, &vm.Status.Conditions)
-			} else {
-				conditions.SetCondition(cb, &vm.Status.Conditions)
-			}
 		default:
-			conditions.SetCondition(cb, &vm.Status.Conditions)
+			if cb.Condition().Status == metav1.ConditionTrue {
+				conditions.SetCondition(cb, &vm.Status.Conditions)
+			} else {
+				conditions.RemoveCondition(vmcondition.TypeAgentVersionNotSupported, &vm.Status.Conditions)
+			}
 		}
 	}()
 

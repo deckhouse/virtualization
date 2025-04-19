@@ -182,7 +182,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -194,6 +194,12 @@ var _ = Describe("SyncKvvmHandler", func() {
 		},
 		Entry("Running phase with changes", virtv2.MachineRunning, true, metav1.ConditionTrue, true),
 		Entry("Running phase without changes", virtv2.MachineRunning, false, metav1.ConditionUnknown, false),
+
+		Entry("Migrating phase with changes, condition should exist", virtv2.MachineMigrating, true, metav1.ConditionTrue, true),
+		Entry("Migrating phase without changes, condition should not exist", virtv2.MachineMigrating, false, metav1.ConditionUnknown, false),
+
+		Entry("Stopping phase with changes, condition should exist", virtv2.MachineStopping, true, metav1.ConditionTrue, true),
+		Entry("Stopping phase without changes, condition should not exist", virtv2.MachineStopping, false, metav1.ConditionUnknown, false),
 
 		Entry("Stopped phase with changes, shouldn't have condition", virtv2.MachineStopped, true, metav1.ConditionUnknown, false),
 		Entry("Stopped phase without changes, shouldn't have condition", virtv2.MachineStopped, false, metav1.ConditionUnknown, false),
@@ -220,7 +226,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm)
 			reconcile()
 
-			newVM := new(virtv2.VirtualMachine)
+			newVM := &virtv2.VirtualMachine{}
 			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -232,6 +238,12 @@ var _ = Describe("SyncKvvmHandler", func() {
 		},
 		Entry("Running phase with changes applied", virtv2.MachineRunning, false, metav1.ConditionUnknown, false),
 		Entry("Running phase with changes not applied", virtv2.MachineRunning, true, metav1.ConditionFalse, true),
+
+		Entry("Migrating phase with changes applied, condition should not exist", virtv2.MachineMigrating, false, metav1.ConditionUnknown, false),
+		Entry("Migrating phase with changes not applied, condition should exist", virtv2.MachineMigrating, true, metav1.ConditionFalse, true),
+
+		Entry("Stopping phase with changes applied, condition should not exist", virtv2.MachineStopping, false, metav1.ConditionUnknown, false),
+		Entry("Stopping phase with changes not applied, condition should exist", virtv2.MachineStopping, true, metav1.ConditionFalse, true),
 
 		Entry("Stopped phase with changes applied, condition should not exist", virtv2.MachineStopped, false, metav1.ConditionUnknown, false),
 		Entry("Stopped phase with changes not applied, condition should not exist", virtv2.MachineStopped, true, metav1.ConditionUnknown, false),

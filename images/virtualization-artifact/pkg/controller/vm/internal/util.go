@@ -96,8 +96,7 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 	// VirtualMachineStatusStopped indicates that the virtual machine is currently stopped and isn't expected to start.
 	virtv1.VirtualMachineStatusStopped: func(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) virtv2.MachinePhase {
 		if vm != nil && kvvm != nil {
-			confAppliedCondition, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, vm.Status.Conditions)
-			if confAppliedCondition.Status == metav1.ConditionFalse &&
+			if !checkVirtualMachineConfiguration(vm) &&
 				kvvm != nil && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
 				return virtv2.MachinePending
 			}
