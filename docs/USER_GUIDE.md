@@ -2007,6 +2007,12 @@ EOF
 
 The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
 
+Snapshots can be used to realize the following scenarios:
+- [Restoring the VM at the time the snapshot was created](#restore-a-virtual-machine)
+- [Creating a VM clone / Using the snapshot as a template for VM creation](#creating-a-vm-clone--using-a-vm-snapshot-as-a-template-for-creating-a-vm)
+
+![](./images/vm-restore-clone.png)
+
 {{< alert level="info">}}
 A snapshot contains the configuration of the virtual machine and snapshots of all its disks.
 
@@ -2074,7 +2080,7 @@ spec:
 EOF
 ```
 
-### Restore virtual machines from snapshots
+### Restore from snapshots
 
 The `VirtualMachineRestore` resource is used to restore a virtual machine from snapshots.
 
@@ -2084,14 +2090,11 @@ The following resources will be created in the cluster during the restore proces
 - VirtualBlockDeviceAttachment (if they existed at the moment of creation)
 - Secret with cloud-init/sysprep configuration (if they were connected to the VM at the time of creation)
 
+#### Restore a virtual machine
+
 {{< alert level="warning">}}
 To restore a virtual machine with the same name, it is necessary to delete the previous configuration of the VM and all its disks, because restoration implies restoring the configuration of the VM and all its disks at the moment of snapshot creation.
 {{< /alert >}}
-
-
-If there is a name conflict between existing and restored resources for `VirtualMachine`, `VirtualDisk`, or `VirtualMachineBlockDeviceAttachment`, the restore will fail. To avoid this, use the `nameReplacements` parameter.
-
-If the `VirtualMachineIPAddress` resource to be recovered is already present in the cluster, it must not be attached to another virtual machine, and if it is a resource of type Static, its IP address must match. The recovered secret with automation must also fully match the recovered secret. Failure to meet these conditions will cause the recovery to fail.
 
 Example manifest for restoring a virtual machine from a snapshot:
 
@@ -2100,25 +2103,46 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineRestore
 metadata:
-  name: linux-vm-restore
+  name: <restore name>
 spec:
-  virtualMachineSnapshotName: linux-vm-snapshot
-  nameReplacements:
-    - from:
-        kind: VirtualMachine
-        name: linux-vm
-      to: linux-vm-2 # recreate an existing `linux-vm` virtual machine with the new name `linux-vm-2`.
-    - from:
-        kind: VirtualDisk
-        name: linux-vm-root
-      to: linux-vm-root-2 # recreate the existing `linux-vm-root` virtual disk with the new name `linux-vm-root-2`.
-    - from:
-        kind: VirtualDisk
-        name: blank-disk
-      to: blank-disk-2 # recreate the existing `blank-disk` virtual disk with the new name `blank-disk-2`.
-    - from:
-        kind: VirtualMachineBlockDeviceAttachment
-        name: attach-blank-disk
-      to: attach-blank-disk-2 # recreate the existing `attach-blank-disk` virtual disk with the new name `attach-blank-disk-2`.
+  virtualMachineSnapshotName: <virtual machine snapshot name>
 EOF
 ```
+
+#### Creating a VM clone / Using a VM snapshot as a template for creating a VM
+
+A VM snapshot can be used to create a VM clone or as a template for creating similar VMs.
+
+For this purpose, it is necessary to create `VirtualMachineRestore` resource and configure `.spec.nameReplacements` block in it.
+
+Example manifest for restoring a virtual machine from a snapshot:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineRestore
+metadata:
+  name: <name>
+spec:
+  virtualMachineSnapshotName: <virtual machine snapshot name>
+  nameReplacements:
+    - From:
+        kind: VirtualMachine
+        name: <old vm name>
+      to: <new vm name>
+    - from:
+        kind: VirtualDisk
+        name: <old disk name>
+      to: <new disk name>
+    - from:
+        kind: VirtualDisk
+        name: <old secondary disk name>
+      to: <new secondary disk name>
+    - from:
+        kind: VirtualMachineBlockDeviceAttachment
+        name: <old attachment name>
+      to: <new attachment name>
+EOF
+```
+
+If the `VirtualMachineIPAddress` resource to be recovered is already present in the cluster, it must not be attached to another virtual machine, and if it is a resource of type Static, its IP address must match. The recovered secret with automation must also fully match the recovered secret. Failure to meet these conditions will cause the recovery to fail.
