@@ -89,24 +89,25 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 	needRequeue := false
 	switch {
 	case lease == nil && vmipStatus.Address != "":
-		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
-			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
-			conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
-				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s doesn't exist",
-					ip.IpToLeaseName(vmipStatus.Address)))
-		}
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
+		conditionBound.Status(metav1.ConditionFalse).
+			Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
+			Message(fmt.Sprintf("VirtualMachineIPAddressLease %s doesn't exist",
+				ip.IpToLeaseName(vmipStatus.Address)))
 
 	case lease == nil:
-		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
-			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
-			conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmipcondition.VirtualMachineIPAddressLeaseNotFound).
-				Message("VirtualMachineIPAddressLease is not found")
-		}
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
+		conditionBound.Status(metav1.ConditionFalse).
+			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotFound).
+			Message("VirtualMachineIPAddressLease is not found")
 
-	case vm != nil && vm.GetDeletionTimestamp().IsZero():
-		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhaseAttached {
+	case util.IsBoundLease(lease, vmip):
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseBound
+		vmipStatus.Address = ip.LeaseNameToIP(lease.Name)
+		conditionBound.Status(metav1.ConditionTrue).
+			Reason(vmipcondition.Bound)
+
+		if vm != nil && vm.GetDeletionTimestamp().IsZero() {
 			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseAttached
 			vmipStatus.VirtualMachine = vm.Name
 			conditionAttach.Status(metav1.ConditionTrue).
@@ -114,42 +115,28 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 			h.recorder.Eventf(vmip, corev1.EventTypeNormal, virtv2.ReasonAttached, "VirtualMachineIPAddress is attached to %q/%q.", vm.Namespace, vm.Name)
 		}
 
-	case util.IsBoundLease(lease, vmip):
-		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhaseBound {
-			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhaseBound
-			vmipStatus.Address = ip.LeaseNameToIP(lease.Name)
-			conditionBound.Status(metav1.ConditionTrue).
-				Reason(vmipcondition.Bound)
-		}
-
 	case lease.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseBound:
-		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
-			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
-			log.Warn(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress resource: %s/%s",
-				lease.Name, lease.Spec.VirtualMachineIPAddressRef.Name, lease.Spec.VirtualMachineIPAddressRef.Namespace))
-			conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
-				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress resource",
-					lease.Name))
-		}
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
+		log.Warn(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress resource: %s/%s",
+			lease.Name, lease.Spec.VirtualMachineIPAddressRef.Name, lease.Spec.VirtualMachineIPAddressRef.Namespace))
+		conditionBound.Status(metav1.ConditionFalse).
+			Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
+			Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is bound to another VirtualMachineIPAddress resource",
+				lease.Name))
 
 	case lease.Spec.VirtualMachineIPAddressRef.Namespace != vmip.Namespace:
-		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
-			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
-			conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
-				Message(fmt.Sprintf("The VirtualMachineIPLease %s belongs to a different namespace", lease.Name))
-		}
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
+		conditionBound.Status(metav1.ConditionFalse).
+			Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
+			Message(fmt.Sprintf("The VirtualMachineIPLease %s belongs to a different namespace", lease.Name))
 		needRequeue = true
 
 	default:
-		if vmipStatus.Phase != virtv2.VirtualMachineIPAddressPhasePending {
-			vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
-			conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
-				Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is not ready",
-					lease.Name))
-		}
+		vmipStatus.Phase = virtv2.VirtualMachineIPAddressPhasePending
+		conditionBound.Status(metav1.ConditionFalse).
+			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
+			Message(fmt.Sprintf("VirtualMachineIPAddressLease %s is not ready",
+				lease.Name))
 	}
 
 	log.Debug("Set VirtualMachineIP phase", "phase", vmipStatus.Phase)
