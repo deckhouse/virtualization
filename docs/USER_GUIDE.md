@@ -1907,17 +1907,23 @@ EOF
 
 Snapshots are designed to save the state of a resource at a particular point in time. Disk snapshots and virtual machine snapshots are currently supported.
 
-### Creating snapshots from disks
+### Creating disk snapshots
 
-The `VirtualDiskSnapshot` resource is used to create disk snapshots. It can be used as data sources for creating new virtual disks.
+The `VirtualDiskSnapshot` resource is used to create snapshots of virtual disks. These snapshots can serve as a data source when creating new disks, such as for cloning or information recovery.
 
-To guarantee data integrity and consistency, a disk snapshot can be created in the following cases:
+To ensure data integrity, a disk snapshot can be created in the following cases:
 
-- the virtual disk is not attached to any virtual machine;
-- the virtual disk is attached to a virtual machine that is powered off;
-- the virtual disk is connected to a running virtual machine, an agent (`qemu-guest-agent`) is installed in the virtual machine OS, the operation to "freeze" the file system was successful.
+- The disk is not attached to any virtual machine.
+- The VM is powered off.
+- The VM is running, but qemu-guest-agent is installed in the guest OS.
+The file system has been successfully “frozen” (fsfreeze operation).
 
-If integrity and consistency is not important, the snapshot can be performed on a running virtual machine without "freezing" the file system, for this purpose in the specification of the resource `VirtualDiskSnapshot` add:
+If data consistency is not required (for example, for test scenarios), a snapshot can be created:
+
+- On a running VM without “freezing” the file system.
+- Even if the disk is attached to an active VM.
+
+To do this, specify in the VirtualDiskSnapshot manifest:
 
 ```yaml
 spec:
@@ -2013,18 +2019,28 @@ Snapshots can be used to realize the following scenarios:
 
 ![](./images/vm-restore-clone.png)
 
+If you plan to use the snapshot as a template, perform the following steps in the guest OS before creating it:
+
+- Deleting personal data (files, passwords, command history).
+- Install critical OS updates.
+- Clearing system logs.
+- Reset network settings.
+- Removing unique identifiers (e.g. via `sysprep` for Windows).
+- Optimizing disk space.
+- Resetting initialization configurations (`cloud-init clean`).
+
 {{< alert level="info">}}
 A snapshot contains the configuration of the virtual machine and snapshots of all its disks.
 
 Restoring a snapshot assumes that the virtual machine is fully restored to the time when the snapshot was created.
 {{{< /alert >}}
 
-To ensure data integrity and consistency, a virtual machine snapshot will be created if at least one of the following conditions is met:
+The snapshot will be created successfully if:
 
-- the virtual machine is powered off;
-- an agent (qemu-guest-agent) is installed in the virtual machine's operating system, and the operation to freeze the file system was successful.
+- The VM is shut down
+- `qemu-guest-agent` is installed and the file system is successfully “frozen”.
 
-If integrity and consistency are not important, a snapshot can be created on a running virtual machine without "freezing" the file system. To do this, specify in the `VirtualMachineSnapshot` resource specification:
+If data integrity is not critical, the snapshot can be created on a running VM without freezing the file system. To do this, specify in the specification:
 
 ```yaml
 spec:
@@ -2053,7 +2069,7 @@ Creating a virtual machine snapshot will fail if at least one of the following c
 - there are changes pending restart of the virtual machine;
 - there is a disk in the process of resizing among the dependent devices.
 
-When you create a snapshot of the virtual machine, the IP address will be converted to a static IP address and will be used later when restoring the virtual machine from the snapshot.
+When a snapshot is created, the dynamic IP address of the VM is automatically converted to a static IP address and saved for recovery.
 
 If you do not want to convert and use the old IP address of the virtual machine, you can set the corresponding policy to `Never`. In this case, the address type without conversion (`Auto` or `Static`) will be used.
 
@@ -2082,18 +2098,19 @@ EOF
 
 ### Restore from snapshots
 
-The `VirtualMachineRestore` resource is used to restore a virtual machine from snapshots.
+The `VirtualMachineRestore` resource is used to restore a virtual machine from a snapshot. During the restore process, the following objects are automatically created in the cluster:
 
-The following resources will be created in the cluster during the restore process:
-- VirtualMachine
-- VirtualDisk (if they were connected to the VM at the moment of creation)
-- VirtualBlockDeviceAttachment (if they existed at the moment of creation)
-- Secret with cloud-init/sysprep configuration (if they were connected to the VM at the time of creation)
+- VirtualMachine - the main VM resource with the configuration from the snapshot.
+- VirtualDisk - disks connected to the VM at the moment of snapshot creation.
+- VirtualBlockDeviceAttachment - disk connections to the VM (if they existed in the original configuration).
+- Secret - secrets with cloud-init or sysprep settings (if they were involved in the original VM).
+
+Important: resources are created only if they were present in the VM configuration at the time the snapshot was created. This ensures that an exact copy of the environment is restored, including all dependencies and settings.
 
 #### Restore a virtual machine
 
 {{< alert level="warning">}}
-To restore a virtual machine with the same name, it is necessary to delete the previous configuration of the VM and all its disks, because restoration implies restoring the configuration of the VM and all its disks at the moment of snapshot creation.
+To restore a virtual machine, you must delete its current configuration and all associated disks. This is because the restore process returns the virtual machine and its disks to the state that was fixed at the time the backup snapshot was created.
 {{< /alert >}}
 
 Example manifest for restoring a virtual machine from a snapshot:
@@ -2111,11 +2128,11 @@ EOF
 
 #### Creating a VM clone / Using a VM snapshot as a template for creating a VM
 
-A VM snapshot can be used to create a VM clone or as a template for creating similar VMs.
+A snapshot of a virtual machine can be used both to create its exact copy (clone) and as a template for deploying new VMs with a similar configuration.
 
-For this purpose, it is necessary to create `VirtualMachineRestore` resource and configure `.spec.nameReplacements` block in it.
+This requires creating a `VirtualMachineRestore` resource and setting the renaming parameters in the `.spec.nameReplacements` block to avoid name conflicts.
 
-Example manifest for restoring a virtual machine from a snapshot:
+Example manifest for restoring a VM from a snapshot:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -2145,4 +2162,10 @@ spec:
 EOF
 ```
 
-If the `VirtualMachineIPAddress` resource to be recovered is already present in the cluster, it must not be attached to another virtual machine, and if it is a resource of type Static, its IP address must match. The recovered secret with automation must also fully match the recovered secret. Failure to meet these conditions will cause the recovery to fail.
+When restoring a virtual machine from a snapshot, it is important to consider the following conditions:
+
+1. If the `VirtualMachineIPAddress` resource already exists in the cluster, it must not be assigned to another VM .
+2. For static IP addresses (`type: Static`) the value must be exactly the same as what was captured in the snapshot.
+3. Automation-related secrets (such as cloud-init or sysprep configuration) must exactly match the configuration being restored.
+
+Failure to do so will result in a restore error . This is because the system checks the integrity of the configuration and the uniqueness of the resources to prevent conflicts in the cluster.
