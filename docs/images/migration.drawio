@@ -1,6 +1,6 @@
 <mxfile host="65bd71144e">
     <diagram id="6EXt89o7fHejoy0miyVt" name="Page-1">
-        <mxGraphModel dx="927" dy="808" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+        <mxGraphModel dx="927" dy="667" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
             <root>
                 <mxCell id="0"/>
                 <mxCell id="1" parent="0"/>
@@ -29,10 +29,10 @@
                         <mxPoint x="12" as="offset"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="123" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#0064ff;fontColor=#f5f5fb;strokeColor=#0064ff;fontStyle=1" parent="1" vertex="1">
+                <mxCell id="123" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#5e6697;fontColor=#f5f5fb;strokeColor=#5e6697;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="271" y="520" width="101" height="20" as="geometry"/>
                 </mxCell>
-                <mxCell id="125" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#0064ff;fontColor=#f5f5fb;strokeColor=#0064ff;opacity=30;fontStyle=1" parent="1" vertex="1">
+                <mxCell id="125" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#969dc4;fontColor=#f5f5fb;strokeColor=#969dc4;opacity=30;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="629" y="520" width="101" height="20" as="geometry"/>
                 </mxCell>
                 <mxCell id="139" value="RAM" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6a01ff;fontColor=#f5f5fb;strokeColor=none;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fontStyle=1" parent="1" vertex="1">
@@ -77,10 +77,10 @@
                         <mxPoint x="12" as="offset"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="189" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#0064ff;fontColor=#f5f5fb;strokeColor=#0064ff;fontStyle=1" parent="1" vertex="1">
+                <mxCell id="189" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#5e6697;fontColor=#f5f5fb;strokeColor=#5e6697;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="271" y="720" width="101" height="20" as="geometry"/>
                 </mxCell>
-                <mxCell id="190" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#0064ff;fontColor=#f5f5fb;strokeColor=#0064ff;opacity=30;fontStyle=1" parent="1" vertex="1">
+                <mxCell id="190" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#969dc4;fontColor=#f5f5fb;strokeColor=#969dc4;opacity=30;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="629" y="720" width="101" height="20" as="geometry"/>
                 </mxCell>
                 <mxCell id="191" value="RAM" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6a01ff;fontColor=#f5f5fb;strokeColor=none;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fontStyle=1" parent="1" vertex="1">
@@ -160,7 +160,7 @@
                 <mxCell id="224" value="worker B" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fontSize=14;fontStyle=1;fontColor=default;" parent="1" vertex="1">
                     <mxGeometry x="610" y="210" width="70" height="20" as="geometry"/>
                 </mxCell>
-                <mxCell id="227" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#0064ff;fontColor=#f5f5fb;strokeColor=#0064ff;fontStyle=1" parent="1" vertex="1">
+                <mxCell id="227" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#5e6697;fontColor=#f5f5fb;strokeColor=#5e6697;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="271" y="320" width="101" height="20" as="geometry"/>
                 </mxCell>
                 <mxCell id="228" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#0064ff;fontColor=#f5f5fb;strokeColor=#0064ff;opacity=30;fontStyle=1" parent="1" vertex="1">
@@ -205,10 +205,10 @@
                         <mxPoint x="12" as="offset"/>
                     </mxGeometry>
                 </mxCell>
-                <mxCell id="241" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#0064ff;fontColor=#f5f5fb;strokeColor=#0064ff;fontStyle=1;opacity=30;" parent="1" vertex="1">
+                <mxCell id="241" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#969dc4;fontColor=#f5f5fb;strokeColor=#969dc4;fontStyle=1;opacity=30;" parent="1" vertex="1">
                     <mxGeometry x="271" y="920" width="101" height="20" as="geometry"/>
                 </mxCell>
-                <mxCell id="242" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#0064ff;fontColor=#f5f5fb;strokeColor=#0064ff;opacity=30;fontStyle=1" parent="1" vertex="1">
+                <mxCell id="242" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#969dc4;fontColor=#f5f5fb;strokeColor=#969dc4;opacity=30;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="629" y="920" width="101" height="20" as="geometry"/>
                 </mxCell>
                 <mxCell id="243" value="RAM" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6a01ff;fontColor=#f5f5fb;strokeColor=none;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fontStyle=1" parent="1" vertex="1">
@@ -300,10 +300,10 @@
                 <mxCell id="274" value="worker B" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fontSize=14;fontStyle=1;fontColor=default;" parent="1" vertex="1">
                     <mxGeometry x="610" y="1010" width="70" height="20" as="geometry"/>
                 </mxCell>
-                <mxCell id="277" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#0064ff;fontColor=#f5f5fb;strokeColor=#0064ff;fontStyle=1;opacity=30;" parent="1" vertex="1">
+                <mxCell id="277" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#969dc4;fontColor=#f5f5fb;strokeColor=#969dc4;fontStyle=1;opacity=30;" parent="1" vertex="1">
                     <mxGeometry x="271" y="1120" width="101" height="20" as="geometry"/>
                 </mxCell>
-                <mxCell id="278" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#0064ff;fontColor=#f5f5fb;strokeColor=#0064ff;fontStyle=1" parent="1" vertex="1">
+                <mxCell id="278" value="linux-vm" style="rounded=1;whiteSpace=wrap;html=1;arcSize=5;strokeWidth=2;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fillColor=#5e6697;fontColor=#f5f5fb;strokeColor=#5e6697;fontStyle=1" parent="1" vertex="1">
                     <mxGeometry x="629" y="1120" width="101" height="20" as="geometry"/>
                 </mxCell>
                 <mxCell id="280" value="RAM" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#6a01ff;fontColor=#f5f5fb;fontFamily=JetBrains Mono;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DJetBrains%2BMono;fontStyle=1;strokeColor=#6a01ff;" parent="1" vertex="1">
