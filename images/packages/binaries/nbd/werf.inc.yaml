@@ -17,7 +17,7 @@ import:
 packages:
 - expect socat twisted-core-tools gcc
 - git pkg-config trousers
-- automake autoconf make libtool
+- automake autoconf-archive make libtool
 - openssl cryptote
 - net-tools softhsm
 - tpm2-pkcs11 tpm2-pkcs11-tools tpm2-tools tpm2-abrmd
@@ -42,7 +42,7 @@ shell:
     - |
       apt-get update && apt-get install -y \
         {{ $builderDependencies.packages | join " " }}
-      
+
       apt-get update
       apt-get clean
       rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
@@ -51,10 +51,10 @@ shell:
     - |
       OUTDIR=/out
       mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-      
+
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch nbd-{{ $version }} /src
       cd /src
-      
+
       ./autogen.sh \
         --disable-tests \
         --with-gnutls \
@@ -62,9 +62,9 @@ shell:
         --enable-lfs \
         --enable-syslog \
         # --libdir=/usr/lib64
-      
+
       make -j$(nproc)
-      
+
       make DESTDIR=$OUTDIR install
       strip $OUTDIR/usr/bin/*
 
