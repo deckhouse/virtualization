@@ -52,7 +52,7 @@ shell:
         --prefix=/usr \
         --enable-lfs \
         --enable-syslog \
-        --disable-manpages
+        # --disable-manpages
 
       make -j$(nproc)
 
