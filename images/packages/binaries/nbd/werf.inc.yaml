@@ -57,6 +57,8 @@ shell:
       make -j$(nproc)
 
       make DESTDIR=$OUTDIR install
+      ls $OUTDIR/
+      ls $OUTDIR/usr
       ls $OUTDIR/usr/bin
       strip $OUTDIR/usr/bin/*
 
