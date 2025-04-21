@@ -400,7 +400,7 @@ func (s *state) MigrationVMOP(ctx context.Context) (*virtv2.VirtualMachineOperat
 	var resultVMOPs []virtv2.VirtualMachineOperation
 
 	for _, vmop := range vmops.Items {
-		if vmop.Spec.VirtualMachine == vm.Name || commonvmop.IsMigration(&vmop) || vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+		if vmop.Spec.VirtualMachine == vm.Name && commonvmop.IsMigration(&vmop) && vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
 			resultVMOPs = append(resultVMOPs, vmop)
 		}
 	}
