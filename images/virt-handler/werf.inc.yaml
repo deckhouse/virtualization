@@ -53,10 +53,10 @@ imageSpec:
 packages:
 - acl
 - nftables
-- qemu-img
+# - qemu-img
 binaries:
-- /usr/bin/qemu-img
-- /usr/bin/qemu-nbd
+# - /usr/bin/qemu-img
+# - /usr/bin/qemu-nbd
 - /usr/bin/mount
 - /usr/bin/umount
 - /usr/bin/getfacl
@@ -79,6 +79,11 @@ import:
     add: /xorriso
     to: /xorriso
     before: install
+import:
+- image: qemu
+  add: /qemu-img
+  to: /relocate
+  before: setup
 shell:
   install:
   - |

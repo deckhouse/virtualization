@@ -17,14 +17,14 @@ imageSpec:
 libraries:
 - libsqlite3
 packages:
-  - qemu-img
+  # - qemu-img
   - libnbd
   - nbd-client
   - nbd-server
 binaries:
   # Qemu-img
-  - /usr/bin/qemu-img
-  - /usr/bin/qemu-nbd
+  # - /usr/bin/qemu-img
+  # - /usr/bin/qemu-nbd
   # All nbd binaries
   - /usr/bin/nbd*
   # Mount
@@ -52,6 +52,10 @@ import:
   - cdi-image-size-detection
   - cdi-importer
   - cdi-source-update-poller
+- image: qemu
+  add: /qemu-img
+  to: /relocate
+  before: setup
 shell:
   install:
   - |
