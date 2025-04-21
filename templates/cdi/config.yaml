@@ -51,7 +51,7 @@ spec:
         type: json
       - resourceType: Deployment
         resourceName: cdi-apiserver
-        patch: {{ include "strategic_affinity_patch" (list "app" "cdi-apiserver") }}
+        patch: {{ include "strategic_affinity_patch" (list "cdi.io" "cdi-apiserver") }}
         type: strategic
 
       - resourceType: Deployment
@@ -60,7 +60,7 @@ spec:
         type: json
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: {{ include "strategic_affinity_patch" (list "app" "containerized-data-importer") }}
+        patch: {{ include "strategic_affinity_patch" (list "cdi.io" "cdi-deployment") }}
         type: strategic
     {{- end }}
 
@@ -86,8 +86,8 @@ spec:
       {{- $kubeRbacProxySettings := dict }}
       {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-operator") 
+          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
+          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-operator")
       ) }}
       - resourceType: Deployment
         resourceName: cdi-apiserver
@@ -95,8 +95,8 @@ spec:
         type: strategic
 
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
-          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-deployment") 
+          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
+          (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-deployment")
       ) }}
       - resourceType: Deployment
         resourceName: cdi-deployment
