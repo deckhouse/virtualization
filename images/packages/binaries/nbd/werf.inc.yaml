@@ -16,7 +16,7 @@ import:
 {{- define "$name" -}}
 packages:
 - git gcc
-- automake autoconf-archive make
+- automake autoconf-archive make libtool
 - glib2-devel bison flex setproctitle
 {{- end -}}
 
