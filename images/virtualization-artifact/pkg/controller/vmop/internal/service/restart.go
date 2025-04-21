@@ -83,7 +83,7 @@ func (o RestartOperation) IsComplete(ctx context.Context) (bool, string, error) 
 
 	vm := &virtv2.VirtualMachine{}
 	if err := o.client.Get(ctx, key, vm); err != nil {
-		return false, "", client.IgnoreNotFound(err)
+		return false, "", err
 	}
 
 	return kvvmi != nil && vm.Status.Phase == virtv2.MachineRunning &&
