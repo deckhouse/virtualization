@@ -1,7 +1,8 @@
 ---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $version := "1.3.1" }}
-{{- $gitRepoUrl := "kubevirt/kubevirt.git" }}
+{{- $branch := "v12n-patches"}}
+{{- $goVersion := "1.22.7" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -55,9 +56,15 @@ shell:
 
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    git config --global --add advice.detachedHead false
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /kubevirt
+    - mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    - git config --global --add advice.detachedHead false
+    - git clone --depth 1 --branch {{ $branch }} {{ $.SOURCE_REPO }}/deckhouse/3p-kubevirt.git /kubevirt
+    - cd /kubevirt
+    - go mod edit -go={{ $goVersion }}
+    - go mod download
+    - |
+      go get github.com/opencontainers/runc@v1.1.14
+      go get github.com/containers/common@v0.60.4
 
   - |
     cd /kubevirt
