@@ -16,8 +16,8 @@ import:
 {{- define "$name" -}}
 packages:
 - git gcc
-- automake autoconf-archive make libtool makeinfo pkg-config
-- glib2-devel bison flex setproctitle
+- automake autoconf-archive make libtool
+- glib2-devel bison flex setproctitle libnl-devel docbook-utils
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
