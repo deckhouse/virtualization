@@ -20,14 +20,14 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . DiskService Sources
+//go:generate moq -rm -out mock.go . DiskService Sources StorageClassService
 
 type Sources interface {
 	Changed(ctx context.Context, vi *virtv2.VirtualImage) bool
@@ -36,6 +36,14 @@ type Sources interface {
 }
 
 type DiskService interface {
-	GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error)
+	GetStorageClass(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+}
+
+type StorageClassService interface {
+	IsStorageClassAllowed(sc string) bool
+	GetModuleStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
+	GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
+	GetStorageClass(ctx context.Context, sc string) (*storagev1.StorageClass, error)
 	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }
