@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/watcher"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -35,7 +34,7 @@ type Watcher interface {
 }
 
 type Handler interface {
-	Handle(ctx context.Context, s state.VMOperationState) (reconcile.Result, error)
+	Handle(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (reconcile.Result, error)
 	Name() string
 }
 
@@ -77,11 +76,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	s := state.New(r.client, vmop)
-
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
-		return h.Handle(ctx, s)
+		return h.Handle(ctx, vmop.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		vmop.Changed().Status.ObservedGeneration = vmop.Changed().Generation

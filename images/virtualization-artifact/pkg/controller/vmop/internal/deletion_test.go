@@ -17,12 +17,9 @@ limitations under the License.
 package internal
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,8 +28,6 @@ import (
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -43,23 +38,21 @@ var _ = Describe("DeletionHandler", func() {
 	)
 
 	var (
+		ctx        = testutil.ContextBackgroundWithNoOpLogger()
 		fakeClient client.WithWatch
 		srv        *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]
-		s          state.VMOperationState
 	)
 
 	AfterEach(func() {
 		fakeClient = nil
 		srv = nil
-		s = nil
 	})
 
 	reconcile := func() {
-		vmopSrv := service.NewVMOperationService(fakeClient)
-		h := NewDeletionHandler(vmopSrv)
-		_, err := h.Handle(testutil.ContextBackgroundWithNoOpLogger(), s)
+		h := NewDeletionHandler(NewSrvCreator(fakeClient))
+		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
-		err = srv.Update(context.Background())
+		err = srv.Update(ctx)
 		Expect(err).NotTo(HaveOccurred())
 	}
 
@@ -71,16 +64,11 @@ var _ = Describe("DeletionHandler", func() {
 	}
 
 	DescribeTable("Should be protected", func(vmop *virtv2.VirtualMachineOperation, protect bool) {
-		fakeClient, srv, s = setupEnvironment(vmop)
+		fakeClient, srv = setupEnvironment(vmop)
 		reconcile()
 
-		key := types.NamespacedName{
-			Name:      vmop.GetName(),
-			Namespace: vmop.GetNamespace(),
-		}
-
 		newVMOP := &virtv2.VirtualMachineOperation{}
-		err := fakeClient.Get(context.Background(), key, newVMOP)
+		err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vmop), newVMOP)
 		Expect(err).NotTo(HaveOccurred())
 
 		updated := controllerutil.AddFinalizer(newVMOP, virtv2.FinalizerVMOPCleanup)
@@ -137,11 +125,11 @@ var _ = Describe("DeletionHandler", func() {
 				vmop.DeletionTimestamp = ptr.To(metav1.Now())
 				expectLength = 0
 			}
-			fakeClient, srv, s = setupEnvironment(vmop, mig)
+			fakeClient, srv = setupEnvironment(vmop, mig)
 			reconcile()
 
 			migs := &virtv1.VirtualMachineInstanceMigrationList{}
-			err := fakeClient.List(context.Background(), migs)
+			err := fakeClient.List(ctx, migs)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(len(migs.Items)).To(Equal(expectLength))
