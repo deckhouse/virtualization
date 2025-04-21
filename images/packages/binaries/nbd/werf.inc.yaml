@@ -50,7 +50,6 @@ shell:
         # --libdir=/usr/lib64
 
       ./configure \
-        --disable-tests \
         --prefix=/usr \
         --enable-lfs \
         --enable-syslog \
