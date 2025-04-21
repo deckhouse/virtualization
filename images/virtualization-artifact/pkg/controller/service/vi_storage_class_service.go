@@ -39,7 +39,7 @@ func NewVirtualImageStorageClassService(settings config.VirtualImageStorageClass
 	}
 }
 
-// GetStorageClass determines the storage class for VI from global settings and resource spec.
+// GetValidatedStorageClass determines the storage class for VI from global settings and resource spec.
 //
 // Global settings contain a default storage class and an array of allowed storageClasses from the ModuleConfig.
 // Storage class is allowed if contained in the "allowed" array.
