@@ -46,8 +46,7 @@ shell:
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch nbd-{{ $version }} /src
       cd /src
 
-      ./autogen.sh
-        # --libdir=/usr/lib64
+      ./autogen.sh \
         --prefix=/usr \
         --enable-lfs \
         --enable-syslog \
