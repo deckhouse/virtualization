@@ -1,0 +1,20 @@
+Description: Revert "ArmVirtPkg: make EFI_LOADER_DATA non-executable"
+ The versions of GRUB most distros are shipping still depend on executable
+ EFI_LOADER_DATA. Revert this upstream change until the necessary fixes are
+ more generally available.
+Author: dann frazier <dannf@debian.org>
+Bug-Debian: https://bugs.debian.org/1025656
+Forwarded: https://edk2.groups.io/g/devel/message/97814
+Last-Update: 2023-07-21
+
+--- a/ArmVirtPkg/ArmVirt.dsc.inc
++++ b/ArmVirtPkg/ArmVirt.dsc.inc
+@@ -398,7 +398,7 @@
+   # build command line you can allow code execution in EfiLoaderData. This is
+   # required when using some outdated GRUB versions.
+   #
+-  gEfiMdeModulePkgTokenSpaceGuid.PcdDxeNxMemoryProtectionPolicy|0xC000000000007FD5
++  gEfiMdeModulePkgTokenSpaceGuid.PcdDxeNxMemoryProtectionPolicy|0xC000000000007FD1
+ 
+   gEfiMdeModulePkgTokenSpaceGuid.PcdCpuStackGuard|TRUE
+ 

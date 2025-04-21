@@ -1,0 +1,21 @@
+From: Mate Kukri <mate.kukri@canonical.com>
+Date: Thu, 20 Mar 2025 10:49:23 +0000
+Subject: Revert "OvmfPkg/QemuKernelLoaderFsDxe: drop bogus assert"
+
+This reverts commit 1111e9fe7078eed9e5c50e1808776ee40a629e16.
+---
+ OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c b/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
+index 3e1a876..0947b6b 100644
+--- a/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
++++ b/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
+@@ -290,6 +290,7 @@ QemuKernelBlobTypeToFileInfo (
+ 
+   NameSize     = (StrLen (Name) + 1) * 2;
+   FileInfoSize = OFFSET_OF (EFI_FILE_INFO, FileName) + NameSize;
++  ASSERT (FileInfoSize >= sizeof *FileInfo);
+ 
+   OriginalBufferSize = *BufferSize;
+   *BufferSize        = FileInfoSize;

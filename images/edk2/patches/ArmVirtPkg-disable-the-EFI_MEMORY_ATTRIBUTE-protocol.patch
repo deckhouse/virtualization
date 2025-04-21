@@ -1,0 +1,52 @@
+Description: ArmVirtPkg: Disable the EFI memory attributes protocol
+ Temporarily disable the EFI_MEMORY_ATTRIBUTE_PROTOCOL to workaround
+ a bug in shim until distributions have had a chance to fix it.
+Author: dann frazier <dannf@debian.org>
+Bug-Debian: https://bugs.debian.org/1042438
+Bug-Ubuntu: https://launchpad.net/bugs/2036604
+Last-Update: 2025-03-01
+
+--- a/ArmPkg/Drivers/CpuDxe/CpuDxe.c
++++ b/ArmPkg/Drivers/CpuDxe/CpuDxe.c
+@@ -429,8 +429,6 @@
+                   &CpuHandle,
+                   &gEfiCpuArchProtocolGuid,
+                   &mCpu,
+-                  &gEfiMemoryAttributeProtocolGuid,
+-                  &mMemoryAttribute,
+                   NULL
+                   );
+   if (EFI_ERROR (Status)) {
+--- a/ArmPkg/Drivers/CpuDxe/CpuDxe.h
++++ b/ArmPkg/Drivers/CpuDxe/CpuDxe.h
+@@ -30,12 +30,9 @@
+ #include <Protocol/Cpu.h>
+ #include <Protocol/DebugSupport.h>
+ #include <Protocol/LoadedImage.h>
+-#include <Protocol/MemoryAttribute.h>
+ 
+ extern BOOLEAN  mIsFlushingGCD;
+ 
+-extern EFI_MEMORY_ATTRIBUTE_PROTOCOL  mMemoryAttribute;
+-
+ /**
+   This function registers and enables the handler specified by InterruptHandler for a processor
+   interrupt or exception type specified by InterruptType. If InterruptHandler is NULL, then the
+--- a/ArmPkg/Drivers/CpuDxe/CpuDxe.inf
++++ b/ArmPkg/Drivers/CpuDxe/CpuDxe.inf
+@@ -23,7 +23,6 @@
+   CpuDxe.h
+   CpuMmuCommon.c
+   Exception.c
+-  MemoryAttribute.c
+ 
+ [Sources.ARM]
+   Arm/Mmu.c
+@@ -55,7 +54,6 @@
+ 
+ [Protocols]
+   gEfiCpuArchProtocolGuid
+-  gEfiMemoryAttributeProtocolGuid
+   gHardwareInterruptProtocolGuid
+ 
+ [Guids]

@@ -16,6 +16,17 @@ git:
   stageDependencies:
     setup:
       - build.sh
+# add ubuntu patches
+- add: /images/{{ $.ImageName }}
+  to: /
+  stageDependencies:
+    install:
+    - '**/*'
+  includePaths:
+  - patches
+  excludePaths:
+  - patches/README.md
+
 - add: /images/{{ $.ImageName }}/logo
   to: /
   includePaths:
@@ -71,6 +82,12 @@ shell:
 
     cd {{ $gitRepoName }}-{{ $version }}
     git submodule update --init --recursive
+
+    # apply patches
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 
   setup:
   - |

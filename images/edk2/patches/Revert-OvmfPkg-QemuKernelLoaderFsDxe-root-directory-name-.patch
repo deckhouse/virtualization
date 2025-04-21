@@ -1,0 +1,23 @@
+From: Mate Kukri <mate.kukri@canonical.com>
+Date: Thu, 20 Mar 2025 10:49:21 +0000
+Subject: Revert "OvmfPkg/QemuKernelLoaderFsDxe: root directory name should be
+ """
+
+This reverts commit b873e8b8e3717880578dd2894bc85a5035363027.
+---
+ OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c b/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
+index 570193e..add914d 100644
+--- a/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
++++ b/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
+@@ -279,7 +279,7 @@ QemuKernelBlobTypeToFileInfo (
+     // getting file info about the root directory
+     //
+     DEBUG ((DEBUG_INFO, "%a: file info: directory\n", __func__));
+-    Name      = L"";
++    Name      = L"\\";
+     FileSize  = mKernelBlobCount;
+     Attribute = EFI_FILE_READ_ONLY | EFI_FILE_DIRECTORY;
+   } else {

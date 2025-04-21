@@ -1,0 +1,25 @@
+From: Mate Kukri <mate.kukri@canonical.com>
+Date: Thu, 20 Mar 2025 10:49:22 +0000
+Subject: Revert "OvmfPkg/QemuKernelLoaderFsDxe: accept absolute paths"
+
+This reverts commit 46ae4e4b9574530e5081e98af0495d6f6d28379f.
+---
+ OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c b/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
+index 5b90420..3e1a876 100644
+--- a/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
++++ b/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
+@@ -806,11 +806,6 @@ QemuKernelStubFileOpen (
+   //
+   // Locate the file.
+   //
+-  if (FileName[0] == '\\') {
+-    // also accept absolute paths, i.e. '\kernel' for 'kernel'
+-    FileName++;
+-  }
+-
+   Blob = FindKernelBlob (FileName);
+ 
+   if (Blob == NULL) {

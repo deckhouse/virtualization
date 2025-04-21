@@ -1,0 +1,31 @@
+From: Mate Kukri <mate.kukri@canonical.com>
+Date: Thu, 20 Mar 2025 10:49:24 +0000
+Subject: Revert "OvmfPkg/QemuKernelLoaderFsDxe: allow longer file names"
+
+This reverts commit adf385ecab69631952bdc8b774ebd77e82b94a00.
+---
+ OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c b/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
+index 0947b6b..1f63add 100644
+--- a/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
++++ b/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
+@@ -33,7 +33,7 @@
+ // Static data that hosts the fw_cfg blobs and serves file requests.
+ //
+ typedef struct {
+-  CHAR16    Name[48];
++  CHAR16    Name[8];
+   struct {
+     FIRMWARE_CONFIG_ITEM    SizeKey;
+     FIRMWARE_CONFIG_ITEM    DataKey;
+@@ -43,7 +43,7 @@ typedef struct {
+ 
+ typedef struct KERNEL_BLOB KERNEL_BLOB;
+ struct KERNEL_BLOB {
+-  CHAR16         Name[48];
++  CHAR16         Name[8];
+   UINT32         Size;
+   UINT8          *Data;
+   KERNEL_BLOB    *Next;

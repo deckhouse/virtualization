@@ -1,0 +1,22 @@
+From: Mate Kukri <mate.kukri@canonical.com>
+Date: Thu, 20 Mar 2025 10:49:19 +0000
+Subject: Revert "OvmfPkg/QemuKernelLoaderFsDxe: use SIZE_OF_EFI_FILE_INFO"
+
+This reverts commit bba72ffbe1d1a8f6f94b0c14489bfcf08617fe1f.
+---
+ OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c b/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
+index df6364c..570193e 100644
+--- a/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
++++ b/OvmfPkg/QemuKernelLoaderFsDxe/QemuKernelLoaderFsDxe.c
+@@ -290,7 +290,7 @@ QemuKernelBlobTypeToFileInfo (
+   }
+ 
+   NameSize     = (StrLen (Name) + 1) * 2;
+-  FileInfoSize = SIZE_OF_EFI_FILE_INFO + NameSize;
++  FileInfoSize = OFFSET_OF (EFI_FILE_INFO, FileName) + NameSize;
+ 
+   OriginalBufferSize = *BufferSize;
+   *BufferSize        = FileInfoSize;
