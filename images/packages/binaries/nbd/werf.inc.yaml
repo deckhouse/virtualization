@@ -48,16 +48,17 @@ shell:
 
       ./autogen.sh
         # --libdir=/usr/lib64
-
-      ./configure \
         --prefix=/usr \
         --enable-lfs \
         --enable-syslog \
         --disable-manpages
 
+      ./configure
+
       make -j$(nproc)
 
       make DESTDIR=$OUTDIR install
+      ls $OUTDIR/usr/bin
       strip $OUTDIR/usr/bin/*
 
       # We don't need man, test and samples files
