@@ -49,7 +49,6 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (r
 	if vi.DeletionTimestamp != nil {
 		inUseCondition, _ := conditions.GetCondition(vicondition.InUseType, vi.Status.Conditions)
 		if inUseCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(inUseCondition, vi) {
-			controllerutil.AddFinalizer(vi, virtv2.FinalizerVICleanup)
 			return reconcile.Result{}, nil
 		}
 
