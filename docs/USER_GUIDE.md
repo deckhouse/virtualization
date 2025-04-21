@@ -805,9 +805,9 @@ A virtual machine (VM) goes through several phases in its existence, from creati
     The VM is successfully started and running.
     - Features:
       - When qemu-guest-agent is installed in the guest system, the `AgentReady` condition will be true and `.status.guestOSInfo` will display information about the running guest OS.
-      - The `type: FirmwareUpToDate` condition displays information about the current firmware status of the VM.
-      - Condition `type: AwaitingRestartToApplyConfiguration` displays information about the need to manually reboot the VM, as some configuration changes cannot be applied without rebooting the VM.
-      - The `type: ConfigurationApplied` condition displays information that the configuration is applied to the running VM.
+      - The `type: FirmwareUpToDate, status: False` condition informs that the VM firmware needs to be updated.
+      - Condition `type: ConfigurationApplied, status: False` informs that the VM configuration is not applied to the running VM.
+      - The `type: AwaitingRestartToApplyConfiguration, status: True` condition displays information about the need to manually reboot the VM because some configuration changes cannot be applied without rebooting the VM.
     - Possible problems:
       - An internal failure in the VM or hypervisor.
     - Diagnosis:
@@ -842,7 +842,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
     d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
     ```
 
-The `type: SizingPolicyMatched` condition indicates whether the resource configuration conforms to the sizing policy of the VirtualMachineClass being used. If the policy is violated, it is impossible to save the VM parameters without making the resources conform to the policy.
+The `type: SizingPolicyMatched, status: False` condition indicates that the resource configuration does not comply with the sizing policy of the VirtualMachineClass being used. If the policy is violated, it is impossible to save VM parameters without making the resources conform to the policy.
 
 Conditions display information about the state of the VM, as well as on problems that arise. You can understand what is wrong with the VM by analyzing them:
 
