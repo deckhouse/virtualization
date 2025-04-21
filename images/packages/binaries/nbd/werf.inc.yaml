@@ -63,6 +63,8 @@ shell:
         --enable-syslog \
         # --libdir=/usr/lib64
 
+      ./configure
+
       make -j$(nproc)
 
       make DESTDIR=$OUTDIR install
