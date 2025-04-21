@@ -17,10 +17,8 @@ limitations under the License.
 package state
 
 import (
-	"cmp"
 	"context"
 	"fmt"
-	"slices"
 	"sync"
 
 	corev1 "k8s.io/api/core/v1"
@@ -33,7 +31,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -54,7 +51,7 @@ type VirtualMachineState interface {
 	VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[virtv2.VMBDAObjectRef][]*virtv2.VirtualMachineBlockDeviceAttachment, error)
 	IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
 	Class(ctx context.Context) (*virtv2.VirtualMachineClass, error)
-	MigrationVMOP(ctx context.Context) (*virtv2.VirtualMachineOperation, error)
+	VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, error)
 	Shared(fn func(s *Shared))
 }
 
@@ -385,7 +382,7 @@ func (s *state) Class(ctx context.Context) (*virtv2.VirtualMachineClass, error) 
 	return s.vmClass, nil
 }
 
-func (s *state) MigrationVMOP(ctx context.Context) (*virtv2.VirtualMachineOperation, error) {
+func (s *state) VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
@@ -397,20 +394,13 @@ func (s *state) MigrationVMOP(ctx context.Context) (*virtv2.VirtualMachineOperat
 		return nil, fmt.Errorf("failed to list VirtualMachineOperation: %w", err)
 	}
 
-	var resultVMOPs []virtv2.VirtualMachineOperation
+	var resultVMOPs []*virtv2.VirtualMachineOperation
 
 	for _, vmop := range vmops.Items {
-		if vmop.Spec.VirtualMachine == vm.Name && commonvmop.IsMigration(&vmop) && vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
-			resultVMOPs = append(resultVMOPs, vmop)
+		if vmop.Spec.VirtualMachine == vm.Name {
+			resultVMOPs = append(resultVMOPs, &vmop)
 		}
 	}
 
-	slices.SortFunc(resultVMOPs, func(a, b virtv2.VirtualMachineOperation) int {
-		return cmp.Compare(a.GetCreationTimestamp().UnixNano(), b.GetCreationTimestamp().UnixNano())
-	})
-
-	if len(resultVMOPs) == 0 {
-		return nil, nil
-	}
-	return &resultVMOPs[0], nil
+	return resultVMOPs, nil
 }

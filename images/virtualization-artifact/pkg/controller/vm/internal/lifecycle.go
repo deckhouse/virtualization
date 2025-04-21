@@ -29,6 +29,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	podutil "github.com/deckhouse/virtualization-controller/pkg/common/pod"
+	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -61,8 +62,6 @@ type LifeCycleHandler struct {
 }
 
 func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifeCycleHandler))
-
 	if s.VirtualMachine().IsEmpty() {
 		return reconcile.Result{}, nil
 	}
@@ -110,13 +109,15 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, err
 	}
 
-	vmop, err := s.MigrationVMOP(ctx)
+	vmops, err := s.VMOPs(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
+	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifeCycleHandler))
+
 	h.syncMigrationState(changed, kvvmi)
-	h.syncMigrating(changed, kvvmi, vmop)
+	h.syncMigrating(changed, kvvmi, vmops, log)
 	h.syncMigratable(changed, kvvm)
 	h.syncPodStarted(changed, kvvm, kvvmi, pod)
 	h.syncRunning(changed, kvvm, kvvmi, log)
@@ -135,8 +136,26 @@ func (h *LifeCycleHandler) syncMigrationState(vm *virtv2.VirtualMachine, kvvmi *
 	}
 }
 
-func (h *LifeCycleHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, vmop *virtv2.VirtualMachineOperation) {
+func (h *LifeCycleHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, vmops []*virtv2.VirtualMachineOperation, log *slog.Logger) {
 	cbMigrating := conditions.NewConditionBuilder(vmcondition.TypeMigrating).Generation(vm.GetGeneration())
+
+	var vmop *virtv2.VirtualMachineOperation
+	{
+		var inProgressVmops []*virtv2.VirtualMachineOperation
+		for _, op := range vmops {
+			if commonvmop.IsMigration(op) && op.Status.Phase == virtv2.VMOPPhaseInProgress {
+				inProgressVmops = append(inProgressVmops, op)
+			}
+		}
+
+		switch length := len(inProgressVmops); length {
+		case 0:
+		case 1:
+			vmop = inProgressVmops[0]
+		default:
+			log.Error("Found vmops in progress phase. This is unexpected. Please report a bug.", slog.Int("VMOPCount", length))
+		}
+	}
 
 	switch {
 	case liveMigrationInProgress(vm.Status.MigrationState):
