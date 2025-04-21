@@ -22,16 +22,16 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
+	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
+	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -39,16 +39,6 @@ import (
 )
 
 var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
-	scheme := apiruntime.NewScheme()
-	for _, f := range []func(*apiruntime.Scheme) error{
-		virtv2.AddToScheme,
-		virtv1.AddToScheme,
-		corev1.AddToScheme,
-	} {
-		err := f(scheme)
-		Expect(err).NotTo(HaveOccurred(), "failed to add scheme: %s", err)
-	}
-
 	vi := &virtv2.VirtualImage{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              args.VINamespacedName.Name,
@@ -83,7 +73,9 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 		objects = append(objects, &cvi)
 	}
 
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(objects...).WithIndex(
+	fakeClientBuilder, err := testutil.NewFakeClientBuilderWithObjects(objects...)
+	Expect(err).ShouldNot(HaveOccurred())
+	fakeClient := fakeClientBuilder.WithIndex(
 		&virtv2.VirtualDisk{},
 		indexer.IndexFieldVDByVIDataSourceNotReady,
 		indexer.IndexVDByVIDataSourceIndexerFunc,
@@ -275,130 +267,69 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 			}),
 		},
 		VDs: []virtv2.VirtualDisk{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: "ns",
+			generateVDForInUseTest("test1", "ns", virtv2.VirtualDiskDataSource{
+				Type: virtv2.DataSourceTypeObjectRef,
+				ObjectRef: &virtv2.VirtualDiskObjectRef{
+					Kind: virtv2.VirtualImageKind,
+					Name: "test",
 				},
-				Spec: virtv2.VirtualDiskSpec{
-					DataSource: &virtv2.VirtualDiskDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.VirtualDiskObjectRef{
-							Kind: virtv2.VirtualImageKind,
-							Name: "test",
-						},
-					},
+			}),
+			generateVDForInUseTest("test2", "ns", virtv2.VirtualDiskDataSource{
+				Type: virtv2.DataSourceTypeObjectRef,
+				ObjectRef: &virtv2.VirtualDiskObjectRef{
+					Kind: virtv2.VirtualImageKind,
+					Name: "test",
 				},
-			},
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test2",
-					Namespace: "ns",
+			}),
+			generateVDForInUseTest("test3", "ns", virtv2.VirtualDiskDataSource{
+				Type: virtv2.DataSourceTypeObjectRef,
+				ObjectRef: &virtv2.VirtualDiskObjectRef{
+					Kind: virtv2.VirtualImageKind,
+					Name: "test",
 				},
-				Spec: virtv2.VirtualDiskSpec{
-					DataSource: &virtv2.VirtualDiskDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.VirtualDiskObjectRef{
-							Kind: virtv2.VirtualImageKind,
-							Name: "test",
-						},
-					},
+			}),
+			generateVDForInUseTest("test4", "ns", virtv2.VirtualDiskDataSource{
+				Type: virtv2.DataSourceTypeObjectRef,
+				ObjectRef: &virtv2.VirtualDiskObjectRef{
+					Kind: virtv2.VirtualImageKind,
+					Name: "test",
 				},
-			},
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test3",
-					Namespace: "ns",
-				},
-				Spec: virtv2.VirtualDiskSpec{
-					DataSource: &virtv2.VirtualDiskDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.VirtualDiskObjectRef{
-							Kind: virtv2.VirtualImageKind,
-							Name: "test",
-						},
-					},
-				},
-			},
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test4",
-					Namespace: "ns",
-				},
-				Spec: virtv2.VirtualDiskSpec{
-					DataSource: &virtv2.VirtualDiskDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.VirtualDiskObjectRef{
-							Kind: virtv2.VirtualImageKind,
-							Name: "test",
-						},
-					},
-				},
-			},
+			}),
 		},
 		VIs: []virtv2.VirtualImage{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test1",
-					Namespace: "ns",
+			generateVIForInUseTest("test1", "ns", virtv2.VirtualImageDataSource{
+				Type: virtv2.DataSourceTypeObjectRef,
+				ObjectRef: &virtv2.VirtualImageObjectRef{
+					Kind: virtv2.VirtualImageKind,
+					Name: "test",
 				},
-				Spec: virtv2.VirtualImageSpec{
-					DataSource: virtv2.VirtualImageDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.VirtualImageObjectRef{
-							Kind: virtv2.VirtualImageKind,
-							Name: "test",
-						},
-					},
-				},
-			},
+			}),
 		},
 		CVIs: []virtv2.ClusterVirtualImage{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test1",
+			generateCVIForInUseTest("test1", virtv2.ClusterVirtualImageDataSource{
+				Type: virtv2.DataSourceTypeObjectRef,
+				ObjectRef: &virtv2.ClusterVirtualImageObjectRef{
+					Kind:      virtv2.VirtualImageKind,
+					Name:      "test",
+					Namespace: "ns",
 				},
-				Spec: virtv2.ClusterVirtualImageSpec{
-					DataSource: virtv2.ClusterVirtualImageDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.ClusterVirtualImageObjectRef{
-							Kind:      virtv2.VirtualImageKind,
-							Name:      "test",
-							Namespace: "ns",
-						},
-					},
+			}),
+			generateCVIForInUseTest("test2", virtv2.ClusterVirtualImageDataSource{
+				Type: virtv2.DataSourceTypeObjectRef,
+				ObjectRef: &virtv2.ClusterVirtualImageObjectRef{
+					Kind:      virtv2.VirtualImageKind,
+					Name:      "test",
+					Namespace: "ns",
 				},
-			},
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test2",
+			}),
+			generateCVIForInUseTest("test3", virtv2.ClusterVirtualImageDataSource{
+				Type: virtv2.DataSourceTypeObjectRef,
+				ObjectRef: &virtv2.ClusterVirtualImageObjectRef{
+					Kind:      virtv2.VirtualImageKind,
+					Name:      "test",
+					Namespace: "test",
 				},
-				Spec: virtv2.ClusterVirtualImageSpec{
-					DataSource: virtv2.ClusterVirtualImageDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.ClusterVirtualImageObjectRef{
-							Kind:      virtv2.VirtualImageKind,
-							Name:      "test",
-							Namespace: "ns",
-						},
-					},
-				},
-			},
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test3",
-				},
-				Spec: virtv2.ClusterVirtualImageSpec{
-					DataSource: virtv2.ClusterVirtualImageDataSource{
-						Type: virtv2.DataSourceTypeObjectRef,
-						ObjectRef: &virtv2.ClusterVirtualImageObjectRef{
-							Kind:      virtv2.VirtualImageKind,
-							Name:      "test",
-							Namespace: "test",
-						},
-					},
-				},
-			},
+			}),
 		},
 		ExpectedConditionExists:  true,
 		ExpectedConditionStatus:  metav1.ConditionTrue,
@@ -430,4 +361,27 @@ func generateVMForInUseTest(name, namespace string, blockDeviceRefs []virtv2.Blo
 			BlockDeviceRefs: blockDeviceRefs,
 		},
 	}
+}
+
+func generateVIForInUseTest(name, namespace string, datasource virtv2.VirtualImageDataSource) virtv2.VirtualImage {
+	return *vibuilder.New(
+		vibuilder.WithName(name),
+		vibuilder.WithNamespace(namespace),
+		vibuilder.WithDatasource(datasource),
+	)
+}
+
+func generateCVIForInUseTest(name string, datasource virtv2.ClusterVirtualImageDataSource) virtv2.ClusterVirtualImage {
+	return *cvibuilder.New(
+		cvibuilder.WithName(name),
+		cvibuilder.WithDatasource(datasource),
+	)
+}
+
+func generateVDForInUseTest(name, namespace string, datasource virtv2.VirtualDiskDataSource) virtv2.VirtualDisk {
+	return *vdbuilder.New(
+		vdbuilder.WithName(name),
+		vdbuilder.WithNamespace(namespace),
+		vdbuilder.WithDatasource(&datasource),
+	)
 }
