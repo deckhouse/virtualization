@@ -70,7 +70,6 @@ libs:
   - libdaxctl-devel
   - libfuse3-devel
   - rdma-core-devel
-  - libnuma-devel
   - bzlib-devel
   - liblzo2-devel
   - libsnappy-devel
@@ -126,7 +125,6 @@ packages:
   - iptables
   - libffi8
   - nftables
-  - numactl
   - openssl
   - passt
   - pcre
@@ -152,7 +150,7 @@ binaries:
   # Dmidecode
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
-  - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numademo /usr/bin/numastat
+  - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
   # Hwclock
   - /usr/sbin/hwclock
 {{- end -}}
@@ -247,6 +245,10 @@ import:
   before: setup
   includePaths:
   - temp_pod
+- image: packages/binaries/numactl
+  add: /numactl
+  to: /
+  before: install
 shell:
   beforeInstall:
   - |
@@ -268,7 +270,7 @@ shell:
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
     FILES+=" $(find /VBINS/usr/sbin/ -type f)"
-    
+
     LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
     LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
     LIBS+=" /usr/lib64/libtpms.so*"
@@ -276,7 +278,7 @@ shell:
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
-    
+
     echo "Relocate additional libs to /VBINS"
     ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
@@ -358,7 +360,7 @@ shell:
 
     echo "List files in /relocate/usr/local/lib64"
     ls -la usr/local/lib64
-  
+
   - |
     cd /relocate
 
@@ -431,7 +433,7 @@ shell:
     apt-get update && apt-get install --yes gcc musl-dev musl-tools
     apt-get clean
   install:
-  - |    
+  - |
     echo "Building simple app that prints I'am temp pod"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/temp_pod temp_pod.c
