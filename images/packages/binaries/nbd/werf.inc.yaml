@@ -46,15 +46,15 @@ shell:
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch nbd-{{ $version }} /src
       cd /src
 
-      ./autogen.sh \
+      ./autogen.sh
+        # --libdir=/usr/lib64
+
+      ./configure \
         --disable-tests \
         --prefix=/usr \
         --enable-lfs \
         --enable-syslog \
         --disable-manpages
-        # --libdir=/usr/lib64
-
-      ./configure
 
       make -j$(nproc)
 
