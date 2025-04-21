@@ -23,9 +23,9 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type SrvCreator func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error)
+type SvcOpCreator func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error)
 
-func NewSrvCreator(client client.Client) SrvCreator {
+func NewSvcOpCreator(client client.Client) SvcOpCreator {
 	return func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error) {
 		return service.NewOperationService(client, vmop)
 	}

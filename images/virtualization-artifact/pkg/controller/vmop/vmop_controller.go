@@ -47,12 +47,12 @@ func SetupController(
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
-	srvCreator := internal.NewSrvCreator(client)
+	svcOpCreator := internal.NewSvcOpCreator(client)
 
 	handlers := []Handler{
-		internal.NewLifecycleHandler(client, srvCreator, recorder),
-		internal.NewOperationHandler(client, srvCreator, recorder),
-		internal.NewDeletionHandler(srvCreator),
+		internal.NewLifecycleHandler(client, svcOpCreator, recorder),
+		internal.NewOperationHandler(client, svcOpCreator, recorder),
+		internal.NewDeletionHandler(svcOpCreator),
 	}
 
 	reconciler := NewReconciler(client, handlers...)

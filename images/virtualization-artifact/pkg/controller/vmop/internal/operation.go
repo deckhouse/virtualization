@@ -38,16 +38,16 @@ const operationHandlerName = "OperationHandler"
 
 // OperationHandler performs operation on Virtual Machine.
 type OperationHandler struct {
-	client     client.Client
-	recorder   eventrecord.EventRecorderLogger
-	srvCreator SrvCreator
+	client       client.Client
+	recorder     eventrecord.EventRecorderLogger
+	svcOpCreator SvcOpCreator
 }
 
-func NewOperationHandler(client client.Client, srvCreator SrvCreator, recorder eventrecord.EventRecorderLogger) *OperationHandler {
+func NewOperationHandler(client client.Client, svcOpCreator SvcOpCreator, recorder eventrecord.EventRecorderLogger) *OperationHandler {
 	return &OperationHandler{
-		client:     client,
-		srvCreator: srvCreator,
-		recorder:   recorder,
+		client:       client,
+		svcOpCreator: svcOpCreator,
+		recorder:     recorder,
 	}
 }
 
@@ -90,11 +90,11 @@ func (h OperationHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 
 	// Send signal to perform operation, set phase to InProgress on success and to Fail on error.
 	h.recordEventForVM(ctx, vmop)
-	vmopSRV, err := h.srvCreator(vmop)
+	svcOp, err := h.svcOpCreator(vmop)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = vmopSRV.Do(ctx)
+	err = svcOp.Do(ctx)
 	if err != nil {
 		failMsg := fmt.Sprintf("Sending signal %q to VM", vmop.Spec.Type)
 		log.Debug(failMsg, logger.SlogErr(err))
@@ -123,7 +123,7 @@ func (h OperationHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 
 	vmop.Status.Phase = virtv2.VMOPPhaseInProgress
 
-	reason, err := vmopSRV.GetInProgressReason(ctx)
+	reason, err := svcOp.GetInProgressReason(ctx)
 	conditions.SetCondition(
 		completedCond.
 			Reason(reason).

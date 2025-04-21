@@ -49,7 +49,7 @@ var _ = Describe("DeletionHandler", func() {
 	})
 
 	reconcile := func() {
-		h := NewDeletionHandler(NewSrvCreator(fakeClient))
+		h := NewDeletionHandler(NewSvcOpCreator(fakeClient))
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
 		err = srv.Update(ctx)

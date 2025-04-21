@@ -42,16 +42,16 @@ const lifecycleHandlerName = "LifecycleHandler"
 
 // LifecycleHandler calculates status of the VirtualMachineOperation resource.
 type LifecycleHandler struct {
-	client     client.Client
-	srvCreator SrvCreator
-	recorder   eventrecord.EventRecorderLogger
+	client       client.Client
+	svcOpCreator SvcOpCreator
+	recorder     eventrecord.EventRecorderLogger
 }
 
-func NewLifecycleHandler(client client.Client, srvCreator SrvCreator, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
+func NewLifecycleHandler(client client.Client, svcOpCreator SvcOpCreator, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
 	return &LifecycleHandler{
-		client:     client,
-		srvCreator: srvCreator,
-		recorder:   recorder,
+		client:       client,
+		svcOpCreator: svcOpCreator,
+		recorder:     recorder,
 	}
 }
 
@@ -94,13 +94,13 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 			&vmop.Status.Conditions)
 	}
 
-	vmopSRV, err := h.srvCreator(vmop)
+	svcOp, err := h.svcOpCreator(vmop)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// Ignore if VMOP is in final state.
-	if vmopSRV.IsFinalState() {
+	if svcOp.IsFinalState() {
 		return reconcile.Result{}, nil
 	}
 
@@ -124,7 +124,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 
 	if vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
 		log.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", vmop.Status.Phase)
-		return h.syncOperationComplete(ctx, vmop, vm, vmopSRV)
+		return h.syncOperationComplete(ctx, vmop, vm, svcOp)
 	}
 
 	// At this point VMOP is in Pending phase, do some validation checks.
@@ -164,7 +164,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 	}
 
 	// Fail if VirtualMachineOperation is not applicable for run policy.
-	if !vmopSRV.IsApplicableForRunPolicy(vm.Spec.RunPolicy) {
+	if !svcOp.IsApplicableForRunPolicy(vm.Spec.RunPolicy) {
 		vmop.Status.Phase = virtv2.VMOPPhaseFailed
 
 		failMsg := fmt.Sprintf("Operation type %s is not applicable for VirtualMachine with runPolicy %s", vmop.Spec.Type, vm.Spec.RunPolicy)
@@ -179,7 +179,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 	}
 
 	// Fail if VirtualMachineOperation is not applicable for VM phase.
-	if !vmopSRV.IsApplicableForVMPhase(vm.Status.Phase) {
+	if !svcOp.IsApplicableForVMPhase(vm.Status.Phase) {
 		vmop.Status.Phase = virtv2.VMOPPhaseFailed
 
 		failMsg := fmt.Sprintf("Operation type %s is not applicable for VirtualMachine in phase %s", vmop.Spec.Type, vm.Status.Phase)
@@ -202,12 +202,12 @@ func (h LifecycleHandler) Name() string {
 
 // syncOperationComplete detects if operation is completed and VM has desired phase.
 // TODO detect if VM is stuck to prevent infinite InProgress state.
-func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine, vmopSRV service.Operation) (reconcile.Result, error) {
+func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine, svcOp service.Operation) (reconcile.Result, error) {
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 		Generation(changed.GetGeneration())
 
 	// Check for complete.
-	isComplete, failureMessage, err := vmopSRV.IsComplete(ctx)
+	isComplete, failureMessage, err := svcOp.IsComplete(ctx)
 	if err != nil {
 		return reconcile.Result{}, fmt.Errorf("check if operation is complete: %w", err)
 	}
@@ -236,7 +236,7 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *vi
 	}
 
 	// Keep InProgress phase as-is (InProgress), set complete condition to false.
-	reason, err := vmopSRV.GetInProgressReason(ctx)
+	reason, err := svcOp.GetInProgressReason(ctx)
 	if vm.Status.Phase == virtv2.MachinePending {
 		conditions.SetCondition(
 			completedCond.

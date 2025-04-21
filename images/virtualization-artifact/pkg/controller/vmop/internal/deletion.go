@@ -31,12 +31,12 @@ const deletionHandlerName = "DeletionHandler"
 
 // DeletionHandler manages finalizers on VirtualMachineOperation resource.
 type DeletionHandler struct {
-	srvCreator SrvCreator
+	svcOpCreator SvcOpCreator
 }
 
-func NewDeletionHandler(srvCreator SrvCreator) *DeletionHandler {
+func NewDeletionHandler(svcOpCreator SvcOpCreator) *DeletionHandler {
 	return &DeletionHandler{
-		srvCreator: srvCreator,
+		svcOpCreator: svcOpCreator,
 	}
 }
 
@@ -63,12 +63,12 @@ func (h DeletionHandler) migrateHandle(ctx context.Context, vmop *virtv2.Virtual
 	}
 
 	log.Info("Deletion observed: cleanup VirtualMachineOperation")
-	srv, err := h.srvCreator(vmop)
+	svcOp, err := h.svcOpCreator(vmop)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	canceled, err := srv.Cancel(ctx)
+	canceled, err := svcOp.Cancel(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
