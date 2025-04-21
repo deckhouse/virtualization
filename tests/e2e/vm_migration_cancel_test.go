@@ -160,19 +160,27 @@ var _ = Describe("Virtual machine migration cancel", SIGMigration(), ginkgoutil.
 
 		Expect(someCompleted).Should(BeFalse())
 
-		By("Get Kubevirt VMIs for check abort status")
-		kvvmis := &virtv1.VirtualMachineInstanceList{}
-		err = GetObjects(kc.ResourceKubevirtVMI, kvvmis, kc.GetOptions{Labels: testCaseLabel, Namespace: conf.Namespace})
-		Expect(err).NotTo(HaveOccurred())
-
-		for _, kvvmi := range kvvmis.Items {
-			migrationState := kvvmi.Status.MigrationState
-			Expect(migrationState).NotTo(BeNil())
-
-			Expect(migrationState.AbortRequested).To(BeTrue())
-
-			validAbortStatus := migrationState.AbortStatus == virtv1.MigrationAbortFailed || migrationState.AbortStatus == virtv1.MigrationAbortSucceeded
-			Expect(validAbortStatus).To(BeTrue())
-		}
+		By("Abort status should be exists in Kubevirt VMIs")
+		Eventually(func() error {
+			kvvmis := &virtv1.VirtualMachineInstanceList{}
+			err = GetObjects(kc.ResourceKubevirtVMI, kvvmis, kc.GetOptions{Labels: testCaseLabel, Namespace: conf.Namespace})
+			if err != nil {
+				return err
+			}
+			for _, kvvmi := range kvvmis.Items {
+				migrationState := kvvmi.Status.MigrationState
+				if migrationState == nil {
+					return fmt.Errorf("retry because migration state is nil")
+				}
+				if !migrationState.AbortRequested {
+					return fmt.Errorf("retry because migration abort requested is false")
+				}
+				validAbortStatus := migrationState.AbortStatus == virtv1.MigrationAbortFailed || migrationState.AbortStatus == virtv1.MigrationAbortSucceeded
+				if !validAbortStatus {
+					return fmt.Errorf("retry because migration abort status is %s", migrationState.AbortStatus)
+				}
+			}
+			return nil
+		}).WithTimeout(LongWaitDuration).WithPolling(time.Second).ShouldNot(HaveOccurred())
 	})
 })
