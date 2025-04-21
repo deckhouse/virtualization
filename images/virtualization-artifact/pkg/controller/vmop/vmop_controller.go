@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
+
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -47,12 +47,12 @@ func SetupController(
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
-	vmopSrv := service.NewVMOperationService(client)
+	svcOpCreator := internal.NewSvcOpCreator(client)
 
 	handlers := []Handler{
-		internal.NewLifecycleHandler(recorder, vmopSrv),
-		internal.NewOperationHandler(recorder, vmopSrv),
-		internal.NewDeletionHandler(vmopSrv),
+		internal.NewLifecycleHandler(client, svcOpCreator, recorder),
+		internal.NewOperationHandler(client, svcOpCreator, recorder),
+		internal.NewDeletionHandler(svcOpCreator),
 	}
 
 	reconciler := NewReconciler(client, handlers...)

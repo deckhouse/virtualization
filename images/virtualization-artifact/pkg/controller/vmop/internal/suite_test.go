@@ -23,13 +23,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -38,7 +36,7 @@ func TestVmopHandlers(t *testing.T) {
 	RunSpecs(t, "VMOP handlers Suite")
 }
 
-func setupEnvironment(vmop *virtv2.VirtualMachineOperation, objs ...client.Object) (client.WithWatch, *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus], state.VMOperationState) {
+func setupEnvironment(vmop *virtv2.VirtualMachineOperation, objs ...client.Object) (client.WithWatch, *reconciler.Resource[*virtv2.VirtualMachineOperation, virtv2.VirtualMachineOperationStatus]) {
 	GinkgoHelper()
 	Expect(vmop).ToNot(BeNil())
 
@@ -51,11 +49,7 @@ func setupEnvironment(vmop *virtv2.VirtualMachineOperation, objs ...client.Objec
 	fakeClient, err := testutil.NewFakeClientWithObjects(allObjects...)
 	Expect(err).NotTo(HaveOccurred())
 
-	key := types.NamespacedName{
-		Name:      vmop.GetName(),
-		Namespace: vmop.GetNamespace(),
-	}
-	srv := reconciler.NewResource(key, fakeClient,
+	srv := reconciler.NewResource(client.ObjectKeyFromObject(vmop), fakeClient,
 		func() *virtv2.VirtualMachineOperation {
 			return &virtv2.VirtualMachineOperation{}
 		},
@@ -65,9 +59,7 @@ func setupEnvironment(vmop *virtv2.VirtualMachineOperation, objs ...client.Objec
 	err = srv.Fetch(context.Background())
 	Expect(err).NotTo(HaveOccurred())
 
-	s := state.New(fakeClient, srv)
-
-	return fakeClient, srv, s
+	return fakeClient, srv
 }
 
 func newSimpleMigration(name, namespace, vm string) *virtv1.VirtualMachineInstanceMigration {
