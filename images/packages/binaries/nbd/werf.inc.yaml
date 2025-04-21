@@ -46,20 +46,17 @@ shell:
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch nbd-{{ $version }} /src
       cd /src
 
-      ./autogen.sh \
+      ./autogen.sh
+
+      ./configure \
         --prefix=/usr \
         --enable-lfs \
         --enable-syslog \
         --disable-manpages
 
-      ./configure
-
       make -j$(nproc)
 
       make DESTDIR=$OUTDIR install
-      ls $OUTDIR/
-      ls $OUTDIR/usr
-      ls $OUTDIR/usr/bin
       strip $OUTDIR/usr/bin/*
 
       # We don't need man, test and samples files
