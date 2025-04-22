@@ -269,7 +269,7 @@ shell:
     EOF
 
     apt-get update
-    apt-get install -y libtpms-devel
+    apt-get install -y libtpms
     rm -f /etc/apt/sources.list.d/alt-sisyphus.list
 
     apt-get clean
