@@ -15,7 +15,7 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make 
+- gcc git make glibc-devel-static musl-devel-static
 - autoconf automake libtool makeinfo
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - autoconf libtool makeinfo gettext-devel po4a
@@ -41,12 +41,11 @@ shell:
   install:
     - |
       OUTDIR=/out
-    # mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+      # mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
       
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
       cd /src
       
-      ./Configure --prefix=/usr \
-      CC=/usr/bin/musl-gcc
+      ./Configure --prefix=/usr CC=/usr/bin/musl-gcc -static
       make -j $(nproc)
-      make install -j $(nproc) DESTDIR=/out
+      make install_sw -j $(nproc) DESTDIR=/out

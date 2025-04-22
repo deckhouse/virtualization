@@ -7,3 +7,4 @@ package:
   xorriso: 1.5.6
   numactl: 2.0.19
   openssl: 3.3.3
+  openssl: openssl-3.4.1
