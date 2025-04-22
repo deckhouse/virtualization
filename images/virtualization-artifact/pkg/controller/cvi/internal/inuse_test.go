@@ -17,7 +17,6 @@ limitations under the License.
 package internal
 
 import (
-	"context"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -88,7 +87,7 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 	).Build()
 	handler := NewInUseHandler(fakeClient)
 
-	result, err := handler.Handle(context.Background(), cvi)
+	result, err := handler.Handle(testutil.ContextBackgroundWithNoOpLogger(), cvi)
 	Expect(err).To(BeNil())
 	Expect(result).To(Equal(reconcile.Result{}))
 	inUseCondition, ok := conditions.GetCondition(cvicondition.InUseType, cvi.Status.Conditions)
