@@ -51,6 +51,7 @@ type VirtualMachineState interface {
 	VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[virtv2.VMBDAObjectRef][]*virtv2.VirtualMachineBlockDeviceAttachment, error)
 	IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
 	Class(ctx context.Context) (*virtv2.VirtualMachineClass, error)
+	VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, error)
 	Shared(fn func(s *Shared))
 }
 
@@ -379,4 +380,27 @@ func (s *state) Class(ctx context.Context) (*virtv2.VirtualMachineClass, error) 
 	}
 	s.vmClass = class
 	return s.vmClass, nil
+}
+
+func (s *state) VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, error) {
+	if s.vm == nil {
+		return nil, nil
+	}
+
+	vm := s.vm.Current()
+	vmops := &virtv2.VirtualMachineOperationList{}
+	err := s.client.List(ctx, vmops, client.InNamespace(vm.Namespace))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list VirtualMachineOperation: %w", err)
+	}
+
+	var resultVMOPs []*virtv2.VirtualMachineOperation
+
+	for _, vmop := range vmops.Items {
+		if vmop.Spec.VirtualMachine == vm.Name {
+			resultVMOPs = append(resultVMOPs, &vmop)
+		}
+	}
+
+	return resultVMOPs, nil
 }

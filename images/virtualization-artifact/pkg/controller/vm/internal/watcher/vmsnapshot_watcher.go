@@ -35,13 +35,10 @@ import (
 )
 
 type VirtualMachineSnapshotWatcher struct {
-	client client.Client
 }
 
-func NewVirtualMachineSnapshotWatcher(client client.Client) *VirtualMachineSnapshotWatcher {
-	return &VirtualMachineSnapshotWatcher{
-		client: client,
-	}
+func NewVirtualMachineSnapshotWatcher() *VirtualMachineSnapshotWatcher {
+	return &VirtualMachineSnapshotWatcher{}
 }
 
 func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {

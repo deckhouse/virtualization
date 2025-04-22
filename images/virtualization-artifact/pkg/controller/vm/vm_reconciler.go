@@ -70,7 +70,8 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualDiskWatcher(),
 		watcher.NewVMIPWatcher(),
 		watcher.NewVirtualMachineClassWatcher(),
-		watcher.NewVirtualMachineSnapshotWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineSnapshotWatcher(),
+		watcher.NewVMOPWatcher(),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {

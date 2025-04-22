@@ -59,8 +59,17 @@ const (
 	// ReasonStopInProgress is a ReasonCompleted indicating that the stop signal has been sent and stop is in progress.
 	ReasonStopInProgress ReasonCompleted = "StopInProgress"
 
-	// ReasonMigrationInProgress is a ReasonCompleted indicating that the migrate signal has been sent and stop is in progress.
-	ReasonMigrationInProgress ReasonCompleted = "MigrationInProgress"
+	// ReasonMigrationPending is a ReasonCompleted indicating that the migration process has been initiated but not yet started.
+	ReasonMigrationPending ReasonCompleted = "MigrationPending"
+
+	// ReasonMigrationPrepareTarget is a ReasonCompleted indicating that the target environment is being prepared for migration.
+	ReasonMigrationPrepareTarget ReasonCompleted = "MigrationPrepareTarget"
+
+	// ReasonMigrationTargetReady is a ReasonCompleted indicating that the target environment is ready to accept the migration.
+	ReasonMigrationTargetReady ReasonCompleted = "MigrationTargetReady"
+
+	// ReasonMigrationRunning is a ReasonCompleted indicating that the migration process is currently in progress.
+	ReasonMigrationRunning ReasonCompleted = "MigrationRunning"
 
 	// ReasonOtherMigrationInProgress is a ReasonCompleted indicating that there are other migrations in progress.
 	ReasonOtherMigrationInProgress ReasonCompleted = "OtherMigrationInProgress"
