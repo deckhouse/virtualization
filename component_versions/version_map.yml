@@ -4,3 +4,4 @@ firmware:
   edk2: stable202411
 package:
   swtpm: 0.10.0
+  xorriso: 1.5.6

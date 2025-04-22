@@ -1,0 +1,67 @@
+---
+image: {{ $.ImageType }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /xorriso
+  before: setup
+
+---
+{{- $version := get $.Package $.ImageName }}
+{{- $gitRepoUrl := "libburnia/libisoburn.git" }}
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc
+- git pkg-config trousers
+- automake autoconf make makeinfo libtool
+- glibc-devel-static musl-devel-static
+- tree
+- libburn-devel libisofs-devel
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+final: false
+fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: "https://dev.lovelyhq.com"
+shell:
+  beforeInstall:
+    - |
+      apt-get update && apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+      apt-get clean
+      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
+  install:
+    - |
+      OUTDIR=/out
+      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch release-{{ $version }} /src
+      cd /src
+
+      ./bootstrap
+
+      ./configure LDFLAGS="-static" --prefix=/usr --libdir=/usr/lib64 --disable-shared --enable-static
+
+      make -j$(nproc)
+
+      make DESTDIR=$OUTDIR install
+
+      strip $OUTDIR/usr/bin/xorriso
+      echo "LDDLDD:"
+      ldd $OUTDIR/usr/bin/xorriso
+
+      # We don't need man, test and samples files
+      rm -rf $OUTDIR/usr/include
+      rm -rf $OUTDIR/usr/share
+      rm -rf $OUTDIR/usr/lib64/pkgconfig
+
+      tree $OUTDIR

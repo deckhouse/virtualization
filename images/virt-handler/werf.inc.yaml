@@ -54,7 +54,6 @@ packages:
 - acl
 - nftables
 - qemu-img
-- xorriso
 binaries:
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
@@ -72,10 +71,14 @@ binaries:
 
 {{ $virtHandlerDependencies := include "$name" . | fromYaml }}
 
-
 image: {{ $.ImageName }}-bins
 final: false
 fromImage: base-alt-p11-binaries
+import:
+  - image: packages/binaries/xorriso
+    add: /xorriso
+    to: /xorriso
+    before: install
 shell:
   install:
   - |
@@ -83,6 +86,7 @@ shell:
       {{ $virtHandlerDependencies.packages | join " " }}
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  - cp -a /xorriso/. /
   setup:
   - |
     /relocate_binaries.sh -i "{{ $virtHandlerDependencies.binaries | join " " }}" -o /relocate
@@ -91,9 +95,9 @@ shell:
     echo "root:x:0:0:root:/root:/bin/bash" >> /relocate/etc/passwd
     echo "root:x:0:" >> /relocate/etc/group
     echo "root:x:::::::" >> /relocate/etc/shadow
-    
+
     echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /relocate/etc/passwd
     echo "qemu:x:107:" >> /relocate/etc/group
     mkdir -p /relocate/home/qemu
     chown -R 107:107 /relocate/home/qemu
-    
+

@@ -134,7 +134,6 @@ packages:
   - policycoreutils
   - psmisc
   - msulogin
-  - xorriso
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
@@ -242,6 +241,12 @@ import:
   to: /
   before: install
 
+
+- image: packages/binaries/xorriso
+  add: /xorriso
+  to: /xorriso
+  before: install
+
 - image: tools/coreutils
   add: /
   to: /relocate
@@ -263,7 +268,7 @@ shell:
     apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
     # libtpms libtpms-devel require version 0.10 that in sisyphus repo
-    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF 
+    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF
     rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic
     rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic
     EOF
@@ -283,13 +288,15 @@ shell:
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
 
+    cp -a /xorriso/. /
+
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
     FILES+=" $(find /VBINS/usr/sbin/ -type f)"
-    
+
     LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
     LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
     LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
@@ -297,11 +304,13 @@ shell:
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
-    
+
     echo "Relocate additional libs to /VBINS"
     ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
     cp -a /VBINS/. /relocate
+
+    cp -a /xorriso/. /
 
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
@@ -382,7 +391,7 @@ shell:
 
     echo "List files in /relocate/usr/local/lib64"
     ls -la usr/local/lib64
-  
+
   - |
     cd /relocate
 
@@ -455,7 +464,7 @@ shell:
     apt-get update && apt-get install --yes gcc musl-dev musl-tools
     apt-get clean
   install:
-  - |    
+  - |
     echo "Building simple app that prints I'am temp pod"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/temp_pod temp_pod.c
