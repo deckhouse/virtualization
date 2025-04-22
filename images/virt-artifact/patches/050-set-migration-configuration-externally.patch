@@ -40,10 +40,23 @@ index 4cec8371df..6e99b82c62 100644
  		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
  		return err
 diff --git a/pkg/virt-controller/watch/migration_test.go b/pkg/virt-controller/watch/migration_test.go
-index 6378a07305..12bbd5cf2f 100644
+index 6378a07305..24b8f33160 100644
 --- a/pkg/virt-controller/watch/migration_test.go
 +++ b/pkg/virt-controller/watch/migration_test.go
-@@ -229,6 +229,13 @@ var _ = Describe("Migration watcher", func() {
+@@ -152,6 +152,12 @@ var _ = Describe("Migration watcher", func() {
+ 		Expect(updatedVMIM.Status.Phase).To(BeEquivalentTo(virtv1.MigrationScheduling))
+ 	}
+
++	expectMigrationScheduledState := func(namespace, name string) {
++		updatedVMIM, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(namespace).Get(context.Background(), name, metav1.GetOptions{})
++		Expect(err).ToNot(HaveOccurred())
++		Expect(updatedVMIM.Status.Phase).To(BeEquivalentTo(virtv1.MigrationScheduled))
++	}
++
+ 	expectMigrationPreparingTargetState := func(namespace, name string) {
+ 		updatedVMIM, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(namespace).Get(context.Background(), name, metav1.GetOptions{})
+ 		Expect(err).ToNot(HaveOccurred())
+@@ -229,6 +235,13 @@ var _ = Describe("Migration watcher", func() {
  		})))
  	}
 
@@ -57,7 +70,7 @@ index 6378a07305..12bbd5cf2f 100644
  	expectMigrationCondition := func(namespace, name string, conditionType virtv1.VirtualMachineInstanceMigrationConditionType) {
  		updatedVMIM, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(namespace).Get(context.Background(), name, metav1.GetOptions{})
  		Expect(err).ToNot(HaveOccurred())
-@@ -463,7 +470,7 @@ var _ = Describe("Migration watcher", func() {
+@@ -463,7 +476,7 @@ var _ = Describe("Migration watcher", func() {
  				"SourceNode":             Equal("node02"),
  				"MigrationUID":           Equal(types.UID("testmigration")),
  			})))
@@ -66,7 +79,7 @@ index 6378a07305..12bbd5cf2f 100644
  			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"))
  			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
  		})
-@@ -546,7 +553,7 @@ var _ = Describe("Migration watcher", func() {
+@@ -546,7 +559,7 @@ var _ = Describe("Migration watcher", func() {
  					"SourceNode":   Equal("node02"),
  					"MigrationUID": Equal(types.UID("testmigration")),
  				})))
@@ -75,7 +88,7 @@ index 6378a07305..12bbd5cf2f 100644
  				expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"), HaveKeyWithValue(virtv1.VirtualMachinePodCPULimitsLabel, "4"))
  			})
  		})
-@@ -598,7 +605,7 @@ var _ = Describe("Migration watcher", func() {
+@@ -598,7 +611,7 @@ var _ = Describe("Migration watcher", func() {
  					"SourceNode":   Equal("node02"),
  					"MigrationUID": Equal(types.UID("testmigration")),
  				})))
@@ -84,7 +97,7 @@ index 6378a07305..12bbd5cf2f 100644
  				expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name,
  					HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"),
  					HaveKeyWithValue(virtv1.VirtualMachinePodMemoryRequestsLabel, expectedRequests),
-@@ -1188,7 +1195,7 @@ var _ = Describe("Migration watcher", func() {
+@@ -1188,7 +1201,7 @@ var _ = Describe("Migration watcher", func() {
  				"SourceNode":   Equal("node02"),
  				"MigrationUID": Equal(types.UID("testmigration")),
  			})))
@@ -93,7 +106,7 @@ index 6378a07305..12bbd5cf2f 100644
  			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"))
  		},
  			Entry("with running compute container and no infra container",
-@@ -1228,7 +1235,7 @@ var _ = Describe("Migration watcher", func() {
+@@ -1228,7 +1241,7 @@ var _ = Describe("Migration watcher", func() {
  			),
  		)
 
@@ -102,7 +115,7 @@ index 6378a07305..12bbd5cf2f 100644
  			vmi := newVirtualMachine("testvmi", virtv1.Running)
  			addNodeNameToVMI(vmi, "node02")
  			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
-@@ -1253,7 +1260,7 @@ var _ = Describe("Migration watcher", func() {
+@@ -1253,7 +1266,7 @@ var _ = Describe("Migration watcher", func() {
  				"SourceNode":   Equal("node02"),
  				"MigrationUID": Equal(types.UID("testmigration")),
  			})))
@@ -111,7 +124,7 @@ index 6378a07305..12bbd5cf2f 100644
  			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"))
  		})
 
-@@ -1284,7 +1291,7 @@ var _ = Describe("Migration watcher", func() {
+@@ -1284,7 +1297,7 @@ var _ = Describe("Migration watcher", func() {
  				"SourceNode":   Equal("node02"),
  				"MigrationUID": Equal(types.UID("testmigration")),
  			})))
@@ -120,7 +133,7 @@ index 6378a07305..12bbd5cf2f 100644
  			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"))
  		})
 
-@@ -1335,11 +1342,35 @@ var _ = Describe("Migration watcher", func() {
+@@ -1335,11 +1348,35 @@ var _ = Describe("Migration watcher", func() {
  				"SourceNode":   Equal("node02"),
  				"MigrationUID": Equal(types.UID("testmigration")),
  			})))
@@ -151,14 +164,14 @@ index 6378a07305..12bbd5cf2f 100644
 +
 +			controller.Execute()
 +
-+			expectMigrationSchedulingState(migration.Namespace, migration.Name)
++			expectMigrationScheduledState(migration.Namespace, migration.Name)
 +		})
 +
 +		It("should transition to preparing target phase on filled migrationConfiguration", func() {
  			vmi := newVirtualMachine("testvmi", virtv1.Running)
  			addNodeNameToVMI(vmi, "node02")
  			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
-@@ -1351,6 +1382,8 @@ var _ = Describe("Migration watcher", func() {
+@@ -1351,6 +1388,8 @@ var _ = Describe("Migration watcher", func() {
  				TargetNode:   "node01",
  				SourceNode:   "node02",
  				TargetPod:    targetPod.Name,
@@ -167,7 +180,7 @@ index 6378a07305..12bbd5cf2f 100644
  			}
  			vmi.Labels[virtv1.MigrationTargetNodeNameLabel] = "node01"
  			addMigration(migration)
-@@ -1808,6 +1841,7 @@ var _ = Describe("Migration watcher", func() {
+@@ -1808,6 +1847,7 @@ var _ = Describe("Migration watcher", func() {
  		})
 
  		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *virtv1.MigrationConfiguration), expectConfigUpdate bool) {
