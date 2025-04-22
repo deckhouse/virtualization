@@ -27,7 +27,6 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -44,10 +43,9 @@ func NewController(
 	// recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	// mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
-	vmopService := service.NewVMOperationService(client)
 
 	handlers := []Handler{
-		internal.NewDynamicSettingsHandler(client, liveMigrationSettings, vmopService),
+		internal.NewDynamicSettingsHandler(client, liveMigrationSettings),
 	}
 	r := NewReconciler(client, handlers...)
 

@@ -26,25 +26,22 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	internalservice "github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal/service"
-	service "github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const dynamicSettingsHandlerName = "DynamicSettingsHandler"
 
-func NewDynamicSettingsHandler(client client.Client, liveMigrationSettings config.LiveMigrationSettings, vmopService service.VMOperationService) *DynamicSettingsHandler {
+func NewDynamicSettingsHandler(client client.Client, liveMigrationSettings config.LiveMigrationSettings) *DynamicSettingsHandler {
 	return &DynamicSettingsHandler{
 		client:         client,
 		moduleSettings: liveMigrationSettings,
-		vmopService:    vmopService,
 	}
 }
 
 type DynamicSettingsHandler struct {
 	client         client.Client
 	moduleSettings config.LiveMigrationSettings
-	vmopService    service.VMOperationService
 }
 
 func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (reconcile.Result, error) {
@@ -71,7 +68,7 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 	}
 
 	// Fetch InProgress vmop
-	vmopInProgress, err := h.vmopService.GetVMOPInProgressForVM(ctx, vmKey)
+	vmopInProgress, err := h.GetVMOPInProgressForVM(ctx, vmKey)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -124,4 +121,26 @@ func (h *DynamicSettingsHandler) Name() string {
 func (h *DynamicSettingsHandler) shouldUpdateMigrationConfiguration(kvvmi *virtv1.VirtualMachineInstance) bool {
 	return kvvmi.Status.MigrationState != nil &&
 		!kvvmi.Status.MigrationState.Completed
+}
+
+// GetVMOPInProgressForVM check if there is at least one VMOP for the same VM in progress phase.
+func (h *DynamicSettingsHandler) GetVMOPInProgressForVM(ctx context.Context, vmKey client.ObjectKey) (*virtv2.VirtualMachineOperation, error) {
+	var vmopList virtv2.VirtualMachineOperationList
+	err := h.client.List(ctx, &vmopList, client.InNamespace(vmKey.Namespace))
+	if err != nil {
+		return nil, err
+	}
+
+	for _, vmop := range vmopList.Items {
+		// Ignore VMOPs for other VMs.
+		if vmop.Spec.VirtualMachine != vmKey.Name {
+			continue
+		}
+
+		// Return if VMOP has phase InProgress.
+		if vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+			return &vmop, nil
+		}
+	}
+	return nil, nil
 }
