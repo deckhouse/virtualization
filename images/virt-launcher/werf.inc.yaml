@@ -127,7 +127,8 @@ packages:
   - iptables
   - libffi8
   - nftables
-  - openssl
+  - numactl
+  # - openssl
   - passt
   - pcre
   - procps
@@ -142,7 +143,7 @@ binaries:
   - /usr/bin/p11tool
   - /usr/bin/psktool
   # Openssl
-  - /usr/bin/openssl
+  # - /usr/bin/openssl
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
@@ -252,6 +253,13 @@ import:
   to: /xorriso
   before: install
 
+# Statically builded
+- image: packages/binaries/openssl
+  add: /openssl
+  to: /relocate
+  after: setup
+  includePaths:
+  - usr/bin/openssl
 - image: tools/coreutils
   add: /
   to: /relocate

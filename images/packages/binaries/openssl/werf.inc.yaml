@@ -48,4 +48,5 @@ shell:
       
       ./Configure --prefix=/usr CC=/usr/bin/musl-gcc -static
       make -j $(nproc)
-      make install_sw -j $(nproc) DESTDIR=/out
+      make install_sw -j $(nproc) DESTDIR=$OUTDIR
+      strip $OUTDIR/usr/bin/openssl
