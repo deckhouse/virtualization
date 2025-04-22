@@ -16,7 +16,7 @@ import:
 {{- define "$name" -}}
 packages:
 - git
-- gcc musl-dev musl-tools
+- gcc musl-devel
 - automake autoconf-archive make libtool
 - glib2-devel bison flex setproctitle libnl-devel docbook-utils
 {{- end -}}
