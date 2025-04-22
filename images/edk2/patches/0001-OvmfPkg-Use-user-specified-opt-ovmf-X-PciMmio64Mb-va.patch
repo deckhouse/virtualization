@@ -1,0 +1,93 @@
+From 9ac1704af6645da45d20fb545294e308ef9c887e Mon Sep 17 00:00:00 2001
+From: Mitchell Augustin <mitchell.augustin@canonical.com>
+Date: Thu, 13 Mar 2025 08:52:03 -0500
+Subject: [PATCH] OvmfPkg: Use user-specified opt/ovmf/X-PciMmio64Mb value
+ unconditionally
+
+Prior to this change, OVMF considers opt/ovmf/X-PciMmio64Mb the
+minimum aperture size, allowing us to force the window to be larger
+but not smaller than what PlatformDynamicMmioWindow calculates.
+
+Adjust OVMF so that a smaller value for the aperture is honored.
+
+Context:
+Due to an inefficiency in the way older host kernels manage
+pfnmaps for guest VM memory ranges [0], guests with large-BAR
+GPUs passed-through have a very long (multiple minutes) initialization
+time when the MMIO window advertised by OVMF is sufficiently sized for
+the passed-through BARs (i.e., the correct OVMF behavior). However, on
+older distro series such as Ubuntu Jammy, users have benefited from fast
+guest boot times when OVMF advertised an MMIO window that was too small
+to accommodate the full BAR, since this resulted in the long PCI initialization
+process being skipped (and retried later, if pci=realloc pci=nocrs were set).
+
+While the root cause is being fully addressed in the upstream kernel [1],
+the solution relies on huge pfnmap support, which is a substantial series
+with many ABI changes that is unlikely to land in many LTS and legacy distro kernels,
+including those of Ubuntu Noble. As a result, the only kernel improvement
+supported on those kernels is this patch [2], which reduces the extra boot
+time by about half. Unfortunately, that boot time is still an average of
+1-3 minutes longer per-VM-boot than what can be achieved when the host is
+running a version of OVMF without PlatformDynamicMmioWindow (PDMW) support
+(introduced in [3])
+
+Since there is no way to force the use of the classic MMIO window size[4]
+in any version of OVMF after [3], and since we have a use case for such
+functionality on legacy distro kernels that would yield significant,
+recurring compute time savings across all impacted VMs, this change to
+this knob's behavior seems appropriate.
+
+[0]: https://lore.kernel.org/all/CAHTA-uYp07FgM6T1OZQKqAdSA5JrZo0ReNEyZgQZub4mDRrV5w@mail.gmail.com/
+[1]: https://lore.kernel.org/all/20250205231728.2527186-1-alex.williamson@redhat.com/
+[2]: https://lore.kernel.org/all/20250111210652.402845-1-alex.williamson@redhat.com/
+[3]: ecb778d
+[4]: https://edk2.groups.io/g/devel/topic/109651206?p=Created,,,20,1,0,0
+
+Signed-off-by: Mitchell Augustin <mitchell.augustin@canonical.com>
+
+Bug-Ubuntu: https://launchpad.net/bugs/2101903
+Last-Update: 2025-03-15
+
+
+diff --git a/OvmfPkg/Include/Library/PlatformInitLib.h b/OvmfPkg/Include/Library/PlatformInitLib.h
+index 57b18b94d9..ce5af42e09 100644
+--- a/OvmfPkg/Include/Library/PlatformInitLib.h
++++ b/OvmfPkg/Include/Library/PlatformInitLib.h
+@@ -37,6 +37,7 @@ typedef struct {
+ 
+   UINT64               PcdPciMmio64Base;
+   UINT64               PcdPciMmio64Size;
++  BOOLEAN              PcdPciMmio64Override;
+   UINT32               PcdPciMmio32Base;
+   UINT32               PcdPciMmio32Size;
+   UINT64               PcdPciIoBase;
+diff --git a/OvmfPkg/Library/PlatformInitLib/MemDetect.c b/OvmfPkg/Library/PlatformInitLib/MemDetect.c
+index 1f987f2efd..44b2e0d24f 100644
+--- a/OvmfPkg/Library/PlatformInitLib/MemDetect.c
++++ b/OvmfPkg/Library/PlatformInitLib/MemDetect.c
+@@ -556,7 +556,8 @@ PlatformGetFirstNonAddress (
+       break;
+     case EFI_SUCCESS:
+       if (FwCfgPciMmio64Mb <= 0x1000000) {
+-        PlatformInfoHob->PcdPciMmio64Size = LShiftU64 (FwCfgPciMmio64Mb, 20);
++        PlatformInfoHob->PcdPciMmio64Size     = LShiftU64 (FwCfgPciMmio64Mb, 20);
++        PlatformInfoHob->PcdPciMmio64Override = TRUE;
+         break;
+       }
+ 
+@@ -795,8 +796,10 @@ PlatformDynamicMmioWindow (
+   AddrSpace = LShiftU64 (1, PlatformInfoHob->PhysMemAddressWidth);
+   MmioSpace = LShiftU64 (1, PlatformInfoHob->PhysMemAddressWidth - 3);
+ 
+-  if ((PlatformInfoHob->PcdPciMmio64Size < MmioSpace) &&
+-      (PlatformInfoHob->PcdPciMmio64Base + MmioSpace < AddrSpace))
++  if (PlatformInfoHob->PcdPciMmio64Override) {
++    DEBUG ((DEBUG_INFO, "%a: using fwcfg override for mmio window\n", __func__));
++  } else if ((PlatformInfoHob->PcdPciMmio64Size < MmioSpace) &&
++             (PlatformInfoHob->PcdPciMmio64Base + MmioSpace < AddrSpace))
+   {
+     DEBUG ((DEBUG_INFO, "%a: using dynamic mmio window\n", __func__));
+     DEBUG ((DEBUG_INFO, "%a:   Addr Space 0x%Lx (%Ld GB)\n", __func__, AddrSpace, RShiftU64 (AddrSpace, 30)));
+-- 
+2.47.2
+

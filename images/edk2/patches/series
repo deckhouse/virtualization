@@ -1,0 +1,15 @@
+no-stack-protector-all-archs.diff
+brotlicompress-disable.diff
+x64-baseline-abi.patch
+Revert-ArmVirtPkg-make-EFI_LOADER_DATA-non-executabl.patch
+ArmVirtPkg-disable-the-EFI_MEMORY_ATTRIBUTE-protocol.patch
+0001-OvmfPkg-Use-user-specified-opt-ovmf-X-PciMmio64Mb-va.patch
+Revert-OvmfPkg-QemuKernelLoaderFsDxe-use-SIZE_OF_EFI_FILE.patch
+Revert-OvmfPkg-QemuKernelLoaderFsDxe-root-directory-name-.patch
+Revert-OvmfPkg-QemuKernelLoaderFsDxe-don-t-quit-when-name.patch
+Revert-OvmfPkg-QemuKernelLoaderFsDxe-accept-absolute-path.patch
+Revert-OvmfPkg-QemuKernelLoaderFsDxe-drop-bogus-assert.patch
+Revert-OvmfPkg-QemuKernelLoaderFsDxe-allow-longer-file-na.patch
+Revert-OvmfPkg-QemuKernelLoaderFsDxe-add-support-for-name.patch
+Revert-OvmfPkg-QemuKernelLoaderFsDxe-rework-direct-kernel.patch
+OvmfPkg-X64-add-opt-org.tianocore-UninstallMemAttrPr.patch
