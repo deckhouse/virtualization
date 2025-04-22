@@ -241,8 +241,8 @@ properties:
         type: string
         description: |
           Network type for migrations:
-          - Shared - use the same network with virtual machines.
-          - Dedicated - use a separated network for migrations. Specify interface in dedicated section.
+          - `Shared` — use the same network with virtual machines.
+          - `Dedicated` — use a separated network for migrations. Specify interface in `dedicated` section.
         enum:
           - "Shared"
           - "Dedicated"

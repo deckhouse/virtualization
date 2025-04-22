@@ -944,10 +944,10 @@ spec:
                   description: |
                     Defines policy for live migration process:
 
-                    * `AlwaysSafe` - Use Safe options for automatic and VMOP migrations. Do not enable CPU throttling.
-                    * `PreferSafe` - Use Safe options for automatic migrations. CPU throttling can be enabled with force=true in VMOP.
-                    * `AlwaysForced` - Enable CPU throttling for automatic and VMOP migrations. No way to disable CPU throttling.
-                    * `PreferForced` - Enable CPU throttling for automatic migrations. CPU throttling can be disabled with force=false in VMOP.
+                    * `AlwaysSafe` — use Safe options for automatic and VMOP migrations. Do not enable CPU throttling.
+                    * `PreferSafe` — use Safe options for automatic migrations. CPU throttling can be enabled with `force=true` in VMOP.
+                    * `AlwaysForced` — enable CPU throttling for automatic and VMOP migrations. No way to disable CPU throttling.
+                    * `PreferForced` — enable CPU throttling for automatic migrations. CPU throttling can be disabled with `force=false` in VMOP.
 
             status:
               type: object
