@@ -136,9 +136,6 @@ packages:
   - msulogin
   - xorriso
 binaries:
-  # GNU utilities
-  - /usr/bin/cp
-  - /usr/bin/sleep
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
   - /usr/bin/gnutls-cli
@@ -241,6 +238,15 @@ import:
   add: /swtpm
   to: /relocate
   after: setup
+- image: tools/coreutils
+  add: /
+  to: /relocate
+  after: setup
+  includePaths:
+    # GNU utilities
+  - usr/bin/cp
+  - usr/bin/sleep
+  - usr/bin/coreutils
 - image: {{ $.ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin
