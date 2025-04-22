@@ -215,7 +215,7 @@ spec:
   dataSource:
     type: HTTP
     http:
-      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+      url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
 EOF
 ```
 
