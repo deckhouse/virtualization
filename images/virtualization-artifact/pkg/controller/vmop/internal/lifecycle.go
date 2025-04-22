@@ -194,19 +194,19 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 	}
 
 	// Check if force flag is applicable for liveMigrationPolicy.
-	msg, isApplicable, err := h.vmopSrv.IsApplicableForLiveMigrationPolicy(ctx, changed, vm)
+	msg, isApplicable, err := h.isApplicableForLiveMigrationPolicy(ctx, vmop, vm)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if !isApplicable {
-		changed.Status.Phase = virtv2.VMOPPhaseFailed
-		h.recorder.Event(changed, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, msg)
+		vmop.Status.Phase = virtv2.VMOPPhaseFailed
+		h.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, msg)
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonNotApplicableForLiveMigrationPolicy).
 				Status(metav1.ConditionFalse).
 				Message(msg),
-			&changed.Status.Conditions)
+			&vmop.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
@@ -321,4 +321,34 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 		}
 	}
 	return false, nil
+}
+
+func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (string, bool, error) {
+	// No need to check if operation is not related to migrations.
+	if !commonvmop.IsMigration(vmop) {
+		return "", true, nil
+	}
+
+	// No problems if force flag is not specified.
+	if vmop.Spec.Force == nil {
+		return "", true, nil
+	}
+
+	// Get effective migrationPolicy from vm/vmclass and global default.
+	effectiveLiveMigrationPolicy := virtv2.PreferSafeMigrationPolicy
+	if vm.Spec.LiveMigrationPolicy != "" {
+		effectiveLiveMigrationPolicy = vm.Spec.LiveMigrationPolicy
+	}
+
+	isApplicable := true
+	msg := ""
+
+	if effectiveLiveMigrationPolicy == virtv2.AlwaysSafeMigrationPolicy {
+		isApplicable = false
+		if *vmop.Spec.Force {
+			msg = fmt.Sprintf("Operation type %s is not applicable for liveMigrationPolicy %s with the force flag on", vmop.Spec.Type, effectiveLiveMigrationPolicy)
+		}
+	}
+
+	return msg, isApplicable, nil
 }
