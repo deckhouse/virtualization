@@ -1,0 +1,213 @@
+diff --git a/pkg/virt-controller/watch/migration.go b/pkg/virt-controller/watch/migration.go
+index 4cec8371df..6e99b82c62 100644
+--- a/pkg/virt-controller/watch/migration.go
++++ b/pkg/virt-controller/watch/migration.go
+@@ -582,7 +582,9 @@ func (c *MigrationController) processMigrationPhase(
+ 			}
+ 		}
+ 	case virtv1.MigrationScheduled:
++		// External migration configuration: switch to MigrationPreparingTarget on MigrationConfiguration presence.
+ 		if vmi.Status.MigrationState != nil &&
++			vmi.Status.MigrationState.MigrationConfiguration != nil &&
+ 			vmi.Status.MigrationState.MigrationUID == migration.UID &&
+ 			vmi.Status.MigrationState.TargetNode != "" {
+ 			migrationCopy.Status.Phase = virtv1.MigrationPreparingTarget
+@@ -911,14 +913,9 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
+ 		}
+ 	}
+
+-	clusterMigrationConfigs := c.clusterConfig.GetMigrationConfiguration().DeepCopy()
+-	err := c.matchMigrationPolicy(vmiCopy, clusterMigrationConfigs)
+-	if err != nil {
+-		return fmt.Errorf("failed to match migration policy: %v", err)
+-	}
+-
+-	if !c.isMigrationPolicyMatched(vmiCopy) {
+-		vmiCopy.Status.MigrationState.MigrationConfiguration = clusterMigrationConfigs
++	// External migration configuration: Do not set migrationConfiguration from MigrationPolicies, just preserve it for the running migration if was set externally.
++	if vmi.Status.MigrationState != nil && vmi.Status.MigrationState.MigrationConfiguration != nil && vmi.Status.MigrationState.EndTimestamp == nil {
++		vmiCopy.Status.MigrationState.MigrationConfiguration = vmi.Status.MigrationState.MigrationConfiguration.DeepCopy()
+ 	}
+
+ 	if controller.VMIHasHotplugCPU(vmi) && vmi.IsCPUDedicated() {
+@@ -937,7 +934,7 @@ func (c *MigrationController) handleTargetPodHandoff(migration *virtv1.VirtualMa
+ 		vmiCopy.ObjectMeta.Labels[virtv1.VirtualMachinePodMemoryRequestsLabel] = memoryReq
+ 	}
+
+-	err = c.patchVMI(vmi, vmiCopy)
++	err := c.patchVMI(vmi, vmiCopy)
+ 	if err != nil {
+ 		c.recorder.Eventf(migration, k8sv1.EventTypeWarning, controller.FailedHandOverPodReason, fmt.Sprintf("Failed to set MigrationStat in VMI status. :%v", err))
+ 		return err
+diff --git a/pkg/virt-controller/watch/migration_test.go b/pkg/virt-controller/watch/migration_test.go
+index 6378a07305..12bbd5cf2f 100644
+--- a/pkg/virt-controller/watch/migration_test.go
++++ b/pkg/virt-controller/watch/migration_test.go
+@@ -229,6 +229,13 @@ var _ = Describe("Migration watcher", func() {
+ 		})))
+ 	}
+
++	expectVirtualMachineInstanceMigrationConfigurationIsEmpty := func(namespace, name string) {
++		updatedVMI, err := virtClientset.KubevirtV1().VirtualMachineInstances(namespace).Get(context.Background(), name, metav1.GetOptions{})
++		Expect(err).ToNot(HaveOccurred())
++		Expect(updatedVMI.Status.MigrationState).ToNot(BeNil())
++		Expect(updatedVMI.Status.MigrationState.MigrationConfiguration).To(BeNil(), "Should not add migrationConfiguration when external configuration is enabled")
++	}
++
+ 	expectMigrationCondition := func(namespace, name string, conditionType virtv1.VirtualMachineInstanceMigrationConditionType) {
+ 		updatedVMIM, err := virtClientset.KubevirtV1().VirtualMachineInstanceMigrations(namespace).Get(context.Background(), name, metav1.GetOptions{})
+ 		Expect(err).ToNot(HaveOccurred())
+@@ -463,7 +470,7 @@ var _ = Describe("Migration watcher", func() {
+ 				"SourceNode":             Equal("node02"),
+ 				"MigrationUID":           Equal(types.UID("testmigration")),
+ 			})))
+-			expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig())
++			expectVirtualMachineInstanceMigrationConfigurationIsEmpty(vmi.Namespace, vmi.Name)
+ 			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"))
+ 			testutils.ExpectEvent(recorder, virtcontroller.SuccessfulHandOverPodReason)
+ 		})
+@@ -546,7 +553,7 @@ var _ = Describe("Migration watcher", func() {
+ 					"SourceNode":   Equal("node02"),
+ 					"MigrationUID": Equal(types.UID("testmigration")),
+ 				})))
+-				expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig())
++				expectVirtualMachineInstanceMigrationConfigurationIsEmpty(vmi.Namespace, vmi.Name)
+ 				expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"), HaveKeyWithValue(virtv1.VirtualMachinePodCPULimitsLabel, "4"))
+ 			})
+ 		})
+@@ -598,7 +605,7 @@ var _ = Describe("Migration watcher", func() {
+ 					"SourceNode":   Equal("node02"),
+ 					"MigrationUID": Equal(types.UID("testmigration")),
+ 				})))
+-				expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig())
++				expectVirtualMachineInstanceMigrationConfigurationIsEmpty(vmi.Namespace, vmi.Name)
+ 				expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name,
+ 					HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"),
+ 					HaveKeyWithValue(virtv1.VirtualMachinePodMemoryRequestsLabel, expectedRequests),
+@@ -1188,7 +1195,7 @@ var _ = Describe("Migration watcher", func() {
+ 				"SourceNode":   Equal("node02"),
+ 				"MigrationUID": Equal(types.UID("testmigration")),
+ 			})))
+-			expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig())
++			expectVirtualMachineInstanceMigrationConfigurationIsEmpty(vmi.Namespace, vmi.Name)
+ 			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"))
+ 		},
+ 			Entry("with running compute container and no infra container",
+@@ -1228,7 +1235,7 @@ var _ = Describe("Migration watcher", func() {
+ 			),
+ 		)
+
+-		It("should hand pod over to target virt-handler with migration config", func() {
++		It("should hand pod over to target virt-handler without migration config", func() {
+ 			vmi := newVirtualMachine("testvmi", virtv1.Running)
+ 			addNodeNameToVMI(vmi, "node02")
+ 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+@@ -1253,7 +1260,7 @@ var _ = Describe("Migration watcher", func() {
+ 				"SourceNode":   Equal("node02"),
+ 				"MigrationUID": Equal(types.UID("testmigration")),
+ 			})))
+-			expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig())
++			expectVirtualMachineInstanceMigrationConfigurationIsEmpty(vmi.Namespace, vmi.Name)
+ 			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"))
+ 		})
+
+@@ -1284,7 +1291,7 @@ var _ = Describe("Migration watcher", func() {
+ 				"SourceNode":   Equal("node02"),
+ 				"MigrationUID": Equal(types.UID("testmigration")),
+ 			})))
+-			expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig())
++			expectVirtualMachineInstanceMigrationConfigurationIsEmpty(vmi.Namespace, vmi.Name)
+ 			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"))
+ 		})
+
+@@ -1335,11 +1342,35 @@ var _ = Describe("Migration watcher", func() {
+ 				"SourceNode":   Equal("node02"),
+ 				"MigrationUID": Equal(types.UID("testmigration")),
+ 			})))
+-			expectVirtualMachineInstanceMigrationConfiguration(vmi.Namespace, vmi.Name, getMigrationConfig())
++			expectVirtualMachineInstanceMigrationConfigurationIsEmpty(vmi.Namespace, vmi.Name)
+ 			expectVirtualMachineInstanceLabels(vmi.Namespace, vmi.Name, HaveKeyWithValue(virtv1.MigrationTargetNodeNameLabel, "node01"))
+ 		})
+
+-		It("should transition to preparing target phase", func() {
++		It("should not transition to preparing target phase without filled migrationConfiguration", func() {
++			vmi := newVirtualMachine("testvmi", virtv1.Running)
++			addNodeNameToVMI(vmi, "node02")
++			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
++			targetPod := newTargetPodForVirtualMachine(vmi, migration, k8sv1.PodRunning)
++			targetPod.Spec.NodeName = "node01"
++
++			vmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{
++				MigrationUID: migration.UID,
++				TargetNode:   "node01",
++				SourceNode:   "node02",
++				TargetPod:    targetPod.Name,
++			}
++			vmi.Labels[virtv1.MigrationTargetNodeNameLabel] = "node01"
++			addMigration(migration)
++			addVirtualMachineInstance(vmi)
++			addPod(newSourcePodForVirtualMachine(vmi))
++			addPod(targetPod)
++
++			controller.Execute()
++
++			expectMigrationSchedulingState(migration.Namespace, migration.Name)
++		})
++
++		It("should transition to preparing target phase on filled migrationConfiguration", func() {
+ 			vmi := newVirtualMachine("testvmi", virtv1.Running)
+ 			addNodeNameToVMI(vmi, "node02")
+ 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+@@ -1351,6 +1382,8 @@ var _ = Describe("Migration watcher", func() {
+ 				TargetNode:   "node01",
+ 				SourceNode:   "node02",
+ 				TargetPod:    targetPod.Name,
++				// Emulate external migration configuration.
++				MigrationConfiguration: getMigrationConfig(),
+ 			}
+ 			vmi.Labels[virtv1.MigrationTargetNodeNameLabel] = "node01"
+ 			addMigration(migration)
+@@ -1808,6 +1841,7 @@ var _ = Describe("Migration watcher", func() {
+ 		})
+
+ 		DescribeTable("should override cluster-wide migration configurations when", func(defineMigrationPolicy func(*migrationsv1.MigrationPolicySpec), testMigrationConfigs func(configuration *virtv1.MigrationConfiguration), expectConfigUpdate bool) {
++			Skip("MigrationPolicy overrides of the cluster-wide migration configuration is disabled in favor of external migration configuration")
+ 			By("Initialize VMI and migration")
+ 			vmi = newVirtualMachine("testvmi", virtv1.Running)
+ 			migration := newMigration("testmigration", vmi.Name, virtv1.MigrationScheduled)
+diff --git a/pkg/virt-handler/vm.go b/pkg/virt-handler/vm.go
+index d342c93197..63f925b1d4 100644
+--- a/pkg/virt-handler/vm.go
++++ b/pkg/virt-handler/vm.go
+@@ -2767,6 +2767,13 @@ func (d *VirtualMachineController) vmUpdateHelperMigrationSource(origVMI *v1.Vir
+ 			return nil
+ 		}
+
++		// External migration configuration: interrupt reconcile and wait for the next VMI update with filled MigrationConfiguration.
++		if origVMI.Status.MigrationState.MigrationConfiguration == nil {
++			// Wait for migration options.
++			log.DefaultLogger().Errorf("external migration configuration is enabled, wait until VMI receives migration configuration, vmi phase is %s", origVMI.Status.Phase)
++			return nil
++		}
++
+ 		err = d.handleSourceMigrationProxy(origVMI)
+ 		if err != nil {
+ 			return fmt.Errorf("failed to handle migration proxy: %v", err)
+diff --git a/pkg/virt-launcher/virtwrap/live-migration-source.go b/pkg/virt-launcher/virtwrap/live-migration-source.go
+index f580d06e52..d9300d98ad 100644
+--- a/pkg/virt-launcher/virtwrap/live-migration-source.go
++++ b/pkg/virt-launcher/virtwrap/live-migration-source.go
+@@ -696,11 +696,11 @@ func logMigrationInfo(logger *log.FilteredLogger, uid string, info *libvirt.Doma
+ 	logger.V(2).Info(fmt.Sprintf(`Migration info for %s: TimeElapsed:%dms DataProcessed:%dMiB DataRemaining:%dMiB DataTotal:%dMiB `+
+ 		`MemoryProcessed:%dMiB MemoryRemaining:%dMiB MemoryTotal:%dMiB MemoryBandwidth:%dMbps DirtyRate:%dMbps `+
+ 		`Iteration:%d PostcopyRequests:%d ConstantPages:%d NormalPages:%d NormalData:%dMiB ExpectedDowntime:%dms `+
+-		`DiskMbps:%d`,
++		`DiskMbps:%d AutoConvergeThrottleSet:%v AutoConvergeThrottle:%d`,
+ 		uid, info.TimeElapsed, bToMiB(info.DataProcessed), bToMiB(info.DataRemaining), bToMiB(info.DataTotal),
+ 		bToMiB(info.MemProcessed), bToMiB(info.MemRemaining), bToMiB(info.MemTotal), bpsToMbps(info.MemBps), bpsToMbps(info.MemDirtyRate*info.MemPageSize),
+ 		info.MemIteration, info.MemPostcopyReqs, info.MemConstant, info.MemNormal, bToMiB(info.MemNormalBytes), info.Downtime,
+-		bpsToMbps(info.DiskBps),
++		bpsToMbps(info.DiskBps), info.AutoConvergeThrottleSet, info.AutoConvergeThrottle,
+ 	))
+ }
+

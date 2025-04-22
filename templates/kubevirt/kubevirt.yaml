@@ -256,26 +256,11 @@ env:
   value: {{$.Version.qemu}}
 - name: LIBVIRT_VERSION
   value: {{$.Version.libvirt}}
-# Enable external migration configuration.
-- name: ENABLE_EXTERNAL_MIGRATION_CONFIGURATION
-  value: "yes"
 {{ end }}
     - resourceType: Deployment
       resourceName: virt-controller
       type: strategic
       patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-controller","env":{{ include "virt-controller-additional-envs" . | fromYaml | pluck "env" | first | toJson }} } ]}}}}'
-
-# Additional environment variables for virt-handler.
-{{ define "virt-handler-additional-envs" }}
-env:
-# Enable external migration configuration.
-- name: ENABLE_EXTERNAL_MIGRATION_CONFIGURATION
-  value: "yes"
-{{ end }}
-    - resourceType: DaemonSet
-      resourceName: virt-handler
-      type: strategic
-      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-handler","env":{{ include "virt-handler-additional-envs" . | fromYaml | pluck "env" | first | toJson }} } ]}}}}'
 
   imagePullPolicy: IfNotPresent
   imagePullSecrets:
