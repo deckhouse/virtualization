@@ -97,6 +97,7 @@ func DeletePodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virt
 	if pod == nil {
 		return nil
 	}
+
 	return object.DeleteObject(ctx, cli, pod, opts)
 }
 

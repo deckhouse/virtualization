@@ -112,7 +112,6 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
-  - libswtpm-devel
 packages:
   - acl
   - attr
@@ -237,7 +236,12 @@ import:
 
 - image: packages/binaries/swtpm
   add: /swtpm
-  to: /
+  to: /swtpm
+  before: install
+
+- image: packages/binaries/numactl
+  add: /numactl
+  to: /numactl
   before: install
 
 - image: tools/coreutils
@@ -255,17 +259,13 @@ import:
   before: setup
   includePaths:
   - temp_pod
-- image: packages/binaries/numactl
-  add: /numactl
-  to: /
-  before: install
 shell:
   beforeInstall:
   - |
     apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
     # libtpms libtpms-devel require version 0.10 that in sisyphus repo
-    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF 
+    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF
     rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic
     rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic
     EOF
@@ -281,6 +281,7 @@ shell:
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
     mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
+    mkdir -p /VBINS/usr/lib64/swtpm
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
@@ -305,10 +306,13 @@ shell:
 
     cp -a /VBINS/. /relocate
 
+    cp -a /swtpm/. /
+    cp -a /numactl/. /
+
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins,swtpm,numactl}
 
   setup:
   - |
