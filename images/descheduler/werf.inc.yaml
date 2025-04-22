@@ -1,0 +1,43 @@
+{{- $version := "1.31" }}
+---
+image: {{ $.ImageName }}-builder
+final: false
+fromImage: BASE_GOLANG_23_BOOKWORM
+mount:
+- fromPath: ~/go-pkg-cache
+  to: /go/pkg
+shell:
+  install:
+    - apt-get -qq update
+    - apt-get -qq install -y --no-install-recommends git
+    - apt-get clean
+    - rm --recursive --force /var/lib/apt/lists/* /var/cache/apt/*
+    - git clone --depth 1 --branch release-{{ $version }} https://github.com/kubernetes-sigs/descheduler.git /src
+    - cd /src
+    - git checkout release-{{ $version }}
+    - rm -rf .git
+  setup:
+    - cd /src
+    - |
+      export GO111MODULE=on
+      export GOOS=linux
+      export CGO_ENABLED=0
+      export GOARCH=amd64
+    - go mod download -x
+    - go mod vendor
+    - go build -ldflags "-s -w -X sigs.k8s.io/descheduler/pkg/version.version={{ $version }}" -o /descheduler sigs.k8s.io/descheduler/cmd/descheduler
+    - chown 64535:64535 /descheduler
+    - chmod 0700 /descheduler
+---
+image: {{ $.ImageName }}
+fromImage: distroless
+import:
+  - image: {{ $.ImageName }}-builder
+    add: /descheduler
+    to: /descheduler
+    before: setup
+imageSpec:
+  config:
+    user: 64535
+    entrypoint: ["/descheduler"]
+---

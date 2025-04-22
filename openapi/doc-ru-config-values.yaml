@@ -149,3 +149,12 @@ properties:
 
       Работает для следующих компонентов:
       - `virtualization-controller`
+  descheduler:
+    type: object
+    description: |
+      Конфигурация для descheduler. Включает выселение виртуальных машин.
+    properties:
+      enabled:
+        type: boolean
+        description: |
+          Включение или отключение descheduler. Установите значение true для активации выселения виртуальных машин.

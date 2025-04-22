@@ -248,3 +248,13 @@ properties:
     enum:
       - "text"
       - "json"
+  descheduler:
+    type: object
+    description: |
+      Configuration for the descheduler. Enables eviction of virtual machines.
+    properties:
+      enabled:
+        type: boolean
+        description: |
+          Enable or disable the descheduler. Set to true to activate VM eviction.
+        x-examples: [true, false]

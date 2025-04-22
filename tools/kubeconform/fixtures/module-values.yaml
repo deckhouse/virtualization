@@ -326,6 +326,7 @@ global:
         virtualizationApi: sha256:0000000000000000000000000000000000000000000000000000000000000000
         virtualizationController: sha256:0000000000000000000000000000000000000000000000000000000000000000
         vmRouteForge: sha256:0000000000000000000000000000000000000000000000000000000000000000
+        descheduler: sha256:0000000000000000000000000000000000000000000000000000000000000000
     registry:
       CA: ""
       address: some-registry.io
@@ -335,6 +336,8 @@ global:
       scheme: https
     tags: {}
 virtualization:
+  descheduler:
+    enabled: true
   dvcr:
     storage:
       persistentVolumeClaim:
