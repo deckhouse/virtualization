@@ -403,9 +403,6 @@ var _ DiskService = &DiskServiceMock{}
 //			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 //				panic("mock out the GetPersistentVolumeClaim method")
 //			},
-//			GetStorageClassFunc: func(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error) {
-//				panic("mock out the GetStorageClass method")
-//			},
 //			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
 //				panic("mock out the Resize method")
 //			},
@@ -419,9 +416,6 @@ type DiskServiceMock struct {
 	// GetPersistentVolumeClaimFunc mocks the GetPersistentVolumeClaim method.
 	GetPersistentVolumeClaimFunc func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 
-	// GetStorageClassFunc mocks the GetStorageClass method.
-	GetStorageClassFunc func(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error)
-
 	// ResizeFunc mocks the Resize method.
 	ResizeFunc func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error
 
@@ -434,13 +428,6 @@ type DiskServiceMock struct {
 			// Sup is the sup argument value.
 			Sup *supplements.Generator
 		}
-		// GetStorageClass holds details about calls to the GetStorageClass method.
-		GetStorageClass []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// StorageClassName is the storageClassName argument value.
-			StorageClassName *string
-		}
 		// Resize holds details about calls to the Resize method.
 		Resize []struct {
 			// Ctx is the ctx argument value.
@@ -452,7 +439,6 @@ type DiskServiceMock struct {
 		}
 	}
 	lockGetPersistentVolumeClaim sync.RWMutex
-	lockGetStorageClass          sync.RWMutex
 	lockResize                   sync.RWMutex
 }
 
@@ -489,42 +475,6 @@ func (mock *DiskServiceMock) GetPersistentVolumeClaimCalls() []struct {
 	mock.lockGetPersistentVolumeClaim.RLock()
 	calls = mock.calls.GetPersistentVolumeClaim
 	mock.lockGetPersistentVolumeClaim.RUnlock()
-	return calls
-}
-
-// GetStorageClass calls GetStorageClassFunc.
-func (mock *DiskServiceMock) GetStorageClass(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error) {
-	if mock.GetStorageClassFunc == nil {
-		panic("DiskServiceMock.GetStorageClassFunc: method is nil but DiskService.GetStorageClass was just called")
-	}
-	callInfo := struct {
-		Ctx              context.Context
-		StorageClassName *string
-	}{
-		Ctx:              ctx,
-		StorageClassName: storageClassName,
-	}
-	mock.lockGetStorageClass.Lock()
-	mock.calls.GetStorageClass = append(mock.calls.GetStorageClass, callInfo)
-	mock.lockGetStorageClass.Unlock()
-	return mock.GetStorageClassFunc(ctx, storageClassName)
-}
-
-// GetStorageClassCalls gets all the calls that were made to GetStorageClass.
-// Check the length with:
-//
-//	len(mockedDiskService.GetStorageClassCalls())
-func (mock *DiskServiceMock) GetStorageClassCalls() []struct {
-	Ctx              context.Context
-	StorageClassName *string
-} {
-	var calls []struct {
-		Ctx              context.Context
-		StorageClassName *string
-	}
-	mock.lockGetStorageClass.RLock()
-	calls = mock.calls.GetStorageClass
-	mock.lockGetStorageClass.RUnlock()
 	return calls
 }
 

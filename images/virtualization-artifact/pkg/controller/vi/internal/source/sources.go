@@ -101,7 +101,7 @@ func CleanUpSupplements(ctx context.Context, vi *virtv2.VirtualImage, c Cleaner)
 	return reconcile.Result{}, nil
 }
 
-func isDiskProvisioningFinished(c metav1.Condition) bool {
+func IsImageProvisioningFinished(c metav1.Condition) bool {
 	return c.Reason == vicondition.Ready.String()
 }
 
@@ -172,13 +172,6 @@ func setPhaseConditionForPVCProvisioningImage(
 			Reason(vicondition.ProvisioningFailed).
 			Message(service.CapitalizeFirstLetter(err.Error()))
 		return nil
-	case errors.Is(err, service.ErrStorageClassNotFound):
-		vi.Status.Phase = virtv2.ImagePending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.ProvisioningFailed).
-			Message("Provided StorageClass not found in the cluster.")
-		return nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vi.Status.Phase = virtv2.ImagePending
 		cb.
@@ -212,27 +205,6 @@ func setPhaseConditionFromPodError(cb *conditions.ConditionBuilder, vi *virtv2.V
 	}
 }
 
-func setConditionFromStorageClassError(err error, cb *conditions.ConditionBuilder) (bool, error) {
-	switch {
-	case err == nil:
-		return false, nil
-	case errors.Is(err, service.ErrStorageClassNotFound):
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.ProvisioningFailed).
-			Message("Provided StorageClass not found in the cluster.")
-		return true, nil
-	case errors.Is(err, service.ErrStorageClassNotAllowed):
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.ProvisioningFailed).
-			Message("Specified StorageClass is not allowed: please change provided StorageClass name or check the module settings.")
-		return true, nil
-	default:
-		return false, err
-	}
-}
-
 func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, cb *conditions.ConditionBuilder) (bool, error) {
 	switch {
 	case err == nil:
@@ -243,13 +215,6 @@ func setPhaseConditionFromStorageError(err error, vi *virtv2.VirtualImage, cb *c
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.ProvisioningFailed).
 			Message("StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.")
-		return true, nil
-	case errors.Is(err, service.ErrStorageClassNotFound):
-		vi.Status.Phase = virtv2.ImagePending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.ProvisioningFailed).
-			Message("Provided StorageClass not found in the cluster.")
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vi.Status.Phase = virtv2.ImagePending

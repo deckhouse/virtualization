@@ -75,6 +75,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.UserDataRef":                               schema_virtualization_api_core_v1alpha2_UserDataRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VMAffinity":                                schema_virtualization_api_core_v1alpha2_VMAffinity(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VMBDAObjectRef":                            schema_virtualization_api_core_v1alpha2_VMBDAObjectRef(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.Versions":                                  schema_virtualization_api_core_v1alpha2_Versions(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDisk":                               schema_virtualization_api_core_v1alpha2_VirtualDisk(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskContainerImage":                 schema_virtualization_api_core_v1alpha2_VirtualDiskContainerImage(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualDiskDataSource":                     schema_virtualization_api_core_v1alpha2_VirtualDiskDataSource(ref),
@@ -143,6 +144,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VolumeSnapshotClassName":                   schema_virtualization_api_core_v1alpha2_VolumeSnapshotClassName(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.WeightedVirtualMachineAndPodAffinityTerm":  schema_virtualization_api_core_v1alpha2_WeightedVirtualMachineAndPodAffinityTerm(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineAddVolume":           schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref),
+		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineCancelEvacuation":    schema_virtualization_api_subresources_v1alpha2_VirtualMachineCancelEvacuation(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineConsole":             schema_virtualization_api_subresources_v1alpha2_VirtualMachineConsole(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineFreeze":              schema_virtualization_api_subresources_v1alpha2_VirtualMachineFreeze(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachinePortForward":         schema_virtualization_api_subresources_v1alpha2_VirtualMachinePortForward(ref),
@@ -679,8 +681,16 @@ func schema_virtualization_api_core_v1alpha2_AttachedVirtualMachine(ref common.R
 				Properties: map[string]spec.Schema{
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Type:   []string{"string"},
-							Format: "",
+							Description: "Name of attached VirtualMachine.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"mounted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Flag indicating that VirtualDisk is currently being used by this attached VirtualMachine.",
+							Type:        []string{"boolean"},
+							Format:      "",
 						},
 					},
 				},
@@ -2117,6 +2127,33 @@ func schema_virtualization_api_core_v1alpha2_VMBDAObjectRef(ref common.Reference
 					"name": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Name of the block device to attach.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_Versions(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "Versions defines statistics about the hypervisor versions.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"qemu": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Qemu is the version of the qemu hypervisor.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"libvirt": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Libvirt is the version of the libvirt.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -5177,17 +5214,17 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 							},
 						},
 					},
+					"versions": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Hypervisor versions.",
+							Default:     map[string]interface{}{},
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.Versions"),
+						},
+					},
 					"resources": {
 						SchemaProps: spec.SchemaProps{
 							Default: map[string]interface{}{},
 							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus"),
-						},
-					},
-					"firmwareVersion": {
-						SchemaProps: spec.SchemaProps{
-							Description: "Firmware version.",
-							Type:        []string{"string"},
-							Format:      "",
 						},
 					},
 				},
@@ -5195,7 +5232,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus", "github.com/deckhouse/virtualization/api/core/v1alpha2.Versions", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"},
 	}
 }
 
@@ -5325,6 +5362,41 @@ func schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref
 				Required: []string{"name", "volumeKind", "pvcName", "image", "serial", "isCdrom"},
 			},
 		},
+	}
+}
+
+func schema_virtualization_api_subresources_v1alpha2_VirtualMachineCancelEvacuation(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"TypeMeta": {
+						SchemaProps: spec.SchemaProps{
+							Default: map[string]interface{}{},
+							Ref:     ref("k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"),
+						},
+					},
+					"dryRun": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"TypeMeta"},
+			},
+		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.TypeMeta"},
 	}
 }
 

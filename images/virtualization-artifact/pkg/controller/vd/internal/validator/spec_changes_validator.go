@@ -18,7 +18,7 @@ package validator
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,13 +45,18 @@ func (v *SpecChangesValidator) ValidateUpdate(_ context.Context, oldVD, newVD *v
 	}
 
 	ready, _ := conditions.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
-	if ready.Status == metav1.ConditionTrue || newVD.Status.Phase == virtv2.DiskReady || newVD.Status.Phase == virtv2.DiskLost || newVD.Status.Phase == virtv2.DiskTerminating {
+	switch {
+	case ready.Status == metav1.ConditionTrue, newVD.Status.Phase == virtv2.DiskReady, newVD.Status.Phase == virtv2.DiskLost:
 		if !reflect.DeepEqual(oldVD.Spec.DataSource, newVD.Spec.DataSource) {
-			return nil, fmt.Errorf("VirtualDisk has already been attached: data source cannot be changed while disk is attached to VirtualMachine")
+			return nil, errors.New("data source cannot be changed if the VirtualDisk has already been provisioned")
 		}
 
 		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, fmt.Errorf("VirtualDisk has already been attached: storage class cannot be changed while disk is attached to VirtualMachine")
+			return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
+		}
+	case newVD.Status.Phase == virtv2.DiskTerminating:
+		if !reflect.DeepEqual(oldVD.Spec, newVD.Spec) {
+			return nil, errors.New("spec cannot be changed if the VirtualDisk is the process of termination")
 		}
 	}
 

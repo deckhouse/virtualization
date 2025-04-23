@@ -18,6 +18,7 @@ package vi
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -27,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/common/blockdevice"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -88,13 +90,18 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	}
 
 	ready, _ := conditions.GetCondition(vicondition.ReadyType, newVI.Status.Conditions)
-	if ready.Status == metav1.ConditionTrue || newVI.Status.Phase == virtv2.ImageReady || newVI.Status.Phase == virtv2.ImageLost || newVI.Status.Phase == virtv2.ImageTerminating {
+	switch {
+	case ready.Status == metav1.ConditionTrue, newVI.Status.Phase == virtv2.ImageReady, newVI.Status.Phase == virtv2.ImageLost:
 		if !reflect.DeepEqual(oldVI.Spec.DataSource, newVI.Spec.DataSource) {
-			return nil, fmt.Errorf("VirtualImage has already been created: data source cannot be changed after disk is created")
+			return nil, errors.New("data source cannot be changed if the VirtualImage has already been provisioned")
 		}
 
 		if !reflect.DeepEqual(oldVI.Spec.PersistentVolumeClaim.StorageClass, newVI.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, fmt.Errorf("VirtualImage has already been created: storage class cannot be changed after disk is created")
+			return nil, errors.New("storage class cannot be changed if the VirtualImage has already been provisioned")
+		}
+	case newVI.Status.Phase == virtv2.ImageTerminating:
+		if !reflect.DeepEqual(oldVI.Spec, newVI.Spec) {
+			return nil, errors.New("spec cannot be changed if the VirtualImage is the process of termination")
 		}
 	}
 

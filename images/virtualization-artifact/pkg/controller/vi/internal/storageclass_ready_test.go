@@ -36,7 +36,27 @@ import (
 )
 
 var _ = Describe("StorageClassHandler Run", func() {
-	DescribeTable("Checking returning conditions",
+	Describe("Check for the storage ContainerRegistry", func() {
+		var vi *virtv2.VirtualImage
+
+		BeforeEach(func() {
+			vi = newVI(nil, virtv2.StorageContainerRegistry)
+		})
+
+		It("doest not have StorageClass", func() {
+			handler := NewStorageClassReadyHandler(nil, nil)
+
+			res, err := handler.Handle(context.TODO(), vi)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+
+			_, ok := conditions.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
+			Expect(ok).To(BeFalse())
+			Expect(vi.Status.StorageClassName).To(BeEmpty())
+		})
+	})
+
+	DescribeTable("Check for the storage PersistentVolumeClaim",
 		func(args handlerTestArgs) {
 			recorder := &eventrecord.EventRecorderLoggerMock{
 				EventFunc: func(_ client.Object, _, _, _ string) {},
@@ -50,17 +70,6 @@ var _ = Describe("StorageClassHandler Run", func() {
 			Expect(condition.Status).To(Equal(args.ExpectedCondition.Status))
 			Expect(condition.Reason).To(Equal(args.ExpectedCondition.Reason))
 		},
-		Entry(
-			"StorageClassReady must be false because used DVCR storage type",
-			handlerTestArgs{
-				StorageClassServiceMock: newStorageClassServiceMock(nil),
-				VI:                      newVI(nil, virtv2.StorageContainerRegistry),
-				ExpectedCondition: metav1.Condition{
-					Status: metav1.ConditionUnknown,
-					Reason: vicondition.DVCRTypeUsed.String(),
-				},
-			},
-		),
 		Entry(
 			"StorageClassReady must be false because no storage class can be return",
 			handlerTestArgs{

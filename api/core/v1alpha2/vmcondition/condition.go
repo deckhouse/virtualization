@@ -42,6 +42,8 @@ const (
 	// TypeFirmwareUpToDate indicates whether the firmware on the virtual machine is up to date.
 	// This condition is used to determine if a migration or update is required due to changes in the firmware version.
 	TypeFirmwareUpToDate Type = "FirmwareUpToDate"
+	// TypeNeedsEvict indicates that the VirtualMachine should be evicting from node.
+	TypeNeedsEvict Type = "NeedsEvict"
 )
 
 type Reason string
@@ -116,4 +118,7 @@ const (
 	ReasonFirmwareUpToDate Reason = "FirmwareUpToDate"
 	// ReasonFirmwareOutOfDate indicates that the firmware out of date.
 	ReasonFirmwareOutOfDate Reason = "FirmwareOutOfDate"
+
+	// ReasonNeedsEvict indicates that the VirtualMachine should be evicting from node.
+	ReasonNeedsEvict Reason = "NeedsEvict"
 )

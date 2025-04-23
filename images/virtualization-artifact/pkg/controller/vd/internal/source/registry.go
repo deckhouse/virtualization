@@ -22,9 +22,11 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -50,13 +52,12 @@ import (
 const registryDataSource = "registry"
 
 type RegistryDataSource struct {
-	statService         *service.StatService
-	importerService     *service.ImporterService
-	diskService         *service.DiskService
-	dvcrSettings        *dvcr.Settings
-	client              client.Client
-	storageClassService *service.VirtualDiskStorageClassService
-	recorder            eventrecord.EventRecorderLogger
+	statService     *service.StatService
+	importerService *service.ImporterService
+	diskService     *service.DiskService
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	recorder        eventrecord.EventRecorderLogger
 }
 
 func NewRegistryDataSource(
@@ -66,16 +67,14 @@ func NewRegistryDataSource(
 	diskService *service.DiskService,
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
-	storageClassService *service.VirtualDiskStorageClassService,
 ) *RegistryDataSource {
 	return &RegistryDataSource{
-		statService:         statService,
-		importerService:     importerService,
-		diskService:         diskService,
-		dvcrSettings:        dvcrSettings,
-		client:              client,
-		storageClassService: storageClassService,
-		recorder:            recorder,
+		statService:     statService,
+		importerService: importerService,
+		diskService:     diskService,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		recorder:        recorder,
 	}
 }
 
@@ -97,12 +96,6 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 	}
 	pvc, err := ds.diskService.GetPersistentVolumeClaim(ctx, supgen)
 	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
-	sc, err := ds.storageClassService.GetValidatedStorageClass(vd.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
-	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
 		return reconcile.Result{}, err
 	}
 
@@ -250,6 +243,12 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+
 		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
@@ -318,10 +317,13 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		sc, err := ds.diskService.GetStorageClass(ctx, pvc.Spec.StorageClassName)
-		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
+
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, ptr.Deref(pvc.Spec.StorageClassName, ""))
+		if err != nil {
 			return reconcile.Result{}, err
 		}
+
 		if err = setPhaseConditionForPVCProvisioningDisk(ctx, dv, vd, pvc, sc, cb, ds.diskService); err != nil {
 			return reconcile.Result{}, err
 		}

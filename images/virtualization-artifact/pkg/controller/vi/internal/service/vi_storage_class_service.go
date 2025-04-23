@@ -18,34 +18,34 @@ package service
 
 import (
 	"context"
+	"errors"
 	"slices"
 
-	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 )
 
-type StorageClassGetter interface {
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-	GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error)
-	GetDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error)
+var (
+	ErrStorageClassNotFound   = errors.New("storage class not found")
+	ErrStorageClassNotAllowed = errors.New("storage class not allowed")
+)
+
+type VirtualImageStorageClassService struct {
+	*service.BaseStorageClassService
+
+	storageClassSettings config.VirtualImageStorageClassSettings
 }
 
-type VirtualDiskStorageClassService struct {
-	storageClassSettings config.VirtualDiskStorageClassSettings
-	scGetter             StorageClassGetter
-}
-
-func NewVirtualDiskStorageClassService(settings config.VirtualDiskStorageClassSettings, scGetter StorageClassGetter) *VirtualDiskStorageClassService {
-	return &VirtualDiskStorageClassService{
-		storageClassSettings: settings,
-		scGetter:             scGetter,
+func NewVirtualImageStorageClassService(svc *service.BaseStorageClassService, settings config.VirtualImageStorageClassSettings) *VirtualImageStorageClassService {
+	return &VirtualImageStorageClassService{
+		BaseStorageClassService: svc,
+		storageClassSettings:    settings,
 	}
 }
 
-// GetValidatedStorageClass determines the storage class for VD from global settings and resource spec.
+// GetValidatedStorageClass determines the storage class for VI from global settings and resource spec.
 //
 // Global settings contain a default storage class and an array of allowed storageClasses from the ModuleConfig.
 // Storage class is allowed if contained in the "allowed" array.
@@ -58,9 +58,17 @@ func NewVirtualDiskStorageClassService(settings config.VirtualDiskStorageClassSe
 // Errors:
 // 1. Return error if no storage class is specified.
 // 2. Return error if specified non-empty class is not allowed.
-func (svc *VirtualDiskStorageClassService) GetValidatedStorageClass(storageClassFromSpec *string, clusterDefaultStorageClass *storev1.StorageClass) (*string, error) {
+func (svc *VirtualImageStorageClassService) GetValidatedStorageClass(storageClassFromSpec *string, clusterDefaultStorageClass *storev1.StorageClass) (*string, error) {
 	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
-		return storageClassFromSpec, nil
+		if svc.storageClassSettings.StorageClassName == "" {
+			return storageClassFromSpec, nil
+		}
+
+		if storageClassFromSpec == nil || *storageClassFromSpec == "" || *storageClassFromSpec == svc.storageClassSettings.StorageClassName {
+			return &svc.storageClassSettings.StorageClassName, nil
+		}
+
+		return nil, ErrStorageClassNotAllowed
 	}
 
 	if storageClassFromSpec != nil && *storageClassFromSpec != "" {
@@ -90,7 +98,7 @@ func (svc *VirtualDiskStorageClassService) GetValidatedStorageClass(storageClass
 	return nil, ErrStorageClassNotFound
 }
 
-func (svc *VirtualDiskStorageClassService) IsStorageClassAllowed(scName string) bool {
+func (svc *VirtualImageStorageClassService) IsStorageClassAllowed(scName string) bool {
 	if svc.storageClassSettings.DefaultStorageClassName == "" && len(svc.storageClassSettings.AllowedStorageClassNames) == 0 {
 		return true
 	}
@@ -106,18 +114,6 @@ func (svc *VirtualDiskStorageClassService) IsStorageClassAllowed(scName string) 
 	return false
 }
 
-func (svc *VirtualDiskStorageClassService) GetModuleStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
+func (svc *VirtualImageStorageClassService) GetModuleStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
 	return svc.GetStorageClass(ctx, svc.storageClassSettings.DefaultStorageClassName)
-}
-
-func (svc *VirtualDiskStorageClassService) GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
-	return svc.scGetter.GetPersistentVolumeClaim(ctx, sup)
-}
-
-func (svc *VirtualDiskStorageClassService) GetStorageClass(ctx context.Context, scName string) (*storev1.StorageClass, error) {
-	return svc.scGetter.GetStorageClass(ctx, &scName)
-}
-
-func (svc *VirtualDiskStorageClassService) GetDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
-	return svc.scGetter.GetDefaultStorageClass(ctx)
 }

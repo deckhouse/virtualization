@@ -16,7 +16,10 @@ limitations under the License.
 
 package meta
 
-import "sigs.k8s.io/controller-runtime/pkg/client"
+import (
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+)
 
 func WithName[T client.Object](name string) func(obj T) {
 	return func(obj T) {
@@ -67,5 +70,11 @@ func WithAnnotation[T client.Object](key, value string) func(obj T) {
 		}
 		annotations[key] = value
 		obj.SetAnnotations(annotations)
+	}
+}
+
+func WithFinalizer[T client.Object](finalizer string) func(obj T) {
+	return func(obj T) {
+		controllerutil.AddFinalizer(obj, finalizer)
 	}
 }

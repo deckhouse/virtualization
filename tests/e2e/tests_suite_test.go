@@ -19,6 +19,7 @@ package e2e
 import (
 	"fmt"
 	"log"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -28,9 +29,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	el "github.com/deckhouse/virtualization/tests/e2e/errlogger"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
@@ -62,6 +67,8 @@ var (
 	conf                         *config.Config
 	mc                           *config.ModuleConfig
 	kustomize                    *config.Kustomize
+	kubeClient                   kubernetes.Interface
+	virtClient                   kubeclient.Client
 	kubectl                      kc.Kubectl
 	d8Virtualization             d8.D8Virtualization
 	git                          gt.Git
@@ -92,6 +99,18 @@ func init() {
 	if d8Virtualization, err = d8.NewD8Virtualization(d8.D8VirtualizationConf(conf.ClusterTransport)); err != nil {
 		log.Fatal(err)
 	}
+
+	restConfig, err := newRestConfig(conf.ClusterTransport)
+	if err != nil {
+		log.Fatal(err)
+	}
+	if kubeClient, err = kubernetes.NewForConfig(restConfig); err != nil {
+		log.Fatal(err)
+	}
+	if virtClient, err = kubeclient.GetClientFromRESTConfig(restConfig); err != nil {
+		log.Fatal(err)
+	}
+
 	if git, err = gt.NewGit(); err != nil {
 		log.Fatal(err)
 	}
@@ -106,21 +125,25 @@ func init() {
 	conf.StorageClass.VolumeBindingMode = *defaultStorageClass.VolumeBindingMode
 	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(conf)
 	// TODO: get kustomization files from testdata directory when all tests will be refactored
-	kustomizationFiles := []string{
-		fmt.Sprintf("%s/%s", conf.TestData.AffinityToleration, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.ImageHotplug, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.ImporterNetworkPolicy, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.ImagesCreation, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.VmLabelAnnotation, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml"),
-		fmt.Sprintf("%s/%s", conf.TestData.VmVersions, "kustomization.yaml"),
+	var kustomizationFiles []string
+	v := reflect.ValueOf(conf.TestData)
+	t := reflect.TypeOf(conf.TestData)
+
+	if v.Kind() == reflect.Struct {
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			fieldType := t.Field(i)
+
+			// Ignore
+			if fieldType.Name == "Sshkey" || fieldType.Name == "SshUser" {
+				continue
+			}
+
+			if field.Kind() == reflect.String {
+				path := fmt.Sprintf("%s/%s", field.String(), "kustomization.yaml")
+				kustomizationFiles = append(kustomizationFiles, path)
+			}
+		}
 	}
 	for _, filePath := range kustomizationFiles {
 		if err = kustomize.SetParams(filePath, conf.Namespace, namePrefix); err != nil {
@@ -136,6 +159,26 @@ func init() {
 	} else {
 		log.Println("Run test in REUSABLE mode")
 	}
+}
+
+func newRestConfig(transport config.ClusterTransport) (*rest.Config, error) {
+	configFlags := genericclioptions.ConfigFlags{}
+	if transport.KubeConfig != "" {
+		configFlags.KubeConfig = &transport.KubeConfig
+	}
+	if transport.Token != "" {
+		configFlags.BearerToken = &transport.Token
+	}
+	if transport.InsecureTls {
+		configFlags.Insecure = &transport.InsecureTls
+	}
+	if transport.CertificateAuthority != "" {
+		configFlags.CAFile = &transport.CertificateAuthority
+	}
+	if transport.Endpoint != "" {
+		configFlags.APIServer = &transport.Endpoint
+	}
+	return configFlags.ToRESTConfig()
 }
 
 func TestTests(t *testing.T) {
@@ -211,12 +254,12 @@ func Cleanup() []error {
 			continue
 		}
 	}
-	
+
 	for _, r := range conf.CleanupResources {
 		res = kubectl.Delete(kc.DeleteOptions{
 			IgnoreNotFound: true,
 			Labels:         map[string]string{"id": namePrefix},
-			Resource: 		kc.Resource(r),
+			Resource:       kc.Resource(r),
 		})
 		if res.Error() != nil {
 			cleanupErrs = append(

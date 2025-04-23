@@ -22,13 +22,12 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
-	storev1 "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,12 +72,16 @@ func NewDiskService(
 func (s DiskService) Start(
 	ctx context.Context,
 	pvcSize resource.Quantity,
-	storageClass *string,
+	sc *storagev1.StorageClass,
 	source *cdiv1.DataVolumeSource,
 	obj ObjectKind,
 	sup *supplements.Generator,
 	opts ...Option,
 ) error {
+	if sc == nil {
+		return errors.New("cannot create DataVolume: StorageClass must not be nil")
+	}
+
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
 	dvBuilder.SetDataSource(source)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
@@ -95,17 +98,12 @@ func (s DiskService) Start(
 		}
 	}
 
-	sc, err := s.GetStorageClass(ctx, storageClass)
-	if err != nil {
-		return fmt.Errorf("get storage class: %w", err)
-	}
-
 	volumeMode, accessMode, err := s.GetVolumeAndAccessModes(ctx, sc)
 	if err != nil {
 		return fmt.Errorf("get volume and access modes: %w", err)
 	}
 
-	dvBuilder.SetPVC(storageClass, pvcSize, accessMode, volumeMode)
+	dvBuilder.SetPVC(&sc.Name, pvcSize, accessMode, volumeMode)
 
 	if s.isImmediateBindingMode(sc) {
 		dvBuilder.SetImmediate()
@@ -129,7 +127,7 @@ func (s DiskService) Start(
 	return supplements.EnsureForDataVolume(ctx, s.client, sup, dvBuilder.GetResource(), s.dvcrSettings)
 }
 
-func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, sc *storev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 	if sc == nil {
 		return "", "", errors.New("storage class is nil")
 	}
@@ -163,14 +161,13 @@ func (s DiskService) GetVolumeAndAccessModes(ctx context.Context, sc *storev1.St
 func (s DiskService) StartImmediate(
 	ctx context.Context,
 	pvcSize resource.Quantity,
-	storageClass *string,
+	sc *storagev1.StorageClass,
 	source *cdiv1.DataVolumeSource,
 	obj ObjectKind,
 	sup *supplements.Generator,
 ) error {
-	sc, err := s.GetStorageClass(ctx, storageClass)
-	if err != nil {
-		return err
+	if sc == nil {
+		return errors.New("cannot create DataVolume: StorageClass must not be nil")
 	}
 
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
@@ -180,7 +177,7 @@ func (s DiskService) StartImmediate(
 	dvBuilder.SetImmediate()
 	dv := dvBuilder.GetResource()
 
-	err = s.client.Create(ctx, dv)
+	err := s.client.Create(ctx, dv)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return err
 	}
@@ -455,7 +452,7 @@ func getAccessModeMax(modes []corev1.PersistentVolumeAccessMode) corev1.Persiste
 	return m
 }
 
-func (s DiskService) parseVolumeMode(sc *storev1.StorageClass) (corev1.PersistentVolumeMode, bool) {
+func (s DiskService) parseVolumeMode(sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, bool) {
 	if sc == nil {
 		return "", false
 	}
@@ -469,7 +466,7 @@ func (s DiskService) parseVolumeMode(sc *storev1.StorageClass) (corev1.Persisten
 	}
 }
 
-func (s DiskService) parseAccessMode(sc *storev1.StorageClass) (corev1.PersistentVolumeAccessMode, bool) {
+func (s DiskService) parseAccessMode(sc *storagev1.StorageClass) (corev1.PersistentVolumeAccessMode, bool) {
 	if sc == nil {
 		return "", false
 	}
@@ -483,11 +480,11 @@ func (s DiskService) parseAccessMode(sc *storev1.StorageClass) (corev1.Persisten
 	}
 }
 
-func (s DiskService) isImmediateBindingMode(sc *storev1.StorageClass) bool {
+func (s DiskService) isImmediateBindingMode(sc *storagev1.StorageClass) bool {
 	if sc == nil {
 		return false
 	}
-	return sc.GetAnnotations()[annotations.AnnVirtualDiskBindingMode] == string(storev1.VolumeBindingImmediate)
+	return sc.GetAnnotations()[annotations.AnnVirtualDiskBindingMode] == string(storagev1.VolumeBindingImmediate)
 }
 
 func (s DiskService) parseStorageCapabilities(status cdiv1.StorageProfileStatus) StorageCapabilities {
@@ -519,6 +516,10 @@ func (s DiskService) parseStorageCapabilities(status cdiv1.StorageProfileStatus)
 	}
 
 	return storageCapabilities[len(storageCapabilities)-1]
+}
+
+func (s DiskService) GetStorageClass(ctx context.Context, scName string) (*storagev1.StorageClass, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: scName}, s.client, &storagev1.StorageClass{})
 }
 
 func (s DiskService) GetDataVolume(ctx context.Context, sup *supplements.Generator) (*cdiv1.DataVolume, error) {
@@ -598,59 +599,6 @@ func (s DiskService) CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolum
 	}
 
 	return nil
-}
-
-func (s DiskService) GetStorageClass(ctx context.Context, storageClassName *string) (*storev1.StorageClass, error) {
-	if storageClassName == nil || *storageClassName == "" {
-		return s.GetDefaultStorageClass(ctx)
-	}
-	return s.getStorageClass(ctx, *storageClassName)
-}
-
-func (s DiskService) GetDefaultStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
-	var scs storev1.StorageClassList
-	err := s.client.List(ctx, &scs, &client.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	var defaultClasses []*storev1.StorageClass
-	for idx := range scs.Items {
-		if scs.Items[idx].Annotations[annotations.AnnDefaultStorageClass] == "true" {
-			defaultClasses = append(defaultClasses, &scs.Items[idx])
-		}
-	}
-
-	if len(defaultClasses) == 0 {
-		return nil, ErrDefaultStorageClassNotFound
-	}
-
-	// Primary sort by creation timestamp, newest first
-	// Secondary sort by class name, ascending order
-	sort.Slice(defaultClasses, func(i, j int) bool {
-		if defaultClasses[i].CreationTimestamp.UnixNano() == defaultClasses[j].CreationTimestamp.UnixNano() {
-			return defaultClasses[i].Name < defaultClasses[j].Name
-		}
-		return defaultClasses[i].CreationTimestamp.UnixNano() > defaultClasses[j].CreationTimestamp.UnixNano()
-	})
-
-	return defaultClasses[0], nil
-}
-
-func (s DiskService) getStorageClass(ctx context.Context, storageClassName string) (*storev1.StorageClass, error) {
-	var sc storev1.StorageClass
-	err := s.client.Get(ctx, types.NamespacedName{
-		Name: storageClassName,
-	}, &sc, &client.GetOptions{})
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			return nil, ErrStorageClassNotFound
-		}
-
-		return nil, err
-	}
-
-	return &sc, nil
 }
 
 var ErrInsufficientPVCSize = errors.New("the specified pvc size is insufficient")

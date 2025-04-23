@@ -17,26 +17,23 @@ limitations under the License.
 package indexer
 
 import (
-	"context"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func IndexVMIPByVM(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachineIPAddress{}, IndexFieldVMIPByVM, func(object client.Object) []string {
+func IndexVMIPByVM() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachineIPAddress{}, IndexFieldVMIPByVM, func(object client.Object) []string {
 		vmip, ok := object.(*virtv2.VirtualMachineIPAddress)
 		if !ok || vmip == nil {
 			return nil
 		}
 		return []string{vmip.Status.VirtualMachine}
-	})
+	}
 }
 
-func IndexVMIPByAddress(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachineIPAddress{}, IndexFieldVMIPByAddress, func(object client.Object) []string {
+func IndexVMIPByAddress() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachineIPAddress{}, IndexFieldVMIPByAddress, func(object client.Object) []string {
 		vmip, ok := object.(*virtv2.VirtualMachineIPAddress)
 		if !ok || vmip == nil {
 			return nil
@@ -52,5 +49,5 @@ func IndexVMIPByAddress(ctx context.Context, mgr manager.Manager) error {
 		}
 
 		return addresses
-	})
+	}
 }

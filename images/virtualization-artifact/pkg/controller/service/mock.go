@@ -8,6 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sync"
 )
@@ -31,7 +32,7 @@ var _ Client = &ClientMock{}
 //			DeleteAllOfFunc: func(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error {
 //				panic("mock out the DeleteAllOf method")
 //			},
-//			GetFunc: func(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+//			GetFunc: func(ctx context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption) error {
 //				panic("mock out the Get method")
 //			},
 //			GroupVersionKindForFunc: func(obj runtime.Object) (schema.GroupVersionKind, error) {
@@ -78,7 +79,7 @@ type ClientMock struct {
 	DeleteAllOfFunc func(ctx context.Context, obj client.Object, opts ...client.DeleteAllOfOption) error
 
 	// GetFunc mocks the Get method.
-	GetFunc func(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error
+	GetFunc func(ctx context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption) error
 
 	// GroupVersionKindForFunc mocks the GroupVersionKindFor method.
 	GroupVersionKindForFunc func(obj runtime.Object) (schema.GroupVersionKind, error)
@@ -141,7 +142,7 @@ type ClientMock struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Key is the key argument value.
-			Key client.ObjectKey
+			Key types.NamespacedName
 			// Obj is the obj argument value.
 			Obj client.Object
 			// Opts is the opts argument value.
@@ -337,13 +338,13 @@ func (mock *ClientMock) DeleteAllOfCalls() []struct {
 }
 
 // Get calls GetFunc.
-func (mock *ClientMock) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+func (mock *ClientMock) Get(ctx context.Context, key types.NamespacedName, obj client.Object, opts ...client.GetOption) error {
 	if mock.GetFunc == nil {
 		panic("ClientMock.GetFunc: method is nil but Client.Get was just called")
 	}
 	callInfo := struct {
 		Ctx  context.Context
-		Key  client.ObjectKey
+		Key  types.NamespacedName
 		Obj  client.Object
 		Opts []client.GetOption
 	}{
@@ -364,13 +365,13 @@ func (mock *ClientMock) Get(ctx context.Context, key client.ObjectKey, obj clien
 //	len(mockedClient.GetCalls())
 func (mock *ClientMock) GetCalls() []struct {
 	Ctx  context.Context
-	Key  client.ObjectKey
+	Key  types.NamespacedName
 	Obj  client.Object
 	Opts []client.GetOption
 } {
 	var calls []struct {
 		Ctx  context.Context
-		Key  client.ObjectKey
+		Key  types.NamespacedName
 		Obj  client.Object
 		Opts []client.GetOption
 	}

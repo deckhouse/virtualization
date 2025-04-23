@@ -17,14 +17,15 @@ limitations under the License.
 package v1alpha2
 
 const (
-	FinalizerCVIProtection        = "virtualization.deckhouse.io/cvi-protection"
-	FinalizerVIProtection         = "virtualization.deckhouse.io/vi-protection"
-	FinalizerVDProtection         = "virtualization.deckhouse.io/vd-protection"
-	FinalizerKVVMProtection       = "virtualization.deckhouse.io/kvvm-protection"
-	FinalizerIPAddressProtection  = "virtualization.deckhouse.io/vmip-protection"
-	FinalizerPodProtection        = "virtualization.deckhouse.io/pod-protection"
-	FinalizerVDSnapshotProtection = "virtualization.deckhouse.io/vdsnapshot-protection"
-	FinalizerVMSnapshotProtection = "virtualization.deckhouse.io/vmsnapshot-protection"
+	FinalizerCVIProtection                        = "virtualization.deckhouse.io/cvi-protection"
+	FinalizerVIProtection                         = "virtualization.deckhouse.io/vi-protection"
+	FinalizerVDProtection                         = "virtualization.deckhouse.io/vd-protection"
+	FinalizerKVVMProtection                       = "virtualization.deckhouse.io/kvvm-protection"
+	FinalizerIPAddressProtection                  = "virtualization.deckhouse.io/vmip-protection"
+	FinalizerPodProtection                        = "virtualization.deckhouse.io/pod-protection"
+	FinalizerVDSnapshotProtection                 = "virtualization.deckhouse.io/vdsnapshot-protection"
+	FinalizerVMSnapshotProtection                 = "virtualization.deckhouse.io/vmsnapshot-protection"
+	FinalizerVMOPProtectionByEvacuationController = "virtualization.deckhouse.io/vmop-protection-by-evacuation-controller"
 
 	FinalizerCVICleanup            = "virtualization.deckhouse.io/cvi-cleanup"
 	FinalizerVDCleanup             = "virtualization.deckhouse.io/vd-cleanup"
