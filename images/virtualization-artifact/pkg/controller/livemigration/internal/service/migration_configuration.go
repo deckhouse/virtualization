@@ -63,14 +63,6 @@ func NewMigrationConfiguration(moduleSettings config.LiveMigrationSettings, allo
 	}
 }
 
-func DumpMigrationConfiguration(conf *virtv1.MigrationConfiguration) string {
-	out, err := json.Marshal(conf)
-	if err != nil {
-		return fmt.Sprintf("(json err %v, fmt dump)%#v", err, conf)
-	}
-	return string(out)
-}
-
 func DumpKVVMIMigrationConfiguration(kvvmi *virtv1.VirtualMachineInstance) string {
 	if kvvmi.Status.MigrationState == nil {
 		return "status.migrationState is null"
@@ -86,7 +78,8 @@ func DumpKVVMIMigrationConfiguration(kvvmi *virtv1.VirtualMachineInstance) strin
 	return string(out)
 }
 
-func IsMigrationConfigurationChanged(current *virtv1.VirtualMachineInstance, changed *virtv1.VirtualMachineInstance) bool {
+// IsMigrationConfigurationChanged detects if MigrationConfiguration was changed.
+func IsMigrationConfigurationChanged(current, changed *virtv1.VirtualMachineInstance) bool {
 	// true if migrationConfiguration was added.
 	if current.Status.MigrationState != nil && current.Status.MigrationState.MigrationConfiguration == nil &&
 		changed.Status.MigrationState != nil && changed.Status.MigrationState.MigrationConfiguration != nil {
