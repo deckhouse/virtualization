@@ -471,7 +471,7 @@ To increase the disk size for DVCR, you must set a larger size in the `virtualiz
 
     ```shell
     d8 k patch mc virtualization \
-      --type merge -p '{"spec": { "settings": { "dvcr": { "storage": { "persistentVolumeClaim": {"size": "59G"}}}}}}''
+      --type merge -p '{"spec": { "settings": { "dvcr": { "storage": { "persistentVolumeClaim": {"size": "59G"}}}}}}'
     ```
 
    Example output:
