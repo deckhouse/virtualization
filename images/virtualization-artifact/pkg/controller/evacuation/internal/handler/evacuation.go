@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"slices"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -135,9 +136,16 @@ func (h *EvacuationHandler) removeFinalizerFromVMOPs(ctx context.Context, vmops 
 }
 
 func (h *EvacuationHandler) removeFinalizer(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
-	if removed := controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPProtectionByEvacuationController); removed {
-		op := patch.WithRemove("/metadata/finalizers/" + patch.EscapeJSONPointer(v1alpha2.FinalizerVMOPProtectionByEvacuationController))
-		bytes, err := patch.NewJsonPatch(op).Bytes()
+	if controllerutil.ContainsFinalizer(vmop, v1alpha2.FinalizerVMOPProtectionByEvacuationController) {
+		oldFinalizers := slices.Clone(vmop.GetFinalizers())
+		controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPProtectionByEvacuationController)
+		newFinalizers := vmop.GetFinalizers()
+
+		bytes, err := patch.NewJsonPatch(
+			patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/finalizers", oldFinalizers),
+			patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", newFinalizers),
+		).Bytes()
+
 		if err != nil {
 			return err
 		}
