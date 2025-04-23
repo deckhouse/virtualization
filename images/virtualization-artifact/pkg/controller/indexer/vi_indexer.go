@@ -59,8 +59,8 @@ func IndexVIByStorageClass() (obj client.Object, field string, extractValue clie
 	}
 }
 
-func IndexVIByCVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByCVIDataSource, IndexVIByCVIDataSourceIndexerFunc)
+func IndexVIByCVIDataSource() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualImage{}, IndexFieldVIByCVIDataSource, IndexVIByCVIDataSourceIndexerFunc
 }
 
 func IndexVIByCVIDataSourceIndexerFunc(object client.Object) []string {
@@ -80,8 +80,8 @@ func IndexVIByCVIDataSourceIndexerFunc(object client.Object) []string {
 	return []string{vi.Spec.DataSource.ObjectRef.Name}
 }
 
-func IndexVIByVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByVIDataSource, IndexVIByVIDataSourceIndexerFunc)
+func IndexVIByVIDataSource() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualImage{}, IndexFieldVIByVIDataSource, IndexVIByVIDataSourceIndexerFunc
 }
 
 func IndexVIByVIDataSourceIndexerFunc(object client.Object) []string {
