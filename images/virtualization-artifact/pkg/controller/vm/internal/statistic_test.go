@@ -35,7 +35,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var _ = Describe("TestStatisticHandler2", func() {
+var _ = Describe("TestStatisticHandler", func() {
 	const (
 		vmName                = "vm"
 		vmNamespace           = "default"
@@ -177,6 +177,40 @@ var _ = Describe("TestStatisticHandler2", func() {
 
 				MemorySize:            536870912,
 				MemoryRuntimeOverhead: 254803968,
+			},
+		),
+		Entry("Case 2",
+			newVM(4, ptr.To("25%"), "8Gi"),
+			newKVVMI("1", "4", "8Gi", "8Gi"),
+			newPod("1", "4", "8Gi", "8Gi"),
+			expectedValues{
+				CPUCores:           4,
+				CPUCoreFraction:    "25%",
+				CPURequestedCores:  1000,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 4,
+				TopologySockets:        1,
+
+				MemorySize:            8589934592,
+				MemoryRuntimeOverhead: 0,
+			},
+		),
+		Entry("Case 3",
+			newVM(2, ptr.To("100%"), "2Gi"),
+			newKVVMI("2", "2", "2Gi", "2Gi"),
+			newPod("2", "2", "2Gi", "2Gi"),
+			expectedValues{
+				CPUCores:           2,
+				CPUCoreFraction:    "100%",
+				CPURequestedCores:  2000,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 2,
+				TopologySockets:        1,
+
+				MemorySize:            2147483648,
+				MemoryRuntimeOverhead: 0,
 			},
 		),
 	)
