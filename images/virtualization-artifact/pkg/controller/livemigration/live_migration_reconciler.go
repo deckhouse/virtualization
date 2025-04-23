@@ -20,18 +20,14 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	internalservice "github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
@@ -59,42 +55,14 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 
 // SetupController adds watchers.
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	// Subscribe to KVVMI changes.
-	if err := ctr.Watch(source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{}), &handler.EnqueueRequestForObject{}); err != nil {
-		return fmt.Errorf("error setting watch on VM: %w", err)
-	}
-	// Subscribe to KVMIMigration changes.
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstanceMigration{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			kvvmim, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
-			if !ok {
-				return nil
-			}
-			vmiName := kvvmim.Spec.VMIName
-			if vmiName == "" {
-				return nil
-			}
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      vmiName,
-						Namespace: kvvmim.GetNamespace(),
-					},
-				},
-			}
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldKvvmim := e.ObjectOld.(*virtv1.VirtualMachineInstanceMigration)
-				newKvvmim := e.ObjectNew.(*virtv1.VirtualMachineInstanceMigration)
-				return oldKvvmim.Status.Phase != newKvvmim.Status.Phase
-			},
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on VM: %w", err)
+	for _, w := range []Watcher{
+		watcher.NewKVVMIWatcher(),
+		watcher.NewKVVMIMWatcher(),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("error setting watcher: %w", err)
+		}
 	}
 
 	return nil
@@ -122,7 +90,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		if internalservice.IsMigrationConfigurationChanged(kvvmi.Current(), kvvmi.Changed()) {
 			// Directly update kvvmi and not use kvvmi.Update as kvvmi status is a regular field, not a subresource.
-			log.Info("About to update changed kvvmi",
+			log.Debug("About to update changed kvvmi",
 				"changed.migration.configuration", internalservice.DumpKVVMIMigrationConfiguration(kvvmi.Changed()),
 				"current.migration.configuration", internalservice.DumpKVVMIMigrationConfiguration(kvvmi.Current()),
 			)
@@ -132,7 +100,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			return nil
 		}
 
-		log.Info("Reconcile kvvmi without updating",
+		log.Debug("Reconcile kvvmi without updating",
 			"current.migration.configuration", internalservice.DumpKVVMIMigrationConfiguration(kvvmi.Current()),
 		)
 		return nil

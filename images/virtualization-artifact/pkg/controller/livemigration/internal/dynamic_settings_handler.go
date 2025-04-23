@@ -27,7 +27,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	internalservice "github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const dynamicSettingsHandlerName = "DynamicSettingsHandler"
@@ -51,13 +51,7 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, nil
 	}
 
-	// Get vm
-	// Get vmop
-	// Merge live migration policies.
-	// Add global live migration settings.
-	// Patch vmi status with migrationConfiguration.
-
-	var vm virtv2.VirtualMachine
+	var vm v1alpha2.VirtualMachine
 	vmKey := types.NamespacedName{
 		Namespace: kvvmi.Namespace,
 		Name:      kvvmi.Name,
@@ -73,39 +67,17 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, err
 	}
 
-	// Merge
-	// Detect policy: use default from vmclass if no policy on vm or policy is not allowed.
-	// Use policy from vm if contains in allowed.
-	// Set initial autoconverge value depending on policy.
-	// Use force flag from vmop to override autoconverge flag for Manual, PreferSafe. Can't implement default force:true for PreferForced, do not override for now.
-
-	vmPolicy := virtv2.PreferSafeMigrationPolicy
-	if vm.Spec.LiveMigrationPolicy != "" {
-		vmPolicy = vm.Spec.LiveMigrationPolicy
-	}
-
-	// Calculate final autoConverge value.
-	autoConverge := false
-	switch vmPolicy {
-	case virtv2.PreferSafeMigrationPolicy:
-		// User may override autoConverge with vmop.
-		if vmopInProgress.Spec.Force != nil {
-			autoConverge = *vmopInProgress.Spec.Force
-		}
-	case virtv2.PreferForcedMigrationPolicy:
-		autoConverge = true
-		if vmopInProgress.Spec.Force != nil {
-			autoConverge = *vmopInProgress.Spec.Force
-		}
-	case virtv2.AlwaysForcedMigrationPolicy:
-		autoConverge = true
-	}
+	effectivePolicy, autoConverge := internalservice.CalculateEffectivePolicy(vm, vmopInProgress)
 
 	conf := internalservice.NewMigrationConfiguration(h.moduleSettings, autoConverge)
 
 	kvvmi.Status.MigrationState.MigrationConfiguration = conf
 
-	log.Info("Patch KVVMI with migration settings", "migration.configuration", internalservice.DumpKVVMIMigrationConfiguration(kvvmi), "conf", internalservice.DumpMigrationConfiguration(conf))
+	log.Debug("Set migrationConfiguration on KVVMI",
+		"migrationConfiguration", internalservice.DumpKVVMIMigrationConfiguration(kvvmi),
+		"policy", effectivePolicy,
+		"autoConverge", autoConverge,
+	)
 
 	return reconcile.Result{}, nil
 }
@@ -124,8 +96,8 @@ func (h *DynamicSettingsHandler) shouldUpdateMigrationConfiguration(kvvmi *virtv
 }
 
 // GetVMOPInProgressForVM check if there is at least one VMOP for the same VM in progress phase.
-func (h *DynamicSettingsHandler) GetVMOPInProgressForVM(ctx context.Context, vmKey client.ObjectKey) (*virtv2.VirtualMachineOperation, error) {
-	var vmopList virtv2.VirtualMachineOperationList
+func (h *DynamicSettingsHandler) GetVMOPInProgressForVM(ctx context.Context, vmKey client.ObjectKey) (*v1alpha2.VirtualMachineOperation, error) {
+	var vmopList v1alpha2.VirtualMachineOperationList
 	err := h.client.List(ctx, &vmopList, client.InNamespace(vmKey.Namespace))
 	if err != nil {
 		return nil, err
@@ -138,7 +110,7 @@ func (h *DynamicSettingsHandler) GetVMOPInProgressForVM(ctx context.Context, vmK
 		}
 
 		// Return if VMOP has phase InProgress.
-		if vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+		if vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
 			return &vmop, nil
 		}
 	}

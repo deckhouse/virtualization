@@ -22,6 +22,8 @@ import (
 	"strconv"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
@@ -43,6 +45,7 @@ const (
 	DefaultBandwidthPerNode     = "64Mi"
 	DefaultMaxMigrationsPerNode = 2
 	DefaultNetwork              = LiveMigrationNetworkShared
+	DefaultLiveMigrationPolicy  = v1alpha2.PreferSafeMigrationPolicy
 )
 
 type LiveMigrationSettings struct {
