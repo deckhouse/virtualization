@@ -35,8 +35,6 @@ shell:
 {{- define "$name" -}}
 binaries:
 - /usr/local/bin/dvcr-importer
-# - /usr/bin/qemu-img
-# - /usr/bin/qemu-nbd
 - /usr/bin/nbd*
 - /usr/bin/file
 - /usr/share/file/magic

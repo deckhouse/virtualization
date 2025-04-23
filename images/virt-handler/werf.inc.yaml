@@ -55,8 +55,6 @@ packages:
 - nftables
 # - qemu-img
 binaries:
-# - /usr/bin/qemu-img
-# - /usr/bin/qemu-nbd
 - /usr/bin/mount
 - /usr/bin/umount
 - /usr/bin/getfacl

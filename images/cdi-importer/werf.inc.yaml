@@ -17,14 +17,10 @@ imageSpec:
 libraries:
 - libsqlite3
 packages:
-  # - qemu-img
   - libnbd
   - nbd-client
   - nbd-server
 binaries:
-  # Qemu-img
-  # - /usr/bin/qemu-img
-  # - /usr/bin/qemu-nbd
   # All nbd binaries
   - /usr/bin/nbd*
   # Mount
