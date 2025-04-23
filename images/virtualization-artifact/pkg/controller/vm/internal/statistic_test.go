@@ -18,107 +18,36 @@ package internal
 
 import (
 	"context"
-	"fmt"
-	"testing"
 
-	"github.com/stretchr/testify/require"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func TestStatisticHandler(t *testing.T) {
-	scheme := apiruntime.NewScheme()
-	for _, f := range []func(*apiruntime.Scheme) error{
-		virtv2.AddToScheme,
-		virtv1.AddToScheme,
-		corev1.AddToScheme,
-	} {
-		err := f(scheme)
-		if err != nil {
-			t.Fatalf("failed to add scheme: %v", err)
-		}
-	}
-
-	namespacedName := types.NamespacedName{Name: "test-vm", Namespace: "test-namespace"}
-
-	for _, test := range []struct {
-		name          string
-		getObjects    func() []client.Object
-		mutateChanged func(vm *virtv2.VirtualMachine)
-		expect        func(vm *virtv2.VirtualMachine) error
-	}{
-		{
-			name: "test1: check generated .status.resources",
-			getObjects: func() []client.Object {
-				return []client.Object{
-					createPod(namespacedName),
-					createVM(namespacedName, virtv2.MachineRunning, nil, virtv1.VirtualMachineInstanceGuestOSInfo{}),
-					createKVVMI(namespacedName, virtv1.Running, virtv1.VirtualMachineInstanceGuestOSInfo{Name: "test"}),
-				}
-			},
-			mutateChanged: func(vm *virtv2.VirtualMachine) {},
-			expect: func(vm *virtv2.VirtualMachine) error {
-				require.NotNil(t, vm)
-				res := vm.Status.Resources
-				require.Equal(t, 1, res.CPU.Cores)
-				require.Equal(t, "50%", res.CPU.CoreFraction)
-				require.Equal(t, int64(500), res.CPU.RequestedCores.MilliValue())
-				require.Equal(t, int64(0), res.CPU.RuntimeOverhead.MilliValue())
-
-				require.NotNil(t, res.CPU.Topology)
-				require.Equal(t, 1, res.CPU.Topology.CoresPerSocket)
-				require.Equal(t, 1, res.CPU.Topology.Sockets)
-
-				require.Equal(t, int64(536870912), res.Memory.Size.Value())
-				require.Equal(t, int64(254803968), res.Memory.RuntimeOverhead.Value())
-
-				return nil
-			},
-		},
-	} {
-		t.Log("Start test", test.name)
-		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(test.getObjects()...).Build()
-		vm := reconciler.NewResource(namespacedName, fakeClient, factory, statusGetter)
-		if err := vm.Fetch(context.Background()); err != nil {
-			t.Fatalf("failed to fetch resource: %v", err)
-		}
-		s := state.New(fakeClient, vm)
-		test.mutateChanged(s.VirtualMachine().Changed())
-		handler := NewStatisticHandler(fakeClient)
-		_, err := handler.Handle(context.Background(), s)
-		if err != nil {
-			t.Fatalf("failed to sync stats: %v", err)
-		}
-		if err = test.expect(s.VirtualMachine().Changed()); err != nil {
-			t.Fatalf("test %q failed: %v", test.name, err)
-		}
-	}
-}
-
-func createPod(vmKey types.NamespacedName) *corev1.Pod {
-	return &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("virt-launcher-%s", vmKey.Name),
-			Namespace: vmKey.Namespace,
-			Labels: map[string]string{
-				virtv1.VirtualMachineNameLabel: vmKey.Name,
-			},
-		},
-		Spec: corev1.PodSpec{
+var _ = Describe("TestStatisticHandler", func() {
+	const (
+		vmName                = "vm"
+		vmNamespace           = "default"
+		podName               = "test-pod"
+		nodeName              = "test-node"
+		podUID      types.UID = "test-pod-uid"
+	)
+	createPod := func() *corev1.Pod {
+		pod := newEmptyPOD(podName, vmNamespace, vmName)
+		pod.UID = podUID
+		pod.Spec = corev1.PodSpec{
+			NodeName: nodeName,
 			Containers: []corev1.Container{
 				{
 					Name: "compute",
@@ -134,55 +63,29 @@ func createPod(vmKey types.NamespacedName) *corev1.Pod {
 					},
 				},
 			},
-		},
+		}
+		return pod
 	}
-}
 
-func createVM(key types.NamespacedName,
-	phase virtv2.MachinePhase,
-	stats *virtv2.VirtualMachineStats,
-	guestOSInfo virtv1.VirtualMachineInstanceGuestOSInfo,
-) *virtv2.VirtualMachine {
-	return &virtv2.VirtualMachine{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       virtv2.VirtualMachineKind,
-			APIVersion: virtv2.GroupVersionResource(virtv2.VirtualMachineKind).GroupVersion().String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-		},
-		Spec: virtv2.VirtualMachineSpec{
-			CPU: virtv2.CPUSpec{
-				Cores:        1,
-				CoreFraction: "50%",
-			},
-			Memory: virtv2.MemorySpec{
-				Size: resource.MustParse("512Mi"),
-			},
-		},
-		Status: virtv2.VirtualMachineStatus{
+	createVM := func(phase virtv2.MachinePhase, stats *virtv2.VirtualMachineStats, guestOSInfo virtv1.VirtualMachineInstanceGuestOSInfo) *virtv2.VirtualMachine {
+		vm := vmbuilder.New(
+			vmbuilder.WithName(vmName),
+			vmbuilder.WithNamespace(vmNamespace),
+			vmbuilder.WithCPU(1, ptr.To("50%")),
+			vmbuilder.WithMemory(resource.MustParse("512Mi")),
+		)
+		vm.Status = virtv2.VirtualMachineStatus{
 			Phase:       phase,
 			Stats:       stats,
 			GuestOSInfo: guestOSInfo,
-		},
-	}
-}
+		}
 
-func createKVVMI(key types.NamespacedName,
-	phase virtv1.VirtualMachineInstancePhase,
-	guestOSInfo virtv1.VirtualMachineInstanceGuestOSInfo,
-) *virtv1.VirtualMachineInstance {
-	return &virtv1.VirtualMachineInstance{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       virtv1.VirtualMachineGroupVersionKind.Kind,
-			APIVersion: virtv1.VirtualMachineGroupVersionKind.GroupVersion().String(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-		},
-		Spec: virtv1.VirtualMachineInstanceSpec{
+		return vm
+	}
+
+	createKVVMI := func(phase virtv1.VirtualMachineInstancePhase, guestOSInfo virtv1.VirtualMachineInstanceGuestOSInfo) *virtv1.VirtualMachineInstance {
+		kvvmi := newEmptyKVVMI(vmName, vmNamespace)
+		kvvmi.Spec = virtv1.VirtualMachineInstanceSpec{
 			Domain: virtv1.DomainSpec{
 				Resources: virtv1.ResourceRequirements{
 					Requests: corev1.ResourceList{
@@ -195,18 +98,60 @@ func createKVVMI(key types.NamespacedName,
 					},
 				},
 			},
-		},
-		Status: virtv1.VirtualMachineInstanceStatus{
+		}
+		kvvmi.Status = virtv1.VirtualMachineInstanceStatus{
+			ActivePods:  map[types.UID]string{podUID: podName},
+			NodeName:    nodeName,
 			Phase:       phase,
 			GuestOSInfo: guestOSInfo,
-		},
+		}
+		return kvvmi
 	}
-}
 
-func factory() *virtv2.VirtualMachine {
-	return &virtv2.VirtualMachine{}
-}
+	var (
+		ctx        = testutil.ContextBackgroundWithNoOpLogger()
+		fakeClient client.Client
+		vmResource *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
+		vmState    state.VirtualMachineState
+	)
 
-func statusGetter(obj *virtv2.VirtualMachine) virtv2.VirtualMachineStatus {
-	return obj.Status
-}
+	reconcile := func() {
+		h := NewStatisticHandler(fakeClient)
+		_, err := h.Handle(context.Background(), vmState)
+		Expect(err).NotTo(HaveOccurred())
+		err = vmResource.Update(ctx)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	AfterEach(func() {
+		fakeClient = nil
+		vmResource = nil
+		vmState = nil
+	})
+
+	It("Check Generated .status.resources", func() {
+		vm := createVM(virtv2.MachineRunning, nil, virtv1.VirtualMachineInstanceGuestOSInfo{})
+		kvvmi := createKVVMI(virtv1.Running, virtv1.VirtualMachineInstanceGuestOSInfo{Name: "test"})
+		pod := createPod()
+
+		fakeClient, vmResource, vmState = setupEnvironment(vm, kvvmi, pod)
+		reconcile()
+
+		newVM := &virtv2.VirtualMachine{}
+		err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+		Expect(err).NotTo(HaveOccurred())
+
+		res := newVM.Status.Resources
+		Expect(res.CPU.Cores).To(Equal(1))
+		Expect(res.CPU.CoreFraction).To(Equal("50%"))
+		Expect(res.CPU.RequestedCores.MilliValue()).To(Equal(int64(500)))
+		Expect(res.CPU.RuntimeOverhead.MilliValue()).To(Equal(int64(0)))
+
+		Expect(res.CPU.Topology).ShouldNot(BeNil())
+		Expect(res.CPU.Topology.CoresPerSocket).To(Equal(1))
+		Expect(res.CPU.Topology.Sockets).To(Equal(1))
+
+		Expect(res.Memory.Size.Value()).To(Equal(int64(536870912)))
+		Expect(res.Memory.RuntimeOverhead.Value()).To(Equal(int64(254803968)))
+	})
+})

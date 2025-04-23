@@ -35,7 +35,9 @@ func TestRestartVM(t *testing.T) {
 	const (
 		vmName                = "test-vm"
 		vmNamespace           = "test-namespace"
-		uid         types.UID = "test-uid"
+		nodeName              = "worker-01"
+		kvvmiUID    types.UID = "test-kvvmi-uid"
+		podUID      types.UID = "test-pod-uid"
 	)
 	key := types.NamespacedName{
 		Name:      vmName,
@@ -57,11 +59,17 @@ func TestRestartVM(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      vmName,
 				Namespace: vmNamespace,
-				UID:       uid,
+				UID:       kvvmiUID,
 			},
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "VirtualMachineInstance",
 				APIVersion: virtv1.SchemeGroupVersion.String(),
+			},
+			Status: virtv1.VirtualMachineInstanceStatus{
+				NodeName: nodeName,
+				ActivePods: map[types.UID]string{
+					podUID: vmName,
+				},
 			},
 		}
 		pod := &corev1.Pod{
@@ -70,8 +78,12 @@ func TestRestartVM(t *testing.T) {
 				Namespace: vmNamespace,
 				Labels: map[string]string{
 					virtv1.AppLabel:       "virt-launcher",
-					virtv1.CreatedByLabel: string(uid),
+					virtv1.CreatedByLabel: string(kvvmiUID),
 				},
+				UID: podUID,
+			},
+			Spec: corev1.PodSpec{
+				NodeName: nodeName,
 			},
 			TypeMeta: metav1.TypeMeta{
 				Kind:       "Pod",
@@ -118,7 +130,7 @@ func TestRestartVM(t *testing.T) {
 			require.Len(t, newKVVM.Status.StateChangeRequests, 2)
 			require.Equal(t, virtv1.StopRequest, newKVVM.Status.StateChangeRequests[0].Action)
 			require.NotNil(t, newKVVM.Status.StateChangeRequests[0].UID)
-			require.Equal(t, uid, *newKVVM.Status.StateChangeRequests[0].UID)
+			require.Equal(t, kvvmiUID, *newKVVM.Status.StateChangeRequests[0].UID)
 			require.Equal(t, virtv1.StartRequest, newKVVM.Status.StateChangeRequests[1].Action)
 
 			pod := &corev1.Pod{}
