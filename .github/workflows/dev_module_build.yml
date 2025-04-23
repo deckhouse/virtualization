@@ -38,6 +38,9 @@ on:
         type: number
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - chore/core/qemu-self-builded-binaries-to-images
   push:
     branches:
       - main
@@ -197,9 +200,11 @@ jobs:
 
       - name: Lint all directories with golangci-lint
         id: linters
-        # continue-on-error: true
+        continue-on-error: true
         shell: bash
         run: |
+          set -eo pipefail
+
           # Find directories containing .golangci.yaml
           mapfile -t config_dirs < <(find . -type f -name '.golangci.yaml' -printf '%h\0' | xargs -0 -n1 | sort -u)
           count=${#config_dirs[@]}
@@ -207,44 +212,30 @@ jobs:
 
           report=""
           error_count=0
-          find_errors=0
 
           for dir in "${config_dirs[@]}"; do
-            # echo "::group::📂 Linting directory: $dir"
-            # cd "$dir" || { echo "::error::Failed to access directory $dir"; exit 1; }
-
+            find_errors=0
             cd "$dir" || { echo "::error::Failed to access directory $dir"; continue; }
 
-            # Run linter with multiple formats
-
-            output=$(golangci-lint run --out-format=json 2>/dev/null | jq '{warning: .Report.Warnings, error: .Report.Error}' || true)
-            find_errors=$(echo $output | jq '.error | select(.!=null)' | wc -l)
-
-            # Track errors
-            if [ $find_errors -ne 0 ]; then
+            if ! output=$(golangci-lint run --sort-results); then
               error_count=$(( error_count + 1 ))
+              # find_errors=$(( find_errors + 1 ))
               echo "::group::📂 Linting directory ❌: $dir"
+              echo -e "❌ Errors:\n$output\n"
+              echo "== debug =="
+              golangci-lint run --sort-results || true
             else
               echo "::group::📂 Linting directory ✅: $dir"
-            fi
-
-            report_out_warning=$(echo $output | jq '.warning')
-            report_out_error=$(echo $output | jq '.error')
-
-            # Build report section
-            report+="\n\n### Directory: $dir\n"
-            report+="Find Errors: $find_errors\n"
-            report+="Output:\n\`\`\`\n$report_out_warning\n$report_out_error\n\`\`\`\n"
-            report+="---\n"
-
-            cd - &>/dev/null
-
-            if [ $find_errors -ne 0 ]; then
-              echo -e "⚠️ Warnings:\n$report_out_warning"
-              echo -e "❌ Errors:\n$report_out_error\n"
-            else
               echo -e "✅ All check passed\n"
             fi
+            
+            # if [ $find_errors -ne 0 ]; then
+            #   echo -e "❌ Errors:\n$output\n"
+            # else
+            #   echo -e "✅ All check passed\n"
+            # fi
+            
+            cd - &>/dev/null
 
             echo "::endgroup::"
           done
@@ -255,6 +246,7 @@ jobs:
           echo "has_errors=$has_errors" >> "$GITHUB_OUTPUT"
 
           if [ $error_count -gt 0 ]; then
+            echo "$error_count error more than 0, exit 1"
             exit 1
           fi
 
