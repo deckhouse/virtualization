@@ -130,27 +130,6 @@ type CheckImportProcess interface {
 	CheckImportProcess(ctx context.Context, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 }
 
-func setConditionFromStorageClassError(err error, cb *conditions.ConditionBuilder) (bool, error) {
-	switch {
-	case err == nil:
-		return false, nil
-	case errors.Is(err, service.ErrStorageClassNotFound):
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ProvisioningFailed).
-			Message("Provided StorageClass not found in the cluster.")
-		return true, nil
-	case errors.Is(err, service.ErrStorageClassNotAllowed):
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ProvisioningFailed).
-			Message("Specified StorageClass is not allowed: please check the module settings.")
-		return true, nil
-	default:
-		return false, err
-	}
-}
-
 func setPhaseConditionFromStorageError(err error, vd *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) (bool, error) {
 	switch {
 	case err == nil:
@@ -161,13 +140,6 @@ func setPhaseConditionFromStorageError(err error, vd *virtv2.VirtualDisk, cb *co
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ProvisioningFailed).
 			Message("StorageProfile not found in the cluster: Please check a StorageClass name in the cluster or set a default StorageClass.")
-		return true, nil
-	case errors.Is(err, service.ErrStorageClassNotFound):
-		vd.Status.Phase = virtv2.DiskPending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.ProvisioningFailed).
-			Message("Provided StorageClass not found in the cluster.")
 		return true, nil
 	case errors.Is(err, service.ErrDefaultStorageClassNotFound):
 		vd.Status.Phase = virtv2.DiskPending

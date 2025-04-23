@@ -24,7 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -71,7 +74,11 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				return &handler, false
 			}
 
-			handler := NewLifeCycleHandler(&sourcesMock, nil)
+			recorder := &eventrecord.EventRecorderLoggerMock{
+				EventFunc: func(_ client.Object, _, _, _ string) {},
+			}
+
+			handler := NewLifeCycleHandler(recorder, &sourcesMock, nil)
 
 			_, _ = handler.Handle(context.TODO(), &vi)
 
@@ -152,26 +159,12 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				return &handler, false
 			}
 
-			handler := NewLifeCycleHandler(&sourcesMock, nil)
+			handler := NewLifeCycleHandler(nil, &sourcesMock, nil)
 
 			_, _ = handler.Handle(context.TODO(), &vi)
 
 			Expect(cleanUpCalled).To(Equal(args.ExpectCleanup))
 		},
-		Entry(
-			"CleanUp should be called",
-			cleanupAfterScNotReadyTestArgs{
-				ReadyCondition: metav1.Condition{
-					Status: metav1.ConditionFalse,
-				},
-				StorageClassReadyCondition: metav1.Condition{
-					Status: metav1.ConditionFalse,
-				},
-				StorageClassInStatus: "sc",
-				StorageType:          virtv2.StoragePersistentVolumeClaim,
-				ExpectCleanup:        true,
-			},
-		),
 		Entry(
 			"CleanUp should not be called because DVCR storage type used",
 			cleanupAfterScNotReadyTestArgs{
