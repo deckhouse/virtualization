@@ -111,6 +111,7 @@ func init() {
 		fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.DiskResizing, "kustomization.yaml"),
+		fmt.Sprintf("%s/%s", conf.TestData.DisksCreation, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.ImageHotplug, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml"),
 		fmt.Sprintf("%s/%s", conf.TestData.ImporterNetworkPolicy, "kustomization.yaml"),
@@ -211,12 +212,12 @@ func Cleanup() []error {
 			continue
 		}
 	}
-	
+
 	for _, r := range conf.CleanupResources {
 		res = kubectl.Delete(kc.DeleteOptions{
 			IgnoreNotFound: true,
 			Labels:         map[string]string{"id": namePrefix},
-			Resource: 		kc.Resource(r),
+			Resource:       kc.Resource(r),
 		})
 		if res.Error() != nil {
 			cleanupErrs = append(
