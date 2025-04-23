@@ -128,7 +128,6 @@ packages:
   - libffi8
   - nftables
   - numactl
-  # - openssl
   - passt
   - pcre
   - procps
@@ -142,8 +141,6 @@ binaries:
   - /usr/bin/ocsptool
   - /usr/bin/p11tool
   - /usr/bin/psktool
-  # Openssl
-  # - /usr/bin/openssl
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
