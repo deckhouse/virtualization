@@ -383,7 +383,7 @@ If you prefer not to use the inventory file, you can specify and pass all the pa
 ```bash
 ansible -m shell -a "uptime" \
   -i "frontend.demo-app," \
-  -e "ansible_ssh_common_args='-o ProxyCommand=\"d8 v port-forward --stdio=true %h %p %p\'"" \
+  -e "ansible_ssh_common_args='-o ProxyCommand=\"d8 v port-forward --stdio=true %h %p %p\"'" \
   -e "ansible_user=cloud" \
   -e "ansible_ssh_private_key_file=./tmp/demo" \
   all
