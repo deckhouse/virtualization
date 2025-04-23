@@ -201,7 +201,6 @@ jobs:
           find_errors=0
 
           for dir in "${config_dirs[@]}"; do
-            # echo "::group::📂 Linting directory: $dir"
 
             cd "$dir" || { echo "::error::Failed to access directory $dir"; continue; }
             
@@ -209,13 +208,6 @@ jobs:
             
             output=$(golangci-lint run --sort-results --out-format=json | jq '.Issues[] | {linter: .FromLinter, rule: .Text, lines: .SourceLines, file: "\(.Pos.Filename):\(.Pos.Line):\(.Pos.Column)"}' || true)
             find_errors=$(echo $output | jq '. | select(.!=null)' | wc -l)
-
-            echo "--"
-            echo $output
-            echo "--"
-
-            echo "after output"
-            echo "$? exit code"
             
             # Track errors
             if [ $find_errors -ne 0 ]; then
