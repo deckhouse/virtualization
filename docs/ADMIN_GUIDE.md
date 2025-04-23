@@ -534,7 +534,7 @@ The `.spec.sizingPolicy` block allows you to set sizing policies for virtual mac
 {{< alert level="warning" >}}
 Changes to the `.spec.sizingPolicy` block can also affect virtual machines. For virtual machines whose sizing policy will not meet the new policy requirements, the `SizingPolicyMatched` condition in the `.status.conditions` block will be false (`status: False`).
 
-When configuring sizingPolicies, be careful to consider [CPU topology](./USER_GUIDE.md#automatic-cpu-topology-configuration) for virtual machines.
+When configuring sizingPolicies, be careful to consider [CPU topology](./user_guide.html#automatic-cpu-topology-configuration) for virtual machines.
 {{< /alert >}}
 
 ```yaml

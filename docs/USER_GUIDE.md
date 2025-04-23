@@ -311,7 +311,7 @@ NAME              PHASE   CDROM   PROGRESS   AGE
 ubuntu-22-04-pvc  Ready   false   100%       23h
 ```
 
-If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-images).
+If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-images).
 
 ### Creating an image from Container Registry
 
@@ -550,7 +550,7 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 
 As long as the disk has not entered the `Ready` phase, the contents of the entire `.spec` block can be changed. If changes are made, the disk creation process will start over.
 
-If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-disks).
+If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-disks).
 
 Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
 
@@ -688,7 +688,7 @@ linux-vm-root   Ready   11Gi       12m
 
 The `VirtualMachine` resource is used to create a virtual machine, its parameters allow you to configure:
 
-- [virtual machine class](ADMIN_GUIDE.md#virtual-machine-classes)
+- [virtual machine class](admin_guide.html#virtual-machine-classes)
 - resources required for virtual machine operation (processor, memory, disks and images);
 - rules of virtual machine placement on cluster nodes;
 - boot loader settings and optimal parameters for the guest OS;

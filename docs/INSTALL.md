@@ -158,7 +158,7 @@ Attention! Enabling the `virtualization` module involves restarting kubelet/cont
 To enable the `virtualization` module, you need to create a `ModuleConfig` resource containing the module settings.
 
 {{< alert level="info" >}}
-Detailed settings are described in the [administrator's manual](./ADMIN_GUIDE.md#module-parameters).
+Detailed settings are described in the [administrator's manual](./admin_guide.html#module-parameters).
 {{< /alert >}}
 
 Example of module configuration:
