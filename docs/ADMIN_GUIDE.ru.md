@@ -117,25 +117,6 @@ spec:
     - `allowedStorageClassNames` (опционально) — это список допустимых StorageClass для создания `VirtualDisk`, которые можно явно указать в спецификации ресурса.
     - `defaultStorageClassName` (опционально) — это StorageClass, используемый по умолчанию при создании `VirtualDisk`, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
 
-7. **Настройки живой миграции**
-
-    Параметры миграции виртуальных машин можно задать в блоке `.spec.settings.liveMigration`:
-
-    Пример параметров:
-
-    ```yaml
-    spec:
-      enabled: true
-      settings:
-        liveMigration:
-          # Пропускная способность канала связи, которая будет использоваться для миграции на узел
-          # 64 Mi -> (64 * 2^20 * 8) / 10^6 = 536 Mbps
-          bandwidthPerNode: 64Mi
-          # Максимальное количество миграций на узел (входящих и исходящих)
-          maxMigrationsPerNode: 2
-    ```
-
-
 {{< alert level="info" >}}
 Полный перечень параметров конфигурации приведен в разделе [Настройки](./configuration.html).
 {{< /alert >}}

@@ -1619,32 +1619,6 @@ The live migration process involves several steps:
 Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
 {{{< /alert >}}
 
-#### AutoConverge mechanism
-
-What to do if the network cannot cope with data transfer and "dirty" pages are becoming more and more numerous? This is where the AutoConverge mechanism comes in. It helps to complete the migration even when network bandwidth is low. Here's how it works:
-
-1. **VM CPU slowdown**.
-
-    The hypervisor gradually reduces the CPU frequency of the source VM. This reduces the rate at which new "dirty" pages appear. The higher the load on the VM, the greater the slowdown.
-
-2. **Synchronization acceleration**.
-
-    Once the data transfer rate exceeds the memory change rate, final synchronization is started and the VM switches to the new node.
-
-3. **Automatic Termination**
-
-    Final synchronization is started when the data transfer rate exceeds the memory change rate.
-
-AutoConverge is a kind of "insurance" that ensures that the migration completes even if the network is not running perfectly. However, CPU slowdown can affect the performance of applications running on the VM, so its use should be monitored.
-
-#### Configuring Migration Policy
-
-Migration behavior can be configured through the `.spec.liveMigrationPolicy` parameter in the VM configuration. The following options are available:
-
-- `AlwaysSafe` - Migration is performed without slowing down the CPU (AutoConverge is not used). Suitable for cases where maximizing VM performance is important but requires high network bandwidth.
-- `PreferSafe` - (used as the default policy) By default, migration runs without AutoConverge, but CPU slowdown can be enabled manually if the migration fails to complete. This is done by using the VirtualMachineOperation resource with `type=Evict` and `force=true`.
-- `AlwaysForced` - Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This ensures that the migration completes even if the network is bad, but may degrade VM performance.
-- `PreferForced` - By default migration goes with AutoConverge, but slowdown can be manually disabled via VirtualMachineOperation with the parameter `type=Evict` and `force=false`.
 
 #### Migration Types
 
