@@ -207,8 +207,12 @@ jobs:
             
             # Run linter with multiple formats
             
-            output=$(golangci-lint run --sort-results --out-format=json | jq '.Issues[] | {linter: .FromLinter, rule: .Text, lines: .SourceLines, file: "\(.Pos.Filename):\(.Pos.Line):\(.Pos.Column)"}')
+            output=$(golangci-lint run --sort-results --out-format=json | jq '.Issues[] | {linter: .FromLinter, rule: .Text, lines: .SourceLines, file: "\(.Pos.Filename):\(.Pos.Line):\(.Pos.Column)"}' || true)
             find_errors=$(echo $output | jq '. | select(.!=null)' | wc -l)
+
+            echo "--"
+            echo $output
+            echo "--"
 
             echo "after output"
             echo "$? exit code"
