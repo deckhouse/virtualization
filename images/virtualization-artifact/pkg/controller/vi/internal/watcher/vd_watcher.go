@@ -18,8 +18,6 @@ package watcher
 
 import (
 	"context"
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -30,18 +28,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskWatcher struct {
-	logger *log.Logger
 	client client.Client
 }
 
 func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 	return &VirtualDiskWatcher{
-		logger: log.Default().With("watcher", "vd"),
 		client: client,
 	}
 }
@@ -67,7 +62,6 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 func (w VirtualDiskWatcher) enqueueRequests(_ context.Context, obj client.Object) (requests []reconcile.Request) {
 	vd, ok := obj.(*virtv2.VirtualDisk)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a VirtualDisk but got a %T", obj))
 		return
 	}
 
@@ -92,7 +86,6 @@ func (w VirtualDiskWatcher) enqueueRequests(_ context.Context, obj client.Object
 func (w VirtualDiskWatcher) isDataSourceVI(obj client.Object) bool {
 	vd, ok := obj.(*virtv2.VirtualDisk)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a VirtualDisk but got a %T", obj))
 		return false
 	}
 

@@ -18,8 +18,6 @@ package watcher
 
 import (
 	"context"
-	"fmt"
-
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -30,18 +28,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type ClusterVirtualImageWatcher struct {
-	logger *log.Logger
 	client client.Client
 }
 
 func NewClusterVirtualImageWatcher(client client.Client) *ClusterVirtualImageWatcher {
 	return &ClusterVirtualImageWatcher{
-		logger: log.Default().With("watcher", "cvi"),
 		client: client,
 	}
 }
@@ -67,7 +62,6 @@ func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Co
 func (w ClusterVirtualImageWatcher) enqueueRequests(_ context.Context, obj client.Object) (requests []reconcile.Request) {
 	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a ClusterVirtualImage but got a %T", obj))
 		return
 	}
 
@@ -92,7 +86,6 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(_ context.Context, obj clien
 func (w ClusterVirtualImageWatcher) isDataSourceVI(obj client.Object) bool {
 	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
 	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a ClusterVirtualImage but got a %T", obj))
 		return false
 	}
 
