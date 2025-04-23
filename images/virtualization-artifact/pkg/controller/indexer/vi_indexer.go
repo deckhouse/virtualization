@@ -60,7 +60,7 @@ func IndexVIByStorageClass() (obj client.Object, field string, extractValue clie
 }
 
 func IndexVIByCVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByCVIDataSourceNotReady, IndexVIByCVIDataSourceIndexerFunc)
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByCVIDataSource, IndexVIByCVIDataSourceIndexerFunc)
 }
 
 func IndexVIByCVIDataSourceIndexerFunc(object client.Object) []string {
@@ -69,7 +69,7 @@ func IndexVIByCVIDataSourceIndexerFunc(object client.Object) []string {
 		return nil
 	}
 
-	if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || vi.Status.Phase == virtv2.ImageReady {
+	if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
 		return nil
 	}
 
@@ -81,7 +81,7 @@ func IndexVIByCVIDataSourceIndexerFunc(object client.Object) []string {
 }
 
 func IndexVIByVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByVIDataSourceNotReady, IndexVIByVIDataSourceIndexerFunc)
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualImage{}, IndexFieldVIByVIDataSource, IndexVIByVIDataSourceIndexerFunc)
 }
 
 func IndexVIByVIDataSourceIndexerFunc(object client.Object) []string {
@@ -90,7 +90,7 @@ func IndexVIByVIDataSourceIndexerFunc(object client.Object) []string {
 		return nil
 	}
 
-	if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || vi.Status.Phase == virtv2.ImageReady {
+	if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
 		return nil
 	}
 

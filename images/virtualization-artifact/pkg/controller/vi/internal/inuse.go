@@ -64,42 +64,55 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 		return reconcile.Result{}, err
 	}
 
-	var vmUsedImage []*virtv2.VirtualMachine
+	var vmUsedImage []client.Object
 	for _, vm := range vms.Items {
 		for _, bd := range vm.Status.BlockDeviceRefs {
 			if bd.Kind == virtv2.VirtualImageKind && bd.Name == vi.Name {
 				vmUsedImage = append(vmUsedImage, &vm)
+				break
 			}
 		}
 	}
 
 	var vds virtv2.VirtualDiskList
 	err = h.client.List(ctx, &vds, client.InNamespace(vi.GetNamespace()), client.MatchingFields{
-		indexer.IndexFieldVDByVIDataSourceNotReady: vi.GetName(),
+		indexer.IndexFieldVDByVIDataSource: vi.GetName(),
 	})
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+	var vdsNotReady []client.Object
+	for _, vd := range vds.Items {
+		if vd.Status.Phase != virtv2.DiskReady {
+			vdsNotReady = append(vdsNotReady, &vd)
+		}
 	}
 
 	var vis virtv2.VirtualImageList
 	err = h.client.List(ctx, &vis, client.InNamespace(vi.GetNamespace()), client.MatchingFields{
-		indexer.IndexFieldVIByVIDataSourceNotReady: vi.GetName(),
+		indexer.IndexFieldVIByVIDataSource: vi.GetName(),
 	})
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+	var visNotReady []client.Object
+	for _, vi := range vis.Items {
+		if vi.Status.Phase != virtv2.ImageReady {
+			visNotReady = append(visNotReady, &vi)
+		}
 	}
 
 	var cvis virtv2.ClusterVirtualImageList
 	err = h.client.List(ctx, &cvis, client.MatchingFields{
-		indexer.IndexFieldCVIByVIDataSourceNotReady: vi.GetName(),
+		indexer.IndexFieldCVIByVIDataSource: vi.GetName(),
 	})
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	var cvisFiltered []*virtv2.ClusterVirtualImage
+	var cvisFiltered []client.Object
 	for _, cvi := range cvis.Items {
-		if cvi.Spec.DataSource.ObjectRef == nil {
+		if cvi.Spec.DataSource.ObjectRef == nil || cvi.Status.Phase == virtv2.ImageReady {
 			continue
 		}
 		if cvi.Spec.DataSource.ObjectRef.Namespace == vi.GetNamespace() {
@@ -107,91 +120,30 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 		}
 	}
 
-	consumerCount := len(vmUsedImage) + len(vds.Items) + len(vis.Items) + len(cvisFiltered)
+	consumerCount := len(vmUsedImage) + len(vdsNotReady) + len(visNotReady) + len(cvisFiltered)
 
 	if consumerCount > 0 {
-		var messageBuilder strings.Builder
-		var needComma bool
+		var msgs []string
 		if len(vmUsedImage) > 0 {
-			needComma = true
-			switch len(vmUsedImage) {
-			case 1:
-				messageBuilder.WriteString(fmt.Sprintf("The VirtualImage is currently attached to the VirtualMachine %s", vmUsedImage[0].Name))
-			case 2, 3:
-				var vmNames []string
-				for _, vm := range vmUsedImage {
-					vmNames = append(vmNames, vm.GetName())
-				}
-				messageBuilder.WriteString(fmt.Sprintf("The VirtualImage is currently attached to the VirtualMachines: %s", strings.Join(vmNames, ", ")))
-			default:
-				messageBuilder.WriteString(fmt.Sprintf("%d VirtualMachines are using the VirtualImage", len(vmUsedImage)))
-			}
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vmUsedImage...))
 		}
 
-		if len(vds.Items) > 0 {
-			if needComma {
-				messageBuilder.WriteString(", ")
-			}
-			needComma = true
-
-			switch len(vds.Items) {
-			case 1:
-				messageBuilder.WriteString(fmt.Sprintf("VirtualImage is currently being used to create the VirtualDisk %s", vds.Items[0].Name))
-			case 2, 3:
-				var vdNames []string
-				for _, vd := range vds.Items {
-					vdNames = append(vdNames, vd.GetName())
-				}
-				messageBuilder.WriteString(fmt.Sprintf("VirtualImage is currently being used to create the VirtualDisks: %s", strings.Join(vdNames, ", ")))
-			default:
-				messageBuilder.WriteString(fmt.Sprintf("VirtualImage is used to create %d VirtualDisks", len(vds.Items)))
-			}
+		if len(vdsNotReady) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualDiskKind, vdsNotReady...))
 		}
 
-		if len(vis.Items) > 0 {
-			if needComma {
-				messageBuilder.WriteString(", ")
-			}
-			needComma = true
-
-			switch len(vis.Items) {
-			case 1:
-				messageBuilder.WriteString(fmt.Sprintf("VirtualImage is currently being used to create the VirtualImage %s", vis.Items[0].Name))
-			case 2, 3:
-				var viNames []string
-				for _, vi := range vis.Items {
-					viNames = append(viNames, vi.Name)
-				}
-				messageBuilder.WriteString(fmt.Sprintf("VirtualImage is currently being used to create the VirtualImages: %s", strings.Join(viNames, ", ")))
-			default:
-				messageBuilder.WriteString(fmt.Sprintf("VirtualImage is used to create %d VirtualImages", len(vis.Items)))
-			}
+		if len(visNotReady) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualImageKind, visNotReady...))
 		}
 
 		if len(cvisFiltered) > 0 {
-			if needComma {
-				messageBuilder.WriteString(", ")
-			}
-
-			switch len(cvisFiltered) {
-			case 1:
-				messageBuilder.WriteString(fmt.Sprintf("VirtualImage is currently being used to create the ClusterVirtualImage %s", cvisFiltered[0].Name))
-			case 2, 3:
-				var cviNames []string
-				for _, cvi := range cvisFiltered {
-					cviNames = append(cviNames, cvi.Name)
-				}
-				messageBuilder.WriteString(fmt.Sprintf("VirtualImage is currently being used to create the ClusterVirtualImages: %s", strings.Join(cviNames, ", ")))
-			default:
-				messageBuilder.WriteString(fmt.Sprintf("VirtualImage is used to create %d ClusterVirtualImages", len(cvisFiltered)))
-			}
+			msgs = append(msgs, getTerminationMessage(virtv2.ClusterVirtualImageKind, cvisFiltered...))
 		}
 
-		messageBuilder.WriteString(".")
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vicondition.InUse).
-			Message(service.CapitalizeFirstLetter(messageBuilder.String()))
+			Message(service.CapitalizeFirstLetter(fmt.Sprintf("%s.", strings.Join(msgs, ", "))))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
 	} else {
 		conditions.RemoveCondition(vicondition.InUse, &vi.Status.Conditions)
@@ -202,4 +154,33 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 
 func (h InUseHandler) Name() string {
 	return inUseHandlerName
+}
+
+func getTerminationMessage(objectKind string, objects ...client.Object) string {
+	var objectFilteredNames []string
+	for _, obj := range objects {
+		if obj.GetObjectKind().GroupVersionKind().Kind == objectKind {
+			objectFilteredNames = append(objectFilteredNames, obj.GetName())
+		}
+	}
+
+	if objectKind == virtv2.VirtualMachineKind {
+		switch len(objectFilteredNames) {
+		case 1:
+			return fmt.Sprintf("the VirtualImage is currently attached to the VirtualMachine %s", objectFilteredNames[0])
+		case 2, 3:
+			return fmt.Sprintf("the VirtualImage is currently attached to the VirtualMachines: %s", strings.Join(objectFilteredNames, ", "))
+		default:
+			return fmt.Sprintf("%d VirtualMachines are using the VirtualImage", len(objectFilteredNames))
+		}
+	} else {
+		switch len(objectFilteredNames) {
+		case 1:
+			return fmt.Sprintf("the VirtualImage is currently being used to create the %s %s", objectKind, objectFilteredNames[0])
+		case 2, 3:
+			return fmt.Sprintf("the VirtualImage is currently being used to create the %ss: %s", objectKind, strings.Join(objectFilteredNames, ", "))
+		default:
+			return fmt.Sprintf("the VirtualImage is currently used to create %d %ss", len(objectFilteredNames), objectKind)
+		}
+	}
 }

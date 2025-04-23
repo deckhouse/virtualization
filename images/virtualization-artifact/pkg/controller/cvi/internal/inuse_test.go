@@ -74,16 +74,16 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 	Expect(err).ShouldNot(HaveOccurred())
 	fakeClient := fakeClientBuilder.WithIndex(
 		&virtv2.VirtualDisk{},
-		indexer.IndexFieldVDByCVIDataSourceNotReady,
-		indexer.IndexVDByVIDataSourceIndexerFunc,
+		indexer.IndexFieldVDByCVIDataSource,
+		indexer.IndexVDByCVIDataSourceIndexerFunc,
 	).WithIndex(
 		&virtv2.VirtualImage{},
-		indexer.IndexFieldVIByCVIDataSourceNotReady,
-		indexer.IndexVIByVIDataSourceIndexerFunc,
+		indexer.IndexFieldVIByCVIDataSource,
+		indexer.IndexVIByCVIDataSourceIndexerFunc,
 	).WithIndex(
 		&virtv2.ClusterVirtualImage{},
-		indexer.IndexFieldCVIByCVIDataSourceNotReady,
-		indexer.IndexCVIByVIDataSourceIndexerFunc,
+		indexer.IndexFieldCVIByCVIDataSource,
+		indexer.IndexCVIByCVIDataSourceIndexerFunc,
 	).Build()
 	handler := NewInUseHandler(fakeClient)
 
@@ -129,7 +129,7 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 		ExpectedConditionExists:  true,
 		ExpectedConditionStatus:  metav1.ConditionTrue,
 		ExpectedConditionReason:  cvicondition.InUse.String(),
-		ExpectedConditionMessage: "The ClusterVirtualImage is currently attached to the VirtualMachine ns/name, ClusterVirtualImage is currently using in Namespace ns.",
+		ExpectedConditionMessage: "The ClusterVirtualImage is currently attached to the VirtualMachine ns/name, the ClusterVirtualImage is currently using in Namespace ns.",
 	}),
 	Entry("has 5 VirtualMachines with connected terminating CVI", inUseHandlerTestArgs{
 		CVIName:           "test",
@@ -169,7 +169,7 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 		ExpectedConditionExists:  true,
 		ExpectedConditionStatus:  metav1.ConditionTrue,
 		ExpectedConditionReason:  cvicondition.InUse.String(),
-		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, ClusterVirtualImage is currently using in Namespace ns.",
+		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, the ClusterVirtualImage is currently using in Namespace ns.",
 	}),
 	Entry("has 5 VirtualMachines with connected terminating CVI, 4 VD, 2 VI, 1 CVI", inUseHandlerTestArgs{
 		CVIName:           "test",
@@ -260,11 +260,26 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 					Name: "test",
 				},
 			}),
+			*cvibuilder.New(
+				cvibuilder.WithName("test322"),
+				cvibuilder.WithPhase(virtv2.ImageReady),
+				cvibuilder.WithCondition(metav1.Condition{
+					Status: metav1.ConditionTrue,
+					Reason: cvicondition.ReadyType.String(),
+				}),
+				cvibuilder.WithDatasource(virtv2.ClusterVirtualImageDataSource{
+					Type: virtv2.DataSourceTypeObjectRef,
+					ObjectRef: &virtv2.ClusterVirtualImageObjectRef{
+						Kind: virtv2.ClusterVirtualImageKind,
+						Name: "test",
+					},
+				}),
+			),
 		},
 		ExpectedConditionExists:  true,
 		ExpectedConditionStatus:  metav1.ConditionTrue,
 		ExpectedConditionReason:  cvicondition.InUse.String(),
-		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, ClusterVirtualImage is currently using in Namespace ns.",
+		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, the ClusterVirtualImage is currently used to create 4 VirtualDisks, the ClusterVirtualImage is currently being used to create the VirtualImages: ns/test, ns5/test2, the ClusterVirtualImage is currently being used to create the ClusterVirtualImage test2, the ClusterVirtualImage is currently using in 7 Namespaces.",
 	}),
 )
 
@@ -286,6 +301,10 @@ func generateVMForInUseTest(name, namespace string, blockDeviceRefs []virtv2.Blo
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: virtv2.SchemeGroupVersion.String(),
+			Kind:       "VirtualMachine",
 		},
 		Status: virtv2.VirtualMachineStatus{
 			BlockDeviceRefs: blockDeviceRefs,

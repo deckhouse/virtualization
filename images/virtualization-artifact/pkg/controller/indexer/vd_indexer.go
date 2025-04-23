@@ -60,7 +60,7 @@ func IndexVDByStorageClass() (obj client.Object, field string, extractValue clie
 }
 
 func IndexVDByCVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByCVIDataSourceNotReady, IndexVDByCVIDataSourceIndexerFunc)
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByCVIDataSource, IndexVDByCVIDataSourceIndexerFunc)
 }
 
 func IndexVDByCVIDataSourceIndexerFunc(object client.Object) []string {
@@ -73,10 +73,6 @@ func IndexVDByCVIDataSourceIndexerFunc(object client.Object) []string {
 		return nil
 	}
 
-	if vd.Status.Phase == virtv2.DiskReady {
-		return nil
-	}
-
 	if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageKind {
 		return nil
 	}
@@ -85,7 +81,7 @@ func IndexVDByCVIDataSourceIndexerFunc(object client.Object) []string {
 }
 
 func IndexVDByVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByVIDataSourceNotReady, IndexVDByVIDataSourceIndexerFunc)
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByVIDataSource, IndexVDByVIDataSourceIndexerFunc)
 }
 
 func IndexVDByVIDataSourceIndexerFunc(object client.Object) []string {
@@ -95,10 +91,6 @@ func IndexVDByVIDataSourceIndexerFunc(object client.Object) []string {
 	}
 
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
-		return nil
-	}
-
-	if vd.Status.Phase == virtv2.DiskReady {
 		return nil
 	}
 
