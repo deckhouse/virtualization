@@ -35,7 +35,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var _ = Describe("TestStatisticHandler", func() {
+var _ = Describe("TestStatisticHandler2", func() {
 	const (
 		vmName                = "vm"
 		vmNamespace           = "default"
@@ -43,7 +43,46 @@ var _ = Describe("TestStatisticHandler", func() {
 		nodeName              = "test-node"
 		podUID      types.UID = "test-pod-uid"
 	)
-	createPod := func() *corev1.Pod {
+
+	newVM := func(cores int, coreFraction *string, memorySize string) *virtv2.VirtualMachine {
+		vm := vmbuilder.New(
+			vmbuilder.WithName(vmName),
+			vmbuilder.WithNamespace(vmNamespace),
+			vmbuilder.WithCPU(cores, coreFraction),
+			vmbuilder.WithMemory(resource.MustParse(memorySize)),
+		)
+		vm.Status = virtv2.VirtualMachineStatus{
+			Phase: virtv2.MachineRunning,
+		}
+
+		return vm
+	}
+
+	newKVVMI := func(requestCPU, limitCPU, requestMemory, limitMemory string) *virtv1.VirtualMachineInstance {
+		kvvmi := newEmptyKVVMI(vmName, vmNamespace)
+		kvvmi.Spec = virtv1.VirtualMachineInstanceSpec{
+			Domain: virtv1.DomainSpec{
+				Resources: virtv1.ResourceRequirements{
+					Requests: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse(requestCPU),
+						corev1.ResourceMemory: resource.MustParse(requestMemory),
+					},
+					Limits: corev1.ResourceList{
+						corev1.ResourceCPU:    resource.MustParse(limitCPU),
+						corev1.ResourceMemory: resource.MustParse(limitMemory),
+					},
+				},
+			},
+		}
+		kvvmi.Status = virtv1.VirtualMachineInstanceStatus{
+			ActivePods: map[types.UID]string{podUID: podName},
+			NodeName:   nodeName,
+			Phase:      virtv1.Running,
+		}
+		return kvvmi
+	}
+
+	newPod := func(requestCPU, limitCPU, requestMemory, limitMemory string) *corev1.Pod {
 		pod := newEmptyPOD(podName, vmNamespace, vmName)
 		pod.UID = podUID
 		pod.Spec = corev1.PodSpec{
@@ -53,59 +92,18 @@ var _ = Describe("TestStatisticHandler", func() {
 					Name: "compute",
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("500m"),
-							corev1.ResourceMemory: resource.MustParse("755Mi"),
+							corev1.ResourceCPU:    resource.MustParse(requestCPU),
+							corev1.ResourceMemory: resource.MustParse(requestMemory),
 						},
 						Limits: corev1.ResourceList{
-							corev1.ResourceCPU:    resource.MustParse("1"),
-							corev1.ResourceMemory: resource.MustParse("755Mi"),
+							corev1.ResourceCPU:    resource.MustParse(limitCPU),
+							corev1.ResourceMemory: resource.MustParse(limitMemory),
 						},
 					},
 				},
 			},
 		}
 		return pod
-	}
-
-	createVM := func(phase virtv2.MachinePhase, stats *virtv2.VirtualMachineStats, guestOSInfo virtv1.VirtualMachineInstanceGuestOSInfo) *virtv2.VirtualMachine {
-		vm := vmbuilder.New(
-			vmbuilder.WithName(vmName),
-			vmbuilder.WithNamespace(vmNamespace),
-			vmbuilder.WithCPU(1, ptr.To("50%")),
-			vmbuilder.WithMemory(resource.MustParse("512Mi")),
-		)
-		vm.Status = virtv2.VirtualMachineStatus{
-			Phase:       phase,
-			Stats:       stats,
-			GuestOSInfo: guestOSInfo,
-		}
-
-		return vm
-	}
-
-	createKVVMI := func(phase virtv1.VirtualMachineInstancePhase, guestOSInfo virtv1.VirtualMachineInstanceGuestOSInfo) *virtv1.VirtualMachineInstance {
-		kvvmi := newEmptyKVVMI(vmName, vmNamespace)
-		kvvmi.Spec = virtv1.VirtualMachineInstanceSpec{
-			Domain: virtv1.DomainSpec{
-				Resources: virtv1.ResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("500m"),
-						corev1.ResourceMemory: resource.MustParse("512Mi"),
-					},
-					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("1"),
-						corev1.ResourceMemory: resource.MustParse("512Mi"),
-					},
-				},
-			},
-		}
-		kvvmi.Status = virtv1.VirtualMachineInstanceStatus{
-			ActivePods:  map[types.UID]string{podUID: podName},
-			NodeName:    nodeName,
-			Phase:       phase,
-			GuestOSInfo: guestOSInfo,
-		}
-		return kvvmi
 	}
 
 	var (
@@ -129,29 +127,57 @@ var _ = Describe("TestStatisticHandler", func() {
 		vmState = nil
 	})
 
-	It("Check Generated .status.resources", func() {
-		vm := createVM(virtv2.MachineRunning, nil, virtv1.VirtualMachineInstanceGuestOSInfo{})
-		kvvmi := createKVVMI(virtv1.Running, virtv1.VirtualMachineInstanceGuestOSInfo{Name: "test"})
-		pod := createPod()
+	type expectedValues struct {
+		CPUCores           int
+		CPUCoreFraction    string
+		CPURequestedCores  int64
+		CPURuntimeOverhead int64
 
-		fakeClient, vmResource, vmState = setupEnvironment(vm, kvvmi, pod)
-		reconcile()
+		TopologyCoresPerSocket int
+		TopologySockets        int
 
-		newVM := &virtv2.VirtualMachine{}
-		err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
-		Expect(err).NotTo(HaveOccurred())
+		MemorySize            int64
+		MemoryRuntimeOverhead int64
+	}
 
-		res := newVM.Status.Resources
-		Expect(res.CPU.Cores).To(Equal(1))
-		Expect(res.CPU.CoreFraction).To(Equal("50%"))
-		Expect(res.CPU.RequestedCores.MilliValue()).To(Equal(int64(500)))
-		Expect(res.CPU.RuntimeOverhead.MilliValue()).To(Equal(int64(0)))
+	DescribeTable("Check Generated .status.resources",
+		func(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, pod *corev1.Pod, expect expectedValues) {
+			fakeClient, vmResource, vmState = setupEnvironment(vm, kvvmi, pod)
+			reconcile()
 
-		Expect(res.CPU.Topology).ShouldNot(BeNil())
-		Expect(res.CPU.Topology.CoresPerSocket).To(Equal(1))
-		Expect(res.CPU.Topology.Sockets).To(Equal(1))
+			newVM := &virtv2.VirtualMachine{}
+			err := fakeClient.Get(ctx, client.ObjectKeyFromObject(vm), newVM)
+			Expect(err).NotTo(HaveOccurred())
 
-		Expect(res.Memory.Size.Value()).To(Equal(int64(536870912)))
-		Expect(res.Memory.RuntimeOverhead.Value()).To(Equal(int64(254803968)))
-	})
+			res := newVM.Status.Resources
+			Expect(res.CPU.Cores).To(Equal(expect.CPUCores))
+			Expect(res.CPU.CoreFraction).To(Equal(expect.CPUCoreFraction))
+			Expect(res.CPU.RequestedCores.MilliValue()).To(Equal(expect.CPURequestedCores))
+			Expect(res.CPU.RuntimeOverhead.MilliValue()).To(Equal(expect.CPURuntimeOverhead))
+
+			Expect(res.CPU.Topology).ShouldNot(BeNil())
+			Expect(res.CPU.Topology.CoresPerSocket).To(Equal(expect.TopologyCoresPerSocket))
+			Expect(res.CPU.Topology.Sockets).To(Equal(expect.TopologySockets))
+
+			Expect(res.Memory.Size.Value()).To(Equal(expect.MemorySize))
+			Expect(res.Memory.RuntimeOverhead.Value()).To(Equal(expect.MemoryRuntimeOverhead))
+		},
+		Entry("Case 1",
+			newVM(1, ptr.To("50%"), "512Mi"),
+			newKVVMI("500m", "1", "512Mi", "512Mi"),
+			newPod("500m", "1", "755Mi", "755Mi"),
+			expectedValues{
+				CPUCores:           1,
+				CPUCoreFraction:    "50%",
+				CPURequestedCores:  500,
+				CPURuntimeOverhead: 0,
+
+				TopologyCoresPerSocket: 1,
+				TopologySockets:        1,
+
+				MemorySize:            536870912,
+				MemoryRuntimeOverhead: 254803968,
+			},
+		),
+	)
 })
