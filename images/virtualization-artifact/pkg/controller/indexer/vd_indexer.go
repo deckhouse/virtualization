@@ -59,8 +59,8 @@ func IndexVDByStorageClass() (obj client.Object, field string, extractValue clie
 	}
 }
 
-func IndexVDByCVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByCVIDataSource, IndexVDByCVIDataSourceIndexerFunc)
+func IndexVDByCVIDataSource() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualDisk{}, IndexFieldVDByCVIDataSource, IndexVDByCVIDataSourceIndexerFunc
 }
 
 func IndexVDByCVIDataSourceIndexerFunc(object client.Object) []string {
@@ -80,8 +80,8 @@ func IndexVDByCVIDataSourceIndexerFunc(object client.Object) []string {
 	return []string{vd.Spec.DataSource.ObjectRef.Name}
 }
 
-func IndexVDByVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualDisk{}, IndexFieldVDByVIDataSource, IndexVDByVIDataSourceIndexerFunc)
+func IndexVDByVIDataSource() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualDisk{}, IndexFieldVDByVIDataSource, IndexVDByVIDataSourceIndexerFunc
 }
 
 func IndexVDByVIDataSourceIndexerFunc(object client.Object) []string {

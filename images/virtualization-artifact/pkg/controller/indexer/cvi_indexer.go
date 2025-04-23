@@ -17,17 +17,14 @@ limitations under the License.
 package indexer
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func IndexCVIByCVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.ClusterVirtualImage{}, IndexFieldCVIByCVIDataSource, IndexCVIByCVIDataSourceIndexerFunc)
+func IndexCVIByCVIDataSource() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.ClusterVirtualImage{}, IndexFieldCVIByCVIDataSource, IndexCVIByCVIDataSourceIndexerFunc
 }
 
 func IndexCVIByCVIDataSourceIndexerFunc(object client.Object) []string {
@@ -47,8 +44,8 @@ func IndexCVIByCVIDataSourceIndexerFunc(object client.Object) []string {
 	return []string{cvi.Spec.DataSource.ObjectRef.Name}
 }
 
-func IndexCVIByVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVIDataSource, IndexCVIByVIDataSourceIndexerFunc)
+func IndexCVIByVIDataSource() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVIDataSource, IndexCVIByVIDataSourceIndexerFunc
 }
 
 func IndexCVIByVIDataSourceIndexerFunc(object client.Object) []string {
