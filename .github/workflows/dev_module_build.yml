@@ -225,12 +225,12 @@ jobs:
               echo "::group::📂 Linting directory ✅: $dir"
             fi
             
-            report_out_error=$(echo $output | jq '.error')
+            report_out_error=$(echo $output | jq '.')
 
             # Build report section
             report+="\n\n### Directory: $dir\n"
             report+="Find Errors: $find_errors\n"
-            report+="Output:\n\`\`\`\n$report_out_warning\n$report_out_error\n\`\`\`\n"
+            report+="Output:\n\`\`\`\n$report_out_error\n\`\`\`\n"
             report+="---\n"
 
             cd - &>/dev/null
