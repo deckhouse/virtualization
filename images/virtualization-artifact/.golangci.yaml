@@ -9,7 +9,7 @@ issues:
     - "don't use an underscore in package name"
   exclude-rules:
     - linters:
-      - stylecheck
+        - stylecheck
       text: "ST1003:"
 output:
   sort-results: true
