@@ -34,6 +34,7 @@ const (
 	IndexFieldVMByVD    = "spec.blockDeviceRefs.VirtualDisk"
 	IndexFieldVMByVI    = "spec.blockDeviceRefs.VirtualImage"
 	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
+	IndexFieldVMByNode  = "status.node"
 
 	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef.Name"
 
@@ -55,60 +56,74 @@ const (
 	IndexFieldVMBDAByVM = "spec.virtualMachineName"
 )
 
-type indexFunc func(ctx context.Context, mgr manager.Manager) error
+var IndexGetters = []IndexGetter{
+	IndexVMByClass,
+	IndexVMByVD,
+	IndexVMByVI,
+	IndexVMByCVI,
+	IndexVMByNode,
+	IndexVMIPLeaseByVMIP,
+	IndexVMSnapshotByVM,
+	IndexVMSnapshotByVDSnapshot,
+	IndexVMRestoreByVMSnapshot,
+	IndexVMIPByVM,
+	IndexVDByVDSnapshot,
+	IndexVDByStorageClass,
+	IndexVIByVDSnapshot,
+	IndexVIByStorageClass,
+	IndexCVIByVDSnapshot,
+	IndexVMIPByAddress,
+	IndexVMBDAByVM,
+}
+
+type IndexGetter func() (obj client.Object, field string, extractValue client.IndexerFunc)
 
 func IndexALL(ctx context.Context, mgr manager.Manager) error {
-	for _, fn := range []indexFunc{
-		IndexVMByClass,
-		IndexVMByVD,
-		IndexVMByVI,
-		IndexVMByCVI,
-		IndexVMIPLeaseByVMIP,
-		IndexVMSnapshotByVM,
-		IndexVMSnapshotByVDSnapshot,
-		IndexVMRestoreByVMSnapshot,
-		IndexVMIPByVM,
-		IndexVDByVDSnapshot,
-		IndexVDByStorageClass,
-		IndexVIByVDSnapshot,
-		IndexVIByStorageClass,
-		IndexCVIByVDSnapshot,
-		IndexVMIPByAddress,
-		IndexVMBDAByVM,
-	} {
-		if err := fn(ctx, mgr); err != nil {
+	for _, fn := range IndexGetters {
+		obj, field, indexFunc := fn()
+		if err := mgr.GetFieldIndexer().IndexField(ctx, obj, field, indexFunc); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func IndexVMByClass(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachine{}, IndexFieldVMByClass, func(object client.Object) []string {
+func IndexVMByClass() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachine{}, IndexFieldVMByClass, func(object client.Object) []string {
 		vm, ok := object.(*virtv2.VirtualMachine)
 		if !ok || vm == nil {
 			return nil
 		}
 		return []string{vm.Spec.VirtualMachineClassName}
-	})
+	}
 }
 
-func IndexVMByVD(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachine{}, IndexFieldVMByVD, func(object client.Object) []string {
+func IndexVMByVD() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachine{}, IndexFieldVMByVD, func(object client.Object) []string {
 		return getBlockDeviceNamesByKind(object, virtv2.DiskDevice)
-	})
+	}
 }
 
-func IndexVMByVI(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachine{}, IndexFieldVMByVI, func(object client.Object) []string {
+func IndexVMByVI() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachine{}, IndexFieldVMByVI, func(object client.Object) []string {
 		return getBlockDeviceNamesByKind(object, virtv2.ImageDevice)
-	})
+	}
 }
 
-func IndexVMByCVI(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachine{}, IndexFieldVMByCVI, func(object client.Object) []string {
+func IndexVMByCVI() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachine{}, IndexFieldVMByCVI, func(object client.Object) []string {
 		return getBlockDeviceNamesByKind(object, virtv2.ClusterImageDevice)
-	})
+	}
+}
+
+func IndexVMByNode() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachine{}, IndexFieldVMByNode, func(object client.Object) []string {
+		vm, ok := object.(*virtv2.VirtualMachine)
+		if !ok || vm == nil || vm.Status.Node == "" {
+			return nil
+		}
+		return []string{vm.Status.Node}
+	}
 }
 
 func getBlockDeviceNamesByKind(obj client.Object, kind virtv2.BlockDeviceKind) []string {
@@ -126,12 +141,12 @@ func getBlockDeviceNamesByKind(obj client.Object, kind virtv2.BlockDeviceKind) [
 	return res
 }
 
-func IndexVMIPLeaseByVMIP(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachineIPAddressLease{}, IndexFieldVMIPLeaseByVMIP, func(object client.Object) []string {
+func IndexVMIPLeaseByVMIP() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachineIPAddressLease{}, IndexFieldVMIPLeaseByVMIP, func(object client.Object) []string {
 		lease, ok := object.(*virtv2.VirtualMachineIPAddressLease)
 		if !ok || lease == nil {
 			return nil
 		}
 		return []string{lease.Spec.VirtualMachineIPAddressRef.Name}
-	})
+	}
 }

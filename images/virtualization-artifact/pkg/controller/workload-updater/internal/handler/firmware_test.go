@@ -19,7 +19,6 @@ package handler
 import (
 	"context"
 	"errors"
-	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -107,7 +106,6 @@ var _ = Describe("TestFirmwareHandler", func() {
 				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error) {
 					return true, serviceCompleteErr
 				},
-				SetLoggerFunc: func(log *slog.Logger) {},
 			}
 
 			h := NewFirmwareHandler(fakeClient, mockMigration, firmwareImage, virtControllerNamespace, virtControllerName)

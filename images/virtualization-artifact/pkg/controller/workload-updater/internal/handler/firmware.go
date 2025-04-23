@@ -63,6 +63,7 @@ func (h *FirmwareHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachin
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(firmwareHandler))
+	ctx = logger.ToContext(ctx, log)
 
 	if ready, err := h.isVirtControllerUpToDate(ctx); err != nil {
 		return reconcile.Result{}, err
@@ -70,8 +71,6 @@ func (h *FirmwareHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMachin
 		log.Info("Wait for virt-controller to be ready")
 		return reconcile.Result{RequeueAfter: 60 * time.Second}, nil
 	}
-
-	h.oneShotMigration.SetLogger(log)
 
 	migrate, err := h.oneShotMigration.OnceMigrate(ctx, vm, annotations.AnnVMOPWorkloadUpdateImage, h.firmwareImage)
 	if migrate {

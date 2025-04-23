@@ -17,32 +17,29 @@ limitations under the License.
 package indexer
 
 import (
-	"context"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func IndexVMSnapshotByVM(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachineSnapshot{}, IndexFieldVMSnapshotByVM, func(object client.Object) []string {
+func IndexVMSnapshotByVM() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachineSnapshot{}, IndexFieldVMSnapshotByVM, func(object client.Object) []string {
 		vmSnapshot, ok := object.(*virtv2.VirtualMachineSnapshot)
 		if !ok || vmSnapshot == nil {
 			return nil
 		}
 
 		return []string{vmSnapshot.Spec.VirtualMachineName}
-	})
+	}
 }
 
-func IndexVMSnapshotByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.VirtualMachineSnapshot{}, IndexFieldVMSnapshotByVDSnapshot, func(object client.Object) []string {
+func IndexVMSnapshotByVDSnapshot() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.VirtualMachineSnapshot{}, IndexFieldVMSnapshotByVDSnapshot, func(object client.Object) []string {
 		vmSnapshot, ok := object.(*virtv2.VirtualMachineSnapshot)
 		if !ok || vmSnapshot == nil {
 			return nil
 		}
 
 		return vmSnapshot.Status.VirtualDiskSnapshotNames
-	})
+	}
 }

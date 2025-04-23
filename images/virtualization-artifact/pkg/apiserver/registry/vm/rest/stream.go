@@ -36,7 +36,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
 	virtlisters "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/subresources"
 )
 
 const (
@@ -102,16 +101,11 @@ func streamLocation(
 		}
 	}
 
-	params := url.Values{}
-	if err := streamParams(params, opts); err != nil {
-		return nil, nil, err
-	}
-
 	location := &url.URL{
 		Scheme:   "https",
 		Host:     kubevirt.Endpoint,
 		Path:     pather.Path(vm.Namespace, name),
-		RawQuery: params.Encode(),
+		RawQuery: url.Values{}.Encode(),
 	}
 	ca, err := os.ReadFile(kubevirt.CaBundlePath)
 	if err != nil {
@@ -131,29 +125,6 @@ func streamLocation(
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.TLSClientConfig = tlsConfig
 	return location, transport, nil
-}
-
-// TODO: This may be useful in the future
-func streamParams(_ url.Values, opts runtime.Object) error {
-	switch opts := opts.(type) {
-	case *subresources.VirtualMachineConsole:
-		return nil
-	case *subresources.VirtualMachineVNC:
-		return nil
-	case *subresources.VirtualMachinePortForward:
-		return nil
-	case *subresources.VirtualMachineAddVolume:
-		return nil
-	case *subresources.VirtualMachineRemoveVolume:
-		return nil
-	case *subresources.VirtualMachineFreeze:
-		return nil
-	case *subresources.VirtualMachineUnfreeze:
-		return nil
-
-	default:
-		return fmt.Errorf("unknown object for streaming: %v", opts)
-	}
 }
 
 type mutateRequestHook func(req *http.Request) error

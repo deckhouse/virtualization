@@ -31,6 +31,7 @@ var (
 	WithLabels       = meta.WithLabels[*v1alpha2.VirtualMachineOperation]
 	WithAnnotation   = meta.WithAnnotation[*v1alpha2.VirtualMachineOperation]
 	WithAnnotations  = meta.WithAnnotations[*v1alpha2.VirtualMachineOperation]
+	WithFinalizer    = meta.WithFinalizer[*v1alpha2.VirtualMachineOperation]
 )
 
 func WithType(t v1alpha2.VMOPType) Option {

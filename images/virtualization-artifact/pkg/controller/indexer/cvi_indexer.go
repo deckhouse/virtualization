@@ -17,17 +17,14 @@ limitations under the License.
 package indexer
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func IndexCVIByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVDSnapshot, func(object client.Object) []string {
+func IndexCVIByVDSnapshot() (obj client.Object, field string, extractValue client.IndexerFunc) {
+	return &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVDSnapshot, func(object client.Object) []string {
 		cvi, ok := object.(*virtv2.ClusterVirtualImage)
 		if !ok || cvi == nil {
 			return nil
@@ -47,5 +44,5 @@ func IndexCVIByVDSnapshot(ctx context.Context, mgr manager.Manager) error {
 		}
 
 		return []string{key.String()}
-	})
+	}
 }
