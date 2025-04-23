@@ -145,7 +145,6 @@ func (h *EvacuationHandler) removeFinalizer(ctx context.Context, vmop *v1alpha2.
 			patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/finalizers", oldFinalizers),
 			patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", newFinalizers),
 		).Bytes()
-
 		if err != nil {
 			return err
 		}

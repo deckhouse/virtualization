@@ -205,8 +205,8 @@ jobs:
             
             # Run linter with multiple formats
             
-            output=$(golangci-lint run --out-format=json 2>/dev/null | jq '{warning: .Report.Warnings, error: .Report.Error}' || true)
-            find_errors=$(echo $output | jq '.error | select(.!=null)' | wc -l)
+            output=$(golangci-lint run --sort-results --out-format=json | jq '.Issues[] | {linter: .FromLinter, rule: .Text, lines: .SourceLines, file: "\(.Pos.Filename):\(.Pos.Line):\(.Pos.Column)"}')
+            find_errors=$(echo $output | wc -l)
             
             # Track errors
             if [ $find_errors -ne 0 ]; then
@@ -216,7 +216,6 @@ jobs:
               echo "::group::📂 Linting directory ✅: $dir"
             fi
             
-            report_out_warning=$(echo $output | jq '.warning')
             report_out_error=$(echo $output | jq '.error')
 
             # Build report section
@@ -228,7 +227,6 @@ jobs:
             cd - &>/dev/null
             
             if [ $find_errors -ne 0 ]; then
-              echo -e "⚠️ Warnings:\n$report_out_warning"
               echo -e "❌ Errors:\n$report_out_error\n"
             else
               echo -e "✅ All check passed\n"
