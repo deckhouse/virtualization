@@ -1718,7 +1718,7 @@ linux-vm                               Running   virtlab-pt-1   10.66.10.14   79
 d8 v evict -n <namespace> <vm-name>
 ```
 
-выполнение данной команды приводит к созданию ресурса `VirtualMachineOperations`.
+Выполнение данной команды приводит к созданию ресурса `VirtualMachineOperations`.
 
 Запустить миграцию можно также создав ресурс `VirtualMachineOperations` (`vmop`) с типом `Evict` вручную:
 
