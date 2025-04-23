@@ -27,7 +27,7 @@ import (
 )
 
 func IndexCVIByCVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.ClusterVirtualImage{}, IndexFieldCVIByCVIDataSourceNotReady, IndexCVIByCVIDataSourceIndexerFunc)
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.ClusterVirtualImage{}, IndexFieldCVIByCVIDataSource, IndexCVIByCVIDataSourceIndexerFunc)
 }
 
 func IndexCVIByCVIDataSourceIndexerFunc(object client.Object) []string {
@@ -36,7 +36,7 @@ func IndexCVIByCVIDataSourceIndexerFunc(object client.Object) []string {
 		return nil
 	}
 
-	if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || cvi.Status.Phase == virtv2.ImageReady {
+	if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
 		return nil
 	}
 
@@ -48,7 +48,7 @@ func IndexCVIByCVIDataSourceIndexerFunc(object client.Object) []string {
 }
 
 func IndexCVIByVIDataSource(ctx context.Context, mgr manager.Manager) error {
-	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVIDataSourceNotReady, IndexCVIByVIDataSourceIndexerFunc)
+	return mgr.GetFieldIndexer().IndexField(ctx, &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVIDataSource, IndexCVIByVIDataSourceIndexerFunc)
 }
 
 func IndexCVIByVIDataSourceIndexerFunc(object client.Object) []string {
@@ -57,7 +57,7 @@ func IndexCVIByVIDataSourceIndexerFunc(object client.Object) []string {
 		return nil
 	}
 
-	if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || cvi.Status.Phase == virtv2.ImageReady {
+	if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
 		return nil
 	}
 

@@ -53,13 +53,13 @@ const (
 
 	IndexFieldVMBDAByVM = "spec.virtualMachineName"
 
-	IndexFieldVDByCVIDataSourceNotReady  = "vd,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage,.Phase!=Ready"
-	IndexFieldVIByCVIDataSourceNotReady  = "vi,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage,.Phase!=Ready"
-	IndexFieldCVIByCVIDataSourceNotReady = "cvi,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage,.Phase!=Ready"
+	IndexFieldVDByCVIDataSource  = "vd,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage"
+	IndexFieldVIByCVIDataSource  = "vi,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage"
+	IndexFieldCVIByCVIDataSource = "cvi,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage"
 
-	IndexFieldVDByVIDataSourceNotReady  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage,.Phase!=Ready"
-	IndexFieldVIByVIDataSourceNotReady  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage,.Phase!=Ready"
-	IndexFieldCVIByVIDataSourceNotReady = "cvi,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage,.Phase!=Ready"
+	IndexFieldVDByVIDataSource  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage"
+	IndexFieldVIByVIDataSource  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage"
+	IndexFieldCVIByVIDataSource = "cvi,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage"
 )
 
 var IndexGetters = []IndexGetter{
