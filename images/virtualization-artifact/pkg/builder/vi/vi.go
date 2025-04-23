@@ -41,7 +41,7 @@ func NewEmpty(name, namespace string) *v1alpha2.VirtualImage {
 	return &v1alpha2.VirtualImage{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1alpha2.SchemeGroupVersion.String(),
-			Kind:       v1alpha2.VirtualDiskKind,
+			Kind:       v1alpha2.VirtualImageKind,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
