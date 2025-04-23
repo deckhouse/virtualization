@@ -17,8 +17,7 @@ limitations under the License.
 package internal
 
 import (
-	"time"
-
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -26,6 +25,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
 
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
@@ -76,15 +76,15 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 	Expect(err).ShouldNot(HaveOccurred())
 	fakeClient := fakeClientBuilder.WithIndex(
 		&virtv2.VirtualDisk{},
-		indexer.IndexFieldVDByVIDataSourceNotReady,
+		indexer.IndexFieldVDByVIDataSource,
 		indexer.IndexVDByVIDataSourceIndexerFunc,
 	).WithIndex(
 		&virtv2.VirtualImage{},
-		indexer.IndexFieldVIByVIDataSourceNotReady,
+		indexer.IndexFieldVIByVIDataSource,
 		indexer.IndexVIByVIDataSourceIndexerFunc,
 	).WithIndex(
 		&virtv2.ClusterVirtualImage{},
-		indexer.IndexFieldCVIByVIDataSourceNotReady,
+		indexer.IndexFieldCVIByVIDataSource,
 		indexer.IndexCVIByVIDataSourceIndexerFunc,
 	).Build()
 	handler := NewInUseHandler(fakeClient)
@@ -102,6 +102,7 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 		Expect(ok).To(BeFalse())
 	}
 },
+
 	Entry("deletionTimestamp not exists", inUseHandlerTestArgs{
 		VMs: []virtv2.VirtualMachine{},
 		VINamespacedName: types.NamespacedName{
@@ -329,11 +330,27 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 					Namespace: "test",
 				},
 			}),
+			*cvibuilder.New(
+				cvibuilder.WithName("test322"),
+				cvibuilder.WithPhase(virtv2.ImageReady),
+				cvibuilder.WithCondition(metav1.Condition{
+					Status: metav1.ConditionTrue,
+					Reason: cvicondition.ReadyType.String(),
+				}),
+				cvibuilder.WithDatasource(virtv2.ClusterVirtualImageDataSource{
+					Type: virtv2.DataSourceTypeObjectRef,
+					ObjectRef: &virtv2.ClusterVirtualImageObjectRef{
+						Kind:      virtv2.VirtualImageKind,
+						Name:      "test",
+						Namespace: "ns",
+					},
+				}),
+			),
 		},
 		ExpectedConditionExists:  true,
 		ExpectedConditionStatus:  metav1.ConditionTrue,
 		ExpectedConditionReason:  vicondition.InUse.String(),
-		ExpectedConditionMessage: "5 VirtualMachines are using the VirtualImage, VirtualImage is used to create 4 VirtualDisks, VirtualImage is currently being used to create the VirtualImage test1, VirtualImage is currently being used to create the ClusterVirtualImages: test1, test2.",
+		ExpectedConditionMessage: "5 VirtualMachines are using the VirtualImage, the VirtualImage is currently used to create 4 VirtualDisks, the VirtualImage is currently being used to create the VirtualImage test1, the VirtualImage is currently being used to create the ClusterVirtualImages: test1, test2.",
 	}),
 )
 
@@ -355,6 +372,9 @@ func generateVMForInUseTest(name, namespace string, blockDeviceRefs []virtv2.Blo
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind: virtv2.VirtualMachineKind,
 		},
 		Status: virtv2.VirtualMachineStatus{
 			BlockDeviceRefs: blockDeviceRefs,

@@ -19,6 +19,7 @@ package cvi
 import (
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Option func(cvi *v1alpha2.ClusterVirtualImage)
@@ -34,5 +35,17 @@ var (
 func WithDatasource(datasource v1alpha2.ClusterVirtualImageDataSource) func(cvi *v1alpha2.ClusterVirtualImage) {
 	return func(cvi *v1alpha2.ClusterVirtualImage) {
 		cvi.Spec.DataSource = datasource
+	}
+}
+
+func WithPhase(phase v1alpha2.ImagePhase) func(cvi *v1alpha2.ClusterVirtualImage) {
+	return func(cvi *v1alpha2.ClusterVirtualImage) {
+		cvi.Status.Phase = phase
+	}
+}
+
+func WithCondition(condition metav1.Condition) func(cvi *v1alpha2.ClusterVirtualImage) {
+	return func(cvi *v1alpha2.ClusterVirtualImage) {
+		cvi.Status.Conditions = append(cvi.Status.Conditions, condition)
 	}
 }

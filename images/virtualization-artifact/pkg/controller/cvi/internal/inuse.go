@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/types"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -66,7 +67,7 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 		return reconcile.Result{}, err
 	}
 
-	var vmUsedImage []*virtv2.VirtualMachine
+	var vmUsedImage []client.Object
 	for _, vm := range vms.Items {
 		for _, bd := range vm.Status.BlockDeviceRefs {
 			if bd.Kind == virtv2.ClusterVirtualImageKind && bd.Name == cvi.Name {
@@ -78,116 +79,76 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 
 	var vds virtv2.VirtualDiskList
 	err = h.client.List(ctx, &vds, client.MatchingFields{
-		indexer.IndexFieldVDByCVIDataSourceNotReady: cvi.GetName(),
+		indexer.IndexFieldVDByCVIDataSource: cvi.GetName(),
 	})
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	var vdsNotReady []client.Object
 	for _, vd := range vds.Items {
-		namespacesMap[vd.Namespace] = struct{}{}
+		if vd.Status.Phase != virtv2.DiskReady {
+			vdsNotReady = append(vdsNotReady, &vd)
+		}
+	}
+
+	for _, vd := range vdsNotReady {
+		namespacesMap[vd.GetNamespace()] = struct{}{}
 	}
 
 	var vis virtv2.VirtualImageList
 	err = h.client.List(ctx, &vis, client.MatchingFields{
-		indexer.IndexFieldVIByCVIDataSourceNotReady: cvi.GetName(),
+		indexer.IndexFieldVIByCVIDataSource: cvi.GetName(),
 	})
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	var visNotReady []client.Object
 	for _, vi := range vis.Items {
-		namespacesMap[vi.Namespace] = struct{}{}
+		if vi.Status.Phase != virtv2.ImageReady {
+			visNotReady = append(visNotReady, &vi)
+		}
+	}
+
+	for _, vi := range visNotReady {
+		namespacesMap[vi.GetNamespace()] = struct{}{}
 	}
 
 	var cvis virtv2.ClusterVirtualImageList
 	err = h.client.List(ctx, &cvis, client.MatchingFields{
-		indexer.IndexFieldCVIByCVIDataSourceNotReady: cvi.GetName(),
+		indexer.IndexFieldCVIByCVIDataSource: cvi.GetName(),
 	})
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	for _, cv := range cvis.Items {
-		namespacesMap[cv.Namespace] = struct{}{}
+	var cvisNotReady []client.Object
+	for _, cvi := range cvis.Items {
+		if cvi.Status.Phase != virtv2.ImageReady {
+			cvisNotReady = append(cvisNotReady, &cvi)
+		}
 	}
 
-	consumerCount := len(vmUsedImage) + len(vds.Items) + len(vis.Items) + len(cvis.Items)
+	for _, cv := range cvisNotReady {
+		namespacesMap[cv.GetNamespace()] = struct{}{}
+	}
+
+	consumerCount := len(vmUsedImage) + len(vdsNotReady) + len(visNotReady) + len(cvisNotReady)
 
 	if consumerCount > 0 {
-		var messageBuilder strings.Builder
-		var needComma bool
+		var msgs []string
 		if len(vmUsedImage) > 0 {
-			needComma = true
-			switch len(vmUsedImage) {
-			case 1:
-				messageBuilder.WriteString(fmt.Sprintf("The ClusterVirtualImage is currently attached to the VirtualMachine %s/%s", vmUsedImage[0].Namespace, vmUsedImage[0].Name))
-			case 2, 3:
-				var vmNamespacedNames []string
-				for _, vm := range vmUsedImage {
-					vmNamespacedNames = append(vmNamespacedNames, fmt.Sprintf("%s/%s", vm.Namespace, vm.Name))
-				}
-				messageBuilder.WriteString(fmt.Sprintf("The ClusterVirtualImage is currently attached to the VirtualMachines: %s", strings.Join(vmNamespacedNames, ", ")))
-			default:
-				messageBuilder.WriteString(fmt.Sprintf("%d VirtualMachines are using the ClusterVirtualImage", len(vmUsedImage)))
-			}
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vmUsedImage...))
 		}
 
-		if len(vds.Items) > 0 {
-			if needComma {
-				messageBuilder.WriteString(", ")
-			}
-			needComma = true
-
-			switch len(vds.Items) {
-			case 1:
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is currently being used to create the VirtualDisk %s/%s", vds.Items[0].Namespace, vds.Items[0].Name))
-			case 2, 3:
-				var vdNamespacedNames []string
-				for _, vd := range vds.Items {
-					vdNamespacedNames = append(vdNamespacedNames, fmt.Sprintf("%s/%s", vd.Namespace, vd.Name))
-				}
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is currently being used to create the VirtualDisks: %s", strings.Join(vdNamespacedNames, ", ")))
-			default:
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is used to create %d VirtualDisks", len(vds.Items)))
-			}
+		if len(vdsNotReady) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualDiskKind, vdsNotReady...))
 		}
 
-		if len(vis.Items) > 0 {
-			if needComma {
-				messageBuilder.WriteString(", ")
-			}
-			needComma = true
-
-			switch len(vis.Items) {
-			case 1:
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is currently being used to create the VirtualImage %s/%s", vis.Items[0].Namespace, vis.Items[0].Name))
-			case 2, 3:
-				var viNamespacedNames []string
-				for _, vi := range vis.Items {
-					viNamespacedNames = append(viNamespacedNames, fmt.Sprintf("%s/%s", vi.Namespace, vi.Name))
-				}
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is currently being used to create the VirtualImages: %s", strings.Join(viNamespacedNames, ", ")))
-			default:
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is used to create %d VirtualImages", len(vis.Items)))
-			}
+		if len(visNotReady) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualImageKind, visNotReady...))
 		}
 
-		if len(cvis.Items) > 0 {
-			if needComma {
-				messageBuilder.WriteString(", ")
-			}
-			needComma = true
-
-			switch len(cvis.Items) {
-			case 1:
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is currently being used to create the ClusterVirtualImage %s", cvis.Items[0].Name))
-			case 2, 3:
-				var cviNames []string
-				for _, cvi := range cvis.Items {
-					cviNames = append(cviNames, cvi.Name)
-				}
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is currently being used to create the ClusterVirtualImages: %s", strings.Join(cviNames, ", ")))
-			default:
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is used to create %d ClusterVirtualImages", len(cvis.Items)))
-			}
+		if len(cvisNotReady) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.ClusterVirtualImageKind, cvisNotReady...))
 		}
 
 		var namespaces []string
@@ -196,30 +157,15 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 		}
 
 		if len(namespaces) > 0 {
-			if needComma {
-				messageBuilder.WriteString(", ")
-			}
-
-			switch len(namespaces) {
-			case 1:
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is currently using in Namespace %s", namespaces[0]))
-			case 2, 3:
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is using in Namespaces: %s", strings.Join(namespaces, ", ")))
-			default:
-				messageBuilder.WriteString(fmt.Sprintf("ClusterVirtualImage is using in %d Namespaces", len(namespaces)))
-			}
+			msgs = append(msgs, getNamespacesTerminationMessage(namespaces))
 		}
 
-		cvi.Status.UsedInNamespaces = []string{}
-		for namespace := range namespacesMap {
-			cvi.Status.UsedInNamespaces = append(cvi.Status.UsedInNamespaces, namespace)
-		}
+		cvi.Status.UsedInNamespaces = namespaces
 
-		messageBuilder.WriteString(".")
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(cvicondition.InUse).
-			Message(service.CapitalizeFirstLetter(messageBuilder.String()))
+			Message(service.CapitalizeFirstLetter(fmt.Sprintf("%s.", strings.Join(msgs, ", "))))
 		conditions.SetCondition(cb, &cvi.Status.Conditions)
 	} else {
 		conditions.RemoveCondition(cvicondition.InUse, &cvi.Status.Conditions)
@@ -230,4 +176,62 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 
 func (h InUseHandler) Name() string {
 	return inUseHandlerName
+}
+
+func getTerminationMessage(objectKind string, objects ...client.Object) string {
+	var objectFilteredNamespacedNames []types.NamespacedName
+	for _, obj := range objects {
+		if obj.GetObjectKind().GroupVersionKind().Kind == objectKind {
+			objectFilteredNamespacedNames = append(objectFilteredNamespacedNames, types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()})
+		}
+	}
+
+	if objectKind == virtv2.VirtualMachineKind {
+		switch len(objectFilteredNamespacedNames) {
+		case 1:
+			return fmt.Sprintf("the ClusterVirtualImage is currently attached to the VirtualMachine %s/%s", objectFilteredNamespacedNames[0].Namespace, objectFilteredNamespacedNames[0].Name)
+		case 2, 3:
+			return fmt.Sprintf("the ClusterVirtualImage is currently attached to the VirtualMachines: %s", strings.Join(nameSpacedNamesToStringSlice(objectFilteredNamespacedNames), ", "))
+		default:
+			return fmt.Sprintf("%d VirtualMachines are using the ClusterVirtualImage", len(objectFilteredNamespacedNames))
+		}
+	} else {
+		switch len(objectFilteredNamespacedNames) {
+		case 1:
+			if objectFilteredNamespacedNames[0].Namespace != "" {
+				return fmt.Sprintf("the ClusterVirtualImage is currently being used to create the %s %s/%s", objectKind, objectFilteredNamespacedNames[0].Namespace, objectFilteredNamespacedNames[0].Name)
+			} else {
+				return fmt.Sprintf("the ClusterVirtualImage is currently being used to create the %s %s", objectKind, objectFilteredNamespacedNames[0].Name)
+			}
+		case 2, 3:
+			return fmt.Sprintf("the ClusterVirtualImage is currently being used to create the %ss: %s", objectKind, strings.Join(nameSpacedNamesToStringSlice(objectFilteredNamespacedNames), ", "))
+		default:
+			return fmt.Sprintf("the ClusterVirtualImage is currently used to create %d %ss", len(objectFilteredNamespacedNames), objectKind)
+		}
+	}
+}
+
+func nameSpacedNamesToStringSlice(namespacedNames []types.NamespacedName) []string {
+	var result []string
+
+	for _, namespacedName := range namespacedNames {
+		if namespacedName.Namespace != "" {
+			result = append(result, fmt.Sprintf("%s/%s", namespacedName.Namespace, namespacedName.Name))
+		} else {
+			result = append(result, namespacedName.Name)
+		}
+	}
+
+	return result
+}
+
+func getNamespacesTerminationMessage(namespaces []string) string {
+	switch len(namespaces) {
+	case 1:
+		return fmt.Sprintf("the ClusterVirtualImage is currently using in Namespace %s", namespaces[0])
+	case 2, 3:
+		return fmt.Sprintf("the ClusterVirtualImage is currently using in Namespaces: %s", strings.Join(namespaces, ", "))
+	default:
+		return fmt.Sprintf("the ClusterVirtualImage is currently using in %d Namespaces", len(namespaces))
+	}
 }
