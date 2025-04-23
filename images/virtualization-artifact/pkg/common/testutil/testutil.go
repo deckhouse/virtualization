@@ -21,6 +21,9 @@ import (
 	"log/slog"
 	"reflect"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/go-logr/logr"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -29,19 +32,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func NewFakeClientWithObjects(objs ...client.Object) (client.WithWatch, error) {
-	builder, err := NewFakeClientBuilderWithObjects(objs...)
-	if err != nil {
-		return nil, err
-	}
-	return builder.Build(), nil
-}
-
-func NewFakeClientBuilderWithObjects(objs ...client.Object) (*fake.ClientBuilder, error) {
 	scheme := apiruntime.NewScheme()
 	for _, f := range []func(*apiruntime.Scheme) error{
 		virtv2.AddToScheme,
@@ -61,7 +55,12 @@ func NewFakeClientBuilderWithObjects(objs ...client.Object) (*fake.ClientBuilder
 		}
 		newObjs = append(newObjs, obj)
 	}
-	return fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...), nil
+	b := fake.NewClientBuilder().WithScheme(scheme).WithObjects(newObjs...).WithStatusSubresource(newObjs...)
+	for _, fn := range indexer.IndexGetters {
+		b.WithIndex(fn())
+	}
+
+	return b.Build(), nil
 }
 
 func NewNoOpLogger() *log.Logger {

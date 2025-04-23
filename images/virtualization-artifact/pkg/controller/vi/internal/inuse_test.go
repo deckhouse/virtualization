@@ -32,7 +32,6 @@ import (
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -72,21 +71,8 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 		objects = append(objects, &cvi)
 	}
 
-	fakeClientBuilder, err := testutil.NewFakeClientBuilderWithObjects(objects...)
+	fakeClient, err := testutil.NewFakeClientWithObjects(objects...)
 	Expect(err).ShouldNot(HaveOccurred())
-	fakeClient := fakeClientBuilder.WithIndex(
-		&virtv2.VirtualDisk{},
-		indexer.IndexFieldVDByVIDataSource,
-		indexer.IndexVDByVIDataSourceIndexerFunc,
-	).WithIndex(
-		&virtv2.VirtualImage{},
-		indexer.IndexFieldVIByVIDataSource,
-		indexer.IndexVIByVIDataSourceIndexerFunc,
-	).WithIndex(
-		&virtv2.ClusterVirtualImage{},
-		indexer.IndexFieldCVIByVIDataSource,
-		indexer.IndexCVIByVIDataSourceIndexerFunc,
-	).Build()
 	handler := NewInUseHandler(fakeClient)
 
 	result, err := handler.Handle(testutil.ContextBackgroundWithNoOpLogger(), vi)
