@@ -22,8 +22,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -47,11 +47,7 @@ func setupEnvironment(vm *virtv2.VirtualMachine, objs ...client.Object) (client.
 	fakeClient, err := testutil.NewFakeClientWithObjects(allObjects...)
 	Expect(err).NotTo(HaveOccurred())
 
-	key := types.NamespacedName{
-		Name:      vm.GetName(),
-		Namespace: vm.GetNamespace(),
-	}
-	resource := reconciler.NewResource(key, fakeClient,
+	resource := reconciler.NewResource(client.ObjectKeyFromObject(vm), fakeClient,
 		func() *virtv2.VirtualMachine {
 			return &virtv2.VirtualMachine{}
 		},
@@ -75,6 +71,22 @@ func newEmptyKVVMI(name, namespace string) *virtv1.VirtualMachineInstance {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+		},
+	}
+}
+
+func newEmptyPOD(name, namespace, vmName string) *corev1.Pod {
+	return &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+			Labels: map[string]string{
+				virtv1.VirtualMachineNameLabel: vmName,
+			},
 		},
 	}
 }
