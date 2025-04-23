@@ -19,8 +19,8 @@ package internal
 import (
 	"context"
 	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -44,8 +44,10 @@ type LifeCycleHandler struct {
 
 func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, sources Sources, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
-		client:  client,
-		sources: sources,
+		recorder:    recorder,
+		client:      client,
+		sources:     sources,
+		diskService: service.NewDiskService(client, nil, nil, "vi"),
 	}
 }
 
