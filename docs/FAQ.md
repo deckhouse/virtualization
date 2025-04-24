@@ -310,8 +310,7 @@ d8 k create secret generic sysprep-config --type="provisioning.virtualization.de
 Then you can create a virtual machine that will use an answer file during installation.
 To provide the Windows virtual machine with the answer file,
 you need to specify provisioning with the type SysprepRef.
-You can also specify here other files in base64 format (customize.ps1, id_rsa.pub, ...)
-that you need to successfully execute scripts inside the answer file.
+You can also specify here other files in base64 format, that you need to successfully execute scripts inside the answer file.
 
 ```yaml
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -362,7 +361,7 @@ Ansible inventory file example:
 ---
 all:
   vars:
-    ansible_ssh_common_args: '-o ProxyCommand=“d8 v port-forward --stdio=true %h %h %p”'
+    ansible_ssh_common_args: '-o ProxyCommand="d8 v port-forward --stdio=true %h %h %p"'
     # Default user for SSH access.
     ansible_user: cloud
     # Path to private key.
@@ -374,7 +373,7 @@ all:
 To check the virtual machine's uptime value, use the following command:
 
 ```bash
-ansible -m shell -a “uptime” -i inventory.yaml all
+ansible -m shell -a "uptime" -i inventory.yaml all
 # frontend.demo-app | CHANGED | rc=0 >>
 # 12:01:20 up 2 days, 4:59, 0 users, load average: 0.00, 0.00, 0.00
 ```
@@ -382,11 +381,11 @@ ansible -m shell -a “uptime” -i inventory.yaml all
 If you prefer not to use the inventory file, you can specify and pass all the parameters directly in the command line:
 
 ```bash
-ansible -m shell -a “uptime” \
-  -i “frontend.demo-app,” \
-  -e “ansible_ssh_common_args='-o ProxyCommand=\”d8 v port-forward --stdio=true %h %p %p\'"” \
-  -e “ansible_user=cloud” \
-  -e “ansible_ssh_private_key_file=./tmp/demo” \
+ansible -m shell -a "uptime" \
+  -i "frontend.demo-app," \
+  -e "ansible_ssh_common_args='-o ProxyCommand=\"d8 v port-forward --stdio=true %h %p %p\"'" \
+  -e "ansible_user=cloud" \
+  -e "ansible_ssh_private_key_file=./tmp/demo" \
   all
 ```
 
@@ -465,14 +464,14 @@ To increase the disk size for DVCR, you must set a larger size in the `virtualiz
     Example output:
 
     ```console
-    {“size”:“58G”,“storageClass”:“linstor-thick-data-r1”}
+    {"size":"58G","storageClass":"linstor-thick-data-r1"}
     ```
 
 1. Set the size:
 
     ```shell
     d8 k patch mc virtualization \
-      --type merge -p '{“spec”: { “settings”: { “dvcr”: { “storage”: { “persistentVolumeClaim”: {“size”: “59G”}}}}}}''
+      --type merge -p '{"spec": { "settings": { "dvcr": { "storage": { "persistentVolumeClaim": {"size": "59G"}}}}}}'
     ```
 
    Example output:
@@ -490,7 +489,7 @@ To increase the disk size for DVCR, you must set a larger size in the `virtualiz
    Example output:
 
     ```console
-    {“size”:“59G”,“storageClass”:“linstor-thick-data-r1”}
+    {"size":"59G","storageClass":"linstor-thick-data-r1"}
 
 1. Check the current status of the DVCR:
 

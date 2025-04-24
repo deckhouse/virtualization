@@ -25,7 +25,7 @@ weight: 50
      dataSource:
        type: HTTP
        http:
-         url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+         url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
    EOF
    ```
 
@@ -107,14 +107,14 @@ weight: 50
    Пример вывода:
 
    ```txt
-   # NAME                                                 PHASE   CDROM   PROGRESS   AGE
-   # virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+   NAME                                                 PHASE   CDROM   PROGRESS   AGE
+   virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
    #
-   # NAME                                                 PHASE   CAPACITY   AGE
-   # virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+   NAME                                                 PHASE   CAPACITY   AGE
+   virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
    #
-   # NAME                                                 PHASE     NODE           IPADDRESS     AGE
-   # virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+   NAME                                                 PHASE     NODE           IPADDRESS     AGE
+   virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
    ```
 
 1. Подключитесь с помощью консоли к виртуальной машине (для выхода из консоли необходимо нажать `Ctrl+]`):
@@ -126,12 +126,12 @@ weight: 50
    Пример вывода:
 
    ```txt
-   # Successfully connected to linux-vm console. The escape sequence is ^]
+   Successfully connected to linux-vm console. The escape sequence is ^]
    #
-   # linux-vm login: cloud
-   # Password: cloud
-   # ...
-   # cloud@linux-vm:~$
+   linux-vm login: cloud
+   Password: cloud
+   ...
+   cloud@linux-vm:~$
    ```
 
 1. Для удаления созданных ранее ресурсов используйте следующие команды:
@@ -146,6 +146,8 @@ weight: 50
 
 Ресурс `VirtualImage` предназначен для загрузки образов виртуальных машин и их последующего использования для создания дисков виртуальных машин. Данный ресурс доступен только в неймспейсе или проекте в котором он был создан.
 
+При подключении к виртуальной машине доступ к образу предоставляется в режиме «только чтение».
+
 Процесс создания образа включает следующие шаги:
 
 - Пользователь создаёт ресурс `VirtualImage`.
@@ -154,14 +156,43 @@ weight: 50
 
 Существуют различные типы образов:
 
-- ISO-образ — установочный образ, используемый для начальной установки операционной системы. Такие образы выпускаются производителями ОС и используются для установки на физические и виртуальные серверы.
-- Образ диска с предустановленной системой — содержит уже установленную и настроенную операционную систему, готовую к использованию после создания виртуальной машины. Эти образы предлагаются несколькими производителями и могут быть представлены в таких форматах, как qcow2, raw, vmdk и другие.
+- **ISO-образ** — установочный образ, используемый для начальной установки операционной системы. Такие образы выпускаются производителями ОС и используются для установки на физические и виртуальные серверы.
+- **Образ диска с предустановленной системой** — содержит уже установленную и настроенную операционную систему, готовую к использованию после создания виртуальной машины. Готовые образы можно получить на ресурсах разработчиков дистрибутива, либо создать самостоятельно.
 
 Примеры ресурсов для получения образов виртуальной машины:
 
-- [Ubuntu](https://cloud-images.ubuntu.com)
-- [Alt Linux](https://ftp.altlinux.ru/pub/distributions/ALTLinux/platform/images/cloud/x86_64)
+- Ubuntu
+  - [24.04 LTS (Noble Numbat)](https://cloud-images.ubuntu.com/noble/current/)
+  - [22.04 LTS (Jammy Jellyfish)](https://cloud-images.ubuntu.com/jammy/current/)
+  - [20.04 LTS (Focal Fossa)](https://cloud-images.ubuntu.com/focal/current/)
+  - [Minimal images](https://cloud-images.ubuntu.com/minimal/releases/)
+- Debian
+  - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
+  - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
+- AlmaLinux
+  - [9](https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/)
+  - [8](https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/)
+- RockyLinux
+  - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
+  - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
+- CentOS
+  - [10 Stream](https://cloud.centos.org/centos/10-stream/x86_64/images/)
+  - [9 Stream](https://cloud.centos.org/centos/9-stream/x86_64/images/)
+  - [8 Stream](https://cloud.centos.org/centos/8-stream/x86_64/)
+  - [8](https://cloud.centos.org/centos/8/x86_64/images/)
+- Alt Linux
+  - [p10](https://ftp.altlinux.ru/pub/distributions/ALTLinux/p10/images/cloud/x86_64/)
+  - [p9](https://ftp.altlinux.ru/pub/distributions/ALTLinux/p9/images/cloud/x86_64/)
 - [Astra Linux](https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit)
+
+Поддерживаются следующие форматы образов с предустановленной системой:
+
+- qcow2
+- raw
+- vmdk
+- vdi
+
+Также файлы образов могут быть сжаты одним из следующих алгоритмов сжатия: gz, xz.
 
 После создания ресурса, тип и размер образа определяются автоматически и эта информация отражается в статусе ресурса.
 
@@ -187,7 +218,7 @@ weight: 50
    apiVersion: virtualization.deckhouse.io/v1alpha2
    kind: VirtualImage
    metadata:
-     name: ubuntu-22.04
+     name: ubuntu-22-04
    spec:
      # Сохраним образ в DVCR.
      storage: ContainerRegistry
@@ -195,23 +226,23 @@ weight: 50
      dataSource:
        type: HTTP
        http:
-         url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+         url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
    EOF
    ```
 
 1. Проверьте результат создания `VirtualImage`:
 
    ```bash
-   d8 k get virtualimage ubuntu-22.04
+   d8 k get virtualimage ubuntu-22-04
    # или более короткий вариант
-   d8 k get vi ubuntu-22.04
+   d8 k get vi ubuntu-22-04
    ```
 
    Пример вывода:
 
    ```txt
-   # NAME           PHASE   CDROM   PROGRESS   AGE
-   # ubuntu-22.04   Ready   false   100%       23h
+   NAME           PHASE   CDROM   PROGRESS   AGE
+   ubuntu-22-04   Ready   false   100%       23h
    ```
 
 После создания ресурс `VirtualImage` может находиться в следующих состояниях (фазах):
@@ -225,29 +256,31 @@ weight: 50
 
 До тех пор пока образ не перешёл в фазу `Ready`, содержимое всего блока `.spec` допускается изменять. При изменении процесс создании диска запустится заново. После перехода в фазу `Ready` содержимое блока `.spec` менять нельзя!
 
+Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`.
+
 Отследить процесс создания образа можно путем добавления ключа `-w` к предыдущей команде:
 
 ```bash
-d8 k get vi ubuntu-22.04 -w
+d8 k get vi ubuntu-22-04 -w
 ```
 
 Пример вывода:
 
 ```txt
-# NAME           PHASE          CDROM   PROGRESS   AGE
-# ubuntu-22.04   Provisioning   false              4s
-# ubuntu-22.04   Provisioning   false   0.0%       4s
-# ubuntu-22.04   Provisioning   false   28.2%      6s
-# ubuntu-22.04   Provisioning   false   66.5%      8s
-# ubuntu-22.04   Provisioning   false   100.0%     10s
-# ubuntu-22.04   Provisioning   false   100.0%     16s
-# ubuntu-22.04   Ready          false   100%       18s
+NAME           PHASE          CDROM   PROGRESS   AGE
+ubuntu-22-04   Provisioning   false              4s
+ubuntu-22-04   Provisioning   false   0.0%       4s
+ubuntu-22-04   Provisioning   false   28.2%      6s
+ubuntu-22-04   Provisioning   false   66.5%      8s
+ubuntu-22-04   Provisioning   false   100.0%     10s
+ubuntu-22-04   Provisioning   false   100.0%     16s
+ubuntu-22-04   Ready          false   100%       18s
 ```
 
 В описание ресурса `VirtualImage` можно получить дополнительную информацию о скачанном образе:
 
 ```bash
-d8 k describe vi ubuntu-22.04
+d8 k describe vi ubuntu-22-04
 ```
 
 Теперь рассмотрим пример создания образа с хранением его в PVC:
@@ -257,35 +290,35 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22.04-pvc
+  name: ubuntu-22-04-pvc
 spec:
   # Настройки хранения проектного образа.
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
     # Подставьте ваше название StorageClass.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   # Источник для создания образа.
   dataSource:
     type: HTTP
     http:
-      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+      url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
 EOF
 ```
 
 Проверьте результат создания `VirtualImage`:
 
 ```bash
-d8 k get vi ubuntu-22.04-pvc
+d8 k get vi ubuntu-22-04-pvc
 ```
 
 Пример вывода:
 
 ```txt
-# NAME              PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22.04-pvc  Ready   false   100%       23h
+NAME              PHASE   CDROM   PROGRESS   AGE
+ubuntu-22-04-pvc  Ready   false   100%       23h
 ```
 
-Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./ADMIN_GUIDE_RU.md#настройки-классов-хранения-для-образов).
+Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./admin_guide.html#настройки-классов-хранения-для-образов).
 
 ### Создание образа из Container Registry
 
@@ -364,11 +397,11 @@ d8 k get vi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
 
 Пример вывода:
 
-```txt
-# {
-#   "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
-#   "inCluster":"http://10.222.165.239/upload"
-# }
+```json
+{
+  "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
+  "inCluster":"http://10.222.165.239/upload"
+}
 ```
 
 В качестве примера загрузите образ Cirros:
@@ -392,8 +425,8 @@ d8 k get vi some-image
 Пример вывода:
 
 ```txt
-# NAME         PHASE   CDROM   PROGRESS   AGE
-# some-image   Ready   false   100%       1m
+NAME         PHASE   CDROM   PROGRESS   AGE
+some-image   Ready   false   100%       1m
 ```
 
 ### Создание образа из диска
@@ -477,14 +510,14 @@ d8 k  get storageclass
 Пример вывода:
 
 ```txt
-# NAME                          PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-# i-linstor-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# i-linstor-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# i-linstor-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# linstor-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# linstor-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# linstor-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# nfs-4-1-wffc                  nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
+NAME                                 PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+i-sds-replicated-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+i-sds-replicated-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+i-sds-replicated-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+sds-replicated-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+sds-replicated-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+sds-replicated-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+nfs-4-1-wffc                         nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
 ```
 
 С полным описанием параметров конфигурации дисков можно ознакомиться [в документации ресурса](cr.html#virtualdisk).
@@ -505,7 +538,7 @@ spec:
   # Настройки параметров хранения диска.
   persistentVolumeClaim:
     # Подставьте ваше название StorageClass.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
     size: 100Mi
 EOF
 ```
@@ -516,13 +549,17 @@ EOF
 - `Provisioning` - идет процесс создания диска.
 - `Resizing` - идет процесс изменения размера диска.
 - `WaitForFirstConsumer` - диск ожидает создания виртуальной машины, которая будет его использовать.
+- `WaitForUserUpload` - диск ожидает от пользователя загрузки образа (type: Upload).
 - `Ready` - диск создан и готов для использования.
 - `Failed` - произошла ошибка в процессе создания.
+- `PVCLost` - системная ошибка, PVC с данными утерян.
 - `Terminating` - идет процесс удаления диска. Диск может «зависнуть» в данном состоянии, если он еще подключен к виртуальной машине.
 
 До тех пор пока диск не перешёл в фазу `Ready` содержимое всего блока `.spec` допускается изменять. При изменении процесс создании диска запустится заново.
 
-Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./ADMIN_GUIDE_RU.md#настройки-классов-хранения-для-дисков).
+Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`.
+
+Если параметр `.spec.persistentVolumeClaim.storageClassName` не указан, то будет использован `StorageClass` по умолчанию на уровне кластера, либо для образов, если он указан в [настройках модуля](./admin_guide.html#настройки-классов-хранения-для-дисков).
 
 Проверьте состояние диска после создания командой:
 
@@ -533,8 +570,8 @@ d8 k get vd blank-disk
 Пример вывода:
 
 ```txt
-# NAME       PHASE   CAPACITY   AGE
-# blank-disk   Ready   100Mi      1m2s
+NAME       PHASE   CAPACITY   AGE
+blank-disk   Ready   100Mi      1m2s
 ```
 
 ### Создание диска из образа
@@ -546,14 +583,14 @@ d8 k get vd blank-disk
 На примере ранее созданного проектного образа `VirtualImage`, рассмотрим команду позволяющую определить размер распакованного образа:
 
 ```bash
-d8 k get cvi ubuntu-22.04 -o wide
+d8 k get cvi ubuntu-22-04 -o wide
 ```
 
 Пример вывода:
 
 ```txt
-# NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-# ubuntu-22.04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22.04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
+ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 Искомый размер указан в колонке **UNPACKEDSIZE** и равен 2.5Gi.
@@ -572,13 +609,13 @@ spec:
     # Укажем размер больше чем значение распакованного образа.
     size: 10Gi
     # Подставьте ваше название StorageClass.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   # Источник из которого создается диск.
   dataSource:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -594,13 +631,13 @@ spec:
   # Настройки параметров хранения диска.
   persistentVolumeClaim:
     # Подставьте ваше название StorageClass.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   # Источник из которого создается диск.
   dataSource:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -613,9 +650,9 @@ d8 k get vd
 Пример вывода:
 
 ```txt
-# NAME           PHASE   CAPACITY   AGE
-# linux-vm-root    Ready   10Gi       7m52s
-# linux-vm-root-2  Ready   2590Mi     7m15s
+NAME           PHASE   CAPACITY   AGE
+linux-vm-root    Ready   10Gi       7m52s
+linux-vm-root-2  Ready   2590Mi     7m15s
 ```
 
 ### Изменение размера диска
@@ -631,8 +668,8 @@ d8 k get vd linux-vm-root
 Пример вывода:
 
 ```txt
-# NAME          PHASE   CAPACITY   AGE
-# linux-vm-root   Ready   10Gi       10m
+NAME          PHASE   CAPACITY   AGE
+linux-vm-root   Ready   10Gi       10m
 ```
 
 Примените изменения:
@@ -650,15 +687,15 @@ d8 k get vd linux-vm-root
 Пример вывода:
 
 ```txt
-# NAME          PHASE   CAPACITY   AGE
-# linux-vm-root   Ready   11Gi       12m
+NAME          PHASE   CAPACITY   AGE
+linux-vm-root   Ready   11Gi       12m
 ```
 
 ## Виртуальные машины
 
 Для создания виртуальной машины используется ресурс `VirtualMachine`. Его параметры позволяют сконфигурировать:
 
-- [класс виртуальной машины](ADMIN_GUIDE_RU.md#классы-виртуальных-машин)
+- [класс виртуальной машины](admin_guide.html#классы-виртуальных-машин)
 - ресурсы, требуемые для работы виртуальной машины (процессор, память, диски и образы);
 - правила размещения виртуальной машины на узлах кластера;
 - настройки загрузчика и оптимальные параметры для гостевой ОС;
@@ -670,7 +707,7 @@ d8 k get vd linux-vm-root
 
 ### Создание виртуальной машины
 
-Ниже представлен пример простой конфигурации виртуальной машины, запускающей ОС Ubuntu 22.04. В примере используется сценарий первичной инициализации виртуальной машины (cloud-init), который устанавливает гостевого агента `qemu-guest-agent` и сервис `nginx`, а также создает пользователя `cloud` с паролем `cloud`:
+Ниже представлен пример конфигурации виртуальной машины, запускающей ОС Ubuntu 22.04. В примере используется сценарий первичной инициализации виртуальной машины (cloud-init), который устанавливает гостевого агента `qemu-guest-agent` и сервис `nginx`, а также создает пользователя `cloud` с паролем `cloud`:
 
 Пароль в примере был сгенерирован с использованием команды `mkpasswd --method=SHA-512 --rounds=4096 -S saltsalt` и при необходимости вы можете его поменять на свой:
 
@@ -724,16 +761,6 @@ spec:
 EOF
 ```
 
-После создания `VirtualMachine` может находиться в следующих состояниях (фазах):
-
-- `Pending` - ожидание готовности всех зависимых ресурсов, требующихся для запуска виртуальной машины.
-- `Starting` - идет процесс запуска виртуальной машины.
-- `Running` - виртуальная машина запущена.
-- `Stopping` - идет процесс остановки виртуальной машины.
-- `Stopped` - виртуальная машина остановлена.
-- `Terminating` - виртуальная машина удаляется.
-- `Migrating` - виртуальная машина находится в состоянии живой миграции на другой узел.
-
 Проверьте состояние виртуальной машины после создания:
 
 ```bash
@@ -743,58 +770,207 @@ d8 k get vm linux-vm
 Пример вывода:
 
 ```txt
-# NAME        PHASE     NODE           IPADDRESS     AGE
-# linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
+NAME        PHASE     NODE           IPADDRESS     AGE
+linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
 ```
 
 После создания виртуальная машина автоматически получит IP-адрес из диапазона, указанного в настройках модуля (блок `virtualMachineCIDRs`).
 
+### Жизненный цикл виртуальной машины
+
+Виртуальная машина (ВМ) проходит через несколько этапов своего существования — от создания до удаления. Эти этапы называются фазами и отражают текущее состояние ВМ. Чтобы понять, что происходит с ВМ, нужно проверить её статус (поле `.status.phase`), а для более детальной информации — блок `.status.conditions`. Ниже описаны все основные фазы жизненного цикла ВМ, их значение и особенности.
+
+![](./images/vm-lifecycle.ru.png)
+
+- `Pending` - ожидание готовности ресурсов
+
+    ВМ только что создана, перезапущена или запущена после остановки и ожидает готовности необходимых ресурсов (дисков, образов, ip-адресов и т.д.).
+    - Возможные проблемы:
+      - не готовы зависимые ресурсы: диски, образы, классы ВМ, секрет со сценарием начальной конфигурации и пр.
+    - Диагностика: В `.status.conditions` стоит обратить внимание на условия `*Ready`. По ним можно определить, что блокирует переход к следующей фазе, например, ожидание готовности дисков (BlockDevicesReady) или класса ВМ (VirtualMachineClassReady).
+
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type | test(".*Ready"))'
+      ```
+
+- `Starting` - запуск виртуальной машины
+
+    Все зависимые ресурсы ВМ - готовы, и система пытается запустить ВМ на одном из узлов кластера.
+    - Возможные проблемы:
+      - Нет подходящего узла для запуска.
+      - На подходящих узлах недостаточно CPU или памяти.
+      - Превышены квоты неймспейса или проекта.
+    - Диагностика:
+      - Если запуск затягивается, проверьте `.status.conditions`, условие `type: Running`
+
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
+      ```
+
+- `Running` - виртуальная машина запущена
+
+    ВМ успешно запущена и работает.
+    - Особенности:
+      - При установленном в гостевой системе qemu-guest-agent, условие `AgentReady` будет истинно,а в `.status.guestOSInfo` будет отображена информация о запущенной гостевой ОС.
+      - Условие `type: FirmwareUpToDate, status: False` информирует о том, что прошивку ВМ требуется обновить.
+      - Условие `type: ConfigurationApplied, status: False` информирует о том, что конфигурация ВМ не применена для запущенной ВМ.
+      - Условие `type: AwaitingRestartToApplyConfiguration, status: True` отображает информацию о необходимости выполнить вручную перезагрузку ВМ, т.к. некоторые изменения конфигурации невозможно применить без перезагрузки ВМ.
+    - Возможные проблемы:
+      - Внутренний сбой в работе ВМ или гипервизора.
+    - Диагностика:
+      - Проверьте `.status.conditions`, условие `type: Running`
+
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
+      ```
+
+- `Stopping` - ВМ останавливается или перезагружается
+
+- `Stopped` - ВМ остановлена и не потребляет вычислительные ресурсы
+
+- `Terminating` - ВМ удаляется.
+
+    Данная фаза необратима. Все связанные с ВМ ресурсы освобождаются, но не удаляются автоматически.
+
+- `Migrating` - живая миграция ВМ
+
+    ВМ переносится на другой узел кластера (живая миграция).
+    - Особенности:
+      - Миграция ВМ поддерживается только для нелокальных дисков, условие `type: Migratable` отображает информацию о том может ли ВМ мигрировать или нет.
+    - Возможные проблемы:
+      - Несовместимость процессорных инструкций (при использовании типов процессоров host или host-passthrough).
+      - Различие версиях ядер на узлах гипервизоров.
+      - На подходящих узлах недостаточно CPU или памяти.
+      - Превышены квоты неймспейса или проекта.
+    - Диагностика:
+      - Проверьте `.status.conditions` условие `type: Migrating`, а также блок `.status.migrationState`
+
+    ```bash
+    d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
+    ```
+
+Условие `type: SizingPolicyMatched, status: False` отображает несоответствие конфигурации ресурсов политике сайзинга используемого VirtualMachineClass. При нарушении политики сохранить параметры ВМ без приведения ресурсов в соответствие политике - невозможно.
+
+Условия отображают информацию о состоянии ВМ, а также на возникающие проблемы. Понять, что не так с ВМ можно путем их анализа:
+
+```bash
+d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
+```
+
+### Агент гостевой ОС
+
+Для повышения эффективности управления ВМ рекомендуется установить QEMU Guest Agent — инструмент, который обеспечивает взаимодействие между гипервизором и операционной системой внутри ВМ.
+
+Чем поможет агент?
+
+- Обеспечит создание консистентных снимков дисков и ВМ.
+- Позволит получать информацию о работающей ОС, которая будет отражена в статусе ВМ.
+  Пример:
+
+  ```yaml
+  status:
+    guestOSInfo:
+      id: fedora
+      kernelRelease: 6.11.4-301.fc41.x86_64
+      kernelVersion: '#1 SMP PREEMPT_DYNAMIC Sun Oct 20 15:02:33 UTC 2024'
+      machine: x86_64
+      name: Fedora Linux
+      prettyName: Fedora Linux 41 (Cloud Edition)
+      version: 41 (Cloud Edition)
+      versionId: "41"
+  ```
+
+- Позволит отслеживать, что ОС действительно загрузилась:
+
+  ```bash
+  d8 k get vm -o wide
+  ```
+
+  Пример вывода (колонка `AGENT`):
+  ```console
+  NAME     PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS    AGE
+  fedora   Running   6       5%             8000Mi   False          True    True         virtlab-pt-1   10.66.10.1   5d21h
+  ```
+
+Как установить QEMU Guest Agent:
+
+Для Debian-based ОС:
+
+```bash
+sudo apt install qemu-guest-agent
+```
+
+Для Centos-based ОС:
+
+```bash
+sudo yum install qemu-guest-agent
+```
+
+Запуск службы агента:
+
+```bash
+sudo systemctl enable --now qemu-guest-agent
+```
+
 ### Автоматическая конфигурация топологии CPU
 
-Количество сокетов рассчитывается автоматически и зависит от количества ядер.
+Топология CPU виртуальной машины (ВМ) определяет, как ядра процессора распределяются по сокетам. Это важно для обеспечения оптимальной производительности и совместимости с приложениями, которые могут зависеть от конфигурации процессора. В конфигурации ВМ вы задаете только общее количество ядер процессора, а топология (количество сокетов и ядер в каждом сокете) рассчитывается автоматически на основе этого значения.
 
-Для .spec.cpu.cores <= 16:
+Количество ядер процессора указывается в конфигурации ВМ следующим образом:
 
-- Создается один сокет с количеством ядер, равным указанному значению.
-- Шаг инкремента ядер: 1
-- Допустимые значения: любое число от 1 до 16 включительно.
+```yaml
+spec:
+  cpu:
+    cores: 1
+```
 
-Для 16 < .spec.cpu.cores <= 32:
+Далее система автоматически определяет топологию в зависимости от заданного числа ядер. Правила расчета зависят от диапазона количества ядер и описаны ниже.
 
-- Создается два сокета с одинаковым количеством ядер в каждом.
-- Шаг инкремента ядер: 2
-- Допустимые значения: 18, 20, 22, ..., 32.
-- Минимум ядер в сокете: 9
-- Максимум ядер в сокете: 16
+- Если количество ядер от 1 до 16 (1 ≤ `.spec.cpu.cores` ≤ 16):
+  - Используется 1 сокет.
+  - Количество ядер в сокете равно заданному значению.
+  - Шаг изменения: 1 (можно увеличивать или уменьшать количество ядер по одному).
+  - Допустимые значения: любое целое число от 1 до 16 включительно.
+  - Пример: Если задано `.spec.cpu.cores` = 8, то топология: 1 сокет с 8 ядрами.
+- Если количество ядер от 17 до 32 (16 < `.spec.cpu.cores` ≤ 32):
+  - Используется 2 сокета.
+  - Ядра равномерно распределяются между сокетами (количество ядер в каждом сокете одинаковое).
+  - Шаг изменения: 2 (общее количество ядер должно быть четным).
+  - Допустимые значения: 18, 20, 22, 24, 26, 28, 30, 32.
+  - Ограничения: минимум 9 ядер в сокете, максимум 16 ядер в сокете.
+  - Пример: Если задано `.spec.cpu.cores` = 20, то топология: 2 сокета по 10 ядер каждый.
+- Если количество ядер от 33 до 64 (32 < `.spec.cpu.cores` ≤ 64):
+  - Используется 4 сокета.
+  - Ядра равномерно распределяются между сокетами.
+  - Шаг изменения: 4 (общее количество ядер должно быть кратно 4).
+  - Допустимые значения: 36, 40, 44, 48, 52, 56, 60, 64.
+  - Ограничения: минимум 9 ядер в сокете, максимум 16 ядер в сокете.
+  - Пример: Если задано `.spec.cpu.cores` = 40, то топология: 4 сокета по 10 ядер каждый.
+- Если количество ядер больше 64 (`.spec.cpu.cores` > 64):
+  - Используется 8 сокетов.
+  - Ядра равномерно распределяются между сокетами.
+  - Шаг изменения: 8 (общее количество ядер должно быть кратно 8).
+  - Допустимые значения: 72, 80, 88, 96 и так далее до 248
+  - Ограничения: минимум 9 ядер в сокете.
+  - Пример: Если задано `.spec.cpu.cores` = 80, то топология: 8 сокетов по 10 ядер каждый.
 
-Для 32 < .spec.cpu.cores <= 64:
+Шаг изменения указывает, на сколько можно увеличивать или уменьшать общее количество ядер, чтобы они равномерно распределялись по сокетам.
 
-- Создается четыре сокета с одинаковым количеством ядер в каждом.
-- Шаг инкремента ядер: 4
-- Допустимые значения: 36, 40, 44, ..., 64.
-- Минимум ядер в сокете: 9
-- Максимум ядер в сокете: 16
+Максимально возможное количество ядер - 248.
 
-Для .spec.cpu.cores > 64:
-
-- Создается восемь сокетов с одинаковым количеством ядер в каждом.
-- Шаг инкремента ядер: 8
-- Допустимые значения: 72, 80, ...
-- Минимум ядер в сокете: 8
-
-Текущая топология ВМ (реальное количество сокетов и ядер) отображается в статусе ВМ в следующем формате:
+Текущая топология ВМ (количество сокетов и ядер в каждом сокете) отображается в статусе ВМ в следующем формате:
 
 ```yaml
 status:
   resources:
     cpu:
-      coreFraction: 100%
-      cores: 18
-      requestedCores: "18"
+      coreFraction: 10%
+      cores: 1
+      requestedCores: "1"
       runtimeOverhead: "0"
       topology:
-        sockets: 2
-        coresPerSocket: 9
+        sockets: 1
+        coresPerSocket: 1
 ```
 
 ### Подключение к виртуальной машине
@@ -814,9 +990,9 @@ d8 v console linux-vm
 Пример вывода:
 
 ```txt
-# Successfully connected to linux-vm console. The escape sequence is ^]
-# linux-vm login: cloud
-# Password: cloud
+Successfully connected to linux-vm console. The escape sequence is ^]
+linux-vm login: cloud
+Password: cloud
 ```
 
 Нажмите `Ctrl+]` для завершения работы с серийной консолью.
@@ -901,15 +1077,16 @@ d8 k edit vm linux-vm
 
 Если виртуальная машина работает (`.status.phase: Running`), то способ применения изменений зависит от их типа:
 
-| Блок конфигурации                       | Как применяется                        |
-| --------------------------------------- | -------------------------------------- |
-| `.metadata.labels`                      | Сразу                                  |
-| `.metadata.annotations`                 | Сразу                                  |
-| `.spec.runPolicy`                       | Сразу                                  |
-| `.spec.disruptions.restartApprovalMode` | Сразу                                  |
-| `.spec.affinity`                        | EE: Сразу, CE: Требуется перезапуск ВМ |
-| `.spec.nodeSelector`                    | EE: Сразу, CE: Требуется перезапуск ВМ |
-| `.spec.*`                               | Требуется перезапуск ВМ                |
+| Блок конфигурации                       | Как применяется                              |
+| --------------------------------------- | ---------------------------------------------|
+| `.metadata.labels`                      | Сразу                                        |
+| `.metadata.annotations`                 | Сразу                                        |
+| `.spec.liveMigrationPolicy`             | Сразу                                        |
+| `.spec.runPolicy`                       | Сразу                                        |
+| `.spec.disruptions.restartApprovalMode` | Сразу                                        |
+| `.spec.affinity`                        | EE, SE+ : Сразу, CE: Требуется перезапуск ВМ |
+| `.spec.nodeSelector`                    | EE, SE+ : Сразу, CE: Требуется перезапуск ВМ |
+| `.spec.*`                               | Требуется перезапуск ВМ                      |
 
 Рассмотрим пример изменения конфигурации виртуальной машины:
 
@@ -922,7 +1099,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Пример вывода:
 
 ```txt
-# 1
+1
 ```
 
 Примените следующий патч к виртуальной машине, чтобы изменить количество ядер с 1 на 2.
@@ -946,7 +1123,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Пример вывода:
 
 ```txt
-# 1
+1
 ```
 
 Для применения этого изменения необходим перезапуск виртуальной машины. Выполните следующую команду, чтобы увидеть изменения, ожидающие применения (требующие перезапуска):
@@ -957,15 +1134,15 @@ d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
 
 Пример вывода:
 
-```txt
-# [
-#   {
-#     "currentValue": 1,
-#     "desiredValue": 2,
-#     "operation": "replace",
-#     "path": "cpu.cores"
-#   }
-# ]
+```json
+[
+  {
+    "currentValue": 1,
+    "desiredValue": 2,
+    "operation": "replace",
+    "path": "cpu.cores"
+  }
+]
 ```
 
 Выполните команду:
@@ -977,8 +1154,8 @@ d8 k get vm linux-vm -o wide
 Пример вывода:
 
 ```txt
-# NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
-# linux-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
+NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
+linux-vm    Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
 ```
 
 В колонке `NEED RESTART` мы видим значение `True`, а это значит что для применения изменений требуется перезагрузка.
@@ -1000,7 +1177,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Пример вывода:
 
 ```txt
-# 2
+2
 ```
 
 Порядок применения изменений виртуальной машины через «ручной» рестарт является поведением по умолчанию. Если есть необходимость применять внесенные изменения сразу и автоматически, для этого нужно изменить политику применения изменений:
@@ -1236,6 +1413,8 @@ EOF
 - `InProgress` - идет процесс подключения устройства.
 - `Attached` - устройство подключено.
 
+Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`.
+
 Проверьте состояние вашего ресурса:
 
 ```bash
@@ -1244,8 +1423,9 @@ d8 k get vmbda attach-blank-disk
 
 Пример вывода:
 
-```txt# NAME              PHASE      VIRTUAL MACHINE NAME   AGE
-# attach-blank-disk   Attached   linux-vm              3m7s
+```txt
+NAME                PHASE      VIRTUAL MACHINE NAME   AGE
+attach-blank-disk   Attached   linux-vm              3m7s
 ```
 
 Подключитесь к виртуальной машине и удостоверитесь, что диск подключен:
@@ -1257,13 +1437,13 @@ d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 Пример вывода:
 
 ```txt
-# NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
-# sda       8:0    0   10G  0 disk <--- статично подключенный диск linux-vm-root
-# |-sda1    8:1    0  9.9G  0 part /
-# |-sda14   8:14   0    4M  0 part
-# `-sda15   8:15   0  106M  0 part /boot/efi
-# sdb       8:16   0    1M  0 disk <--- cloudinit
-# sdc       8:32   0 95.9M  0 disk <--- динамически подключенный диск blank-disk
+NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sda       8:0    0   10G  0 disk <--- статично подключенный диск linux-vm-root
+|-sda1    8:1    0  9.9G  0 part /
+|-sda14   8:14   0    4M  0 part
+`-sda15   8:15   0  106M  0 part /boot/efi
+sdb       8:16   0    1M  0 disk <--- cloudinit
+sdc       8:32   0 95.9M  0 disk <--- динамически подключенный диск blank-disk
 ```
 
 Для отключения диска от виртуальной машины удалите ранее созданный ресурс:
@@ -1301,7 +1481,7 @@ d8 k label vm linux-vm app=nginx
 Пример вывода:
 
 ```txt
-# virtualmachine.virtualization.deckhouse.io/linux-vm labeled
+virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 ```
 
 #### Публикация сервисов виртуальной машины с использованием сервиса с типом NodePort
@@ -1409,16 +1589,86 @@ EOF
 
 ### Живая миграция виртуальной машины
 
-Миграция виртуальных машин является важной функцией в управлении виртуализованной инфраструктурой. Она позволяет перемещать работающие виртуальные машины с одного физического узла на другой без их отключения.
+Живая миграция виртуальных машин (ВМ) — это процесс перемещения работающей ВМ с одного физического узла на другой без её отключения. Эта функция играет ключевую роль в управлении виртуализованной инфраструктурой, обеспечивая непрерывность работы приложений во время технического обслуживания, балансировки нагрузки или обновлений.
 
-Миграция может осуществляться автоматически при:
+#### Как работает живая миграция
+
+Процесс живой миграции включает несколько этапов:
+
+1. **Создание нового экземпляра ВМ**
+
+   На целевом узле создаётся новая ВМ в приостановленном состоянии. Её конфигурация (процессор, диски, сеть) копируется с исходного узла.
+
+2. **Первичная передача памяти**
+
+   Вся оперативная память ВМ копируется на целевой узел по сети. Это называется первичной передачей.
+
+3. **Отслеживание изменений (Dirty Pages)**
+
+    Пока память передаётся, ВМ продолжает работать на исходном узле и может изменять некоторые страницы памяти. Такие страницы называются «грязными» (dirty pages), и гипервизор их помечает.
+
+4. **Итеративная синхронизация**
+
+   После первичной передачи начинается повторная отправка только изменённых страниц. Этот процесс повторяется в несколько циклов:
+   - Чем выше нагрузка на ВМ, тем больше «грязных» страниц появляется, и тем дольше длится миграция.
+   - При хорошей пропускной способности сети объём несинхронизированных данных постепенно уменьшается.
+
+5. **Финальная синхронизация и переключение**
+
+    Когда количество «грязных» страниц становится минимальным, ВМ на исходном узле приостанавливается (обычно на 100 миллисекунд):
+    - Оставшиеся изменения памяти передаются на целевой узел.
+    - Состояние процессора, устройств и открытых соединений синхронизируется.
+    - ВМ запускается на новом узле, а исходная копия удаляется.
+
+![](./images/migration.ru.png)
+
+{{< alert level="warning" >}}
+Cкорость сети играет важную роль. Если пропускная способность низкая, итераций становится больше, а время простоя ВМ может увеличиться. В худшем случае миграция может вообще не завершиться.
+{{< /alert >}}
+
+#### Виды миграции
+
+Миграция может осуществляться пользователем вручную, либо автоматически при следующих системных событиях:
 
 - Обновлении «прошивки» виртуальной машины.
-- Перебалансировке нагрузки на узлах кластера.
-- Переводе узлов в режим обслуживания для проведения работ.
-- При изменении [параметров размещения ВМ](#размещение-вм-по-узлам) (доступно только в Enterprise-редакции).
+- Перераспределение нагрузки в кластере.
+- Перевод узла в режим технического обслуживания (Drain узла)
+- При изменении [параметров размещения ВМ](#размещение-вм-по-узлам) (не доступно в Community-редакции).
 
-Также миграция виртуальной машины может быть выполнена по требованию пользователя.
+Триггером к живой миграции является появление ресурса `VirtualMachineOperations` с типом `Evict`.
+
+В таблице приведены префиксы названия ресурса `VirtualMachineOperations` с типом `Evict`, создаваемые для живых миграций вызванных системными событиями:
+
+| Вид системного события           | Префикс имени ресурса  |
+|----------------------------------|------------------------|
+| Обновлении «прошивки»            | firmware-update-*      |
+| Перераспределение нагрузки       | evacuation-*           |
+| Drain узла                       | evacuation-*           |
+| Изменение параметров размещения  | nodeplacement-update-* |
+
+Данный ресурс может находится в следующих состояниях:
+
+- `Pending` - ожидается выполнение операции.
+- `InProgress` - живая миграция выполняется.
+- `Completed` - живая миграция виртуальной машины завершилась успешно.
+- `Failed` - живая миграция виртуальной машины завершилась неуспешно.
+
+Посмотреть активные операции можно с использованием команды:
+
+```bash
+d8 k get vmop
+```
+
+Пример вывода:
+
+```txt
+NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
+firmware-update-fnbk2   Completed   Evict   linux-vm            1m
+```
+
+Прервать любую живую миграцию пока она находится в фазе `Pending`, `InProgress` можно удалив соответствующий ресурс `VirtualMachineOperations`.
+
+#### Как выполнить живую миграцию виртуальной машины с использованием `VirtualMachineOperations`.
 
 Рассмотрим пример. Перед запуском миграции посмотрите текущий статус виртуальной машины:
 
@@ -1429,13 +1679,21 @@ d8 k get vm
 Пример вывода:
 
 ```txt
-# NAME                                   PHASE     NODE           IPADDRESS     AGE
-# linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
+NAME                                   PHASE     NODE           IPADDRESS     AGE
+linux-vm                               Running   virtlab-pt-1   10.66.10.14   79m
 ```
 
 Мы видим что на данный момент она запущена на узле `virtlab-pt-1`.
 
-Для осуществления миграции виртуальной машины с одного узла на другой, с учетом требований к размещению виртуальной машины используется ресурс `VirtualMachineOperations` (`vmop`) с типом `Evict`.
+Для осуществления миграции виртуальной машины с одного узла на другой, с учетом требований к размещению виртуальной машины используется команда:
+
+```bash
+d8 v evict -n <namespace> <vm-name>
+```
+
+Выполнение данной команды приводит к созданию ресурса `VirtualMachineOperations`.
+
+Запустить миграцию можно также создав ресурс `VirtualMachineOperations` (`vmop`) с типом `Evict` вручную:
 
 ```yaml
 d8 k create -f - <<EOF
@@ -1448,10 +1706,12 @@ spec:
   virtualMachineName: linux-vm
   # Операция для миграции.
   type: Evict
+  # Разрешить замедление процессора механизмом AutoConverge, для гарантии, что миграция выполнится.
+  force: true
 EOF
 ```
 
-Сразу после создания ресурса `vmip`, выполните команду:
+Для отслеживания миграции виртуальной машины сразу после создания ресурса `vmop`, выполните команду:
 
 ```bash
 d8 k get vm -w
@@ -1460,17 +1720,44 @@ d8 k get vm -w
 Пример вывода:
 
 ```txt
-# NAME                                  PHASE       NODE           IPADDRESS     AGE
-# linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
+NAME                                  PHASE       NODE           IPADDRESS     AGE
+linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
-Также для выполнения миграции можно использовать команду:
+#### Живая миграция виртуальной машины при изменении параметров размещения (недоступно в CE редакции)
 
-```bash
-d8 v evict <vm-name>
+Рассмотрим механизм миграции на примере кластера с двумя группами узлов (`NodeGroups`): green и blue . Допустим, виртуальная машина (ВМ) изначально запущена на узле группы green , а её конфигурация не содержит ограничений на размещение.
+
+Шаг 1. Добавление параметра размещения
+Укажем в спецификации ВМ требование к размещению в группе green :
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: green
+```
+
+После сохранения изменений ВМ продолжит работать на текущем узле, так как условие `nodeSelector` уже выполняется.
+
+Шаг 2. Изменение группы размещения
+Изменим требование на размещение в группе blue :
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: blue
+```
+
+Теперь текущий узел (группы green) не соответствует новым условиям. Система автоматически создаст объект `VirtualMachineOperations` типа Evict, что инициирует живую миграцию ВМ на доступный узел группы blue.
+
+Пример вывода ресурса
+
+```txt
+NAME                         PHASE       TYPE    VIRTUALMACHINE      AGE
+nodeplacement-update-dabk4   Completed   Evict   linux-vm            1m
 ```
 
 ## IP-адреса виртуальных машин
@@ -1488,8 +1775,8 @@ d8 k get vmipl
 Пример вывода:
 
 ```txt
-# NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
-# ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
+NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
+ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
 Ресурс `VirtualMachineIPAddress` (`vmip`): проектный/неймспейсный ресурс, который отвечает за резервирование арендованных IP-адресов и их привязку к виртуальным машинам. IP-адреса могут выделяться автоматически или по явному запросу.
@@ -1503,8 +1790,8 @@ d8 k get vmipl
 Пример вывода:
 
 ```txt
-# NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
-# ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
+NAME             VIRTUALMACHINEIPADDRESS                             STATUS   AGE
+ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
 По умолчанию IP-адрес виртуальной машине назначается автоматически из подсетей, определенных в модуле и закрепляется за ней до её удаления. Проверить назначенный IP-адрес можно с помощью команды:
@@ -1516,8 +1803,8 @@ k get vmip
 Пример вывода:
 
 ```txt
-# NAME             ADDRESS       STATUS     VM         AGE
-# linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
+NAME             ADDRESS       STATUS     VM         AGE
+linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
 
 Алгоритм автоматического присвоения IP-адреса виртуальной машине выглядит следующим образом:
@@ -1570,7 +1857,7 @@ d8 k get vm linux-vm -o jsonpath="{.status.virtualMachineIPAddressName}"
 Пример вывода:
 
 ```txt
-# linux-vm-7prpx
+linux-vm-7prpx
 ```
 
 Удалите блоки `.metadata.ownerReferences` из найденного ресурса:
@@ -1604,17 +1891,23 @@ EOF
 
 Снимки предназначены для сохранения состояния ресурса в конкретный момент времени. На данный момент времени поддерживаются снимки дисков и снимки виртуальных машин.
 
-### Создание снимков из дисков
+### Создание снимков дисков
 
-Для создания снимков дисков используется ресурс `VirtualDiskSnapshot`. Он может быть использован в качестве источников данных для создания новых виртуальных дисков.
+Для создания снимков виртуальных дисков используется ресурс `VirtualDiskSnapshot` . Эти снимки могут служить источником данных при создании новых дисков, например, для клонирования или восстановления информации.
 
-Для гарантии целостности и консистентности данных, снимок диска можно создать в следующих случаях:
+Чтобы гарантировать целостность данных, снимок диска можно создать в следующих случаях:
 
-- виртуальный диск не подключен ни к одной виртуальной машине;
-- виртуальный диск подключен к виртуальной машине, которая выключена;
-- виртуальный диск подключен к запущенной виртуальной машине, в ОС виртуальной машины установлен агент (`qemu-guest-agent`), операция по «заморозке» файловой системы прошла успешно.
+- Диск не подключен ни к одной виртуальной машине.
+- ВМ выключена.
+- ВМ запущена, но yстановлен qemu-guest-agent в гостевой ОС.
+Файловая система успешно "заморожена" (операция fsfreeze).
 
-Если целостность и консистентность неважна, снимок можно выполнить на работающей виртуальной машине и без «заморозки» файловой системы, для этого в спецификации ресурса `VirtualDiskSnapshot` добавить:
+Если консистентность данных не требуется (например, для тестовых сценариев), снимок можно создать:
+
+- На работающей ВМ без "заморозки" файловой системы.
+- Даже если диск подключен к активной ВМ.
+
+Для этого в манифесте VirtualDiskSnapshot укажите:
 
 ```yaml
 spec:
@@ -1632,9 +1925,9 @@ d8 k get volumesnapshotclasses
 Пример вывода:
 
 ```txt
-# NAME                     DRIVER                                DELETIONPOLICY   AGE
-# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+NAME                     DRIVER                                DELETIONPOLICY   AGE
+csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 Пример манифеста для создания снимка диска:
@@ -1661,8 +1954,8 @@ d k get vdsnapshot
 Пример вывода:
 
 ```txt
-# NAME                   PHASE     CONSISTENT   AGE
-# linux-vm-root-snapshot Ready     true         3m2s
+NAME                   PHASE     CONSISTENT   AGE
+linux-vm-root-snapshot Ready     true         3m2s
 ```
 
 После создания `VirtualDiskSnapshot` может находиться в следующих состояниях (фазах):
@@ -1672,6 +1965,8 @@ d k get vdsnapshot
 - `Ready` — создание снимка успешно завершено, и снимок виртуального диска доступен для использования.
 - `Failed` — произошла ошибка во время процесса создания снимка виртуального диска.
 - `Terminating` — ресурс находится в процессе удаления.
+
+Диагностика проблем с ресурсом осуществляется путем анализа информации в блоке `.status.conditions`.
 
 С полным описанием параметров конфигурации ресурса `VirtualDiskSnapshot` машин можно ознакомиться [в документации ресурса](cr.html#virtualdisksnapshot).
 
@@ -1691,7 +1986,7 @@ spec:
     # Укажем размер больше чем значение .
     size: 10Gi
     # Подставьте ваше название StorageClass.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   # Источник из которого создается диск.
   dataSource:
     type: ObjectRef
@@ -1705,12 +2000,34 @@ EOF
 
 Для создания снимков виртуальных машин используется ресурс `VirtualMachineSnapshot`.
 
-Чтобы гарантировать целостность и консистентность данных, снимок виртуальной машины будет создан, если выполняется хотя бы одно из следующих условий:
+Снимки можно использовать для реализации следующих сценариев:
+- [Восстановление ВМ на момент создания снимка](#восстановление-виртуальной-машины)
+- [Создание клона ВМ / Использование снимка как шаблона для создания ВМ](#создание-клона-вм--использование-снимка-как-шаблона-для-создания-вм)
 
-- виртуальная машина выключена;
-- в операционной системе виртуальной машины установлен агент (qemu-guest-agent), и операция по "заморозке" файловой системы прошла успешно.
+![](./images/vm-restore-clone.ru.png)
 
-Если целостность и консистентность неважны, снимок можно создать на работающей виртуальной машине и без «заморозки» файловой системы. Для этого в спецификации ресурса `VirtualMachineSnapshot` укажите:
+Если снимок планируется использовать как шаблон, перед его созданием выполните в гостевой ОС:
+
+- Удаление персональных данных (файлы, пароли, история команд).
+- Установку критических обновлений ОС.
+- Очистку системных журналов.
+- Сброс сетевых настроек.
+- Удаление уникальных идентификаторов (например, через `sysprep` для Windows).
+- Оптимизацию дискового пространства.
+- Сброс конфигураций инициализации (`cloud-init clean`).
+
+{{< alert level="info" >}}
+Снимок содержит конфигурацию виртуальной машины и снимки всех её дисков.
+
+Восстановление снимка предполагает полное восстановление виртуальной машины на моммент создания её снимка.
+{{< /alert >}}
+
+Снимок будет создан успешно, если:
+
+- ВМ выключена
+- Установлен `qemu-guest-agent` и файловая система успешно "заморожена".
+
+Если целостность данных не критична, снимок можно создать на работающей ВМ без заморозки ФС. Для этого укажите в спецификации:
 
 ```yaml
 spec:
@@ -1728,9 +2045,9 @@ d8 k get volumesnapshotclasses
 Пример вывода:
 
 ```txt
-# NAME                     DRIVER                                DELETIONPOLICY   AGE
-# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+NAME                     DRIVER                                DELETIONPOLICY   AGE
+csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 Создание снимка виртуальной машины будет неудачным, если выполнится хотя бы одно из следующих условий:
@@ -1739,7 +2056,7 @@ d8 k get volumesnapshotclasses
 - есть изменения, ожидающие перезапуска виртуальной машины;
 - среди зависимых устройств есть диск, находящийся в процессе изменения размера.
 
-При создании снимка виртуальной машины IP-адрес будет преобразован в статичный и будет использован позже при восстановлении виртуальной машины из снимка.
+При создании снимка динамический IP-адрес ВМ автоматически преобразуется в статический и сохраняется для восстановления.
 
 Если не требуется преобразование и использование старого IP-адреса виртуальной машины, можно установить соответствующую политику в значение `Never`. В этом случае будет использован тип адреса без преобразования (`Auto` или `Static`).
 
@@ -1759,22 +2076,29 @@ metadata:
 spec:
   virtualMachineName: linux-vm
   volumeSnapshotClasses:
-    - storageClassName: i-linstor-thin-r2 # Подставьте ваше название StorageClass.
+    - storageClassName: i-sds-replicated-thin-r2 # Подставьте ваше название StorageClass.
       volumeSnapshotClassName: sds-replicated-volume # Подставьте ваше название VolumeSnapshotClass.
   requiredConsistency: true
   keepIPAddress: Never
 EOF
 ```
 
-### Восстановление виртуальных машин из снимков
+### Восстановление из снимков
 
-Для восстановления виртуальных машин из снимков используется ресурс `VirtualMachineRestore`.
+Для восстановления виртуальной машины из снимка используется ресурс `VirtualMachineRestore` . В процессе восстановления в кластере автоматически создаются следующие объекты:
 
-В процессе восстановления будет создана новая виртуальная машина, а также все её зависимые ресурсы (диски, IP-адрес, ресурс со сценарием автоматизации (`Secret`) и ресурсы для динамического подключения дисков (`VirtualMachineBlockDeviceAttachment`)).
+- VirtualMachine — основной ресурс ВМ с конфигурацией из снимка.
+- VirtualDisk — диски, подключенные к ВМ на момент создания снимка.
+- VirtualBlockDeviceAttachment — связи дисков с ВМ (если они существовали в исходной конфигурации).
+- Secret — секреты с настройками cloud-init или sysprep (если они были задействованы в оригинальной ВМ).
 
-Если возникает конфликт имен между существующими и восстанавливаемыми ресурсами для `VirtualMachine`, `VirtualDisk` или `VirtualMachineBlockDeviceAttachment`, восстановление не будет успешно. Чтобы избежать этого, используйте параметр `nameReplacements`.
+Важно: ресурсы создаются только в том случае , если они присутствовали в конфигурации ВМ на момент создания снимка. Это гарантирует восстановление точной копии среды, включая все зависимости и настройки.
 
-Если восстанавливаемый ресурс `VirtualMachineIPAddress` уже присутствует в кластере, он не должен быть присоединен к другой виртуальной машине, а если это ресурс типа Static, его IP-адрес должен совпадать. Восстанавливаемый секрет с автоматизацией также должен полностью соответствовать восстановленному. Несоблюдение этих условий приведет к неудаче восстановления.
+#### Восстановление виртуальной машины
+
+{{< alert level="warning" >}}
+Чтобы восстановить виртуальную машину, необходимо удалить её текущую конфигурацию и все связанные диски. Это связано с тем, что процесс восстановления возвращает виртуальную машину и её диски к состоянию, зафиксированному в момент создания резервного снимка.
+{{< /alert >}}
 
 Пример манифеста для восстановления виртуальной машины из снимка:
 
@@ -1783,25 +2107,52 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineRestore
 metadata:
-  name: linux-vm-restore
+  name: <restore name>
 spec:
-  virtualMachineSnapshotName: linux-vm-snapshot
+  virtualMachineSnapshotName: <virtual machine snapshot name>
+EOF
+```
+
+#### Создание клона ВМ / Использование снимка как шаблона для создания ВМ
+
+Снимок виртуальной машины может использоваться как для создания её точной копии (клона), так и в качестве шаблона для развёртывания новых ВМ с аналогичной конфигурацией.
+
+Для этого требуется создать ресурс `VirtualMachineRestore` и задать параметры переименования в блоке `.spec.nameReplacements`, чтобы избежать конфликтов имён.
+
+Пример манифеста для восстановления ВМ из снимка:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineRestore
+metadata:
+  name: <name>
+spec:
+  virtualMachineSnapshotName: <virtual machine snapshot name>
   nameReplacements:
     - from:
         kind: VirtualMachine
-        name: linux-vm
-      to: linux-vm-2 # воссоздать существующую виртуальную машину `linux-vm` с новым именем `linux-vm-2`.
+        name: <old vm name>
+      to: <new vm name>
     - from:
         kind: VirtualDisk
-        name: linux-vm-root
-      to: linux-vm-root-2 # воссоздать существующий виртуальный диск `linux-vm-root` с новым именем `linux-vm-root-2`.
+        name: <old disk name>
+      to: <new disk name>
     - from:
         kind: VirtualDisk
-        name: blank-disk
-      to: blank-disk-2 # воссоздать существующий виртуальный диск `blank-disk` с новым именем `blank-disk-2`.
+        name: <old secondary disk name>
+      to: <new secondary disk name>
     - from:
         kind: VirtualMachineBlockDeviceAttachment
-        name: attach-blank-disk
-      to: attach-blank-disk-2 # воссоздать существующий виртуальный диск `attach-blank-disk` с новым именем `attach-blank-disk-2`.
+        name: <old attachment name>
+      to: <new attachment name>
 EOF
 ```
+
+При восстановлении виртуальной машины из снимка важно учитывать следующие условия:
+
+1. Если ресурс `VirtualMachineIPAddress` уже существует в кластере, он не должен быть назначен другой ВМ .
+2. Для статических IP-адресов (`type: Static`) значение должно полностью совпадать с тем, что было зафиксировано в снимке.
+3. Секреты, связанные с автоматизацией (например, конфигурация cloud-init или sysprep), должны точно соответствовать восстанавливаемой конфигурации.
+
+Несоблюдение этих требований приведёт к ошибке восстановления . Это связано с тем, что система проверяет целостность конфигурации и уникальность ресурсов для предотвращения конфликтов в кластере.
