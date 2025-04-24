@@ -18,7 +18,6 @@ packages:
 - gcc
 - git pkg-config trousers
 - automake autoconf make makeinfo libtool
-- tree
 - libburn-devel libisofs-devel
 {{- end -}}
 
@@ -29,7 +28,7 @@ final: false
 fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
-  value: "https://dev.lovelyhq.com"
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
     - |
@@ -55,12 +54,8 @@ shell:
       make DESTDIR=$OUTDIR install
 
       strip $OUTDIR/usr/bin/xorriso
-      echo "LDDLDD:"
-      ldd $OUTDIR/usr/bin/xorriso
 
       # We don't need man, test and samples files
       rm -rf $OUTDIR/usr/include
       rm -rf $OUTDIR/usr/share
       rm -rf $OUTDIR/usr/lib64/pkgconfig
-
-      tree $OUTDIR
