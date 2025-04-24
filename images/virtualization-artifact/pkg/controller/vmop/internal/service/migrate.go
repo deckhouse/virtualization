@@ -96,7 +96,11 @@ func (o MigrateOperation) IsComplete(ctx context.Context) (bool, string, error) 
 		case virtv1.MigrationSucceeded:
 			return true, "", nil
 		case virtv1.MigrationFailed:
-			return true, fmt.Sprintf("Migration failed: %s", mig.Status.MigrationState.FailureReason), nil
+			msg := "Migration failed"
+			if mig.Status.MigrationState != nil && mig.Status.MigrationState.FailureReason != "" {
+				msg += ": " + mig.Status.MigrationState.FailureReason
+			}
+			return true, msg + ".", nil
 		default:
 			return false, "", nil
 		}
