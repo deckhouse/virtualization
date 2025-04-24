@@ -109,10 +109,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, s)
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-		if s.ShouldDeletion() {
-			return r.client.Delete(ctx, lease.Changed())
-		}
-
 		if !reflect.DeepEqual(lease.Current().Spec, lease.Changed().Spec) {
 			leaseStatus := lease.Changed().Status.DeepCopy()
 			err = r.client.Update(ctx, lease.Changed())
@@ -122,7 +118,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			lease.Changed().Status = *leaseStatus
 		}
 
-		return lease.Update(ctx)
+		err = lease.Update(ctx)
+		if err != nil {
+			return err
+		}
+
+		if s.ShouldDeletion() {
+			return r.client.Delete(ctx, lease.Changed())
+		}
+
+		return nil
 	})
 
 	return rec.Reconcile(ctx)

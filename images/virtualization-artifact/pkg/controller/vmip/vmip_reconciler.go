@@ -19,6 +19,7 @@ package vmip
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -33,6 +34,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -163,7 +165,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return vmip.Update(ctx)
 	})
 
-	return rec.Reconcile(ctx)
+	result, err := rec.Reconcile(ctx)
+	if err != nil {
+		logger.FromContext(ctx).Error("Failed to reconcile VMIP", logger.SlogErr(err))
+		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+	if result.Requeue {
+		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
+	return result, nil
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachineIPAddress {

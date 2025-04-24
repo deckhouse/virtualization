@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -183,7 +184,7 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 
 	h.recorder.Event(vmip, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineIPAddress is bound to a new VirtualMachineIPAddressLease.")
 
-	return reconcile.Result{}, nil
+	return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 }
 
 func (h IPLeaseHandler) Name() string {
