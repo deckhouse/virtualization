@@ -53,7 +53,7 @@ import:
 - image: packages/binaries/nbd
   add: /nbd
   to: /nbd
-  after: setup
+  before: install
 shell:
   install:
   - |
