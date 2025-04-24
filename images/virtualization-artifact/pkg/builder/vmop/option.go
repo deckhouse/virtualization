@@ -17,8 +17,6 @@ limitations under the License.
 package vmop
 
 import (
-	"k8s.io/utils/ptr"
-
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -48,14 +46,8 @@ func WithVirtualMachine(vm string) Option {
 	}
 }
 
-func WithForce() Option {
+func WithForce(force *bool) Option {
 	return func(vmop *v1alpha2.VirtualMachineOperation) {
-		vmop.Spec.Force = ptr.To(true)
-	}
-}
-
-func WithForceFalse() Option {
-	return func(vmop *v1alpha2.VirtualMachineOperation) {
-		vmop.Spec.Force = ptr.To(false)
+		vmop.Spec.Force = force
 	}
 }

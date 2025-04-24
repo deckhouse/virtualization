@@ -29,7 +29,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var _ = Describe("TestEvacuationHandler", func() {
+var _ = Describe("TestDynamicSettingsHandler", func() {
 	const (
 		vmName      = "vm-migratable"
 		vmNamespace = "default"
