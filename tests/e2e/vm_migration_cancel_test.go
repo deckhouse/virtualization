@@ -181,6 +181,6 @@ var _ = Describe("Virtual machine migration cancel", SIGMigration(), ginkgoutil.
 				}
 			}
 			return nil
-		}).WithTimeout(LongWaitDuration).WithPolling(time.Second).ShouldNot(HaveOccurred())
+		}).WithTimeout(MaxWaitTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
 	})
 })
