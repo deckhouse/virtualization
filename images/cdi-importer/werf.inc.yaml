@@ -26,7 +26,7 @@ binaries:
   # Mount
   - /usr/bin/mount /usr/bin/umount
   # Sqlite libs
-  - /usr/lib64/libsqlite3.so.0 
+  - /usr/lib64/libsqlite3.so.0
   # Block device binaries
   - /usr/sbin/blockdev
   # CDI binaries
@@ -52,6 +52,10 @@ import:
   add: /qemu-img
   to: /relocate
   before: setup
+- image: packages/binaries/nbd
+  add: /nbd
+  to: /relocate
+  after: setup
 shell:
   install:
   - |
