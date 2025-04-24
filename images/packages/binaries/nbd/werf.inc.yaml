@@ -18,6 +18,7 @@ packages:
 - git gcc
 - automake autoconf-archive make libtool
 - glib2-devel bison flex setproctitle libnl-devel docbook-utils
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -64,5 +65,4 @@ shell:
       rm -rf $OUTDIR/usr/share
       rm -rf $OUTDIR/usr/libexec/installed-tests
 
-      apt-get install -y tree
       tree $OUTDIR
