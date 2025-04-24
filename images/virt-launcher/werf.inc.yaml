@@ -70,7 +70,6 @@ libs:
   - libdaxctl-devel
   - libfuse3-devel
   - rdma-core-devel
-  - libnuma-devel
   - bzlib-devel
   - liblzo2-devel
   - libsnappy-devel
@@ -113,7 +112,6 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
-  - libswtpm-devel
 packages:
   - acl
   - attr
@@ -126,7 +124,6 @@ packages:
   - iptables
   - libffi8
   - nftables
-  - numactl
   - openssl
   - passt
   - pcre
@@ -150,7 +147,7 @@ binaries:
   # Dmidecode
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
-  - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numademo /usr/bin/numastat
+  - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
   # Hwclock
   - /usr/sbin/hwclock
 {{- end -}}
@@ -238,7 +235,12 @@ import:
 
 - image: packages/binaries/swtpm
   add: /swtpm
-  to: /
+  to: /swtpm
+  before: install
+
+- image: packages/binaries/numactl
+  add: /numactl
+  to: /numactl
   before: install
 
 
@@ -311,11 +313,13 @@ shell:
     cp -a /VBINS/. /relocate
 
     cp -a /xorriso/. /
+    cp -a /swtpm/. /
+    cp -a /numactl/. /
 
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins,swtpm,numactl}
 
   setup:
   - |

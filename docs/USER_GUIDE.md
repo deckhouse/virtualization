@@ -25,7 +25,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
      dataSource:
        type: HTTP
        http:
-         url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+         url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
    EOF
    ```
 
@@ -107,14 +107,14 @@ Example of creating a virtual machine with Ubuntu 22.04.
    Example output:
 
    ```txt
-   # NAME                                                 PHASE   CDROM   PROGRESS   AGE
-   # virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
+   NAME                                                 PHASE   CDROM   PROGRESS   AGE
+   virtualimage.virtualization.deckhouse.io/ubuntu      Ready   false   100%
    #
-   # NAME                                                 PHASE   CAPACITY   AGE
-   # virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
+   NAME                                                 PHASE   CAPACITY   AGE
+   virtualdisk.virtualization.deckhouse.io/linux-disk   Ready   300Mi      7h40m
    #
-   # NAME                                                 PHASE     NODE           IPADDRESS     AGE
-   # virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
+   NAME                                                 PHASE     NODE           IPADDRESS     AGE
+   virtualmachine.virtualization.deckhouse.io/linux-vm  Running   virtlab-pt-2   10.66.10.2    7h46m
    ```
 
 1. Connect to the virtual machine using the console (press `Ctrl+]` to exit the console):
@@ -126,12 +126,12 @@ Example of creating a virtual machine with Ubuntu 22.04.
    Example output:
 
    ```txt
-   # Successfully connected to linux-vm console. The escape sequence is ^]
+   Successfully connected to linux-vm console. The escape sequence is ^]
    #
-   # linux-vm login: cloud
-   # Password: cloud
-   # ...
-   # cloud@linux-vm:~$
+   linux-vm login: cloud
+   Password: cloud
+   ...
+   cloud@linux-vm:~$
    ```
 
 1. Use the following commands to delete previously created resources:
@@ -146,6 +146,8 @@ Example of creating a virtual machine with Ubuntu 22.04.
 
 The `VirtualImage` resource is designed to load virtual machine images and then use them to create virtual machine disks. This resource is available only in the nymspace or project in which it was created.
 
+When connected to a virtual machine, the image is accessed in read-only mode.
+
 The image creation process includes the following steps:
 
 - The user creates a `VirtualImage` resource.
@@ -154,10 +156,39 @@ The image creation process includes the following steps:
 
 There are different types of images:
 
-- ISO image - an installation image used for the initial installation of an operating system. Such images are released by OS vendors and are used for installation on physical and virtual servers.
-- Preinstalled disk image - contains an already installed and configured operating system ready for use after the virtual machine is created. These images are offered by several vendors and can be provided in formats such as qcow2, raw, vmdk, and others.
+- **ISO image**: an installation image used for the initial installation of an operating system. Such images are released by OS vendors and are used for installation on physical and virtual servers.
+- **Preinstalled disk image**: contains an already installed and configured operating system ready for use after the virtual machine is created. Ready images can be obtained from the distribution developers' resources or created by yourself.
 
-Example of resource for obtaining virtual machine images [Ubuntu](https://cloud-images.ubuntu.com)
+Examples of resources for obtaining virtual machine images:
+
+- Ubuntu
+  - [24.04 LTS (Noble Numbat)](https://cloud-images.ubuntu.com/noble/current/)
+  - [22.04 LTS (Jammy Jellyfish)](https://cloud-images.ubuntu.com/jammy/current/)
+  - [20.04 LTS (Focal Fossa)](https://cloud-images.ubuntu.com/focal/current/)
+  - [Minimal images](https://cloud-images.ubuntu.com/minimal/releases/)
+- Debian
+  - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
+  - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
+- AlmaLinux
+  - [9](https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/)
+  - [8](https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/)
+- RockyLinux
+  - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
+  - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
+- CentOS
+  - [10 Stream](https://cloud.centos.org/centos/10-stream/x86_64/images/)
+  - [9 Stream](https://cloud.centos.org/centos/9-stream/x86_64/images/)
+  - [8 Stream](https://cloud.centos.org/centos/8-stream/x86_64/)
+  - [8](https://cloud.centos.org/centos/8/x86_64/images/)
+
+The following preinstalled image formats are supported:
+
+- qcow2
+- raw
+- vmdk
+- vdi
+
+Image files can also be compressed with one of the following compression algorithms: gz, xz.
 
 Once a share is created, the image type and size are automatically determined, and this information is reflected in the share status.
 
@@ -181,7 +212,7 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22.04
+  name: ubuntu-22-04
 spec:
   # Save the image to DVCR
   storage: ContainerRegistry
@@ -189,23 +220,23 @@ spec:
   dataSource:
     type: HTTP
     http:
-      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+      url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
 EOF
 ```
 
 Check the result of the `VirtualImage` creation:
 
 ```bash
-d8 k get virtualimage ubuntu-22.04
+d8 k get virtualimage ubuntu-22-04
 # or a shorter version
-d8 k get vi ubuntu-22.04
+d8 k get vi ubuntu-22-04
 ```
 
 Example output:
 
 ```txt
-# NAME           PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22.04   Ready   false   100%       23h
+NAME           PHASE   CDROM   PROGRESS   AGE
+ubuntu-22-04   Ready   false   100%       23h
 ```
 
 After creation the `VirtualImage` resource can be in the following states (phases):
@@ -215,33 +246,35 @@ After creation the `VirtualImage` resource can be in the following states (phase
 - `Provisioning` - the image creation process is in progress.
 - `Ready` - the image is created and ready for use.
 - `Failed` - an error occurred during the image creation process.
-- `Terminating` - the image is being deleted. The image may “hang” in this state if it is still connected to the virtual machine.
+- `Terminating` - the image is being deleted. The image may "hang" in this state if it is still connected to the virtual machine.
 
 As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. After entering the `Ready` phase, the contents of the `.spec` block cannot be changed!
+
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
 
 You can trace the image creation process by adding the `-w` key to the previous command:
 
 ```bash
-d8 k get vi ubuntu-22.04 -w
+d8 k get vi ubuntu-22-04 -w
 ```
 
 Example output:
 
 ```txt
-# NAME           PHASE          CDROM   PROGRESS   AGE
-# ubuntu-22.04   Provisioning   false              4s
-# ubuntu-22.04   Provisioning   false   0.0%       4s
-# ubuntu-22.04   Provisioning   false   28.2%      6s
-# ubuntu-22.04   Provisioning   false   66.5%      8s
-# ubuntu-22.04   Provisioning   false   100.0%     10s
-# ubuntu-22.04   Provisioning   false   100.0%     16s
-# ubuntu-22.04   Ready          false   100%       18s
+NAME           PHASE          CDROM   PROGRESS   AGE
+ubuntu-22-04   Provisioning   false              4s
+ubuntu-22-04   Provisioning   false   0.0%       4s
+ubuntu-22-04   Provisioning   false   28.2%      6s
+ubuntu-22-04   Provisioning   false   66.5%      8s
+ubuntu-22-04   Provisioning   false   100.0%     10s
+ubuntu-22-04   Provisioning   false   100.0%     16s
+ubuntu-22-04   Ready          false   100%       18s
 ```
 
 The `VirtualImage` resource description provides additional information about the downloaded image:
 
 ```bash
-d8 k describe vi ubuntu-22.04
+d8 k describe vi ubuntu-22-04
 ```
 
 Now let's look at an example of creating an image and storing it in PVC:
@@ -251,34 +284,34 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: ubuntu-22.04-pvc
+  name: ubuntu-22-04-pvc
 spec:
   storage: PersistentVolumeClaim
   persistentVolumeClaim:
     # Substitute your StorageClass name.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   # Source for image creation.
   dataSource:
     type: HTTP
     http:
-      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
+      url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
 EOF
 ```
 
 Check the result of the `VirtualImage` creation:
 
 ```bash
-d8 k get vi ubuntu-22.04-pvc
+d8 k get vi ubuntu-22-04-pvc
 ```
 
 Example output:
 
 ```txt
-# NAME              PHASE   CDROM   PROGRESS   AGE
-# ubuntu-22.04-pvc  Ready   false   100%       23h
+NAME              PHASE   CDROM   PROGRESS   AGE
+ubuntu-22-04-pvc  Ready   false   100%       23h
 ```
 
-If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-images).
+If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-images).
 
 ### Creating an image from Container Registry
 
@@ -355,11 +388,11 @@ d8 k get vi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
 
 Example output:
 
-```txt
-# {
-#   "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
-#   "inCluster":"http://10.222.165.239/upload"
-# }
+```json
+{
+  "external":"https://virtualization.example.com/upload/g2OuLgRhdAWqlJsCMyNvcdt4o5ERIwmm",
+  "inCluster":"http://10.222.165.239/upload"
+}
 ```
 
 As an example, download the Cirros image:
@@ -383,8 +416,8 @@ d8 k get vi some-image
 Example output:
 
 ```txt
-# NAME         PHASE   CDROM   PROGRESS   AGE
-# some-image   Ready   false   100%       1m
+NAME         PHASE   CDROM   PROGRESS   AGE
+some-image   Ready   false   100%       1m
 ```
 
 ### Creating an image from a disk
@@ -470,19 +503,19 @@ d8 k get storageclass
 Example output:
 
 ```txt
-# NAME                          PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-# i-linstor-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# i-linstor-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# i-linstor-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
-# linstor-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# linstor-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# linstor-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
-# nfs-4-1-wffc                  nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
+NAME                                 PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
+i-sds-replicated-thin-r1 (default)   replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+i-sds-replicated-thin-r2             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+i-sds-replicated-thin-r3             replicated.csi.storage.deckhouse.io   Delete          Immediate              true                   48d
+sds-replicated-thin-r1               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+sds-replicated-thin-r2               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+sds-replicated-thin-r3               replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   48d
+nfs-4-1-wffc                         nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   30d
 ```
 
 A full description of the disk configuration settings can be found at [link](cr.html#virtualdisk).
 
-### Create an empty disk
+##Create an empty disk
 
 Empty disks are usually used to install an OS on them, or to store some data.
 
@@ -498,7 +531,7 @@ spec:
   # Disk storage parameter settings.
   persistentVolumeClaim:
     # Substitute your StorageClass name.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
     size: 100Mi
 EOF
 ```
@@ -509,13 +542,17 @@ After creation, the `VirtualDisk` resource can be in the following states (phase
 - `Provisioning` - disk creation process is in progress.
 - `Resizing` - the process of resizing the disk is in progress.
 - `WaitForFirstConsumer` - the disk is waiting for the virtual machine that will use it to be created.
+- `WaitForUserUpload` - the disk is waiting for the user to upload an image (type: Upload).
 - `Ready` - the disk has been created and is ready for use.
 - `Failed` - an error occurred during the creation process.
-- `Terminating` - the disk is being deleted. The disk may “hang” in this state if it is still connected to the virtual machine.
+- `PVCLost` - system error, PVC with data has been lost.
+- `Terminating` - the disk is being deleted. The disk may "hang" in this state if it is still connected to the virtual machine.
 
 As long as the disk has not entered the `Ready` phase, the contents of the entire `.spec` block can be changed. If changes are made, the disk creation process will start over.
 
-If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./ADMIN_GUIDE.md#storage-class-settings-for-disks).
+If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-disks).
+
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
 
 Check the status of the disk after creation with the command:
 
@@ -526,8 +563,8 @@ d8 k get vd blank-disk
 Example output:
 
 ```txt
-# NAME       PHASE   CAPACITY   AGE
-# blank-disk   Ready   100Mi      1m2s
+NAME       PHASE   CAPACITY   AGE
+blank-disk   Ready   100Mi      1m2s
 ```
 
 ### Creating a disk from an image
@@ -539,14 +576,14 @@ When creating a disk, you can specify its desired size, which must be equal to o
 Using the example of the previously created image `VirtualImage`, let's consider the command that allows you to determine the size of the unpacked image:
 
 ```bash
-d8 k get vi ubuntu-22.04 -o wide
+d8 k get vi ubuntu-22-04 -o wide
 ```
 
 Example output:
 
 ```txt
-# NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
-# ubuntu-22.04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22.04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
+NAME           PHASE   CDROM   PROGRESS   STOREDSIZE   UNPACKEDSIZE   REGISTRY URL                                                                       AGE
+ubuntu-22-04   Ready   false   100%       285.9Mi      2.5Gi          dvcr.d8-virtualization.svc/cvi/ubuntu-22-04:eac95605-7e0b-4a32-bb50-cc7284fd89d0   122m
 ```
 
 The size you are looking for is specified in the **UNPACKEDSIZE** column and is 2.5Gi.
@@ -565,13 +602,13 @@ spec:
     # Specify a size larger than the value of the unpacked image.
     size: 10Gi
     # Substitute your StorageClass name.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   # The source from which the disk is created.
   dataSource:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -587,13 +624,13 @@ spec:
   # Disk storage settings.
   persistentVolumeClaim:
     # Substitute your StorageClass name.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   # The source from which the disk is created.
   dataSource:
     type: ObjectRef
     objectRef:
       kind: VirtualImage
-      name: ubuntu-22.04
+      name: ubuntu-22-04
 EOF
 ```
 
@@ -606,9 +643,9 @@ d8 k get vd
 Example output:
 
 ```txt
-# NAME           PHASE   CAPACITY   AGE
-# linux-vm-root    Ready   10Gi       7m52s
-# linux-vm-root-2  Ready   2590Mi     7m15s
+NAME           PHASE   CAPACITY   AGE
+linux-vm-root    Ready   10Gi       7m52s
+linux-vm-root-2  Ready   2590Mi     7m15s
 ```
 
 ### Change disk size
@@ -624,8 +661,8 @@ d8 k get vd linux-vm-root
 Example output:
 
 ```txt
-# NAME          PHASE   CAPACITY   AGE
-# linux-vm-root   Ready   10Gi       10m
+NAME          PHASE   CAPACITY   AGE
+linux-vm-root   Ready   10Gi       10m
 ```
 
 Let's apply the changes:
@@ -643,15 +680,15 @@ d8 k get vd linux-vm-root
 Example output:
 
 ```txt
-# NAME          PHASE   CAPACITY   AGE
-# linux-vm-root   Ready   11Gi       12m
+NAME          PHASE   CAPACITY   AGE
+linux-vm-root   Ready   11Gi       12m
 ```
 
 ## Virtual Machines
 
 The `VirtualMachine` resource is used to create a virtual machine, its parameters allow you to configure:
 
-- [virtual machine class](ADMIN_GUIDE.md#virtual-machine-classes)
+- [virtual machine class](admin_guide.html#virtual-machine-classes)
 - resources required for virtual machine operation (processor, memory, disks and images);
 - rules of virtual machine placement on cluster nodes;
 - boot loader settings and optimal parameters for the guest OS;
@@ -717,16 +754,6 @@ spec:
 EOF
 ```
 
-After creation, `VirtualMachine` can be in the following states (phases):
-
-- `Pending` - waiting for the readiness of all dependent resources required to start the virtual machine.
-- `Starting` - the process of starting the virtual machine is in progress.
-- `Running` - the virtual machine is running.
-- `Stopping` - the virtual machine is in the process of stopping.
-- `Stopped` - the virtual machine is stopped.
-- `Terminating` - the virtual machine is being deleted.
-- `Migrating` - the virtual machine is in a live migration state to another host.
-
 Check the state of the virtual machine after creation:
 
 ```bash
@@ -736,58 +763,208 @@ d8 k get vm linux-vm
 Example output:
 
 ```txt
-# NAME        PHASE     NODE           IPADDRESS     AGE
-# linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
+NAME        PHASE     NODE           IPADDRESS     AGE
+linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
 ```
 
 After creation, the virtual machine will automatically get an IP address from the range specified in the module settings (`virtualMachineCIDRs` block).
 
+### Virtual Machine Life Cycle
+
+A virtual machine (VM) goes through several phases in its existence, from creation to deletion. These stages are called phases and reflect the current state of the VM. To understand what is happening with the VM, you should check its status (`.status.phase` field), and for more detailed information - `.status.conditions` block. All the main phases of the VM life cycle, their meaning and peculiarities are described below.
+
+![](./images/vm-lifecycle.png)
+
+- `Pending` - waiting for resources to be ready
+
+    A VM has just been created, restarted or started after a shutdown and is waiting for the necessary resources (disks, images, ip addresses, etc.) to be ready.
+    - Possible problems:
+      - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
+    - Diagnostics: In `.status.conditions` you should pay attention to `*Ready` conditions. By them you can determine what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
+
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type | test(".*Ready"))'
+      ```
+
+- `Starting` - starting the virtual machine
+
+    All dependent VM resources are ready and the system is attempting to start the VM on one of the cluster nodes.
+    - Possible problems:
+      - There is no suitable node to start.
+      - There is not enough CPU or memory on suitable nodes.
+      - Neumspace or project quotas have been exceeded.
+    - Diagnostics:
+      - If the startup is delayed, check `.status.conditions`, the `type: Running` condition
+
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
+      ```
+
+- `Running` - the virtual machine is running
+
+    The VM is successfully started and running.
+    - Features:
+      - When qemu-guest-agent is installed in the guest system, the `AgentReady` condition will be true and `.status.guestOSInfo` will display information about the running guest OS.
+      - The `type: FirmwareUpToDate, status: False` condition informs that the VM firmware needs to be updated.
+      - Condition `type: ConfigurationApplied, status: False` informs that the VM configuration is not applied to the running VM.
+      - The `type: AwaitingRestartToApplyConfiguration, status: True` condition displays information about the need to manually reboot the VM because some configuration changes cannot be applied without rebooting the VM.
+    - Possible problems:
+      - An internal failure in the VM or hypervisor.
+    - Diagnosis:
+      - Check `.status.conditions`, condition `type: Running`.
+
+      ``` bash
+      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
+      ```
+
+- `Stopping` - The VM is stopped or rebooted.
+
+- `Stopped` - The VM is stopped and is not consuming computational resources
+
+- `Terminating` - the VM is deleted.
+
+    This phase is irreversible. All resources associated with the VM are released, but are not automatically deleted.
+
+- `Migrating` - live migration of a VM
+
+    The VM is migrated to another node in the cluster (live migration).
+    - Features:
+      - VM migration is supported only for non-local disks, the `type: Migratable` condition displays information about whether the VM can migrate or not.
+    - Possible issues:
+      - Incompatibility of processor instructions (when using host or host-passthrough processor types).
+      - Difference in kernel versions on hypervisor nodes.
+      - Not enough CPU or memory on eligible nodes.
+      - Neumspace or project quotas have been exceeded.
+    - Diagnostics:
+      - Check the `.status.conditions` condition `type: Migrating` as well as the `.status.migrationState` block
+
+    ```bash
+    d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
+    ```
+
+The `type: SizingPolicyMatched, status: False` condition indicates that the resource configuration does not comply with the sizing policy of the VirtualMachineClass being used. If the policy is violated, it is impossible to save VM parameters without making the resources conform to the policy.
+
+Conditions display information about the state of the VM, as well as on problems that arise. You can understand what is wrong with the VM by analyzing them:
+
+```bash
+d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
+```
+
+### Guest OS Agent
+
+To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
+
+How will the agent help?
+
+- It will provide consistent snapshots of disks and VMs.
+- Will provide information about the running OS, which will be reflected in the status of the VM.
+  Example:
+
+  ```yaml
+  status:
+    guestOSInfo:
+      id: fedora
+      kernelRelease: 6.11.4-301.fc41.x86_64
+      kernelVersion: '#1 SMP PREEMPT_DYNAMIC Sun Oct 20 15:02:33 UTC 2024'
+      machine: x86_64
+      name: Fedora Linux
+      prettyName: Fedora Linux 41 (Cloud Edition)
+      version: 41 (Cloud Edition)
+      versionId: “41”
+  ```
+
+- Will allow tracking that the OS has actually booted:
+
+  ```bash
+  d8 k get vm -o wide
+  ```
+
+  Sample output (`AGENT` column):
+  ```console
+  NAME     PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS    AGE
+  fedora   Running   6       5%             8000Mi   False          True    True         virtlab-pt-1   10.66.10.1   5d21h
+  ```
+
+How to install QEMU Guest Agent:
+
+For Debian-based OS:
+
+```bash
+sudo apt install qemu-guest-agent
+```
+
+For Centos-based OS:
+
+```bash
+sudo yum install qemu-guest-agent
+```
+
+Starting the agent service:
+
+```bash
+sudo systemctl enable --now qemu-guest-agent
+```
+
 ### Automatic CPU Topology Configuration
 
-The number of sockets is calculated automatically and depends on the number of cores.
+The CPU topology of a virtual machine (VM) determines how the CPU cores are allocated across sockets. This is important to ensure optimal performance and compatibility with applications that may depend on the CPU configuration. In the VM configuration, you specify only the total number of processor cores, and the topology (the number of sockets and cores in each socket) is automatically calculated based on this value.
 
-For .spec.cpu.cores <= 16:
+The number of processor cores is specified in the VM configuration as follows:
 
-- One socket is created with the number of cores equal to the specified value.
-- Core increment step: 1
-- Allowed values: any number from 1 to 16 inclusive.
+```yaml
+spec:
+  cpu:
+    cores: 1
+```
 
-For 16 < .spec.cpu.cores <= 32:
 
-- Two sockets are created with the same number of cores in each.
-- Core increment step: 2
-- Allowed values: 18, 20, 22, ..., 32.
-- Minimum cores per socket: 9
-- Maximum cores per socket: 16
+Next, the system automatically determines the topology depending on the specified number of cores. The calculation rules depend on the range of the number of cores and are described below.
 
-For 32 < .spec.cpu.cores <= 64:
+- If the number of cores is between 1 and 16 (1 ≤ `.spec.cpu.cores` ≤ 16):
+  - 1 socket is used.
+  - The number of cores in the socket is equal to the specified value.
+  - Change step: 1 (you can increase or decrease the number of cores one at a time).
+  - Valid values: any integer from 1 to 16 inclusive.
+  - Example: If `.spec.cpu.cores` = 8, topology: 1 socket with 8 cores.
+- If the number of cores is from 17 to 32 (16 < `.spec.cpu.cores` ≤ 32):
+  - 2 sockets are used.
+  - Cores are evenly distributed between sockets (the number of cores in each socket is the same).
+  - Change step: 2 (total number of cores must be even).
+  - Allowed values: 18, 20, 22, 24, 26, 28, 30, 32.
+  - Limitations: minimum 9 cores per socket, maximum 16 cores per socket.
+  - Example: If `.spec.cpu.cores` = 20, topology: 2 sockets with 10 cores each.
+- If the number of cores is between 33 and 64 (32 < `.spec.cpu.cores` ≤ 64):
+  - 4 sockets are used.
+  - Cores are evenly distributed among the sockets.
+  - Step change: 4 (the total number of cores must be a multiple of 4).
+  - Allowed values: 36, 40, 44, 48, 52, 56, 60, 64.
+  - Limitations: minimum 9 cores per socket, maximum 16 cores per socket.
+  - Example: If `.spec.cpu.cores` = 40, topology: 4 sockets with 10 cores each.
+- If the number of cores is greater than 64 (`.spec.cpu.cores` > 64):
+  - 8 sockets are used.
+  - Cores are evenly distributed among the sockets.
+  - Step change: 8 (the total number of cores must be a multiple of 8).
+  - Valid values: 72, 80, 88, 88, 96, and so on up to 248
+  - Limitations: minimum 9 cores per socket.
+  - Example: If `.spec.cpu.cores` = 80, topology: 8 sockets with 10 cores each.
 
-- Four sockets are created with the same number of cores in each.
-- Core increment step: 4
-- Allowed values: 36, 40, 44, ..., 64.
-- Minimum cores per socket: 9
-- Maximum cores per socket: 16
+The change step indicates by how much the total number of cores can be increased or decreased so that they are evenly distributed across the sockets.
 
-For .spec.cpu.cores > 64:
+The maximum possible number of cores is 248.
 
-- Eight sockets are created with the same number of cores in each.
-- Core increment step: 8
-- Allowed values: 72, 80, ...
-- Minimum cores per socket: 8
-
-The current VM topology (actual number of sockets and cores) is displayed in the VM status in the following format:
+The current VM topology (number of sockets and cores in each socket) is displayed in the VM status in the following format:
 
 ```yaml
 status:
   resources:
     cpu:
-      coreFraction: 100%
-      cores: 18
-      requestedCores: "18"
+      coreFraction: 10%
+      cores: 1
+      requestedCores: "1"
       runtimeOverhead: "0"
       topology:
-        sockets: 2
-        coresPerSocket: 9
+        sockets: 1
+        coresPerSocket: 1
 ```
 
 ### Connecting to a virtual machine
@@ -807,10 +984,10 @@ d8 v console linux-vm
 Example output:
 
 ```txt
-# Successfully connected to linux-vm console. The escape sequence is ^]
+Successfully connected to linux-vm console. The escape sequence is ^]
 #
-# linux-vm login: cloud
-# Password: cloud
+linux-vm login: cloud
+Password: cloud
 ```
 
 Press `Ctrl+]` to finalize the serial console.
@@ -894,15 +1071,15 @@ If the virtual machine is in a shutdown state (`.status.phase: Stopped`), the ch
 
 If the virtual machine is running (`.status.phase: Running`), the way the changes are applied depends on the type of change:
 
-| Configuration block                     | How changes are applied                            |
-| --------------------------------------- | -------------------------------------------------- |
-| `.metadata.labels`                      | Applies immediately                                |
-| `.metadata.annotations`                 | Applies immediately                                |
-| `.spec.runPolicy`                       | Applies immediately                                |
-| `.spec.disruptions.restartApprovalMode` | Applies immediately                                |
-| `.spec.affinity`                        | EE: Applies immediately, CE: Only after VM restart |
-| `.spec.nodeSelector`                    | EE: Applies immediately, CE: Only after VM restart |
-| `.spec.*`                               | Only after VM restart                              |
+| Configuration block                     | How changes are applied                                 |
+| --------------------------------------- | --------------------------------------------------------|
+| `.metadata.annotations`                 | Applies immediately                                     |
+| `.spec.liveMigrationPolicy`             | Applies immediately                                     |
+| `.spec.runPolicy`                       | Applies immediately                                     |
+| `.spec.disruptions.restartApprovalMode` | Applies immediately                                     |
+| `.spec.affinity`                        | EE, SE+: Applies immediately, CE: Only after VM restart |
+| `.spec.nodeSelector`                    | EE, SE+: Applies immediately, CE: Only after VM restart |
+| `.spec.*`                               | Only after VM restart                                   |
 
 Let's consider an example of changing the configuration of a virtual machine:
 
@@ -915,7 +1092,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Example output:
 
 ```txt
-# 1
+1
 ```
 
 Apply the following patch to the virtual machine to change the number of cores from 1 to 2.
@@ -939,7 +1116,7 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Example output:
 
 ```txt
-# 1
+1
 ```
 
 A restart of the virtual machine is required to apply this change. Run the following command to see the changes waiting to be applied (requiring a restart):
@@ -950,15 +1127,15 @@ d8 k get vm linux-vm -o jsonpath="{.status.restartAwaitingChanges}" | jq .
 
 Example output:
 
-```txt
-# [
-#   {
-#     "currentValue": 1,
-#     "desiredValue": 2,
-#     "operation": "replace",
-#     "path": "cpu.cores"
-#   }
-# ]
+```json
+[
+  {
+    "currentValue": 1,
+    "desiredValue": 2,
+    "operation": "replace",
+    "path": "cpu.cores"
+  }
+]
 ```
 
 Run the command:
@@ -970,8 +1147,8 @@ d8 k get vm linux-vm -o wide
 Example output:
 
 ```txt
-# NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
-# linux-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
+NAME        PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS     AGE
+linux-vm   Running   2       100%           1Gi      True           True    True         virtlab-pt-1   10.66.10.13   5m16s
 ```
 
 In the `NEED RESTART` column we see the value `True`, which means that a reboot is required to apply the changes.
@@ -993,10 +1170,10 @@ d8 v ssh cloud@linux-vm --local-ssh --command "nproc"
 Example output:
 
 ```txt
-# 2
+2
 ```
 
-The default behavior is to apply changes to the virtual machine through a “manual” restart. If you want to apply the changes immediately and automatically, you need to change the change application policy:
+The default behavior is to apply changes to the virtual machine through a "manual" restart. If you want to apply the changes immediately and automatically, you need to change the change application policy:
 
 ```yaml
 spec:
@@ -1229,6 +1406,8 @@ After creation, `VirtualMachineBlockDeviceAttachment` can be in the following st
 - `InProgress` - the process of device connection is in progress.
 - `Attached` - the device is connected.
 
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block
+
 Check the state of your resource::
 
 ```bash
@@ -1238,8 +1417,8 @@ d8 k get vmbda attach-blank-disk
 Example output:
 
 ```txt
-# NAME              PHASE      VIRTUAL MACHINE NAME   AGE
-# attach-blank-disk   Attached   linux-vm              3m7s
+NAME              PHASE      VIRTUAL MACHINE NAME   AGE
+attach-blank-disk   Attached   linux-vm              3m7s
 ```
 
 Connect to the virtual machine and make sure the disk is connected:
@@ -1251,13 +1430,13 @@ d8 v ssh cloud@linux-vm --local-ssh --command "lsblk"
 Example output:
 
 ```txt
-# NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
-# sda       8:0    0   10G  0 disk <--- statically mounted linux-vm-root disk
-# |-sda1    8:1    0  9.9G  0 part /
-# |-sda14   8:14   0    4M  0 part
-# `-sda15   8:15   0  106M  0 part /boot/efi
-# sdb       8:16   0    1M  0 disk <--- cloudinit
-# sdc       8:32   0 95.9M  0 disk <--- dynamically mounted disk blank-disk
+NAME    MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+sda       8:0    0   10G  0 disk <--- statically mounted linux-vm-root disk
+|-sda1    8:1    0  9.9G  0 part /
+|-sda14   8:14   0    4M  0 part
+`-sda15   8:15   0  106M  0 part /boot/efi
+sdb       8:16   0    1M  0 disk <--- cloudinit
+sdc       8:32   0 95.9M  0 disk <--- dynamically mounted disk blank-disk
 ```
 
 To detach the disk from the virtual machine, delete the previously created resource:
@@ -1279,7 +1458,7 @@ d8 k label vm linux-vm app=nginx
 Example output:
 
 ```txt
-# virtualmachine.virtualization.deckhouse.io/linux-vm labeled
+virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 ```
 
 Attaching images is done by analogy. To do this, specify `VirtualImage` or `ClusterVirtualImage` and the image name as `kind`:
@@ -1403,18 +1582,92 @@ EOF
 
 ### Live Virtual Machine Migration
 
-Virtual machine migration is an important feature in managing virtualized infrastructure. It allows you to move running virtual machines from one physical host to another without shutting them down.
+Live virtual machine (VM) migration is the process of moving a running VM from one physical host to another without shutting it down. This feature plays a key role in the management of virtualized infrastructure, ensuring application continuity during maintenance, load balancing, or upgrades.
 
-Migration can be performed automatically when:
+#### How live migration works
 
-- Updating the “firmware” of a virtual machine.
-- Rebalancing the load on the cluster nodes.
-- Transferring nodes to maintenance mode for work.
-- When you change [VM placement settings](#placement-of-vms-by-nodes) (available in Enterprise edition only).
+The live migration process involves several steps:
 
-Virtual machine migration can also be performed at the user's request. Let's take an example:
+1. **Creation of a new VM instance**
 
-Before starting the migration, view the current status of the virtual machine::
+   A new VM is created on the target host in a suspended state. Its configuration (CPU, disks, network) is copied from the source node.
+
+2. **Primary Memory Transfer**
+
+   The entire RAM of the VM is copied to the target node over the network. This is called primary transfer.
+
+3. **Change Tracking (Dirty Pages)**
+
+    While memory is being transferred, the VM continues to run on the source node and may change some memory pages. These pages are called dirty pages and the hypervisor marks them.
+
+4. **Iterative synchronization**.
+
+   After the initial transfer, only the modified pages are resent. This process is repeated in several cycles:
+   - The higher the load on the VM, the more "dirty" pages appear, and the longer the migration takes.
+   - With good network bandwidth, the amount of unsynchronized data gradually decreases.
+
+5. **Final synchronization and switching**.
+
+    When the number of dirty pages becomes minimal, the VM on the source node is suspended (typically for 100 milliseconds):
+    - The remaining memory changes are transferred to the target node.
+    - The state of the CPU, devices, and open connections are synchronized.
+    - The VM is started on the new node and the source copy is deleted.
+
+![](./images/migration.png)
+
+{{< alert level="warning">}}
+Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
+{{{< /alert >}}
+
+
+#### Migration Types
+
+Migration can be performed manually by the user, or automatically by the following system events:
+
+- Updating the "firmware" of a virtual machine.
+- Redistribution of load in the cluster.
+- Transferring a node into maintenance mode (Node drain).
+- When you change [VM placement settings](#placement-of-vms-by-nodes) (not available in Community edition).
+
+The trigger for live migration is the appearance of the `VirtualMachineOperations` resource with the `Evict` type.
+
+The table shows the `VirtualMachineOperations` resource name prefixes with the `Evict` type that are created for live migrations caused by system events:
+
+| Type of system event | Resource name prefix |
+|----------------------------------|------------------------|
+| Firmware-update-* | firmware-update-* |
+| Load shifting | evacuation-* |
+| Drain node | evacuation-* |
+| Modify placement parameters | nodeplacement-update-* |
+
+This resource can be in the following states:
+
+- `Pending` - the operation is pending.
+- `InProgress` - live migration is in progress.
+- `Completed` - live migration of the virtual machine has been completed successfully.
+- `Failed` - the live migration of the virtual machine has failed.
+
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
+
+You can view active operations using the command:
+
+```bash
+d8 k get vmop
+```
+
+Example output:
+
+```txt
+NAME                    PHASE       TYPE    VIRTUALMACHINE      AGE
+firmware-update-fnbk2   Completed   Evict   static-vm-node-00   148m
+```
+
+You can interrupt any live migration while it is in the `Pending`, `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
+
+#### How to perform a live migration of a virtual machine using `VirtualMachineOperations`.
+
+Let's look at an example. Before starting the migration, view the current status of the virtual machine:
+
 
 ```bash
 d8 k get vm
@@ -1423,13 +1676,22 @@ d8 k get vm
 Example output:
 
 ```txt
-# NAME                                   PHASE     NODE           IPADDRESS     AGE
-# linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
+NAME                                   PHASE     NODE           IPADDRESS     AGE
+linux-vm                              Running   virtlab-pt-1   10.66.10.14   79m
 ```
 
 We can see that it is currently running on the `virtlab-pt-1` node.
 
-To migrate a virtual machine from one node to another, taking into account the requirements for virtual machine placement, the `VirtualMachineOperations` (`vmop`) resource with the `Evict` type is used.
+To migrate a virtual machine from one host to another, taking into account the virtual machine placement requirements, the command is used:
+
+```bash
+d8 v evict -n <namespace> <vm-name>
+```
+
+execution of this command leads to the creation of the `VirtualMachineOperations` resource.
+
+You can also start the migration by creating a `VirtualMachineOperations` (`vmop`) resource with the `Evict` type manually:
+
 
 ```yaml
 d8 k create -f - <<EOF
@@ -1445,7 +1707,7 @@ spec:
 EOF
 ```
 
-Immediately after creating the `vmip` resource, run the command:
+To track the migration of a virtual machine immediately after the `vmop` resource is created, run the command:
 
 ```bash
 d8 k get vm -w
@@ -1454,18 +1716,39 @@ d8 k get vm -w
 Example output:
 
 ```txt
-# NAME                                   PHASE       NODE           IPADDRESS     AGE
-# linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
-# linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
+NAME                                   PHASE       NODE           IPADDRESS     AGE
+linux-vm                              Running     virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
+linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
-You can also use the command to perform the migration:
+#### Live migration of virtual machine when changing placement parameters (not available in CE edition)
 
-```bash
-d8 v evict <vm-name>
+Let's consider the migration mechanism on the example of a cluster with two node groups (`NodeGroups`): green and blue. Suppose a virtual machine (VM) is initially running on a node in the green group and its configuration contains no placement restrictions.
+
+Step 1: Add the placement parameter
+Let's specify in the VM specification the requirement for placement in the green group :
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: green
 ```
+
+After saving the changes, the VM will continue to run on the current node, since the `nodeSelector` condition is already met.
+
+Step 2: Change the placement parameter
+Let's change the placement requirement to group blue :
+
+```yaml
+spec:
+  nodeSelector:
+    node.deckhouse.io/group: blue
+```
+
+Now the current node (groups green) does not match the new conditions. The system will automatically create a `VirtualMachineOperations` object of type Evict, which will initiate a live migration of the VM to an available node in group blue .
+
 
 ## IP addresses of virtual machines
 
@@ -1482,8 +1765,8 @@ d8 k get vmipl
 Example output:
 
 ```txt
-# NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
-# ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
+NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
+ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
 `VirtualMachineIPAddress` (`vmip`) resource: A project/namespace resource that is responsible for reserving leased IP addresses and binding them to virtual machines. IP addresses can be allocated automatically or by explicit request.
@@ -1497,8 +1780,8 @@ d8 k get vmipl
 Example output:
 
 ```txt
-# NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
-# ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
+NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
+ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
 ```
 
 By default, an ip address is automatically assigned to a virtual machine from the subnets defined in the module and is assigned to it until it is deleted. You can check the assigned ip address using the command:
@@ -1510,8 +1793,8 @@ k get vmip
 Example output:
 
 ```txt
-# NAME              ADDRESS       STATUS     VM          AGE
-# linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
+NAME              ADDRESS       STATUS     VM          AGE
+linux-vm-7prpx   10.66.10.14   Attached   linux-vm   12h
 ```
 
 The algorithm for automatically assigning an ip address to a virtual machine is as follows:
@@ -1598,17 +1881,23 @@ EOF
 
 Snapshots are designed to save the state of a resource at a particular point in time. Disk snapshots and virtual machine snapshots are currently supported.
 
-### Creating snapshots from disks
+### Creating disk snapshots
 
-The `VirtualDiskSnapshot` resource is used to create disk snapshots. It can be used as data sources for creating new virtual disks.
+The `VirtualDiskSnapshot` resource is used to create snapshots of virtual disks. These snapshots can serve as a data source when creating new disks, such as for cloning or information recovery.
 
-To guarantee data integrity and consistency, a disk snapshot can be created in the following cases:
+To ensure data integrity, a disk snapshot can be created in the following cases:
 
-- the virtual disk is not attached to any virtual machine;
-- the virtual disk is attached to a virtual machine that is powered off;
-- the virtual disk is connected to a running virtual machine, an agent (`qemu-guest-agent`) is installed in the virtual machine OS, the operation to “freeze” the file system was successful.
+- The disk is not attached to any virtual machine.
+- The VM is powered off.
+- The VM is running, but qemu-guest-agent is installed in the guest OS.
+The file system has been successfully “frozen” (fsfreeze operation).
 
-If integrity and consistency is not important, the snapshot can be performed on a running virtual machine without “freezing” the file system, for this purpose in the specification of the resource `VirtualDiskSnapshot` add:
+If data consistency is not required (for example, for test scenarios), a snapshot can be created:
+
+- On a running VM without “freezing” the file system.
+- Even if the disk is attached to an active VM.
+
+To do this, specify in the VirtualDiskSnapshot manifest:
 
 ```yaml
 spec:
@@ -1626,9 +1915,9 @@ d8 k get volumesnapshotclasses
 Example output:
 
 ```txt
-# NAME                     DRIVER                                DELETIONPOLICY   AGE
-# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+NAME                     DRIVER                                DELETIONPOLICY   AGE
+csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 An example manifest for creating a disk snapshot:
@@ -1655,8 +1944,8 @@ d k get vdsnapshot
 Example output:
 
 ```txt
-# NAME                     PHASE     CONSISTENT   AGE
-# linux-vm-root-1728027905   Ready                  3m2s
+NAME                     PHASE     CONSISTENT   AGE
+linux-vm-root-1728027905   Ready                  3m2s
 ```
 
 After creation, `VirtualDiskSnapshot` can be in the following states (phases):
@@ -1666,6 +1955,8 @@ After creation, `VirtualDiskSnapshot` can be in the following states (phases):
 - `Ready` - snapshot creation has been successfully completed and the virtual disk snapshot is available for use.
 - `Failed` - an error occurred during the virtual disk snapshot creation process.
 - `Terminating` - the resource is in the process of being deleted.
+
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
 
 A full description of the `VirtualDiskSnapshot` resource configuration parameters for machines can be found at [link](cr.html#virtualdisksnapshot)
 
@@ -1683,7 +1974,7 @@ spec:
   persistentVolumeClaim:
     size: 10Gi
     # Substitute your StorageClass name.
-    storageClassName: i-linstor-thin-r2
+    storageClassName: i-sds-replicated-thin-r2
   dataSource:
     type: ObjectRef
     objectRef:
@@ -1696,12 +1987,34 @@ EOF
 
 The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
 
-To ensure data integrity and consistency, a virtual machine snapshot will be created if at least one of the following conditions is met:
+Snapshots can be used to realize the following scenarios:
+- [Restoring the VM at the time the snapshot was created](#restore-a-virtual-machine)
+- [Creating a VM clone / Using the snapshot as a template for VM creation](#creating-a-vm-clone--using-a-vm-snapshot-as-a-template-for-creating-a-vm)
 
-- the virtual machine is powered off;
-- an agent (qemu-guest-agent) is installed in the virtual machine's operating system, and the operation to freeze the file system was successful.
+![](./images/vm-restore-clone.png)
 
-If integrity and consistency are not important, a snapshot can be created on a running virtual machine without “freezing” the file system. To do this, specify in the `VirtualMachineSnapshot` resource specification:
+If you plan to use the snapshot as a template, perform the following steps in the guest OS before creating it:
+
+- Deleting personal data (files, passwords, command history).
+- Install critical OS updates.
+- Clearing system logs.
+- Reset network settings.
+- Removing unique identifiers (e.g. via `sysprep` for Windows).
+- Optimizing disk space.
+- Resetting initialization configurations (`cloud-init clean`).
+
+{{< alert level="info">}}
+A snapshot contains the configuration of the virtual machine and snapshots of all its disks.
+
+Restoring a snapshot assumes that the virtual machine is fully restored to the time when the snapshot was created.
+{{{< /alert >}}
+
+The snapshot will be created successfully if:
+
+- The VM is shut down
+- `qemu-guest-agent` is installed and the file system is successfully “frozen”.
+
+If data integrity is not critical, the snapshot can be created on a running VM without freezing the file system. To do this, specify in the specification:
 
 ```yaml
 spec:
@@ -1719,9 +2032,9 @@ d8 k get volumesnapshotclasses
 Example output:
 
 ```txt
-# NAME                     DRIVER                                DELETIONPOLICY   AGE
-# csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-# sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
+NAME                     DRIVER                                DELETIONPOLICY   AGE
+csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
+sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
 ```
 
 Creating a virtual machine snapshot will fail if at least one of the following conditions is met:
@@ -1730,7 +2043,7 @@ Creating a virtual machine snapshot will fail if at least one of the following c
 - there are changes pending restart of the virtual machine;
 - there is a disk in the process of resizing among the dependent devices.
 
-When you create a snapshot of the virtual machine, the IP address will be converted to a static IP address and will be used later when restoring the virtual machine from the snapshot.
+When a snapshot is created, the dynamic IP address of the VM is automatically converted to a static IP address and saved for recovery.
 
 If you do not want to convert and use the old IP address of the virtual machine, you can set the corresponding policy to `Never`. In this case, the address type without conversion (`Auto` or `Static`) will be used.
 
@@ -1750,22 +2063,29 @@ metadata:
 spec:
   virtualMachineName: linux-vm
   volumeSnapshotClasses:
-    - # Substitute your StorageClass name.: i-linstor-thin-r2 # Substitute your StorageClass name.
+    - # Substitute your StorageClass name.: i-sds-replicated-thin-r2 # Substitute your StorageClass name.
       volumeSnapshotClassName: sds-replicated-volume # Substitute your VolumeSnapshotClass name.
   requiredConsistency: true
   keepIPAddress: Never
 EOF
 ```
 
-### Restore virtual machines from snapshots
+### Restore from snapshots
 
-The `VirtualMachineRestore` resource is used to restore virtual machines from snapshots.
+The `VirtualMachineRestore` resource is used to restore a virtual machine from a snapshot. During the restore process, the following objects are automatically created in the cluster:
 
-The restore process will create a new virtual machine and all its dependent resources (disks, IP address, resource with automation script (`Secret`) and resources for dynamic disk attachment (`VirtualMachineBlockDeviceAttachment`)).
+- VirtualMachine - the main VM resource with the configuration from the snapshot.
+- VirtualDisk - disks connected to the VM at the moment of snapshot creation.
+- VirtualBlockDeviceAttachment - disk connections to the VM (if they existed in the original configuration).
+- Secret - secrets with cloud-init or sysprep settings (if they were involved in the original VM).
 
-If there is a name conflict between existing and restored resources for `VirtualMachine`, `VirtualDisk`, or `VirtualMachineBlockDeviceAttachment`, the restore will fail. To avoid this, use the `nameReplacements` parameter.
+Important: resources are created only if they were present in the VM configuration at the time the snapshot was created. This ensures that an exact copy of the environment is restored, including all dependencies and settings.
 
-If the `VirtualMachineIPAddress` resource to be recovered is already present in the cluster, it must not be attached to another virtual machine, and if it is a resource of type Static, its IP address must match. The recovered secret with automation must also fully match the recovered secret. Failure to meet these conditions will cause the recovery to fail.
+#### Restore a virtual machine
+
+{{< alert level="warning">}}
+To restore a virtual machine, you must delete its current configuration and all associated disks. This is because the restore process returns the virtual machine and its disks to the state that was fixed at the time the backup snapshot was created.
+{{< /alert >}}
 
 Example manifest for restoring a virtual machine from a snapshot:
 
@@ -1774,25 +2094,52 @@ d8 k apply -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineRestore
 metadata:
-  name: linux-vm-restore
+  name: <restore name>
 spec:
-  virtualMachineSnapshotName: linux-vm-snapshot
-  nameReplacements:
-    - from:
-        kind: VirtualMachine
-        name: linux-vm
-      to: linux-vm-2 # recreate an existing `linux-vm` virtual machine with the new name `linux-vm-2`.
-    - from:
-        kind: VirtualDisk
-        name: linux-vm-root
-      to: linux-vm-root-2 # recreate the existing `linux-vm-root` virtual disk with the new name `linux-vm-root-2`.
-    - from:
-        kind: VirtualDisk
-        name: blank-disk
-      to: blank-disk-2 # recreate the existing `blank-disk` virtual disk with the new name `blank-disk-2`.
-    - from:
-        kind: VirtualMachineBlockDeviceAttachment
-        name: attach-blank-disk
-      to: attach-blank-disk-2 # recreate the existing `attach-blank-disk` virtual disk with the new name `attach-blank-disk-2`.
+  virtualMachineSnapshotName: <virtual machine snapshot name>
 EOF
 ```
+
+#### Creating a VM clone / Using a VM snapshot as a template for creating a VM
+
+A snapshot of a virtual machine can be used both to create its exact copy (clone) and as a template for deploying new VMs with a similar configuration.
+
+This requires creating a `VirtualMachineRestore` resource and setting the renaming parameters in the `.spec.nameReplacements` block to avoid name conflicts.
+
+Example manifest for restoring a VM from a snapshot:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineRestore
+metadata:
+  name: <name>
+spec:
+  virtualMachineSnapshotName: <virtual machine snapshot name>
+  nameReplacements:
+    - From:
+        kind: VirtualMachine
+        name: <old vm name>
+      to: <new vm name>
+    - from:
+        kind: VirtualDisk
+        name: <old disk name>
+      to: <new disk name>
+    - from:
+        kind: VirtualDisk
+        name: <old secondary disk name>
+      to: <new secondary disk name>
+    - from:
+        kind: VirtualMachineBlockDeviceAttachment
+        name: <old attachment name>
+      to: <new attachment name>
+EOF
+```
+
+When restoring a virtual machine from a snapshot, it is important to consider the following conditions:
+
+1. If the `VirtualMachineIPAddress` resource already exists in the cluster, it must not be assigned to another VM .
+2. For static IP addresses (`type: Static`) the value must be exactly the same as what was captured in the snapshot.
+3. Automation-related secrets (such as cloud-init or sysprep configuration) must exactly match the configuration being restored.
+
+Failure to do so will result in a restore error . This is because the system checks the integrity of the configuration and the uniqueness of the resources to prevent conflicts in the cluster.
