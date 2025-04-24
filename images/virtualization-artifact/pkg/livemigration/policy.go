@@ -14,9 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package livemigration
 
 import (
+	"fmt"
+
 	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
@@ -35,7 +37,7 @@ func AutoConvergeForPolicy(policy v1alpha2.LiveMigrationPolicy) (autoConverge *b
 
 // CalculateEffectivePolicy merges live migration policy from default value and from VM.
 // Also, autoConverge value may be overridden from VMOP.
-func CalculateEffectivePolicy(vm v1alpha2.VirtualMachine, vmop *v1alpha2.VirtualMachineOperation) (effectivePolicy v1alpha2.LiveMigrationPolicy, autoConverge bool) {
+func CalculateEffectivePolicy(vm v1alpha2.VirtualMachine, vmop *v1alpha2.VirtualMachineOperation) (effectivePolicy v1alpha2.LiveMigrationPolicy, autoConverge bool, err error) {
 	effectivePolicy = config.DefaultLiveMigrationPolicy
 
 	if vm.Spec.LiveMigrationPolicy != "" {
@@ -51,6 +53,14 @@ func CalculateEffectivePolicy(vm v1alpha2.VirtualMachine, vmop *v1alpha2.Virtual
 			v1alpha2.PreferForcedMigrationPolicy:
 			if vmop.Spec.Force != nil {
 				autoConvergePtr = vmop.Spec.Force
+			}
+		case v1alpha2.AlwaysSafeMigrationPolicy:
+			if vmop.Spec.Force != nil && *vmop.Spec.Force {
+				return effectivePolicy, *autoConvergePtr, fmt.Errorf("force=true is not applicable for VM liveMigrationPolicy %s", effectivePolicy)
+			}
+		case v1alpha2.AlwaysForcedMigrationPolicy:
+			if vmop.Spec.Force != nil && !*vmop.Spec.Force {
+				return effectivePolicy, *autoConvergePtr, fmt.Errorf("force=false is not applicable for VM liveMigrationPolicy %s", effectivePolicy)
 			}
 		}
 	}

@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	internalservice "github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
@@ -88,11 +88,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, kvvmi.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-		if internalservice.IsMigrationConfigurationChanged(kvvmi.Current(), kvvmi.Changed()) {
+		if livemigration.IsMigrationConfigurationChanged(kvvmi.Current(), kvvmi.Changed()) {
 			// Directly update kvvmi and not use kvvmi.Update as kvvmi status is a regular field, not a subresource.
 			log.Debug("About to update changed kvvmi",
-				"changed.migration.configuration", internalservice.DumpKVVMIMigrationConfiguration(kvvmi.Changed()),
-				"current.migration.configuration", internalservice.DumpKVVMIMigrationConfiguration(kvvmi.Current()),
+				"changed.migration.configuration", livemigration.DumpKVVMIMigrationConfiguration(kvvmi.Changed()),
+				"current.migration.configuration", livemigration.DumpKVVMIMigrationConfiguration(kvvmi.Current()),
 			)
 			if err := r.client.Update(ctx, kvvmi.Changed()); err != nil {
 				return fmt.Errorf("error updating status subresource: %w", err)
@@ -101,7 +101,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 
 		log.Debug("Reconcile kvvmi without updating",
-			"current.migration.configuration", internalservice.DumpKVVMIMigrationConfiguration(kvvmi.Current()),
+			"current.migration.configuration", livemigration.DumpKVVMIMigrationConfiguration(kvvmi.Current()),
 		)
 		return nil
 	})

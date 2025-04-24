@@ -59,7 +59,7 @@ var _ = Describe("DeletionHandler", func() {
 	newVmop := func(phase virtv2.VMOPPhase, opts ...vmopbuilder.Option) *virtv2.VirtualMachineOperation {
 		vmop := vmopbuilder.NewEmpty(name, namespace)
 		vmop.Status.Phase = phase
-		vmopbuilder.ApplyOptions(vmop, opts)
+		vmopbuilder.ApplyOptions(vmop, opts...)
 		return vmop
 	}
 
