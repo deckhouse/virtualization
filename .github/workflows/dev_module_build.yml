@@ -188,7 +188,7 @@ jobs:
 
       - name: Lint all directories with golangci-lint
         id: linters
-        continue-on-error: true
+        # continue-on-error: true
         shell: bash
         run: |
           set -eo pipefail
@@ -207,19 +207,20 @@ jobs:
 
             if ! output=$(golangci-lint run --sort-results) ; then
               error_count=$(( error_count + 1 ))
-              find_errors+=1
+              find_errors=$(( find_errors + 1 ))
+              echo "Error code $?"
               echo "::group::📂 Linting directory ❌: $dir"
             else
               echo "::group::📂 Linting directory ✅: $dir"
             fi
             
             # TODO output
-            report_out_error=$(echo $output)
+            # report_out_error=$(echo $output)
 
             cd - &>/dev/null
             
             if [ $find_errors -ne 0 ]; then
-              echo -e "❌ Errors:\n$report_out_error\n"
+              echo -e "❌ Errors:\n$output\n"
             else
               echo -e "✅ All check passed\n"
             fi
