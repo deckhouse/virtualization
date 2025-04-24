@@ -3,57 +3,60 @@ title: "Installation"
 weight: 15
 ---
 
-> **WARNING.** Module components must be deployed on physical servers (bare-metal).
->
-> Installation on virtual machines is allowed for demonstration purposes only, but nested virtualization must be enabled. If the module is deployed on virtual machines, technical support is not provided.
+{{< alert level="warning" >}}
+Module components must be deployed on physical servers (bare-metal).
+
+Installation on virtual machines is allowed for demonstration purposes only, but nested virtualization must be enabled. If the module is deployed on virtual machines, technical support is not provided.
+{{< /alert >}}
 
 ## Scaling options
 
-The platform supports the following configuration:
+The module supports the following configuration:
 
 - Maximum number of nodes: `1000`.
 - Maximum number of virtual machines: `50000`.
 
 The module has no additional restrictions and is compatible with any hardware that is supported by [operating systems](#supported-os-for-platform-nodes) on which it can be installed.
 
-## Hardware Requirements
+## Hardware requirements
 
 1. A dedicated **machine for installation**.
 
    This machine will run the Deckhouse installer. For example, it can be an administrator's laptop or any other computer that is not intended to be added to the cluster. Requirements for this machine:
 
-   - OS: Windows 10+, macOS 10.15+, Linux (Ubuntu 18.04+, Fedora 35+);
-   - Installed Docker Engine or Docker Desktop (instructions for [Ubuntu](https://docs.docker.com/engine/install/ubuntu/), [macOS](https://docs.docker.com/desktop/mac/install/), [Windows](https://docs.docker.com/desktop/windows/install/));
-   - HTTPS access to the container image registry at `registry.deckhouse.io`;
-   - SSH key-based access to the node that will serve as the **master node** of the future cluster;
-   - SSH key-based access to the node that will serve as the **worker node** of the future cluster (if the cluster will consist of more than one master node).
+   - OS: Windows 10+, macOS 10.15+, Linux (Ubuntu 18.04+, Fedora 35+).
+   - Installed Docker Engine or Docker Desktop (instructions for [Ubuntu](https://docs.docker.com/engine/install/ubuntu/), [macOS](https://docs.docker.com/desktop/mac/install/), [Windows](https://docs.docker.com/desktop/windows/install/)).
+   - HTTPS access to the container image registry at `registry.deckhouse.io`.
+   - SSH-key-based access to the node that will serve as the **master node** of the future cluster.
+   - SSH-key-based access to the node that will serve as the **worker node** of the future cluster (if the cluster will consist of more than one master node).
 
 1. **Server for the master node**
 
-   There can be multiple servers running the cluster’s control plane components, but only one server is required at installation time. The others can be added later via node management mechanisms.
+   There can be multiple servers running the cluster’s control plane components, but only one server is required for installation. The others can be added later via node management mechanisms.
 
    Requirements for a physical bare-metal server:
 
    - Resources:
      - CPU:
-       - x86_64 architecture;
-       - Support for Intel-VT (VMX) or AMD-V (SVM) instructions;
+       - x86-64 architecture.
+       - Support for Intel-VT (VMX) or AMD-V (SVM) instructions.
        - At least 4 cores.
      - RAM: At least 8 GB.
      - Disk space:
-       - At least 60 GB;
+       - At least 60 GB.
        - High-speed disk (400+ IOPS).
    - OS [from the list of supported ones](#supported-os-for-platform-nodes):
      - Linux kernel version `5.7` or newer.
-   - **Unique hostname** across all servers in the future cluster;
+   - **Unique hostname** across all servers in the future cluster.
    - Network access:
-     - HTTPS access to the container image registry at `registry.deckhouse.io`;
-     - Access to the package repositories of the chosen OS;
-     - SSH key-based access from the **installation machine** (see p.1);
-     - Network access from the **installation machine** (see p.1) on port `22322/TCP`.
+     - HTTPS access to the container image registry at `registry.deckhouse.io`.
+     - Access to the package repositories of the chosen OS.
+     - SSH key-based access from the **installation machine** (see item 1).
+     - Network access from the **installation machine** (see item 1) on port `22322/TCP`.
    - Required software:
      - The `cloud-utils` and `cloud-init` packages must be installed (package names may vary depending on the chosen OS).
-   > **Warning.** The container runtime will be installed automatically, so do not pre-install any `containerd` or `docker` packages.
+
+   > The container runtime will be installed automatically, so there's no need to install any `containerd` or `docker` packages.
 
 1. **Servers for worker nodes**
 
@@ -63,28 +66,29 @@ The module has no additional restrictions and is compatible with any hardware th
 
    - Resources:
      - CPU:
-       - x86_64 architecture;
-       - Support for Intel-VT (VMX) or AMD-V (SVM) instructions;
-       - At least 4 cores;
-     - RAM: At least 8 GB;
+       - x86-64 architecture.
+       - Support for Intel-VT (VMX) or AMD-V (SVM) instructions.
+       - At least 4 cores.
+     - RAM: At least 8 GB.
      - Disk space:
-       - At least 60 GB;
-       - High-speed disk (400+ IOPS);
-       - Additional disks for software-defined storage;
-   - OS [from the list of supported ones](#supported-os-for-platform-nodes);
+       - At least 60 GB.
+       - High-speed disk (400+ IOPS).
+       - Additional disks for software-defined storage.
+   - OS [from the list of supported ones](#supported-os-for-platform-nodes):
      - Linux kernel version `5.7` or newer;
-   - **Unique hostname** across all servers in the future cluster;
+   - **Unique hostname** across all servers in the future cluster.
    - Network access:
-     - HTTPS access to the container image registry at `registry.deckhouse.io`;
-     - Access to the package repositories of the chosen OS;
-     - SSH key-based access from the **installation machine** (see p.1);
+     - HTTPS access to the container image registry at `registry.deckhouse.io`.
+     - Access to the package repositories of the chosen OS.
+     - SSH key-based access from the **installation machine** (see item 1).
    - Required software:
      - The `cloud-utils` and `cloud-init` packages must be installed (package names may vary depending on the chosen OS).
-   > **Important.** The container runtime will be installed automatically, so do not pre-install any `containerd` or `docker` packages.
+
+   > The container runtime will be installed automatically, so there's no need to install any `containerd` or `docker` packages.
 
 1. **Storage hardware**
 
-   Depending on the chosen storage solution, additional resources may be required. For details, refer to the section [Storage Management](/products/virtualization-platform/documentation/admin/platform-management/storage/sds/lvm-local.html).
+   Depending on the chosen storage solution, additional resources may be required. For details, refer to [Storage Management](/products/virtualization-platform/documentation/admin/platform-management/storage/sds/lvm-local.html).
 
 ## Supported OS for platform nodes
 
@@ -98,7 +102,7 @@ The module has no additional restrictions and is compatible with any hardware th
 Ensuring stable operation of live migration mechanisms requires the use of an identical version of the Linux kernel on all cluster nodes.
 
 This is because differences in kernel versions can lead to incompatible interfaces, system calls, and resource handling, which can disrupt the virtual machine migration process.
-{{{< /alert >}}
+{{< /alert >}}
 
 ## Supported guest operating systems
 
@@ -106,20 +110,20 @@ The virtualization platform supports operating systems running on `x86` and `x86
 
 Successful startup of the operating system is determined by the following criteria:
 
-  * correct installation and booting of the OS;
-  * uninterrupted operation of key components such as networking and storage;
-  * no crashes or errors during operation.
+* Correct installation and booting of the OS.
+* Uninterrupted operation of key components such as networking and storage.
+* No crashes or errors during operation.
 
-For Linux family operating systems it is recommended to use guest OS images with `cloud-init` support, which allows initializing virtual machines after their creation.
+For Linux family operating systems, it is recommended to use guest OS images with `cloud-init` support, which allows initializing virtual machines after their creation.
 
 For Windows family operating systems, the platform supports initialization with [autounattend](https://learn.microsoft.com/ru-ru/windows-hardware/manufacture/desktop/windows-setup-automation-overview) installation.
 
 ## Supported virtual machine configurations
 
-Maximum number of cores supported: `254`
-Maximum amount of RAM: `1024 GB`
+- Maximum number of cores supported: `248`.
+- Maximum amount of RAM: `1024 GB`.
 
-## Supported Storage Systems
+## Supported storage systems
 
 Virtual machines use `PersistentVolume` resources. To manage these resources and allocate disk space within the cluster, one or more supported storage systems must be installed:
 
@@ -135,11 +139,11 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
 
 ## Installation
 
-1. Deploy the Deckhouse Kubernetes Platform cluster by [instruction](https://deckhouse.io/products/kubernetes-platform/gs/).
+1. Deploy the Deckhouse Kubernetes Platform cluster following the [instructions](https://deckhouse.io/products/kubernetes-platform/gs/).
 
-2. To store virtual machine data (virtual disks and images), you must enable one or more supported [storage](#supported-storage-systems).
+2. To store virtual machine data (virtual disks and images), enable one or multiple [supported storages](#supported-storage-systems).
 
-3. Set default `StorageClass`.
+3. Set the default `StorageClass`:
 
    ```shell
    # Specify the name of your StorageClass object.
@@ -147,70 +151,71 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
    sudo -i d8 k patch mc global --type='json' -p='[{"op": "replace", "path": "/spec/settings/defaultClusterStorageClass", "value": "'"$DEFAULT_STORAGE_CLASS"'"}]'
    ```
 
-4. Turn on the [console](https://deckhouse.io/modules/console/stable/) module, which will allow you to manage virtualization components through via UI (This feature is available only to users of the EE edition).
+4. Turn on the [`console`](https://deckhouse.io/modules/console/stable/) module, which will allow you to manage virtualization components through the Deckhouse web UI (available only for users of the Enterprise Edition).
 
 5. Enable the `virtualization` module:
 
-{{< alert level="warning" >}}
-Attention! Enabling the `virtualization` module involves restarting kubelet/containerd and cilium agents on all nodes where virtual machines are supposed to start. This is necessary to configure the connectivity of containerd and DVCR.
-{{< /alert >}}
+   {{< alert level="warning" >}}
+   Enabling the `virtualization` module involves restarting kubelet/containerd and cilium agents on all nodes where virtual machines are supposed to start. This is necessary to configure the connectivity of containerd and DVCR.
+   {{< /alert >}}
 
-To enable the `virtualization` module, you need to create a `ModuleConfig` resource containing the module settings.
+   To enable the `virtualization` module, create a `ModuleConfig` resource with the module settings.
 
-{{< alert level="info" >}}
-Detailed settings are described in the [administrator's manual](./admin_guide.html#module-parameters).
-{{< /alert >}}
+   {{< alert level="info" >}}
+   Detailed settings are described in the [Administrator guide](./admin_guide.html#module-parameters).
+   {{< /alert >}}
 
-Example of module configuration:
+   Example of module configuration:
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: deckhouse.io/v1alpha1
-kind: ModuleConfig
-metadata:
-  name: virtualization
-spec:
-  enabled: true
-  settings:
-    dvcr:
-      storage:
-        persistentVolumeClaim:
-          size: 50G
-        type: PersistentVolumeClaim
-    virtualMachineCIDRs:
-      - 10.66.10.0/24
-  version: 1
-EOF
-```
+   ```yaml
+   d8 k apply -f - <<EOF
+   apiVersion: deckhouse.io/v1alpha1
+   kind: ModuleConfig
+   metadata:
+     name: virtualization
+   spec:
+     enabled: true
+     settings:
+       dvcr:
+         storage:
+           persistentVolumeClaim:
+             size: 50G
+           type: PersistentVolumeClaim
+       virtualMachineCIDRs:
+         - 10.66.10.0/24
+     version: 1
+   EOF
+   ```
 
-The `.spec.settings.dvcr` block describes the settings for the repository for storing virtual machine images, it specifies the size of the storage provided for storing images `.spec.settings.dvcr.storage.persistentVolumeClaim.size` and the storage class `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`.
+   Where:
 
-The `.spec.settings.virtualMachineCIDRs` block specifies the list of subnets. Virtual machine addresses will be allocated automatically or on request from the specified subnet ranges in order.
+   - The `.spec.settings.dvcr` block describes the settings for the repository for storing virtual machine images. It specifies the size of the storage provided for storing images `.spec.settings.dvcr.storage.persistentVolumeClaim.size` and the storage class `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`.
+   - The `.spec.settings.virtualMachineCIDRs` block specifies the list of subnets. Virtual machine addresses will be allocated automatically or on request from the specified subnet ranges in order.
 
-{{< alert level="warning">}}
-Subnets of `.spec.settings.virtualMachineCIDRs` block must not overlap with subnets of nodes, subnet of services and pods.
+   {{< alert level="warning">}}
+   Subnets of `.spec.settings.virtualMachineCIDRs` block must not overlap with subnets of nodes, subnet of services, and pods.
 
-It is forbidden to delete subnets if addresses from them have already been given to virtual machines!
-{{< /alert >}}
+   It is forbidden to delete subnets if addresses from them have already been given to virtual machines.
+   {{< /alert >}}
 
-You can track the readiness of the module using the following command:
+   To check if the module is ready, use the following command:
 
-```bash
-d8 k get modules virtualization
-```
+   ```bash
+   d8 k get modules virtualization
+   ```
 
-Example output:
+   Example output:
 
-```txt
-NAME             WEIGHT   SOURCE      PHASE   ENABLED   READY
-virtualization   900      deckhouse   Ready   True      True
-```
+   ```txt
+   NAME             WEIGHT   SOURCE      PHASE   ENABLED   READY
+   virtualization   900      deckhouse   Ready   True      True
+   ```
 
-The module phase should be `Ready`.
+   The module phase should be `Ready`.
 
-## Module Update
+## Module update
 
-The Virtualization module uses five update channels designed for use in different environments that have different requirements in terms of reliability:
+The `virtualization` module uses five update channels designed for use in different environments that have different requirements in terms of reliability:
 
 | Update Channel | Description                                                                                                                                                                                                                                                        |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -220,12 +225,12 @@ The Virtualization module uses five update channels designed for use in differen
 | Stable         | Stable update channel for clusters where active work is finished and mostly operational. Functionality updates to this update channel do not reach this update channel until two weeks after they appear in the release.                                           |
 | Rock Solid     | The most stable update channel. Suitable for clusters that need a higher level of stability. Feature updates do not reach this channel until one month after they are released.                                                                                    |
 
-Virtualization module components can be updated automatically, or with manual confirmation as updates are released in update channels.
+The `virtualization` module components can be updated automatically or with manual confirmation, as updates are released in update channels.
 
 {{< alert level="warning" >}}
-In module upgrades, the components can be divided into two categories:
+When considering updates, the module components can be divided into two categories:
 
-- Virtualization resource management components (control plane)
+- Virtualization resource management components (control plane).
 - Virtualization resource management components ("firmware").
 
 Updating control plane components does not affect the operation of already running virtual machines, but may cause a brief interruption of established VNC/serial port connections while the control plane component is restarted.
@@ -234,6 +239,4 @@ Updates to virtual machine firmware during a platform upgrade may require virtua
 Migration during the upgrade is performed once, if the migration was unsuccessful, the virtual machine owner will need to perform it themselves by either evict the virtual machine or reboot it.
 {{< /alert >}}
 
-Deckhouse Virtualization Platform components can be updated automatically, or with manual confirmation as updates are released in the update channels.
-
-For information on the versions available on the update channels, visit the site at https://releases.deckhouse.io/.
+For information on versions available at the update channels, visit https://releases.deckhouse.io/.
