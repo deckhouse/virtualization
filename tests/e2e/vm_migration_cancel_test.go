@@ -86,7 +86,7 @@ var _ = Describe("Virtual machine migration cancel", SIGMigration(), ginkgoutil.
 
 		for _, name := range vmNames {
 			By(fmt.Sprintf("Exec SSHCommand for virtualmachine %s/%s", conf.Namespace, name))
-			res := d8Virtualization.SshCommand(name, "sudo nohup stress-ng --vm 1 --vm-bytes 100% --timeout 600s &>/dev/null &", d8.SshOptions{
+			res := d8Virtualization.SshCommand(name, "sudo nohup stress-ng --vm 1 --vm-bytes 100% --timeout 300s &>/dev/null &", d8.SshOptions{
 				Namespace:   conf.Namespace,
 				Username:    conf.TestData.SshUser,
 				IdenityFile: conf.TestData.Sshkey,
@@ -181,6 +181,6 @@ var _ = Describe("Virtual machine migration cancel", SIGMigration(), ginkgoutil.
 				}
 			}
 			return nil
-		}).WithTimeout(LongWaitDuration).WithPolling(time.Second).ShouldNot(HaveOccurred())
+		}).WithTimeout(MaxWaitTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
 	})
 })
