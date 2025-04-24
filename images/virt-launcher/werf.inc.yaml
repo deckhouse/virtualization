@@ -127,6 +127,7 @@ packages:
   - iptables
   - libffi8
   - nftables
+  - numactl
   - openssl
   - passt
   - pcre
@@ -252,6 +253,11 @@ import:
   to: /xorriso
   before: install
 
+- image: packages/binaries/nftables
+  add: /nftables
+  to: /nftables
+  before: install
+
 - image: tools/coreutils
   add: /
   to: /relocate
@@ -316,6 +322,7 @@ shell:
     cp -a /xorriso/. /
     cp -a /swtpm/. /
     cp -a /numactl/. /
+    cp -a /nftables/. /
 
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
