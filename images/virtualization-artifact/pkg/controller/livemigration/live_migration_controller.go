@@ -34,7 +34,7 @@ const (
 	ControllerName = "live-migration-controller"
 )
 
-func NewController(
+func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *log.Logger,

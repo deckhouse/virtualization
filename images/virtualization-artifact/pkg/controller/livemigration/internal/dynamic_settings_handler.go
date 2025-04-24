@@ -19,7 +19,6 @@ package internal
 import (
 	"context"
 
-	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -52,17 +51,14 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 	}
 
 	var vm v1alpha2.VirtualMachine
-	vmKey := types.NamespacedName{
-		Namespace: kvvmi.Namespace,
-		Name:      kvvmi.Name,
-	}
+	vmKey := client.ObjectKeyFromObject(kvvmi)
 	err := h.client.Get(ctx, vmKey, &vm)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
 	// Fetch InProgress vmop
-	vmopInProgress, err := h.GetVMOPInProgressForVM(ctx, vmKey)
+	vmopInProgress, err := h.getVMOPInProgressForVM(ctx, vmKey)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -98,8 +94,8 @@ func (h *DynamicSettingsHandler) shouldUpdateMigrationConfiguration(kvvmi *virtv
 		!kvvmi.Status.MigrationState.Completed
 }
 
-// GetVMOPInProgressForVM check if there is at least one VMOP for the same VM in progress phase.
-func (h *DynamicSettingsHandler) GetVMOPInProgressForVM(ctx context.Context, vmKey client.ObjectKey) (*v1alpha2.VirtualMachineOperation, error) {
+// getVMOPInProgressForVM check if there is at least one VMOP for the same VM in progress phase.
+func (h *DynamicSettingsHandler) getVMOPInProgressForVM(ctx context.Context, vmKey client.ObjectKey) (*v1alpha2.VirtualMachineOperation, error) {
 	var vmopList v1alpha2.VirtualMachineOperationList
 	err := h.client.List(ctx, &vmopList, client.InNamespace(vmKey.Namespace))
 	if err != nil {

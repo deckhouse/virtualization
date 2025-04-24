@@ -352,7 +352,7 @@ func main() {
 	}
 
 	liveMigrationLogger := logger.NewControllerLogger(livemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = livemigration.NewController(ctx, mgr, liveMigrationLogger, liveMigrationSettings); err != nil {
+	if err = livemigration.SetupController(ctx, mgr, liveMigrationLogger, liveMigrationSettings); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
