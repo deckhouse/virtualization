@@ -63,4 +63,3 @@ shell:
       rm -rf $OUTDIR/usr/lib64/pkgconfig
       rm -rf $OUTDIR/usr/bin/numademo
 
-      tree $OUTDIR
