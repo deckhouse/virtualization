@@ -18,7 +18,6 @@ packages:
 - gcc
 - git pkg-config trousers
 - automake autoconf make makeinfo libtool
-- glibc-devel-static musl-devel-static
 - tree
 - libburn-devel libisofs-devel
 {{- end -}}
@@ -49,7 +48,7 @@ shell:
 
       ./bootstrap
 
-      ./configure LDFLAGS="-static" --prefix=/usr --libdir=/usr/lib64 --disable-shared --enable-static
+      ./configure --prefix=/usr --libdir=/usr/lib64
 
       make -j$(nproc)
 

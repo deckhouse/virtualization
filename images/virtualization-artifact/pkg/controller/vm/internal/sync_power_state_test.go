@@ -18,31 +18,26 @@ package internal
 
 import (
 	"context"
-	"log/slog"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("Test power actions with VMs", func() {
 	var (
-		scheme                   *runtime.Scheme
 		ctx                      context.Context
 		handler                  *SyncPowerStateHandler
 		recorderMock             *eventrecord.EventRecorderLoggerMock
@@ -64,35 +59,15 @@ var _ = Describe("Test power actions with VMs", func() {
 		recorderMock = nil
 		vmState = nil
 		handler = nil
-		scheme = nil
 	})
 
 	setupTestEnvironment := func() {
-		fakeClient = fake.NewClientBuilder().
-			WithScheme(scheme).
-			WithObjects(vm, kvvm, kvvmi, vmPod).
-			WithStatusSubresource(vm, kvvm, kvvmi).
-			Build()
-
-		vmResource := reconciler.NewResource(
-			types.NamespacedName{Namespace: namespacedVirtualMachine.Namespace, Name: namespacedVirtualMachine.Name},
-			fakeClient,
-			vmFactoryByVm(vm),
-			vmStatusGetter,
-		)
-
-		err := vmResource.Fetch(ctx)
-		if err != nil {
-			return
-		}
-
-		vmState = state.New(fakeClient, vmResource)
+		fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, vmPod)
 		handler = NewSyncPowerStateHandler(fakeClient, recorderMock)
 	}
 
 	BeforeEach(func() {
-		scheme = setupScheme()
-		ctx = logger.ToContext(context.TODO(), slog.Default())
+		ctx = testutil.ContextBackgroundWithNoOpLogger()
 		namespacedVirtualMachine = types.NamespacedName{
 			Namespace: "vm",
 			Name:      "ns",
@@ -150,7 +125,6 @@ var _ = Describe("Test power actions with VMs", func() {
 
 var _ = Describe("Test action getters for different run policy", func() {
 	var (
-		scheme                   *runtime.Scheme
 		ctx                      context.Context
 		handler                  *SyncPowerStateHandler
 		recorderMock             *eventrecord.EventRecorderLoggerMock
@@ -164,19 +138,14 @@ var _ = Describe("Test action getters for different run policy", func() {
 	)
 
 	BeforeEach(func() {
-		scheme = setupScheme()
-		ctx = logger.ToContext(context.TODO(), slog.Default())
+		ctx = testutil.ContextBackgroundWithNoOpLogger()
 		namespacedVirtualMachine = types.NamespacedName{
 			Namespace: "vm",
 			Name:      "ns",
 		}
 
 		vm, kvvm, kvvmi, vmPod = createObjectsForPowerstateTest(namespacedVirtualMachine)
-		fakeClient = fake.NewClientBuilder().
-			WithScheme(scheme).
-			WithObjects(vm, kvvm, kvvmi, vmPod).
-			WithStatusSubresource(vm, kvvm, kvvmi).
-			Build()
+		fakeClient, _, vmState = setupEnvironment(vm, kvvm, kvvmi, vmPod)
 
 		recorderMock = &eventrecord.EventRecorderLoggerMock{
 			EventfFunc: func(client.Object, string, string, string, ...interface{}) {},
@@ -185,19 +154,6 @@ var _ = Describe("Test action getters for different run policy", func() {
 			},
 		}
 
-		vmResource := reconciler.NewResource(
-			types.NamespacedName{Namespace: namespacedVirtualMachine.Namespace, Name: namespacedVirtualMachine.Name},
-			fakeClient,
-			vmFactoryByVm(vm),
-			vmStatusGetter,
-		)
-
-		err := vmResource.Fetch(ctx)
-		if err != nil {
-			return
-		}
-
-		vmState = state.New(fakeClient, vmResource)
 		handler = NewSyncPowerStateHandler(fakeClient, recorderMock)
 	})
 
@@ -210,7 +166,6 @@ var _ = Describe("Test action getters for different run policy", func() {
 		recorderMock = nil
 		vmState = nil
 		handler = nil
-		scheme = nil
 	})
 
 	Context("handleManualPolicy", func() {
@@ -406,15 +361,12 @@ var _ = Describe("Test action getters for different run policy", func() {
 	})
 })
 
-func setupScheme() *runtime.Scheme {
-	scheme := runtime.NewScheme()
-	Expect(clientgoscheme.AddToScheme(scheme)).To(Succeed())
-	Expect(virtv2.AddToScheme(scheme)).To(Succeed())
-	Expect(virtv1.AddToScheme(scheme)).To(Succeed())
-	return scheme
-}
-
 func createObjectsForPowerstateTest(namespacedVirtualMachine types.NamespacedName) (*virtv2.VirtualMachine, *virtv1.VirtualMachine, *virtv1.VirtualMachineInstance, *corev1.Pod) {
+	const (
+		podName            = "test-pod"
+		nodeName           = "test-node"
+		podUID   types.UID = "test-pod-uid"
+	)
 	vm := &virtv2.VirtualMachine{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      namespacedVirtualMachine.Name,
@@ -435,13 +387,22 @@ func createObjectsForPowerstateTest(namespacedVirtualMachine types.NamespacedNam
 			Name:      namespacedVirtualMachine.Name,
 			Namespace: namespacedVirtualMachine.Namespace,
 		},
-		Status: virtv1.VirtualMachineInstanceStatus{},
+		Status: virtv1.VirtualMachineInstanceStatus{
+			ActivePods: map[types.UID]string{
+				podUID: podName,
+			},
+			NodeName: nodeName,
+		},
 	}
 	vmPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "test-pod",
+			Name:      podName,
 			Namespace: namespacedVirtualMachine.Namespace,
 			Labels:    map[string]string{virtv1.VirtualMachineNameLabel: namespacedVirtualMachine.Name},
+			UID:       podUID,
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
 		},
 	}
 	return vm, kvvm, kvvmi, vmPod
