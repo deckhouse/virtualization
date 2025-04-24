@@ -18,8 +18,6 @@ libraries:
 - libsqlite3
 packages:
   - libnbd
-  - nbd-client
-  - nbd-server
 binaries:
   # All nbd binaries
   - /usr/bin/nbd*
@@ -54,7 +52,7 @@ import:
   before: setup
 - image: packages/binaries/nbd
   add: /nbd
-  to: /relocate
+  to: /
   after: setup
 shell:
   install:
