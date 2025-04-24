@@ -191,6 +191,8 @@ jobs:
         continue-on-error: true
         shell: bash
         run: |
+          set -eo pipefail
+
           # Find directories containing .golangci.yaml
           mapfile -t config_dirs < <(find . -type f -name '.golangci.yaml' -printf '%h\0' | xargs -0 -n1 | sort -u)
           count=${#config_dirs[@]}
@@ -203,27 +205,16 @@ jobs:
           for dir in "${config_dirs[@]}"; do
 
             cd "$dir" || { echo "::error::Failed to access directory $dir"; continue; }
-            
-            # Run linter with multiple formats
-            
-            output=$(golangci-lint run --sort-results --out-format=json | jq '.Issues[] | {linter: .FromLinter, rule: .Text, lines: .SourceLines, file: "\(.Pos.Filename):\(.Pos.Line):\(.Pos.Column)"}' || true)
-            find_errors=$(echo $output | jq '. | select(.!=null)' | wc -l)
-            
-            # Track errors
-            if [ $find_errors -ne 0 ]; then
+
+            if ! output=$(golangci-lint run --sort-results) ; then
               error_count=$(( error_count + 1 ))
               echo "::group::📂 Linting directory ❌: $dir"
             else
               echo "::group::📂 Linting directory ✅: $dir"
             fi
             
-            report_out_error=$(echo $output | jq '.')
-
-            # Build report section
-            report+="\n\n### Directory: $dir\n"
-            report+="Find Errors: $find_errors\n"
-            report+="Output:\n\`\`\`\n$report_out_error\n\`\`\`\n"
-            report+="---\n"
+            # TODO output
+            report_out_error=$(echo $output)
 
             cd - &>/dev/null
             
