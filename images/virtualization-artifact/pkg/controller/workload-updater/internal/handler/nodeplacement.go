@@ -72,7 +72,7 @@ func (h *NodePlacementHandler) Handle(ctx context.Context, vm *virtv2.VirtualMac
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nodePlacementHandler))
-	h.oneShotMigration.SetLogger(log)
+	ctx = logger.ToContext(ctx, log)
 
 	migrate, err := h.oneShotMigration.OnceMigrate(ctx, vm, annotations.AnnVMOPWorkloadUpdateNodePlacementSum, sum)
 	if migrate {

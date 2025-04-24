@@ -17,8 +17,10 @@ limitations under the License.
 package kvvm
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"slices"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -63,29 +65,38 @@ func FindPodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virtua
 }
 
 func GetVMPod(kvvmi *virtv1.VirtualMachineInstance, podList *corev1.PodList) *corev1.Pod {
-	if len(podList.Items) == 0 {
+	if kvvmi == nil {
 		return nil
 	}
-	if len(podList.Items) == 1 {
-		return &podList.Items[0]
-	}
 
-	// If migration is completed - return the target pod.
-	if kvvmi != nil && kvvmi.Status.MigrationState != nil && kvvmi.Status.MigrationState.Completed {
-		for _, pod := range podList.Items {
-			if pod.Name == kvvmi.Status.MigrationState.TargetPod {
-				return &pod
-			}
-		}
-	}
-
-	// Return the first Running Pod or just a first Pod.
+	var pods []corev1.Pod
 	for _, pod := range podList.Items {
+		if pod.Spec.NodeName != kvvmi.Status.NodeName {
+			continue
+		}
+		if _, exists := kvvmi.Status.ActivePods[pod.GetUID()]; !exists {
+			continue
+		}
+		pods = append(pods, pod)
+	}
+
+	switch len(pods) {
+	case 0:
+		return nil
+	case 1:
+		return &pods[0]
+	}
+
+	slices.SortFunc(pods, func(a, b corev1.Pod) int {
+		return cmp.Compare(a.GetCreationTimestamp().UnixNano(), b.GetCreationTimestamp().UnixNano())
+	})
+
+	for _, pod := range pods {
 		if pod.Status.Phase == corev1.PodRunning {
 			return &pod
 		}
 	}
-	return &podList.Items[0]
+	return &pods[0]
 }
 
 // DeletePodByKVVMI deletes pod by kvvmi.

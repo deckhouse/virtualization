@@ -316,3 +316,10 @@ Also fixed vmi_test.go, replace `Equal("/bin/bash -c echo bound PVCs")` to `Equa
 #### `047-node-labeller-replace-sysctl-command-with-readfile.patch`
 
 This patch modifies function `isNodeRealtimeCapable` in `node_labeller.go`, replacing linux util `sysctl` to `os.ReadFile("/proc/sys/kernel/sched_rt_runtime_us")`
+
+#### `048-disable-evacuation-controller.patch`
+This patch disables evacuation controller in kubevirt.
+We have our implementation in virtualization-controller.
+
+#### `049-implement-evacuate-cancel-subresource.patch`
+This patch implement evacuate-cancel subresource.

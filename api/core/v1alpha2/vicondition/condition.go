@@ -87,6 +87,8 @@ const (
 	QuotaExceeded ReadyReason = "QuotaExceeded"
 	// ImagePullFailed indicates that there was an issue with importing from DVCR.
 	ImagePullFailed ReadyReason = "ImagePullFailed"
+	// DatasourceNotReady indicates that the datasource is not ready, which prevents the import process from starting.
+	DatasourceNotReady ReadyReason = "DatasourceNotReady"
 
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualImage` can no longer be used.
 	Lost ReadyReason = "PVCLost"

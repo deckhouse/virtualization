@@ -161,6 +161,7 @@ rules:
     - virtualmachines/migrate
     - virtualmachines/addvolume
     - virtualmachines/removevolume
+    - virtualmachines/cancelevacuation
   verbs:
     - update
 - apiGroups:
