@@ -18,6 +18,7 @@ packages:
 - gcc
 - git pkg-config trousers
 - automake autoconf make makeinfo libtool
+- musl-devel-static
 - flex bison asciidoc-a2x
 - tree
 {{- end -}}
@@ -59,13 +60,18 @@ shell:
 
       ./autogen.sh
 
-      ./configure --prefix=/usr --libdir=/usr/lib64 --enable-python --with-python-bin=/usr/bin/python3 --with-json --with-cli=readline
+      ./configure \
+        --prefix=/usr \
+        --libdir=/usr/lib64 \
+        --with-json \
+        --with-cli=readline
 
       make -j$(nproc)
 
       make DESTDIR=$OUTDIR install
 
       strip $OUTDIR/usr/sbin/nft
+      ldd $OUTDIR/usr/sbin/nft
 
       # We don't need man, test and samples files
       rm -rf $OUTDIR/usr/include
