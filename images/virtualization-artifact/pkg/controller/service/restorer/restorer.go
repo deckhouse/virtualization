@@ -228,6 +228,10 @@ func (r SecretRestorer) setVirtualMachineIPAddress(ctx context.Context, secret *
 func (r SecretRestorer) setProvisioning(ctx context.Context, secret *corev1.Secret, vm *virtv2.VirtualMachine) error {
 	var secretName string
 
+	if vm.Spec.Provisioning == nil {
+		return nil
+	}
+
 	switch vm.Spec.Provisioning.Type {
 	case virtv2.ProvisioningTypeSysprepRef:
 		if vm.Spec.Provisioning.SysprepRef == nil {
