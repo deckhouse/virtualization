@@ -51,8 +51,8 @@ shell:
       ./configure \
         --prefix=/usr \
         --enable-lfs \
-        --enable-syslog \
-        # --disable-manpages
+        --enable-syslog
+
 
       make -j$(nproc)
 
@@ -63,3 +63,5 @@ shell:
       rm -rf $OUTDIR/usr/include
       rm -rf $OUTDIR/usr/share
       rm -rf $OUTDIR/usr/libexec/installed-tests
+
+      tree $OUTDIR
