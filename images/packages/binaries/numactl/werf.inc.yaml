@@ -54,8 +54,6 @@ shell:
 
       strip $OUTDIR/usr/bin/*
 
-      tree $OUTDIR
-
       # We don't need man, test and samples files
       rm -rf $OUTDIR/usr/include
       rm -rf $OUTDIR/usr/share
