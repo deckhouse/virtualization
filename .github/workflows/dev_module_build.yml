@@ -205,25 +205,23 @@ jobs:
             find_errors=0
             cd "$dir" || { echo "::error::Failed to access directory $dir"; continue; }
 
-            if ! output=$(golangci-lint run --sort-results) ; then
+            if ! output=$(golangci-lint run --sort-results); then
               error_count=$(( error_count + 1 ))
-              find_errors=$(( find_errors + 1 ))
-              echo "Error code $?"
+              # find_errors=$(( find_errors + 1 ))
               echo "::group::📂 Linting directory ❌: $dir"
-            else
-              echo "::group::📂 Linting directory ✅: $dir"
-            fi
-            
-            # TODO output
-            # report_out_error=$(echo $output)
-
-            cd - &>/dev/null
-            
-            if [ $find_errors -ne 0 ]; then
               echo -e "❌ Errors:\n$output\n"
             else
+              echo "::group::📂 Linting directory ✅: $dir"
               echo -e "✅ All check passed\n"
             fi
+            
+            # if [ $find_errors -ne 0 ]; then
+            #   echo -e "❌ Errors:\n$output\n"
+            # else
+            #   echo -e "✅ All check passed\n"
+            # fi
+            
+            cd - &>/dev/null
 
             echo "::endgroup::"
           done
