@@ -53,3 +53,9 @@ func WithForce() Option {
 		vmop.Spec.Force = ptr.To(true)
 	}
 }
+
+func WithForceFalse() Option {
+	return func(vmop *v1alpha2.VirtualMachineOperation) {
+		vmop.Spec.Force = ptr.To(false)
+	}
+}

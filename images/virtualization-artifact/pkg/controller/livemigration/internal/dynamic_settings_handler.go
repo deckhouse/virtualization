@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
-	internalservice "github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -67,14 +67,17 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, err
 	}
 
-	effectivePolicy, autoConverge := internalservice.CalculateEffectivePolicy(vm, vmopInProgress)
+	effectivePolicy, autoConverge, err := livemigration.CalculateEffectivePolicy(vm, vmopInProgress)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
 
-	conf := internalservice.NewMigrationConfiguration(h.moduleSettings, autoConverge)
+	conf := livemigration.NewMigrationConfiguration(h.moduleSettings, autoConverge)
 
 	kvvmi.Status.MigrationState.MigrationConfiguration = conf
 
 	log.Debug("Set migrationConfiguration on KVVMI",
-		"migrationConfiguration", internalservice.DumpKVVMIMigrationConfiguration(kvvmi),
+		"migrationConfiguration", livemigration.DumpKVVMIMigrationConfiguration(kvvmi),
 		"policy", effectivePolicy,
 		"autoConverge", autoConverge,
 	)

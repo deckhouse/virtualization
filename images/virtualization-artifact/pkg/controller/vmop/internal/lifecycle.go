@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -193,7 +194,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 		return reconcile.Result{}, nil
 	}
 
-	// Check if force flag is applicable for liveMigrationPolicy.
+	// Check if force flag is applicable for effective liveMigrationPolicy.
 	msg, isApplicable, err := h.isApplicableForLiveMigrationPolicy(ctx, vmop, vm)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -208,6 +209,8 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 				Message(msg),
 			&vmop.Status.Conditions)
 		return reconcile.Result{}, nil
+	} else if msg != "" {
+		h.recorder.Event(vmop, corev1.EventTypeNormal, virtv2.ReasonVMOPStarted, msg)
 	}
 
 	return reconcile.Result{}, nil
@@ -324,7 +327,7 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 }
 
 func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (string, bool, error) {
-	// No need to check if operation is not related to migrations.
+	// No need to check live migration policy if operation is not related to migrations.
 	if !commonvmop.IsMigration(vmop) {
 		return "", true, nil
 	}
@@ -334,21 +337,12 @@ func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(ctx context.Context
 		return "", true, nil
 	}
 
-	// Get effective migrationPolicy from vm/vmclass and global default.
-	effectiveLiveMigrationPolicy := virtv2.PreferSafeMigrationPolicy
-	if vm.Spec.LiveMigrationPolicy != "" {
-		effectiveLiveMigrationPolicy = vm.Spec.LiveMigrationPolicy
+	effectivePolicy, autoConverge, err := livemigration.CalculateEffectivePolicy(*vm, vmop)
+	if err != nil {
+		msg := fmt.Sprintf("Operation is invalid: %v", err)
+		return msg, false, nil
 	}
 
-	isApplicable := true
-	msg := ""
-
-	if effectiveLiveMigrationPolicy == virtv2.AlwaysSafeMigrationPolicy {
-		isApplicable = false
-		if *vmop.Spec.Force {
-			msg = fmt.Sprintf("Operation type %s is not applicable for liveMigrationPolicy %s with the force flag on", vmop.Spec.Type, effectiveLiveMigrationPolicy)
-		}
-	}
-
-	return msg, isApplicable, nil
+	msg := fmt.Sprintf("Migration settings for operation type %s: liveMigrationPolicy %s, autoConverge %v", vmop.Spec.Type, effectivePolicy, autoConverge)
+	return msg, true, nil
 }
