@@ -64,4 +64,5 @@ shell:
       rm -rf $OUTDIR/usr/share
       rm -rf $OUTDIR/usr/libexec/installed-tests
 
+      apt-get install -y tree
       tree $OUTDIR
