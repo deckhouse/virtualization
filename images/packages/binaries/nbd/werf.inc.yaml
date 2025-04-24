@@ -15,8 +15,7 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- git
-- gcc musl-devel
+- git gcc
 - automake autoconf-archive make libtool
 - glib2-devel bison flex setproctitle libnl-devel docbook-utils
 {{- end -}}
@@ -53,7 +52,6 @@ shell:
         --prefix=/usr \
         --enable-lfs \
         --enable-syslog \
-        CC=musl-gcc LDFLAGS=-static || cat config.log
         # --disable-manpages
 
       make -j$(nproc)
