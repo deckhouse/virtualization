@@ -103,6 +103,7 @@ libs:
   - libsystemd-devel
   - libjson-c-devel
   - systemtap-sdt-devel
+  - libacl
   - libacl-devel
   - libtpms-devel libtpms
   - glib2-devel
@@ -112,6 +113,8 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
+  - libisofs
+  - libburn
 packages:
   - acl
   - attr
@@ -141,7 +144,7 @@ binaries:
   # Openssl
   - /usr/bin/openssl
   # Xorriso (Creates an image of an ISO9660 filesystem)
-  - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
+  - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
   - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
   # Dmidecode
@@ -289,8 +292,6 @@ shell:
 
     echo "=====Copy libvirt binaries to temp folder======"
     cp -a /libvirt-bins/. /VBINS/
-
-    cp -a /xorriso/. /
 
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
