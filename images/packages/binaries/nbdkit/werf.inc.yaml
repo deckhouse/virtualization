@@ -34,7 +34,6 @@ packages:
 - zstd
 - zlib
 - libblkio
-- gcc-defaults
 - libnbd
 - libtorrent-rasterbar
 - libssh
