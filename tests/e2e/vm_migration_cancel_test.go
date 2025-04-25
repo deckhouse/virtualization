@@ -18,6 +18,7 @@ package e2e
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -161,6 +162,13 @@ var _ = Describe("Virtual machine migration cancel", SIGMigration(), ginkgoutil.
 		Expect(someCompleted).Should(BeFalse())
 
 		By("Abort status should be exists in Kubevirt VMIs")
+
+		validAbortStatuses := []virtv1.MigrationAbortStatus{
+			virtv1.MigrationAbortInProgress,
+			virtv1.MigrationAbortSucceeded,
+			virtv1.MigrationAbortFailed,
+		}
+
 		Eventually(func() error {
 			kvvmis := &virtv1.VirtualMachineInstanceList{}
 			err = GetObjects(kc.ResourceKubevirtVMI, kvvmis, kc.GetOptions{Labels: testCaseLabel, Namespace: conf.Namespace})
@@ -169,18 +177,23 @@ var _ = Describe("Virtual machine migration cancel", SIGMigration(), ginkgoutil.
 			}
 			for _, kvvmi := range kvvmis.Items {
 				migrationState := kvvmi.Status.MigrationState
+
 				if migrationState == nil {
 					return fmt.Errorf("retry because migration state is nil")
 				}
 				if !migrationState.AbortRequested {
 					return fmt.Errorf("retry because migration abort requested is false")
 				}
-				validAbortStatus := migrationState.AbortStatus == virtv1.MigrationAbortFailed || migrationState.AbortStatus == virtv1.MigrationAbortSucceeded
-				if !validAbortStatus {
+
+				if !slices.Contains(validAbortStatuses, migrationState.AbortStatus) {
 					return fmt.Errorf("retry because migration abort status is %s", migrationState.AbortStatus)
+				}
+
+				if migrationState.EndTimestamp.IsZero() {
+					return fmt.Errorf("retry because migration is not finished yet")
 				}
 			}
 			return nil
-		}).WithTimeout(MaxWaitTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
+		}).WithTimeout(LongWaitDuration).WithPolling(time.Second).ShouldNot(HaveOccurred())
 	})
 })
