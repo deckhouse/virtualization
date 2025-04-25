@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -46,13 +47,12 @@ import (
 )
 
 type ObjectRefDataVirtualImageOnPVC struct {
-	statService         Stat
-	importerService     Importer
-	dvcrSettings        *dvcr.Settings
-	client              client.Client
-	diskService         *service.DiskService
-	storageClassService *service.VirtualImageStorageClassService
-	recorder            eventrecord.EventRecorderLogger
+	statService     Stat
+	importerService Importer
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	diskService     *service.DiskService
+	recorder        eventrecord.EventRecorderLogger
 }
 
 func NewObjectRefDataVirtualImageOnPVC(
@@ -62,16 +62,14 @@ func NewObjectRefDataVirtualImageOnPVC(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	storageClassService *service.VirtualImageStorageClassService,
 ) *ObjectRefDataVirtualImageOnPVC {
 	return &ObjectRefDataVirtualImageOnPVC{
-		statService:         statService,
-		importerService:     importerService,
-		dvcrSettings:        dvcrSettings,
-		client:              client,
-		diskService:         diskService,
-		storageClassService: storageClassService,
-		recorder:            recorder,
+		statService:     statService,
+		importerService: importerService,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		diskService:     diskService,
+		recorder:        recorder,
 	}
 }
 
@@ -86,7 +84,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToDVCR(ctx context.Context, vi, vi
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsImageProvisioningFinished(condition):
 		log.Info("Virtual image provisioning finished: clean up")
 
 		cb.
@@ -205,12 +203,6 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 		return reconcile.Result{}, err
 	}
 
-	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
-	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
-	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
-		return reconcile.Result{}, err
-	}
-
 	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
 	var dvRunningCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
@@ -220,7 +212,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 
 	condition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsImageProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
@@ -250,7 +242,8 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 		vi.Status.Progress = "0%"
 		vi.Status.SourceUID = pointer.GetPointer(viRef.GetUID())
 
-		size, err := ds.getPVCSize(viRef.Status.Size)
+		var size resource.Quantity
+		size, err = ds.getPVCSize(viRef.Status.Size)
 		if err != nil {
 			setPhaseConditionToFailed(cb, &vi.Status.Phase, err)
 
@@ -268,6 +261,11 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 			},
 		}
 
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, vi.Status.StorageClassName)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		err = ds.diskService.StartImmediate(ctx, size, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err

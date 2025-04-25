@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,13 +49,12 @@ import (
 const registryDataSource = "registry"
 
 type RegistryDataSource struct {
-	statService         Stat
-	importerService     Importer
-	dvcrSettings        *dvcr.Settings
-	client              client.Client
-	diskService         *service.DiskService
-	storageClassService *service.VirtualImageStorageClassService
-	recorder            eventrecord.EventRecorderLogger
+	statService     Stat
+	importerService Importer
+	dvcrSettings    *dvcr.Settings
+	client          client.Client
+	diskService     *service.DiskService
+	recorder        eventrecord.EventRecorderLogger
 }
 
 func NewRegistryDataSource(
@@ -64,16 +64,14 @@ func NewRegistryDataSource(
 	dvcrSettings *dvcr.Settings,
 	client client.Client,
 	diskService *service.DiskService,
-	storageClassService *service.VirtualImageStorageClassService,
 ) *RegistryDataSource {
 	return &RegistryDataSource{
-		statService:         statService,
-		importerService:     importerService,
-		dvcrSettings:        dvcrSettings,
-		client:              client,
-		diskService:         diskService,
-		storageClassService: storageClassService,
-		recorder:            recorder,
+		statService:     statService,
+		importerService: importerService,
+		dvcrSettings:    dvcrSettings,
+		client:          client,
+		diskService:     diskService,
+		recorder:        recorder,
 	}
 }
 
@@ -98,12 +96,6 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 		return reconcile.Result{}, err
 	}
 
-	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
-	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
-	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
-		return reconcile.Result{}, err
-	}
-
 	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
 	var dvRunningCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
@@ -112,7 +104,7 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 	}
 
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsImageProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
@@ -218,6 +210,11 @@ func (ds RegistryDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualI
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, vi.Status.StorageClassName)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		err = ds.diskService.StartImmediate(ctx, diskSize, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
@@ -302,7 +299,7 @@ func (ds RegistryDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtual
 	}
 
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsImageProvisioningFinished(condition):
 		log.Info("Virtual image provisioning finished: clean up")
 
 		cb.

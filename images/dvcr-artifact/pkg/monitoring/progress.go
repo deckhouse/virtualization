@@ -17,6 +17,7 @@ limitations under the License.
 package monitoring
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -27,7 +28,6 @@ import (
 	"k8s.io/klog/v2"
 	"kubevirt.io/containerized-data-importer/pkg/common"
 	"kubevirt.io/containerized-data-importer/pkg/util"
-	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
 )
 
 const (
@@ -40,19 +40,16 @@ const (
 )
 
 type ProgressMeter struct {
-	*prometheusutil.ProgressReader
-
+	*ProgressReader
 	total                uint64
 	avgSpeed             ProgressMetric
 	curSpeed             ProgressMetric
 	startedAt            time.Time
 	stoppedAt            time.Time
 	prevTransmittedBytes float64
-
-	finalAvgSpeed float64
-
-	emitInterval time.Duration
-	stop         chan struct{}
+	emitInterval         time.Duration
+	stop                 chan struct{}
+	cancel               context.CancelFunc
 }
 
 // NewProgressMeter returns reader that will track bytes count into prometheus metric.
@@ -121,9 +118,8 @@ func NewProgressMeter(rdr io.ReadCloser, total uint64) *ProgressMeter {
 	}
 
 	importProgress := NewProgress(registryProgress, ownerUID)
-
 	return &ProgressMeter{
-		ProgressReader: prometheusutil.NewProgressReader(rdr, importProgress, total),
+		ProgressReader: NewProgressReader(rdr, importProgress, total),
 		total:          total,
 		avgSpeed:       NewProgress(registryAvgSpeed, ownerUID),
 		curSpeed:       NewProgress(registryCurSpeed, ownerUID),
@@ -133,12 +129,17 @@ func NewProgressMeter(rdr io.ReadCloser, total uint64) *ProgressMeter {
 }
 
 func (p *ProgressMeter) Start() {
-	p.ProgressReader.StartTimedUpdate()
+	var ctx context.Context
+	ctx, p.cancel = context.WithCancel(context.Background())
+	p.ProgressReader.StartTimedUpdate(ctx)
 	p.startedAt = time.Now()
 
 	go func() {
 		ticker := time.NewTicker(p.emitInterval)
-		defer ticker.Stop()
+		defer func() {
+			p.cancel()
+			ticker.Stop()
+		}()
 
 		for {
 			select {

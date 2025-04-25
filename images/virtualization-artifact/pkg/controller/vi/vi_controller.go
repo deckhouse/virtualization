@@ -27,9 +27,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -65,20 +67,20 @@ func NewController(
 	uploader := service.NewUploaderService(dvcr, mgr.GetClient(), uploaderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	bounder := service.NewBounderPodService(dvcr, mgr.GetClient(), bounderImage, requirements, PodPullPolicy, PodVerbose, ControllerName, protection)
 	disk := service.NewDiskService(mgr.GetClient(), dvcr, protection, ControllerName)
-	scService := service.NewVirtualImageStorageClassService(storageClassSettings)
+	scService := intsvc.NewVirtualImageStorageClassService(service.NewBaseStorageClassService(mgr.GetClient()), storageClassSettings)
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 
 	sources := source.NewSources()
-	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcr, disk, scService))
-	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcr, mgr.GetClient(), disk, scService))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, bounder, dvcr, mgr.GetClient(), disk, scService))
-	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcr, disk, scService))
+	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, dvcr, disk))
+	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, dvcr, mgr.GetClient(), disk))
+	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, importer, bounder, dvcr, mgr.GetClient(), disk))
+	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, dvcr, disk))
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
-		internal.NewStorageClassReadyHandler(recorder, disk),
+		internal.NewStorageClassReadyHandler(recorder, scService),
 		internal.NewDatasourceReadyHandler(sources),
-		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
+		internal.NewLifeCycleHandler(recorder, sources, mgr.GetClient()),
 		internal.NewDeletionHandler(sources),
 		internal.NewAttacheeHandler(mgr.GetClient()),
 	)

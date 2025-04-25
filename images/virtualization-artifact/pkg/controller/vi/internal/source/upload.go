@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -46,12 +47,11 @@ import (
 const uploadDataSource = "upload"
 
 type UploadDataSource struct {
-	statService         Stat
-	uploaderService     Uploader
-	dvcrSettings        *dvcr.Settings
-	diskService         *service.DiskService
-	storageClassService *service.VirtualImageStorageClassService
-	recorder            eventrecord.EventRecorderLogger
+	statService     Stat
+	uploaderService Uploader
+	dvcrSettings    *dvcr.Settings
+	diskService     *service.DiskService
+	recorder        eventrecord.EventRecorderLogger
 }
 
 func NewUploadDataSource(
@@ -60,15 +60,13 @@ func NewUploadDataSource(
 	uploaderService Uploader,
 	dvcrSettings *dvcr.Settings,
 	diskService *service.DiskService,
-	storageClassService *service.VirtualImageStorageClassService,
 ) *UploadDataSource {
 	return &UploadDataSource{
-		recorder:            recorder,
-		statService:         statService,
-		uploaderService:     uploaderService,
-		dvcrSettings:        dvcrSettings,
-		diskService:         diskService,
-		storageClassService: storageClassService,
+		recorder:        recorder,
+		statService:     statService,
+		uploaderService: uploaderService,
+		dvcrSettings:    dvcrSettings,
+		diskService:     diskService,
 	}
 }
 
@@ -101,12 +99,6 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 		return reconcile.Result{}, err
 	}
 
-	clusterDefaultSC, _ := ds.diskService.GetDefaultStorageClass(ctx)
-	sc, err := ds.storageClassService.GetStorageClass(vi.Spec.PersistentVolumeClaim.StorageClass, clusterDefaultSC)
-	if updated, err := setConditionFromStorageClassError(err, cb); err != nil || updated {
-		return reconcile.Result{}, err
-	}
-
 	var dvQuotaNotExceededCondition *cdiv1.DataVolumeCondition
 	var dvRunningCondition *cdiv1.DataVolumeCondition
 	if dv != nil {
@@ -115,7 +107,7 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 	}
 
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsImageProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
 		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
@@ -260,6 +252,11 @@ func (ds UploadDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualIma
 
 		source := ds.getSource(supgen, ds.statService.GetDVCRImageName(pod))
 
+		var sc *storagev1.StorageClass
+		sc, err = ds.diskService.GetStorageClass(ctx, vi.Status.StorageClassName)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		err = ds.diskService.StartImmediate(ctx, diskSize, sc, source, vi, supgen)
 		if updated, err := setPhaseConditionFromStorageError(err, vi, cb); err != nil || updated {
 			return reconcile.Result{}, err
@@ -360,7 +357,7 @@ func (ds UploadDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualIm
 	}
 
 	switch {
-	case isDiskProvisioningFinished(condition):
+	case IsImageProvisioningFinished(condition):
 		log.Info("Virtual image provisioning finished: clean up")
 
 		cb.

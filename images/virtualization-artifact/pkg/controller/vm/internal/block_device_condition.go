@@ -90,59 +90,44 @@ const (
 func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, vds map[string]*virtv2.VirtualDisk) string {
 	summaryCount := len(vds)
 
-	if summaryCount == 1 {
-		var diskName string
-		for _, vd := range vds {
-			diskName = vd.Name
-		}
-
-		return h.getSingleDiskMessage(diskState, diskName)
-	}
-	return h.getMultipleDisksMessage(diskState, summaryCount)
-}
-
-func (h *BlockDeviceHandler) getSingleDiskMessage(diskState virtualDisksState, diskName string) string {
-	switch {
-	case diskState.counts.creatingImage == 1:
-		return h.getDiskUsageMessage(1, 1, diskState.diskNames.imageCreation, UsageTypeImageCreation) + "."
-	case diskState.counts.onOtherVMs == 1:
-		return h.getDiskUsageMessage(1, 1, diskState.diskNames.usedByOtherVM, UsageTypeAnotherVM) + "."
-	default:
-		return fmt.Sprintf("Waiting for block device %q to be ready to use.", diskName)
-	}
-}
-
-func (h *BlockDeviceHandler) getMultipleDisksMessage(diskState virtualDisksState, summaryCount int) string {
 	var messages []string
 
 	messages = append(messages, fmt.Sprintf(
 		"Waiting for block devices to be ready to use: %d/%d",
 		diskState.counts.readyToUse, summaryCount))
 
-	if diskState.counts.creatingImage > 0 {
-		messages = append(messages, h.getDiskUsageMessage(
-			diskState.counts.creatingImage,
-			summaryCount,
-			diskState.diskNames.imageCreation,
-			UsageTypeImageCreation))
+	addUsageMessage := func(count int, name string, usageType string) {
+		if count == 0 {
+			return
+		}
+
+		var msg string
+		if count == 1 {
+			msg = fmt.Sprintf("Virtual disk %q is in use %s", name, usageType)
+		} else {
+			msg = fmt.Sprintf("Virtual disks %d/%d are in use %s", count, summaryCount, usageType)
+		}
+
+		messages = append(messages, msg)
 	}
 
-	if diskState.counts.onOtherVMs > 0 {
-		messages = append(messages, h.getDiskUsageMessage(
-			diskState.counts.onOtherVMs,
-			summaryCount,
-			diskState.diskNames.usedByOtherVM,
-			UsageTypeAnotherVM))
+	addUsageMessage(diskState.counts.creatingImage, diskState.diskNames.imageCreation, UsageTypeImageCreation)
+	addUsageMessage(diskState.counts.onOtherVMs, diskState.diskNames.usedByOtherVM, UsageTypeAnotherVM)
+
+	if summaryCount == 1 {
+		if diskState.counts.creatingImage == 1 || diskState.counts.onOtherVMs == 1 {
+			return messages[len(messages)-1] + "."
+		}
+
+		var diskName string
+		for _, vd := range vds {
+			diskName = vd.Name
+		}
+
+		return fmt.Sprintf("Waiting for block device %q to be ready to use.", diskName)
 	}
 
 	return strings.Join(messages, "; ") + "."
-}
-
-func (h *BlockDeviceHandler) getDiskUsageMessage(count, total int, diskName string, usageType string) string {
-	if count == 1 {
-		return fmt.Sprintf("Virtual disk %q is in use %s", diskName, usageType)
-	}
-	return fmt.Sprintf("Virtual disks %d/%d are in use %s", count, total, usageType)
 }
 
 func (h *BlockDeviceHandler) setConditionReady(vm *virtv2.VirtualMachine) {
@@ -202,7 +187,7 @@ func (h *BlockDeviceHandler) handleAttachedDisk(
 	state *virtualDisksState,
 ) {
 	if condition.Status == metav1.ConditionTrue && condition.Reason == vdcondition.AttachedToVirtualMachine.String() {
-		if !h.checkVDToUseCurrentVM(vd, vm) {
+		if !h.checkVMToMountVD(vd, vm) {
 			state.counts.onOtherVMs++
 			state.diskNames.usedByOtherVM = vd.Name
 		} else {
@@ -219,12 +204,24 @@ func (h *BlockDeviceHandler) handleReadyForUseDisk(
 ) {
 	if condition.Status != metav1.ConditionTrue &&
 		vm.Status.Phase == virtv2.MachineStopped &&
-		h.checkVDToUseCurrentVM(vd, vm) {
+		h.checkVDToUseVM(vd, vm) {
 		state.counts.readyToUse++
 	}
 }
 
-func (h *BlockDeviceHandler) checkVDToUseCurrentVM(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine) bool {
+func (h *BlockDeviceHandler) checkVDToUseVM(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine) bool {
+	attachedVMs := vd.Status.AttachedToVirtualMachines
+
+	for _, attachedVM := range attachedVMs {
+		if attachedVM.Name == vm.Name {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (h *BlockDeviceHandler) checkVMToMountVD(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine) bool {
 	attachedVMs := vd.Status.AttachedToVirtualMachines
 
 	for _, attachedVM := range attachedVMs {

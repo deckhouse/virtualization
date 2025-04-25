@@ -113,11 +113,13 @@ git:
       - monitoring
       - templates
       - Chart.yaml
+      - module.yaml
       - .helmignore
     excludePaths:
       - component_versions/README.md
       - hooks/lib/tests
       - hooks/test*
+      - docs/images/*.drawio
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
     {{- end }}

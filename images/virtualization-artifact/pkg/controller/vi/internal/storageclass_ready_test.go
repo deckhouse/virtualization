@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -35,12 +36,32 @@ import (
 )
 
 var _ = Describe("StorageClassHandler Run", func() {
-	DescribeTable("Checking returning conditions",
+	Describe("Check for the storage ContainerRegistry", func() {
+		var vi *virtv2.VirtualImage
+
+		BeforeEach(func() {
+			vi = newVI(nil, virtv2.StorageContainerRegistry)
+		})
+
+		It("doest not have StorageClass", func() {
+			handler := NewStorageClassReadyHandler(nil, nil)
+
+			res, err := handler.Handle(context.TODO(), vi)
+			Expect(err).To(BeNil())
+			Expect(res.IsZero()).To(BeTrue())
+
+			_, ok := conditions.GetCondition(vicondition.StorageClassReadyType, vi.Status.Conditions)
+			Expect(ok).To(BeFalse())
+			Expect(vi.Status.StorageClassName).To(BeEmpty())
+		})
+	})
+
+	DescribeTable("Check for the storage PersistentVolumeClaim",
 		func(args handlerTestArgs) {
 			recorder := &eventrecord.EventRecorderLoggerMock{
 				EventFunc: func(_ client.Object, _, _, _ string) {},
 			}
-			handler := NewStorageClassReadyHandler(recorder, args.DiskServiceMock)
+			handler := NewStorageClassReadyHandler(recorder, args.StorageClassServiceMock)
 			_, err := handler.Handle(context.TODO(), args.VI)
 
 			Expect(err).To(BeNil())
@@ -50,21 +71,10 @@ var _ = Describe("StorageClassHandler Run", func() {
 			Expect(condition.Reason).To(Equal(args.ExpectedCondition.Reason))
 		},
 		Entry(
-			"StorageClassReady must be false because used DVCR storage type",
-			handlerTestArgs{
-				DiskServiceMock: newDiskServiceMock(nil),
-				VI:              newVI(nil, virtv2.StorageContainerRegistry),
-				ExpectedCondition: metav1.Condition{
-					Status: metav1.ConditionUnknown,
-					Reason: vicondition.DVCRTypeUsed.String(),
-				},
-			},
-		),
-		Entry(
 			"StorageClassReady must be false because no storage class can be return",
 			handlerTestArgs{
-				DiskServiceMock: newDiskServiceMock(nil),
-				VI:              newVI(nil, virtv2.StoragePersistentVolumeClaim),
+				StorageClassServiceMock: newStorageClassServiceMock(nil),
+				VI:                      newVI(nil, virtv2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
 					Reason: vicondition.StorageClassNotFound.String(),
@@ -74,8 +84,8 @@ var _ = Describe("StorageClassHandler Run", func() {
 		Entry(
 			"StorageClassReady must be true because storage class from spec found",
 			handlerTestArgs{
-				DiskServiceMock: newDiskServiceMock(ptr.To("sc")),
-				VI:              newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
+				StorageClassServiceMock: newStorageClassServiceMock(ptr.To("sc")),
+				VI:                      newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vicondition.StorageClassReady.String(),
@@ -85,8 +95,8 @@ var _ = Describe("StorageClassHandler Run", func() {
 		Entry(
 			"StorageClassReady must be true because default storage class found",
 			handlerTestArgs{
-				DiskServiceMock: newDiskServiceMock(ptr.To("sc")),
-				VI:              newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
+				StorageClassServiceMock: newStorageClassServiceMock(ptr.To("sc")),
+				VI:                      newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vicondition.StorageClassReady.String(),
@@ -97,29 +107,29 @@ var _ = Describe("StorageClassHandler Run", func() {
 })
 
 type handlerTestArgs struct {
-	DiskServiceMock   DiskService
-	VI                *virtv2.VirtualImage
-	ExpectedCondition metav1.Condition
+	StorageClassServiceMock *StorageClassServiceMock
+	VI                      *virtv2.VirtualImage
+	ExpectedCondition       metav1.Condition
 }
 
-func newDiskServiceMock(existedStorageClass *string) *DiskServiceMock {
-	var diskServiceMock DiskServiceMock
+func newStorageClassServiceMock(existedStorageClass *string) *StorageClassServiceMock {
+	var storageClassServiceMock StorageClassServiceMock
 
-	diskServiceMock.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+	storageClassServiceMock.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 		return nil, nil
 	}
 
-	diskServiceMock.GetStorageClassFunc = func(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error) {
+	storageClassServiceMock.GetStorageClassFunc = func(ctx context.Context, storageClassName string) (*storagev1.StorageClass, error) {
 		switch {
 		case existedStorageClass == nil:
 			return nil, nil
-		case storageClassName == nil:
+		case storageClassName == "":
 			return &storagev1.StorageClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: *existedStorageClass,
 				},
 			}, nil
-		case *storageClassName == *existedStorageClass:
+		case storageClassName == *existedStorageClass:
 			return &storagev1.StorageClass{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: *existedStorageClass,
@@ -130,7 +140,19 @@ func newDiskServiceMock(existedStorageClass *string) *DiskServiceMock {
 		}
 	}
 
-	return &diskServiceMock
+	storageClassServiceMock.GetModuleStorageClassFunc = func(ctx context.Context) (*storagev1.StorageClass, error) {
+		return nil, service.ErrDefaultStorageClassNotFound
+	}
+
+	storageClassServiceMock.GetDefaultStorageClassFunc = func(ctx context.Context) (*storagev1.StorageClass, error) {
+		return nil, service.ErrDefaultStorageClassNotFound
+	}
+
+	storageClassServiceMock.IsStorageClassAllowedFunc = func(_ string) bool {
+		return true
+	}
+
+	return &storageClassServiceMock
 }
 
 func newVI(specSC *string, storageType virtv2.StorageType) *virtv2.VirtualImage {

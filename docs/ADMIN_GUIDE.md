@@ -9,27 +9,165 @@ This guide is intended for administrators of Deckhouse Virtualization Platform (
 
 The administrator also has rights to manage project resources, which are described in the [User guide](./user_guide.html).
 
+## Module parameters
+
+The configuration of the `virtualization` module is specified via the ModuleConfig resource in YAML format. The following is an example of a basic configuration:
+
+```yaml
+apiVersion: deckhouse.io/v1alpha1
+kind: ModuleConfig
+metadata:
+  name: virtualization
+spec:
+  enabled: true
+  version: 1
+  settings:
+    dvcr:
+      storage:
+        persistentVolumeClaim:
+          size: 50G
+          storageClassName: sds-replicated-thin-r1
+        type: PersistentVolumeClaim
+    virtualMachineCIDRs:
+      - 10.66.10.0/24
+```
+
+### Parameter description
+
+**Enable the module**
+
+The module state is controlled through the `.spec.enabled` field. Specify:
+
+- `true`: To enable the module.
+- `false`: To disable the module.
+
+**Configuration version**
+
+The `.spec.version` parameter defines the version of the configuration schema. The parameter structure may change between versions. The current values are given in the settings section.
+
+**Deckhouse Virtualization Container Registry (DVCR)**
+
+The `.spec.settings.dvcr.storage` block configures a persistent volume for storing images:
+
+- `.spec.settings.dvcr.storage.persistentVolumeClaim.size`: Volume size (for example, `50G`). To expand the storage, increase the value of the parameter.
+- `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`: StorageClass name (for example, `sds-replicated-thin-r1`).
+
+**Network settings**
+
+The `.spec.settings.virtualMachineCIDRs` block specifies subnets in CIDR format (for example, `10.66.10.0/24`). IP addresses for virtual machines are allocated from these ranges automatically or on request.
+
+Example:
+
+```yaml
+spec:
+  settings:
+    virtualMachineCIDRs:
+      - 10.66.10.0/24
+      - 10.66.20.0/24
+      - 10.77.20.0/16
+```
+
+The first and the last subnet address are reserved and not available for use.
+
+{{< alert level="warning">}}
+The subnets in the `.spec.settings.virtualMachineCIDRs` block must not overlap with cluster node subnets, services subnet, or pods subnet (`podCIDR`).
+
+It is forbidden to delete subnets if addresses from them have already been issued to virtual machines.
+{{< /alert >}}
+
+**Storage class settings for images**
+
+The storage class settings for images are defined in the `.spec.settings.virtualImages` parameter of the module settings.
+
+Example:
+
+```yaml
+spec:
+  ...
+  settings:
+    virtualImages:
+      allowedStorageClassNames:
+      - sc-1
+      - sc-2
+      defaultStorageClassName: sc-1
+```
+
+Where:
+
+- `allowedStorageClassNames` (optional): A list of the allowed StorageClasses for creating a VirtualImage that can be explicitly specified in the resource specification.
+- `defaultStorageClassName` (optional): The StorageClass used by default when creating a VirtualImage if the `.spec.persistentVolumeClaim.storageClassName` parameter is not set.
+
+**Storage class settings for disks**
+
+The storage class settings for disks are defined in the `.spec.settings.virtualDisks` parameter of the module settings.
+
+Example:
+
+```yaml
+spec:
+  ...
+  settings:
+    virtualDisks:
+      allowedStorageClassNames:
+      - sc-1
+      - sc-2
+      defaultStorageClassName: sc-1
+```
+
+Where:
+
+- `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a VirtualDisk that can be explicitly specified in the resource specification.
+- `defaultStorageClassName` (optional): The StorageClass used by default when creating a VirtualDisk if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
+
+{{< alert level="info" >}}
+For a complete list of configuration options, see [Configuration](./configuration.html).
+{{< /alert >}}
+
 ## Images
 
 The ClusterVirtualImage resource is used to load virtual machine images into the intra-cluster storage. After that it can be used to create virtual machine disks. It is available in all cluster namespaces and projects.
 
 The image creation process includes the following steps:
 
-- The user creates a ClusterVirtualImage resource.
-- Once created, the image is automatically uploaded from the source specified in the specification to the storage (DVCR).
-- Once the upload is complete, the resource becomes available for disk creation.
+1. The user creates a ClusterVirtualImage resource.
+1. Once created, the image is automatically uploaded from the source specified in the specification to the storage (DVCR).
+1. Once the upload is complete, the resource becomes available for disk creation.
 
 There are different types of images:
 
-- **ISO image**: An installation image used for the initial installation of an operating system. Such images are released by OS vendors and are used for installation on physical and virtual servers.
-- **Preinstalled disk image**: Contains an already installed and configured operating system ready for use after the virtual machine is created. These images are offered by several vendors and can be provided in formats such as qcow2, raw, vmdk, and others.
+- **ISO image**: An installation image used for the initial installation of an operating system (OS). Such images are released by OS vendors and are used for installation on physical and virtual servers.
+- **Preinstalled disk image**: contains an already installed and configured operating system ready for use after the virtual machine is created. You can obtain pre-configured images from the distribution developers' resources or create them manually.
 
 Examples of resources for obtaining virtual machine images:
 
-- [Ubuntu](https://cloud-images.ubuntu.com)
-- [Debian](https://cdimage.debian.org/images/cloud/)
-- [RockyLinux](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
-- [CentOS](https://cloud.centos.org/centos/7/images/)
+- Ubuntu
+  - [24.04 LTS (Noble Numbat)](https://cloud-images.ubuntu.com/noble/current/)
+  - [22.04 LTS (Jammy Jellyfish)](https://cloud-images.ubuntu.com/jammy/current/)
+  - [20.04 LTS (Focal Fossa)](https://cloud-images.ubuntu.com/focal/current/)
+  - [Minimal images](https://cloud-images.ubuntu.com/minimal/releases/)
+- Debian
+  - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
+  - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
+- AlmaLinux
+  - [9](https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/)
+  - [8](https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/)
+- RockyLinux
+  - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
+  - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
+- CentOS
+  - [10 Stream](https://cloud.centos.org/centos/10-stream/x86_64/images/)
+  - [9 Stream](https://cloud.centos.org/centos/9-stream/x86_64/images/)
+  - [8 Stream](https://cloud.centos.org/centos/8-stream/x86_64/)
+  - [8](https://cloud.centos.org/centos/8/x86_64/images/)
+
+The following preinstalled image formats are supported:
+
+- `qcow2`
+- `raw`
+- `vmdk`
+- `vdi`
+
+Image files can also be compressed with one of the following compression algorithms: `gz`, `xz`.
 
 Once a resource is created, the image type and size are automatically determined, and this information is reflected in the resource status.
 
@@ -43,37 +181,38 @@ For a full description of the ClusterVirtualImage resource configuration paramet
 
 In this example, let's create a cluster image.
 
-Run the following command to create a ClusterVirtualImage resource:
+1. To create a ClusterVirtualImage resource, run the following command:
 
-```yaml
-d8 k apply -f - <<EOF
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: ClusterVirtualImage
-metadata:
-  name: ubuntu-22.04
-spec:
-  # Source for creating an image.
-  dataSource:
-    type: HTTP
-    http:
-      url: "https://cloud-images.ubuntu.com/minimal/releases/jammy/release/ubuntu-22.04-minimal-cloudimg-amd64.img"
-EOF
-```
+   ```yaml
+   d8 k apply -f - <<EOF
+   apiVersion: virtualization.deckhouse.io/v1alpha2
+   kind: ClusterVirtualImage
+   metadata:
+     name: ubuntu-22-04
+   spec:
+     # Source for creating an image.
+     dataSource:
+       type: HTTP
+       http:
+         url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+   EOF
+   ```
 
-To verify that the ClusterVirtualImage has been created, run the following command:
+1. To verify that the ClusterVirtualImage has been created, run the following command:
 
-```bash
-d8 k get clustervirtualimage ubuntu-22.04
-# Or use a shorter version of this command.
-d8 k get cvi ubuntu-22.04
-```
+   ```bash
+   d8 k get clustervirtualimage ubuntu-22-04
+   
+   # A short version of the command.
+   d8 k get cvi ubuntu-22-04
+   ```
 
-In the output, you should see information about the resource:
+   In the output, you should see information about the resource:
 
-```console
-NAME           PHASE   CDROM   PROGRESS   AGE
-ubuntu-22.04   Ready   false   100%       23h
-```
+   ```console
+   NAME           PHASE   CDROM   PROGRESS   AGE
+   ubuntu-22-04   Ready   false   100%       23h
+   ```
 
 Once created, the ClusterVirtualImage resource can be in one of the following states (phases):
 
@@ -86,30 +225,32 @@ Once created, the ClusterVirtualImage resource can be in one of the following st
 
 As long as the image has not entered the `Ready` phase, the contents of the `.spec` block can be changed. If you change it, the disk creation process will start again. Once it is in the `Ready` phase, the `.spec` block contents **cannot be changed**.
 
-You can trace the image creation process by adding the `-w` key to the previous command:
+Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
+
+You can trace the image creation process by adding the `-w` key to the command used for verification of the created resource:
 
 ```bash
-d8 k get cvi ubuntu-22.04 -w
+d8 k get cvi ubuntu-22-04 -w
 ```
 
 Example output:
 
 ```console
 NAME           PHASE          CDROM   PROGRESS   AGE
-ubuntu-22.04   Provisioning   false              4s
-ubuntu-22.04   Provisioning   false   0.0%       4s
-ubuntu-22.04   Provisioning   false   28.2%      6s
-ubuntu-22.04   Provisioning   false   66.5%      8s
-ubuntu-22.04   Provisioning   false   100.0%     10s
-ubuntu-22.04   Provisioning   false   100.0%     16s
-ubuntu-22.04   Ready          false   100%       18s
+ubuntu-22-04   Provisioning   false              4s
+ubuntu-22-04   Provisioning   false   0.0%       4s
+ubuntu-22-04   Provisioning   false   28.2%      6s
+ubuntu-22-04   Provisioning   false   66.5%      8s
+ubuntu-22-04   Provisioning   false   100.0%     10s
+ubuntu-22-04   Provisioning   false   100.0%     16s
+ubuntu-22-04   Ready          false   100%       18s
 ```
 
 You can get additional information about the downloaded image from the description of the ClusterVirtualImage resource.
 To check on the description, run the following command:
 
 ```bash
-d8 k describe cvi ubuntu-22.04
+d8 k describe cvi ubuntu-22-04
 ```
 
 ### Creating an image from a container registry
@@ -177,7 +318,7 @@ An image stored in a container registry has a certain format. Let's look at an e
 
    Once created, the resource will enter the `WaitForUserUpload` phase, which means it is ready for uploading the image.
 
-1. There are two options available for uploading — from a cluster node and from an arbitrary node outside the cluster:
+1. There are two options available for uploading: from a cluster node and from an arbitrary node outside the cluster:
 
    ```bash
    d8 k get cvi some-image -o jsonpath="{.status.imageUploadURLs}"  | jq
@@ -191,6 +332,11 @@ An image stored in a container registry has a certain format. Let's look at an e
      "inCluster":"http://10.222.165.239/upload"
    }
    ```
+
+   Where:
+
+   - `inCluster`: A URL used to download the image from one of the cluster nodes.
+   - `external`: A URL used in all other cases.
 
 1. As an example, download the Cirros image:
 
@@ -222,6 +368,42 @@ An image stored in a container registry has a certain format. Let's look at an e
 
 The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
 
+By default, a single VirtualMachineClass `generic` resource is automatically created, which represents a universal CPU model that uses the rather old but supported by most modern processors Nehalem model. This allows you to run VMs on any nodes in the cluster with the possibility of live migration.
+
+{{< alert level="info" >}}
+It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
+
+For a configuration example, see [vCPU Discovery configuration example](#vcpu-discovery-configuration-example)
+{{< /alert >}}
+
+To list all VirtualMachineClass resources, run the following command:
+
+```bash
+d8 k get virtualmachineclass
+```
+
+Example output:
+
+```console
+NAME               PHASE   AGE
+generic            Ready   6d1h
+```
+
+Make sure to specify the VirtualMachineClass resource in the virtual machine configuration.
+The following is an example of specifying a class in the VM specification:
+
+```yaml
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachine
+metadata:
+  name: linux-vm
+spec:
+  virtualMachineClassName: generic # VirtualMachineClass resource name.
+  ...
+```
+
+### VirtualMachineClass settings
+
 The VirtualMachineClass resource structure is as follows:
 
 ```yaml
@@ -243,6 +425,105 @@ spec:
   sizingPolicies: ...
 ```
 
+Next, let's take a closer look at the setting blocks.
+
+#### vCPU settings
+
+The `.spec.cpu` block allows you to specify or configure the vCPU for the VM.
+
+{{< alert level="warning">}}
+Settings in the `.spec.cpu` block cannot be changed after the VirtualMachineClass resource is created.
+{{< /alert >}}
+
+Examples of the `.spec.cpu` block settings:
+
+- A class with a vCPU with the required set of processor instructions. In this case, use `type: Features` to specify the required set of supported instructions for the processor:
+
+  ```yaml
+  spec:
+    cpu:
+      features:
+        - vmx
+      type: Features
+  ```
+
+- A class with a universal vCPU for a given set of nodes. In this case, use `type: Discovery`:
+
+  ```yaml
+  spec:
+    cpu:
+      discovery:
+        nodeSelector:
+          matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: DoesNotExist
+      type: Discovery
+  ```
+
+- The vmclass with `type: Host` uses a virtual vCPU that matches the platform node's vCPU instruction set as closely as possible, ensuring high performance and functionality. It also guarantees compatibility with live migration for nodes with similar vCPU types. For example, it is not possible to migrate a virtual machine between nodes with Intel and AMD processors. This also applies to processors of different generations, as their instruction sets may differ.
+
+  ```yaml
+  spec:
+    cpu:
+      type: Host
+  ```
+
+- A vmclass with `type: HostPassthrough` uses a physical CPU of the platform node without modification. A virtual machine using this class can only be migrated to a node that has a CPU that exactly matches the CPU of the source node.
+
+  ```yaml
+  spec:
+    cpu:
+      type: HostPassthrough
+  ```
+
+- To create a vCPU of a specific CPU with a predefined instruction set, use `type: Model`. To get a list of supported CPU names for the cluster node, run the command in advance:
+
+  ```bash
+  d8 k get nodes <node-name> -o json | jq '.metadata.labels | to_entries[] | select(.key | test("cpu-model.node.virtualization.deckhouse.io")) | .key | split("/")[1]' -r
+  ```
+
+  Example output:
+
+  ```console
+  Broadwell-noTSX
+  Broadwell-noTSX-IBRS
+  Haswell-noTSX
+  Haswell-noTSX-IBRS
+  IvyBridge
+  IvyBridge-IBRS
+  Nehalem
+  Nehalem-IBRS
+  Penryn
+  SandyBridge
+  SandyBridge-IBRS
+  Skylake-Client-noTSX-IBRS
+  Westmere
+  Westmere-IBRS
+  ```
+
+  After that specify the following in the VirtualMachineClass resource specification:
+
+  ```yaml
+  spec:
+    cpu:
+      model: IvyBridge
+      type: Model
+  ```
+
+#### Placement settings
+
+The `.spec.nodeSelector` block is optional. It allows you to specify the nodes that will host VMs using this vmclass:
+
+```yaml
+  spec:
+    nodeSelector:
+      matchExpressions:
+        - key: node.deckhouse.io/group
+          operator: In
+          values:
+          - green
+```
+
 {{< alert level="warning" >}}
 Since changing the `.spec.nodeSelector` parameter affects all virtual machines using this `VirtualMachineClass`, consider the following:
 
@@ -250,46 +531,72 @@ Since changing the `.spec.nodeSelector` parameter affects all virtual machines u
 - For the Community edition, this may cause virtual machines to restart according to the automatic change application policy set in the `.spec.disruptions.restartApprovalMode` parameter.
 {{< /alert >}}
 
-DVP provides three predefined VirtualMachineClass resources.
-To get information on these resources, run the following command:
+#### Sizing policy settings
 
-```bash
-d8 k get virtualmachineclass
-```
+The `.spec.sizingPolicy` block allows you to set sizing policies for virtual machine resources that use vmclass.
 
-Example output:
+{{< alert level="warning" >}}
+Changes in the `.spec.sizingPolicy` block can also affect virtual machines. For virtual machines whose sizing policy will not meet the new policy requirements, the `SizingPolicyMatched` condition in the `.status.conditions` block will be false (`status: False`).
 
-```console
-NAME               PHASE   AGE
-host               Ready   6d1h
-host-passthrough   Ready   6d1h
-generic            Ready   6d1h
-```
-
-- `host`: This class uses a virtual CPU with an instruction set that is closely matching the platform node's CPU. This provides high performance and functionality, as well as compatibility with "live" migration for nodes with similar processor types. For example, you can't migrate a VM from an Intel-based node to an AMD-based node. This is also true for different generations of processors, as their instruction set is different.
-- `host-passthrough`: Uses a physical CPU of the platform node directly, without any modifications. When using this class, a guest VM can only be migrated to a target node that has a CPU exactly matching the CPU of the source node.
-- `generic`: A universal CPU model that uses the Nehalem microarchitecture, which is fairly old but still supported by the most modern CPUs. This allows running VMs on any node within a cluster with the "live" migration capability.
-
-Make sure to specify the VirtualMachineClass resource in the virtual machine configuration.
-The following is an example of specifying a class in the VM specification:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachine
-metadata:
-  name: linux-vm
-spec:
-  virtualMachineClassName: generic # VirtualMachineClass resource name.
-  ...
-```
-
-{{< alert level="info" >}}
-It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
+When configuring `sizingPolicy`, be sure to consider the [CPU topology](./user_guide.html#automatic-cpu-topology-configuration) for virtual machines.
 {{< /alert >}}
 
-DVP administrators can create the required classes of virtual machines according to their needs, but a general recommendation is to at least create the required minimum. Consider examples from the following sections.
+```yaml
+spec:
+  sizingPolicies:
+    # For a range of 1–4 cores, it is possible to use 1–8 GB of RAM in 512Mi increments,
+    # i.e., 1 GB, 1.5 GB, 2 GB, 2.5 GB, etc.
+    # No dedicated cores are allowed.
+    # All `corefraction` options are available.
+    - cores:
+        min: 1
+        max: 4
+      memory:
+        min: 1Gi
+        max: 8Gi
+        step: 512Mi
+      dedicatedCores: [false]
+      coreFractions: [5, 10, 20, 50, 100]
+    # For a range of 5–8 cores, it is possible to use 5–16 GB of RAM in 1 GB increments,
+    # i.e., 5 GB, 6 GB, 7 GB, etc.
+    # No dedicated cores are allowed.
+    # Some `corefraction` options are available.
+    - cores:
+        min: 5
+        max: 8
+      memory:
+        min: 5Gi
+        max: 16Gi
+        step: 1Gi
+      dedicatedCores: [false]
+      coreFractions: [20, 50, 100]
+    # For a range of 9–16 cores, it is possible to use 9–32 GB of RAM in 1 GB increments.
+    # You can use dedicated cores if needed.
+    # Some `corefraction` options are available.
+    - cores:
+        min: 9
+        max: 16
+      memory:
+        min: 9Gi
+        max: 32Gi
+        step: 1Gi
+      dedicatedCores: [true, false]
+      coreFractions: [50, 100]
+    # For the range of 17–248 cores, it is possible to use 1–2 GB of RAM per core.
+    # Only the dedicated cores are available for use.
+    # The only available `corefraction` parameter is 100%.
+    - cores:
+        min: 17
+        max: 248
+      memory:
+        perCore:
+          min: 1Gi
+          max: 2Gi
+      dedicatedCores: [true]
+      coreFractions: [100]
+```
 
-### VirtualMachineClass configuration example
+### vCPU Discovery configuration example
 
 ![VirtualMachineClass configuration example](./images/vmclass-examples.png)
 
@@ -305,7 +612,7 @@ To optimally utilize the resources of this cluster, it is recommended that you c
 A CPU instruction set is a list of all the instructions that a processor can execute, such as addition, subtraction, or memory operations. They determine what operations are possible, affect program compatibility and performance, and can vary from one generation of processors to the next.
 {{< /alert >}}
 
-Sample resource configurations for a given cluster:
+Resource configuration examples for a given cluster:
 
 ```yaml
 ---
@@ -350,145 +657,15 @@ spec:
   sizingPolicies: { ... }
 ```
 
-### Other configuration options
-
-Example of the VirtualMachineClass resource configuration:
-
-```yaml
-apiVersion: virtualization.deckhouse.io/v1alpha2
-kind: VirtualMachineClass
-metadata:
-  name: discovery
-spec:
-  cpu:
-    # Configure a generic vCPU for a given set of nodes.
-    discovery:
-      nodeSelector:
-        matchExpressions:
-          - key: node-role.kubernetes.io/control-plane
-            operator: DoesNotExist
-    type: Discovery
-  # Allow VMs with this class to run only on nodes in the `worker` group.
-  nodeSelector:
-    matchExpressions:
-      - key: node.deckhouse.io/group
-        operator: In
-        values:
-          - worker
-  # Resource configuration policy.
-  sizingPolicies:
-    # For a range of 1–4 cores, it is possible to use 1–8 GB of RAM in 512Mi increments,
-    # i.e., 1 GB, 1.5 GB, 2 GB, 2.5 GB, etc.
-    # No dedicated cores are allowed.
-    # All `corefraction` options are available.
-    - cores:
-        min: 1
-        max: 4
-      memory:
-        min: 1Gi
-        max: 8Gi
-        step: 512Mi
-      dedicatedCores: [false]
-      coreFractions: [5, 10, 20, 50, 100]
-    # For a range of 5–8 cores, it is possible to use 5–16 GB of RAM in 1 GB increments,
-    # i.e., 5 GB, 6 GB, 7 GB, etc.
-    # No dedicated cores are allowed.
-    # Some `corefraction` options are available.
-    - cores:
-        min: 5
-        max: 8
-      memory:
-        min: 5Gi
-        max: 16Gi
-        step: 1Gi
-      dedicatedCores: [false]
-      coreFractions: [20, 50, 100]
-    # For a range of 9–16 cores, it is possible to use 9–32 GB of RAM in 1 GB increments.
-    # You can use dedicated cores if needed.
-    # Some `corefraction` options are available.
-    - cores:
-        min: 9
-        max: 16
-      memory:
-        min: 9Gi
-        max: 32Gi
-        step: 1Gi
-      dedicatedCores: [true, false]
-      coreFractions: [50, 100]
-    # For the range of 17–1024 cores, it is possible to use 1–2 GB of RAM per core.
-    # Only the dedicated cores are available for use.
-    # The only available `corefraction` parameter is 100%.
-    - cores:
-        min: 17
-        max: 1024
-      memory:
-        perCore:
-          min: 1Gi
-          max: 2Gi
-      dedicatedCores: [true]
-      coreFractions: [100]
-```
-
-The following are fragments of the VirtualMachineClass configurations for different tasks:
-
-- A class with a vCPU with the required set of processor instructions. In this case, we use `type: Features` to specify the required set of supported instructions for the processor:
-
-  ```yaml
-  spec:
-    cpu:
-      features:
-        - vmx
-      type: Features
-  ```
-
-- A class with a universal vCPU for a given set of nodes. In this case, we use `type: Discovery`:
-
-  ```yaml
-  spec:
-    cpu:
-      discovery:
-        nodeSelector:
-          matchExpressions:
-            - key: node-role.kubernetes.io/control-plane
-              operator: DoesNotExist
-      type: Discovery
-  ```
-
-- To create a vCPU of a specific CPU with a predefined instruction set, we use `type: Model`. To get a list of supported CPU names for the cluster node, run the command in advance:
-
-  ```bash
-  d8 k get nodes <node-name> -o json | jq '.metadata.labels | to_entries[] | select(.key | test("cpu-model")) | .key | split("/")[1]'' -r
-  ```
-
-  Example output:
-
-  ```console
-  IvyBridge
-  Nehalem
-  Opteron_G1
-  Penryn
-  SandyBridge
-  Westmere
-  ```
-
-  After that specify the following in the VirtualMachineClass resource specification:
-
-  ```yaml
-  spec:
-    cpu:
-      model: IvyBridge
-      type: Model
-  ```
-
 ## Reliability mechanisms
 
 ### Migration and maintenance mode
 
 Virtual machine migration is an important feature in virtualized infrastructure management. It allows you to move running virtual machines from one physical node to another without shutting them down. Virtual machine migration is required for a number of tasks and scenarios:
 
-- Load balancing. Moving virtual machines between nodes allows you to evenly distribute the load on servers, ensuring that resources are utilized in the best possible way.
-- Node maintenance. Virtual machines can be moved from nodes that need to be taken out of service to perform routine maintenance or software upgrade.
-- Upgrading a virtual machine firmware. The migration allows you to upgrade the firmware of virtual machines without interrupting their operation.
+- **Load balancing**. Moving virtual machines between nodes allows you to evenly distribute the load on servers, ensuring that resources are utilized in the best possible way.
+- **Node maintenance**. Virtual machines can be moved from nodes that need to be taken out of service to perform routine maintenance or software upgrade.
+- **Upgrading a virtual machine firmware**. The migration allows you to upgrade the firmware of virtual machines without interrupting their operation.
 
 #### Start migration of an arbitrary machine
 
@@ -541,6 +718,8 @@ The following is an example of migrating a selected virtual machine.
    linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
    ```
 
+1. If you need to abort the migration, delete the corresponding `vmop` resource while it is in the `Pending` or `InProgress` phase.
+
 #### Maintenance mode
 
 When working on nodes with virtual machines running, there is a risk of disrupting their performance. To avoid this, you can put a node into the maintenance mode and migrate the virtual machines to other free nodes.
@@ -548,7 +727,7 @@ When working on nodes with virtual machines running, there is a risk of disrupti
 To do this, run the following command:
 
 ```bash
-d8 k drain <nodename> --ignore-daemonsets --delete-emptydir-dat
+d8 k drain <nodename> --ignore-daemonsets --delete-emptydir-data
 ```
 
 Where `<nodename>` is a node scheduled for maintenance, which needs to be freed from all resources (including system resources).
@@ -559,7 +738,9 @@ If you need to evict only virtual machines off the node, run the following comma
 d8 k drain <nodename> --pod-selector vm.kubevirt.internal.virtualization.deckhouse.io/name --delete-emptydir-data
 ```
 
-After running the `d8 k drain` command, the node will go into the maintenance mode and no virtual machines will be able to start on it. To take it out of the maintenance mode, run the following command:
+After running the `d8 k drain` command, the node will enter maintenance mode and no virtual machines will be able to start on it.
+
+To take it out of maintenance mode, stop the `drain` command (Ctrl+C), then execute:
 
 ```bash
 d8 k uncordon <nodename>
@@ -574,95 +755,14 @@ ColdStandby provides a mechanism to recover a virtual machine from a failure on 
 The following requirements must be met for this mechanism to work:
 
 - The virtual machine startup policy (`.spec.runPolicy`) must be set to one of the following values: `AlwaysOnUnlessStoppedManually`, `AlwaysOn`.
-- The [fencing mechanism](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/040-node-manager/cr.html#nodegroup-v1-spec-fencing-mode) must be enabled on nodes running the virtual machines.
+- The [Fencing mechanism](https://deckhouse.io/products/kubernetes-platform/documentation/v1/modules/040-node-manager/cr.html#nodegroup-v1-spec-fencing-mode) must be enabled on nodes running the virtual machines.
 
 Let's see how it works on the example:
 
-- A cluster consists of three nodes: master, workerA, and workerB. The worker nodes have the fencing mechanism enabled.
-- The `linux-vm` virtual machine is running on the workerA node.
-- A problem occurs on the workerA node (power outage, no network connection, etc.)
-- The controller checks the node availability and finds that workerA is unavailable.
-- The controller removes the workerA node from the cluster.
-- The `linux-vm` virtual machine is started on another suitable node (workerB).
+1. A cluster consists of three nodes: `master`, `workerA`, and `workerB`. The worker nodes have the Fencing mechanism enabled. The `linux-vm` virtual machine is running on the `workerA` node.
+1. A problem occurs on the `workerA` node (power outage, no network connection, etc.).
+1. The controller checks the node availability and finds that `workerA` is unavailable.
+1. The controller removes the `workerA` node from the cluster.
+1. The `linux-vm` virtual machine is started on another suitable node (`workerB`).
 
 ![ColdStandBy mechanism diagram](./images/coldstandby.png)
-
-## Disk and image storage settings
-
-For storing disks (VirtualDisk) and images (VirtualImage) with the `PersistentVolumeClaim` type, the storage provided by the platform is used.
-
-To check the list of storage supported by the platform, use the command for viewing storage classes (StorageClass):
-
-```bash
-d8 k get storageclass
-```
-
-Example of the executed command:
-
-```console
-NAME                                       PROVISIONER                           RECLAIMPOLICY   VOLUMEBINDINGMODE      ALLOWVOLUMEEXPANSION   AGE
-ceph-pool-r2-csi-rbd                       rbd.csi.ceph.com                      Delete          WaitForFirstConsumer   true                   49d
-ceph-pool-r2-csi-rbd-immediate (default)   rbd.csi.ceph.com                      Delete          Immediate              true                   49d
-linstor-thin-r1                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   28d
-linstor-thin-r2                            replicated.csi.storage.deckhouse.io   Delete          WaitForFirstConsumer   true                   78d
-nfs-4-1-wffc                               nfs.csi.k8s.io                        Delete          WaitForFirstConsumer   true                   49d
-```
-
-The `(default)` marker next to the class name indicates that this StorageClass will be used by default in case the user has not specified the class name explicitly in the created resource.
-
-If the default StorageClass is not present in the cluster, the user must specify the required StorageClass explicitly in the resource specification.
-
-In addition, the virtualization module allows you to specify individual settings for disk and image storage.
-
-### Storage class settings for images
-
-The storage class settings for images are defined in the `.spec.settings.virtualImages` parameter of the module settings.
-
-Example:
-
-```yaml
-spec:
-  ...
-  settings:
-    virtualImages:
-       allowedStorageClassNames:
-       - sc-1
-       - sc-2
-       defaultStorageClassName: sc-1
-```
-
-- `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a `VirtualImage` that can be explicitly specified in the resource specification.
-- `defaultStorageClassName`(optional): The StorageClass used by default when creating a `VirtualImage` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not set.
-
-### Storage class settings for disks
-
-The storage class settings for disks are defined in the `.spec.settings.virtualDisks` parameter of the module settings.
-
-Example:
-
-```yaml
-spec:
-  ...
-  settings:
-    virtualDisks:
-       allowedStorageClassNames:
-       - sc-1
-       - sc-2
-       defaultStorageClassName: sc-1
-```
-
-- `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a `VirtualDisk` that can be explicitly specified in the resource specification.
-- `defaultStorageClassName` (optional): The StorageClass used by default when creating a `VirtualDisk` if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
-
-### Fine-tuning the storage classes for disks
-
-When you create a disk, the controller will automatically select the most optimal parameters supported by the storage based on the known data.
-
-The following are the priorities of the `PersistentVolumeClaim` parameter settings when creating a disk by automatically defining the storage features:
-
-- `RWX + Block`
-- `RWX + FileSystem`
-- `RWO + Block`
-- `RWO + FileSystem`
-
-If the storage is unknown and it is impossible to automatically define its parameters, then `RWO + FileSystem` is used.

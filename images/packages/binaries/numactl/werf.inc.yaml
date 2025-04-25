@@ -1,0 +1,62 @@
+---
+image: {{ $.ImageType }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /numactl
+  before: setup
+
+---
+{{- $version := get $.Package $.ImageName }}
+{{- $gitRepoUrl := "numactl/numactl.git" }}
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc
+- git pkg-config trousers
+- automake autoconf make libtool
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+final: false
+fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  beforeInstall:
+    - |
+      apt-get update && apt-get install -y \
+        {{ $builderDependencies.packages | join " " }}
+      apt-get clean
+      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
+  install:
+    - |
+      OUTDIR=/out
+      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+      cd /src
+
+      ./autogen.sh
+
+      ./configure --prefix=/usr --libdir=/usr/lib64 --enable-static=no
+
+      make -j$(nproc)
+
+      make DESTDIR=$OUTDIR install
+
+      strip $OUTDIR/usr/bin/*
+
+      # We don't need man, test and samples files
+      rm -rf $OUTDIR/usr/include
+      rm -rf $OUTDIR/usr/share
+      rm -rf $OUTDIR/usr/lib64/pkgconfig
+      rm -rf $OUTDIR/usr/bin/numademo
+

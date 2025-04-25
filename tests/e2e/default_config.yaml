@@ -31,6 +31,7 @@ testData:
   vmLabelAnnotation: "/tmp/testdata/vm-label-annotation"
   vmMigration: "/tmp/testdata/vm-migration"
   vmMigrationCancel: "/tmp/testdata/vm-migration-cancel"
+  vmEvacuation: "/tmp/testdata/vm-evacuation"
   vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
   vmVersions: "/tmp/testdata/vm-versions"
   vdSnapshots: "/tmp/testdata/vd-snapshots"
@@ -40,8 +41,6 @@ logFilter:
   - "pattern to exclude"
   - "Server rejected event (will not retry!)" # Msg.
   - "validation failed for data source objectref" # Err.
-  - "error patching metadata: virtualdisks" # Err.
-  - "error patching metadata: virtualmachineclasses" # Err.
   - "clean up failed for data source registry" # Err.
   - "VDSnapshot object ref" # Err.
   - "VirtualDiskSnapshot " # Err.
