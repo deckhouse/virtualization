@@ -53,7 +53,6 @@ imageSpec:
 packages:
 - acl
 - nftables
-# - qemu-img
 binaries:
 - /usr/bin/mount
 - /usr/bin/umount
@@ -73,11 +72,10 @@ image: {{ $.ImageName }}-bins
 final: false
 fromImage: base-alt-p11-binaries
 import:
-  - image: packages/binaries/xorriso
-    add: /xorriso
-    to: /xorriso
-    before: install
-import:
+- image: packages/binaries/xorriso
+  add: /xorriso
+  to: /xorriso
+  before: install
 - image: qemu
   add: /qemu-img
   to: /relocate
