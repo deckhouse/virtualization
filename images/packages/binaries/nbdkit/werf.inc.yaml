@@ -67,11 +67,11 @@ shell:
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
       cd /src
 
-      autoreconf -i 
+      autoreconf -i
 
       ./configure \
         --disable-static \
-        --sbindir=%_bindir \
+        --prefix=/usr \
         --with-bash-completions
 
 
