@@ -37,6 +37,7 @@ packages:
 - libnbd
 - libtorrent-rasterbar-devel
 - libssh
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
