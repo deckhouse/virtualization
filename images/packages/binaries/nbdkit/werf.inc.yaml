@@ -50,8 +50,10 @@ secrets:
 shell:
   beforeInstall:
     - |
+      /etc/init.d/udevd umount
       apt-get update && apt-get install -y \
         {{ $builderDependencies.packages | join " " }}
+      /etc/init.d/udevd restart
 
       apt-get update
       apt-get clean
