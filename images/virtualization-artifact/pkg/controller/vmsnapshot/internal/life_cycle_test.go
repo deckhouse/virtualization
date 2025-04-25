@@ -27,6 +27,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -44,6 +45,7 @@ var _ = Describe("LifeCycle handler", func() {
 	var secret *corev1.Secret
 	var vdSnapshot *virtv2.VirtualDiskSnapshot
 	var vmSnapshot *virtv2.VirtualMachineSnapshot
+	var fakeClient client.WithWatch
 
 	BeforeEach(func() {
 		vd = &virtv2.VirtualDisk{
@@ -142,6 +144,10 @@ var _ = Describe("LifeCycle handler", func() {
 			},
 		}
 
+		var err error
+		fakeClient, err = testutil.NewFakeClientWithObjects(vd, vm, secret, vmSnapshot, vdSnapshot)
+		Expect(err).ShouldNot(HaveOccurred())
+
 		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc: func(_ client.Object, _, _, _ string) {},
 		}
@@ -156,7 +162,7 @@ var _ = Describe("LifeCycle handler", func() {
 				conditions.SetCondition(cb, &vm.Status.Conditions)
 				return vm, nil
 			}
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
@@ -172,7 +178,7 @@ var _ = Describe("LifeCycle handler", func() {
 				vd.Status.Phase = virtv2.DiskPending
 				return vd, nil
 			}
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
@@ -191,7 +197,7 @@ var _ = Describe("LifeCycle handler", func() {
 				conditions.SetCondition(cb, &vd.Status.Conditions)
 				return vd, nil
 			}
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
@@ -211,7 +217,7 @@ var _ = Describe("LifeCycle handler", func() {
 				conditions.SetCondition(cb, &vd.Status.Conditions)
 				return vd, nil
 			}
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
@@ -230,7 +236,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return vm, nil
 			}
 
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
@@ -249,7 +255,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return false
 			}
 
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
@@ -271,7 +277,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return nil
 			}
 
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
@@ -289,7 +295,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("The snapshot of virtual machine is Ready", func() {
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
@@ -303,7 +309,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		It("The snapshot of running virtual machine is consistent", func() {
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
@@ -315,7 +321,7 @@ var _ = Describe("LifeCycle handler", func() {
 				vm.Status.Phase = virtv2.MachineStopped
 				return vm, nil
 			}
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
@@ -328,7 +334,7 @@ var _ = Describe("LifeCycle handler", func() {
 				vdSnapshot.Status.Consistent = nil
 				return vdSnapshot, nil
 			}
-			h := NewLifeCycleHandler(recorder, snapshotter, storer)
+			h := NewLifeCycleHandler(recorder, snapshotter, storer, fakeClient)
 
 			_, err := h.Handle(testContext(), vmSnapshot)
 			Expect(err).To(BeNil())
