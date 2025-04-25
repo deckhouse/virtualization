@@ -73,17 +73,14 @@ shell:
       ./configure \
         --disable-static \
         --prefix=/usr \
-        --with-bash-completions
+        --without-bash-completions
 
 
       make -j$(nproc)
 
-      make DESTDIR=$OUTDIR install
-      tree $OUTDIR
-      strip $OUTDIR/usr/bin/*
+      make DESTDIR=$OUTDIR install-strip
 
       # We don't need man, test and samples files
       rm -rf $OUTDIR/usr/include
       rm -rf $OUTDIR/usr/share
-      rm -rf $OUTDIR/usr/libexec/installed-tests
 

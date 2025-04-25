@@ -19,8 +19,12 @@ libraries:
 packages:
   - libnbd
 binaries:
-  # All nbd binaries
-  - /usr/bin/nbd*
+  # Qemu-img
+  - /usr/bin/qemu-img
+  - /usr/bin/qemu-nbd
+  # nbd bins and libs
+  - /usr/sbin/nbdkit
+  - /lib/nbdkit/*
   # Mount
   - /usr/bin/mount /usr/bin/umount
   # Sqlite libs
