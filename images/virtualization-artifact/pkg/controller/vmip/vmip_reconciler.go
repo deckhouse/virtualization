@@ -154,7 +154,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	s := state.New(r.client, vmip.Changed())
-
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
 		return h.Handle(ctx, s)
@@ -165,6 +164,11 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return vmip.Update(ctx)
 	})
 
+	// TODO: This code addresses the issue of creating vmipl within the controller.
+	// The object is saved in etcd but does not get updated in the cache in time.
+	// As a result, we encounter the creation of multiple vmipl during a single reconcile operation.
+	// Adding reconcile.Result{RequeueAfter: 2 * time.Second} helps to fix this issue in 90% of cases.
+	// In the future, this code should be architecturally redesigned to prevent such situations.
 	result, err := rec.Reconcile(ctx)
 	if err != nil {
 		logger.FromContext(ctx).Error("Failed to reconcile VMIP", logger.SlogErr(err))
