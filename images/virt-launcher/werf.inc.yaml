@@ -127,7 +127,6 @@ packages:
   - iptables
   - libffi8
   - nftables
-  - numactl
   - passt
   - pcre
   - procps
