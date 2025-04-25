@@ -61,7 +61,7 @@ libs:
   - libzstd-devel
   - libseccomp-devel
   - libgcrypt-devel
-  - libgnutls-devel
+  # - libgnutls-devel
   - libnettle-devel
   - libudev-devel
   - libmultipath-devel
@@ -254,6 +254,10 @@ import:
   after: setup
   includePaths:
   - usr/bin/openssl
+- image: packages/binaries/gnutls
+  add: /gnutls
+  to: /gnutls
+  before: install
 
 - image: tools/coreutils
   add: /
@@ -320,11 +324,12 @@ shell:
     cp -a /xorriso/. /
     cp -a /swtpm/. /
     cp -a /numactl/. /
+    cp -a /gnutls/. /
 
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins,swtpm,numactl}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins,swtpm,numactl,gnutls}
 
   setup:
   - |

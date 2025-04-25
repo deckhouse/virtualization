@@ -24,7 +24,7 @@ packages:
 - libtasn1-devel libtasn1-utils libidn2-devel gawk gperf
 - libunbound-devel bison gtk-doc texinfo texlive dash
 - libev4 libev-devel libgcrypt-devel libopencdk-devel
-- tree which vim-console wget
+- wget
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
