@@ -17,7 +17,7 @@ import:
 packages:
 - git gcc
 - automake autoconf-archive make libtool
-- makedev
+- MAKEDEV
 - bash-completion
 - curl
 - qemu
