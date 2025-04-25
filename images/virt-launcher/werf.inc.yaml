@@ -265,6 +265,7 @@ import:
   - usr/bin/cp
   - usr/bin/sleep
   - usr/bin/coreutils
+
 - image: {{ $.ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin
