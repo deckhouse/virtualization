@@ -5,20 +5,39 @@ fromImage: builder/scratch
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
-  to: /nbd
+  to: /nbdkit
   before: setup
 
 ---
 {{- $version := get $.Package $.ImageName }}
-{{- $gitRepoUrl := "networkblockdevice/nbd.git" }}
+{{- $gitRepoUrl := "nbdkit/nbdkit.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
 - git gcc
 - automake autoconf-archive make libtool
-- glib2-devel bison flex setproctitle libnl-devel docbook-utils
-- tree
+- makedev
+- bash-completion
+- curl
+- qemu
+- libisoburn
+- e2fsprogs
+- expect
+- gnutls30
+- filesystem
+- socat
+- jq
+- iproute2
+- xz
+- zlib-ng
+- zstd
+- zlib
+- libblkio
+- gcc-defaults
+- libnbd
+- libtorrent-rasterbar
+- libssh
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -44,15 +63,15 @@ shell:
       OUTDIR=/out
       mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch nbd-{{ $version }} /src
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
       cd /src
 
       ./autogen.sh
 
       ./configure \
-        --prefix=/usr \
-        --enable-lfs \
-        --enable-syslog
+        --disable-static \
+        --sbindir=%_bindir \
+        --with-bash-completions
 
 
       make -j$(nproc)
