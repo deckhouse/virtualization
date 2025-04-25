@@ -666,8 +666,9 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 	vmSnapshot.Status.Resources = []virtv2.ResourceRef{}
 
 	vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
-		Kind: virtv2.VirtualMachineKind,
-		Name: vm.Name,
+		Kind:       virtv2.VirtualMachineKind,
+		ApiVersion: vm.APIVersion,
+		Name:       vm.Name,
 	})
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
