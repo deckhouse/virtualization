@@ -17,7 +17,7 @@ import:
 packages:
 - git gcc
 - automake autoconf-archive make libtool
-- MAKEDEV
+# - MAKEDEV
 - bash-completion
 - curl
 - qemu
@@ -50,10 +50,10 @@ secrets:
 shell:
   beforeInstall:
     - |
-      /etc/init.d/udevd umount
+      # /etc/init.d/udevd umount
       apt-get update && apt-get install -y \
         {{ $builderDependencies.packages | join " " }}
-      /etc/init.d/udevd restart
+      # /etc/init.d/udevd restart
 
       apt-get update
       apt-get clean
