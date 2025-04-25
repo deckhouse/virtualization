@@ -42,7 +42,7 @@ const (
 // +kubebuilder:resource:categories={all,virtualization},scope=Namespaced,shortName={vm,vms},singular=virtualmachine
 // +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="The phase of the virtual machine."
 // +kubebuilder:printcolumn:name="Cores",priority=1,type="string",JSONPath=".spec.cpu.cores",description="The number of cores of the virtual machine."
-// +kubebuilder:printcolumn:name="CoreFraction",priority=1,type="string",JSONPath=".spec.cpu.coreFraction",description="Virtual machine core fraction. The range of available values is set in the sizePolicy parameter of the VirtualMachineClass; if it is not set, you can use values from 1 to 100 percent."
+// +kubebuilder:printcolumn:name="CoreFraction",priority=1,type="string",JSONPath=".spec.cpu.coreFraction",description="Virtual machine core fraction. The range of available values is set in the `sizePolicy` parameter of the VirtualMachineClass; if it is not set, use values within the 1–100% range."
 // +kubebuilder:printcolumn:name="Memory",priority=1,type="string",JSONPath=".spec.memory.size",description="The amount of memory of the virtual machine."
 // +kubebuilder:printcolumn:name="Need restart",priority=1,type="string",JSONPath=".status.conditions[?(@.type=='AwaitingRestartToApplyConfiguration')].status",description="A restart of the virtual machine is required."
 // +kubebuilder:printcolumn:name="Agent",priority=1,type="string",JSONPath=".status.conditions[?(@.type=='AgentReady')].status",description="Agent status."
