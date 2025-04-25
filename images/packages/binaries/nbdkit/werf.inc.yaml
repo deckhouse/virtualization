@@ -24,7 +24,7 @@ packages:
 - libisoburn
 - e2fsprogs
 - expect
-- gnutls30
+- libgnutls30
 - filesystem
 - socat
 - jq
