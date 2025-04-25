@@ -67,7 +67,7 @@ shell:
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
       cd /src
 
-      ./autogen.sh
+      autoreconf -i 
 
       ./configure \
         --disable-static \
