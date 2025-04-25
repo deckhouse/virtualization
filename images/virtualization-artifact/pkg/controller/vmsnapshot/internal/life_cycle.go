@@ -24,9 +24,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -42,13 +45,15 @@ type LifeCycleHandler struct {
 	recorder    eventrecord.EventRecorderLogger
 	snapshotter Snapshotter
 	storer      Storer
+	client      client.Client
 }
 
-func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, snapshotter Snapshotter, storer Storer) *LifeCycleHandler {
+func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, snapshotter Snapshotter, storer Storer, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
 		recorder:    recorder,
 		snapshotter: snapshotter,
 		storer:      storer,
+		client:      client,
 	}
 }
 
@@ -353,7 +358,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		return reconcile.Result{}, err
 	}
 
-	// 9. Move to Ready phase.
+	// 9. Fill status resources.
+	err = h.fillStatusResources(ctx, vmSnapshot, vm)
+	if err != nil {
+		h.setPhaseConditionToFailed(cb, vmSnapshot, err)
+		return reconcile.Result{}, err
+	}
+
+	// 10. Move to Ready phase.
 	log.Debug("The virtual disk snapshots are taken: the virtual machine snapshot is Ready now", "unfrozen", unfrozen)
 
 	vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseReady
@@ -648,4 +660,49 @@ func getVDName(vdSnapshotName string, vmSnapshot *virtv2.VirtualMachineSnapshot)
 
 func getVDSnapshotName(vdName string, vmSnapshot *virtv2.VirtualMachineSnapshot) string {
 	return fmt.Sprintf("%s-%s", vdName, vmSnapshot.UID)
+}
+
+func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot, vm *virtv2.VirtualMachine) error {
+	vmSnapshot.Status.Resources = []virtv2.ResourceRef{}
+
+	vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+		Kind: virtv2.VirtualMachineKind,
+		Name: vm.Name,
+	})
+
+	for _, bdr := range vm.Status.BlockDeviceRefs {
+		if bdr.Kind != virtv2.DiskDevice {
+			continue
+		}
+
+		vd, err := object.FetchObject(ctx, types.NamespacedName{Name: bdr.Name, Namespace: vm.Namespace}, h.client, &virtv2.VirtualDisk{})
+		if err != nil {
+			return err
+		}
+		if vd == nil {
+			continue
+		}
+		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+			Kind:       vd.Kind,
+			ApiVersion: vd.APIVersion,
+			Name:       vd.Name,
+		})
+
+		if bdr.VirtualMachineBlockDeviceAttachmentName != "" {
+			vmbda, err := object.FetchObject(ctx, types.NamespacedName{Name: bdr.VirtualMachineBlockDeviceAttachmentName, Namespace: vm.Namespace}, h.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
+			if err != nil {
+				return err
+			}
+			if vmbda == nil {
+				continue
+			}
+			vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+				Kind:       vmbda.Kind,
+				ApiVersion: vmbda.APIVersion,
+				Name:       vmbda.Name,
+			})
+		}
+	}
+
+	return nil
 }

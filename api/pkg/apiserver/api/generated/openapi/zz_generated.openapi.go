@@ -64,6 +64,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacementFrom":                       schema_virtualization_api_core_v1alpha2_NameReplacementFrom(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector":                              schema_virtualization_api_core_v1alpha2_NodeSelector(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Provisioning":                              schema_virtualization_api_core_v1alpha2_Provisioning(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.ResourceRef":                               schema_virtualization_api_core_v1alpha2_ResourceRef(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus":                           schema_virtualization_api_core_v1alpha2_ResourcesStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicy":                              schema_virtualization_api_core_v1alpha2_SizingPolicy(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.SizingPolicyCores":                         schema_virtualization_api_core_v1alpha2_SizingPolicyCores(ref),
@@ -1765,6 +1766,39 @@ func schema_virtualization_api_core_v1alpha2_Provisioning(ref common.ReferenceCa
 		},
 		Dependencies: []string{
 			"github.com/deckhouse/virtualization/api/core/v1alpha2.SysprepRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.UserDataRef"},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_ResourceRef(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind of resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"apiVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Api version of resource",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource Name",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+			},
+		},
 	}
 }
 
@@ -4879,6 +4913,20 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotStatus(ref co
 							},
 						},
 					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Snapshotted resource list",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ResourceRef"),
+									},
+								},
+							},
+						},
+					},
 					"conditions": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The latest detailed observations of the VirtualMachineSnapshot resource.",
@@ -4905,7 +4953,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotStatus(ref co
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.ResourceRef", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition"},
 	}
 }
 
