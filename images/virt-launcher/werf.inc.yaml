@@ -61,7 +61,6 @@ libs:
   - libzstd-devel
   - libseccomp-devel
   - libgcrypt-devel
-  # - libgnutls-devel
   - libnettle-devel
   - libudev-devel
   - libmultipath-devel
