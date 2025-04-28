@@ -22,6 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -55,7 +56,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 		return reconcile.Result{}, err
 	}
 
-	if vmip != nil {
+	if vmip != nil && vmip.Status.Address == ip.LeaseNameToIP(lease.Name) {
 		if leaseStatus.Phase != virtv2.VirtualMachineIPAddressLeasePhaseBound {
 			leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
 			cb.Status(metav1.ConditionTrue).

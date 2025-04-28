@@ -142,8 +142,6 @@ binaries:
   - /usr/bin/ocsptool
   - /usr/bin/p11tool
   - /usr/bin/psktool
-  # Openssl
-  - /usr/bin/openssl
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
@@ -258,6 +256,14 @@ import:
   to: /nftables
   before: install
 
+# Statically builded
+- image: packages/binaries/openssl
+  add: /openssl
+  to: /relocate
+  after: setup
+  includePaths:
+  - usr/bin/openssl
+
 - image: tools/coreutils
   add: /
   to: /relocate
@@ -267,6 +273,7 @@ import:
   - usr/bin/cp
   - usr/bin/sleep
   - usr/bin/coreutils
+
 - image: {{ $.ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin

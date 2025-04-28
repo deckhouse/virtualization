@@ -890,7 +890,7 @@ spec:
                       type: string
                       default: "100%"
                       description: |
-                        Guaranteed share of CPU time that will be allocated to the VM. Specified as a percentage.
+                        Guaranteed share of CPU time that will be allocated to the VM. Specified as a percentage. The range of available values is set in the `sizePolicy` parameter of the VirtualMachineClass; if it is not set, use values within the 1–100% range.
 
                 memory:
                   type: object
