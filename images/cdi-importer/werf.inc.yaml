@@ -19,9 +19,6 @@ libraries:
 packages:
   - libnbd
 binaries:
-  # Qemu-img
-  - /usr/bin/qemu-img
-  - /usr/bin/qemu-nbd
   # nbd bins and libs
   - /usr/sbin/nbdkit
   - /usr/lib/nbdkit/*
