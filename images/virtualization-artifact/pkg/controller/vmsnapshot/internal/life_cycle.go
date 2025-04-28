@@ -666,10 +666,70 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 	vmSnapshot.Status.Resources = []virtv2.ResourceRef{}
 
 	vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
-		Kind:       virtv2.VirtualMachineKind,
+		Kind:       vm.Kind,
 		ApiVersion: vm.APIVersion,
 		Name:       vm.Name,
 	})
+
+	if vmSnapshot.Spec.KeepIPAddress == virtv2.KeepIPAddressAlways {
+		vmip, err := object.FetchObject(ctx, types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      vm.Status.VirtualMachineIPAddress,
+		}, h.client, &virtv2.VirtualMachineIPAddress{})
+		if err != nil {
+			return err
+		}
+
+		if vmip == nil {
+			return fmt.Errorf("the virtual machine ip address %q not found", vm.Status.VirtualMachineIPAddress)
+		}
+
+		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+			Kind:       vmip.Kind,
+			ApiVersion: vmip.APIVersion,
+			Name:       vmip.APIVersion,
+		})
+	}
+
+	if vm.Spec.Provisioning != nil {
+		var provisioningSecretName string
+
+		switch vm.Spec.Provisioning.Type {
+		case virtv2.ProvisioningTypeSysprepRef:
+			if vm.Spec.Provisioning.SysprepRef == nil {
+				return errors.New("the virtual machine sysprep ref provisioning is nil")
+			}
+
+			if vm.Spec.Provisioning.SysprepRef.Kind == virtv2.SysprepRefKindSecret {
+				provisioningSecretName = vm.Spec.Provisioning.SysprepRef.Name
+			}
+
+		case virtv2.ProvisioningTypeUserDataRef:
+			if vm.Spec.Provisioning.UserDataRef == nil {
+				return errors.New("the virtual machine user data ref provisioning is nil")
+			}
+
+			if vm.Spec.Provisioning.UserDataRef.Kind == virtv2.UserDataRefKindSecret {
+				provisioningSecretName = vm.Spec.Provisioning.UserDataRef.Name
+			}
+		}
+
+		if provisioningSecretName != "" {
+			secretKey := types.NamespacedName{Name: provisioningSecretName, Namespace: vm.Namespace}
+			provisioner, err := object.FetchObject(ctx, secretKey, h.client, &corev1.Secret{})
+			if err != nil {
+				return err
+			}
+
+			if provisioner != nil {
+				vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+					Kind:       provisioner.Kind,
+					ApiVersion: provisioner.APIVersion,
+					Name:       provisioner.Name,
+				})
+			}
+		}
+	}
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
 		if bdr.Kind != virtv2.DiskDevice {
