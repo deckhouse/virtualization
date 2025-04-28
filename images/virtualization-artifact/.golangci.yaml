@@ -7,6 +7,10 @@ issues:
   max-same-issues: 0
   exclude:
     - "don't use an underscore in package name"
+  # exclude-rules:
+  #   - linters:
+  #       - stylecheck
+  #     text: "ST1003:"
 output:
   sort-results: true
 

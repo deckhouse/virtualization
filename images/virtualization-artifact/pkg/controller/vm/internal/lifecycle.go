@@ -188,7 +188,6 @@ func (h *LifeCycleHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv
 		cbMigrating.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonVmIsNotMigrating)
 		conditions.SetCondition(cbMigrating, &vm.Status.Conditions)
 	}
-
 }
 
 func (h *LifeCycleHandler) syncMigratable(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
