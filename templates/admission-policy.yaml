@@ -1,4 +1,4 @@
-{{- $kubeVersion := .Values.global.clusterConfiguration.kubernetesVersion }}
+{{- $kubeVersion := .Values.global.discovery.kubernetesVersion }}
 {{- $apiVersion := "" }}
 {{- if semverCompare ">=1.30.0" $kubeVersion }}
 {{- $apiVersion = "admissionregistration.k8s.io/v1" }}
