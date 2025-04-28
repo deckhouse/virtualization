@@ -22,8 +22,8 @@ packages:
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit
-  - /usr/lib/nbdkit/filters
-  - /usr/lib/nbdkit/plugins
+  - /usr/lib/nbdkit/filters/*
+  - /usr/lib/nbdkit/plugins/*
   # Mount
   - /usr/bin/mount /usr/bin/umount
   # Sqlite libs
@@ -67,7 +67,5 @@ shell:
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   setup:
   - |
-    tree /nbdkit
     cp -a /nbdkit/. /
-    tree /usr/lib
     /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate
