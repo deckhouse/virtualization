@@ -53,6 +53,7 @@ logFilter:
   - "get storage class specified in spec: storage class not found" # Err.
   - "lastTransitionTime: Required value" # Err.
   - "virtualmachineipaddressleases.virtualization.deckhouse.io "
+  - "the server rejected our request due to an error in our request" # Err.
 regexpLogFilter:
   - "failed to detach: .* not found" # "err" "failed to detach: virtualmachine.kubevirt.io \"head-497d17b-vm-automatic-with-hotplug\" not found",
   - "error patching .* not found" # "err" "error patching *** virtualimages.virtualization.deckhouse.io \"head-497d17b-vi-pvc-oref-vi-oref-vd\" not found",
