@@ -24,7 +24,7 @@ binaries:
   - /usr/bin/qemu-nbd
   # nbd bins and libs
   - /usr/sbin/nbdkit
-  - /lib/nbdkit/*
+  - /usr/lib/nbdkit/*
   # Mount
   - /usr/bin/mount /usr/bin/umount
   # Sqlite libs
