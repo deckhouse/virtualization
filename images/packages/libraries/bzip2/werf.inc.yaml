@@ -8,7 +8,7 @@ import:
   to: /{{ $.ImageName }}
   before: setup
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get $.Library $.ImageName }}
 #{{/* {{- $gitRepoUrl := "git/bzip2.git" }} */}}
 {{- $gitRepoUrl := "bzip2/bzip2.git" }}
 
