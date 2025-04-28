@@ -1,7 +1,7 @@
 ---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $version := "1.3.1" }}
-{{- $branch := "v12n-patches"}}
+{{- $tag := "d8-v1.3.1/virtualization-0.17"}}
 {{- $goVersion := "1.22.7" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -33,16 +33,6 @@ fromImage: base-alt-p11
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
-git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    stageDependencies:
-      install:
-      - '**/*'
-    includePaths:
-    - patches
-    excludePaths:
-    - patches/README.md
 shell:
   beforeInstall:
     - apt-get update
@@ -53,7 +43,7 @@ shell:
     - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
   install:
-    - git clone --depth 1 --branch {{ $branch }} {{ $.SOURCE_REPO }}/deckhouse/3p-kubevirt.git /kubevirt
+    - git clone --depth 1 --branch {{ $tag }} {{ $.SOURCE_REPO }}/deckhouse/3p-kubevirt.git /kubevirt
     - cd /kubevirt
     - go mod edit -go={{ $goVersion }}
     - go mod download
