@@ -18,7 +18,6 @@ libraries:
 - libsqlite3
 packages:
   - libnbd
-  - tree
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit

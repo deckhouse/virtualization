@@ -37,7 +37,6 @@ packages:
 - libnbd
 - libtorrent-rasterbar-devel
 - libssh
-- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -75,7 +74,6 @@ shell:
         --prefix=/usr \
         --without-bash-completions
 
-
       make -j$(nproc)
 
       make DESTDIR=$OUTDIR install-strip
@@ -83,4 +81,3 @@ shell:
       # We don't need man, test and samples files
       rm -rf $OUTDIR/usr/include
       rm -rf $OUTDIR/usr/share
-      tree $OUTDIR
