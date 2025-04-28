@@ -241,7 +241,7 @@ webhooks:
         {{ .Values.virtualization.internal.controller.cert.ca | b64enc }}
     admissionReviewVersions: ["v1"]
     sideEffects: None
-    {{- if semverCompare ">=1.27.0" .Values.global.clusterConfiguration.kubernetesVersion }}
+    {{- if semverCompare ">=1.27.0" .Values.global.discovery.kubernetesVersion }}
     matchConditions:
       - name: 'match-virtualization'
         expression: 'request.name == "virtualization"'
