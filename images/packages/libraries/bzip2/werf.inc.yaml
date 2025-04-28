@@ -46,4 +46,10 @@ shell:
       
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
       cd /src
-      make install -j $(nproc) PREFIX=$OUTDIR/usr
+      
+      # build /lib64/libbz2.so
+      make inMakefile-libbz2_so -j $(nproc)
+
+      mkdir -p $OUTDIR/usr/lib64
+      cp -a libbz2.so.1.0.8 $OUTDIR/usr/lib64
+      cp -a libbz2.so.1.0 $OUTDIR/usr/lib64
