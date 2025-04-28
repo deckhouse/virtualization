@@ -42,14 +42,27 @@ shell:
   install:
     - |
       OUTDIR=/out
+      $pkgver=$( echo {{ $version }} | cut -d "-" -f2)
+
       mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
       
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
       cd /src
       
-      # build /lib64/libbz2.so
-      make inMakefile-libbz2_so -j $(nproc)
-
       mkdir -p $OUTDIR/usr/lib64
-      cp -a libbz2.so.1.0.8 $OUTDIR/usr/lib64
-      cp -a libbz2.so.1.0 $OUTDIR/usr/lib64
+      
+      sed -i \
+        -e 's:\$(PREFIX)/man:\$(PREFIX)/share/man:g' \
+        -e 's:ln -s -f \$(PREFIX)/bin/:ln -s :' \
+        Makefile
+
+      make -f Makefile-libbz2_so all -j $(nproc)
+      make all
+
+      make -j $(nproc) PREFIX=${OUTDIR}/usr install
+
+      install -D libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.$pkgver
+      ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so
+      ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.${pkgver%%.*}
+
+      rm -rf $OUTDIR/usr/man

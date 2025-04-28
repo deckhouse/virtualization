@@ -16,3 +16,4 @@ package:
 libraries:
 library:
   bzip2: bzip2-1.0.8
+  file: FILE5_45
