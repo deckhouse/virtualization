@@ -19,6 +19,7 @@ package vmiplease
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"reflect"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -31,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -70,7 +70,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressLease{}), &handler.EnqueueRequestForObject{})
 }
 
-func (r *Reconciler) enqueueRequestsFromVMIP(_ context.Context, obj client.Object) []reconcile.Request {
+func (r *Reconciler) enqueueRequestsFromVMIP(ctx context.Context, obj client.Object) []reconcile.Request {
 	vmip, ok := obj.(*virtv2.VirtualMachineIPAddress)
 	if !ok {
 		return nil
@@ -80,13 +80,30 @@ func (r *Reconciler) enqueueRequestsFromVMIP(_ context.Context, obj client.Objec
 		return nil
 	}
 
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Name: ip.IpToLeaseName(vmip.Status.Address),
-			},
-		},
+	var requests []reconcile.Request
+
+	var vmiplList virtv2.VirtualMachineIPAddressLeaseList
+	err := r.client.List(ctx, &vmiplList, &client.ListOptions{})
+	if err != nil {
+		slog.Default().Error(fmt.Sprintf("failed to list vmipl: %s", err))
+		return requests
 	}
+
+	for _, vmipl := range vmiplList.Items {
+		if vmipl.Spec.VirtualMachineIPAddressRef == nil {
+			continue
+		}
+
+		if vmipl.Spec.VirtualMachineIPAddressRef.Name == obj.GetName() {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name: vmipl.Name,
+				},
+			})
+		}
+	}
+
+	return requests
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -109,10 +126,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, s)
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-		if s.ShouldDeletion() {
-			return r.client.Delete(ctx, lease.Changed())
-		}
-
 		if !reflect.DeepEqual(lease.Current().Spec, lease.Changed().Spec) {
 			leaseStatus := lease.Changed().Status.DeepCopy()
 			err = r.client.Update(ctx, lease.Changed())
@@ -122,7 +135,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			lease.Changed().Status = *leaseStatus
 		}
 
-		return lease.Update(ctx)
+		err = lease.Update(ctx)
+		if err != nil {
+			return err
+		}
+
+		if s.ShouldDeletion() {
+			return r.client.Delete(ctx, lease.Changed())
+		}
+
+		return nil
 	})
 
 	return rec.Reconcile(ctx)
