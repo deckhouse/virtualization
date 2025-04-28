@@ -49,8 +49,8 @@ shell:
       cd /src
       
       autoreconf -f -i
-      ./configure
-          --prefix=/usr \
-          --libdir=/usr/lib64
+      ./configure --prefix=/usr --libdir=/usr/lib64
       
       make install -j $(nproc) DESTDIR=$OUTDIR
+
+      rm -rf $OUTDIR/share/man
