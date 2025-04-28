@@ -37,6 +37,7 @@ packages:
 - libnbd
 - libtorrent-rasterbar-devel
 - libssh
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -82,4 +83,4 @@ shell:
       # We don't need man, test and samples files
       rm -rf $OUTDIR/usr/include
       rm -rf $OUTDIR/usr/share
-
+      tree $OUTDIR
