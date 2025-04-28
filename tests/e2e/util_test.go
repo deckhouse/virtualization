@@ -668,7 +668,7 @@ func SaveTestResources(labels map[string]string, additional string) {
 	additional = strings.ReplaceAll(strings.ToLower(additional), " ", "_")
 	str := fmt.Sprintf("/tmp/e2e_failed__%s__%s.yaml", labels["testcase"], additional)
 
-	file, err := os.OpenFile(str, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	file, err := os.OpenFile(str, os.O_CREATE, 0644)
 	Expect(err).NotTo(HaveOccurred())
 	defer file.Close()
 
