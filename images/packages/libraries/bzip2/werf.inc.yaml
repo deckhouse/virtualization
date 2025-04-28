@@ -8,6 +8,28 @@ import:
   to: /{{ $.ImageName }}
   before: setup
 ---
+image: {{ $.ImageType }}/{{ $.ImageName }}-bins
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}
+  before: setup
+  includePaths:
+  - usr/bin
+---
+image: {{ $.ImageType }}/{{ $.ImageName }}-libs
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}
+  before: setup
+  includePaths:
+  - usr/lib64
+---
 {{- $version := get $.Library $.ImageName }}
 #{{/* {{- $gitRepoUrl := "git/bzip2.git" }} */}}
 {{- $gitRepoUrl := "bzip2/bzip2.git" }}
@@ -42,7 +64,7 @@ shell:
   install:
     - |
       OUTDIR=/out
-      $pkgver=$( echo {{ $version }} | cut -d "-" -f2)
+      pkgver=$( echo {{ $version }} | cut -d "-" -f2)
 
       mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
       
