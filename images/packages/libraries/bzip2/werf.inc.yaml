@@ -65,4 +65,4 @@ shell:
       ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so
       ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.${pkgver%%.*}
 
-      rm -rf $OUTDIR/usr/man
+      rm -rf $OUTDIR/usr/share
