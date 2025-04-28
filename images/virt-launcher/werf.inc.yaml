@@ -126,9 +126,6 @@ packages:
   - hwclock
   - iptables
   - libffi8
-  - nftables
-  - numactl
-  - openssl
   - passt
   - pcre
   - procps
@@ -152,6 +149,8 @@ binaries:
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
   # Hwclock
   - /usr/sbin/hwclock
+  # Nftables
+  - /usr/sbin/nft
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
