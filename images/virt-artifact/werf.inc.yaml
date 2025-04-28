@@ -1,7 +1,7 @@
 ---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $version := "1.3.1" }}
-{{- $branch := "v12n-patches"}}
+{{- $tag := "d8-v1.3.1/virtualization-0.17"}}
 {{- $goVersion := "1.22.7" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -32,19 +32,6 @@ fromImage: base-alt-p11
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
-git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    stageDependencies:
-      install:
-      - '**/*'
-    includePaths:
-    - patches
-    excludePaths:
-    - patches/README.md
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -58,7 +45,7 @@ shell:
   - |
     - mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     - git config --global --add advice.detachedHead false
-    - git clone --depth 1 --branch {{ $branch }} {{ $.SOURCE_REPO }}/deckhouse/3p-kubevirt.git /kubevirt
+    - git clone --depth 1 --branch {{ $tag }} {{ $.SOURCE_REPO }}/deckhouse/3p-kubevirt.git /kubevirt
     - cd /kubevirt
     - go mod edit -go={{ $goVersion }}
     - go mod download
