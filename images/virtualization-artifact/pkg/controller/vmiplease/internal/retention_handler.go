@@ -23,6 +23,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -52,7 +53,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 		return reconcile.Result{}, err
 	}
 
-	if vmip == nil {
+	if vmip == nil || vmip.Status.Address != ip.LeaseNameToIP(lease.Name) {
 		if lease.Spec.VirtualMachineIPAddressRef.Name != "" {
 			log.Info("VirtualMachineIP not found: remove this ref from the spec and retain VMIPLease")
 			lease.Spec.VirtualMachineIPAddressRef.Name = ""
