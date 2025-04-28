@@ -537,10 +537,9 @@ jobs:
         if: always()
         with:
           name: resources_from_failed_tests
-          retention-days: 21
+          retention-days: 2
           path: /tmp/e2e_failed__*
           if-no-files-found: ignore
-retention-days: 2
 
       - name: Cleanup E2E resources on cancel
         if: always() && steps.e2e-tests.outcome == 'cancelled'
