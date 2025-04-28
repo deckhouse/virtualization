@@ -149,8 +149,6 @@ binaries:
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
   # Hwclock
   - /usr/sbin/hwclock
-  # Nftables
-  - /usr/sbin/nft
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
@@ -244,15 +242,9 @@ import:
   to: /numactl
   before: install
 
-
 - image: packages/binaries/xorriso
   add: /xorriso
   to: /xorriso
-  before: install
-
-- image: packages/binaries/nftables
-  add: /nftables
-  to: /nftables
   before: install
 
 # Statically builded
@@ -328,7 +320,6 @@ shell:
     cp -a /xorriso/. /
     cp -a /swtpm/. /
     cp -a /numactl/. /
-    cp -a /nftables/. /
 
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
