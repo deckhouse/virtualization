@@ -246,6 +246,10 @@ import:
   add: /xorriso
   to: /xorriso
   before: install
+- image: packages/binaries/gnutls
+  add: /gnutls
+  to: /gnutls
+  before: install
 
 # Statically builded
 - image: packages/binaries/openssl
@@ -254,11 +258,6 @@ import:
   after: setup
   includePaths:
   - usr/bin/openssl
-- image: packages/binaries/gnutls
-  add: /gnutls
-  to: /gnutls
-  before: install
-
 - image: tools/coreutils
   add: /
   to: /relocate
