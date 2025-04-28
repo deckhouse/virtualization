@@ -165,7 +165,11 @@ func (h *SyncPowerStateHandler) syncPowerState(
 				virtv2.ReasonVMRestarted,
 				"Restart initiated by controller to apply changes",
 			)
-			return h.restart(ctx, s, kvvm, kvvmi, isConfigurationApplied)
+			err = powerstate.RestartVM(ctx, h.client, kvvm, kvvmi, false)
+			if err != nil {
+				return fmt.Errorf("restart virtual machine instance to apply changes: %w", err)
+			}
+			return nil
 		}
 
 		return nil
