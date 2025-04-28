@@ -1,0 +1,49 @@
+---
+image: {{ $.ImageType }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}
+  before: setup
+---
+{{- $version := get $.Package $.ImageName }}
+#{{/* {{- $gitRepoUrl := "git/bzip2.git" }} */}}
+{{- $gitRepoUrl := "bzip2/bzip2.git" }}
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc git libtool
+- make automake autoconf libtool makeinfo
+- meson ninja-build
+- pkg-config
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+final: false
+fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+  # value: "https://sourceware.org"
+shell:
+  beforeInstall:
+    - |
+      apt-get update && apt-get install -y \
+        {{ $builderDependencies.packages | join " " }}
+
+      apt-get clean
+      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
+  install:
+    - |
+      OUTDIR=/out
+      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+      
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+      cd /src
+      make install -j $(nproc) PREFIX=$OUTDIR/usr

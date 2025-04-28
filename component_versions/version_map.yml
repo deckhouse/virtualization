@@ -13,3 +13,5 @@ package:
   dmidecode: 3-6
   glib2: 2.82.5
   acl: 2.3.1
+libraries:
+  bzip2: bzip2-1.0.8
