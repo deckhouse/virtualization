@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -307,9 +308,10 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 	}
 
 	disk := virtv1.Disk{
-		Name:       name,
-		DiskDevice: dd,
-		Serial:     opts.Serial,
+		Name:        name,
+		DiskDevice:  dd,
+		Serial:      opts.Serial,
+		ErrorPolicy: ptr.To(virtv1.DiskErrorPolicyReport),
 	}
 
 	if opts.BootOrder > 0 {
