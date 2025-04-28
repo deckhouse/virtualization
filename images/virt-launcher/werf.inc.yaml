@@ -258,12 +258,13 @@ import:
   after: setup
   includePaths:
   - usr/bin/openssl
+
+# GNU utilities
 - image: tools/coreutils
   add: /
   to: /relocate
   after: setup
   includePaths:
-    # GNU utilities
   - usr/bin/cp
   - usr/bin/sleep
   - usr/bin/coreutils
@@ -328,7 +329,7 @@ shell:
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins,swtpm,numactl,gnutls}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls}
 
   setup:
   - |
