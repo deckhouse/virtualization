@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/registry/rest"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/tls/certmanager"
@@ -122,9 +123,10 @@ func (r AddVolumeREST) genMutateRequestHook(opts *subresources.VirtualMachineAdd
 	hotplugRequest := AddVolumeOptions{
 		Name: opts.Name,
 		Disk: &virtv1.Disk{
-			Name:       opts.Name,
-			DiskDevice: dd,
-			Serial:     serial,
+			Name:        opts.Name,
+			DiskDevice:  dd,
+			Serial:      serial,
+			ErrorPolicy: ptr.To(virtv1.DiskErrorPolicyReport),
 		},
 	}
 	switch opts.VolumeKind {
