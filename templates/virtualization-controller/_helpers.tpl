@@ -72,14 +72,14 @@
   value: "0 * * * *"
 {{- if (hasKey .Values.virtualization "liveMigration") }}
 - name: LIVE_MIGRATION_BANDWIDTH_PER_NODE
-  value: {{ .Values.virtualization.liveMigration.bandwidthPerNode }}
+  value: {{ .Values.virtualization.liveMigration.bandwidthPerNode | quote }}
 - name: LIVE_MIGRATION_MAX_MIGRATIONS_PER_NODE
-  value: {{ .Values.virtualization.liveMigration.maxMigrationsPerNode }}
+  value: {{ .Values.virtualization.liveMigration.maxMigrationsPerNode | quote }}
 - name: LIVE_MIGRATION_NETWORK
-  value: {{ .Values.virtualization.liveMigration.network }}
+  value: {{ .Values.virtualization.liveMigration.network | quote }}
 {{- if (hasKey .Values.virtualization.liveMigration "dedicated") }}
 - name: LIVE_MIGRATION_DEDICATED_INTERFACE_NAME
-  value: {{ .Values.virtualization.liveMigration.dedicated.interfaceName }}
+  value: {{ .Values.virtualization.liveMigration.dedicated.interfaceName | quote }}
 {{- end }}
 {{- end }}
 - name: METRICS_BIND_ADDRESS
