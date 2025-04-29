@@ -38,8 +38,6 @@ binaries:
 - /usr/bin/nbd*
 - /usr/bin/file
 - /usr/share/misc/magic.mgc
-# - /usr/share/file/magic
-# - /etc/magic
 - /usr/local/bin/dvcr-uploader
 - /usr/local/bin/dvcr-cleaner
 {{- end -}}
@@ -65,6 +63,11 @@ import:
   add: /file
   to: /file
   before: install
+# deps for file
+- image: packages/libraries/bzip2-libraries
+  add: /bzip2-libraries
+  to: /relocate
+  before: setup
 - image: qemu
   add: /qemu-img
   to: /relocate
