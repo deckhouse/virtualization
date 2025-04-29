@@ -18,6 +18,7 @@ package watcher
 
 import (
 	"context"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -47,13 +48,13 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return w.isDataSourceVI(e.Object)
+				return isDataSourceVI(e.Object)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return w.isDataSourceVI(e.Object)
+				return isDataSourceVI(e.Object)
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				return w.isDataSourceVI(e.ObjectOld) || w.isDataSourceVI(e.ObjectNew)
+				return isDataSourceVI(e.ObjectOld) || isDataSourceVI(e.ObjectNew)
 			},
 		},
 	)
@@ -65,11 +66,7 @@ func (w VirtualDiskWatcher) enqueueRequests(_ context.Context, obj client.Object
 		return
 	}
 
-	if vd.Spec.DataSource == nil || vd.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
-		return
-	}
-
-	if vd.Spec.DataSource.ObjectRef == nil || vd.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageKind {
+	if !isDataSourceVI(vd) {
 		return
 	}
 
@@ -81,15 +78,4 @@ func (w VirtualDiskWatcher) enqueueRequests(_ context.Context, obj client.Object
 	})
 
 	return
-}
-
-func (w VirtualDiskWatcher) isDataSourceVI(obj client.Object) bool {
-	vd, ok := obj.(*virtv2.VirtualDisk)
-	if !ok {
-		return false
-	}
-
-	return vd.Spec.DataSource != nil &&
-		vd.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
-		vd.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind
 }
