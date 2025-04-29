@@ -202,7 +202,7 @@ In this example, let's create a cluster image.
 
    ```bash
    d8 k get clustervirtualimage ubuntu-22-04
-   
+
    # A short version of the command.
    d8 k get cvi ubuntu-22-04
    ```
@@ -540,6 +540,56 @@ Changes in the `.spec.sizingPolicy` block can also affect virtual machines. For 
 
 When configuring `sizingPolicy`, be sure to consider the [CPU topology](./user_guide.html#automatic-cpu-topology-configuration) for virtual machines.
 {{< /alert >}}
+
+The `cores` block is mandatory and specifies the range of cores to which the rule described in the same block applies.
+
+The ranges [min; max] for the cores parameter must be strictly sequential and non-overlapping.
+
+Correct structure (the ranges follow one another without intersections):
+
+```yaml
+- cores:
+    min: 1
+    max: 4...
+
+- cores:
+    min: 5   # Start of next range = (previous max + 1)
+    max: 8
+```
+
+Invalid option (overlapping values):
+
+```yaml
+- cores:
+    min: 1
+    max: 4...
+
+- cores:
+    min: 4   # Error: Value 4 is already included in the previous range
+    max: 8
+```
+
+{{< alert level = "warning" >}}
+Rule: Each new range must start with a value that immediately follows the max of the previous range.
+{{< /alert >}}
+
+Additional requirements can be specified for each range of cores:
+
+1. Memory — specify either:
+- Minimum and maximum memory for all cores in the range,
+- Either the minimum and maximum memory per core (`memoryPerCore`).
+
+2. Allowed fractions of cores (`coreFractions`) — a list of allowed values (for example, [25, 50, 100] for 25%, 50%, or 100% core usage).
+
+{{< alert level = "warning" >}}
+Important: For each range of cores, be sure to specify:
+
+- Either memory (or `memoryPerCore`),
+- Either coreFractions,
+- Or both parameters at the same time.
+{{< /alert >}}
+
+Here is an example of a policy with similar settings:
 
 ```yaml
 spec:
