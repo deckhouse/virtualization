@@ -587,11 +587,6 @@ jobs:
 
             await e2eStatus.setStatusAfterE2eRun({github, context, core});
 
-      - name: Update PR Comment with Status
-        uses: actions/github-script@v6
-        with:
-          script: |
-
   remove_label:
     name: Remove label
     runs-on: ubuntu-latest
