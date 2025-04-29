@@ -18,6 +18,7 @@ package watcher
 
 import (
 	"context"
+
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -47,13 +48,13 @@ func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Co
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return w.isDataSourceCVI(e.Object)
+				return isDataSourceCVI(e.Object)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return w.isDataSourceCVI(e.Object)
+				return isDataSourceCVI(e.Object)
 			},
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				return w.isDataSourceCVI(e.ObjectOld) || w.isDataSourceCVI(e.ObjectNew)
+				return isDataSourceCVI(e.ObjectOld) || isDataSourceCVI(e.ObjectNew)
 			},
 		},
 	)
@@ -65,11 +66,7 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(_ context.Context, obj clien
 		return
 	}
 
-	if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
-		return
-	}
-
-	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageKind {
+	if !isDataSourceCVI(cvi) {
 		return
 	}
 
@@ -81,13 +78,4 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(_ context.Context, obj clien
 	})
 
 	return
-}
-
-func (w ClusterVirtualImageWatcher) isDataSourceCVI(obj client.Object) bool {
-	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
-	if !ok {
-		return false
-	}
-
-	return cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef && cvi.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind
 }
