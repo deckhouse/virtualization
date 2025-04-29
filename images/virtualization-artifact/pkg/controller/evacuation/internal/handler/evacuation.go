@@ -20,17 +20,15 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"slices"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -72,7 +70,11 @@ func (h *EvacuationHandler) Handle(ctx context.Context, vm *v1alpha2.VirtualMach
 	needRequeue := false
 	if err = h.removeFinalizerFromVMOPs(ctx, finishedVMOPs); err != nil {
 		needRequeue = true
-		log.Error("remove finalizer failed", logger.SlogErr(err))
+		if k8serrors.IsConflict(err) {
+			log.Debug("Conflict occurred during handler execution", logger.SlogErr(err))
+		} else {
+			log.Error("Remove finalizer failed", logger.SlogErr(err))
+		}
 	}
 
 	if len(migrationVMOPs) > 0 {
@@ -136,20 +138,8 @@ func (h *EvacuationHandler) removeFinalizerFromVMOPs(ctx context.Context, vmops 
 }
 
 func (h *EvacuationHandler) removeFinalizer(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) error {
-	if controllerutil.ContainsFinalizer(vmop, v1alpha2.FinalizerVMOPProtectionByEvacuationController) {
-		oldFinalizers := slices.Clone(vmop.GetFinalizers())
-		controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPProtectionByEvacuationController)
-		newFinalizers := vmop.GetFinalizers()
-
-		bytes, err := patch.NewJsonPatch(
-			patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/finalizers", oldFinalizers),
-			patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", newFinalizers),
-		).Bytes()
-
-		if err != nil {
-			return err
-		}
-		return h.client.Patch(ctx, vmop, client.RawPatch(types.JSONPatchType, bytes))
+	if controllerutil.RemoveFinalizer(vmop, v1alpha2.FinalizerVMOPProtectionByEvacuationController) {
+		return h.client.Update(ctx, vmop)
 	}
 	return nil
 }
