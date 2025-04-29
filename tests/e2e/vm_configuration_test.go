@@ -106,7 +106,7 @@ func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, virtualM
 		case approvalMode == ManualMode && stage == StageAfter:
 			Expect(vmResource.Status.RestartAwaitingChanges).ShouldNot(BeNil())
 		case approvalMode == AutomaticMode && stage == StageAfter:
-			Expect(vmResource.Status.RestartAwaitingChanges).Should(BeNil())
+			Expect(vmResource.Status.RestartAwaitingChanges).ShouldNot(BeNil())
 		}
 	}
 }
