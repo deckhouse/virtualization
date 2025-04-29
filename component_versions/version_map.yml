@@ -10,3 +10,4 @@ package:
   openssl: openssl-3.4.1
   nbdkit: 1.39.5
   gnutls: 3.8.6
+  dmidecode: 3-6
