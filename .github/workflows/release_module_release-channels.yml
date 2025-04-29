@@ -79,9 +79,12 @@ jobs:
     steps:
       - run: echo "CE"
       - name: SET VAR
+        id: set_var
         run: |
           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ce/modules" >> "$GITHUB_ENV"
           echo "MODULE_EDITION=CE" >> "$GITHUB_ENV"
+          echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ce/modules" >> "$GITHUB_OUTPUT"
+          echo "MODULE_EDITION=CE" >> "$GITHUB_OUTPUT"
       - name: ECHO VAR
         run: |
           echo $MODULES_MODULE_SOURCE
@@ -105,16 +108,16 @@ jobs:
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: deckhouse/modules-actions/build@v2
         with:
-          module_source: "$MODULES_MODULE_SOURCE"
+          module_source: ${{ steps.set_var.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
+          module_tag: ${{ github.event.inputs.tag }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
       - uses: deckhouse/modules-actions/deploy@v2
         with:
-          module_source: "$MODULES_MODULE_SOURCE"
+          module_source: ${{ steps.set_var.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
+          module_tag: ${{ github.event.inputs.tag }}
           release_channel: ${{ github.event.inputs.version }}
 
   job-EE:
@@ -124,9 +127,12 @@ jobs:
     steps:
       - run: echo "EE"
       - name: SET VAR
+        id: set_var
         run: |
           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ee/modules" >> "$GITHUB_ENV"
           echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
+          echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/ee/modules" >> "$GITHUB_OUTPUT"
+          echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
       - name: ECHO VAR
         run: |
           echo $MODULES_MODULE_SOURCE
@@ -156,16 +162,16 @@ jobs:
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: deckhouse/modules-actions/build@v2
         with:
-          module_source: "$MODULES_MODULE_SOURCE"
+          module_source: ${{ steps.set_var.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
+          module_tag: ${{ github.event.inputs.tag }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
       - uses: deckhouse/modules-actions/deploy@v2
         with:
-          module_source: "$MODULES_MODULE_SOURCE"
+          module_source: ${{ steps.set_var.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
+          module_tag: ${{ github.event.inputs.tag }}
           release_channel: ${{ github.event.inputs.version }}
 
   job-SE-Plus:
@@ -175,9 +181,12 @@ jobs:
     steps:
       - run: echo "SE Plus"
       - name: SET VAR
+        id: set_var
         run: |
           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/se-plus/modules" >> "$GITHUB_ENV"
           echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
+          echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/se-plus/modules" >> "$GITHUB_OUTPUT"
+          echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
       - name: ECHO VAR
         run: |
           echo $MODULES_MODULE_SOURCE
@@ -201,16 +210,16 @@ jobs:
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: deckhouse/modules-actions/build@v2
         with:
-          module_source: "$MODULES_MODULE_SOURCE"
+          module_source: ${{ steps.set_var.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
+          module_tag: ${{ github.event.inputs.tag }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
       - uses: deckhouse/modules-actions/deploy@v2
         with:
-          module_source: "$MODULES_MODULE_SOURCE"
+          module_source: ${{ steps.set_var.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
+          module_tag: ${{ github.event.inputs.tag }}
           release_channel: ${{ github.event.inputs.version }}
 
   job-FE:
@@ -220,9 +229,12 @@ jobs:
     steps:
       - run: echo "FE"
       - name: SET VAR
+        id: set_var
         run: |
           echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/fe/modules" >> "$GITHUB_ENV"
           echo "MODULE_EDITION=EE" >> "$GITHUB_ENV"
+          echo "MODULES_MODULE_SOURCE=$MODULES_REGISTRY/$MODULE_SOURCE_NAME/fe/modules" >> "$GITHUB_OUTPUT"
+          echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
       - name: ECHO VAR
         run: |
           echo $MODULES_MODULE_SOURCE
@@ -250,14 +262,14 @@ jobs:
       - if: ${{ github.event.inputs.enableBuild == 'true' }}
         uses: deckhouse/modules-actions/build@v2
         with:
-          module_source: "$MODULES_MODULE_SOURCE"
+          module_source: ${{ steps.set_var.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
+          module_tag: ${{ github.event.inputs.tag }}
           secondary_repo: "${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}"
 
       - uses: deckhouse/modules-actions/deploy@v2
         with:
-          module_source: "$MODULES_MODULE_SOURCE"
+          module_source: ${{ steps.set_var.outputs.MODULES_MODULE_SOURCE }}
           module_name: ${{ vars.MODULE_NAME }}
-          module_tag: "$MODULES_MODULE_TAG"
+          module_tag: ${{ github.event.inputs.tag }}
           release_channel: ${{ github.event.inputs.version }}
