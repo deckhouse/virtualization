@@ -52,6 +52,8 @@ imageSpec:
 {{- define "$name" -}}
 packages:
 - acl
+- libnftnl
+- libjansson4
 binaries:
 - /usr/bin/mount
 - /usr/bin/umount
