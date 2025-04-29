@@ -17,7 +17,8 @@ limitations under the License.
 package internal
 
 import (
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,7 +26,6 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"time"
 
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
@@ -33,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
