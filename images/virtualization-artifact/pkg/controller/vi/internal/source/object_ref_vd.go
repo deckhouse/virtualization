@@ -432,18 +432,21 @@ func (ds ObjectRefVirtualDisk) Validate(ctx context.Context, vi *virtv2.VirtualI
 	if vd == nil || vd.Status.Phase != virtv2.DiskReady {
 		return NewVirtualDiskNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 	}
+	if vi.Status.Phase != virtv2.ImageReady {
+		inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
+		if inUseCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(inUseCondition, vd) {
+			return NewVirtualDiskNotReadyForUseError(vd.Name)
+		}
 
-	inUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-	if inUseCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(inUseCondition, vd) {
-		return NewVirtualDiskNotReadyForUseError(vd.Name)
+		switch inUseCondition.Reason {
+		case vdcondition.UsedForImageCreation.String():
+			return nil
+		case vdcondition.AttachedToVirtualMachine.String():
+			return NewVirtualDiskAttachedToVirtualMachineError(vd.Name)
+		default:
+			return NewVirtualDiskNotReadyForUseError(vd.Name)
+		}
 	}
 
-	switch inUseCondition.Reason {
-	case vdcondition.UsedForImageCreation.String():
-		return nil
-	case vdcondition.AttachedToVirtualMachine.String():
-		return NewVirtualDiskAttachedToVirtualMachineError(vd.Name)
-	default:
-		return NewVirtualDiskNotReadyForUseError(vd.Name)
-	}
+	return nil
 }
