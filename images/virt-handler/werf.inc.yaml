@@ -52,7 +52,8 @@ imageSpec:
 {{- define "$name" -}}
 packages:
 - acl
-- nftables
+- libnftnl
+- libjansson4
 binaries:
 - /usr/bin/mount
 - /usr/bin/umount
@@ -76,6 +77,10 @@ import:
   add: /xorriso
   to: /xorriso
   before: install
+- image: packages/binaries/nftables
+  add: /nftables
+  to: /nftables
+  before: install
 - image: qemu
   add: /qemu-img
   to: /relocate
@@ -88,6 +93,7 @@ shell:
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   - cp -a /xorriso/. /
+  - cp -a /nftables/. /
   setup:
   - |
     /relocate_binaries.sh -i "{{ $virtHandlerDependencies.binaries | join " " }}" -o /relocate

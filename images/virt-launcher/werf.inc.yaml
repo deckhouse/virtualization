@@ -126,7 +126,6 @@ packages:
   - hwclock
   - iptables
   - libffi8
-  - nftables
   - passt
   - pcre
   - procps
@@ -243,7 +242,6 @@ import:
   to: /numactl
   before: install
 
-
 - image: packages/binaries/xorriso
   add: /xorriso
   to: /xorriso
@@ -256,6 +254,7 @@ import:
   after: setup
   includePaths:
   - usr/bin/openssl
+
 - image: tools/coreutils
   add: /
   to: /relocate
