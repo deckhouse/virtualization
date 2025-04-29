@@ -632,18 +632,19 @@ jobs:
                   Follow the progress here: [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
 
                   The target step completed with status: **${stepOutcome}**.`;
-              const commentId = ${{ needs.run_e2e.outputs.comment_id }};
+              const commentIdStr = '${{ needs.run_e2e.outputs.comment_id }}';
+              const commentId = parseInt(commentIdStr, 10); // Cast to integer
               const stepOutcome = '${{ needs.run_e2e.result }}';
-              if (commentId) {
-                // Update existing comment
+              if (!isNaN(commentId)) {
+                // Valid integer, update the existing comment
                 await github.rest.issues.updateComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  comment_id: commentId,
+                  comment_id: commentId, // Now an integer
                   body: body
                 });
               } else {
-                // Create new comment if commentId does not exist
+                // Invalid or missing, create a new comment
                 await github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
