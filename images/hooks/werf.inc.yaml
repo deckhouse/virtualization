@@ -33,3 +33,4 @@ shell:
 {{- end }}
   - go build -ldflags="-s -w" -o /hooks/prevent-default-vmclasses-deletion ./cmd/prevent-default-vmclasses-deletion
   - go build -ldflags="-s -w" -o /hooks/generate-secret-for-dvcr ./cmd/generate-secret-for-dvcr
+  - go build -ldflags="-s -w" -o /hooks/discovery-clusterip-service-for-dvcr ./cmd/discovery-clusterip-service-for-dvcr
