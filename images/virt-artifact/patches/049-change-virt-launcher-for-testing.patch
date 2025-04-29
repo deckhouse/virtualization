@@ -1,0 +1,12 @@
+diff --git a/cmd/virt-launcher/virt-launcher.go b/cmd/virt-launcher/virt-launcher.go
+index 41c41c9e5b..5764a3d485 100644
+--- a/cmd/virt-launcher/virt-launcher.go
++++ b/cmd/virt-launcher/virt-launcher.go
+@@ -372,6 +372,7 @@ func main() {
+ 			log.Log.Warningf("failed to set log verbosity. The value of logVerbosity label should be an integer, got %s instead.", verbosityStr)
+ 		}
+ 	}
++	log.Log.Info("Additional version for testing feat/vm/add-settings-for-live-migration")
+
+ 	// Initialize local and shared directories
+ 	initializeDirs(*ephemeralDiskDir, *containerDiskDir, *hotplugDiskDir, *uid)
