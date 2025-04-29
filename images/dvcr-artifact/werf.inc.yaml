@@ -37,9 +37,9 @@ binaries:
 - /usr/local/bin/dvcr-importer
 - /usr/bin/nbd*
 - /usr/bin/file
-- /usr/share/file/magic
-- /usr/share/file/magic.mgc
-- /etc/magic
+- /usr/share/misc/magic.mgc
+# - /usr/share/file/magic
+# - /etc/magic
 - /usr/local/bin/dvcr-uploader
 - /usr/local/bin/dvcr-cleaner
 {{- end -}}
@@ -61,6 +61,10 @@ import:
   add: /out
   to: /usr/local/bin
   before: setup
+- image: packages/libraries/file
+  add: /file
+  to: /file
+  before: install
 - image: qemu
   add: /qemu-img
   to: /relocate
@@ -69,9 +73,11 @@ shell:
   install:
   - |
     apt-get update && apt-get install --yes \
-      libnbd file
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+      libnbd
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
+    cp -a /file/. /
   setup:
   - |
     /relocate_binaries.sh -i "{{ $dvcrDependencies.binaries | join " " }}" -o /relocate

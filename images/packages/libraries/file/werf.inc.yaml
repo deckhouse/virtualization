@@ -8,6 +8,30 @@ import:
   to: /{{ $.ImageName }}
   before: setup
 ---
+image: {{ $.ImageType }}/{{ $.ImageName }}-binaries
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}-binaries
+  before: setup
+  includePaths:
+  - usr/bin
+---
+image: {{ $.ImageType }}/{{ $.ImageName }}-libraries
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}-libraries
+  before: setup
+  includePaths:
+  - usr/lib64
+  excludePaths:
+  - usr/lib64/libmagic.la
+---
 {{- $version := get $.Library $.ImageName }}
 {{- $gitRepoUrl := "file/file.git" }}
 
@@ -20,7 +44,6 @@ packages:
 - bison
 - bzlib-devel libcap-devel liblzma-devel libseccomp-devel libzstd-devel zlib-devel lzip ncompress strace
 {{- end -}}
-
 
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -49,7 +72,7 @@ shell:
       cd /src
       
       autoreconf -f -i
-      ./configure --prefix=/usr --libdir=/usr/lib64
+      ./configure --prefix=/usr --libdir=/usr/lib64 --datadir=/usr/share
       
       make install -j $(nproc) DESTDIR=$OUTDIR
 
