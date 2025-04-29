@@ -687,48 +687,20 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
 			Kind:       vmip.Kind,
 			ApiVersion: vmip.APIVersion,
-			Name:       vmip.APIVersion,
+			Name:       vmip.Name,
 		})
 	}
 
-	if vm.Spec.Provisioning != nil {
-		var provisioningSecretName string
-
-		switch vm.Spec.Provisioning.Type {
-		case virtv2.ProvisioningTypeSysprepRef:
-			if vm.Spec.Provisioning.SysprepRef == nil {
-				return errors.New("the virtual machine sysprep ref provisioning is nil")
-			}
-
-			if vm.Spec.Provisioning.SysprepRef.Kind == virtv2.SysprepRefKindSecret {
-				provisioningSecretName = vm.Spec.Provisioning.SysprepRef.Name
-			}
-
-		case virtv2.ProvisioningTypeUserDataRef:
-			if vm.Spec.Provisioning.UserDataRef == nil {
-				return errors.New("the virtual machine user data ref provisioning is nil")
-			}
-
-			if vm.Spec.Provisioning.UserDataRef.Kind == virtv2.UserDataRefKindSecret {
-				provisioningSecretName = vm.Spec.Provisioning.UserDataRef.Name
-			}
-		}
-
-		if provisioningSecretName != "" {
-			secretKey := types.NamespacedName{Name: provisioningSecretName, Namespace: vm.Namespace}
-			provisioner, err := object.FetchObject(ctx, secretKey, h.client, &corev1.Secret{})
-			if err != nil {
-				return err
-			}
-
-			if provisioner != nil {
-				vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
-					Kind:       provisioner.Kind,
-					ApiVersion: provisioner.APIVersion,
-					Name:       provisioner.Name,
-				})
-			}
-		}
+	provisioner, err := h.getProvisionerFromVM(ctx, vm)
+	if err != nil {
+		return err
+	}
+	if provisioner != nil {
+		vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+			Kind:       provisioner.Kind,
+			ApiVersion: provisioner.APIVersion,
+			Name:       provisioner.Name,
+		})
 	}
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
@@ -766,4 +738,40 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 	}
 
 	return nil
+}
+
+func (h LifeCycleHandler) getProvisionerFromVM(ctx context.Context, vm *virtv2.VirtualMachine) (*corev1.Secret, error) {
+	if vm.Spec.Provisioning != nil {
+		var provisioningSecretName string
+
+		switch vm.Spec.Provisioning.Type {
+		case virtv2.ProvisioningTypeSysprepRef:
+			if vm.Spec.Provisioning.SysprepRef == nil {
+				return nil, nil
+			}
+
+			if vm.Spec.Provisioning.SysprepRef.Kind == virtv2.SysprepRefKindSecret {
+				provisioningSecretName = vm.Spec.Provisioning.SysprepRef.Name
+			}
+
+		case virtv2.ProvisioningTypeUserDataRef:
+			if vm.Spec.Provisioning.UserDataRef == nil {
+				return nil, nil
+			}
+
+			if vm.Spec.Provisioning.UserDataRef.Kind == virtv2.UserDataRefKindSecret {
+				provisioningSecretName = vm.Spec.Provisioning.UserDataRef.Name
+			}
+		}
+
+		if provisioningSecretName != "" {
+			secretKey := types.NamespacedName{Name: provisioningSecretName, Namespace: vm.Namespace}
+			provisioner, err := object.FetchObject(ctx, secretKey, h.client, &corev1.Secret{})
+			return provisioner, err
+		} else {
+			return nil, nil
+		}
+	} else {
+		return nil, nil
+	}
 }
