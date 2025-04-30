@@ -26,8 +26,8 @@ import:
   before: setup
 shell:
   beforeInstall:
-  cp -a /dmidecode/. /
   - |
+    cp -a /dmidecode/. /
     apt-get update && apt-get install --yes \
     binutils \
     gcc-c++ \
