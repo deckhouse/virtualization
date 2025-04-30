@@ -14,7 +14,6 @@ imageSpec:
 {{- define "cdi-controller-deps" -}}
 binaries:
   - /usr/bin/cdi-controller
-  - /usr/sbin/blockdev
 packages:
   - tar
 {{- end -}}
@@ -25,6 +24,12 @@ image: {{ $.ImageName }}-bins
 final: false
 fromImage: base-alt-p11-binaries
 import:
+- image: tools/util-linux
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - sbin/blockdev
 - image: cdi-artifact-cbuilder
   add: /bins
   to: /relocate/usr/bin

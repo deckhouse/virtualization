@@ -23,12 +23,8 @@ binaries:
   - /usr/sbin/nbdkit
   - /usr/lib/nbdkit/filters/*
   - /usr/lib/nbdkit/plugins/*
-  # Mount
-  - /usr/bin/mount /usr/bin/umount
   # Sqlite libs
   - /usr/lib64/libsqlite3.so.0
-  # Block device binaries
-  - /usr/sbin/blockdev
   # CDI binaries
   - /usr/bin/cdi-containerimage-server /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
 {{- end -}}
@@ -39,6 +35,14 @@ image: {{ $.ImageName }}-bins
 final: false
 fromImage: base-alt-p11-binaries
 import:
+- image: tools/util-linux
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - sbin/blockdev
+  - bin/mount
+  - bin/umount
 - image: cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
