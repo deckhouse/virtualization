@@ -145,7 +145,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
 			Eventually(func() error {
 				return AssignIPToVMIP(vmipName)
-			}).Should(Succeed())
+			}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
 		})
 
 		It("checks VMIPs phases", func() {
