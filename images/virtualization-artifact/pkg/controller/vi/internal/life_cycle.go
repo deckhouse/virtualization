@@ -19,8 +19,8 @@ package internal
 import (
 	"context"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -66,6 +66,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	if vi.DeletionTimestamp != nil {
 		needRequeue := false
 
+		// It is necessary to update this condition in order to use this image as a datasource.
 		if readyCondition.Status == metav1.ConditionTrue {
 			cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 
@@ -81,18 +82,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 					return reconcile.Result{}, err
 				}
 
-				switch {
-				case pvc == nil:
-					cb.
-						Status(metav1.ConditionFalse).
-						Reason(vicondition.Lost).
-						Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
-					needRequeue = true
-				default:
-					cb.
-						Status(metav1.ConditionTrue).
-						Reason(vicondition.Ready).
-						Message("")
+				source.SetPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
+				if cb.Condition().Status != metav1.ConditionTrue {
+					needRequeue = true // If a PVC is lost, we need to recheck InUseCondition status.
 				}
 			}
 
