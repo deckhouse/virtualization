@@ -80,6 +80,21 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 		return vmop
 	}
 
+	newKVConfig := func() *virtv1.KubeVirt {
+		return &virtv1.KubeVirt{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: virtv1.SchemeGroupVersion.String(),
+				Kind:       virtv1.KubeVirtGroupVersionKind.Kind,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "config",
+				Namespace: "d8-virtualization",
+			},
+			Spec:   virtv1.KubeVirtSpec{},
+			Status: virtv1.KubeVirtStatus{},
+		}
+	}
+
 	When("Observe KVVMI with migrateState", func() {
 		It("Should set migrationConfiguration", func() {
 			vm := newVM()
@@ -87,7 +102,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 
 			kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 
-			fakeClient := setupEnvironment(kvvmi, vm)
+			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
 			h := NewDynamicSettingsHandler(fakeClient, config.NewDefaultLiveMigrationSettings())
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
@@ -105,7 +120,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 				Completed: true,
 			}
 
-			fakeClient := setupEnvironment(kvvmi, vm)
+			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
 			h := NewDynamicSettingsHandler(fakeClient, config.NewDefaultLiveMigrationSettings())
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
@@ -124,7 +139,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 
 			vmop := newVMOPEvict(force)
 
-			fakeClient := setupEnvironment(kvvmi, vm, vmop)
+			fakeClient := setupEnvironment(kvvmi, vm, vmop, newKVConfig())
 			h := NewDynamicSettingsHandler(fakeClient, config.NewDefaultLiveMigrationSettings())
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())

@@ -40,17 +40,17 @@ const (
 func NewMigrationConfiguration(moduleSettings config.LiveMigrationSettings, allowAutoConverge bool, kvconfig virtv1.KubeVirt) *virtv1.MigrationConfiguration {
 	// TODO rework below section after proper implementation of liveMigration settings in ModuleConfig.
 	parallelMigrationsPerCluster := ParallelMigrationsPerClusterDefault
-	if kvconfig.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster != nil {
+	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster != nil {
 		parallelMigrationsPerCluster = *kvconfig.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster
 	}
 	// Reuse default value of MaxMigrationsPerNode as parallelOutboundMigrationsPerNode.
 	parallelOutboundMigrationsPerNode := uint32(moduleSettings.MaxMigrationsPerNode)
-	if kvconfig.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode != nil {
+	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode != nil {
 		parallelOutboundMigrationsPerNode = *kvconfig.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode
 	}
 	// Reuse default value of BandwidthPerNode as bandwidthPerMigration.
 	bandwidthPerMigration := moduleSettings.BandwidthPerNode.DeepCopy()
-	if kvconfig.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration != nil {
+	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration != nil {
 		bandwidthPerMigration = kvconfig.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration.DeepCopy()
 	}
 
