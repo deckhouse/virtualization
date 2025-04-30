@@ -627,9 +627,9 @@ jobs:
               const commentId = parseInt(commentIdStr, 10); // Cast to integer
               const stepOutcome = '${{ needs.run_e2e.result }}';
               const body = `Workflow has started.
-                  Follow the progress here: [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+              Follow the progress here: [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
 
-                  The target step completed with status: **${stepOutcome}**.`;
+              The target step completed with status: **${stepOutcome}**.`;
               if (!isNaN(commentId)) {
                 // Valid integer, update the existing comment
                 await github.rest.issues.updateComment({
