@@ -45,8 +45,6 @@ shell:
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch dmidecode-{{ $version }} /src
       cd /src
 
-      autoreconf -i
-
       make -j$(nproc)
 
       make strip
