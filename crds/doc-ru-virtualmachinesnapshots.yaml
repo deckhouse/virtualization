@@ -69,6 +69,8 @@ spec:
                     * `Ready` — создание снимка успешно завершено, и он доступен для использования;
                     * `Failed` — во время создания снимка виртуальной машины произошла ошибка;
                     * `Terminating` — ресурс находится в процессе удаления.
+                resources:
+                  description: Список ресурсов снимка.
                 virtualDiskSnapshotNames:
                   description: Имена созданных снимков виртуальных дисков.
                 virtualMachineSnapshotSecretName:
