@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get $.Package $.ImageName }}
-{{- $gitRepoUrl := "mirror/dmidecode.git" }}
+{{- $gitRepoUrl := "dmidecode.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
