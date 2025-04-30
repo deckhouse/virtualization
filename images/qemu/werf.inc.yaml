@@ -8,7 +8,7 @@ binaries:
   - /usr/sbin/vpddecode
 {{- end -}}
 
-{{ $cdiImporterDependencies := include "qemu-deps" . | fromYaml }}
+{{ $qemuDependencies := include "qemu-deps" . | fromYaml }}
 {{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := cat $.SOURCE_REPO "/qemu/qemu.git" | nospace }}
@@ -42,6 +42,7 @@ import:
   before: setup
 shell:
   beforeInstall:
+  - |
     apt-get update && apt-get install -y \
     binutils \
     pkgconfig \
