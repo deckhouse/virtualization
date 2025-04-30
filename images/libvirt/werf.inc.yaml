@@ -123,6 +123,7 @@ shell:
   install:
   - |
     cp -a /dmidecode/. /
+    rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"
@@ -195,4 +196,3 @@ shell:
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
                         -b build
-    rm -rf /dmidecode

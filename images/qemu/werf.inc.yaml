@@ -122,6 +122,7 @@ shell:
   install:
   - |
     cp -a /dmidecode/. /
+    rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"
@@ -292,4 +293,3 @@ shell:
     LIST="/BINS/usr/bin/qemu-img /BINS/usr/bin/qemu-nbd"
 
     ./relocate_binaries.sh -i "$LIST" -o /qemu-img
-    rm -rf /dmidecode
