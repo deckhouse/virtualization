@@ -132,34 +132,6 @@ properties:
             type: array
             items:
               type: string
-  liveMigration:
-    type: object
-    description: |
-      Настройки живой миграции.
-    properties:
-      bandwidthPerNode:
-        type: string
-        description: |
-          Максимальная ширина полосы пропускания сети на узле в процессе миграции.
-      maxMigrationsPerNode:
-        type: integer
-        description: |
-          Максимальное количество одновременно запущенных миграций на узле.
-      network:
-        type: string
-        description: |
-          Тип сети для миграции:
-          - `Shared` — использовать ту же сеть, которая выделена для виртуальных машин.
-          - `Dedicated` — использовать выделенную сеть для миграций. Укажите имя интерфейса в поле `dedicated`.
-      dedicated:
-        type: object
-        description: |
-          Настройки выделенной сети для миграций.
-        properties:
-          interfaceName:
-            type: string
-            description: |
-              Имя интерфейса выделенной сети.
   logLevel:
     type: string
     description: |

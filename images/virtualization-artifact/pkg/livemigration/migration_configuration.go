@@ -37,21 +37,35 @@ const (
 	MigrationAllowPostCopy              bool   = false
 )
 
-func NewMigrationConfiguration(moduleSettings config.LiveMigrationSettings, allowAutoConverge bool) *virtv1.MigrationConfiguration {
-	parallelMigrationsPerClusterDefault := ParallelMigrationsPerClusterDefault
+func NewMigrationConfiguration(moduleSettings config.LiveMigrationSettings, allowAutoConverge bool, kvconfig virtv1.KubeVirt) *virtv1.MigrationConfiguration {
+	// TODO rework below section after proper implementation of liveMigration settings in ModuleConfig.
+	parallelMigrationsPerCluster := ParallelMigrationsPerClusterDefault
+	if kvconfig.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster != nil {
+		parallelMigrationsPerCluster = *kvconfig.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster
+	}
+	// Reuse default value of MaxMigrationsPerNode as parallelOutboundMigrationsPerNode.
 	parallelOutboundMigrationsPerNode := uint32(moduleSettings.MaxMigrationsPerNode)
+	if kvconfig.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode != nil {
+		parallelOutboundMigrationsPerNode = *kvconfig.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode
+	}
+	// Reuse default value of BandwidthPerNode as bandwidthPerMigration.
+	bandwidthPerMigration := moduleSettings.BandwidthPerNode.DeepCopy()
+	if kvconfig.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration != nil {
+		bandwidthPerMigration = kvconfig.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration.DeepCopy()
+	}
+
+	// Just use defaults from KubeVirt.
 	nodeDrainTaintDefaultKey := NodeDrainTaintDefaultKey
-	bandwidthPerMigrationDefault := moduleSettings.BandwidthPerNode.DeepCopy()
 	progressTimeout := MigrationProgressTimeout
 	completionTimeoutPerGiB := MigrationCompletionTimeoutPerGiB
 	defaultUnsafeMigrationOverride := DefaultUnsafeMigrationOverride
 	allowPostCopy := MigrationAllowPostCopy
 
 	return &virtv1.MigrationConfiguration{
-		ParallelMigrationsPerCluster:      &parallelMigrationsPerClusterDefault,
+		ParallelMigrationsPerCluster:      &parallelMigrationsPerCluster,
 		ParallelOutboundMigrationsPerNode: &parallelOutboundMigrationsPerNode,
 		NodeDrainTaintKey:                 &nodeDrainTaintDefaultKey,
-		BandwidthPerMigration:             &bandwidthPerMigrationDefault,
+		BandwidthPerMigration:             &bandwidthPerMigration,
 		ProgressTimeout:                   &progressTimeout,
 		CompletionTimeoutPerGiB:           &completionTimeoutPerGiB,
 		UnsafeMigrationOverride:           &defaultUnsafeMigrationOverride,

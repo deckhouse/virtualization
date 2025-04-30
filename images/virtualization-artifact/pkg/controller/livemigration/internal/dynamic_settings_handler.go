@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -57,6 +58,18 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, err
 	}
 
+	// TODO Temporary fix to have liveMigration settings in one place.
+	// TODO Remove after implementing liveMigration settings.
+	var kvconfig virtv1.KubeVirt
+	configKey := types.NamespacedName{
+		Namespace: "d8-virtualization",
+		Name:      "config",
+	}
+	err = h.client.Get(ctx, configKey, &kvconfig)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Fetch InProgress vmop
 	vmopInProgress, err := h.getVMOPInProgressForVM(ctx, vmKey)
 	if err != nil {
@@ -68,7 +81,7 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, err
 	}
 
-	conf := livemigration.NewMigrationConfiguration(h.moduleSettings, autoConverge)
+	conf := livemigration.NewMigrationConfiguration(h.moduleSettings, autoConverge, kvconfig)
 
 	kvvmi.Status.MigrationState.MigrationConfiguration = conf
 
