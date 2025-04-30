@@ -292,3 +292,4 @@ shell:
     LIST="/BINS/usr/bin/qemu-img /BINS/usr/bin/qemu-nbd"
 
     ./relocate_binaries.sh -i "$LIST" -o /qemu-img
+    rm -rf /dmidecode

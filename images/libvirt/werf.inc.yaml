@@ -195,3 +195,4 @@ shell:
                         -s /{{ $gitRepoName }}-{{ $version }} \
                         -d /BINS \
                         -b build
+    rm -rf /dmidecode
