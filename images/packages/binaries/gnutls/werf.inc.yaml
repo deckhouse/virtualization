@@ -57,9 +57,4 @@ shell:
 
       make -j$(nproc)
 
-      make DESTDIR=$OUTDIR install
-
-      strip $OUTDIR/usr/bin/*
-
-      # We don't need man, test and samples files
-
+      make DESTDIR=$OUTDIR install-strip
