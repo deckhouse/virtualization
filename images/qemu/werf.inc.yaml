@@ -39,7 +39,7 @@ import:
 - image: packages/binaries/dmidecode
   add: /dmidecode
   to: /dmidecode
-  before: setup
+  before: install
 shell:
   beforeInstall:
   - |

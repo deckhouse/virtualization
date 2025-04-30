@@ -188,7 +188,7 @@ import:
 - image: packages/binaries/dmidecode
   add: /dmidecode
   to: /dmidecode
-  before: setup
+  before: install
 
 # EDK2 (uefi firmware)
 - image: edk2
