@@ -623,13 +623,13 @@ jobs:
                 name: labelToRemove,
               });
               console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
+              const commentIdStr = '${{ needs.run_e2e.outputs.comment_id }}';
+              const commentId = parseInt(commentIdStr, 10); // Cast to integer
+              const stepOutcome = '${{ needs.run_e2e.result }}';
               const body = `Workflow has started.
                   Follow the progress here: [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
 
                   The target step completed with status: **${stepOutcome}**.`;
-              const commentIdStr = '${{ needs.run_e2e.outputs.comment_id }}';
-              const commentId = parseInt(commentIdStr, 10); // Cast to integer
-              const stepOutcome = '${{ needs.run_e2e.result }}';
               if (!isNaN(commentId)) {
                 // Valid integer, update the existing comment
                 await github.rest.issues.updateComment({
