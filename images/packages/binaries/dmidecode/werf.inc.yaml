@@ -17,6 +17,7 @@ import:
 packages:
 - git gcc
 - automake autoconf-archive make libtool
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -49,6 +50,7 @@ shell:
 
       make strip
       make DESTDIR=$OUTDIR install
+      tree $OUTDIR
 
       # We don't need man, test and samples files
       # rm -rf $OUTDIR/usr/include
