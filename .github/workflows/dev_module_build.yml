@@ -474,6 +474,7 @@ jobs:
           KUBECONFIGS: ${{ secrets.K8S_CLUSTER_SECRET }}
           USER_CLUSTER_LABELS: ${{ vars.USER_CLUSTER_LABELS }}
         with:
+          github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
             const ci = require('./.github/scripts/js/ci');
             let userClusterLabels;
