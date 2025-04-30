@@ -265,7 +265,24 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 		ExpectedConditionExists:  true,
 		ExpectedConditionStatus:  metav1.ConditionTrue,
 		ExpectedConditionReason:  cvicondition.InUse.String(),
-		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, the ClusterVirtualImage is currently used to create 4 VirtualDisks, the ClusterVirtualImage is currently being used to create the VirtualImages: ns/test, ns5/test2, the ClusterVirtualImage is currently being used to create the ClusterVirtualImage test2, the ClusterVirtualImage is currently using in 7 Namespaces.",
+		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, the ClusterVirtualImage is currently used to create 4 VirtualDisks, the ClusterVirtualImage is currently being used to create the VirtualImages: ns/test, ns5/test2, the ClusterVirtualImage is currently being used to create the ClusterVirtualImage test2, the ClusterVirtualImage is currently using in 6 Namespaces.",
+	}),
+	Entry("has 1 CVI", inUseHandlerTestArgs{
+		CVIName:           "test",
+		DeletionTimestamp: ptr.To(metav1.Time{Time: time.Now()}),
+		CVIs: []virtv2.ClusterVirtualImage{
+			generateCVIForInUseTest("test2", virtv2.ClusterVirtualImageDataSource{
+				Type: virtv2.DataSourceTypeObjectRef,
+				ObjectRef: &virtv2.ClusterVirtualImageObjectRef{
+					Kind: virtv2.ClusterVirtualImageKind,
+					Name: "test",
+				},
+			}),
+		},
+		ExpectedConditionExists:  true,
+		ExpectedConditionStatus:  metav1.ConditionTrue,
+		ExpectedConditionReason:  cvicondition.InUse.String(),
+		ExpectedConditionMessage: "The ClusterVirtualImage is currently being used to create the ClusterVirtualImage test2.",
 	}),
 )
 
