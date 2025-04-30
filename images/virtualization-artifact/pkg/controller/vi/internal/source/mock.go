@@ -13,8 +13,11 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sync"
 )
@@ -1944,6 +1947,15 @@ var _ Disk = &DiskMock{}
 //			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUpSupplements method")
 //			},
+//			GetProgressFunc: func(dv *cdiv1.DataVolume, prevProgress string, opts ...service.GetProgressOption) string {
+//				panic("mock out the GetProgress method")
+//			},
+//			GetStorageClassFunc: func(ctx context.Context, scName string) (*storagev1.StorageClass, error) {
+//				panic("mock out the GetStorageClass method")
+//			},
+//			StartImmediateFunc: func(ctx context.Context, size resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj service.ObjectKind, sup *supplements.Generator) error {
+//				panic("mock out the StartImmediate method")
+//			},
 //		}
 //
 //		// use mockedDisk in code that requires Disk
@@ -1954,6 +1966,15 @@ type DiskMock struct {
 	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
 	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
+	// GetProgressFunc mocks the GetProgress method.
+	GetProgressFunc func(dv *cdiv1.DataVolume, prevProgress string, opts ...service.GetProgressOption) string
+
+	// GetStorageClassFunc mocks the GetStorageClass method.
+	GetStorageClassFunc func(ctx context.Context, scName string) (*storagev1.StorageClass, error)
+
+	// StartImmediateFunc mocks the StartImmediate method.
+	StartImmediateFunc func(ctx context.Context, size resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj service.ObjectKind, sup *supplements.Generator) error
+
 	// calls tracks calls to the methods.
 	calls struct {
 		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
@@ -1963,8 +1984,42 @@ type DiskMock struct {
 			// Sup is the sup argument value.
 			Sup *supplements.Generator
 		}
+		// GetProgress holds details about calls to the GetProgress method.
+		GetProgress []struct {
+			// Dv is the dv argument value.
+			Dv *cdiv1.DataVolume
+			// PrevProgress is the prevProgress argument value.
+			PrevProgress string
+			// Opts is the opts argument value.
+			Opts []service.GetProgressOption
+		}
+		// GetStorageClass holds details about calls to the GetStorageClass method.
+		GetStorageClass []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ScName is the scName argument value.
+			ScName string
+		}
+		// StartImmediate holds details about calls to the StartImmediate method.
+		StartImmediate []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Size is the size argument value.
+			Size resource.Quantity
+			// Sc is the sc argument value.
+			Sc *storagev1.StorageClass
+			// Source is the source argument value.
+			Source *cdiv1.DataVolumeSource
+			// Obj is the obj argument value.
+			Obj service.ObjectKind
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+		}
 	}
 	lockCleanUpSupplements sync.RWMutex
+	lockGetProgress        sync.RWMutex
+	lockGetStorageClass    sync.RWMutex
+	lockStartImmediate     sync.RWMutex
 }
 
 // CleanUpSupplements calls CleanUpSupplementsFunc.
@@ -2000,5 +2055,133 @@ func (mock *DiskMock) CleanUpSupplementsCalls() []struct {
 	mock.lockCleanUpSupplements.RLock()
 	calls = mock.calls.CleanUpSupplements
 	mock.lockCleanUpSupplements.RUnlock()
+	return calls
+}
+
+// GetProgress calls GetProgressFunc.
+func (mock *DiskMock) GetProgress(dv *cdiv1.DataVolume, prevProgress string, opts ...service.GetProgressOption) string {
+	if mock.GetProgressFunc == nil {
+		panic("DiskMock.GetProgressFunc: method is nil but Disk.GetProgress was just called")
+	}
+	callInfo := struct {
+		Dv           *cdiv1.DataVolume
+		PrevProgress string
+		Opts         []service.GetProgressOption
+	}{
+		Dv:           dv,
+		PrevProgress: prevProgress,
+		Opts:         opts,
+	}
+	mock.lockGetProgress.Lock()
+	mock.calls.GetProgress = append(mock.calls.GetProgress, callInfo)
+	mock.lockGetProgress.Unlock()
+	return mock.GetProgressFunc(dv, prevProgress, opts...)
+}
+
+// GetProgressCalls gets all the calls that were made to GetProgress.
+// Check the length with:
+//
+//	len(mockedDisk.GetProgressCalls())
+func (mock *DiskMock) GetProgressCalls() []struct {
+	Dv           *cdiv1.DataVolume
+	PrevProgress string
+	Opts         []service.GetProgressOption
+} {
+	var calls []struct {
+		Dv           *cdiv1.DataVolume
+		PrevProgress string
+		Opts         []service.GetProgressOption
+	}
+	mock.lockGetProgress.RLock()
+	calls = mock.calls.GetProgress
+	mock.lockGetProgress.RUnlock()
+	return calls
+}
+
+// GetStorageClass calls GetStorageClassFunc.
+func (mock *DiskMock) GetStorageClass(ctx context.Context, scName string) (*storagev1.StorageClass, error) {
+	if mock.GetStorageClassFunc == nil {
+		panic("DiskMock.GetStorageClassFunc: method is nil but Disk.GetStorageClass was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		ScName string
+	}{
+		Ctx:    ctx,
+		ScName: scName,
+	}
+	mock.lockGetStorageClass.Lock()
+	mock.calls.GetStorageClass = append(mock.calls.GetStorageClass, callInfo)
+	mock.lockGetStorageClass.Unlock()
+	return mock.GetStorageClassFunc(ctx, scName)
+}
+
+// GetStorageClassCalls gets all the calls that were made to GetStorageClass.
+// Check the length with:
+//
+//	len(mockedDisk.GetStorageClassCalls())
+func (mock *DiskMock) GetStorageClassCalls() []struct {
+	Ctx    context.Context
+	ScName string
+} {
+	var calls []struct {
+		Ctx    context.Context
+		ScName string
+	}
+	mock.lockGetStorageClass.RLock()
+	calls = mock.calls.GetStorageClass
+	mock.lockGetStorageClass.RUnlock()
+	return calls
+}
+
+// StartImmediate calls StartImmediateFunc.
+func (mock *DiskMock) StartImmediate(ctx context.Context, size resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj service.ObjectKind, sup *supplements.Generator) error {
+	if mock.StartImmediateFunc == nil {
+		panic("DiskMock.StartImmediateFunc: method is nil but Disk.StartImmediate was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		Size   resource.Quantity
+		Sc     *storagev1.StorageClass
+		Source *cdiv1.DataVolumeSource
+		Obj    service.ObjectKind
+		Sup    *supplements.Generator
+	}{
+		Ctx:    ctx,
+		Size:   size,
+		Sc:     sc,
+		Source: source,
+		Obj:    obj,
+		Sup:    sup,
+	}
+	mock.lockStartImmediate.Lock()
+	mock.calls.StartImmediate = append(mock.calls.StartImmediate, callInfo)
+	mock.lockStartImmediate.Unlock()
+	return mock.StartImmediateFunc(ctx, size, sc, source, obj, sup)
+}
+
+// StartImmediateCalls gets all the calls that were made to StartImmediate.
+// Check the length with:
+//
+//	len(mockedDisk.StartImmediateCalls())
+func (mock *DiskMock) StartImmediateCalls() []struct {
+	Ctx    context.Context
+	Size   resource.Quantity
+	Sc     *storagev1.StorageClass
+	Source *cdiv1.DataVolumeSource
+	Obj    service.ObjectKind
+	Sup    *supplements.Generator
+} {
+	var calls []struct {
+		Ctx    context.Context
+		Size   resource.Quantity
+		Sc     *storagev1.StorageClass
+		Source *cdiv1.DataVolumeSource
+		Obj    service.ObjectKind
+		Sup    *supplements.Generator
+	}
+	mock.lockStartImmediate.RLock()
+	calls = mock.calls.StartImmediate
+	mock.lockStartImmediate.RUnlock()
 	return calls
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -36,32 +37,29 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
-type ObjectRefVirtualDiskSnapshotPVC struct {
-	importer Importer
-	stat     Stat
+type ObjectRefVirtualDiskPVC struct {
 	bounder  Bounder
 	client   client.Client
+	disk     Disk
 	recorder eventrecord.EventRecorderLogger
 }
 
-func NewObjectRefVirtualDiskSnapshotPVC(
-	importer Importer,
-	stat Stat,
+func NewObjectRefVirtualDiskPVC(
 	bounder Bounder,
 	client client.Client,
+	disk Disk,
 	recorder eventrecord.EventRecorderLogger,
-) *ObjectRefVirtualDiskSnapshotPVC {
-	return &ObjectRefVirtualDiskSnapshotPVC{
-		importer: importer,
-		stat:     stat,
+) *ObjectRefVirtualDiskPVC {
+	return &ObjectRefVirtualDiskPVC{
 		bounder:  bounder,
 		client:   client,
+		disk:     disk,
 		recorder: recorder,
 	}
 }
 
-func (ds ObjectRefVirtualDiskSnapshotPVC) Sync(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDiskSnapshot {
+func (ds ObjectRefVirtualDiskPVC) Sync(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
+	if vi.Spec.DataSource.ObjectRef == nil || vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageObjectRefKindVirtualDisk {
 		return reconcile.Result{}, errors.New("object ref missed for data source")
 	}
 
@@ -75,15 +73,20 @@ func (ds ObjectRefVirtualDiskSnapshotPVC) Sync(ctx context.Context, vi *virtv2.V
 		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
 	}
 
+	dv, err := object.FetchObject(ctx, supgen.DataVolume(), ds.client, &cdiv1.DataVolume{})
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("fetch dv: %w", err)
+	}
+
 	return blockdevice.NewStepTakers[*virtv2.VirtualImage](
 		step.NewReadyPersistentVolumeClaimStep(pvc, ds.bounder, ds.recorder, cb),
-		step.NewTerminatingStep(pvc),
-		step.NewCreatePersistentVolumeClaimStep(pvc, ds.recorder, ds.client, cb),
-		step.NewCreateBounderPodStep(pvc, ds.bounder, ds.client, ds.recorder, cb),
+		step.NewTerminatingStep(pvc, dv),
+		step.NewCreateDataVolumeFromVirtualDiskStep(dv, ds.recorder, ds.disk, ds.client, cb),
+		step.NewWaitForDVStep(pvc, dv, ds.disk, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, cb),
 	).Run(ctx, vi)
 }
 
-func (ds ObjectRefVirtualDiskSnapshotPVC) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
-	return validateVirtualDiskSnapshot(ctx, vi, ds.client)
+func (ds ObjectRefVirtualDiskPVC) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {
+	return validateVirtualDisk(ctx, vi, ds.client)
 }

@@ -53,29 +53,29 @@ type ReadyContainerRegistryStepStat interface {
 }
 
 type ReadyContainerRegistryStep struct {
-	pod         *corev1.Pod
-	importer    ReadyContainerRegistryStepImporter
-	stat        ReadyContainerRegistryStepStat
-	diskService ReadyContainerRegistryStepDiskService
-	recorder    eventrecord.EventRecorderLogger
-	cb          *conditions.ConditionBuilder
+	pod      *corev1.Pod
+	importer ReadyContainerRegistryStepImporter
+	stat     ReadyContainerRegistryStepStat
+	disk     ReadyContainerRegistryStepDiskService
+	recorder eventrecord.EventRecorderLogger
+	cb       *conditions.ConditionBuilder
 }
 
 func NewReadyContainerRegistryStep(
 	pod *corev1.Pod,
-	diskService ReadyContainerRegistryStepDiskService,
 	importer ReadyContainerRegistryStepImporter,
+	disk ReadyContainerRegistryStepDiskService,
 	stat ReadyContainerRegistryStepStat,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 ) *ReadyContainerRegistryStep {
 	return &ReadyContainerRegistryStep{
-		pod:         pod,
-		importer:    importer,
-		diskService: diskService,
-		stat:        stat,
-		recorder:    recorder,
-		cb:          cb,
+		pod:      pod,
+		importer: importer,
+		disk:     disk,
+		stat:     stat,
+		recorder: recorder,
+		cb:       cb,
 	}
 }
 
@@ -154,7 +154,7 @@ func (s ReadyContainerRegistryStep) cleanUpSupplements(ctx context.Context, vi *
 		return err
 	}
 
-	_, err = s.diskService.CleanUpSupplements(ctx, supgen)
+	_, err = s.disk.CleanUpSupplements(ctx, supgen)
 	if err != nil {
 		return err
 	}

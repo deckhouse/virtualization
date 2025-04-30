@@ -23,6 +23,7 @@ import (
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -91,9 +92,16 @@ func (ds ObjectRefVirtualDiskSnapshotCR) Sync(ctx context.Context, vi *virtv2.Vi
 		step.NewReadyContainerRegistryStep(pod, ds.importer, ds.diskService, ds.stat, ds.recorder, cb),
 		step.NewTerminatingStep(pvc),
 		step.NewCreatePersistentVolumeClaimStep(pvc, ds.recorder, ds.client, cb),
-		step.NewCreatePodStep(pod, ds.dvcrSettings, ds.recorder, ds.importer, ds.stat, cb),
-		step.NewWaitForPodStep(pod, pvc, ds.stat, cb),
+		step.NewCreatePodStep(pod, ds.dvcrSettings, ds.recorder, ds.importer, ds.stat, ds.GetPodSettings, cb),
+		step.NewWaitForPodStep(pod, ds.stat, cb),
 	).Run(ctx, vi)
+}
+
+func (ds ObjectRefVirtualDiskSnapshotCR) GetPodSettings(_ context.Context, vi *virtv2.VirtualImage) (*importer.PodSettings, error) {
+	supgen := supplements.NewGenerator(annotations.VIShortName, vi.Name, vi.Namespace, vi.UID)
+	ownerRef := metav1.NewControllerRef(vi, vi.GroupVersionKind())
+	pvcKey := supgen.PersistentVolumeClaim()
+	return ds.importer.GetPodSettingsWithPVC(ownerRef, supgen, pvcKey.Name, pvcKey.Namespace), nil
 }
 
 func (ds ObjectRefVirtualDiskSnapshotCR) Validate(ctx context.Context, vi *virtv2.VirtualImage) error {

@@ -64,7 +64,7 @@ func (s WaitForPVCStep) Take(_ context.Context, vi *virtv2.VirtualImage) (*recon
 	s.cb.
 		Status(metav1.ConditionFalse).
 		Reason(vdcondition.Provisioning).
-		Message(fmt.Sprintf("Waiting for the PVC %s to be Bound.", s.pvc.Name))
+		Message(fmt.Sprintf("Waiting for the underlying PersistentVolumeClaim %s to be Bound.", s.pvc.Name))
 
 	return &reconcile.Result{}, nil
 }
