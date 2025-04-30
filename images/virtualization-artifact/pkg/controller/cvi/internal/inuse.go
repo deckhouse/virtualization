@@ -127,10 +127,6 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 		}
 	}
 
-	for _, cv := range cvisNotReady {
-		namespacesMap[cv.GetNamespace()] = struct{}{}
-	}
-
 	consumerCount := len(vmUsedImage) + len(vdsNotReady) + len(visNotReady) + len(cvisNotReady)
 
 	if consumerCount > 0 {
