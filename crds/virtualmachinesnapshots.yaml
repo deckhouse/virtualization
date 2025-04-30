@@ -196,17 +196,17 @@ spec:
                     - Terminating
                   type: string
                 resources:
-                  description: Snapshotted resource list
+                  description: List of snapshot resources.
                   items:
                     properties:
                       apiVersion:
-                        description: Api version of resource
+                        description: API version of the resource.
                         type: string
                       kind:
-                        description: Kind of resource
+                        description: Kind of the resource.
                         type: string
                       name:
-                        description: Resource Name
+                        description: Name of the resource.
                         type: string
                     type: object
                   type: array
