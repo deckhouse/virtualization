@@ -29,3 +29,4 @@ shell:
   - go build -ldflags="-s -w" -o /hooks/003-tls-certificates-api ./cmd/003-tls-certificates-api
   - go build -ldflags="-s -w" -o /hooks/004-tls-certificates-api-proxy ./cmd/004-tls-certificates-api-proxy
   - go build -ldflags="-s -w" -o /hooks/005-prevent-default-vmclasses-deletion ./cmd/005-prevent-default-vmclasses-deletion
+  - go build -ldflags="-s -w" -o /hooks/006-generate-dvcr-secret ./cmd/006-generate-dvcr-secret
