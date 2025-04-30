@@ -17,7 +17,6 @@ import:
 packages:
 - git gcc
 - automake autoconf-archive make libtool
-- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -46,12 +45,10 @@ shell:
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch dmidecode-{{ $version }} /src
       cd /src
 
-      make -j$(nproc)
+      make -j$(nproc) prefix=/usr
 
       make strip
       make DESTDIR=$OUTDIR install
-      tree $OUTDIR
 
       # We don't need man, test and samples files
-      # rm -rf $OUTDIR/usr/include
-      # rm -rf $OUTDIR/usr/share
+      rm -rf $OUTDIR/usr/share

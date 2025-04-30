@@ -1,4 +1,14 @@
 ---
+{{- define "libvirt-deps" -}}
+binaries:
+  # dmidecode bins
+  - /usr/sbin/dmidecode
+  - /usr/sbin/biosdecode
+  - /usr/sbin/ownership
+  - /usr/sbin/vpddecode
+{{- end -}}
+
+{{ $cdiImporterDependencies := include "libvirt-deps" . | fromYaml }}
 {{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
@@ -19,12 +29,17 @@ git:
       - '**/*'
     setup:
       - install-libvirt.sh
+import:
+- image: packages/binaries/dmidecode
+  add: /dmidecode
+  to: /dmidecode
+  before: setup
 shell:
   beforeInstall:
+  cp -a /dmidecode/. /
   - |
     apt-get update && apt-get install --yes \
     binutils \
-    dmidecode \
     gcc-c++ \
     git \
     gettext \
