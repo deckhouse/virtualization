@@ -117,7 +117,6 @@ libs:
 packages:
   - acl
   - attr
-  - dmidecode
   - ethtool
   - fdisk
   - glibc-gconv-modules
@@ -186,6 +185,10 @@ import:
   add: /BINS
   to: /qemu-bins
   before: install
+- image: packages/binaries/dmidecode
+  add: /dmidecode
+  to: /dmidecode
+  before: setup
 
 # EDK2 (uefi firmware)
 - image: edk2
@@ -324,6 +327,7 @@ shell:
     cp -a /swtpm/. /
     cp -a /numactl/. /
     cp -a /gnutls/. /
+    cp -a /dmidecode/. /
 
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64

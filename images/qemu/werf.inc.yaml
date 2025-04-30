@@ -1,4 +1,14 @@
 ---
+{{- define "qemu-deps" -}}
+binaries:
+  # dmidecode bins
+  - /usr/sbin/dmidecode
+  - /usr/sbin/biosdecode
+  - /usr/sbin/ownership
+  - /usr/sbin/vpddecode
+{{- end -}}
+
+{{ $cdiImporterDependencies := include "qemu-deps" . | fromYaml }}
 {{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := cat $.SOURCE_REPO "/qemu/qemu.git" | nospace }}
@@ -25,9 +35,13 @@ git:
   stageDependencies:
     setup:
     - '**/*'
+import:
+- image: packages/binaries/dmidecode
+  add: /dmidecode
+  to: /dmidecode
+  before: setup
 shell:
   beforeInstall:
-  - |
     apt-get update && apt-get install -y \
     binutils \
     pkgconfig \
@@ -116,6 +130,7 @@ shell:
 
   install:
   - |
+    cp -a /dmidecode/. /
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"
