@@ -25,6 +25,11 @@ git:
   stageDependencies:
     setup:
     - '**/*'
+import:
+- image: packages/binaries/dmidecode
+  add: /dmidecode
+  to: /dmidecode
+  before: install
 shell:
   beforeInstall:
   - |
@@ -116,6 +121,8 @@ shell:
 
   install:
   - |
+    cp -a /dmidecode/. /
+    rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"
