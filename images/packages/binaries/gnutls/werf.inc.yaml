@@ -16,12 +16,13 @@ import:
 {{- define "$name" -}}
 packages:
 - git wget autoconf automake libtool makeinfo gettext-devel patch
-- gcc-c++ gperf pkg-config 
+- gcc-c++ gcc glibc-devel-static gperf pkg-config 
 - cvs gtk-doc 
 - libgcrypt-devel liblzo2-devel libopencdk-devel libreadline-devel libtasn1-devel libtasn1-utils
 - zlib-devel libnettle-devel libp11-kit-devel libunistring-devel
-- libtpm2-tss-devel libtrousers-devel libidn2-devel
-- libev4 libev-devel
+- libtpm2-tss-devel libtrousers-devel libidn2-devel libzstd-devel
+- libev4 libev-devel libunbound-devel libbrotli-devel 
+- gtk-doc texinfo texlive
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
