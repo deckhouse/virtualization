@@ -89,7 +89,7 @@ type VirtualMachineSnapshotStatus struct {
 	VirtualMachineSnapshotSecretName string `json:"virtualMachineSnapshotSecretName,omitempty"`
 	// List of VirtualDiskSnapshot names for the snapshots taken from the virtual disks of the associated virtual machine.
 	VirtualDiskSnapshotNames []string `json:"virtualDiskSnapshotNames,omitempty"`
-	// Snapshotted resource list
+	// List of snapshot resources.
 	Resources []ResourceRef `json:"resources,omitempty"`
 	// The latest detailed observations of the VirtualMachineSnapshot resource.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`

@@ -146,7 +146,7 @@ var _ = Describe("LifeCycle handler", func() {
 
 		var err error
 		fakeClient, err = testutil.NewFakeClientWithObjects(vd, vm, secret, vmSnapshot, vdSnapshot)
-		Expect(err).ShouldNot(HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc: func(_ client.Object, _, _, _ string) {},
