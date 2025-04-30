@@ -151,6 +151,27 @@ func (h *SyncPowerStateHandler) syncPowerState(
 
 	switch vmAction {
 	case Nothing:
+		vm := s.VirtualMachine().Changed()
+		cbAwaitingRestart, exist := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+		if exist && cbAwaitingRestart.Status == metav1.ConditionTrue &&
+			cbAwaitingRestart.ObservedGeneration == vm.GetGeneration() &&
+			vm.Spec.Disruptions.RestartApprovalMode == virtv2.Automatic {
+
+			log := logger.FromContext(ctx)
+			h.recorder.WithLogging(log).Event(vm, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes with restart")
+			h.recorder.WithLogging(log).Event(
+				vm,
+				corev1.EventTypeNormal,
+				virtv2.ReasonVMRestarted,
+				"Restart initiated by controller to apply changes",
+			)
+			err = powerstate.RestartVM(ctx, h.client, kvvm, kvvmi, false)
+			if err != nil {
+				return fmt.Errorf("restart virtual machine instance to apply changes: %w", err)
+			}
+			return nil
+		}
+
 		return nil
 	case Start:
 		return h.start(ctx, s, kvvm, isConfigurationApplied)
