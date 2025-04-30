@@ -34,7 +34,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -160,18 +159,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		if err != nil {
 			return fmt.Errorf("error setting watcher: %w", err)
 		}
-	}
-
-	cviFromVIEnqueuer := watchers.NewClusterVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.ClusterVirtualImageObjectRefKindVirtualImage)
-	viWatcher := watchers.NewObjectRefWatcher(watchers.NewVirtualImageFilter(), cviFromVIEnqueuer)
-	if err := viWatcher.Run(mgr, ctr); err != nil {
-		return fmt.Errorf("error setting watch on VIs: %w", err)
-	}
-
-	cviFromCVIEnqueuer := watchers.NewClusterVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.ClusterVirtualImage{}, virtv2.ClusterVirtualImageObjectRefKindClusterVirtualImage)
-	cviWatcher := watchers.NewObjectRefWatcher(watchers.NewClusterVirtualImageFilter(), cviFromCVIEnqueuer)
-	if err := cviWatcher.Run(mgr, ctr); err != nil {
-		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
 	return nil
