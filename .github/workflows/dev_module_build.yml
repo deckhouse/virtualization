@@ -457,6 +457,7 @@ jobs:
         id: create_comment
         uses: actions/github-script@v7
         with:
+          github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
             const { data: comment } = await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -474,7 +475,6 @@ jobs:
           KUBECONFIGS: ${{ secrets.K8S_CLUSTER_SECRET }}
           USER_CLUSTER_LABELS: ${{ vars.USER_CLUSTER_LABELS }}
         with:
-          github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
             const ci = require('./.github/scripts/js/ci');
             let userClusterLabels;
