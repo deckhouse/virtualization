@@ -1,14 +1,4 @@
 ---
-{{- define "qemu-deps" -}}
-binaries:
-  # dmidecode bins
-  - /usr/sbin/dmidecode
-  - /usr/sbin/biosdecode
-  - /usr/sbin/ownership
-  - /usr/sbin/vpddecode
-{{- end -}}
-
-{{ $qemuDependencies := include "qemu-deps" . | fromYaml }}
 {{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := cat $.SOURCE_REPO "/qemu/qemu.git" | nospace }}
