@@ -27,7 +27,6 @@ import:
 shell:
   beforeInstall:
   - |
-    cp -a /dmidecode/. /
     apt-get update && apt-get install --yes \
     binutils \
     gcc-c++ \
@@ -123,6 +122,7 @@ shell:
 
   install:
   - |
+    cp -a /dmidecode/. /
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"
