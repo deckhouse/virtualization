@@ -55,8 +55,6 @@ packages:
 - libnftnl
 - libjansson4
 binaries:
-# - /usr/bin/mount
-# - /usr/bin/umount
 - /usr/bin/getfacl
 - /usr/bin/setfacl
 - /usr/sbin/nft
