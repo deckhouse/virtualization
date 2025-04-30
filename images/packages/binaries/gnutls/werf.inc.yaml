@@ -15,14 +15,23 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- git wget autoconf automake libtool makeinfo gettext-devel patch
-- gcc-c++ gcc glibc-devel-static gperf pkg-config 
-- cvs gtk-doc 
-- libgcrypt-devel liblzo2-devel libopencdk-devel libreadline-devel libtasn1-devel libtasn1-utils
-- zlib-devel libnettle-devel libp11-kit-devel libunistring-devel
-- libtpm2-tss-devel libtrousers-devel libidn2-devel libzstd-devel
-- libev4 libev-devel libunbound-devel libbrotli-devel 
-- gtk-doc texinfo texlive
+- gcc git gperf glibc-devel-static wget
+- make autoconf automake libtool makeinfo gettext-devel patch
+- perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
+- gem-gettext-devel gettext po4a
+- libnettle-devel libp11-kit-devel libunistring-devel
+- libtpm2-tss-devel libtrousers-devel libbrotli-devel
+- libtasn1-devel libtasn1-utils libidn2-devel zlib-devel
+- libunbound-devel bison gtk-doc texinfo texlive dash
+- libev4 libev-devel libgcrypt-devel libopencdk-devel
+# - git wget autoconf automake libtool makeinfo gettext-devel patch
+# - cvs gtk-doc gcc-c++ gcc glibc-devel-static gperf pkg-config
+# - libgcrypt-devel liblzo2-devel libopencdk-devel libreadline-devel libtasn1-devel libtasn1-utils
+# - zlib-devel libnettle-devel libp11-kit-devel libunistring-devel
+# - libtpm2-tss-devel libtrousers-devel libidn2-devel libzstd-devel
+# - libev4 libev-devel libunbound-devel libbrotli-devel
+# - gtk-doc texinfo texlive 
+# - gawk
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
