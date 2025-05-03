@@ -47,7 +47,7 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPLeaseSta
 
 	if vmip != nil && vmip.Status.Address == ip.LeaseNameToIP(lease.Name) {
 		controllerutil.AddFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
-	} else if lease.GetDeletionTimestamp() == nil {
+	} else {
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineIPAddressLease")
 		controllerutil.RemoveFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
 	}
