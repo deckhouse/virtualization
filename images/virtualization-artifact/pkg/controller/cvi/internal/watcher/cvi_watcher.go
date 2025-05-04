@@ -18,6 +18,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
 type ClusterVirtualImageWatcher struct {
@@ -48,34 +52,90 @@ func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Co
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return isDataSourceCVI(e.Object)
+				return w.isDataSourceCVI(e.Object)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return isDataSourceCVI(e.Object)
+				return w.isDataSourceCVI(e.Object)
 			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return isDataSourceCVI(e.ObjectOld) || isDataSourceCVI(e.ObjectNew)
-			},
+			UpdateFunc: w.filterUpdateEvents,
 		},
 	)
 }
 
-func (w ClusterVirtualImageWatcher) enqueueRequests(_ context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
 	if !ok {
 		return
 	}
 
-	if !isDataSourceCVI(cvi) {
+	if !w.isDataSourceCVI(cvi) {
 		return
 	}
 
 	requests = append(requests, reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name:      cvi.Spec.DataSource.ObjectRef.Name,
-			Namespace: cvi.Spec.DataSource.ObjectRef.Namespace,
+			Name: cvi.Spec.DataSource.ObjectRef.Name,
 		},
 	})
 
+	var cviList virtv2.ClusterVirtualImageList
+	err := w.client.List(ctx, &cviList)
+	if err != nil {
+		logger.FromContext(ctx).Error(fmt.Sprintf("failed to list cvi: %s", err))
+		return
+	}
+
+	for _, cvi := range cviList.Items {
+		if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || cvi.Spec.DataSource.ObjectRef == nil {
+			continue
+		}
+
+		if cvi.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageKind || cvi.Spec.DataSource.ObjectRef.Name != obj.GetName() {
+			continue
+		}
+
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: cvi.Name,
+			},
+		})
+	}
+
 	return
+}
+
+func (w ClusterVirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
+	if !w.isDataSourceCVI(e.ObjectOld) && !w.isDataSourceCVI(e.ObjectNew) {
+		return false
+	}
+
+	oldCVI, ok := e.ObjectOld.(*virtv2.ClusterVirtualImage)
+	if !ok {
+		return false
+	}
+
+	newCVI, ok := e.ObjectNew.(*virtv2.ClusterVirtualImage)
+	if !ok {
+		return false
+	}
+
+	oldReadyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, oldCVI.Status.Conditions)
+	newReadyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, newCVI.Status.Conditions)
+
+	if oldCVI.Status.Phase != newCVI.Status.Phase || oldReadyCondition.Status != newReadyCondition.Status {
+		return true
+	}
+
+	return false
+}
+
+func (w ClusterVirtualImageWatcher) isDataSourceCVI(obj client.Object) bool {
+	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
+	if !ok {
+		return false
+	}
+
+	return cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
+		cvi.Spec.DataSource.ObjectRef != nil &&
+		cvi.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind
 }
