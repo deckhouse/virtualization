@@ -18,6 +18,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type VirtualDiskWatcher struct {
@@ -48,33 +52,92 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return isDataSourceCVI(e.Object)
+				return w.isDataSourceCVI(e.Object)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return isDataSourceCVI(e.Object)
+				return w.isDataSourceCVI(e.Object)
 			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return isDataSourceCVI(e.ObjectOld) || isDataSourceCVI(e.ObjectNew)
-			},
+			UpdateFunc: w.filterUpdateEvents,
 		},
 	)
 }
 
-func (w VirtualDiskWatcher) enqueueRequests(_ context.Context, obj client.Object) (requests []reconcile.Request) {
-	vd, ok := obj.(*virtv2.VirtualDisk)
-	if !ok {
-		return
-	}
-
-	if !isDataSourceCVI(vd) {
+func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+	if !w.isDataSourceCVI(obj) {
 		return
 	}
 
 	requests = append(requests, reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name: vd.Spec.DataSource.ObjectRef.Name,
+			Name:      obj.GetName(),
+			Namespace: obj.GetNamespace(),
 		},
 	})
 
+	var cviList virtv2.ClusterVirtualImageList
+	err := w.client.List(ctx, &cviList)
+	if err != nil {
+		logger.FromContext(ctx).Error(fmt.Sprintf("failed to list cvi: %s", err))
+		return
+	}
+
+	for _, cvi := range cviList.Items {
+		if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || cvi.Spec.DataSource.ObjectRef == nil {
+			continue
+		}
+
+		if cvi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualDiskKind || cvi.Spec.DataSource.ObjectRef.Name != obj.GetName() {
+			continue
+		}
+
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name: cvi.Name,
+			},
+		})
+	}
+
 	return
+}
+
+func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
+	if !w.isDataSourceCVI(e.ObjectOld) && !w.isDataSourceCVI(e.ObjectNew) {
+		return false
+	}
+
+	oldVD, ok := e.ObjectOld.(*virtv2.VirtualDisk)
+	if !ok {
+		return false
+	}
+
+	newVD, ok := e.ObjectNew.(*virtv2.VirtualDisk)
+	if !ok {
+		return false
+	}
+
+	oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVD.Status.Conditions)
+	newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVD.Status.Conditions)
+
+	oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, oldVD.Status.Conditions)
+	newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
+
+	if oldVD.Status.Phase != newVD.Status.Phase ||
+		len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) ||
+		oldInUseCondition.Status != newInUseCondition.Status ||
+		oldReadyCondition.Status != newReadyCondition.Status {
+		return true
+	}
+
+	return false
+}
+
+func (w VirtualDiskWatcher) isDataSourceCVI(obj client.Object) bool {
+	vd, ok := obj.(*virtv2.VirtualDisk)
+	if !ok {
+		return false
+	}
+
+	return vd.Spec.DataSource != nil &&
+		vd.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
+		vd.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind
 }
