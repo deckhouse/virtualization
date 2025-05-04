@@ -18,6 +18,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type VirtualImageWatcher struct {
@@ -48,25 +52,23 @@ func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return isDataSourceVI(e.Object)
+				return w.isDataSourceVI(e.Object)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return isDataSourceVI(e.Object)
+				return w.isDataSourceVI(e.Object)
 			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return isDataSourceVI(e.ObjectOld) || isDataSourceVI(e.ObjectNew)
-			},
+			UpdateFunc: w.filterUpdateEvents,
 		},
 	)
 }
 
-func (w VirtualImageWatcher) enqueueRequests(_ context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	vi, ok := obj.(*virtv2.VirtualImage)
 	if !ok {
 		return
 	}
 
-	if !isDataSourceVI(vi) {
+	if !w.isDataSourceVI(vi) {
 		return
 	}
 
@@ -77,5 +79,67 @@ func (w VirtualImageWatcher) enqueueRequests(_ context.Context, obj client.Objec
 		},
 	})
 
+	var viList virtv2.VirtualImageList
+	err := w.client.List(ctx, &viList, &client.ListOptions{
+		Namespace: obj.GetNamespace(),
+	})
+	if err != nil {
+		logger.FromContext(ctx).Error(fmt.Sprintf("failed to list vi: %s", err))
+		return
+	}
+
+	for _, vi := range viList.Items {
+		if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || vi.Spec.DataSource.ObjectRef == nil {
+			continue
+		}
+
+		if vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageKind || vi.Spec.DataSource.ObjectRef.Name != obj.GetName() {
+			continue
+		}
+
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      vi.Name,
+				Namespace: vi.Namespace,
+			},
+		})
+	}
+
 	return
+}
+
+func (w VirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
+	if !w.isDataSourceVI(e.ObjectOld) && !w.isDataSourceVI(e.ObjectNew) {
+		return false
+	}
+
+	oldVI, ok := e.ObjectOld.(*virtv2.VirtualImage)
+	if !ok {
+		return false
+	}
+
+	newVI, ok := e.ObjectNew.(*virtv2.VirtualImage)
+	if !ok {
+		return false
+	}
+
+	oldReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, oldVI.Status.Conditions)
+	newReadyCondition, _ := conditions.GetCondition(vicondition.ReadyType, newVI.Status.Conditions)
+
+	if oldVI.Status.Phase != newVI.Status.Phase || oldReadyCondition.Status != newReadyCondition.Status {
+		return true
+	}
+
+	return false
+}
+
+func (w VirtualImageWatcher) isDataSourceVI(obj client.Object) bool {
+	vi, ok := obj.(*virtv2.VirtualImage)
+	if !ok {
+		return false
+	}
+
+	return vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
+		vi.Spec.DataSource.ObjectRef != nil &&
+		vi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind
 }
