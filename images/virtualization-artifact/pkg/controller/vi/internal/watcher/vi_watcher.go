@@ -63,22 +63,6 @@ func (w VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 }
 
 func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	vi, ok := obj.(*virtv2.VirtualImage)
-	if !ok {
-		return
-	}
-
-	if !w.isDataSourceVI(vi) {
-		return
-	}
-
-	requests = append(requests, reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      vi.Spec.DataSource.ObjectRef.Name,
-			Namespace: vi.Namespace,
-		},
-	})
-
 	var viList virtv2.VirtualImageList
 	err := w.client.List(ctx, &viList, &client.ListOptions{
 		Namespace: obj.GetNamespace(),
