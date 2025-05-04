@@ -9,7 +9,7 @@ You may obtain a copy of the License at
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.VirtualImage
 See the License for the specific language governing permissions and
 limitations under the License.
 */
@@ -18,6 +18,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,7 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type VirtualDiskWatcher struct {
@@ -48,34 +52,95 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return isDataSourceVI(e.Object)
+				return w.isDataSourceVI(e.Object)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return isDataSourceVI(e.Object)
+				return w.isDataSourceVI(e.Object)
 			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return isDataSourceVI(e.ObjectOld) || isDataSourceVI(e.ObjectNew)
-			},
+			UpdateFunc: w.filterUpdateEvents,
 		},
 	)
 }
 
-func (w VirtualDiskWatcher) enqueueRequests(_ context.Context, obj client.Object) (requests []reconcile.Request) {
-	vd, ok := obj.(*virtv2.VirtualDisk)
-	if !ok {
-		return
-	}
-
-	if !isDataSourceVI(vd) {
+func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+	if !w.isDataSourceVI(obj) {
 		return
 	}
 
 	requests = append(requests, reconcile.Request{
 		NamespacedName: types.NamespacedName{
-			Name:      vd.Spec.DataSource.ObjectRef.Name,
-			Namespace: vd.Namespace,
+			Name:      obj.GetName(),
+			Namespace: obj.GetNamespace(),
 		},
 	})
 
+	var viList virtv2.VirtualImageList
+	err := w.client.List(ctx, &viList, &client.ListOptions{
+		Namespace: obj.GetNamespace(),
+	})
+	if err != nil {
+		logger.FromContext(ctx).Error(fmt.Sprintf("failed to list vi: %s", err))
+		return
+	}
+
+	for _, vi := range viList.Items {
+		if vi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || vi.Spec.DataSource.ObjectRef == nil {
+			continue
+		}
+
+		if vi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualDiskKind || vi.Spec.DataSource.ObjectRef.Name != obj.GetName() {
+			continue
+		}
+
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      vi.Name,
+				Namespace: vi.Namespace,
+			},
+		})
+	}
+
 	return
+}
+
+func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
+	if !w.isDataSourceVI(e.ObjectOld) && !w.isDataSourceVI(e.ObjectNew) {
+		return false
+	}
+
+	oldVD, ok := e.ObjectOld.(*virtv2.VirtualDisk)
+	if !ok {
+		return false
+	}
+
+	newVD, ok := e.ObjectNew.(*virtv2.VirtualDisk)
+	if !ok {
+		return false
+	}
+
+	oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVD.Status.Conditions)
+	newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVD.Status.Conditions)
+
+	oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, oldVD.Status.Conditions)
+	newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
+
+	if oldVD.Status.Phase != newVD.Status.Phase ||
+		len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) ||
+		oldInUseCondition.Status != newInUseCondition.Status ||
+		oldReadyCondition.Status != newReadyCondition.Status {
+		return true
+	}
+
+	return false
+}
+
+func (w VirtualDiskWatcher) isDataSourceVI(obj client.Object) bool {
+	vd, ok := obj.(*virtv2.VirtualDisk)
+	if !ok {
+		return false
+	}
+
+	return vd.Spec.DataSource != nil &&
+		vd.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
+		vd.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind
 }
