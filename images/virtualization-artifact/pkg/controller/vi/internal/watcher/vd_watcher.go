@@ -63,17 +63,6 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 }
 
 func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	if !w.isDataSourceVI(obj) {
-		return
-	}
-
-	requests = append(requests, reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      obj.GetName(),
-			Namespace: obj.GetNamespace(),
-		},
-	})
-
 	var viList virtv2.VirtualImageList
 	err := w.client.List(ctx, &viList, &client.ListOptions{
 		Namespace: obj.GetNamespace(),

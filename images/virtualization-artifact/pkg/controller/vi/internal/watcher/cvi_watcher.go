@@ -63,22 +63,6 @@ func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Co
 }
 
 func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
-	if !ok {
-		return
-	}
-
-	if !w.isDataSourceVI(cvi) {
-		return
-	}
-
-	requests = append(requests, reconcile.Request{
-		NamespacedName: types.NamespacedName{
-			Name:      cvi.Spec.DataSource.ObjectRef.Name,
-			Namespace: cvi.Spec.DataSource.ObjectRef.Namespace,
-		},
-	})
-
 	var viList virtv2.VirtualImageList
 	err := w.client.List(ctx, &viList)
 	if err != nil {
