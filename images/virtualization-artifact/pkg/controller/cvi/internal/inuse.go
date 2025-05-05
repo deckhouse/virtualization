@@ -19,8 +19,9 @@ package internal
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/types"
 	"strings"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -86,7 +87,7 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 	}
 	var vdsNotReady []client.Object
 	for _, vd := range vds.Items {
-		if vd.Status.Phase != virtv2.DiskReady {
+		if vd.Status.Phase != virtv2.DiskReady && vd.Status.Phase != virtv2.DiskTerminating {
 			vdsNotReady = append(vdsNotReady, &vd)
 		}
 	}
@@ -104,7 +105,7 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 	}
 	var visNotReady []client.Object
 	for _, vi := range vis.Items {
-		if vi.Status.Phase != virtv2.ImageReady {
+		if vi.Status.Phase != virtv2.ImageReady && vi.Status.Phase != virtv2.ImageTerminating {
 			visNotReady = append(visNotReady, &vi)
 		}
 	}
@@ -122,7 +123,7 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 	}
 	var cvisNotReady []client.Object
 	for _, cvi := range cvis.Items {
-		if cvi.Status.Phase != virtv2.ImageReady {
+		if cvi.Status.Phase != virtv2.ImageReady && cvi.Status.Phase != virtv2.ImageTerminating {
 			cvisNotReady = append(cvisNotReady, &cvi)
 		}
 	}
