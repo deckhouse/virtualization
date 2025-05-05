@@ -8,7 +8,7 @@ import:
   to: /{{ $.ImageName }}
   before: setup
 ---
-{{- $version := get $.Library $.ImageName }}
+{{- $version := get $.Package $.ImageName }}
 {{- $gitRepoUrl := "file/file.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}

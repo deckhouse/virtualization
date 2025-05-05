@@ -9,7 +9,7 @@ import:
   to: /{{ $.ImageName }}
   before: setup
 ---
-{{- $version := get $.Library $.ImageName }}
+{{- $version := get $.Package $.ImageName }}
 {{- $gitRepoUrl := "bzip2/bzip2.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
