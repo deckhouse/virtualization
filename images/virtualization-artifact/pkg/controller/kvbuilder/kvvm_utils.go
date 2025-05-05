@@ -24,6 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -146,47 +147,61 @@ func ApplyVirtualMachineSpec(
 			vi := viByName[bd.Name]
 
 			name := GenerateVMIDiskName(bd.Name)
+			isCdrom := imageformat.IsISO(vi.Status.Format)
+			serial := GenerateSerialFromObject(vi)
+
 			switch vi.Spec.Storage {
 			case virtv2.StorageKubernetes,
 				virtv2.StoragePersistentVolumeClaim:
-				// Attach PVC as ephemeral volume: its data will be restored to initial state on VM restart.
-				if err := kvvm.SetDisk(name, SetDiskOptions{
-					PersistentVolumeClaim: pointer.GetPointer(vi.Status.Target.PersistentVolumeClaim),
+				opts := SetDiskOptions{
+					PersistentVolumeClaim: ptr.To(vi.Status.Target.PersistentVolumeClaim),
 					IsEphemeral:           true,
-					Serial:                GenerateSerialFromObject(vi),
-					BootOrder:             bootOrder,
-				}); err != nil {
+					Serial:                serial,
+				}
+				if isCdrom {
+					opts.BootOrder = bootOrder
+					bootOrder++
+				}
+				if err := kvvm.SetDisk(name, opts); err != nil {
 					return err
 				}
 			case virtv2.StorageContainerRegistry:
-				if err := kvvm.SetDisk(name, SetDiskOptions{
-					ContainerDisk: pointer.GetPointer(vi.Status.Target.RegistryURL),
-					IsCdrom:       imageformat.IsISO(vi.Status.Format),
-					Serial:        GenerateSerialFromObject(vi),
-					BootOrder:     bootOrder,
-				}); err != nil {
+				opts := SetDiskOptions{
+					ContainerDisk: ptr.To(vi.Status.Target.RegistryURL),
+					IsCdrom:       isCdrom,
+					Serial:        serial,
+				}
+				if isCdrom {
+					opts.BootOrder = bootOrder
+					bootOrder++
+				}
+				if err := kvvm.SetDisk(name, opts); err != nil {
 					return err
 				}
 			default:
 				return fmt.Errorf("unexpected storage type %q for vi %s. %w", vi.Spec.Storage, vi.Name, common.ErrUnknownType)
 			}
-			bootOrder++
 
 		case virtv2.ClusterImageDevice:
 			// ClusterVirtualImage is attached as containerDisk.
 
 			cvi := cviByName[bd.Name]
 
+			isCdrom := imageformat.IsISO(cvi.Status.Format)
 			name := GenerateCVMIDiskName(bd.Name)
-			if err := kvvm.SetDisk(name, SetDiskOptions{
-				ContainerDisk: pointer.GetPointer(cvi.Status.Target.RegistryURL),
-				IsCdrom:       imageformat.IsISO(cvi.Status.Format),
+
+			opts := SetDiskOptions{
+				ContainerDisk: ptr.To(cvi.Status.Target.RegistryURL),
+				IsCdrom:       isCdrom,
 				Serial:        GenerateSerialFromObject(cvi),
-				BootOrder:     bootOrder,
-			}); err != nil {
+			}
+			if isCdrom {
+				opts.BootOrder = bootOrder
+				bootOrder++
+			}
+			if err := kvvm.SetDisk(name, opts); err != nil {
 				return err
 			}
-			bootOrder++
 
 		case virtv2.DiskDevice:
 			// VirtualDisk is attached as a regular disk.
@@ -231,7 +246,7 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetOwnerRef(vm, schema.GroupVersionKind{
 		Group:   virtv2.SchemeGroupVersion.Group,
 		Version: virtv2.SchemeGroupVersion.Version,
-		Kind:    "VirtualMachine",
+		Kind:    virtv2.VirtualMachineKind,
 	})
 	kvvm.AddFinalizer(virtv2.FinalizerKVVMProtection)
 
