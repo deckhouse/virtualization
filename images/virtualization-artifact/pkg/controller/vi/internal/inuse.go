@@ -83,7 +83,7 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 	}
 	var vdsNotReady []client.Object
 	for _, vd := range vds.Items {
-		if vd.Status.Phase != virtv2.DiskReady {
+		if vd.Status.Phase != virtv2.DiskReady && vd.Status.Phase != virtv2.DiskTerminating {
 			vdsNotReady = append(vdsNotReady, &vd)
 		}
 	}
@@ -97,7 +97,7 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 	}
 	var visNotReady []client.Object
 	for _, vi := range vis.Items {
-		if vi.Status.Phase != virtv2.ImageReady {
+		if vi.Status.Phase != virtv2.ImageReady && vi.Status.Phase != virtv2.ImageTerminating {
 			visNotReady = append(visNotReady, &vi)
 		}
 	}
@@ -112,7 +112,7 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 
 	var cvisFiltered []client.Object
 	for _, cvi := range cvis.Items {
-		if cvi.Spec.DataSource.ObjectRef == nil || cvi.Status.Phase == virtv2.ImageReady {
+		if cvi.Spec.DataSource.ObjectRef == nil || cvi.Status.Phase == virtv2.ImageReady || cvi.Status.Phase == virtv2.ImageTerminating {
 			continue
 		}
 		if cvi.Spec.DataSource.ObjectRef.Namespace == vi.GetNamespace() {
