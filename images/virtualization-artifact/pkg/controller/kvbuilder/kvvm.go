@@ -337,6 +337,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 		vs.Ephemeral = &virtv1.EphemeralVolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 				ClaimName: *opts.PersistentVolumeClaim,
+				ReadOnly:  true,
 			},
 		}
 

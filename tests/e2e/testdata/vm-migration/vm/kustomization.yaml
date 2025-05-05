@@ -3,3 +3,4 @@ kind: Kustomization
 resources:
   - overlays/migration-bios
   - overlays/migration-uefi
+  - overlays/with-cvi

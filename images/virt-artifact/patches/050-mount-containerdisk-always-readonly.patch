@@ -10,3 +10,19 @@ index cc09800afc..346eb883ae 100644
  	disk.Type = "file"
  	disk.Driver.Type = "qcow2"
  	disk.Driver.ErrorPolicy = v1.DiskErrorPolicyStop
+diff --git a/pkg/virt-launcher/virtwrap/live-migration-source.go b/pkg/virt-launcher/virtwrap/live-migration-source.go
+index f580d06e52..afbc2538d3 100644
+--- a/pkg/virt-launcher/virtwrap/live-migration-source.go
++++ b/pkg/virt-launcher/virtwrap/live-migration-source.go
+@@ -289,9 +289,9 @@ func classifyVolumesForMigration(vmi *v1.VirtualMachineInstance) *migrationDisks
+ 
+ 		case volSrc.ConfigMap != nil || volSrc.Secret != nil || volSrc.DownwardAPI != nil ||
+ 			volSrc.ServiceAccount != nil || volSrc.CloudInitNoCloud != nil ||
+-			volSrc.CloudInitConfigDrive != nil || (volSrc.ContainerDisk != nil && !volSrc.ContainerDisk.Hotpluggable):
++			volSrc.CloudInitConfigDrive != nil:
+ 			disks.generated[volume.Name] = true
+-		case volSrc.ContainerDisk != nil && volSrc.ContainerDisk.Hotpluggable:
++		case volSrc.ContainerDisk != nil:
+ 			disks.shared[volume.Name] = true
+ 		}
+ 	}

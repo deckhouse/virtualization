@@ -33,7 +33,7 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("Virtual machine migration cancel", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration-cancel"}
 
 	BeforeEach(func() {
