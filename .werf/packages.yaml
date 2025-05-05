@@ -40,7 +40,6 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
   {{- $_ := set $ctx "Version" $Root.Version }}
   {{- $_ := set $ctx "Package" $Root.Packages }}
-  {{- $_ := set $ctx "Library" $Root.Libraries }}
 
   {{- include "packages_template" $ctx }}
 

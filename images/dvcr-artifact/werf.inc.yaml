@@ -59,14 +59,16 @@ import:
   add: /out
   to: /usr/local/bin
   before: setup
-- image: packages/libraries/file
+- image: packages/binaries/file
   add: /file
   to: /file
   before: install
 # deps for file
-- image: packages/libraries/bzip2-libraries
-  add: /bzip2-libraries
+- image: packages/binaries/bzip2
+  add: /bzip2
   to: /relocate
+  includePaths:
+  - usr/lib64
   before: setup
 - image: qemu
   add: /qemu-img

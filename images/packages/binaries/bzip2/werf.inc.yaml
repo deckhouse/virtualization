@@ -1,4 +1,5 @@
 ---
+# development pkgs
 image: {{ $.ImageType }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
@@ -8,43 +9,17 @@ import:
   to: /{{ $.ImageName }}
   before: setup
 ---
-image: {{ $.ImageType }}/{{ $.ImageName }}-binaries
-final: false
-fromImage: builder/scratch
-import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /{{ $.ImageName }}-binaries
-  before: setup
-  includePaths:
-  - usr/bin
----
-image: {{ $.ImageType }}/{{ $.ImageName }}-libraries
-final: false
-fromImage: builder/scratch
-import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /{{ $.ImageName }}-libraries
-  before: setup
-  includePaths:
-  - usr/lib64
-  excludePaths:
-  - usr/lib64/libmagic.la
----
 {{- $version := get $.Library $.ImageName }}
-{{- $gitRepoUrl := "file/file.git" }}
+{{- $gitRepoUrl := "bzip2/bzip2.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
 - gcc git libtool
 - make automake autoconf libtool makeinfo
+- meson ninja-build
 - pkg-config
-- bison
-- bzlib-devel libcap-devel liblzma-devel libseccomp-devel libzstd-devel zlib-devel lzip ncompress strace
 {{- end -}}
-
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
@@ -54,6 +29,7 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+  # value: "https://sourceware.org"
 shell:
   beforeInstall:
     - |
@@ -66,14 +42,27 @@ shell:
   install:
     - |
       OUTDIR=/out
+      pkgver=$( echo {{ $version }} | cut -d "-" -f2)
+
       mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
       
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
       cd /src
       
-      autoreconf -f -i
-      ./configure --prefix=/usr --libdir=/usr/lib64 --datadir=/usr/share
+      mkdir -p $OUTDIR/usr/lib64
       
-      make install -j $(nproc) DESTDIR=$OUTDIR
+      sed -i \
+        -e 's:\$(PREFIX)/man:\$(PREFIX)/share/man:g' \
+        -e 's:ln -s -f \$(PREFIX)/bin/:ln -s :' \
+        Makefile
 
-      rm -rf $OUTDIR/share/man
+      make -f Makefile-libbz2_so all -j $(nproc)
+      make all
+
+      make -j $(nproc) PREFIX=${OUTDIR}/usr install
+
+      install -D libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.$pkgver
+      ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so
+      ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.${pkgver%%.*}
+
+      rm -rf $OUTDIR/usr/share
