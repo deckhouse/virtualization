@@ -52,10 +52,10 @@ func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Co
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return w.isDataSourceCVI(e.Object)
+				return true
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return w.isDataSourceCVI(e.Object)
+				return true
 			},
 			UpdateFunc: w.filterUpdateEvents,
 		},
@@ -90,10 +90,6 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj cli
 }
 
 func (w ClusterVirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	if !w.isDataSourceCVI(e.ObjectOld) && !w.isDataSourceCVI(e.ObjectNew) {
-		return false
-	}
-
 	oldCVI, ok := e.ObjectOld.(*virtv2.ClusterVirtualImage)
 	if !ok {
 		return false
@@ -112,15 +108,4 @@ func (w ClusterVirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool
 	}
 
 	return false
-}
-
-func (w ClusterVirtualImageWatcher) isDataSourceCVI(obj client.Object) bool {
-	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
-	if !ok {
-		return false
-	}
-
-	return cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
-		cvi.Spec.DataSource.ObjectRef != nil &&
-		cvi.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind
 }
