@@ -29,7 +29,6 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
-  # value: "https://sourceware.org"
 shell:
   beforeInstall:
     - |

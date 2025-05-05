@@ -34,11 +34,6 @@ build:
   {{- $_ := set $.Packages $k $v}}
 {{- end }}
 
-{{- range $k, $v := $versions_ctx.library }}
-  {{- $_ := set $.Libraries $k $v}}
-{{- end }}
-
-
 {{- $_ := set $ "ImagesIDList" list }}
 
 {{- range $path, $content := .Files.Glob ".werf/*.yaml" }}
