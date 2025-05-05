@@ -52,10 +52,10 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool {
-				return w.isDataSourceCVI(e.Object)
+				return true
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				return w.isDataSourceCVI(e.Object)
+				return true
 			},
 			UpdateFunc: w.filterUpdateEvents,
 		},
@@ -90,10 +90,6 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 }
 
 func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	if !w.isDataSourceCVI(e.ObjectOld) && !w.isDataSourceCVI(e.ObjectNew) {
-		return false
-	}
-
 	oldVD, ok := e.ObjectOld.(*virtv2.VirtualDisk)
 	if !ok {
 		return false
@@ -118,15 +114,4 @@ func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 	}
 
 	return false
-}
-
-func (w VirtualDiskWatcher) isDataSourceCVI(obj client.Object) bool {
-	vd, ok := obj.(*virtv2.VirtualDisk)
-	if !ok {
-		return false
-	}
-
-	return vd.Spec.DataSource != nil &&
-		vd.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef &&
-		vd.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind
 }
