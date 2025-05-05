@@ -47,7 +47,6 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 	log := logger.FromContext(ctx).With(logger.SlogHandler(RetentionHandlerName))
 
 	lease := state.VirtualMachineIPAddressLease()
-
 	vmip, err := state.VirtualMachineIPAddress(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -55,7 +54,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 
 	if vmip == nil || vmip.Status.Address != ip.LeaseNameToIP(lease.Name) {
 		if lease.Spec.VirtualMachineIPAddressRef.Name != "" {
-			log.Info("VirtualMachineIP not found: remove this ref from the spec and retain VMIPLease")
+			log.Debug("VirtualMachineIP not found: remove this ref from the spec and retain VMIPLease")
 			lease.Spec.VirtualMachineIPAddressRef.Name = ""
 			return reconcile.Result{RequeueAfter: h.retentionDuration}, nil
 		}
@@ -67,7 +66,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 
 			duration := currentTime.Sub(boundCondition.LastTransitionTime.Time)
 			if duration >= h.retentionDuration {
-				log.Info(fmt.Sprintf("Retain VMIPLease after %s of being not claimed", h.retentionDuration.String()))
+				log.Info(fmt.Sprintf("Delete VMIPLease after %s of being not claimed", h.retentionDuration.String()))
 				state.SetDeletion(true)
 				return reconcile.Result{}, nil
 			}
