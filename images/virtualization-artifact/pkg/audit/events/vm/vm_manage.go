@@ -70,7 +70,7 @@ func (m *VMManage) IsMatched() bool {
 		return true
 	}
 
-	createURI := "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines"
+	createURI := fmt.Sprintf("/apis/virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines", m.Event.ObjectRef.Namespace)
 	if m.Event.Verb == "create" && createURI == uriWithoutQueryParams {
 		return true
 	}

@@ -263,14 +263,14 @@ var _ = Describe("VMOP Events", func() {
 			expectedActionType: "delete",
 		}),
 		Entry("VM create event should filled without errors", vmManageTestArgs{
-			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
+			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines",
 			eventVerb:          "create",
 			expectedLevel:      "info",
 			expectedName:       "VM creation",
 			expectedActionType: "create",
 		}),
 		Entry("VM manage event should filled without VM exist error", vmManageTestArgs{
-			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
+			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines",
 			eventVerb:          "create",
 			expectedLevel:      "info",
 			expectedName:       "VM creation",
@@ -278,7 +278,7 @@ var _ = Describe("VMOP Events", func() {
 			shouldLostVM:       true,
 		}),
 		Entry("VM manage event should filled without VD exist error", vmManageTestArgs{
-			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/dev/virtualmachines",
+			eventURI:           "/apis/virtualization.deckhouse.io/v1alpha2/namespaces/test/virtualmachines",
 			eventVerb:          "create",
 			expectedLevel:      "info",
 			expectedName:       "VM creation",
