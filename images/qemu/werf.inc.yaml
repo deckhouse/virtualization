@@ -1,7 +1,84 @@
 ---
 {{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Version $gitRepoName }}
-{{- $gitRepoUrl := cat $.SOURCE_REPO "/qemu/qemu.git" | nospace }}
+{{- $gitRepoUrl := "/qemu/qemu.git" }}
+
+
+{{- $version := get $.Package $.ImageName }}
+{{- $gitRepoUrl := "nbdkit/nbdkit.git" }}
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- binutils
+- dmidecode
+- pkgconfig pkg-config
+- gcc-c++ clang git
+- gettext bash-completion
+- ccache
+- make cmake meson ninja-build makeinfo
+- seabios seavgabios
+- qboot flex
+- filesystem
+- ipxe-roms-qemu
+- qemu-kvm-core shadow-utils sysvinit-utils
+- hasher-provides-dev-kvm
+- python3 python3-dev
+- python3-module-pytest
+- python3-module-docutils
+- python3-tools
+- python3-module-pip
+- python3-module-sphinx
+- python3-module-sphinx_rtd_theme
+libraries:
+- glibc-devel-static
+- zlib-devel-static
+- glib2-devel-static
+- libpcre2-devel-static
+- libattr-devel-static
+- libdw-devel-static
+- libatomic-devel-static
+- glib2-devel
+- libdw-devel
+- perl-devel
+- libssh-devel
+- libssh2-devel
+- libcap-ng-devel
+- libxfs-devel
+- zlib-devel
+- libcurl-devel
+- libpci-devel
+- libgvnc-devel
+- glibc-kernheaders
+- libfdt-devel
+- libpixman-devel
+- libkeyutils-devel
+- libuuid-devel
+- libpam0-devel
+- libtasn1-devel
+- libslirp-devel
+- libdrm-devel
+- libxdp-devel libSDL2-devel libSDL2_image-devel
+- libncursesw-devel libalsa-devel libpulseaudio-devel
+- pipewire-libs pipewire-jack-libs-devel
+- libsoundio-devel libcapstone-devel libsasl2-devel
+- libjpeg-devel libpng-devel libxkbcommon-devel xkeyboard-config-devel
+- glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel
+- libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel
+- libspice-server-devel spice-protocol ceph-devel
+- libnfs-devel libzstd-devel libseccomp-devel
+- libgcrypt-devel libgnutls-devel libnettle-devel
+- libudev-devel libmultipath-devel libblkio-devel libpmem-devel
+- libdaxctl-devel libfuse3-devel rdma-core-devel libnuma-devel
+- bzlib-devel liblzo2-devel libsnappy-devel
+- libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel
+- libvitastor-devel libiscsi-devel glusterfs-coreutils
+- libaio-devel libselinux-devel libqpl-devel
+- libglusterfs11-api-devel
+- libvdeplug-devel
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ $.ImageName }}
 final: false
@@ -30,82 +107,16 @@ import:
   add: /dmidecode
   to: /dmidecode
   before: install
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
   - |
+    {{- include "alt packages proxy" . | nindent 2 }}
     apt-get update && apt-get install -y \
-    binutils \
-    pkgconfig \
-    pkg-config \
-    dmidecode \
-    gcc-c++ \
-    git \
-    gettext \
-    bash-completion \
-    clang \
-    ccache \
-    make cmake \
-    meson \
-    ninja-build \
-    glibc-devel-static \
-    zlib-devel-static \
-    glib2-devel-static \
-    libpcre2-devel-static \
-    libattr-devel-static \
-    libdw-devel-static \
-    libatomic-devel-static \
-    glib2-devel \
-    libdw-devel \
-    makeinfo \
-    perl-devel \
-    python3 python3-dev \
-    python3-module-pytest \
-    python3-module-docutils \
-    python3-tools \
-    python3-module-pip \
-    python3-module-sphinx \
-    python3-module-sphinx_rtd_theme \
-    pkgconfig \
-    libssh-devel \
-    libssh2-devel \
-    libcap-ng-devel \
-    libxfs-devel \
-    zlib-devel \
-    libcurl-devel \
-    libpci-devel \
-    libgvnc-devel \
-    glibc-kernheaders \
-    ipxe-roms-qemu \
-    seavgabios \
-    seabios \
-    libfdt-devel \
-    qboot \
-    libpixman-devel \
-    libkeyutils-devel \
-    flex \
-    libuuid-devel \
-    libpam0-devel \
-    libtasn1-devel \
-    libslirp-devel \
-    libdrm-devel \
-    libxdp-devel libSDL2-devel libSDL2_image-devel \
-    libncursesw-devel libalsa-devel libpulseaudio-devel \
-    pipewire-libs pipewire-jack-libs-devel \
-    libsoundio-devel libcapstone-devel libsasl2-devel \
-    libjpeg-devel libpng-devel libxkbcommon-devel xkeyboard-config-devel \
-    glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel \
-    libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel \
-    libspice-server-devel spice-protocol ceph-devel \
-    libnfs-devel libzstd-devel libseccomp-devel \
-    libgcrypt-devel libgnutls-devel libnettle-devel \
-    libudev-devel libmultipath-devel libblkio-devel libpmem-devel \
-    libdaxctl-devel libfuse3-devel rdma-core-devel libnuma-devel \
-    bzlib-devel liblzo2-devel libsnappy-devel \
-    libcacard-devel libusbredir-devel libepoxy-devel libgbm-devel \
-    libvitastor-devel libiscsi-devel glusterfs-coreutils \
-    libaio-devel libselinux-devel libqpl-devel \
-    qemu-kvm-core shadow-utils sysvinit-utils libglusterfs11-api-devel hasher-provides-dev-kvm \
-    filesystem libvdeplug-devel
+      {{ $builderDependencies.packages | join " " }} \
+      {{ $builderDependencies.libraries | join " " }}
 
     apt-get clean
     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
@@ -121,6 +132,8 @@ shell:
 
   install:
   - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    
     cp -a /dmidecode/. /
     rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
@@ -131,7 +144,8 @@ shell:
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
 
-    git clone --depth=1 --branch v{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
+    # TODO git submodules
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} {{ $gitRepoName }}-{{ $version }}
 
     cd {{ $gitRepoName }}-{{ $version }}
 
