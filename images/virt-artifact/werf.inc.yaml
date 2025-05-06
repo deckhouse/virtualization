@@ -2,6 +2,7 @@
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $version := "1.3.1" }}
 {{- $goVersion := "1.22.7" }}
+{{- $gitRepoUrl := "kubevirt/kubevirt.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -25,10 +26,12 @@ packages:
 
 {{ $virtArtifactDependencies := include "$name" . | fromYaml }}
 
-
 image: {{ $.ImageName }}
 final: false
 fromImage: base-alt-p11
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO }}
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
@@ -44,23 +47,28 @@ git:
     - patches/README.md
 shell:
   beforeInstall:
-    - apt-get update
     - |
+      {{- include "alt packages proxy" . | nindent 2 }}
+      apt-get update
       apt-get install -y \
         {{ $virtArtifactDependencies.packages | join " " }}
-    - apt-get clean
-    - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+      apt-get clean
+      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
   install:
-    - git clone --depth 1 --branch v{{ $version }} {{ $.SOURCE_REPO }}/kubevirt/kubevirt.git /kubevirt
-    - cd /kubevirt
     - |
+      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /kubevirt
+      
+    - |
+      cd /kubevirt
       for p in /patches/*.patch ; do
         echo -n "Apply ${p} ... "
         git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
       done
-    - go mod edit -go={{ $goVersion }}
-    - go mod download
+      go mod edit -go={{ $goVersion }}
+      go mod download
     - |
       go get github.com/opencontainers/runc@v1.1.14
       go get github.com/containers/common@v0.60.4
