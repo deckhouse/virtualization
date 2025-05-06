@@ -103,6 +103,8 @@ shell:
   - cp -a /xorriso/. /
   - cp -a /nftables/. /
   - cp -a /acl/. /
+  
+  - rm -rf /{xorriso,nftables,acl}
   setup:
   - |
     /relocate_binaries.sh -i "{{ $virtHandlerDependencies.binaries | join " " }}" -o /relocate
