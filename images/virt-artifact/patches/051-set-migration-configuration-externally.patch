@@ -199,7 +199,7 @@ index d342c93197..63f925b1d4 100644
 +		// External migration configuration: interrupt reconcile and wait for the next VMI update with filled MigrationConfiguration.
 +		if origVMI.Status.MigrationState.MigrationConfiguration == nil {
 +			// Wait for migration options.
-+			log.DefaultLogger().Errorf("external migration configuration is enabled, wait until VMI receives migration configuration, vmi phase is %s", origVMI.Status.Phase)
++			log.DefaultLogger().Infof("external migration configuration is enabled, wait until VMI receives migration configuration, vmi phase is %s", origVMI.Status.Phase)
 +			return nil
 +		}
 +

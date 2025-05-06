@@ -40,8 +40,6 @@ func SetupController(
 	log *log.Logger,
 	liveMigrationSettings config.LiveMigrationSettings,
 ) error {
-	// recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
-	// mgrCache := mgr.GetCache()
 	client := mgr.GetClient()
 
 	handlers := []Handler{
