@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -32,16 +31,14 @@ import (
 
 const dynamicSettingsHandlerName = "DynamicSettingsHandler"
 
-func NewDynamicSettingsHandler(client client.Client, liveMigrationSettings config.LiveMigrationSettings) *DynamicSettingsHandler {
+func NewDynamicSettingsHandler(client client.Client) *DynamicSettingsHandler {
 	return &DynamicSettingsHandler{
-		client:         client,
-		moduleSettings: liveMigrationSettings,
+		client: client,
 	}
 }
 
 type DynamicSettingsHandler struct {
-	client         client.Client
-	moduleSettings config.LiveMigrationSettings
+	client client.Client
 }
 
 func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.VirtualMachineInstance) (reconcile.Result, error) {
@@ -82,7 +79,7 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, err
 	}
 
-	conf := livemigration.NewMigrationConfiguration(h.moduleSettings, autoConverge, kvconfig)
+	conf := livemigration.NewMigrationConfiguration(autoConverge, kvconfig)
 
 	kvvmi.Status.MigrationState.MigrationConfiguration = conf
 

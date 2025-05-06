@@ -21,35 +21,36 @@ import (
 	"fmt"
 	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/resource"
 	virtv1 "kubevirt.io/api/core/v1"
-
-	"github.com/deckhouse/virtualization-controller/pkg/config"
 )
 
 // Live migration defaults from kubevirt
 
 const (
-	ParallelMigrationsPerClusterDefault uint32 = 5
-	NodeDrainTaintDefaultKey            string = "kubevirt.io/drain"
-	MigrationProgressTimeout            int64  = 150
-	MigrationCompletionTimeoutPerGiB    int64  = 800
-	DefaultUnsafeMigrationOverride      bool   = false
-	MigrationAllowPostCopy              bool   = false
+	ParallelOutboundMigrationsPerNodeDefault uint32 = 2
+	ParallelMigrationsPerClusterDefault      uint32 = 5
+	BandwidthPerMigrationDefault                    = "0Mi"
+	NodeDrainTaintDefaultKey                 string = "kubevirt.io/drain"
+	MigrationProgressTimeout                 int64  = 150
+	MigrationCompletionTimeoutPerGiB         int64  = 800
+	DefaultUnsafeMigrationOverride           bool   = false
+	MigrationAllowPostCopy                   bool   = false
 )
 
-func NewMigrationConfiguration(moduleSettings config.LiveMigrationSettings, allowAutoConverge bool, kvconfig virtv1.KubeVirt) *virtv1.MigrationConfiguration {
+func NewMigrationConfiguration(allowAutoConverge bool, kvconfig virtv1.KubeVirt) *virtv1.MigrationConfiguration {
 	// TODO rework below section after proper implementation of liveMigration settings in ModuleConfig.
 	parallelMigrationsPerCluster := ParallelMigrationsPerClusterDefault
 	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster != nil {
 		parallelMigrationsPerCluster = *kvconfig.Spec.Configuration.MigrationConfiguration.ParallelMigrationsPerCluster
 	}
 	// Reuse default value of MaxMigrationsPerNode as parallelOutboundMigrationsPerNode.
-	parallelOutboundMigrationsPerNode := uint32(moduleSettings.MaxMigrationsPerNode)
+	parallelOutboundMigrationsPerNode := ParallelOutboundMigrationsPerNodeDefault
 	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode != nil {
 		parallelOutboundMigrationsPerNode = *kvconfig.Spec.Configuration.MigrationConfiguration.ParallelOutboundMigrationsPerNode
 	}
 	// Reuse default value of BandwidthPerNode as bandwidthPerMigration.
-	bandwidthPerMigration := moduleSettings.BandwidthPerNode.DeepCopy()
+	bandwidthPerMigration := resource.MustParse(BandwidthPerMigrationDefault)
 	if kvconfig.Spec.Configuration.MigrationConfiguration != nil && kvconfig.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration != nil {
 		bandwidthPerMigration = kvconfig.Spec.Configuration.MigrationConfiguration.BandwidthPerMigration.DeepCopy()
 	}

@@ -25,7 +25,6 @@ import (
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
-	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -103,7 +102,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			kvvmi.Status.MigrationState = &virtv1.VirtualMachineInstanceMigrationState{}
 
 			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, config.NewDefaultLiveMigrationSettings())
+			h := NewDynamicSettingsHandler(fakeClient)
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -121,7 +120,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			}
 
 			fakeClient := setupEnvironment(kvvmi, vm, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, config.NewDefaultLiveMigrationSettings())
+			h := NewDynamicSettingsHandler(fakeClient)
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -140,7 +139,7 @@ var _ = Describe("TestDynamicSettingsHandler", func() {
 			vmop := newVMOPEvict(force)
 
 			fakeClient := setupEnvironment(kvvmi, vm, vmop, newKVConfig())
-			h := NewDynamicSettingsHandler(fakeClient, config.NewDefaultLiveMigrationSettings())
+			h := NewDynamicSettingsHandler(fakeClient)
 			_, err := h.Handle(ctx, kvvmi)
 			Expect(err).NotTo(HaveOccurred())
 

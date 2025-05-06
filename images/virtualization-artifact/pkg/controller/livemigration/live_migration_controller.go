@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/livemigration/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
@@ -38,12 +37,11 @@ func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *log.Logger,
-	liveMigrationSettings config.LiveMigrationSettings,
 ) error {
 	client := mgr.GetClient()
 
 	handlers := []Handler{
-		internal.NewDynamicSettingsHandler(client, liveMigrationSettings),
+		internal.NewDynamicSettingsHandler(client),
 	}
 	r := NewReconciler(client, handlers...)
 

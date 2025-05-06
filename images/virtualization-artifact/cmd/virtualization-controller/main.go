@@ -164,12 +164,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	liveMigrationSettings, err := appconfig.LoadLiveMigrationSettings()
-	if err != nil {
-		log.Error(err.Error())
-		os.Exit(1)
-	}
-
 	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
 	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
 
@@ -352,7 +346,7 @@ func main() {
 	}
 
 	liveMigrationLogger := logger.NewControllerLogger(livemigration.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = livemigration.SetupController(ctx, mgr, liveMigrationLogger, liveMigrationSettings); err != nil {
+	if err = livemigration.SetupController(ctx, mgr, liveMigrationLogger); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
