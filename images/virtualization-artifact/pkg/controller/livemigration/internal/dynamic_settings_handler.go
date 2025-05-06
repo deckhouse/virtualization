@@ -58,8 +58,9 @@ func (h *DynamicSettingsHandler) Handle(ctx context.Context, kvvmi *virtv1.Virtu
 		return reconcile.Result{}, err
 	}
 
-	// TODO Temporary fix to have liveMigration settings in one place.
-	// TODO Remove after implementing liveMigration settings.
+	// TODO Temporary fix before proper implementing of liveMigration settings in ModuleConfig.
+	// We need to get a Kubevirt config to fill MigrationConfiguration fields:
+	// ParallelMigrationsPerCluster, ParallelOutboundMigrationsPerNode, BandwidthPerMigration.
 	var kvconfig virtv1.KubeVirt
 	configKey := types.NamespacedName{
 		Namespace: "d8-virtualization",
