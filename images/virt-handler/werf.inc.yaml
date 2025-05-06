@@ -51,7 +51,6 @@ imageSpec:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- acl
 - libnftnl
 - libjansson4
 binaries:
@@ -86,6 +85,10 @@ import:
   add: /nftables
   to: /nftables
   before: install
+- image: packages/binaries/acl
+  add: /acl
+  to: /acl
+  before: install
 - image: qemu
   add: /qemu-img
   to: /relocate
@@ -99,6 +102,7 @@ shell:
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   - cp -a /xorriso/. /
   - cp -a /nftables/. /
+  - cp -a /acl/. /
   setup:
   - |
     /relocate_binaries.sh -i "{{ $virtHandlerDependencies.binaries | join " " }}" -o /relocate
