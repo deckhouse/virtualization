@@ -10,6 +10,7 @@ git:
 shell:
   install:
   - |
+    {{- include "alt packages proxy" . | nindent 2 }}
     apt-get update && apt-get install -y \
     glibc-utils \
     libffi8 libssh-devel libssh2-devel \
