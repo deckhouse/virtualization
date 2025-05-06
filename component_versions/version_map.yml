@@ -12,3 +12,4 @@ package:
   gnutls: 3.8.6
   dmidecode: 3-6
   glib2: 2.82.5
+  acl: 2.3.1

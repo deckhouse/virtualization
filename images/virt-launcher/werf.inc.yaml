@@ -102,8 +102,6 @@ libs:
   - libsystemd-devel
   - libjson-c-devel
   - systemtap-sdt-devel
-  - libacl
-  - libacl-devel
   - libtpms-devel libtpms
   - glib2-devel
   - libgio-devel
@@ -115,7 +113,6 @@ libs:
   - libisofs
   - libburn
 packages:
-  - acl
   - attr
   - ethtool
   - fdisk
@@ -250,6 +247,10 @@ import:
   add: /gnutls
   to: /gnutls
   before: install
+- image: packages/binaries/acl
+  add: /acl
+  to: /acl
+  before: install
 
 # Statically builded
 - image: packages/binaries/openssl
@@ -333,11 +334,12 @@ shell:
     cp -a /numactl/. /
     cp -a /gnutls/. /
     cp -a /dmidecode/. /
+    cp -a /acl/. /
 
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls,dmidecode}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls,dmidecode,acl}
 
   setup:
   - |
