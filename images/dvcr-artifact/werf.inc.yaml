@@ -69,8 +69,6 @@ import:
 - image: packages/binaries/bzip2
   add: /bzip2
   to: /bzip2
-  # includePaths:
-  # - usr/lib64
   before: install
 - image: qemu
   add: /qemu-img
