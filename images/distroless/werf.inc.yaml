@@ -20,24 +20,28 @@ fromImage: base-alt-p11-binaries
 final: false
 shell:
   beforeInstall:
-  - apt-get update && apt-get install ca-certificates tzdata -y
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-  install:
-  - mkdir -p /relocate/etc/{pki,ssl} /relocate/usr/{bin,sbin,share,lib,lib64}
   - |
+    {{- include "alt packages proxy" . | nindent 2 }}
+    apt-get update && apt-get install ca-certificates tzdata -y
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  install:
+  - |
+    mkdir -p /relocate/etc/{pki,ssl} /relocate/usr/{bin,sbin,share,lib,lib64}
+    
     cd /relocate
     for dir in {bin,sbin,lib,lib64};do
       ln -s usr/$dir $dir
     done
     cd /
-  - cp -pr /tmp /relocate
-  - cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /relocate/etc
-  - cp -pr /usr/share/ca-certificates /relocate/usr/share
-  - cp -pr /usr/share/zoneinfo /relocate/usr/share
-  - cp -pr /etc/pki/tls/cert.pem /relocate/etc/ssl
-  - cp -pr /etc/pki/tls/certs /relocate/etc/ssl
-  - cp -pr /etc/pki/ca-trust/ /relocate/etc/
-  - echo "deckhouse:x:64535:64535:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
-  - echo "deckhouse:x:64535:" >> /relocate/etc/group
-  - echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
+    
+    cp -pr /tmp /relocate
+    cp -pr /etc/passwd /etc/group /etc/hostname /etc/hosts /etc/shadow /etc/protocols /etc/services /etc/nsswitch.conf /relocate/etc
+    cp -pr /usr/share/ca-certificates /relocate/usr/share
+    cp -pr /usr/share/zoneinfo /relocate/usr/share
+    cp -pr /etc/pki/tls/cert.pem /relocate/etc/ssl
+    cp -pr /etc/pki/tls/certs /relocate/etc/ssl
+    cp -pr /etc/pki/ca-trust/ /relocate/etc/
+    echo "deckhouse:x:64535:64535:deckhouse:/:/sbin/nologin" >> /relocate/etc/passwd
+    echo "deckhouse:x:64535:" >> /relocate/etc/group
+    echo "deckhouse:!::0:::::" >> /relocate/etc/shadow
