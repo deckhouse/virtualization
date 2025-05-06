@@ -173,7 +173,7 @@ func (s DiskService) StartImmediate(
 	dvBuilder := kvbuilder.NewDV(sup.DataVolume())
 	dvBuilder.SetDataSource(source)
 	dvBuilder.SetOwnerRef(obj, obj.GroupVersionKind())
-	dvBuilder.SetPVC(ptr.To(sc.GetName()), pvcSize, corev1.ReadWriteMany, corev1.PersistentVolumeBlock)
+	dvBuilder.SetPVC(ptr.To(sc.GetName()), pvcSize, corev1.ReadOnlyMany, corev1.PersistentVolumeBlock)
 	dvBuilder.SetImmediate()
 	dv := dvBuilder.GetResource()
 
