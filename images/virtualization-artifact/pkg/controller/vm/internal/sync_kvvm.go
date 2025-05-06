@@ -33,7 +33,6 @@ import (
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmchange"
@@ -495,7 +494,7 @@ func (h *SyncKvvmHandler) canApplyChanges(
 	if vm == nil || changes.IsEmpty() {
 		return false
 	}
-	if vmutil.ApprovalMode(vm) == virtv2.Automatic || !changes.IsDisruptive() || kvvmi == nil {
+	if !changes.IsDisruptive() || kvvmi == nil {
 		return true
 	}
 
@@ -537,22 +536,9 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 
 	switch action {
 	case vmchange.ActionRestart:
-		h.recorder.WithLogging(log).Event(current, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes with restart")
-		h.recorder.WithLogging(log).Event(
-			current,
-			corev1.EventTypeNormal,
-			virtv2.ReasonVMRestarted,
-			"Restart initiated by controller to apply changes",
-		)
-
 		// Update KVVM spec according the current VM spec.
 		if err = h.updateKVVM(ctx, s); err != nil {
 			return fmt.Errorf("update virtual machine instance with new spec: %w", err)
-		}
-		// Ask kubevirt to re-create KVVMI to apply new spec from KVVM.
-		err = powerstate.RestartVM(ctx, h.client, kvvm, kvvmi, false)
-		if err != nil {
-			return fmt.Errorf("restart virtual machine instance to apply changes: %w", err)
 		}
 
 	case vmchange.ActionApplyImmediate:

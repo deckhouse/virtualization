@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+nameSuffix: -migration-with-cvi
+resources:
+  - ../../base
+patches:
+  - path: vd.image.patch.yaml
+  - path: vm.bootloader.patch.yaml
+  - patch: |-
+      - op: add
+        path: /spec/blockDeviceRefs/-
+        value: {
+          "kind": "ClusterVirtualImage",
+          "name": "cvi-cirros"
+        }
+    target:
+      kind: VirtualMachine
+      name: vm

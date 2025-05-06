@@ -195,6 +195,21 @@ spec:
                     - Failed
                     - Terminating
                   type: string
+                resources:
+                  description: List of snapshot resources.
+                  items:
+                    properties:
+                      apiVersion:
+                        description: API version of the resource.
+                        type: string
+                      kind:
+                        description: Kind of the resource.
+                        type: string
+                      name:
+                        description: Name of the resource.
+                        type: string
+                    type: object
+                  type: array
                 virtualDiskSnapshotNames:
                   description:
                     List of VirtualDiskSnapshot names for the snapshots taken

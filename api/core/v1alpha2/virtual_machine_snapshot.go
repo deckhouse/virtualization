@@ -72,6 +72,15 @@ type VirtualMachineSnapshotSpec struct {
 	VolumeSnapshotClasses []VolumeSnapshotClassName `json:"volumeSnapshotClasses,omitempty"`
 }
 
+type ResourceRef struct {
+	// Kind of resource
+	Kind string `json:"kind,omitempty"`
+	// Api version of resource
+	ApiVersion string `json:"apiVersion,omitempty"`
+	// Resource Name
+	Name string `json:"name,omitempty"`
+}
+
 type VirtualMachineSnapshotStatus struct {
 	Phase VirtualMachineSnapshotPhase `json:"phase"`
 	// Whether a virtual machine snapshot is consistent.
@@ -80,6 +89,8 @@ type VirtualMachineSnapshotStatus struct {
 	VirtualMachineSnapshotSecretName string `json:"virtualMachineSnapshotSecretName,omitempty"`
 	// List of VirtualDiskSnapshot names for the snapshots taken from the virtual disks of the associated virtual machine.
 	VirtualDiskSnapshotNames []string `json:"virtualDiskSnapshotNames,omitempty"`
+	// List of snapshot resources.
+	Resources []ResourceRef `json:"resources,omitempty"`
 	// The latest detailed observations of the VirtualMachineSnapshot resource.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// Resource generation last processed by the controller.

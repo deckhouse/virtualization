@@ -323,3 +323,6 @@ We have our implementation in virtualization-controller.
 
 #### `049-implement-evacuate-cancel-subresource.patch`
 This patch implement evacuate-cancel subresource.
+
+#### `050-mount-containerdisk-always-readonly.patch`
+Changes the behavior so that the containerdisk is always mounted as read-only.

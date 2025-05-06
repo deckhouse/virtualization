@@ -5,19 +5,21 @@ fromImage: builder/scratch
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
-  to: /numactl
+  to: /nftables
   before: setup
 
 ---
 {{- $version := get $.Package $.ImageName }}
-{{- $gitRepoUrl := "numactl/numactl.git" }}
+{{- $gitRepoUrl := "nftables.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
 - gcc
 - git pkg-config trousers
-- automake autoconf make libtool
+- automake autoconf make makeinfo libtool
+- musl-devel-static
+- flex bison asciidoc-a2x
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -33,6 +35,16 @@ shell:
     - |
       apt-get update && apt-get install -y \
         {{ $builderDependencies.packages | join " " }}
+
+      cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF
+      rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic
+      rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic
+      EOF
+      apt-get update
+      apt-get install -y libmnl-devel libnftnl-devel libgmp-devel libreadline-devel libjansson-devel libedit-devel
+      rm -f /etc/apt/sources.list.d/alt-sisyphus.list
+
+      apt-get update
       apt-get clean
       rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
@@ -46,16 +58,20 @@ shell:
 
       ./autogen.sh
 
-      ./configure --prefix=/usr --libdir=/usr/lib64 --enable-static=no
+      ./configure \
+        --prefix=/usr \
+        --libdir=/usr/lib64 \
+        --with-json \
+        --with-cli=readline
 
       make -j$(nproc)
 
       make DESTDIR=$OUTDIR install
 
-      strip $OUTDIR/usr/bin/*
+      strip $OUTDIR/usr/sbin/nft
+      ldd $OUTDIR/usr/sbin/nft
 
       # We don't need man, test and samples files
       rm -rf $OUTDIR/usr/include
       rm -rf $OUTDIR/usr/share
       rm -rf $OUTDIR/usr/lib64/pkgconfig
-      rm -rf $OUTDIR/usr/bin/numademo

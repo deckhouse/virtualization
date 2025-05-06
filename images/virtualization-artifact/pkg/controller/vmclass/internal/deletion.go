@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
@@ -84,9 +85,9 @@ func (h *DeletionHandler) Handle(ctx context.Context, s state.VirtualMachineClas
 			Message(msg)
 		conditions.SetCondition(cb, &changed.Status.Conditions)
 		return reconcile.Result{}, nil
-	} else {
-		conditions.RemoveCondition(vmclasscondition.ReasonVMClassInUse, &changed.Status.Conditions)
 	}
+
+	conditions.RemoveCondition(vmclasscondition.TypeInUse, &changed.Status.Conditions)
 
 	h.logger.Info("Deletion observed: remove cleanup finalizer from VirtualMachineClass")
 	controllerutil.RemoveFinalizer(changed, virtv2.FinalizerVMCleanup)

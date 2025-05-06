@@ -50,7 +50,7 @@ func NewController(
 	reconciler := NewReconciler(
 		mgr.GetClient(),
 		internal.NewVirtualMachineReadyHandler(snapshotter),
-		internal.NewLifeCycleHandler(recorder, snapshotter, restorer.NewSecretRestorer(mgr.GetClient())),
+		internal.NewLifeCycleHandler(recorder, snapshotter, restorer.NewSecretRestorer(mgr.GetClient()), mgr.GetClient()),
 	)
 
 	vmSnapshotController, err := controller.New(ControllerName, mgr, controller.Options{

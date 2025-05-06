@@ -61,7 +61,6 @@ libs:
   - libzstd-devel
   - libseccomp-devel
   - libgcrypt-devel
-  - libgnutls-devel
   - libnettle-devel
   - libudev-devel
   - libmultipath-devel
@@ -103,6 +102,7 @@ libs:
   - libsystemd-devel
   - libjson-c-devel
   - systemtap-sdt-devel
+  - libacl
   - libacl-devel
   - libtpms-devel libtpms
   - glib2-devel
@@ -112,10 +112,11 @@ libs:
   - libtirpc-devel
   - libclocale
   - libLLVMSPIRVLib-devel
+  - libisofs
+  - libburn
 packages:
   - acl
   - attr
-  - dmidecode
   - ethtool
   - fdisk
   - glibc-gconv-modules
@@ -123,15 +124,12 @@ packages:
   - hwclock
   - iptables
   - libffi8
-  - nftables
-  - openssl
   - passt
   - pcre
   - procps
   - policycoreutils
   - psmisc
   - msulogin
-  - xorriso
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
@@ -139,18 +137,14 @@ binaries:
   - /usr/bin/ocsptool
   - /usr/bin/p11tool
   - /usr/bin/psktool
-  # Openssl
-  - /usr/bin/openssl
   # Xorriso (Creates an image of an ISO9660 filesystem)
-  - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs
+  - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
   - /usr/bin/swtpm /usr/bin/swtpm_bios /usr/bin/swtpm_cert /usr/bin/swtpm_ioctl /usr/bin/swtpm_localca /usr/bin/swtpm_setup
   # Dmidecode
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
-  # Hwclock
-  - /usr/sbin/hwclock
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
@@ -188,6 +182,10 @@ import:
 - image: qemu
   add: /BINS
   to: /qemu-bins
+  before: install
+- image: packages/binaries/dmidecode
+  add: /dmidecode
+  to: /dmidecode
   before: install
 
 # EDK2 (uefi firmware)
@@ -244,15 +242,40 @@ import:
   to: /numactl
   before: install
 
+- image: packages/binaries/xorriso
+  add: /xorriso
+  to: /xorriso
+  before: install
+- image: packages/binaries/gnutls
+  add: /gnutls
+  to: /gnutls
+  before: install
+
+# Statically builded
+- image: packages/binaries/openssl
+  add: /openssl
+  to: /relocate
+  after: setup
+  includePaths:
+  - usr/bin/openssl
+- image: tools/util-linux
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - sbin/hwclock
+
+# GNU utilities
 - image: tools/coreutils
   add: /
   to: /relocate
   after: setup
   includePaths:
-    # GNU utilities
   - usr/bin/cp
   - usr/bin/sleep
   - usr/bin/coreutils
+
+
 - image: {{ $.ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin
@@ -295,7 +318,7 @@ shell:
     LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
     LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
     LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
-    LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s*"
+    LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
@@ -305,13 +328,16 @@ shell:
 
     cp -a /VBINS/. /relocate
 
+    cp -a /xorriso/. /
     cp -a /swtpm/. /
     cp -a /numactl/. /
+    cp -a /gnutls/. /
+    cp -a /dmidecode/. /
 
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins,swtpm,numactl}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls,dmidecode}
 
   setup:
   - |

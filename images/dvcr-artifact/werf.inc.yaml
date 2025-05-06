@@ -35,15 +35,11 @@ shell:
 {{- define "$name" -}}
 binaries:
 - /usr/local/bin/dvcr-importer
-- /usr/bin/qemu-img
-- /usr/bin/qemu-nbd
 - /usr/bin/nbd*
 - /usr/bin/file
 - /usr/share/file/magic
 - /usr/share/file/magic.mgc
 - /etc/magic
-- /usr/bin/mount
-- /usr/bin/umount
 - /usr/local/bin/dvcr-uploader
 - /usr/local/bin/dvcr-cleaner
 {{- end -}}
@@ -54,15 +50,26 @@ image: {{ $.ImageName }}-bins
 final: false
 fromImage: base-alt-p11-binaries
 import:
+- image: tools/util-linux
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - bin/mount
+  - bin/umount
 - image: {{ $.ImageName }}-builder
   add: /out
   to: /usr/local/bin
+  before: setup
+- image: qemu
+  add: /qemu-img
+  to: /relocate
   before: setup
 shell:
   install:
   - |
     apt-get update && apt-get install --yes \
-      qemu-img libnbd file
+      libnbd file
   - apt-get clean
   - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
   setup:

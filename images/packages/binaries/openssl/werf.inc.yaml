@@ -5,19 +5,20 @@ fromImage: builder/scratch
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
-  to: /numactl
+  to: /openssl
   before: setup
 
 ---
 {{- $version := get $.Package $.ImageName }}
-{{- $gitRepoUrl := "numactl/numactl.git" }}
+{{- $gitRepoUrl := "openssl/openssl.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc
-- git pkg-config trousers
-- automake autoconf make libtool
+- gcc git make glibc-devel-static musl-devel-static
+- autoconf automake libtool makeinfo
+- perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
+- autoconf libtool makeinfo gettext-devel po4a
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -27,12 +28,13 @@ final: false
 fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
 shell:
   beforeInstall:
     - |
       apt-get update && apt-get install -y \
         {{ $builderDependencies.packages | join " " }}
+
       apt-get clean
       rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
@@ -40,22 +42,11 @@ shell:
     - |
       OUTDIR=/out
       mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+      
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
       cd /src
-
-      ./autogen.sh
-
-      ./configure --prefix=/usr --libdir=/usr/lib64 --enable-static=no
-
-      make -j$(nproc)
-
-      make DESTDIR=$OUTDIR install
-
-      strip $OUTDIR/usr/bin/*
-
-      # We don't need man, test and samples files
-      rm -rf $OUTDIR/usr/include
-      rm -rf $OUTDIR/usr/share
-      rm -rf $OUTDIR/usr/lib64/pkgconfig
-      rm -rf $OUTDIR/usr/bin/numademo
+      
+      ./Configure --prefix=/usr CC=/usr/bin/musl-gcc -static
+      make -j $(nproc)
+      make install_sw -j $(nproc) DESTDIR=$OUTDIR
+      strip $OUTDIR/usr/bin/openssl

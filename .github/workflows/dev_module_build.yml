@@ -202,12 +202,12 @@ jobs:
             # cd "$dir" || { echo "::error::Failed to access directory $dir"; exit 1; }
 
             cd "$dir" || { echo "::error::Failed to access directory $dir"; continue; }
-            
+
             # Run linter with multiple formats
-            
+
             output=$(golangci-lint run --out-format=json 2>/dev/null | jq '{warning: .Report.Warnings, error: .Report.Error}' || true)
             find_errors=$(echo $output | jq '.error | select(.!=null)' | wc -l)
-            
+
             # Track errors
             if [ $find_errors -ne 0 ]; then
               error_count=$(( error_count + 1 ))
@@ -215,7 +215,7 @@ jobs:
             else
               echo "::group::📂 Linting directory ✅: $dir"
             fi
-            
+
             report_out_warning=$(echo $output | jq '.warning')
             report_out_error=$(echo $output | jq '.error')
 
@@ -226,7 +226,7 @@ jobs:
             report+="---\n"
 
             cd - &>/dev/null
-            
+
             if [ $find_errors -ne 0 ]; then
               echo -e "⚠️ Warnings:\n$report_out_warning"
               echo -e "❌ Errors:\n$report_out_error\n"
@@ -450,7 +450,23 @@ jobs:
       - dev_setup_build
       - set_e2e_requirement_status
       - set_vars
+    outputs:
+      comment_id: ${{ steps.create_comment.outputs.comment_id}}
     steps:
+      - name: Create Initial PR Comment
+        id: create_comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
+          script: |
+            const { data: comment } = await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: `Workflow has started.
+                     Follow the progress here: [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})`
+            });
+            core.setOutput('comment_id', comment.id);
       - uses: actions/checkout@v4
       - name: Select user
         id: select_user
@@ -533,6 +549,14 @@ jobs:
         run: |
           task run -v
 
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: resources_from_failed_tests
+          retention-days: 2
+          path: /tmp/e2e_failed__*
+          if-no-files-found: ignore
+
       - name: Cleanup E2E resources on cancel
         if: always() && steps.e2e-tests.outcome == 'cancelled'
         timeout-minutes: 60
@@ -568,7 +592,7 @@ jobs:
     name: Remove label
     runs-on: ubuntu-latest
     # run the job at the end
-    if: ${{ always() && github.event_name == 'pull_request' }}
+    if: ${{ always() && github.event_name == 'pull_request' && github.event.action == 'labeled' }}
     needs:
       - dev_setup_build
       - set_e2e_requirement_status
@@ -576,7 +600,7 @@ jobs:
       - run_e2e
       - update_comment_on_finish
     steps:
-      - name: Remove label
+      - name: Remove label and add comment
         id: remove-label
         uses: actions/github-script@v6
         with:
@@ -600,6 +624,30 @@ jobs:
                 name: labelToRemove,
               });
               console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
+              const commentIdStr = '${{ needs.run_e2e.outputs.comment_id }}';
+              const commentId = parseInt(commentIdStr, 10); // Cast to integer
+              const stepOutcome = '${{ needs.run_e2e.result }}';
+              const body = `Workflow has started.
+              Follow the progress here: [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
+
+              The target step completed with status: **${stepOutcome}**.`;
+              if (!isNaN(commentId)) {
+                // Valid integer, update the existing comment
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: commentId, // Now an integer
+                  body: body
+                });
+              } else {
+                // Invalid or missing, create a new comment
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.payload.pull_request.number,
+                  body: body
+                });
+              }
             } else {
               console.log(`Label '${labelToRemove}' not found on PR #${issueNumber}`);
             }

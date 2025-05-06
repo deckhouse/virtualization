@@ -23,6 +23,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -46,15 +47,14 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 	log := logger.FromContext(ctx).With(logger.SlogHandler(RetentionHandlerName))
 
 	lease := state.VirtualMachineIPAddressLease()
-
 	vmip, err := state.VirtualMachineIPAddress(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if vmip == nil {
+	if vmip == nil || vmip.Status.Address != ip.LeaseNameToIP(lease.Name) {
 		if lease.Spec.VirtualMachineIPAddressRef.Name != "" {
-			log.Info("VirtualMachineIP not found: remove this ref from the spec and retain VMIPLease")
+			log.Debug("VirtualMachineIP not found: remove this ref from the spec and retain VMIPLease")
 			lease.Spec.VirtualMachineIPAddressRef.Name = ""
 			return reconcile.Result{RequeueAfter: h.retentionDuration}, nil
 		}
@@ -66,7 +66,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 
 			duration := currentTime.Sub(boundCondition.LastTransitionTime.Time)
 			if duration >= h.retentionDuration {
-				log.Info(fmt.Sprintf("Retain VMIPLease after %s of being not claimed", h.retentionDuration.String()))
+				log.Info(fmt.Sprintf("Delete VMIPLease after %s of being not claimed", h.retentionDuration.String()))
 				state.SetDeletion(true)
 				return reconcile.Result{}, nil
 			}

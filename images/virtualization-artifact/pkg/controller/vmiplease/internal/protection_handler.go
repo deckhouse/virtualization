@@ -22,6 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -44,9 +45,9 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPLeaseSta
 		return reconcile.Result{}, err
 	}
 
-	if vmip != nil {
+	if vmip != nil && vmip.Status.Address == ip.LeaseNameToIP(lease.Name) {
 		controllerutil.AddFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
-	} else if lease.GetDeletionTimestamp() == nil {
+	} else {
 		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineIPAddressLease")
 		controllerutil.RemoveFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
 	}
