@@ -11,3 +11,4 @@ package:
   nbdkit: 1.39.5
   gnutls: 3.8.6
   dmidecode: 3-6
+  glibc: glibc-2.38
