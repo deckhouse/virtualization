@@ -17,6 +17,7 @@ limitations under the License.
 package cache
 
 import (
+	"context"
 	"sync"
 	"time"
 )
@@ -24,10 +25,10 @@ import (
 // TTLCache represents a cache with Time-To-Live for its elements.
 // Elements are automatically removed from the cache after their lifetime expires.
 type TTLCache struct {
-	mu     sync.RWMutex
-	data   map[string]*cacheEntry
-	ttl    time.Duration
-	stopCh chan struct{}
+	mu      sync.RWMutex
+	data    map[string]*cacheEntry
+	ttl     time.Duration
+	running bool
 }
 
 // cacheEntry represents a cache element with an expiration time.
@@ -37,15 +38,56 @@ type cacheEntry struct {
 }
 
 // NewTTLCache creates a new cache instance with the specified element lifetime.
-// It starts a background goroutine for cleaning up expired elements.
+// The cache won't start cleaning up until Start() is called.
 func NewTTLCache(ttl time.Duration) *TTLCache {
-	cache := &TTLCache{
-		data:   make(map[string]*cacheEntry),
-		ttl:    ttl,
-		stopCh: make(chan struct{}),
+	return &TTLCache{
+		data: make(map[string]*cacheEntry),
+		ttl:  ttl,
 	}
-	go cache.cleanupExpiredEntries()
-	return cache
+}
+
+// Start begins the background cleanup process for expired entries.
+// The cleanup will continue until the provided context is canceled.
+func (c *TTLCache) Start(ctx context.Context) {
+	c.mu.Lock()
+	if c.running {
+		c.mu.Unlock()
+		return
+	}
+	c.running = true
+	c.mu.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(1 * time.Second)
+		defer ticker.Stop()
+		defer func() {
+			c.mu.Lock()
+			c.running = false
+			c.mu.Unlock()
+		}()
+
+		for {
+			select {
+			case <-ticker.C:
+				c.cleanupExpiredEntries()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+
+// cleanupExpiredEntries performs a single round of cleanup for expired cache entries.
+func (c *TTLCache) cleanupExpiredEntries() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+	for key, entry := range c.data {
+		if now.After(entry.expiry) {
+			delete(c.data, key)
+		}
+	}
 }
 
 // Add adds an element to the cache with the given key.
@@ -71,32 +113,4 @@ func (c *TTLCache) Get(key string) (any, bool) {
 		return nil, false
 	}
 	return entry.entry, true
-}
-
-// cleanupExpiredEntries runs periodic cleanup of expired cache elements.
-// It runs in a separate goroutine and terminates when Stop() is called.
-func (c *TTLCache) cleanupExpiredEntries() {
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
-			c.mu.Lock()
-			for key, entry := range c.data {
-				if time.Now().After(entry.expiry) {
-					delete(c.data, key)
-				}
-			}
-			c.mu.Unlock()
-		case <-c.stopCh:
-			return
-		}
-	}
-}
-
-// Stop terminates the background cache cleanup goroutine.
-// Should be called for proper cache shutdown.
-func (c *TTLCache) Stop() {
-	close(c.stopCh)
 }

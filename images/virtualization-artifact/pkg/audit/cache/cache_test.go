@@ -17,13 +17,15 @@ limitations under the License.
 package cache
 
 import (
+	"context"
 	"testing"
 	"time"
 )
 
 func TestTTLCache_Add(t *testing.T) {
+	ctx := context.Background()
 	cache := NewTTLCache(100 * time.Millisecond)
-	defer cache.Stop()
+	cache.Start(ctx)
 
 	cache.Add("test-key", "test-value")
 
@@ -37,8 +39,9 @@ func TestTTLCache_Add(t *testing.T) {
 }
 
 func TestTTLCache_Get_NonExistent(t *testing.T) {
+	ctx := context.Background()
 	cache := NewTTLCache(100 * time.Millisecond)
-	defer cache.Stop()
+	cache.Start(ctx)
 
 	_, exists := cache.Get("non-existent-key")
 	if exists {
@@ -47,8 +50,9 @@ func TestTTLCache_Get_NonExistent(t *testing.T) {
 }
 
 func TestTTLCache_Expiration(t *testing.T) {
+	ctx := context.Background()
 	cache := NewTTLCache(50 * time.Millisecond)
-	defer cache.Stop()
+	cache.Start(ctx)
 
 	cache.Add("expiring-key", "expiring-value")
 
@@ -66,8 +70,9 @@ func TestTTLCache_Expiration(t *testing.T) {
 }
 
 func TestTTLCache_Overwrite(t *testing.T) {
+	ctx := context.Background()
 	cache := NewTTLCache(100 * time.Millisecond)
-	defer cache.Stop()
+	cache.Start(ctx)
 
 	cache.Add("key", "value1")
 
@@ -83,8 +88,9 @@ func TestTTLCache_Overwrite(t *testing.T) {
 }
 
 func TestTTLCache_CleanupRoutine(t *testing.T) {
+	ctx := context.Background()
 	cache := NewTTLCache(50 * time.Millisecond)
-	defer cache.Stop()
+	cache.Start(ctx)
 
 	for i := range 10 {
 		cache.Add(string(rune('a'+i)), i)
@@ -101,9 +107,10 @@ func TestTTLCache_CleanupRoutine(t *testing.T) {
 }
 
 func TestTTLCache_Stop(t *testing.T) {
-	cache := NewTTLCache(100 * time.Millisecond)
-
-	cache.Stop()
+	ctx, stop := context.WithCancel(context.Background())
+	cache := NewTTLCache(50 * time.Millisecond)
+	cache.Start(ctx)
+	stop()
 
 	cache.Add("key", "value")
 

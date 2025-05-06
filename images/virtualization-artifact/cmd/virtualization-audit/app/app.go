@@ -82,6 +82,7 @@ func NewAuditCommand() *cobra.Command {
 
 func run(c *cobra.Command, opts Options) error {
 	ttlCache := cache.NewTTLCache(3 * time.Minute)
+	ttlCache.Start(c.Context())
 
 	kubeCfg, err := config.GetConfig()
 	if err != nil {

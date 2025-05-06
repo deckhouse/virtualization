@@ -17,6 +17,7 @@ limitations under the License.
 package forbid
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"syscall"
@@ -116,6 +117,9 @@ var _ = Describe("Forbid Events", func() {
 			})
 
 			eventLoggerOptions := events.EventLoggerOptionsMock{
+				GetCtxFunc: func() context.Context {
+					return context.Background()
+				},
 				GetEventFunc: func() *audit.Event {
 					return event
 				},
