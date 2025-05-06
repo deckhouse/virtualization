@@ -20,10 +20,12 @@ git:
       - patches/README.md
 shell:
   beforeInstall:
-    - apt-get update
-    - apt-get install --yes libnbd-dev
-    - apt-get clean
-    - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+    - | 
+      {{- include "alt packages proxy" . | nindent 2 }}
+      apt-get update
+      apt-get install --yes libnbd-dev
+      apt-get clean
+      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
   install:
     - git clone --depth 1 --branch v{{ $version }} {{ .SOURCE_REPO }}/kubevirt/containerized-data-importer.git /containerized-data-importer
@@ -93,6 +95,7 @@ git:
 shell:
   install:
   - |
+    {{- include "debian packages proxy" . | nindent 2 }}
     apt-get update && apt-get install --yes gcc musl-dev musl-tools
     apt-get clean
     
