@@ -95,8 +95,8 @@ import:
   before: setup
 shell:
   install:
-  - |
     {{- include "alt packages proxy" . | nindent 2 }}
+  - |
     apt-get update && apt-get install --yes \
       {{ $virtHandlerDependencies.packages | join " " }}
     apt-get clean

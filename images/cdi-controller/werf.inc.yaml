@@ -45,8 +45,8 @@ import:
 # Source https://github.com/kubevirt/containerized-data-importer/blob/v1.60.3/cmd/cdi-controller/BUILD.bazel
 shell:
   install:
-  - |
     {{- include "alt packages proxy" . | nindent 2 }}
+  - |
     apt-get update && apt-get install --yes \
       {{ $cdiClonerDependencies.packages | join " " }}
   - |

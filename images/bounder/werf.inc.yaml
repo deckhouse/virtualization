@@ -21,8 +21,10 @@ git:
         - '*.c'
 shell:
   beforeInstall:
+    {{- include "debian packages proxy" . | nindent 2 }}
   - |
-    apt-get update && apt-get install --yes gcc musl-dev musl-tools
+    apt-get update && apt-get install --yes \
+      gcc musl-dev musl-tools
     apt-get clean
   install:
   - |    

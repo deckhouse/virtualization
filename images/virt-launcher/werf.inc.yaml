@@ -285,8 +285,8 @@ import:
   - temp_pod
 shell:
   beforeInstall:
-  - |
     {{- include "alt packages proxy" . | nindent 2 }}
+  - |
     apt-get update && apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
     # libtpms libtpms-devel require version 0.10 that in sisyphus repo
@@ -455,8 +455,8 @@ git:
       - '**/*'
 shell:
   install:
-    - |
       {{- include "debian packages proxy" . | nindent 2 }}
+    - |
       echo "install deps libvirt-dev"
       apt-get update && apt-get install -y libvirt-dev
       apt-get clean
@@ -488,8 +488,8 @@ git:
         - '*.c'
 shell:
   beforeInstall:
-  - |
     {{- include "debian packages proxy" . | nindent 2 }}
+  - |
     apt-get update && apt-get install --yes gcc musl-dev musl-tools
     apt-get clean
   install:
