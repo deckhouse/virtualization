@@ -27,6 +27,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
+const (
+	virtuliaztionNamespace = "d8-virtualization"
+	kubeSystemUsername     = "system:serviceaccount:kube-system"
+	cviImporterName        = "cvi-importer"
+)
+
 func NewModuleComponentControl(options events.EventLoggerOptions) *ModuleComponentControl {
 	return &ModuleComponentControl{
 		Event:        options.GetEvent(),
@@ -56,17 +62,17 @@ func (m *ModuleComponentControl) IsMatched() bool {
 	}
 
 	// Skip control requests from internal k8s controllers because we get them with almost empty ObjectRef
-	if strings.Contains(m.Event.User.Username, "system:serviceaccount:kube-system") {
+	if strings.Contains(m.Event.User.Username, kubeSystemUsername) {
 		return false
 	}
 
-	if strings.Contains(m.Event.ObjectRef.Name, "cvi-importer") {
+	if strings.Contains(m.Event.ObjectRef.Name, cviImporterName) {
 		return false
 	}
 
 	if (m.Event.Verb == "delete" || m.Event.Verb == "create") &&
 		m.Event.ObjectRef.Resource == "pods" &&
-		m.Event.ObjectRef.Namespace == "d8-virtualization" {
+		m.Event.ObjectRef.Namespace == virtuliaztionNamespace {
 		return true
 	}
 

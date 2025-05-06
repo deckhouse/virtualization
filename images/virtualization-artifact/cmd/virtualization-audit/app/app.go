@@ -40,10 +40,11 @@ const long = `
 | | | | |_| | |/ / _| |_  | | \ \_/ / |\ \
 \_| |_/\___/|___/  \___/  \_/  \___/\_| \_|
 
+Auditor is a Kubernetes auditing controller for Deckhouse Virtualization Platform
 `
 
 type Options struct {
-	Port     string
+	Port     int
 	Cafile   string
 	Certfile string
 	Keyfile  string
@@ -55,7 +56,7 @@ func NewOptions() Options {
 }
 
 func (o *Options) Flags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.Port, "secure-port", "8443", "The port to listen on")
+	fs.IntVar(&o.Port, "secure-port", 8443, "The port to listen on")
 	fs.StringVar(&o.Cafile, "tls-ca-file", "/etc/virtualization-audit/certificate/ca.crt", "Path to TLS CA certificate")
 	fs.StringVar(&o.Certfile, "tls-cert-file", "/etc/virtualization-audit/certificate/tls.crt", "Path to TLS certificate")
 	fs.StringVar(&o.Keyfile, "tls-private-key-file", "/etc/virtualization-audit/certificate/tls.key", "Path to TLS key")
@@ -65,9 +66,15 @@ func (o *Options) Flags(fs *pflag.FlagSet) {
 func NewAuditCommand() *cobra.Command {
 	opts := NewOptions()
 	cmd := &cobra.Command{
-		Short: "",
-		Long:  long,
-		RunE:  func(c *cobra.Command, args []string) error { return run(c, opts) },
+		Use:   "virtualization-audit --secure-port=8443 --tls-ca-file=/ca.crt --tls-cert-file=/tls.crt --tls-private-key-file=/tls.key",
+		Short: "virtualization-audit is a Kubernetes auditing controller for Deckhouse Virtualization Platform",
+		Args: cobra.MatchAll(
+			cobra.OnlyValidArgs,
+		),
+		Long:          long,
+		RunE:          func(c *cobra.Command, args []string) error { return run(c, opts) },
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	opts.Flags(cmd.Flags())
 	return cmd
@@ -97,7 +104,7 @@ func run(c *cobra.Command, opts Options) error {
 	}
 
 	eventHandler := handler.NewEventHandler(c.Context(), client, informerList, ttlCache)
-	srv, err := server.NewServer(":"+opts.Port, eventHandler)
+	srv, err := server.NewServer(fmt.Sprintf(":%d", opts.Port), eventHandler)
 	if err != nil {
 		log.Fatal("failed to create server", log.Err(err))
 	}
