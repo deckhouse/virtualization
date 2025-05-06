@@ -37,11 +37,11 @@ binaries:
 - /usr/local/bin/dvcr-importer
 - /usr/bin/nbd*
 - /usr/bin/file
-- /usr/share/file/magic
-- /usr/share/file/magic.mgc
-- /etc/magic
+- /usr/share/misc/magic.mgc
 - /usr/local/bin/dvcr-uploader
 - /usr/local/bin/dvcr-cleaner
+- /usr/bin/qemu-img
+- /usr/bin/qemu-nbd
 {{- end -}}
 
 {{ $dvcrDependencies := include "$name" . | fromYaml }}
@@ -61,17 +61,31 @@ import:
   add: /out
   to: /usr/local/bin
   before: setup
+- image: packages/binaries/file
+  add: /file
+  to: /file
+  before: install
+# deps for file
+- image: packages/binaries/bzip2
+  add: /bzip2
+  to: /bzip2
+  before: install
 - image: qemu
   add: /qemu-img
-  to: /relocate
-  before: setup
+  to: /qemu-img
+  before: install
 shell:
   install:
   - |
     apt-get update && apt-get install --yes \
-      libnbd file
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+      libnbd
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
+    cp -a /qemu-img/. /
+    cp -a /bzip2/. /
+    cp -a /file/. /
+    rm -rf /{file,bzip2,qemu-img}
   setup:
   - |
     /relocate_binaries.sh -i "{{ $dvcrDependencies.binaries | join " " }}" -o /relocate
