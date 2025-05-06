@@ -30,21 +30,21 @@ import (
 
 func NewVMOPControl(options events.EventLoggerOptions) *VMOPControl {
 	return &VMOPControl{
-		Event:        options.GetEvent(),
-		InformerList: options.GetInformerList(),
-		TTLCache:     options.GetTTLCache(),
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
+		ttlCache:     options.GetTTLCache(),
 	}
 }
 
 type VMOPControl struct {
-	EventLog     *VMEventLog
-	Event        *audit.Event
-	InformerList events.InformerList
-	TTLCache     events.TTLCache
+	eventLog     *VMEventLog
+	event        *audit.Event
+	informerList events.InformerList
+	ttlCache     events.TTLCache
 }
 
 func (m *VMOPControl) Log() error {
-	return m.EventLog.Log()
+	return m.eventLog.Log()
 }
 
 func (m *VMOPControl) ShouldLog() bool {
@@ -52,15 +52,15 @@ func (m *VMOPControl) ShouldLog() bool {
 }
 
 func (m *VMOPControl) IsMatched() bool {
-	if m.Event.ObjectRef == nil || m.Event.Stage != audit.StageResponseComplete {
+	if m.event.ObjectRef == nil || m.event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if m.Event.Level != audit.LevelRequestResponse {
+	if m.event.Level != audit.LevelRequestResponse {
 		return false
 	}
 
-	if m.Event.ObjectRef.Resource == "virtualmachineoperations" && m.Event.Verb == "create" {
+	if m.event.ObjectRef.Resource == "virtualmachineoperations" && m.event.Verb == "create" {
 		return true
 	}
 
@@ -77,62 +77,62 @@ type vmopResponseObjectMetadata struct {
 }
 
 func (m *VMOPControl) Fill() error {
-	m.EventLog = NewVMEventLog(m.Event)
-	m.EventLog.Type = "Control VM"
+	m.eventLog = NewVMEventLog(m.event)
+	m.eventLog.Type = "Control VM"
 
 	var response vmopResponseObject
-	err := json.Unmarshal(m.Event.ResponseObject.Raw, &response)
+	err := json.Unmarshal(m.event.ResponseObject.Raw, &response)
 	if err != nil {
 		return fmt.Errorf("fail to unmarshal event ResponseObject: %w", err)
 	}
 
-	vmop, err := util.GetVMOPFromInformer(m.InformerList.GetVMOPInformer(), m.Event.ObjectRef.Namespace+"/"+response.Metadata.Name)
+	vmop, err := util.GetVMOPFromInformer(m.informerList.GetVMOPInformer(), m.event.ObjectRef.Namespace+"/"+response.Metadata.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get vmop from informer: %w", err)
 	}
 
 	switch vmop.Spec.Type {
 	case v1alpha2.VMOPTypeStart:
-		m.EventLog.Name = "VM started"
-		m.EventLog.Level = "info"
-		m.EventLog.ActionType = "start"
+		m.eventLog.Name = "VM started"
+		m.eventLog.Level = "info"
+		m.eventLog.ActionType = "start"
 	case v1alpha2.VMOPTypeStop:
-		m.EventLog.Name = "VM stopped"
-		m.EventLog.Level = "warn"
-		m.EventLog.ActionType = "stop"
+		m.eventLog.Name = "VM stopped"
+		m.eventLog.Level = "warn"
+		m.eventLog.ActionType = "stop"
 	case v1alpha2.VMOPTypeRestart:
-		m.EventLog.Name = "VM restarted"
-		m.EventLog.Level = "warn"
-		m.EventLog.ActionType = "restart"
+		m.eventLog.Name = "VM restarted"
+		m.eventLog.Level = "warn"
+		m.eventLog.ActionType = "restart"
 	case v1alpha2.VMOPTypeMigrate:
-		m.EventLog.Name = "VM migrated"
-		m.EventLog.Level = "warn"
-		m.EventLog.ActionType = "migrate"
+		m.eventLog.Name = "VM migrated"
+		m.eventLog.Level = "warn"
+		m.eventLog.ActionType = "migrate"
 	case v1alpha2.VMOPTypeEvict:
-		m.EventLog.Name = "VM evicted"
-		m.EventLog.Level = "warn"
-		m.EventLog.ActionType = "evict"
+		m.eventLog.Name = "VM evicted"
+		m.eventLog.Level = "warn"
+		m.eventLog.ActionType = "evict"
 	}
 
-	vm, err := util.GetVMFromInformer(m.TTLCache, m.InformerList.GetVMInformer(), vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
+	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), vmop.Namespace+"/"+vmop.Spec.VirtualMachine)
 	if err != nil {
 		return fmt.Errorf("fail to get vm from informer: %w", err)
 	}
 
-	m.EventLog.QemuVersion = vm.Status.Versions.Qemu
-	m.EventLog.LibvirtVersion = vm.Status.Versions.Libvirt
+	m.eventLog.QemuVersion = vm.Status.Versions.Qemu
+	m.eventLog.LibvirtVersion = vm.Status.Versions.Libvirt
 
-	m.EventLog.VirtualmachineUID = string(vm.UID)
-	m.EventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+	m.eventLog.VirtualmachineUID = string(vm.UID)
+	m.eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := m.EventLog.fillVDInfo(m.TTLCache, m.InformerList.GetVDInformer(), vm); err != nil {
+		if err := m.eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
 			log.Debug("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := m.EventLog.fillNodeInfo(m.InformerList.GetNodeInformer(), vm); err != nil {
+		if err := m.eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
 			log.Debug("fail to fill node info", log.Err(err))
 		}
 	}

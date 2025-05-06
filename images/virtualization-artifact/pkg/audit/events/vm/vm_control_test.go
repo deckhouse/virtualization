@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vm_test
+package vm
 
 import (
 	"os"
@@ -31,7 +31,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
-	vmevent "github.com/deckhouse/virtualization-controller/pkg/audit/events/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	v1alpha "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -178,11 +177,19 @@ var _ = Describe("VMOP Events", func() {
 				},
 			}
 
-			eventLog := vmevent.VMControl{
-				Event:        event,
-				InformerList: informerList,
-				TTLCache:     ttlCache,
+			eventLoggerOptions := events.EventLoggerOptionsMock{
+				GetEventFunc: func() *audit.Event {
+					return event
+				},
+				GetInformerListFunc: func() events.InformerList {
+					return informerList
+				},
+				GetTTLCacheFunc: func() events.TTLCache {
+					return ttlCache
+				},
 			}
+
+			eventLog := NewVMControl(&eventLoggerOptions)
 
 			if args.eventVerb != "" {
 				event.Verb = args.eventVerb
@@ -223,13 +230,13 @@ var _ = Describe("VMOP Events", func() {
 			err := eventLog.Fill()
 			Expect(err).To(BeNil())
 
-			Expect(eventLog.EventLog.Type).To(Equal("Control VM"))
-			Expect(eventLog.EventLog.Level).To(Equal(args.expectedLevel))
-			Expect(eventLog.EventLog.Name).To(Equal(args.expectedName))
-			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
-			Expect(eventLog.EventLog.Uid).To(Equal("0000-0000-0000"))
-			Expect(eventLog.EventLog.OperationResult).To(Equal("allow"))
-			Expect(eventLog.EventLog.ActionType).To(Equal(args.expectedActionType))
+			Expect(eventLog.eventLog.Type).To(Equal("Control VM"))
+			Expect(eventLog.eventLog.Level).To(Equal(args.expectedLevel))
+			Expect(eventLog.eventLog.Name).To(Equal(args.expectedName))
+			Expect(eventLog.eventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
+			Expect(eventLog.eventLog.Uid).To(Equal("0000-0000-0000"))
+			Expect(eventLog.eventLog.OperationResult).To(Equal("allow"))
+			Expect(eventLog.eventLog.ActionType).To(Equal(args.expectedActionType))
 
 			if args.customEventUser == "some-user" ||
 				(args.customContainerStatusMessage != "guest-shutdown" &&
@@ -238,27 +245,27 @@ var _ = Describe("VMOP Events", func() {
 				return
 			}
 
-			Expect(eventLog.EventLog.VirtualmachineUID).To(Equal("0000-0000-4567"))
-			Expect(eventLog.EventLog.VirtualmachineOS).To(Equal("test-os"))
-			Expect(eventLog.EventLog.QemuVersion).To(Equal("9.9.9"))
-			Expect(eventLog.EventLog.LibvirtVersion).To(Equal("1.1.1"))
+			Expect(eventLog.eventLog.VirtualmachineUID).To(Equal("0000-0000-4567"))
+			Expect(eventLog.eventLog.VirtualmachineOS).To(Equal("test-os"))
+			Expect(eventLog.eventLog.QemuVersion).To(Equal("9.9.9"))
+			Expect(eventLog.eventLog.LibvirtVersion).To(Equal("1.1.1"))
 
 			if args.customEventUser != "" {
-				Expect(eventLog.EventLog.RequestSubject).To(Equal(args.customEventUser))
+				Expect(eventLog.eventLog.RequestSubject).To(Equal(args.customEventUser))
 			} else {
-				Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
+				Expect(eventLog.eventLog.RequestSubject).To(Equal("test-user"))
 			}
 
 			if !args.shouldLostNode {
-				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("127.0.0.1"))
+				Expect(eventLog.eventLog.NodeNetworkAddress).To(Equal("127.0.0.1"))
 			} else {
-				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("unknown"))
+				Expect(eventLog.eventLog.NodeNetworkAddress).To(Equal("unknown"))
 			}
 
 			if !args.shouldLostVD {
-				Expect(eventLog.EventLog.StorageClasses).To(Equal("test-storageclass"))
+				Expect(eventLog.eventLog.StorageClasses).To(Equal("test-storageclass"))
 			} else {
-				Expect(eventLog.EventLog.StorageClasses).To(Equal("unknown"))
+				Expect(eventLog.eventLog.StorageClasses).To(Equal("unknown"))
 			}
 
 			Expect(eventLog.ShouldLog()).To(BeTrue())

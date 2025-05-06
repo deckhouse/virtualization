@@ -29,49 +29,49 @@ import (
 
 func NewVMManage(options events.EventLoggerOptions) *VMManage {
 	return &VMManage{
-		Event:        options.GetEvent(),
-		InformerList: options.GetInformerList(),
-		TTLCache:     options.GetTTLCache(),
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
+		ttlCache:     options.GetTTLCache(),
 	}
 }
 
 type VMManage struct {
-	Event        *audit.Event
-	EventLog     *VMEventLog
-	InformerList events.InformerList
-	TTLCache     events.TTLCache
+	event        *audit.Event
+	eventLog     *VMEventLog
+	informerList events.InformerList
+	ttlCache     events.TTLCache
 }
 
 func (m *VMManage) Log() error {
-	return m.EventLog.Log()
+	return m.eventLog.Log()
 }
 
 func (m *VMManage) ShouldLog() bool {
-	return m.EventLog.shouldLog
+	return m.eventLog.shouldLog
 }
 
 func (m *VMManage) IsMatched() bool {
-	if m.Event.ObjectRef == nil || m.Event.Stage != audit.StageResponseComplete {
+	if m.event.ObjectRef == nil || m.event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if m.Event.ObjectRef.Resource != "virtualmachines" {
+	if m.event.ObjectRef.Resource != "virtualmachines" {
 		return false
 	}
 
-	uriWithoutQueryParams, err := util.RemoveAllQueryParams(m.Event.RequestURI)
+	uriWithoutQueryParams, err := util.RemoveAllQueryParams(m.event.RequestURI)
 	if err != nil {
-		log.Debug("failed to remove query params from URI", err.Error(), slog.String("uri", m.Event.RequestURI))
+		log.Debug("failed to remove query params from URI", err.Error(), slog.String("uri", m.event.RequestURI))
 		return false
 	}
 
-	updateURI := fmt.Sprintf("/apis/virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines/%s", m.Event.ObjectRef.Namespace, m.Event.ObjectRef.Name)
-	if (m.Event.Verb == "update" || m.Event.Verb == "patch" || m.Event.Verb == "delete") && updateURI == uriWithoutQueryParams {
+	updateURI := fmt.Sprintf("/apis/virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines/%s", m.event.ObjectRef.Namespace, m.event.ObjectRef.Name)
+	if (m.event.Verb == "update" || m.event.Verb == "patch" || m.event.Verb == "delete") && updateURI == uriWithoutQueryParams {
 		return true
 	}
 
-	createURI := fmt.Sprintf("/apis/virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines", m.Event.ObjectRef.Namespace)
-	if m.Event.Verb == "create" && createURI == uriWithoutQueryParams {
+	createURI := fmt.Sprintf("/apis/virtualization.deckhouse.io/v1alpha2/namespaces/%s/virtualmachines", m.event.ObjectRef.Namespace)
+	if m.event.Verb == "create" && createURI == uriWithoutQueryParams {
 		return true
 	}
 
@@ -79,42 +79,42 @@ func (m *VMManage) IsMatched() bool {
 }
 
 func (m *VMManage) Fill() error {
-	m.EventLog = NewVMEventLog(m.Event)
-	m.EventLog.Type = "Manage VM"
+	m.eventLog = NewVMEventLog(m.event)
+	m.eventLog.Type = "Manage VM"
 
-	switch m.Event.Verb {
+	switch m.event.Verb {
 	case "create":
-		m.EventLog.Name = "VM creation"
+		m.eventLog.Name = "VM creation"
 	case "update", "patch":
-		m.EventLog.Name = "VM update"
+		m.eventLog.Name = "VM update"
 	case "delete":
-		m.EventLog.Level = "warn"
-		m.EventLog.Name = "VM deletion"
+		m.eventLog.Level = "warn"
+		m.eventLog.Name = "VM deletion"
 	}
 
-	vm, err := util.GetVMFromInformer(m.TTLCache, m.InformerList.GetVMInformer(), m.Event.ObjectRef.Namespace+"/"+m.Event.ObjectRef.Name)
+	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
 		return nil
 	}
 
-	m.EventLog.QemuVersion = vm.Status.Versions.Qemu
-	m.EventLog.LibvirtVersion = vm.Status.Versions.Libvirt
+	m.eventLog.QemuVersion = vm.Status.Versions.Qemu
+	m.eventLog.LibvirtVersion = vm.Status.Versions.Libvirt
 
-	m.EventLog.VirtualmachineUID = string(vm.UID)
+	m.eventLog.VirtualmachineUID = string(vm.UID)
 
 	if vm.Status.GuestOSInfo.Name != "" {
-		m.EventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+		m.eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 	}
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := m.EventLog.fillVDInfo(m.TTLCache, m.InformerList.GetVDInformer(), vm); err != nil {
+		if err := m.eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
 			log.Debug("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := m.EventLog.fillNodeInfo(m.InformerList.GetNodeInformer(), vm); err != nil {
+		if err := m.eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
 			log.Debug("fail to fill node info", log.Err(err))
 		}
 	}

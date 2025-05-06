@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package forbid_test
+package forbid
 
 import (
 	"fmt"
@@ -31,11 +31,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	kubetesting "k8s.io/client-go/testing"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
-	"github.com/deckhouse/virtualization-controller/pkg/audit/events/forbid"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
@@ -115,11 +115,19 @@ var _ = Describe("Forbid Events", func() {
 				return false, sa, nil
 			})
 
-			eventLog := forbid.Forbid{
-				Event:    event,
-				TTLCache: ttlCache,
-				Client:   fakeClient,
+			eventLoggerOptions := events.EventLoggerOptionsMock{
+				GetEventFunc: func() *audit.Event {
+					return event
+				},
+				GetClientFunc: func() kubernetes.Interface {
+					return fakeClient
+				},
+				GetTTLCacheFunc: func() events.TTLCache {
+					return ttlCache
+				},
 			}
+
+			eventLog := NewForbid(&eventLoggerOptions)
 
 			if args.eventVerb != "" {
 				event.Verb = args.eventVerb
@@ -155,19 +163,19 @@ var _ = Describe("Forbid Events", func() {
 
 			Expect(eventLog.Fill()).To(BeNil())
 
-			Expect(eventLog.EventLog.Type).To(Equal("Forbidden operation"))
-			Expect(eventLog.EventLog.Level).To(Equal("warn"))
+			Expect(eventLog.eventLog.Type).To(Equal("Forbidden operation"))
+			Expect(eventLog.eventLog.Level).To(Equal("warn"))
 
-			Expect(eventLog.EventLog.Name).To(Equal("User (test-user) attempted to perform a forbidden operation (create) on resource (pods/test/test-vmi)."))
+			Expect(eventLog.eventLog.Name).To(Equal("User (test-user) attempted to perform a forbidden operation (create) on resource (pods/test/test-vmi)."))
 
-			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
-			Expect(eventLog.EventLog.UID).To(Equal("0000-0000-0000"))
-			Expect(eventLog.EventLog.OperationResult).To(Equal("forbid"))
-			Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
+			Expect(eventLog.eventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
+			Expect(eventLog.eventLog.UID).To(Equal("0000-0000-0000"))
+			Expect(eventLog.eventLog.OperationResult).To(Equal("forbid"))
+			Expect(eventLog.eventLog.RequestSubject).To(Equal("test-user"))
 
-			Expect(eventLog.EventLog.IsAdmin).To(Equal(args.canUpdateModuleConfigs || args.canUpdateVMClasses))
-			Expect(eventLog.EventLog.SourceIP).To(Equal("127.0.0.1"))
-			Expect(eventLog.EventLog.ForbidReason).To(Equal("some reason"))
+			Expect(eventLog.eventLog.IsAdmin).To(Equal(args.canUpdateModuleConfigs || args.canUpdateVMClasses))
+			Expect(eventLog.eventLog.SourceIP).To(Equal("127.0.0.1"))
+			Expect(eventLog.eventLog.ForbidReason).To(Equal("some reason"))
 
 			Expect(eventLog.ShouldLog()).To(BeTrue())
 

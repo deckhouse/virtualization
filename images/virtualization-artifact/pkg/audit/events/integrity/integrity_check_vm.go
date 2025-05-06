@@ -28,33 +28,33 @@ import (
 
 func NewIntegrityCheckVM(options events.EventLoggerOptions) *IntegrityCheckVM {
 	return &IntegrityCheckVM{
-		Event:        options.GetEvent(),
-		InformerList: options.GetInformerList(),
-		TTLCache:     options.GetTTLCache(),
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
+		ttlCache:     options.GetTTLCache(),
 	}
 }
 
 type IntegrityCheckVM struct {
-	Event        *audit.Event
-	EventLog     *IntegrityCheckEventLog
-	InformerList events.InformerList
-	TTLCache     events.TTLCache
+	event        *audit.Event
+	eventLog     *IntegrityCheckEventLog
+	informerList events.InformerList
+	ttlCache     events.TTLCache
 }
 
 func (m *IntegrityCheckVM) Log() error {
-	return m.EventLog.Log()
+	return m.eventLog.Log()
 }
 
 func (m *IntegrityCheckVM) ShouldLog() bool {
-	return m.EventLog.shouldLog
+	return m.eventLog.shouldLog
 }
 
 func (m *IntegrityCheckVM) IsMatched() bool {
-	if m.Event.ObjectRef == nil || m.Event.ObjectRef.Name == "" || m.Event.Stage != audit.StageResponseComplete {
+	if m.event.ObjectRef == nil || m.event.ObjectRef.Name == "" || m.event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if (m.Event.Verb == "patch" || m.Event.Verb == "update") && m.Event.ObjectRef.Resource == "internalvirtualizationvirtualmachineinstances" {
+	if (m.event.Verb == "patch" || m.event.Verb == "update") && m.event.ObjectRef.Resource == "internalvirtualizationvirtualmachineinstances" {
 		return true
 	}
 
@@ -62,27 +62,27 @@ func (m *IntegrityCheckVM) IsMatched() bool {
 }
 
 func (m *IntegrityCheckVM) Fill() error {
-	m.EventLog = NewIntegrityCheckEventLog(m.Event)
+	m.eventLog = NewIntegrityCheckEventLog(m.event)
 
-	m.EventLog.Name = "VM config integrity check failed"
-	m.EventLog.ObjectType = "Virtual machine configuration"
-	m.EventLog.ControlMethod = "Integrity Check"
-	m.EventLog.ReactionType = "info"
-	m.EventLog.IntegrityCheckAlgo = "sha256"
+	m.eventLog.Name = "VM config integrity check failed"
+	m.eventLog.ObjectType = "Virtual machine configuration"
+	m.eventLog.ControlMethod = "Integrity Check"
+	m.eventLog.ReactionType = "info"
+	m.eventLog.IntegrityCheckAlgo = "sha256"
 
-	vmi, err := util.GetInternalVMIFromInformer(m.TTLCache, m.InformerList.GetInternalVMIInformer(), m.Event.ObjectRef.Namespace+"/"+m.Event.ObjectRef.Name)
+	vmi, err := util.GetInternalVMIFromInformer(m.ttlCache, m.informerList.GetInternalVMIInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("failed to get VMI from informer: %w", err)
 	}
 
 	if vmi.Annotations[annotations.AnnIntegrityCoreChecksum] == vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied] {
-		m.EventLog.shouldLog = false
+		m.eventLog.shouldLog = false
 		return nil
 	}
 
-	m.EventLog.VirtualMachineName = vmi.Name
-	m.EventLog.ReferenceChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksum]
-	m.EventLog.CurrentChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied]
+	m.eventLog.VirtualMachineName = vmi.Name
+	m.eventLog.ReferenceChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksum]
+	m.eventLog.CurrentChecksum = vmi.Annotations[annotations.AnnIntegrityCoreChecksumApplied]
 
 	return nil
 }

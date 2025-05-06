@@ -29,33 +29,33 @@ import (
 
 func NewVMControl(options events.EventLoggerOptions) *VMControl {
 	return &VMControl{
-		Event:        options.GetEvent(),
-		InformerList: options.GetInformerList(),
-		TTLCache:     options.GetTTLCache(),
+		event:        options.GetEvent(),
+		informerList: options.GetInformerList(),
+		ttlCache:     options.GetTTLCache(),
 	}
 }
 
 type VMControl struct {
-	Event        *audit.Event
-	EventLog     *VMEventLog
-	InformerList events.InformerList
-	TTLCache     events.TTLCache
+	event        *audit.Event
+	eventLog     *VMEventLog
+	informerList events.InformerList
+	ttlCache     events.TTLCache
 }
 
 func (m *VMControl) Log() error {
-	return m.EventLog.Log()
+	return m.eventLog.Log()
 }
 
 func (m *VMControl) ShouldLog() bool {
-	return m.EventLog.shouldLog
+	return m.eventLog.shouldLog
 }
 
 func (m *VMControl) IsMatched() bool {
-	if m.Event.ObjectRef == nil || m.Event.Stage != audit.StageResponseComplete {
+	if m.event.ObjectRef == nil || m.event.Stage != audit.StageResponseComplete {
 		return false
 	}
 
-	if strings.Contains(m.Event.ObjectRef.Name, "virt-launcher") && m.Event.ObjectRef.Resource == "pods" && m.Event.Verb == "delete" {
+	if strings.Contains(m.event.ObjectRef.Name, "virt-launcher") && m.event.ObjectRef.Resource == "pods" && m.event.Verb == "delete" {
 		return true
 	}
 
@@ -63,10 +63,10 @@ func (m *VMControl) IsMatched() bool {
 }
 
 func (m *VMControl) Fill() error {
-	m.EventLog = NewVMEventLog(m.Event)
-	m.EventLog.Type = "Control VM"
+	m.eventLog = NewVMEventLog(m.event)
+	m.eventLog.Type = "Control VM"
 
-	pod, err := util.GetPodFromInformer(m.TTLCache, m.InformerList.GetPodInformer(), m.Event.ObjectRef.Namespace+"/"+m.Event.ObjectRef.Name)
+	pod, err := util.GetPodFromInformer(m.ttlCache, m.informerList.GetPodInformer(), m.event.ObjectRef.Namespace+"/"+m.event.ObjectRef.Name)
 	if err != nil {
 		return fmt.Errorf("fail to get pod from informer: %w", err)
 	}
@@ -78,53 +78,53 @@ func (m *VMControl) Fill() error {
 		}
 	}
 
-	isControllerAction := strings.Contains(m.Event.User.Username, "system:serviceaccount:d8-virtualization")
-	isNodeAction := strings.Contains(m.Event.User.Username, "system:node")
+	isControllerAction := strings.Contains(m.event.User.Username, "system:serviceaccount:d8-virtualization")
+	isNodeAction := strings.Contains(m.event.User.Username, "system:node")
 
 	switch {
 	case isControllerAction:
-		m.EventLog.Level = "warn"
+		m.eventLog.Level = "warn"
 
 		switch {
 		case strings.Contains(terminatedStatuses, "guest-shutdown"):
-			m.EventLog.Name = "VM stoped from OS"
+			m.eventLog.Name = "VM stoped from OS"
 		case strings.Contains(terminatedStatuses, "guest-reset"):
-			m.EventLog.Name = "VM restarted from OS"
+			m.eventLog.Name = "VM restarted from OS"
 		default:
-			m.EventLog.Name = "VM stopped by system"
+			m.eventLog.Name = "VM stopped by system"
 			return nil
 		}
 	case isNodeAction:
-		m.EventLog.Name = "VM stopped by system"
+		m.eventLog.Name = "VM stopped by system"
 		return nil
 	default:
-		m.EventLog.Level = "critical"
-		m.EventLog.Name = "VM killed abnormal way"
+		m.eventLog.Level = "critical"
+		m.eventLog.Name = "VM killed abnormal way"
 	}
 
-	vm, err := util.GetVMFromInformer(m.TTLCache, m.InformerList.GetVMInformer(), pod.Namespace+"/"+pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"])
+	vm, err := util.GetVMFromInformer(m.ttlCache, m.informerList.GetVMInformer(), pod.Namespace+"/"+pod.Labels["vm.kubevirt.internal.virtualization.deckhouse.io/name"])
 	if err != nil {
 		log.Debug("fail to get vm from informer", log.Err(err))
 		return nil
 	}
 
-	m.EventLog.QemuVersion = vm.Status.Versions.Qemu
-	m.EventLog.LibvirtVersion = vm.Status.Versions.Libvirt
+	m.eventLog.QemuVersion = vm.Status.Versions.Qemu
+	m.eventLog.LibvirtVersion = vm.Status.Versions.Libvirt
 
-	m.EventLog.VirtualmachineUID = string(vm.UID)
+	m.eventLog.VirtualmachineUID = string(vm.UID)
 
 	if vm.Status.GuestOSInfo.Name != "" {
-		m.EventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
+		m.eventLog.VirtualmachineOS = vm.Status.GuestOSInfo.Name
 	}
 
 	if len(vm.Spec.BlockDeviceRefs) > 0 {
-		if err := m.EventLog.fillVDInfo(m.TTLCache, m.InformerList.GetVDInformer(), vm); err != nil {
+		if err := m.eventLog.fillVDInfo(m.ttlCache, m.informerList.GetVDInformer(), vm); err != nil {
 			log.Debug("fail to fill vd info", log.Err(err))
 		}
 	}
 
 	if vm.Status.Node != "" {
-		if err := m.EventLog.fillNodeInfo(m.InformerList.GetNodeInformer(), vm); err != nil {
+		if err := m.eventLog.fillNodeInfo(m.informerList.GetNodeInformer(), vm); err != nil {
 			log.Debug("fail to fill node info", log.Err(err))
 		}
 	}

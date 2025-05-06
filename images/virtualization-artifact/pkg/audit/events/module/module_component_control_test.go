@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package module_test
+package module
 
 import (
 	"os"
@@ -30,7 +30,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
-	moduleevent "github.com/deckhouse/virtualization-controller/pkg/audit/events/module"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/module"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -143,11 +142,19 @@ var _ = Describe("Module component control events", func() {
 				},
 			}
 
-			eventLog := moduleevent.ModuleComponentControl{
-				Event:        event,
-				InformerList: informerList,
-				TTLCache:     ttlCache,
+			eventLoggerOptions := events.EventLoggerOptionsMock{
+				GetEventFunc: func() *audit.Event {
+					return event
+				},
+				GetInformerListFunc: func() events.InformerList {
+					return informerList
+				},
+				GetTTLCacheFunc: func() events.TTLCache {
+					return ttlCache
+				},
 			}
+
+			eventLog := NewModuleComponentControl(&eventLoggerOptions)
 
 			if args.eventVerb != "" {
 				event.Verb = args.eventVerb
@@ -178,34 +185,34 @@ var _ = Describe("Module component control events", func() {
 
 			Expect(eventLog.Fill()).To(BeNil())
 
-			Expect(eventLog.EventLog.Type).To(Equal("Virtualization control"))
-			Expect(eventLog.EventLog.Level).To(Equal(args.expectedLevel))
-			Expect(eventLog.EventLog.Name).To(Equal(args.expectedName))
-			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
-			Expect(eventLog.EventLog.UID).To(Equal("0000-0000-0000"))
-			Expect(eventLog.EventLog.OperationResult).To(Equal("allow"))
-			Expect(eventLog.EventLog.ActionType).To(Equal(args.expectedActionType))
-			Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
+			Expect(eventLog.eventLog.Type).To(Equal("Virtualization control"))
+			Expect(eventLog.eventLog.Level).To(Equal(args.expectedLevel))
+			Expect(eventLog.eventLog.Name).To(Equal(args.expectedName))
+			Expect(eventLog.eventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
+			Expect(eventLog.eventLog.UID).To(Equal("0000-0000-0000"))
+			Expect(eventLog.eventLog.OperationResult).To(Equal("allow"))
+			Expect(eventLog.eventLog.ActionType).To(Equal(args.expectedActionType))
+			Expect(eventLog.eventLog.RequestSubject).To(Equal("test-user"))
 
 			if args.shouldLostPod {
-				Expect(eventLog.EventLog.QemuVersion).To(Equal("unknown"))
-				Expect(eventLog.EventLog.LibvirtVersion).To(Equal("unknown"))
+				Expect(eventLog.eventLog.QemuVersion).To(Equal("unknown"))
+				Expect(eventLog.eventLog.LibvirtVersion).To(Equal("unknown"))
 			} else {
 
-				Expect(eventLog.EventLog.QemuVersion).To(Equal("9.9.9"))
-				Expect(eventLog.EventLog.LibvirtVersion).To(Equal("1.1.1"))
+				Expect(eventLog.eventLog.QemuVersion).To(Equal("9.9.9"))
+				Expect(eventLog.eventLog.LibvirtVersion).To(Equal("1.1.1"))
 			}
 
 			if args.shouldLostNode || args.shouldLostPod {
-				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("unknown"))
+				Expect(eventLog.eventLog.NodeNetworkAddress).To(Equal("unknown"))
 			} else {
-				Expect(eventLog.EventLog.NodeNetworkAddress).To(Equal("127.0.0.1"))
+				Expect(eventLog.eventLog.NodeNetworkAddress).To(Equal("127.0.0.1"))
 			}
 
 			if args.shouldLostPod || args.shouldLostModule {
-				Expect(eventLog.EventLog.VirtualizationVersion).To(Equal("unknown"))
+				Expect(eventLog.eventLog.VirtualizationVersion).To(Equal("unknown"))
 			} else {
-				Expect(eventLog.EventLog.VirtualizationVersion).To(Equal("test-version"))
+				Expect(eventLog.eventLog.VirtualizationVersion).To(Equal("test-version"))
 			}
 
 			Expect(eventLog.ShouldLog()).To(BeTrue())

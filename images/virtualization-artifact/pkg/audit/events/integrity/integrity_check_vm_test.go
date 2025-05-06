@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package integrity_test
+package integrity
 
 import (
 	"os"
@@ -30,7 +30,6 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/audit/events"
-	"github.com/deckhouse/virtualization-controller/pkg/audit/events/integrity"
 	"github.com/deckhouse/virtualization-controller/pkg/audit/util"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
@@ -108,11 +107,19 @@ var _ = Describe("Integrity Check VM Events", func() {
 				},
 			}
 
-			eventLog := integrity.IntegrityCheckVM{
-				Event:        event,
-				TTLCache:     ttlCache,
-				InformerList: informerList,
+			eventLoggerOptions := events.EventLoggerOptionsMock{
+				GetEventFunc: func() *audit.Event {
+					return event
+				},
+				GetInformerListFunc: func() events.InformerList {
+					return informerList
+				},
+				GetTTLCacheFunc: func() events.TTLCache {
+					return ttlCache
+				},
 			}
+
+			eventLog := NewIntegrityCheckVM(&eventLoggerOptions)
 
 			if args.eventVerb != "" {
 				event.Verb = args.eventVerb
@@ -149,13 +156,13 @@ var _ = Describe("Integrity Check VM Events", func() {
 
 			Expect(eventLog.Fill()).To(BeNil())
 
-			Expect(eventLog.EventLog.Type).To(Equal("Integrity check"))
-			Expect(eventLog.EventLog.Level).To(Equal("critical"))
-			Expect(eventLog.EventLog.Name).To(Equal("VM config integrity check failed"))
-			Expect(eventLog.EventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
-			Expect(eventLog.EventLog.UID).To(Equal("0000-0000-0000"))
-			Expect(eventLog.EventLog.OperationResult).To(Equal("allow"))
-			Expect(eventLog.EventLog.RequestSubject).To(Equal("test-user"))
+			Expect(eventLog.eventLog.Type).To(Equal("Integrity check"))
+			Expect(eventLog.eventLog.Level).To(Equal("critical"))
+			Expect(eventLog.eventLog.Name).To(Equal("VM config integrity check failed"))
+			Expect(eventLog.eventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
+			Expect(eventLog.eventLog.UID).To(Equal("0000-0000-0000"))
+			Expect(eventLog.eventLog.OperationResult).To(Equal("allow"))
+			Expect(eventLog.eventLog.RequestSubject).To(Equal("test-user"))
 
 			if args.shouldChecksumMatch {
 				Expect(eventLog.ShouldLog()).To(BeFalse())
@@ -164,13 +171,13 @@ var _ = Describe("Integrity Check VM Events", func() {
 
 			Expect(eventLog.ShouldLog()).To(BeTrue())
 
-			Expect(eventLog.EventLog.ObjectType).To(Equal("Virtual machine configuration"))
-			Expect(eventLog.EventLog.VirtualMachineName).To(Equal("test-vm"))
-			Expect(eventLog.EventLog.ControlMethod).To(Equal("Integrity Check"))
-			Expect(eventLog.EventLog.ReactionType).To(Equal("info"))
-			Expect(eventLog.EventLog.IntegrityCheckAlgo).To(Equal("sha256"))
-			Expect(eventLog.EventLog.ReferenceChecksum).To(Equal("abc123"))
-			Expect(eventLog.EventLog.CurrentChecksum).To(Equal("xyz789"))
+			Expect(eventLog.eventLog.ObjectType).To(Equal("Virtual machine configuration"))
+			Expect(eventLog.eventLog.VirtualMachineName).To(Equal("test-vm"))
+			Expect(eventLog.eventLog.ControlMethod).To(Equal("Integrity Check"))
+			Expect(eventLog.eventLog.ReactionType).To(Equal("info"))
+			Expect(eventLog.eventLog.IntegrityCheckAlgo).To(Equal("sha256"))
+			Expect(eventLog.eventLog.ReferenceChecksum).To(Equal("abc123"))
+			Expect(eventLog.eventLog.CurrentChecksum).To(Equal("xyz789"))
 
 			// Temporary redirect stdout to /dev/null
 			defer func(stdout *os.File) {

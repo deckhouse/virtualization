@@ -4,9 +4,11 @@
 package events
 
 import (
-	"sync"
-
+	"context"
+	"k8s.io/apiserver/pkg/apis/audit"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"sync"
 )
 
 // Ensure, that TTLCacheMock does implement TTLCache.
@@ -143,21 +145,29 @@ type InformerListMock struct {
 	// calls tracks calls to the methods.
 	calls struct {
 		// GetInternalVMIInformer holds details about calls to the GetInternalVMIInformer method.
-		GetInternalVMIInformer []struct{}
+		GetInternalVMIInformer []struct {
+		}
 		// GetModuleConfigInformer holds details about calls to the GetModuleConfigInformer method.
-		GetModuleConfigInformer []struct{}
+		GetModuleConfigInformer []struct {
+		}
 		// GetModuleInformer holds details about calls to the GetModuleInformer method.
-		GetModuleInformer []struct{}
+		GetModuleInformer []struct {
+		}
 		// GetNodeInformer holds details about calls to the GetNodeInformer method.
-		GetNodeInformer []struct{}
+		GetNodeInformer []struct {
+		}
 		// GetPodInformer holds details about calls to the GetPodInformer method.
-		GetPodInformer []struct{}
+		GetPodInformer []struct {
+		}
 		// GetVDInformer holds details about calls to the GetVDInformer method.
-		GetVDInformer []struct{}
+		GetVDInformer []struct {
+		}
 		// GetVMInformer holds details about calls to the GetVMInformer method.
-		GetVMInformer []struct{}
+		GetVMInformer []struct {
+		}
 		// GetVMOPInformer holds details about calls to the GetVMOPInformer method.
-		GetVMOPInformer []struct{}
+		GetVMOPInformer []struct {
+		}
 	}
 	lockGetInternalVMIInformer  sync.RWMutex
 	lockGetModuleConfigInformer sync.RWMutex
@@ -174,7 +184,8 @@ func (mock *InformerListMock) GetInternalVMIInformer() cache.Store {
 	if mock.GetInternalVMIInformerFunc == nil {
 		panic("InformerListMock.GetInternalVMIInformerFunc: method is nil but InformerList.GetInternalVMIInformer was just called")
 	}
-	callInfo := struct{}{}
+	callInfo := struct {
+	}{}
 	mock.lockGetInternalVMIInformer.Lock()
 	mock.calls.GetInternalVMIInformer = append(mock.calls.GetInternalVMIInformer, callInfo)
 	mock.lockGetInternalVMIInformer.Unlock()
@@ -185,8 +196,10 @@ func (mock *InformerListMock) GetInternalVMIInformer() cache.Store {
 // Check the length with:
 //
 //	len(mockedInformerList.GetInternalVMIInformerCalls())
-func (mock *InformerListMock) GetInternalVMIInformerCalls() []struct{} {
-	var calls []struct{}
+func (mock *InformerListMock) GetInternalVMIInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
 	mock.lockGetInternalVMIInformer.RLock()
 	calls = mock.calls.GetInternalVMIInformer
 	mock.lockGetInternalVMIInformer.RUnlock()
@@ -198,7 +211,8 @@ func (mock *InformerListMock) GetModuleConfigInformer() cache.Store {
 	if mock.GetModuleConfigInformerFunc == nil {
 		panic("InformerListMock.GetModuleConfigInformerFunc: method is nil but InformerList.GetModuleConfigInformer was just called")
 	}
-	callInfo := struct{}{}
+	callInfo := struct {
+	}{}
 	mock.lockGetModuleConfigInformer.Lock()
 	mock.calls.GetModuleConfigInformer = append(mock.calls.GetModuleConfigInformer, callInfo)
 	mock.lockGetModuleConfigInformer.Unlock()
@@ -209,8 +223,10 @@ func (mock *InformerListMock) GetModuleConfigInformer() cache.Store {
 // Check the length with:
 //
 //	len(mockedInformerList.GetModuleConfigInformerCalls())
-func (mock *InformerListMock) GetModuleConfigInformerCalls() []struct{} {
-	var calls []struct{}
+func (mock *InformerListMock) GetModuleConfigInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
 	mock.lockGetModuleConfigInformer.RLock()
 	calls = mock.calls.GetModuleConfigInformer
 	mock.lockGetModuleConfigInformer.RUnlock()
@@ -222,7 +238,8 @@ func (mock *InformerListMock) GetModuleInformer() cache.Store {
 	if mock.GetModuleInformerFunc == nil {
 		panic("InformerListMock.GetModuleInformerFunc: method is nil but InformerList.GetModuleInformer was just called")
 	}
-	callInfo := struct{}{}
+	callInfo := struct {
+	}{}
 	mock.lockGetModuleInformer.Lock()
 	mock.calls.GetModuleInformer = append(mock.calls.GetModuleInformer, callInfo)
 	mock.lockGetModuleInformer.Unlock()
@@ -233,8 +250,10 @@ func (mock *InformerListMock) GetModuleInformer() cache.Store {
 // Check the length with:
 //
 //	len(mockedInformerList.GetModuleInformerCalls())
-func (mock *InformerListMock) GetModuleInformerCalls() []struct{} {
-	var calls []struct{}
+func (mock *InformerListMock) GetModuleInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
 	mock.lockGetModuleInformer.RLock()
 	calls = mock.calls.GetModuleInformer
 	mock.lockGetModuleInformer.RUnlock()
@@ -246,7 +265,8 @@ func (mock *InformerListMock) GetNodeInformer() cache.Store {
 	if mock.GetNodeInformerFunc == nil {
 		panic("InformerListMock.GetNodeInformerFunc: method is nil but InformerList.GetNodeInformer was just called")
 	}
-	callInfo := struct{}{}
+	callInfo := struct {
+	}{}
 	mock.lockGetNodeInformer.Lock()
 	mock.calls.GetNodeInformer = append(mock.calls.GetNodeInformer, callInfo)
 	mock.lockGetNodeInformer.Unlock()
@@ -257,8 +277,10 @@ func (mock *InformerListMock) GetNodeInformer() cache.Store {
 // Check the length with:
 //
 //	len(mockedInformerList.GetNodeInformerCalls())
-func (mock *InformerListMock) GetNodeInformerCalls() []struct{} {
-	var calls []struct{}
+func (mock *InformerListMock) GetNodeInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
 	mock.lockGetNodeInformer.RLock()
 	calls = mock.calls.GetNodeInformer
 	mock.lockGetNodeInformer.RUnlock()
@@ -270,7 +292,8 @@ func (mock *InformerListMock) GetPodInformer() cache.Store {
 	if mock.GetPodInformerFunc == nil {
 		panic("InformerListMock.GetPodInformerFunc: method is nil but InformerList.GetPodInformer was just called")
 	}
-	callInfo := struct{}{}
+	callInfo := struct {
+	}{}
 	mock.lockGetPodInformer.Lock()
 	mock.calls.GetPodInformer = append(mock.calls.GetPodInformer, callInfo)
 	mock.lockGetPodInformer.Unlock()
@@ -281,8 +304,10 @@ func (mock *InformerListMock) GetPodInformer() cache.Store {
 // Check the length with:
 //
 //	len(mockedInformerList.GetPodInformerCalls())
-func (mock *InformerListMock) GetPodInformerCalls() []struct{} {
-	var calls []struct{}
+func (mock *InformerListMock) GetPodInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
 	mock.lockGetPodInformer.RLock()
 	calls = mock.calls.GetPodInformer
 	mock.lockGetPodInformer.RUnlock()
@@ -294,7 +319,8 @@ func (mock *InformerListMock) GetVDInformer() cache.Store {
 	if mock.GetVDInformerFunc == nil {
 		panic("InformerListMock.GetVDInformerFunc: method is nil but InformerList.GetVDInformer was just called")
 	}
-	callInfo := struct{}{}
+	callInfo := struct {
+	}{}
 	mock.lockGetVDInformer.Lock()
 	mock.calls.GetVDInformer = append(mock.calls.GetVDInformer, callInfo)
 	mock.lockGetVDInformer.Unlock()
@@ -305,8 +331,10 @@ func (mock *InformerListMock) GetVDInformer() cache.Store {
 // Check the length with:
 //
 //	len(mockedInformerList.GetVDInformerCalls())
-func (mock *InformerListMock) GetVDInformerCalls() []struct{} {
-	var calls []struct{}
+func (mock *InformerListMock) GetVDInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
 	mock.lockGetVDInformer.RLock()
 	calls = mock.calls.GetVDInformer
 	mock.lockGetVDInformer.RUnlock()
@@ -318,7 +346,8 @@ func (mock *InformerListMock) GetVMInformer() cache.Store {
 	if mock.GetVMInformerFunc == nil {
 		panic("InformerListMock.GetVMInformerFunc: method is nil but InformerList.GetVMInformer was just called")
 	}
-	callInfo := struct{}{}
+	callInfo := struct {
+	}{}
 	mock.lockGetVMInformer.Lock()
 	mock.calls.GetVMInformer = append(mock.calls.GetVMInformer, callInfo)
 	mock.lockGetVMInformer.Unlock()
@@ -329,8 +358,10 @@ func (mock *InformerListMock) GetVMInformer() cache.Store {
 // Check the length with:
 //
 //	len(mockedInformerList.GetVMInformerCalls())
-func (mock *InformerListMock) GetVMInformerCalls() []struct{} {
-	var calls []struct{}
+func (mock *InformerListMock) GetVMInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
 	mock.lockGetVMInformer.RLock()
 	calls = mock.calls.GetVMInformer
 	mock.lockGetVMInformer.RUnlock()
@@ -342,7 +373,8 @@ func (mock *InformerListMock) GetVMOPInformer() cache.Store {
 	if mock.GetVMOPInformerFunc == nil {
 		panic("InformerListMock.GetVMOPInformerFunc: method is nil but InformerList.GetVMOPInformer was just called")
 	}
-	callInfo := struct{}{}
+	callInfo := struct {
+	}{}
 	mock.lockGetVMOPInformer.Lock()
 	mock.calls.GetVMOPInformer = append(mock.calls.GetVMOPInformer, callInfo)
 	mock.lockGetVMOPInformer.Unlock()
@@ -353,10 +385,219 @@ func (mock *InformerListMock) GetVMOPInformer() cache.Store {
 // Check the length with:
 //
 //	len(mockedInformerList.GetVMOPInformerCalls())
-func (mock *InformerListMock) GetVMOPInformerCalls() []struct{} {
-	var calls []struct{}
+func (mock *InformerListMock) GetVMOPInformerCalls() []struct {
+} {
+	var calls []struct {
+	}
 	mock.lockGetVMOPInformer.RLock()
 	calls = mock.calls.GetVMOPInformer
 	mock.lockGetVMOPInformer.RUnlock()
+	return calls
+}
+
+// Ensure, that EventLoggerOptionsMock does implement EventLoggerOptions.
+// If this is not the case, regenerate this file with moq.
+var _ EventLoggerOptions = &EventLoggerOptionsMock{}
+
+// EventLoggerOptionsMock is a mock implementation of EventLoggerOptions.
+//
+//	func TestSomethingThatUsesEventLoggerOptions(t *testing.T) {
+//
+//		// make and configure a mocked EventLoggerOptions
+//		mockedEventLoggerOptions := &EventLoggerOptionsMock{
+//			GetClientFunc: func() kubernetes.Interface {
+//				panic("mock out the GetClient method")
+//			},
+//			GetCtxFunc: func() context.Context {
+//				panic("mock out the GetCtx method")
+//			},
+//			GetEventFunc: func() *audit.Event {
+//				panic("mock out the GetEvent method")
+//			},
+//			GetInformerListFunc: func() InformerList {
+//				panic("mock out the GetInformerList method")
+//			},
+//			GetTTLCacheFunc: func() TTLCache {
+//				panic("mock out the GetTTLCache method")
+//			},
+//		}
+//
+//		// use mockedEventLoggerOptions in code that requires EventLoggerOptions
+//		// and then make assertions.
+//
+//	}
+type EventLoggerOptionsMock struct {
+	// GetClientFunc mocks the GetClient method.
+	GetClientFunc func() kubernetes.Interface
+
+	// GetCtxFunc mocks the GetCtx method.
+	GetCtxFunc func() context.Context
+
+	// GetEventFunc mocks the GetEvent method.
+	GetEventFunc func() *audit.Event
+
+	// GetInformerListFunc mocks the GetInformerList method.
+	GetInformerListFunc func() InformerList
+
+	// GetTTLCacheFunc mocks the GetTTLCache method.
+	GetTTLCacheFunc func() TTLCache
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// GetClient holds details about calls to the GetClient method.
+		GetClient []struct {
+		}
+		// GetCtx holds details about calls to the GetCtx method.
+		GetCtx []struct {
+		}
+		// GetEvent holds details about calls to the GetEvent method.
+		GetEvent []struct {
+		}
+		// GetInformerList holds details about calls to the GetInformerList method.
+		GetInformerList []struct {
+		}
+		// GetTTLCache holds details about calls to the GetTTLCache method.
+		GetTTLCache []struct {
+		}
+	}
+	lockGetClient       sync.RWMutex
+	lockGetCtx          sync.RWMutex
+	lockGetEvent        sync.RWMutex
+	lockGetInformerList sync.RWMutex
+	lockGetTTLCache     sync.RWMutex
+}
+
+// GetClient calls GetClientFunc.
+func (mock *EventLoggerOptionsMock) GetClient() kubernetes.Interface {
+	if mock.GetClientFunc == nil {
+		panic("EventLoggerOptionsMock.GetClientFunc: method is nil but EventLoggerOptions.GetClient was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetClient.Lock()
+	mock.calls.GetClient = append(mock.calls.GetClient, callInfo)
+	mock.lockGetClient.Unlock()
+	return mock.GetClientFunc()
+}
+
+// GetClientCalls gets all the calls that were made to GetClient.
+// Check the length with:
+//
+//	len(mockedEventLoggerOptions.GetClientCalls())
+func (mock *EventLoggerOptionsMock) GetClientCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetClient.RLock()
+	calls = mock.calls.GetClient
+	mock.lockGetClient.RUnlock()
+	return calls
+}
+
+// GetCtx calls GetCtxFunc.
+func (mock *EventLoggerOptionsMock) GetCtx() context.Context {
+	if mock.GetCtxFunc == nil {
+		panic("EventLoggerOptionsMock.GetCtxFunc: method is nil but EventLoggerOptions.GetCtx was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetCtx.Lock()
+	mock.calls.GetCtx = append(mock.calls.GetCtx, callInfo)
+	mock.lockGetCtx.Unlock()
+	return mock.GetCtxFunc()
+}
+
+// GetCtxCalls gets all the calls that were made to GetCtx.
+// Check the length with:
+//
+//	len(mockedEventLoggerOptions.GetCtxCalls())
+func (mock *EventLoggerOptionsMock) GetCtxCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetCtx.RLock()
+	calls = mock.calls.GetCtx
+	mock.lockGetCtx.RUnlock()
+	return calls
+}
+
+// GetEvent calls GetEventFunc.
+func (mock *EventLoggerOptionsMock) GetEvent() *audit.Event {
+	if mock.GetEventFunc == nil {
+		panic("EventLoggerOptionsMock.GetEventFunc: method is nil but EventLoggerOptions.GetEvent was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetEvent.Lock()
+	mock.calls.GetEvent = append(mock.calls.GetEvent, callInfo)
+	mock.lockGetEvent.Unlock()
+	return mock.GetEventFunc()
+}
+
+// GetEventCalls gets all the calls that were made to GetEvent.
+// Check the length with:
+//
+//	len(mockedEventLoggerOptions.GetEventCalls())
+func (mock *EventLoggerOptionsMock) GetEventCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetEvent.RLock()
+	calls = mock.calls.GetEvent
+	mock.lockGetEvent.RUnlock()
+	return calls
+}
+
+// GetInformerList calls GetInformerListFunc.
+func (mock *EventLoggerOptionsMock) GetInformerList() InformerList {
+	if mock.GetInformerListFunc == nil {
+		panic("EventLoggerOptionsMock.GetInformerListFunc: method is nil but EventLoggerOptions.GetInformerList was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetInformerList.Lock()
+	mock.calls.GetInformerList = append(mock.calls.GetInformerList, callInfo)
+	mock.lockGetInformerList.Unlock()
+	return mock.GetInformerListFunc()
+}
+
+// GetInformerListCalls gets all the calls that were made to GetInformerList.
+// Check the length with:
+//
+//	len(mockedEventLoggerOptions.GetInformerListCalls())
+func (mock *EventLoggerOptionsMock) GetInformerListCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetInformerList.RLock()
+	calls = mock.calls.GetInformerList
+	mock.lockGetInformerList.RUnlock()
+	return calls
+}
+
+// GetTTLCache calls GetTTLCacheFunc.
+func (mock *EventLoggerOptionsMock) GetTTLCache() TTLCache {
+	if mock.GetTTLCacheFunc == nil {
+		panic("EventLoggerOptionsMock.GetTTLCacheFunc: method is nil but EventLoggerOptions.GetTTLCache was just called")
+	}
+	callInfo := struct {
+	}{}
+	mock.lockGetTTLCache.Lock()
+	mock.calls.GetTTLCache = append(mock.calls.GetTTLCache, callInfo)
+	mock.lockGetTTLCache.Unlock()
+	return mock.GetTTLCacheFunc()
+}
+
+// GetTTLCacheCalls gets all the calls that were made to GetTTLCache.
+// Check the length with:
+//
+//	len(mockedEventLoggerOptions.GetTTLCacheCalls())
+func (mock *EventLoggerOptionsMock) GetTTLCacheCalls() []struct {
+} {
+	var calls []struct {
+	}
+	mock.lockGetTTLCache.RLock()
+	calls = mock.calls.GetTTLCache
+	mock.lockGetTTLCache.RUnlock()
 	return calls
 }
