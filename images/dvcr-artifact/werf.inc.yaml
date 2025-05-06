@@ -40,8 +40,6 @@ binaries:
 - /usr/share/file/magic
 - /usr/share/file/magic.mgc
 - /etc/magic
-- /usr/bin/mount
-- /usr/bin/umount
 - /usr/local/bin/dvcr-uploader
 - /usr/local/bin/dvcr-cleaner
 {{- end -}}
@@ -52,6 +50,13 @@ image: {{ $.ImageName }}-bins
 final: false
 fromImage: base-alt-p11-binaries
 import:
+- image: tools/util-linux
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - bin/mount
+  - bin/umount
 - image: {{ $.ImageName }}-builder
   add: /out
   to: /usr/local/bin

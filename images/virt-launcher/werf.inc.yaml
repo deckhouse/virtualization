@@ -145,8 +145,6 @@ binaries:
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
-  # Hwclock
-  - /usr/sbin/hwclock
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
@@ -260,6 +258,12 @@ import:
   after: setup
   includePaths:
   - usr/bin/openssl
+- image: tools/util-linux
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - sbin/hwclock
 
 # GNU utilities
 - image: tools/coreutils
@@ -270,6 +274,7 @@ import:
   - usr/bin/cp
   - usr/bin/sleep
   - usr/bin/coreutils
+
 
 - image: {{ $.ImageName }}-cbuilder
   add: /bins
@@ -313,7 +318,7 @@ shell:
     LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
     LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
     LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
-    LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s*"
+    LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS

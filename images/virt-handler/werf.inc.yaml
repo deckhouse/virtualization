@@ -55,8 +55,6 @@ packages:
 - libnftnl
 - libjansson4
 binaries:
-- /usr/bin/mount
-- /usr/bin/umount
 - /usr/bin/getfacl
 - /usr/bin/setfacl
 - /usr/sbin/nft
@@ -73,6 +71,13 @@ image: {{ $.ImageName }}-bins
 final: false
 fromImage: base-alt-p11-binaries
 import:
+- image: tools/util-linux
+  add: /
+  to: /relocate/usr
+  after: setup
+  includePaths:
+  - bin/mount
+  - bin/umount
 - image: packages/binaries/xorriso
   add: /xorriso
   to: /xorriso
