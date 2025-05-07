@@ -49,6 +49,7 @@ shell:
       ./configure \
         --prefix=/usr \
         --libdir=/usr/lib64 \
+        CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2"
 
       make -j$(nproc)
 
