@@ -64,6 +64,7 @@ spec:
         metrics-listen: 127.0.0.1
         metrics-port: "8080"
     patches:
+    # Add node placement settings for virt-api, virt-controller, virt-operator, virt-handler.
     - resourceType: Deployment
       resourceName: virt-api
       patch: '[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{{ $nodeSelectorMaster }}}]'
@@ -80,10 +81,6 @@ spec:
       resourceName: virt-controller
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsSystem }}}]'
       type: json
-    - resourceType: Deployment
-      resourceName: virt-controller
-      type: strategic
-      patch: '{"spec":{"template":{"spec":{"containers":[{"name":"virt-controller","env":[{"name":"QEMU_VERSION","value":"{{$.Version.qemu}}"},{"name":"LIBVIRT_VERSION","value":"{{$.Version.libvirt}}"}]}]}}}}'
     - resourceType: DaemonSet
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
@@ -250,6 +247,20 @@ spec:
       resourceName: kubevirt-prometheus-metrics
       patch: '[{"op": "replace", "path": "/spec/ports/0/targetPort", "value": "https-metrics"}]'
       type: json
+
+# Additional environment variables for virt-controller.
+{{ define "virt-controller-additional-envs" }}
+env:
+# Firmware component versions.
+- name: QEMU_VERSION
+  value: {{$.Version.qemu}}
+- name: LIBVIRT_VERSION
+  value: {{$.Version.libvirt}}
+{{ end }}
+    - resourceType: Deployment
+      resourceName: virt-controller
+      type: strategic
+      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-controller","env":{{ include "virt-controller-additional-envs" . | fromYaml | pluck "env" | first | toJson }} } ]}}}}'
 
   imagePullPolicy: IfNotPresent
   imagePullSecrets:

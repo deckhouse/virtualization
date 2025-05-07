@@ -70,6 +70,18 @@
   value: "24h"
 - name: GC_VMI_MIGRATION_SCHEDULE
   value: "0 * * * *"
+{{- if (hasKey .Values.virtualization "liveMigration") }}
+- name: LIVE_MIGRATION_BANDWIDTH_PER_NODE
+  value: {{ .Values.virtualization.liveMigration.bandwidthPerNode | quote }}
+- name: LIVE_MIGRATION_MAX_MIGRATIONS_PER_NODE
+  value: {{ .Values.virtualization.liveMigration.maxMigrationsPerNode | quote }}
+- name: LIVE_MIGRATION_NETWORK
+  value: {{ .Values.virtualization.liveMigration.network | quote }}
+{{- if (hasKey .Values.virtualization.liveMigration "dedicated") }}
+- name: LIVE_MIGRATION_DEDICATED_INTERFACE_NAME
+  value: {{ .Values.virtualization.liveMigration.dedicated.interfaceName | quote }}
+{{- end }}
+{{- end }}
 - name: METRICS_BIND_ADDRESS
   value: "127.0.0.1:8080"
 {{- if eq .Values.virtualization.logLevel "debug" }}

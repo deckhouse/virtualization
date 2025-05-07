@@ -46,8 +46,8 @@ func WithVirtualMachine(vm string) Option {
 	}
 }
 
-func WithForce() Option {
+func WithForce(force *bool) Option {
 	return func(vmop *v1alpha2.VirtualMachineOperation) {
-		vmop.Spec.Force = true
+		vmop.Spec.Force = force
 	}
 }

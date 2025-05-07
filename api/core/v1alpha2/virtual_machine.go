@@ -110,6 +110,9 @@ type VirtualMachineSpec struct {
 	// +kubebuilder:validation:MaxItems:=16
 	BlockDeviceRefs []BlockDeviceSpecRef `json:"blockDeviceRefs"`
 	Provisioning    *Provisioning        `json:"provisioning,omitempty"`
+
+	// Live migration policy type.
+	LiveMigrationPolicy LiveMigrationPolicy `json:"liveMigrationPolicy"`
 }
 
 // RunPolicy parameter defines the VM startup policy
@@ -237,6 +240,26 @@ type SysprepRefKind string
 
 const (
 	SysprepRefKindSecret SysprepRefKind = "Secret"
+)
+
+// LiveMigrationPolicy defines policy for live migration process:
+// * `Never` - This VM is not eligible for live migration.
+// * `Manual` - This VM is eligible for migrations triggered by user, no automatic migrations.
+// * `AlwaysSafe` - Use Safe options for automatic and VMOP migrations. Do not enable CPU throttling.
+// * `PreferSafe` - Use Safe options for automatic migrations. CPU throttling can be enabled with force=true in VMOP.
+// * `AlwaysForced` - Enable CPU throttling for automatic and VMOP migrations. No way to disable CPU throttling.
+// * `PreferForced` - Enable CPU throttling for automatic migrations. CPU throttling can be disabled with force=false in VMOP.
+//
+// +kubebuilder:validation:Enum={Manual,Never,AlwaysSafe,PreferSafe,AlwaysForced,PreferForced}
+type LiveMigrationPolicy string
+
+const (
+	ManualMigrationPolicy       LiveMigrationPolicy = "Manual"
+	NeverMigrationPolicy        LiveMigrationPolicy = "Never"
+	AlwaysSafeMigrationPolicy   LiveMigrationPolicy = "AlwaysSafe"
+	PreferSafeMigrationPolicy   LiveMigrationPolicy = "PreferSafe"
+	AlwaysForcedMigrationPolicy LiveMigrationPolicy = "AlwaysForced"
+	PreferForcedMigrationPolicy LiveMigrationPolicy = "PreferForced"
 )
 
 type VirtualMachineStatus struct {
