@@ -119,6 +119,9 @@ git:
       - hooks/lib/tests
       - hooks/test*
       - docs/images/*.drawio
+    {{- if eq .MODULE_EDITION "CE" }}
+      - templates/virtualization-audit
+    {{- end }}
 ---
 image: release-channel-version
 fromImage: builder/scratch

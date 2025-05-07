@@ -1,0 +1,15 @@
+{{- if eq .MODULE_EDITION "EE" }}
+---
+image: {{ $.ImageName }}
+fromImage: distroless
+import:
+  - image: virtualization-artifact
+    add: /usr/local/go/src/virtualization-controller/virtualization-audit
+    to: /app/virtualization-audit
+    after: install
+imageSpec:
+  config:
+    user: 64535
+    workingDir: "/app"
+    entrypoint: ["/app/virtualization-audit"]
+{{- end }}
