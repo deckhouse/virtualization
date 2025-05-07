@@ -68,24 +68,16 @@ func (h *FirmwareHandler) syncFirmwareUpToDate(vm *virtv2.VirtualMachine, kvvmi 
 	upToDate := kvvmi == nil || kvvmi.Status.LauncherContainerImageVersion == "" || kvvmi.Status.LauncherContainerImageVersion == h.image
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeFirmwareUpToDate).Generation(vm.GetGeneration())
-	defer func() {
-		switch vm.Status.Phase {
-		case virtv2.MachinePending, virtv2.MachineStarting, virtv2.MachineStopped:
-			conditions.RemoveCondition(vmcondition.TypeFirmwareUpToDate, &vm.Status.Conditions)
-
-		default:
-			if cb.Condition().Status == metav1.ConditionFalse {
-				conditions.SetCondition(cb, &vm.Status.Conditions)
-			} else {
-				conditions.RemoveCondition(vmcondition.TypeFirmwareUpToDate, &vm.Status.Conditions)
-			}
-		}
-	}()
-
-	if !upToDate {
-		cb.Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonFirmwareOutOfDate).
-			Message("The VM firmware version is outdated and not recommended for use with the current version of the virtualization module, please migrate or reboot the VM to upgrade its firmware version.")
+	if upToDate {
+		cb.Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonFirmwareUpToDate).
+			Message("")
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return
 	}
+
+	cb.Status(metav1.ConditionFalse).
+		Reason(vmcondition.ReasonFirmwareOutOfDate).
+		Message("The VM firmware version is outdated and not recommended for use with the current version of the virtualization module, please migrate or reboot the VM to upgrade its firmware version.")
+	conditions.SetCondition(cb, &vm.Status.Conditions)
 }
