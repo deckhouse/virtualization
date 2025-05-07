@@ -34,7 +34,6 @@ build:
   {{- $_ := set $.Packages $k $v}}
 {{- end }}
 
-
 {{- $_ := set $ "ImagesIDList" list }}
 
 {{- range $path, $content := .Files.Glob ".werf/*.yaml" }}
@@ -120,6 +119,9 @@ git:
       - hooks/lib/tests
       - hooks/test*
       - docs/images/*.drawio
+    {{- if eq .MODULE_EDITION "CE" }}
+      - templates/virtualization-audit
+    {{- end }}
 ---
 image: release-channel-version
 fromImage: builder/scratch

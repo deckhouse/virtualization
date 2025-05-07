@@ -23,4 +23,5 @@ const (
 	DVCR_CERT_CN       string = "dvcr"
 	API_CERT_CN        string = "virtualization-api"
 	API_PROXY_CERT_CN  string = "virtualization-api-proxy"
+	AUDIT_CERT_CN      string = "virtualization-audit"
 )

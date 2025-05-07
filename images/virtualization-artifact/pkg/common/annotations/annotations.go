@@ -29,6 +29,15 @@ const (
 	VDShortName  = "vd"
 	VIShortName  = "vi"
 
+	// AnnIntegrityGroup is the Integrity for virtualization-contrller.
+	AnnIntegrityGroup = "integrity.virtualization.deckhouse.io/"
+
+	// AnnIntegrityCoreChecksumis is the integrity check VMI checksum.
+	AnnIntegrityCoreChecksum = AnnIntegrityGroup + "core-spec-checksum"
+
+	// AnnIntegrityCoreChecksumisApplied is the integrity check VMI applied checksum.
+	AnnIntegrityCoreChecksumApplied = AnnIntegrityGroup + "core-spec-checksum-applied"
+
 	// AnnAPIGroup is the APIGroup for virtualization-controller.
 	AnnAPIGroup = "virt.deckhouse.io"
 
@@ -90,9 +99,9 @@ const (
 
 	UploaderServiceLabel = "service"
 
-	// AppKubernetesManagedByLabel is the Kubernetes recommended managed-by label
+	// AppKubernetesManagedByLabel is the Kubernetes recommended managed-by label.
 	AppKubernetesManagedByLabel = "app.kubernetes.io/managed-by"
-	// AppKubernetesComponentLabel is the Kubernetes recommended component label
+	// AppKubernetesComponentLabel is the Kubernetes recommended component label.
 	AppKubernetesComponentLabel = "app.kubernetes.io/component"
 
 	// AnnVersionsGroup is the internal APIGroup for virtualization-controller.
@@ -101,6 +110,11 @@ const (
 	AnnQemuVersion = AnnVersionsGroup + "/qemu-version"
 	// AnnLibvirtVersion is a pod annotation indicating libvirt version.
 	AnnLibvirtVersion = AnnVersionsGroup + "/libvirt-version"
+
+	// AnnAuditDecision is the Kubernetes annotation for audit event decision.
+	AnnAuditDecision = "authorization.k8s.io/decision"
+	// AnnAuditReason is the Kubernetes annotation for audit event reason.
+	AnnAuditReason = "authorization.k8s.io/reason"
 
 	// AppLabel is the app name label.
 	AppLabel = "app"

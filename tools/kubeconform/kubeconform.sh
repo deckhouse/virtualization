@@ -80,6 +80,10 @@ if [[ ! -d schemas ]]; then
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/101-cert-manager/crds/crd-certificates.yaml
   echo "  GrafanaDashboardDefinition"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/300-prometheus/crds/grafanadashboarddefinition.yaml
+  echo " ClusterLoggingConfig"
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/460-log-shipper/crds/cluster-logging-config.yaml
+  echo " ClusterLogDestination"
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/460-log-shipper/crds/cluster-log-destination.yaml
 
   # Transform CRDs to JSON schemas.
   export FILENAME_FORMAT='{kind}-{group}-{version}'

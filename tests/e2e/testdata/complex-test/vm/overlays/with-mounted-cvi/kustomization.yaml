@@ -9,7 +9,7 @@ patches:
         path: /spec/blockDeviceRefs/-
         value: {
               "kind": "ClusterVirtualImage",
-              "name": "cvi-ubuntu-http"
+              "name": "cvi-alpine-registry"
           }
     target:
       kind: VirtualMachine
