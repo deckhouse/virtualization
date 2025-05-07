@@ -312,14 +312,23 @@ shell:
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
+    # install binaries from images
+    cp -a /xorriso/. /
+    cp -a /swtpm/. /
+    cp -a /numactl/. /
+    cp -a /gnutls/. /
+    cp -a /dmidecode/. /
+    cp -a /acl/. /
+
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
     FILES+=" $(find /VBINS/usr/sbin/ -type f)"
 
-    LIBS="/usr/lib64/libbsd.so* /usr/lib64/libnbd.so* /usr/lib64/libfuse3.so*"
-    LIBS+=" /usr/lib64/libjson-c.so* /usr/lib64/libssh.so* /usr/lib64/libssh2.so*"
+    LIBS="/usr/lib64/libbsd.s* /usr/lib64/libnbd.s* /usr/lib64/libfuse3.s*"
+    LIBS+=" /usr/lib64/libjson-c.s* /usr/lib64/libssh.s* /usr/lib64/libssh2.s*"
     LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
-    LIBS+=" /usr/lib64/libxml2.so* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
+    LIBS+=" /usr/lib64/libxml2.s* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
+    # LIBS+=" /usr/lib64/libisoburn.s*"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
@@ -328,13 +337,6 @@ shell:
     ./relocate_binaries.sh -i "$LIBS" -o /VBINS
 
     cp -a /VBINS/. /relocate
-
-    cp -a /xorriso/. /
-    cp -a /swtpm/. /
-    cp -a /numactl/. /
-    cp -a /gnutls/. /
-    cp -a /dmidecode/. /
-    cp -a /acl/. /
 
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
