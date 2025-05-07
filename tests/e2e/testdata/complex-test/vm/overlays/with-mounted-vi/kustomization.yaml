@@ -9,7 +9,7 @@ patches:
         path: /spec/blockDeviceRefs/-
         value: {
               "kind": "VirtualImage",
-              "name": "cvi-alpine-registry"
+              "name": "vi-alpine-registry"
           }
     target:
       kind: VirtualMachine
