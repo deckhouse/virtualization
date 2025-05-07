@@ -80,8 +80,24 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		Reason(vmcondition.ReasonRestartNoNeed)
 
 	defer func() {
-		conditions.SetCondition(cbConfApplied, &changed.Status.Conditions)
-		conditions.SetCondition(cbAwaitingRestart, &changed.Status.Conditions)
+		switch changed.Status.Phase {
+		case virtv2.MachinePending, virtv2.MachineStarting, virtv2.MachineStopped:
+			conditions.RemoveCondition(vmcondition.TypeConfigurationApplied, &changed.Status.Conditions)
+			conditions.RemoveCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, &changed.Status.Conditions)
+
+		default:
+			if cbConfApplied.Condition().Status == metav1.ConditionFalse {
+				conditions.SetCondition(cbConfApplied, &changed.Status.Conditions)
+			} else {
+				conditions.RemoveCondition(vmcondition.TypeConfigurationApplied, &changed.Status.Conditions)
+			}
+
+			if cbAwaitingRestart.Condition().Status == metav1.ConditionTrue {
+				conditions.SetCondition(cbAwaitingRestart, &changed.Status.Conditions)
+			} else {
+				conditions.RemoveCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, &changed.Status.Conditions)
+			}
+		}
 	}()
 
 	if isDeletion(current) {
@@ -207,36 +223,7 @@ func (h *SyncKvvmHandler) Name() string {
 }
 
 func (h *SyncKvvmHandler) isWaiting(vm *virtv2.VirtualMachine) bool {
-	for _, c := range vm.Status.Conditions {
-		switch vmcondition.Type(c.Type) {
-		case vmcondition.TypeBlockDevicesReady:
-			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonWaitingForProvisioningToPVC.String() {
-				return true
-			}
-
-		case vmcondition.TypeSnapshotting:
-			if c.Status == metav1.ConditionTrue && c.Reason == vmcondition.ReasonSnapshottingInProgress.String() {
-				return true
-			}
-
-		case vmcondition.TypeIPAddressReady:
-			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonIPAddressNotAssigned.String() {
-				return true
-			}
-
-		case vmcondition.TypeProvisioningReady,
-			vmcondition.TypeClassReady:
-			if c.Status != metav1.ConditionTrue {
-				return true
-			}
-
-		case vmcondition.TypeSizingPolicyMatched:
-			if c.Status != metav1.ConditionTrue {
-				return true
-			}
-		}
-	}
-	return false
+	return !checkVirtualMachineConfiguration(vm)
 }
 
 func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineState, allChanges vmchange.SpecChanges) (bool, error) {
