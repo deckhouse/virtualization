@@ -70,8 +70,8 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 		log.Info("VirtualMachineIP is no longer attached to any VM: remove cleanup finalizer", "VirtualMachineIPName", vmip.Name)
 		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
 	} else if vmip.GetDeletionTimestamp() == nil {
-		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
 		log.Info("VirtualMachineIP is still attached, finalizer added", "VirtualMachineIPName", vmip.Name)
+		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
 	}
 
 	return reconcile.Result{}, nil
