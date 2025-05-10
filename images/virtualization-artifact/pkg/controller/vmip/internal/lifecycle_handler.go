@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -72,14 +73,6 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 		conditions.SetCondition(conditionAttach, &vmip.Status.Conditions)
 	}()
 
-	if vm == nil || vm.DeletionTimestamp != nil {
-		vmip.Status.VirtualMachine = ""
-		conditionAttach.Status(metav1.ConditionFalse).
-			Reason(vmipcondition.VirtualMachineNotFound).
-			Message("Virtual machine not found")
-		h.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonNotAttached, "Virtual machine not found.")
-	}
-
 	lease, err := state.VirtualMachineIPLease(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -88,31 +81,64 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 	needRequeue := false
 	switch {
 	case lease == nil && vmip.Status.Address != "":
-		vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhasePending
-		conditionBound.Status(metav1.ConditionFalse).
-			Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
-			Message(fmt.Sprintf("VirtualMachineIPAddressLease %s doesn't exist",
-				ip.IpToLeaseName(vmip.Status.Address)))
-
+		h.handleLostLease(vmip, conditionBound)
 	case lease == nil:
-		vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhasePending
-		conditionBound.Status(metav1.ConditionFalse).
-			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotFound).
-			Message("VirtualMachineIPAddressLease is not found")
+		h.handleNotFoundLease(vmip, conditionBound)
+	default:
+		needRequeue = h.handleBoundLease(lease, vmip, log, conditionBound)
+		h.handleAttachedLease(vmip, vm, conditionAttach)
+	}
 
+	log.Debug("Set VirtualMachineIP phase", "phase", vmip.Status.Phase)
+	vmip.Status.ObservedGeneration = vmip.GetGeneration()
+	if !needRequeue {
+		return reconcile.Result{}, nil
+	} else {
+		// TODO add requeue with with exponential BackOff time interval using condition Bound -> probeTime
+		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
+	}
+}
+
+func (h *LifecycleHandler) handleNotFoundLease(vmip *virtv2.VirtualMachineIPAddress, conditionBound *conditions.ConditionBuilder) {
+	vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhasePending
+	conditionBound.Status(metav1.ConditionFalse).
+		Reason(vmipcondition.VirtualMachineIPAddressLeaseNotFound).
+		Message("VirtualMachineIPAddressLease is not found")
+}
+
+func (h *LifecycleHandler) handleLostLease(vmip *virtv2.VirtualMachineIPAddress, conditionBound *conditions.ConditionBuilder) {
+	vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhasePending
+	conditionBound.Status(metav1.ConditionFalse).
+		Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
+		Message(fmt.Sprintf("VirtualMachineIPAddressLease %s doesn't exist",
+			ip.IpToLeaseName(vmip.Status.Address)))
+}
+
+func (h *LifecycleHandler) handleAttachedLease(vmip *virtv2.VirtualMachineIPAddress, vm *virtv2.VirtualMachine, conditionAttach *conditions.ConditionBuilder) {
+	if vm == nil || vm.DeletionTimestamp != nil {
+		vmip.Status.VirtualMachine = ""
+		conditionAttach.Status(metav1.ConditionFalse).
+			Reason(vmipcondition.VirtualMachineNotFound).
+			Message("Virtual machine not found")
+		h.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonNotAttached, "Virtual machine not found.")
+		return
+	}
+
+	vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhaseAttached
+	vmip.Status.VirtualMachine = vm.Name
+	conditionAttach.Status(metav1.ConditionTrue).
+		Reason(vmipcondition.Attached)
+	h.recorder.Eventf(vmip, corev1.EventTypeNormal, virtv2.ReasonAttached, "VirtualMachineIPAddress is attached to %q/%q.", vm.Namespace, vm.Name)
+}
+
+func (h *LifecycleHandler) handleBoundLease(lease *virtv2.VirtualMachineIPAddressLease, vmip *virtv2.VirtualMachineIPAddress, log *slog.Logger, conditionBound *conditions.ConditionBuilder) bool {
+	needRequeue := false
+	switch {
 	case util.IsBoundLease(lease, vmip):
 		vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhaseBound
 		vmip.Status.Address = ip.LeaseNameToIP(lease.Name)
 		conditionBound.Status(metav1.ConditionTrue).
 			Reason(vmipcondition.Bound)
-
-		if vm != nil && vm.GetDeletionTimestamp().IsZero() {
-			vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhaseAttached
-			vmip.Status.VirtualMachine = vm.Name
-			conditionAttach.Status(metav1.ConditionTrue).
-				Reason(vmipcondition.Attached)
-			h.recorder.Eventf(vmip, corev1.EventTypeNormal, virtv2.ReasonAttached, "VirtualMachineIPAddress is attached to %q/%q.", vm.Namespace, vm.Name)
-		}
 
 	case lease.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseBound:
 		vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhasePending
@@ -138,15 +164,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 				lease.Name))
 	}
 
-	log.Debug("Set VirtualMachineIP phase", "phase", vmip.Status.Phase)
-
-	vmip.Status.ObservedGeneration = vmip.GetGeneration()
-	if !needRequeue {
-		return reconcile.Result{}, nil
-	} else {
-		// TODO add requeue with with exponential BackOff time interval using condition Bound -> probeTime
-		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
-	}
+	return needRequeue
 }
 
 func (h *LifecycleHandler) Name() string {
