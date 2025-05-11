@@ -64,8 +64,11 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 	}
 
 	var err error
+	leaseName := ip.IpToLeaseName(s.vmip.Spec.StaticIP)
 
-	leaseName := ip.IpToLeaseName(s.vmip.Status.Address)
+	if leaseName == "" {
+		leaseName = ip.IpToLeaseName(s.vmip.Status.Address)
+	}
 
 	if leaseName != "" {
 		leaseKey := types.NamespacedName{Name: leaseName}
@@ -78,7 +81,6 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 	if s.lease == nil {
 		var leases virtv2.VirtualMachineIPAddressLeaseList
 		err = s.client.List(ctx, &leases,
-			client.InNamespace(s.vmip.Namespace),
 			&client.MatchingFields{
 				indexer.IndexFieldVMIPLeaseByVMIP: s.vmip.Name,
 			})
