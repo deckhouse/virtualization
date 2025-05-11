@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
@@ -86,6 +87,10 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 			})
 		if err != nil {
 			return nil, err
+		}
+
+		if len(leases.Items) > 1 {
+			logger.FromContext(ctx).Warn("More than one VirtualMachineIPAddressLease found", "count", len(leases.Items))
 		}
 
 		for i, lease := range leases.Items {
