@@ -119,20 +119,26 @@ Where:
 - `allowedStorageClassNames` (optional): A list of the allowed StorageClass for creating a VirtualDisk that can be explicitly specified in the resource specification.
 - `defaultStorageClassName` (optional): The StorageClass used by default when creating a VirtualDisk if the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified.
 
- **Live Migration Settings**
+**Security Event Audit**
 
-Virtual machine migration parameters can be set in the `.spec.settings.liveMigration` block:
-Example parameters:
+{{< alert level="warning">}}
+Not available in CE edition.
+{{{< /alert >}}
+
+{{{< alert level="warning">}}
+To enable auditing, the following modules are required to be enabled:
+- log-shipper
+- runtime-audit-engine
+{{{< /alert >}}
+
+You can enable auditing of security events as follows:
+
 ```yaml
 spec:
   enabled: true
   settings:
-    liveMigration:
-      # The bandwidth of the network that will be used to migrate to the node
-      # 64 Mi -> (64 * 2^20 * 8) / 10^6 = 536 Mbps
-      bandwidthPerNode: 64Mi
-      # Maximum number of migrations per node (inbound and outbound)
-      maxMigrationsPerNode: 2
+    audit:
+      enabled: true
 ```
 
 {{< alert level="info" >}}

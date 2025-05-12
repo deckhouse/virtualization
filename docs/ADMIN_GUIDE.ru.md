@@ -119,22 +119,26 @@ spec:
 - `allowedStorageClassNames` (опционально) — это список допустимых StorageClass для создания VirtualDisk, которые можно явно указать в спецификации ресурса;
 - `defaultStorageClassName` (опционально) — это StorageClass, используемый по умолчанию при создании VirtualDisk, если параметр `.spec.persistentVolumeClaim.storageClassName` не задан.
 
-**Настройки живой миграции**
+**Аудит событий безопасности**
 
-Параметры миграции виртуальных машин можно задать в блоке `.spec.settings.liveMigration`:
+{{< alert level="warning" >}}
+Недоступно в CE-редакции.
+{{< /alert >}}
 
-Пример параметров:
+{{< alert level="warning" >}}
+Для включения аудита, требуется чтобы следующие модули были включены:
+- log-shipper
+- runtime-audit-engine
+{{< /alert >}}
+
+Включить аудит событий безопасности можно следующим образом:
 
 ```yaml
 spec:
   enabled: true
   settings:
-    liveMigration:
-      # Пропускная способность канала связи, которая будет использоваться для миграции на узел
-      # 64 Mi -> (64 * 2^20 * 8) / 10^6 = 536 Mbps
-      bandwidthPerNode: 64Mi
-      # Максимальное количество миграций на узел (входящих и исходящих)
-      maxMigrationsPerNode: 2
+    audit:
+      enabled: true
 ```
 
 {{< alert level="info" >}}
