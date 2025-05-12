@@ -32,6 +32,8 @@ shell:
     - |
       apt-get update && apt-get install -y \
         git openssh golang
+      
+      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
       export GOPATH=$(go env GOPATH)
       export GOROOT=$(go env GOROOT)

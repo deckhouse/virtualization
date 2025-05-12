@@ -126,6 +126,8 @@ shell:
 
   install:
   - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    
     cp -a /dmidecode/. /
     rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"

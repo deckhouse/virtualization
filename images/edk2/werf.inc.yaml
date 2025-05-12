@@ -1,7 +1,7 @@
 ---
 {{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Version $gitRepoName }}
-{{- $gitRepoUrl := cat $.SOURCE_REPO "/tianocore/edk2.git" | nospace }}
+{{- $gitRepoUrl := "tianocore/edk2.git" }}
 
 image: {{ $.ImageName }}
 final: false
@@ -35,6 +35,9 @@ git:
   stageDependencies:
     setup:
       - '*.bin'
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
   - | 
@@ -61,9 +64,11 @@ shell:
 
   install:
   - |
-    git clone --depth=1 --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} {{ $gitRepoName }}-{{ $version }}
     
-    git clone {{ $.SOURCE_REPO }}/tianocore/edk2-platforms.git
+    git clone $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-platforms.git
 
     cd {{ $gitRepoName }}-{{ $version }}
     git submodule update --init --recursive

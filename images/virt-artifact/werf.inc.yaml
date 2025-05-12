@@ -29,9 +29,6 @@ packages:
 image: {{ $.ImageName }}
 final: false
 fromImage: base-alt-p11
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
@@ -45,6 +42,9 @@ git:
     - patches
     excludePaths:
     - patches/README.md
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO }}
 shell:
   beforeInstall:
       {{- include "alt packages proxy" . | nindent 2 }}
