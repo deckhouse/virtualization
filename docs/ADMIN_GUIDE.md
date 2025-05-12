@@ -126,12 +126,13 @@ Not available in CE edition.
 {{{< /alert >}}
 
 {{{< alert level="warning">}}
-To enable auditing, the following modules are required to be enabled:
-- log-shipper
-- runtime-audit-engine
+To set up auditing, the following modules must be enabled:
+
+- `log-shipper`,
+- `runtime-audit-engine`.
 {{{< /alert >}}
 
-You can enable auditing of security events as follows:
+To enable security event auditing, set the module’s `.spec.settings.audit.enabled` parameter to` true`:
 
 ```yaml
 spec:
@@ -597,9 +598,10 @@ Rule: Each new range must start with a value that immediately follows the max of
 
 Additional requirements can be specified for each range of cores:
 
-1. Memory — specify either:
-- Minimum and maximum memory for all cores in the range,
-- Either the minimum and maximum memory per core (`memoryPerCore`).
+1. Memory — specify:
+
+    - Either minimum and maximum memory for all cores in the range,
+    - Either the minimum and maximum memory per core (`memoryPerCore`).
 
 2. Allowed fractions of cores (`coreFractions`) — a list of allowed values (for example, [25, 50, 100] for 25%, 50%, or 100% core usage).
 
