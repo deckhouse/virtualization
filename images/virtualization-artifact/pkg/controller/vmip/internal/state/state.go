@@ -18,6 +18,7 @@ package state
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,6 +83,8 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 		}
 	}
 
+	logger := logger.FromContext(ctx)
+
 	if s.lease == nil {
 		leases := &virtv2.VirtualMachineIPAddressLeaseList{}
 
@@ -94,7 +97,9 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 		}
 
 		if len(leases.Items) > 1 {
-			logger.FromContext(ctx).Warn("More than one VirtualMachineIPAddressLease found", "count", len(leases.Items))
+			logger.Warn("More than one VirtualMachineIPAddressLease found", "count", len(leases.Items))
+		} else if len(leases.Items) == 0 {
+			logger.Warn("VirtualMachineIPAddressLease not found -> kubeclient", "vmip", s.vmip.Name)
 		}
 
 		for i, lease := range leases.Items {
@@ -103,6 +108,23 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 				s.lease = &leases.Items[i]
 				break
 			}
+		}
+	}
+
+	if s.lease == nil {
+		leases, err := s.virtClient.VirtualMachineIPAddressLeases().List(ctx, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", annotations.LabelVirtualMachineIPAddressUID, string(s.vmip.GetUID())),
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if len(leases.Items) != 0 {
+			if len(leases.Items) > 1 {
+				logger.Warn("More than one VirtualMachineIPAddressLease found in kubeclient without cache", "count", len(leases.Items))
+			}
+			logger.Warn("VirtualMachineIPAddressLease found in kubeclient without cache", "vmip", s.vmip.Name)
+			return nil, errors.New("VirtualMachineIPAddressLease found in kubeclient without cache")
 		}
 	}
 

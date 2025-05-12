@@ -64,6 +64,10 @@ func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reco
 
 	lease, err := state.VirtualMachineIPLease(ctx)
 	if err != nil {
+		if err.Error() == "VirtualMachineIPAddressLease found in kubeclient without cache" {
+			return reconcile.Result{}, nil
+		}
+
 		return reconcile.Result{}, err
 	}
 
