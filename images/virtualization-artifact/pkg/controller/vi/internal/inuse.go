@@ -74,6 +74,19 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 		}
 	}
 
+	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+	err = h.client.List(ctx, &vmbdas, client.InNamespace(vi.GetNamespace()))
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	var vmbdaUsedImage []client.Object
+	for _, vmbda := range vmbdas.Items {
+		if vmbda.Spec.BlockDeviceRef.Kind == virtv2.VirtualImageKind && vmbda.Spec.BlockDeviceRef.Name == vi.Name {
+			vmbdaUsedImage = append(vmbdaUsedImage, &vmbda)
+		}
+	}
+
 	var vds virtv2.VirtualDiskList
 	err = h.client.List(ctx, &vds, client.InNamespace(vi.GetNamespace()), client.MatchingFields{
 		indexer.IndexFieldVDByVIDataSource: vi.GetName(),
@@ -128,6 +141,10 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vmUsedImage...))
 		}
 
+		if len(vmbdaUsedImage) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineBlockDeviceAttachmentKind, vmbdaUsedImage...))
+		}
+
 		if len(vdsNotReady) > 0 {
 			msgs = append(msgs, getTerminationMessage(virtv2.VirtualDiskKind, vdsNotReady...))
 		}
@@ -164,23 +181,45 @@ func getTerminationMessage(objectKind string, objects ...client.Object) string {
 		}
 	}
 
-	if objectKind == virtv2.VirtualMachineKind {
-		switch len(objectFilteredNames) {
-		case 1:
-			return fmt.Sprintf("the VirtualImage is currently attached to the VirtualMachine %s", objectFilteredNames[0])
-		case 2, 3:
-			return fmt.Sprintf("the VirtualImage is currently attached to the VirtualMachines: %s", strings.Join(objectFilteredNames, ", "))
-		default:
-			return fmt.Sprintf("%d VirtualMachines are using the VirtualImage", len(objectFilteredNames))
-		}
-	} else {
-		switch len(objectFilteredNames) {
-		case 1:
-			return fmt.Sprintf("the VirtualImage is currently being used to create the %s %s", objectKind, objectFilteredNames[0])
-		case 2, 3:
-			return fmt.Sprintf("the VirtualImage is currently being used to create the %ss: %s", objectKind, strings.Join(objectFilteredNames, ", "))
-		default:
-			return fmt.Sprintf("the VirtualImage is currently used to create %d %ss", len(objectFilteredNames), objectKind)
-		}
+	switch objectKind {
+	case virtv2.VirtualMachineKind:
+		return getVMTerminationMessage(objectFilteredNames)
+	case virtv2.VirtualMachineBlockDeviceAttachmentKind:
+		return getVMBDATerminationMessage(objectFilteredNames)
+	default:
+		return getDefaultTerminationMessage(objectKind, objectFilteredNames)
+	}
+}
+
+func getDefaultTerminationMessage(objectKind string, objectNames []string) string {
+	switch len(objectNames) {
+	case 1:
+		return fmt.Sprintf("the VirtualImage is currently being used to create the %s %s", objectKind, objectNames[0])
+	case 2, 3:
+		return fmt.Sprintf("the VirtualImage is currently being used to create the %ss: %s", objectKind, strings.Join(objectNames, ", "))
+	default:
+		return fmt.Sprintf("the VirtualImage is currently used to create %d %ss", len(objectNames), objectKind)
+	}
+}
+
+func getVMTerminationMessage(objectNames []string) string {
+	switch len(objectNames) {
+	case 1:
+		return fmt.Sprintf("the VirtualImage is currently attached to the VirtualMachine %s", objectNames[0])
+	case 2, 3:
+		return fmt.Sprintf("the VirtualImage is currently attached to the VirtualMachines: %s", strings.Join(objectNames, ", "))
+	default:
+		return fmt.Sprintf("%d VirtualMachines are using the VirtualImage", len(objectNames))
+	}
+}
+
+func getVMBDATerminationMessage(objectNames []string) string {
+	switch len(objectNames) {
+	case 1:
+		return fmt.Sprintf("the VirtualImage is currently being used by the VMBDA %s", objectNames[0])
+	case 2, 3:
+		return fmt.Sprintf("the VirtualImage is currently being used by the VMBDAs: %s", strings.Join(objectNames, ", "))
+	default:
+		return fmt.Sprintf("the VirtualImage is currently used by %d VMBDAs", len(objectNames))
 	}
 }

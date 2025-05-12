@@ -21,9 +21,8 @@ import (
 	"fmt"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -75,6 +74,19 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 				vmUsedImage = append(vmUsedImage, &vm)
 				namespacesMap[vm.Namespace] = struct{}{}
 			}
+		}
+	}
+
+	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+	err = h.client.List(ctx, &vmbdas)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	var vmbdaUsedImage []client.Object
+	for _, vmbda := range vmbdas.Items {
+		if vmbda.Spec.BlockDeviceRef.Kind == virtv2.ClusterVirtualImageKind && vmbda.Spec.BlockDeviceRef.Name == cvi.Name {
+			vmbdaUsedImage = append(vmbdaUsedImage, &vmbda)
 		}
 	}
 
@@ -136,6 +148,10 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vmUsedImage...))
 		}
 
+		if len(vmbdaUsedImage) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineBlockDeviceAttachmentKind, vmbdaUsedImage...))
+		}
+
 		if len(vdsNotReady) > 0 {
 			msgs = append(msgs, getTerminationMessage(virtv2.VirtualDiskKind, vdsNotReady...))
 		}
@@ -183,28 +199,13 @@ func getTerminationMessage(objectKind string, objects ...client.Object) string {
 		}
 	}
 
-	if objectKind == virtv2.VirtualMachineKind {
-		switch len(objectFilteredNamespacedNames) {
-		case 1:
-			return fmt.Sprintf("the ClusterVirtualImage is currently attached to the VirtualMachine %s/%s", objectFilteredNamespacedNames[0].Namespace, objectFilteredNamespacedNames[0].Name)
-		case 2, 3:
-			return fmt.Sprintf("the ClusterVirtualImage is currently attached to the VirtualMachines: %s", strings.Join(nameSpacedNamesToStringSlice(objectFilteredNamespacedNames), ", "))
-		default:
-			return fmt.Sprintf("%d VirtualMachines are using the ClusterVirtualImage", len(objectFilteredNamespacedNames))
-		}
-	} else {
-		switch len(objectFilteredNamespacedNames) {
-		case 1:
-			if objectFilteredNamespacedNames[0].Namespace != "" {
-				return fmt.Sprintf("the ClusterVirtualImage is currently being used to create the %s %s/%s", objectKind, objectFilteredNamespacedNames[0].Namespace, objectFilteredNamespacedNames[0].Name)
-			} else {
-				return fmt.Sprintf("the ClusterVirtualImage is currently being used to create the %s %s", objectKind, objectFilteredNamespacedNames[0].Name)
-			}
-		case 2, 3:
-			return fmt.Sprintf("the ClusterVirtualImage is currently being used to create the %ss: %s", objectKind, strings.Join(nameSpacedNamesToStringSlice(objectFilteredNamespacedNames), ", "))
-		default:
-			return fmt.Sprintf("the ClusterVirtualImage is currently used to create %d %ss", len(objectFilteredNamespacedNames), objectKind)
-		}
+	switch objectKind {
+	case virtv2.VirtualMachineKind:
+		return getVMTerminationMessage(objectFilteredNamespacedNames)
+	case virtv2.VirtualMachineBlockDeviceAttachmentKind:
+		return getVMBDATerminationMessage(objectFilteredNamespacedNames)
+	default:
+		return getDefaultTerminationMessage(objectKind, objectFilteredNamespacedNames)
 	}
 }
 
@@ -220,6 +221,47 @@ func nameSpacedNamesToStringSlice(namespacedNames []types.NamespacedName) []stri
 	}
 
 	return result
+}
+
+func getDefaultTerminationMessage(objectKind string, objectNamespacedNames []types.NamespacedName) string {
+	switch len(objectNamespacedNames) {
+	case 1:
+		if objectNamespacedNames[0].Namespace != "" {
+			return fmt.Sprintf("the ClusterVirtualImage is currently being used to create the %s %s/%s", objectKind, objectNamespacedNames[0].Namespace, objectNamespacedNames[0].Name)
+		} else {
+			return fmt.Sprintf("the ClusterVirtualImage is currently being used to create the %s %s", objectKind, objectNamespacedNames[0].Name)
+		}
+	case 2, 3:
+		return fmt.Sprintf("the ClusterVirtualImage is currently being used to create the %ss: %s", objectKind, strings.Join(nameSpacedNamesToStringSlice(objectNamespacedNames), ", "))
+	default:
+		return fmt.Sprintf("the ClusterVirtualImage is currently used to create %d %ss", len(objectNamespacedNames), objectKind)
+	}
+}
+
+func getVMTerminationMessage(objectNamespacedNames []types.NamespacedName) string {
+	switch len(objectNamespacedNames) {
+	case 1:
+		return fmt.Sprintf("the ClusterVirtualImage is currently attached to the VirtualMachine %s/%s", objectNamespacedNames[0].Namespace, objectNamespacedNames[0].Name)
+	case 2, 3:
+		return fmt.Sprintf("the ClusterVirtualImage is currently attached to the VirtualMachines: %s", strings.Join(nameSpacedNamesToStringSlice(objectNamespacedNames), ", "))
+	default:
+		return fmt.Sprintf("%d VirtualMachines are using the ClusterVirtualImage", len(objectNamespacedNames))
+	}
+}
+
+func getVMBDATerminationMessage(objectNamespacedNames []types.NamespacedName) string {
+	switch len(objectNamespacedNames) {
+	case 1:
+		if objectNamespacedNames[0].Namespace != "" {
+			return fmt.Sprintf("the ClusterVirtualImage is currently being used by the VMBDA %s/%s", objectNamespacedNames[0].Namespace, objectNamespacedNames[0].Name)
+		} else {
+			return fmt.Sprintf("the ClusterVirtualImage is currently being used by the VMBDA %s", objectNamespacedNames[0].Name)
+		}
+	case 2, 3:
+		return fmt.Sprintf("the ClusterVirtualImage is currently being used by the VMBDAs: %s", strings.Join(nameSpacedNamesToStringSlice(objectNamespacedNames), ", "))
+	default:
+		return fmt.Sprintf("the ClusterVirtualImage is currently used by %d VMBDAs", len(objectNamespacedNames))
+	}
 }
 
 func getNamespacesTerminationMessage(namespaces []string) string {
