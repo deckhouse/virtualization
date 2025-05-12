@@ -70,6 +70,10 @@ import:
   add: /bzip2
   to: /bzip2
   before: install
+- image: packages/binaries/nbdkit
+  add: /nbdkit
+  to: /nbdkit
+  before: install
 - image: qemu
   add: /qemu-img
   to: /qemu-img
@@ -77,14 +81,10 @@ import:
 shell:
   install:
   - |
-    apt-get update && apt-get install --yes \
-      libnbd
-    apt-get clean
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-
     cp -a /qemu-img/. /
     cp -a /bzip2/. /
     cp -a /file/. /
+    cp -a /nbdkit/. /
     rm -rf /{file,bzip2,qemu-img}
   setup:
   - |
