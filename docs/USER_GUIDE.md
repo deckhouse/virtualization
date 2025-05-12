@@ -1621,7 +1621,9 @@ Network speed plays an important role. If bandwidth is low, there are more itera
 
 #### AutoConverge mechanism
 
-What to do if the network cannot cope with data transfer and "dirty" pages are becoming more and more numerous? This is where the AutoConverge mechanism comes in. It helps to complete the migration even when network bandwidth is low. Here's how it works:
+If the network struggles to handle data transfer and the number of "dirty" pages keeps growing, the AutoConverge mechanism can be useful. It helps complete migration even with low network bandwidth.
+
+The working principles of AutoConverge mechanism:
 
 1. **VM CPU slowdown**.
 
