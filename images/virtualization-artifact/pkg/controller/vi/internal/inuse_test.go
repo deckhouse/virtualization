@@ -30,6 +30,7 @@ import (
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
+	vmbdabuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -58,6 +59,10 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 	var objects []client.Object
 	for _, vm := range args.VMs {
 		objects = append(objects, &vm)
+	}
+
+	for _, vmbda := range args.VMBDAs {
+		objects = append(objects, &vmbda)
 	}
 
 	for _, vd := range args.VDs {
@@ -215,7 +220,7 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 		ExpectedConditionReason:  vicondition.InUse.String(),
 		ExpectedConditionMessage: "5 VirtualMachines are using the VirtualImage.",
 	}),
-	Entry("has 5 VM with connected terminating VI, 4 VD, 2 CVI, 1 VI", inUseHandlerTestArgs{
+	Entry("has 5 VM with connected terminating VI, 1 VMBDA, 4 VD, 2 CVI, 1 VI", inUseHandlerTestArgs{
 		VINamespacedName: types.NamespacedName{
 			Name:      "test",
 			Namespace: "ns",
@@ -334,10 +339,21 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 				}),
 			),
 		},
+		VMBDAs: []virtv2.VirtualMachineBlockDeviceAttachment{
+			generateVMBDAForInUseTest(
+				"test1",
+				"ns",
+				virtv2.VMBDAObjectRef{
+					Kind: virtv2.VirtualImageKind,
+					Name: "test",
+				},
+				"test-vm",
+			),
+		},
 		ExpectedConditionExists:  true,
 		ExpectedConditionStatus:  metav1.ConditionTrue,
 		ExpectedConditionReason:  vicondition.InUse.String(),
-		ExpectedConditionMessage: "5 VirtualMachines are using the VirtualImage, the VirtualImage is currently used to create 4 VirtualDisks, the VirtualImage is currently being used to create the VirtualImage test1, the VirtualImage is currently being used to create the ClusterVirtualImages: test1, test2.",
+		ExpectedConditionMessage: "5 VirtualMachines are using the VirtualImage, the VirtualImage is currently being used by the VMBDA test1, the VirtualImage is currently used to create 4 VirtualDisks, the VirtualImage is currently being used to create the VirtualImage test1, the VirtualImage is currently being used to create the ClusterVirtualImages: test1, test2.",
 	}),
 )
 
@@ -348,6 +364,7 @@ type inUseHandlerTestArgs struct {
 	VDs                      []virtv2.VirtualDisk
 	VIs                      []virtv2.VirtualImage
 	CVIs                     []virtv2.ClusterVirtualImage
+	VMBDAs                   []virtv2.VirtualMachineBlockDeviceAttachment
 	ExpectedConditionExists  bool
 	ExpectedConditionReason  string
 	ExpectedConditionMessage string
@@ -389,5 +406,14 @@ func generateVDForInUseTest(name, namespace string, datasource virtv2.VirtualDis
 		vdbuilder.WithName(name),
 		vdbuilder.WithNamespace(namespace),
 		vdbuilder.WithDatasource(&datasource),
+	)
+}
+
+func generateVMBDAForInUseTest(name, namespace string, bdRef virtv2.VMBDAObjectRef, vmName string) virtv2.VirtualMachineBlockDeviceAttachment {
+	return *vmbdabuilder.New(
+		vmbdabuilder.WithName(name),
+		vmbdabuilder.WithNamespace(namespace),
+		vmbdabuilder.WithBlockDeviceRef(bdRef),
+		vmbdabuilder.WithVMName(vmName),
 	)
 }
