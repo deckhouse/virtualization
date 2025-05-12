@@ -347,3 +347,22 @@ AllowAutoConverge is a global configuration option or should be changed in clust
 This patch disables setting migration configuration from MigrationPolicies resources,
 and forces source virt-handler to wait for migrationConfiguration in KVVMI status before
 starting migration.
+
+#### `052-fix-migration-monitor-after-completion.patch`
+
+##### Problem
+
+The migration monitor (migrationMonitor) continues to make calls to GetJobStats() even after a successful migration has completed. 
+This leads to errors like:
+
+```
+"Failed to get domain job info": virError(Code=42, Domain=10, Message='Domain not found...')
+```
+
+These errors occur because the domain has already been successfully migrated and cleaned up on the source node.
+
+Additionally, during migration, there are cosmetic errors such as:
+
+```
+"Requested operation is not valid: domain is not running"
+```
