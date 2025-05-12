@@ -104,7 +104,7 @@ func (s *state) reloadVirtualMachineIPLease(ctx context.Context) error {
 		}
 	}
 
-	logger := logger.FromContext(ctx)
+	log := logger.FromContext(ctx)
 	if s.lease == nil {
 		leases := &virtv2.VirtualMachineIPAddressLeaseList{}
 
@@ -117,7 +117,7 @@ func (s *state) reloadVirtualMachineIPLease(ctx context.Context) error {
 		}
 
 		if len(leases.Items) > 1 {
-			logger.Error("More than one VirtualMachineIPAddressLease found", "count", len(leases.Items))
+			log.Error("More than one VirtualMachineIPAddressLease found", "count", len(leases.Items))
 		}
 
 		for i, lease := range leases.Items {
@@ -139,9 +139,9 @@ func (s *state) reloadVirtualMachineIPLease(ctx context.Context) error {
 
 		if len(leases.Items) != 0 {
 			if len(leases.Items) > 1 {
-				logger.Error("More than one VirtualMachineIPAddressLease found in kubeclient without cache", "count", len(leases.Items))
+				log.Error("More than one VirtualMachineIPAddressLease found in kubeclient without cache", "count", len(leases.Items))
 			}
-			logger.Warn("VirtualMachineIPAddressLease found in kubeclient without cache", "vmip", s.vmip.Name)
+			log.Warn("VirtualMachineIPAddressLease found in kubeclient without cache", "vmip", s.vmip.Name)
 			return errors.New("VirtualMachineIPAddressLease found in kubeclient without cache")
 		}
 	}
