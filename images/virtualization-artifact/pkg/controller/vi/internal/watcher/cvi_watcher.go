@@ -87,6 +87,18 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj cli
 		})
 	}
 
+	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
+	if ok && cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
+		if cvi.Spec.DataSource.ObjectRef != nil && cvi.Spec.DataSource.ObjectRef.Kind == virtv2.VirtualImageKind {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      cvi.Spec.DataSource.ObjectRef.Name,
+					Namespace: cvi.Spec.DataSource.ObjectRef.Namespace,
+				},
+			})
+		}
+	}
+
 	return
 }
 
