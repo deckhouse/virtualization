@@ -74,8 +74,15 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromVMs),
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return true
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldVm := e.ObjectOld.(*virtv2.VirtualMachine)
+				newVm := e.ObjectNew.(*virtv2.VirtualMachine)
+				return newVm.Spec.VirtualMachineIPAddress != oldVm.Spec.VirtualMachineIPAddress ||
+					newVm.Status.VirtualMachineIPAddress != oldVm.Status.VirtualMachineIPAddress
+			},
 		},
 	); err != nil {
 		return fmt.Errorf("error setting watch on vms: %w", err)
