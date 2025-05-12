@@ -60,16 +60,7 @@ func NewIPLeaseHandler(client client.Client, ipAddressService *service.IpAddress
 func (h IPLeaseHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
 	log, ctx := logger.GetHandlerContext(ctx, IpLeaseHandlerName)
 
-	vmip := state.VirtualMachineIP()
-
-	lease, err := state.VirtualMachineIPLease(ctx)
-	if err != nil {
-		if err.Error() == "VirtualMachineIPAddressLease found in kubeclient without cache" {
-			return reconcile.Result{}, nil
-		}
-
-		return reconcile.Result{}, err
-	}
+	vmip, lease := state.VirtualMachineIP(), state.VirtualMachineIPLease()
 
 	switch {
 	case lease == nil:

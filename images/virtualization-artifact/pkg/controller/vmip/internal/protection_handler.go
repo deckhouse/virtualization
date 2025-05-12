@@ -61,10 +61,7 @@ func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (
 		log.Debug("VirtualMachineIPAddress deletion is delayed: it's protected by virtual machines")
 	}
 
-	vm, err := state.VirtualMachine(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	vm := state.VirtualMachine()
 
 	if vm == nil || vm.DeletionTimestamp != nil {
 		log.Info("VirtualMachineIP is no longer attached to any VM: remove cleanup finalizer", "VirtualMachineIPName", vmip.Name)

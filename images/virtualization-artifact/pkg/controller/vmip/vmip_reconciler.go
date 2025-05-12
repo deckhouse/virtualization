@@ -173,6 +173,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	s := state.New(r.client, r.virtClient, vmip.Changed())
+	err = s.Reload(ctx)
+	if err != nil {
+		if err.Error() == "VirtualMachineIPAddressLease found in kubeclient without cache" {
+			return reconcile.Result{}, nil
+		}
+
+		return reconcile.Result{}, err
+	}
+
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
 		return h.Handle(ctx, s)

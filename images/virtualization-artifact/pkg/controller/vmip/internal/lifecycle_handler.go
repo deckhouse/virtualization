@@ -51,12 +51,7 @@ func NewLifecycleHandler(recorder eventrecord.EventRecorderLogger) *LifecycleHan
 func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(LifecycleHandlerName))
 
-	vmip := state.VirtualMachineIP()
-
-	vm, err := state.VirtualMachine(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	vmip, vm := state.VirtualMachineIP(), state.VirtualMachine()
 
 	conditionBound := conditions.NewConditionBuilder(vmipcondition.BoundType).
 		Generation(vmip.GetGeneration()).
@@ -73,14 +68,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (r
 		conditions.SetCondition(conditionAttach, &vmip.Status.Conditions)
 	}()
 
-	lease, err := state.VirtualMachineIPLease(ctx)
-	if err != nil {
-		if err.Error() == "VirtualMachineIPAddressLease found in kubeclient without cache" {
-			return reconcile.Result{}, nil
-		}
-
-		return reconcile.Result{}, err
-	}
+	lease := state.VirtualMachineIPLease()
 
 	needRequeue := false
 	switch {
