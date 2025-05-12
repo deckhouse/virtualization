@@ -107,6 +107,7 @@ func (h IPLeaseHandler) updateLease(ctx context.Context, lease *virtv2.VirtualMa
 		Name:      vmip.Name,
 		Namespace: vmip.Namespace,
 	}
+	lease.Labels[annotations.LabelVirtualMachineIPAddressUID] = string(vmip.GetUID())
 
 	err := h.client.Update(ctx, lease)
 	if err != nil {
