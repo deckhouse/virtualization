@@ -19,7 +19,6 @@ package vmip
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -44,14 +43,16 @@ type Handler interface {
 }
 
 type Reconciler struct {
-	handlers []Handler
-	client   client.Client
+	handlers   []Handler
+	client     client.Client
+	virtClient kubeclient.Client
 }
 
-func NewReconciler(client client.Client, handlers ...Handler) (*Reconciler, error) {
+func NewReconciler(client client.Client, virtClient kubeclient.Client, handlers ...Handler) (*Reconciler, error) {
 	return &Reconciler{
-		client:   client,
-		handlers: handlers,
+		client:     client,
+		virtClient: virtClient,
+		handlers:   handlers,
 	}, nil
 }
 
@@ -153,7 +154,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	s := state.New(r.client, vmip.Changed())
+	s := state.New(r.client, r.virtClient, vmip.Changed())
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
 		return h.Handle(ctx, s)
@@ -164,21 +165,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return vmip.Update(ctx)
 	})
 
-	// TODO: This code addresses the issue of creating vmipl within the controller.
-	// The object is saved in etcd but does not get updated in the cache in time.
-	// As a result, we encounter the creation of multiple vmipl during a single reconcile operation.
-	// Adding reconcile.Result{RequeueAfter: 2 * time.Second} helps to fix this issue in 90% of cases.
-	// In the future, this code should be architecturally redesigned to prevent such situations.
-	result, err := rec.Reconcile(ctx)
-	if err != nil {
-		logger.FromContext(ctx).Error("Failed to reconcile VMIP", logger.SlogErr(err))
-		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
-	}
-	if result.Requeue {
-		return reconcile.Result{RequeueAfter: 2 * time.Second}, nil
-	}
-
-	return result, nil
+	return rec.Reconcile(ctx)
 }
 
 func (r *Reconciler) factory() *virtv2.VirtualMachineIPAddress {

@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
@@ -46,14 +47,15 @@ type VMIPState interface {
 
 type state struct {
 	client       client.Client
+	virtClient   kubeclient.Client
 	vmip         *virtv2.VirtualMachineIPAddress
 	lease        *virtv2.VirtualMachineIPAddressLease
 	vm           *virtv2.VirtualMachine
 	allocatedIPs ip.AllocatedIPs
 }
 
-func New(c client.Client, vmip *virtv2.VirtualMachineIPAddress) VMIPState {
-	return &state{client: c, vmip: vmip}
+func New(c client.Client, virtClient kubeclient.Client, vmip *virtv2.VirtualMachineIPAddress) VMIPState {
+	return &state{client: c, virtClient: virtClient, vmip: vmip}
 }
 
 func (s *state) VirtualMachineIP() *virtv2.VirtualMachineIPAddress {

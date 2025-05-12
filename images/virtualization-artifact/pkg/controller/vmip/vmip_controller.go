@@ -26,10 +26,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -40,6 +42,7 @@ const (
 func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
+	virtClient kubeclient.Client,
 	log *log.Logger,
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
@@ -52,7 +55,7 @@ func NewController(
 		internal.NewLifecycleHandler(recorder),
 	}
 
-	r, err := NewReconciler(mgr.GetClient(), handlers...)
+	r, err := NewReconciler(mgr.GetClient(), virtClient, handlers...)
 	if err != nil {
 		return nil, err
 	}

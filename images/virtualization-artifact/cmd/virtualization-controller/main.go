@@ -300,7 +300,7 @@ func main() {
 	}
 
 	vmipLogger := logger.NewControllerLogger(vmip.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vmip.NewController(ctx, mgr, vmipLogger, virtualMachineCIDRs); err != nil {
+	if _, err = vmip.NewController(ctx, mgr, virtClient, vmipLogger, virtualMachineCIDRs); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}
