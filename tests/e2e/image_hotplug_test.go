@@ -154,6 +154,13 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 		ns, err := kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 		conf.SetNamespace(ns)
+
+		res := kubectl.Delete(kc.DeleteOptions{
+			IgnoreNotFound: true,
+			Labels:         testCaseLabel,
+			Resource:       kc.ResourceCVI,
+		})
+		Expect(res.Error()).NotTo(HaveOccurred())
 	})
 
 	Context("When the virtualization resources are applied", func() {
