@@ -35,7 +35,7 @@ shell:
 {{- define "$name" -}}
 binaries:
 - /usr/local/bin/dvcr-importer
-- /usr/bin/nbd*
+- /usr/sbin/nbd*
 - /usr/bin/file
 - /usr/share/misc/magic.mgc
 - /usr/local/bin/dvcr-uploader
