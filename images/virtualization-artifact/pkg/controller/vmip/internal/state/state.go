@@ -21,13 +21,14 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -80,11 +81,12 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 	}
 
 	if s.lease == nil {
-		var leases virtv2.VirtualMachineIPAddressLeaseList
-		err = s.client.List(ctx, &leases,
-			&client.MatchingFields{
-				indexer.IndexFieldVMIPLeaseByVMIP: s.vmip.Name,
-			})
+		leases := &virtv2.VirtualMachineIPAddressLeaseList{}
+
+		err = s.client.List(ctx, leases, &client.ListOptions{
+			LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineIPAddressUID: string(s.vmip.GetUID())}),
+		})
+
 		if err != nil {
 			return nil, err
 		}

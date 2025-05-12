@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
@@ -111,8 +112,7 @@ func (h IPLeaseHandler) updateLease(ctx context.Context, lease *virtv2.VirtualMa
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	// fixme dlopatin delete this line
-	vmip.Status.Address = ip.LeaseNameToIP(lease.Name)
+
 	return reconcile.Result{}, nil
 }
 
@@ -169,6 +169,9 @@ func (h IPLeaseHandler) createNewLease(ctx context.Context, state state.VMIPStat
 
 	err = h.client.Create(ctx, &virtv2.VirtualMachineIPAddressLease{
 		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				annotations.LabelVirtualMachineIPAddressUID: string(vmip.GetUID()),
+			},
 			Name: leaseName,
 		},
 		Spec: virtv2.VirtualMachineIPAddressLeaseSpec{

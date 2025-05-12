@@ -36,8 +36,6 @@ const (
 	IndexFieldVMByCVI   = "spec.blockDeviceRefs.ClusterVirtualImage"
 	IndexFieldVMByNode  = "status.node"
 
-	IndexFieldVMIPLeaseByVMIP = "spec.virtualMachineIPAddressRef.Name"
-
 	IndexFieldVDByVDSnapshot  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 	IndexFieldVIByVDSnapshot  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
 	IndexFieldCVIByVDSnapshot = "cvi,spec.DataSource.ObjectRef.Name,.Kind=VirtualDiskSnapshot"
@@ -62,7 +60,6 @@ var IndexGetters = []IndexGetter{
 	IndexVMByVI,
 	IndexVMByCVI,
 	IndexVMByNode,
-	IndexVMIPLeaseByVMIP,
 	IndexVMSnapshotByVM,
 	IndexVMSnapshotByVDSnapshot,
 	IndexVMRestoreByVMSnapshot,
@@ -139,14 +136,4 @@ func getBlockDeviceNamesByKind(obj client.Object, kind virtv2.BlockDeviceKind) [
 		res = append(res, bdr.Name)
 	}
 	return res
-}
-
-func IndexVMIPLeaseByVMIP() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.VirtualMachineIPAddressLease{}, IndexFieldVMIPLeaseByVMIP, func(object client.Object) []string {
-		lease, ok := object.(*virtv2.VirtualMachineIPAddressLease)
-		if !ok || lease == nil {
-			return nil
-		}
-		return []string{lease.Spec.VirtualMachineIPAddressRef.Name}
-	}
 }
