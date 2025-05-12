@@ -81,7 +81,18 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on vms: %w", err)
 	}
 
-	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{}), &handler.EnqueueRequestForObject{})
+	return ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{}),
+		&handler.EnqueueRequestForObject{},
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return true },
+			DeleteFunc: func(e event.DeleteEvent) bool { return false },
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldVmip := e.ObjectOld.(*virtv2.VirtualMachineIPAddress)
+				newVmip := e.ObjectNew.(*virtv2.VirtualMachineIPAddress)
+				return oldVmip.Spec != newVmip.Spec
+			},
+		})
 }
 
 func (r *Reconciler) enqueueRequestsFromVMs(ctx context.Context, obj client.Object) []reconcile.Request {
