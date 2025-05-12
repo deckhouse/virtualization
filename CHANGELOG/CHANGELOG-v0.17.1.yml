@@ -1,7 +1,3 @@
-ci:
-  fixes:
-    - summary: fix variable module tag
-      pull_request: https://github.com/deckhouse/virtualization/pull/1033
 module:
   fixes:
     - summary: To enable virtual machine migration, a Deckhouse version of at least 1.68.14 is required.
