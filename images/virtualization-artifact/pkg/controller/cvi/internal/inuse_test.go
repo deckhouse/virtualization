@@ -29,6 +29,7 @@ import (
 	cvibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
 	vdbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vd"
 	vibuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vi"
+	vmbdabuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmbda"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -55,6 +56,10 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 	var objects []client.Object
 	for _, vm := range args.VMs {
 		objects = append(objects, &vm)
+	}
+
+	for _, vmbda := range args.VMBDAs {
+		objects = append(objects, &vmbda)
 	}
 
 	for _, vd := range args.VDs {
@@ -157,7 +162,7 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 		ExpectedConditionReason:  cvicondition.InUse.String(),
 		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, the ClusterVirtualImage is currently using in Namespace ns.",
 	}),
-	Entry("has 5 VirtualMachines with connected terminating CVI, 4 VD, 2 VI, 1 CVI", inUseHandlerTestArgs{
+	Entry("has 5 VirtualMachines with connected terminating CVI, 1 VMBDA, 4 VD, 2 VI, 1 CVI", inUseHandlerTestArgs{
 		CVIName:           "test",
 		DeletionTimestamp: ptr.To(metav1.Time{Time: time.Now()}),
 		VMs: []virtv2.VirtualMachine{
@@ -262,10 +267,21 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 				}),
 			),
 		},
+		VMBDAs: []virtv2.VirtualMachineBlockDeviceAttachment{
+			generateVMBDAForInUseTest(
+				"test",
+				"ns",
+				virtv2.VMBDAObjectRef{
+					Kind: virtv2.ClusterVirtualImageKind,
+					Name: "test",
+				},
+				"vm",
+			),
+		},
 		ExpectedConditionExists:  true,
 		ExpectedConditionStatus:  metav1.ConditionTrue,
 		ExpectedConditionReason:  cvicondition.InUse.String(),
-		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, the ClusterVirtualImage is currently used to create 4 VirtualDisks, the ClusterVirtualImage is currently being used to create the VirtualImages: ns/test, ns5/test2, the ClusterVirtualImage is currently being used to create the ClusterVirtualImage test2, the ClusterVirtualImage is currently using in 6 Namespaces.",
+		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, the ClusterVirtualImage is currently being used by the VMBDA ns/test, the ClusterVirtualImage is currently used to create 4 VirtualDisks, the ClusterVirtualImage is currently being used to create the VirtualImages: ns/test, ns5/test2, the ClusterVirtualImage is currently being used to create the ClusterVirtualImage test2, the ClusterVirtualImage is currently using in 6 Namespaces.",
 	}),
 	Entry("has 1 CVI", inUseHandlerTestArgs{
 		CVIName:           "test",
@@ -290,6 +306,7 @@ type inUseHandlerTestArgs struct {
 	CVIName                  string
 	DeletionTimestamp        *metav1.Time
 	VMs                      []virtv2.VirtualMachine
+	VMBDAs                   []virtv2.VirtualMachineBlockDeviceAttachment
 	VDs                      []virtv2.VirtualDisk
 	VIs                      []virtv2.VirtualImage
 	CVIs                     []virtv2.ClusterVirtualImage
@@ -335,5 +352,14 @@ func generateVDForInUseTest(name, namespace string, datasource virtv2.VirtualDis
 		vdbuilder.WithName(name),
 		vdbuilder.WithNamespace(namespace),
 		vdbuilder.WithDatasource(&datasource),
+	)
+}
+
+func generateVMBDAForInUseTest(name, namespace string, bdRef virtv2.VMBDAObjectRef, vmName string) virtv2.VirtualMachineBlockDeviceAttachment {
+	return *vmbdabuilder.New(
+		vmbdabuilder.WithName(name),
+		vmbdabuilder.WithNamespace(namespace),
+		vmbdabuilder.WithBlockDeviceRef(bdRef),
+		vmbdabuilder.WithVMName(vmName),
 	)
 }
