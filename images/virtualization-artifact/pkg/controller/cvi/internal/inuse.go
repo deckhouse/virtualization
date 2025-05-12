@@ -69,6 +69,10 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 
 	var vmUsedImage []client.Object
 	for _, vm := range vms.Items {
+		if vm.Status.Phase == virtv2.MachineStopped {
+			continue
+		}
+
 		for _, bd := range vm.Status.BlockDeviceRefs {
 			if bd.Kind == virtv2.ClusterVirtualImageKind && bd.Name == cvi.Name {
 				vmUsedImage = append(vmUsedImage, &vm)

@@ -214,6 +214,24 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 					Name: "test",
 				},
 			}),
+			{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-vm-stopped",
+					Namespace: "ns",
+				},
+				TypeMeta: metav1.TypeMeta{
+					Kind: virtv2.VirtualMachineKind,
+				},
+				Status: virtv2.VirtualMachineStatus{
+					Phase: virtv2.MachineStopped,
+					BlockDeviceRefs: []virtv2.BlockDeviceStatusRef{
+						{
+							Kind: virtv2.VirtualImageKind,
+							Name: "test",
+						},
+					},
+				},
+			},
 		},
 		ExpectedConditionExists:  true,
 		ExpectedConditionStatus:  metav1.ConditionTrue,
