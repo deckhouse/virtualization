@@ -1637,7 +1637,7 @@ The working principles of AutoConverge mechanism:
 
     Final synchronization is started when the data transfer rate exceeds the memory change rate.
 
-AutoConverge is a kind of "insurance" that ensures that the migration completes even if the network is not running perfectly. However, CPU slowdown can affect the performance of applications running on the VM, so its use should be monitored.
+AutoConverge is a kind of "insurance" that ensures that the migration completes even if the network struggles to handle data transfer. However, CPU slowdown can affect the performance of applications running on the VM, so its use should be monitored.
 
 #### Configuring Migration Policy
 
