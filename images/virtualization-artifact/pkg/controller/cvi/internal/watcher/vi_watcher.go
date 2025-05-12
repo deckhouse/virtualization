@@ -86,6 +86,17 @@ func (w VirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Obj
 		})
 	}
 
+	vi, ok := obj.(*virtv2.VirtualImage)
+	if ok && vi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
+		if vi.Spec.DataSource.ObjectRef != nil && vi.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name: vi.Spec.DataSource.ObjectRef.Name,
+				},
+			})
+		}
+	}
+
 	return
 }
 

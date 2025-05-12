@@ -86,6 +86,17 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 		})
 	}
 
+	vd, ok := obj.(*virtv2.VirtualDisk)
+	if ok && vd.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
+		if vd.Spec.DataSource.ObjectRef != nil && vd.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name: vd.Spec.DataSource.ObjectRef.Name,
+				},
+			})
+		}
+	}
+
 	return
 }
 
