@@ -1,0 +1,130 @@
+- name: virtualization.vi.state
+  rules:
+    - alert: D8VirtualizationVirtualImageStuckInPendingPhase
+      expr: d8_virtualization_virtualimage_status_phase{phase="Pending"} == 1
+      labels:
+        severity_level: "9"
+        tier: application
+      for: 60m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualimage_stuck_in_pending_phase: "D8VirtualizationVirtualImageStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualimage_stuck_in_pending_phase: "D8VirtualizationVirtualImageStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualImage is stuck in the `Pending` phase for a long time.
+        description: |
+          The virtual image `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the `Pending` phase for more than 60 minutes.
+
+          ### Common Causes
+
+          - Missing or not ready VirtualImage, ClusterVirtualImage, VirtualDisk or VirtualImageSnapshot
+          - Scheduling issues on the node
+          - Cluster resource shortage (CPU, memory)
+          - Exhausted quotas (e.g., CPU, memory limits)
+
+          ### Recommended Actions
+
+          1. Check virtual image status:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vi {{ $labels.name }} -o jsonpath="{.status}" | jq
+            ```
+
+          2. Inspect conditions for details:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vi {{ $labels.name }} -o jsonpath="{.status.conditions}" | jq
+            ```
+
+          3. Check related events:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get events --field-selector involvedObject.name={{ $labels.name }}
+            ```
+
+          4. Check if the source VirtualImage, ClusterVirtualImage or VirtualImageSnapshot exists and is Ready:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vd, vi, cvi, vis
+            ```
+
+          5. Check cluster resource usage and quotas:
+            ```bash
+            d8 k get -n {{ $labels.namespace }} resourcequotas
+            ```
+
+    - alert: D8VirtualizationVirtualImageStuckInWaitForUserUploadPhase
+      expr: d8_virtualization_virtualimage_status_phase{phase="WaitForUserUpload"} == 1
+      labels:
+        severity_level: "9"
+        tier: application
+      for: 60m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualimage_stuck_in_waitforuserupload_phase: "D8VirtualizationVirtualImageStuckInWaitForUserUploadPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualimage_stuck_in_waitforuserupload_phase: "D8VirtualizationVirtualImageStuckInWaitForUserUploadPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualImage is stuck in the `WaitForUserUpload` phase for a long time.
+        description: |
+          The virtual image `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been waiting for a user image upload for more than 60 minutes.
+
+          This means that no image was uploaded to provision the image.
+
+          ### What You Need to Do
+
+          Upload the required image image using one of the provided URLs:
+
+          - From outside the cluster:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vi {{ $labels.name }} -o jsonpath="{.status.imageUploadURLs.external}"
+            ```
+
+          - From inside the cluster (node):
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vi {{ $labels.name }} -o jsonpath="{.status.imageUploadURLs.inCluster}"
+            ```
+
+          - Use `curl`, `wget`, or any HTTP client with `PUT` method and appropriate content-type (`application/octet-stream`) to upload the image.
+
+          Example:
+          ```bash
+          curl -X PUT --data-binary @image.qcow2 \
+            -H "Content-Type: application/octet-stream" \
+            $(d8 k -n {{ $labels.namespace }} get vi {{ $labels.name }} -o jsonpath="{.status.imageUploadURLs.external}")
+          ```
+
+
+    - alert: D8VirtualizationVirtualImageFailed
+      expr: d8_virtualization_virtualimage_status_phase{phase="Failed"} == 1
+      labels:
+        severity_level: "7"
+        tier: application
+      for: 0m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualimage_failed: "D8VirtualizationVirtualImageFailed,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualimage_failed: "D8VirtualizationVirtualImageFailed,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualImage is in the `Failed` phase.
+        description: |
+          The virtual image `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` in the `Failed` phase.
+
+          This may indicate one or more of the following issues:
+
+          - Wrong image URL
+          - Wrong container image
+          - Network issues
+          - Storage issues
+
+          ### Recommended Actions
+
+          1. Check the full status of the virtual image:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vi {{ $labels.name }} -o jsonpath="{.status}" | jq
+            ```
+
+          2. Inspect the condition for details:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vi {{ $labels.name }} -o jsonpath="{.status.conditions}" | jq
+            ```
+
+          3. Review events related to this virtual image:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get events --field-selector involvedObject.name={{ $labels.name }}
+            ```

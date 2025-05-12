@@ -15,8 +15,8 @@
         summary: The virt-api Pod is NOT Ready.
         description: |
           The recommended course of action:
-          1. Retrieve details of the Deployment: `kubectl -n d8-virtualization describe deploy virt-api`
-          2. View the status of the Pod and try to figure out why it is not running: `kubectl -n d8-virtualization describe pod -l kubevirt.internal.virtualization.deckhouse.io=virt-api`
+          1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy virt-api`
+          2. View the status of the Pod and try to figure out why it is not running: `d8 k -n d8-virtualization describe pod -l kubevirt.internal.virtualization.deckhouse.io=virt-api`
 
     - alert: D8InternalVirtualizationVirtAPIPodIsNotRunning
       expr: absent(kube_pod_status_phase{namespace="d8-virtualization",phase="Running",pod=~"virt-api-.*"})
@@ -32,5 +32,5 @@
         summary: The virt-api Pod is NOT Running.
         description: |
           The recommended course of action:
-          1. Retrieve details of the Deployment: `kubectl -n d8-virtualization describe deploy virt-api`
-          2. View the status of the Pod and try to figure out why it is not running: `kubectl -n d8-virtualization describe pod -l kubevirt.internal.virtualization.deckhouse.io=virt-api`
+          1. Retrieve details of the Deployment: `d8 k -n d8-virtualization describe deploy virt-api`
+          2. View the status of the Pod and try to figure out why it is not running: `d8 k -n d8-virtualization describe pod -l kubevirt.internal.virtualization.deckhouse.io=virt-api`

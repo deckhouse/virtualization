@@ -37,3 +37,178 @@
             ```
             > Simpler, but causes downtime unless guest OS supports ACPI shutdown/restart.
           3. After migration or reboot, the VM will use the updated firmware automatically.
+
+    - alert: D8VirtualizationVirtualMachineStuckInPendingPhase
+      expr: d8_virtualization_virtualmachine_status_phase{phase="Pending"} == 1
+      labels:
+        severity_level: "9"
+        tier: application
+      for: 60m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_stuck_in_pending_phase: "D8VirtualizationVirtualMachineStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachine_stuck_in_pending_phase: "D8VirtualizationVirtualMachineStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualMachine is stuck in the `Pending` phase for a long time.
+        description: |
+          The virtual machine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the `Pending` phase for more than 60 minutes.
+
+          ### Common Causes
+
+          - Missing VirtualMachineClass
+          - Not ready or invalid VirtualDisks
+          - Used VirtualDisks already attached to another virtual machine
+          - Missing secret (for syeprep, cloud-init, etc.)**
+
+          ### Recommended Actions
+
+          1. Check virtual machine status:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vm {{ $labels.name }} -o jsonpath="{.status}" | jq
+            ```
+
+          2. Inspect `*.Ready` conditions for details:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vm {{ $labels.name }} -o jsonpath="{.status.conditions}" | jq
+            ```
+
+          3. Check related events:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get events --field-selector involvedObject.name={{ $labels.name }}
+            ```
+
+          4. Check if used disks are available or occupied by other VMs:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vd
+            ```
+
+          5. Check secrets used by the VM:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get secrets
+            d8 k -n {{ $labels.namespace }} describe secret <secret-name>
+            ```
+
+          6. Check cluster resource usage and quotas:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get resourcequotas
+            ```
+
+    - alert: D8VirtualizationVirtualMachineStuckInStartingPhase
+      expr: d8_virtualization_virtualmachine_status_phase{phase="Starting"} == 1
+      labels:
+        severity_level: "9"
+        tier: application
+      for: 60m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_stuck_in_starting_phase: "D8VirtualizationVirtualMachineStuckInStartingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachine_stuck_in_starting_phase: "D8VirtualizationVirtualMachineStuckInStartingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualMachine is stuck in the `Starting` phase for a long time.
+        description: |
+          The virtual machine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the `Starting` phase for more than 60 minutes.
+
+          This may indicate one or more of the following issues:
+
+          - Scheduling issues on the node
+          - Cluster resource shortage (CPU, memory)
+          - Exhausted quotas (e.g., pods, CPU, memory limits)
+          - Node selector or taint/toleration mismatch
+
+          ### Recommended Actions
+
+          1. Check the full status of the virtual machine:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vm {{ $labels.name }} -o jsonpath="{.status}" | jq
+            ```
+
+          2. Inspect the `Running` condition for details:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vm {{ $labels.name }} -o jsonpath="{.status.conditions[?(@.type=='Running')]}" | jq
+            ```
+
+          3. Review events related to this virtual machine:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get events --field-selector involvedObject.name={{ $labels.name }}
+            ```
+
+          4. Check logs of the associated pod (if running):
+            ```bash
+            POD_NAME=$(d8 k -n {{ $labels.namespace }} get vm {{ $labels.name }} -o jsonpath="{.status.virtualMachinePods[?(@.active==true)].name}")
+            d8 k -n {{ $labels.namespace }} logs $POD_NAME
+            ```
+
+          5. Check cluster resource usage and quotas:
+            ```bash
+            d8 k get -n {{ $labels.namespace }} resourcequotas
+            ```
+
+    - alert: D8VirtualizationVirtualMachineStuckInStoppingPhase
+      expr: d8_virtualization_virtualmachine_status_phase{phase="Stopping"} == 1
+      labels:
+        severity_level: "9"
+        tier: application
+      for: 60m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_stuck_in_stopping_phase: "D8VirtualizationVirtualMachineStuckInStoppingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachine_stuck_in_stopping_phase: "D8VirtualizationVirtualMachineStuckInStoppingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualMachine is stuck in the `Stopping` phase for a long time.
+        description: |
+          The virtual machine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the `Stopping` phase for more than 60 minutes.
+
+          This may indicate issues with graceful shutdown, hanging processes inside the VM, or problems with the underlying infrastructure or controller.
+
+          ### Recommended Actions
+
+          1. **Check the status of the virtual machine**:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get vm {{ $labels.name }} -o jsonpath="{.status}" | jq
+            ```
+
+          2. **Review events related to the virtual machine**:
+            ```bash
+            d8 k -n {{ $labels.namespace }} get events --field-selector involvedObject.name={{ $labels.name }}
+            ```
+
+          3. **Inspect logs of the virtual machine's pod (if it's still running)**:
+            ```bash
+            POD_NAME=$(d8 k -n {{ $labels.namespace }} get vm {{ $labels.name }} -o jsonpath="{.status.virtualMachinePods[?(@.active==true)].name}")
+            d8 k -n {{ $labels.namespace }} logs $POD_NAME
+            ```
+
+    # - alert: D8VirtualizationVirtualMachineIsTakingTooLongToMigrate
+    #   expr: d8_virtualization_virtualmachine_status_phase{phase="Migrating"} == 1
+    #   labels:
+    #     severity_level: "6"
+    #     tier: application
+    #   for: 30m
+    #   annotations:
+    #     plk_protocol_version: "1"
+    #     plk_markup_format: "markdown"
+    #     plk_create_group_if_not_exists__d8_virtualization_virtualmachine_is_taking_too_long_to_migrate: "D8VirtualizationVirtualMachineIsTakingTooLongToMigrate,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+    #     plk_grouped_by__d8_virtualization_virtualmachine_is_taking_too_long_to_migrate: "D8VirtualizationVirtualMachineIsTakingTooLongToMigrate,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+    #     summary: Virtual machine is taking too long to migrate.
+    #     description: |
+    #       The virtual machine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the _Migrating_ phase for more than 30 minutes.
+
+    #       This may indicate an issue with the migration process such as network problems, resource constraints, or errors in the virtual machine's configuration or state.
+
+    #       ### Recommended Actions
+
+    #       1. **Check the logs of the virtual machine's active pod**:
+    #         ```bash
+    #         POD_NAME=$(d8 k -n {{ $labels.namespace }} get vm {{ $labels.name }} -o jsonpath="{.status.virtualMachinePods[?(@.active==true)].name}")
+    #         d8 k -n {{ $labels.namespace }} logs $POD_NAME
+    #         ```
+
+    #       2. **Inspect the virtual machine status**:
+    #         ```bash
+    #         d8 k -n {{ $labels.namespace }} get vm {{ $labels.name }} -o jsonpath="{.status}" | jq
+    #         ```
+
+    #       3. **Check related events in the namespace**:
+    #         ```bash
+    #         d8 k -n {{ $labels.namespace }} get events --field-selector involvedObject.name={{ $labels.name }}
+    #         ```
