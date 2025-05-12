@@ -26,6 +26,7 @@
  - **[api]** Fix the issue of block devices getting stuck in the Terminating phase. [#920](https://github.com/deckhouse/virtualization/pull/920)
  - **[api]** Fix network unavailability to dvcr inside a Project with network policy `Restricted` for block devices with data source type Upload. [#791](https://github.com/deckhouse/virtualization/pull/791)
  - **[core]** Resolve potential compatibility issues related to the truncation of scsi disk serial numbers in QEMU. [#842](https://github.com/deckhouse/virtualization/pull/842)
+ - **[module]** To enable virtual machine migration, a Deckhouse version of at least 1.68.14 is required. [#1020](https://github.com/deckhouse/virtualization/pull/1020)
  - **[module]** Fix the Kubernetes version switch issue during updates from 1.29 to 1.30 in newer Deckhouse versions (1.69+). [#986](https://github.com/deckhouse/virtualization/pull/986)
  - **[vd]** Remove the phase 'Stopped' during startup when launching a virtual machine with the run policies AlwaysOn and AlwaysOnUnlessStopManually. Improve the message in the BlockDeviceReady condition for the virtual machine. [#782](https://github.com/deckhouse/virtualization/pull/782)
  - **[vm]** Resolve EFI bootloader issues with more than 8 cores. [#910](https://github.com/deckhouse/virtualization/pull/910)

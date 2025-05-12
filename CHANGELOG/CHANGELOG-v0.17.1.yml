@@ -1,0 +1,5 @@
+module:
+  fixes:
+    - summary: To enable virtual machine migration, a Deckhouse version of at least 1.68.14 is required.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1020
+
