@@ -1,7 +1,6 @@
 ---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $version := "1.3.1" }}
-{{- $goVersion := "1.22.7" }}
 {{- $gitRepoUrl := "kubevirt/kubevirt.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -51,24 +50,27 @@ shell:
   - |
     apt-get install -y \
       {{ $virtArtifactDependencies.packages | join " " }}
-  
+
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
+    git config --global --add advice.detachedHead false
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /kubevirt
-    
+
   - |
     cd /kubevirt
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "
       git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
     done
-    go mod edit -go={{ $goVersion }}
-    go mod download
+
   - |
+    echo Download Go modules.
+    go mod download
+
+    echo Update modules to mitigate CVEs...
     go get github.com/opencontainers/runc@v1.1.14
     go get github.com/containers/common@v0.60.4
 
@@ -77,83 +79,87 @@ shell:
     go get github.com/cilium/ebpf/btf@v0.11.0
     go get github.com/cilium/ebpf/internal@v0.11.0
 
-    go get golang.org/x/crypto@v0.31.0
+    # CVE-2024-45337,CVE-2025-22869
+    go get golang.org/x/crypto@v0.38.0
+    # CVE-2025-22870, CVE-2025-22872
+    go get golang.org/x/net@v0.40.0
 
     go mod vendor
 
   setup:
-    - mkdir /kubevirt-binaries
-    - mkdir /kubevirt-config-files
-    - cd /kubevirt
+  - mkdir /kubevirt-binaries
+  - mkdir /kubevirt-config-files
+  - cd /kubevirt
 
-    - echo "Create .version file"
-    - echo "v{{ $version }}-dirty" > /kubevirt-config-files/.version
+  - echo "Create .version file"
+  - echo "v{{ $version }}-dirty" > /kubevirt-config-files/.version
 
-    - echo "Create group file"
-    - |
-      GROUP_FILE=/kubevirt-config-files/group
-      echo "qemu:x:107:" > $GROUP_FILE
-      echo "root:x:0:" >> $GROUP_FILE
-      echo "nonroot-user:x:1001:" >> $GROUP_FILE
-      chmod 0644 $GROUP_FILE
+  - echo "Create group file"
+  - |
+    GROUP_FILE=/kubevirt-config-files/group
+    echo "qemu:x:107:" > $GROUP_FILE
+    echo "root:x:0:" >> $GROUP_FILE
+    echo "nonroot-user:x:1001:" >> $GROUP_FILE
+    chmod 0644 $GROUP_FILE
 
-    - echo "Create passwd file"
-    - |
-      PASSWD_FILE=/kubevirt-config-files/passwd
-      echo "qemu:x:107:107:user:/home/qemu:/bin/bash" > $PASSWD_FILE
-      echo "root:x:0:0:root:/root:/bin/bash" >> $PASSWD_FILE
-      echo "nonroot-user:x:1001:1001::/home/nonroot-user:/bin/bash" >> $PASSWD_FILE
-      chmod 0644 $PASSWD_FILE
+  - echo "Create passwd file"
+  - |
+    PASSWD_FILE=/kubevirt-config-files/passwd
+    echo "qemu:x:107:107:user:/home/qemu:/bin/bash" > $PASSWD_FILE
+    echo "root:x:0:0:root:/root:/bin/bash" >> $PASSWD_FILE
+    echo "nonroot-user:x:1001:1001::/home/nonroot-user:/bin/bash" >> $PASSWD_FILE
+    chmod 0644 $PASSWD_FILE
 
-    - export GO111MODULE=on
-    - export GOOS=linux
-    - export CGO_ENABLED=0
-    - export GOARCH=amd64
+  - export GOOS=linux
+  - export GOARCH=amd64
+  - export CGO_ENABLED=0
 
-    - echo ============== Build container-disk ===================
-    - gcc -static cmd/container-disk-v2alpha/main.c -o /kubevirt-binaries/container-disk
+  - echo ============== Build container-disk ===================
+  - gcc -static cmd/container-disk-v2alpha/main.c -o /kubevirt-binaries/container-disk
 
-    - echo ============== Build virt-launcher ====================
-    - CGO_ENABLED=1 go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher ./cmd/virt-launcher/
+  - echo ============== Build virt-launcher ====================
+  - CGO_ENABLED=1 go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher ./cmd/virt-launcher/
 
-    - echo ============== Build virt-handler =====================
-    - CGO_ENABLED=1 go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
+  - echo ============== Build virt-handler =====================
+  - CGO_ENABLED=1 go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/
 
-    - echo ============== Build virt-launcher-monitor ============
-    # virt-launcher-monitor is wrapped in the final image. Add suffix here to prevent image size increasing as effect of file renaming.
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-monitor ./cmd/virt-launcher-monitor/
+  - echo ============== Build virt-launcher-monitor ============
+  # virt-launcher-monitor is wrapped in the final image. Add suffix here to prevent image size increasing as effect of file renaming.
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-monitor ./cmd/virt-launcher-monitor/
 
-    - echo ============== Build virt-tail ========================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-tail ./cmd/virt-tail/
+  - echo ============== Build virt-tail ========================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-tail ./cmd/virt-tail/
 
-    - echo ============== Build virt-freezer =====================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-freezer ./cmd/virt-freezer/
+  - echo ============== Build virt-freezer =====================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-freezer ./cmd/virt-freezer/
 
-    - echo ============== Build virt-probe =======================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-probe ./cmd/virt-probe/
+  - echo ============== Build virt-probe =======================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-probe ./cmd/virt-probe/
 
-    - echo ============== Build virt-api =========================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-api ./cmd/virt-api/
-    - chown 64535:64535 /kubevirt-binaries/virt-api
+  - echo ============== Build virt-api =========================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-api ./cmd/virt-api/
+  - chown 64535:64535 /kubevirt-binaries/virt-api
 
-    - echo ============== Build virt-chroot ======================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/
+  - echo ============== Build virt-chroot ======================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/
 
-    - echo ============== Build virt-exportproxy =================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-exportproxy ./cmd/virt-exportproxy/
+  - echo ============== Build virt-exportproxy =================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-exportproxy ./cmd/virt-exportproxy/
 
-    - echo ============== Build virt-exportserver ================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-exportserver ./cmd/virt-exportserver/
+  - echo ============== Build virt-exportserver ================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-exportserver ./cmd/virt-exportserver/
 
-    - echo ============== Build virt-controller ==================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/
-    - chown 64535:64535 /kubevirt-binaries/virt-api
+  - echo ============== Build virt-controller ==================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-controller ./cmd/virt-controller/
+  - chown 64535:64535 /kubevirt-binaries/virt-api
 
-    - echo ============== Build virt-operator ====================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/
+  - echo ============== Build virt-operator ====================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/
 
-    - echo ============== Build sidecars =========================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/sidecars ./cmd/sidecars/
+  - echo ============== Build sidecars =========================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/sidecars ./cmd/sidecars/
 
-    - echo ============== Build virtctl ==========================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/virtctl ./cmd/virtctl/
+  - echo ============== Build virtctl ==========================
+  - go build -ldflags="-s -w" -o /kubevirt-binaries/virtctl ./cmd/virtctl/
+
+  - ls -la /kubevirt-binaries

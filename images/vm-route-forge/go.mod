@@ -1,9 +1,11 @@
 module vm-route-forge
 
-go 1.22.7
+go 1.23.0
+
+toolchain go1.23.9
 
 require (
-	github.com/cilium/cilium v1.15.10
+	github.com/cilium/cilium v1.15.16
 	github.com/cilium/ebpf v0.16.0
 	github.com/deckhouse/virtualization/api v0.0.0-00010101000000-000000000000
 	github.com/go-logr/logr v1.4.2
@@ -11,7 +13,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/vishvananda/netlink v1.2.1-beta.2.0.20240524165444-4d4ba1473f21
 	go.uber.org/zap v1.26.0
-	golang.org/x/sys v0.22.0
+	golang.org/x/sys v0.33.0
 	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.2
 	sigs.k8s.io/controller-runtime v0.17.2
@@ -19,21 +21,7 @@ require (
 
 replace github.com/deckhouse/virtualization/api => ./../../api
 
-// TODO: delete this replaces after fixing https://github.com/golang/go/issues/66403.
-replace (
-	github.com/cilium/proxy => github.com/cilium/proxy v0.0.0-20231202123106-38b645b854f3
-	github.com/markbates/safe => github.com/markbates/safe v1.0.1
-	github.com/youmark/pkcs8 => github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d
-	k8s.io/api => k8s.io/api v0.29.2
-	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.29.2
-	k8s.io/apimachinery => k8s.io/apimachinery v0.29.2
-	k8s.io/apiserver => k8s.io/apiserver v0.29.2
-	k8s.io/code-generator => k8s.io/code-generator v0.29.2
-	k8s.io/component-base => k8s.io/component-base v0.29.2
-	k8s.io/kms => k8s.io/kms v0.29.2
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.17.2
-	sigs.k8s.io/controller-tools => sigs.k8s.io/controller-tools v0.11.4
-)
+replace golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
 
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
@@ -119,14 +107,14 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go4.org/netipx v0.0.0-20231129151722-fdeea329fbba // indirect
 	golang.org/x/exp v0.0.0-20231206192017-f3f8817b8deb // indirect
-	golang.org/x/net v0.27.0 // indirect
-	golang.org/x/oauth2 v0.20.0 // indirect
-	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/term v0.22.0 // indirect
-	golang.org/x/text v0.16.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
+	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/term v0.32.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
+	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
