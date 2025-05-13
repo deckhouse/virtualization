@@ -46,6 +46,10 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 
 	vm := s.VirtualMachine().Changed()
 
+	if update := addAllUnknown(vm, vmcondition.TypeSnapshotting); update {
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	if isDeletion(vm) {
 		return reconcile.Result{}, nil
 	}
@@ -56,17 +60,11 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 		return reconcile.Result{}, err
 	}
 
-	cb := conditions.NewConditionBuilder(vmcondition.TypeSnapshotting).
-		Status(metav1.ConditionUnknown).
-		Generation(vm.GetGeneration())
+	cb := conditions.NewConditionBuilder(vmcondition.TypeSnapshotting).Generation(vm.GetGeneration())
 
-	defer func() {
-		if cb.Condition().Status == metav1.ConditionTrue {
-			conditions.SetCondition(cb, &vm.Status.Conditions)
-		} else {
-			conditions.RemoveCondition(vmcondition.TypeSnapshotting, &vm.Status.Conditions)
-		}
-	}()
+	defer func() { conditions.SetCondition(cb, &vm.Status.Conditions) }()
+
+	cb.Status(metav1.ConditionUnknown)
 
 	for _, vmSnapshot := range vmSnapshots.Items {
 		if vmSnapshot.Spec.VirtualMachineName != vm.Name {

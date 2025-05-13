@@ -5,20 +5,20 @@ fromImage: builder/scratch
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /glibc
   before: setup
 
 ---
 {{- $version := get $.Package $.ImageName }}
-{{- $gitRepoUrl := "acl.git" }}
+{{- $gitRepoUrl := "glibc.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
 - gcc
-- git gettext-tools autoconf libtool gcc make
-- libattr-devel
-- tree
+- git pkg-config cmake
+- hardlink binutils glibc-kernheaders
+- make bison python3
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -41,18 +41,22 @@ shell:
       OUTDIR=/out
       mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
-      cd /src
+      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
-      ./autogen.sh
+      mkdir /build
+      cd /build
 
-      ./configure \
+      ../src/configure \
         --prefix=/usr \
         --libdir=/usr/lib64 \
-        CFLAGS="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2"
+        --disable-crypt \
+        --disable-profile \
+        --enable-bind-now \
+        --enable-obsolete-rpc \
+        --enable-stack-protector=strong \
+        --enable-fortify-source=3 \
 
       make -j$(nproc)
 
       make DESTDIR=$OUTDIR install
 
-      strip $OUTDIR/usr/bin/*
