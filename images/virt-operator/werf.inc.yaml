@@ -6,7 +6,6 @@ import:
   add: /kubevirt-binaries/
   to: /usr/bin
   includePaths:
-  - csv-generator
   - virt-operator
   before: setup
 - image: virt-artifact

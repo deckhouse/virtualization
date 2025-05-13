@@ -26,7 +26,7 @@ binaries:
   # Sqlite libs
   - /usr/lib64/libsqlite3.so.0
   # CDI binaries
-  - /usr/bin/cdi-containerimage-server /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
+  - /usr/bin/cdi-image-size-detection /usr/bin/cdi-importer /usr/bin/cdi-source-update-poller
 {{- end -}}
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
