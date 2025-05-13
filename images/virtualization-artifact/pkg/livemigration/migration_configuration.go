@@ -19,10 +19,12 @@ package livemigration
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	virtv1 "kubevirt.io/api/core/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 )
 
 // Live migration defaults from kubevirt
@@ -93,22 +95,21 @@ func DumpKVVMIMigrationConfiguration(kvvmi *virtv1.VirtualMachineInstance) strin
 	return string(out)
 }
 
-// IsMigrationConfigurationChanged detects if MigrationConfiguration was changed.
-func IsMigrationConfigurationChanged(current, changed *virtv1.VirtualMachineInstance) bool {
-	// true if migrationConfiguration was added.
-	if current.Status.MigrationState != nil && current.Status.MigrationState.MigrationConfiguration == nil &&
-		changed.Status.MigrationState != nil && changed.Status.MigrationState.MigrationConfiguration != nil {
-		return true
+func GenerateMigrationConfigurationPatch(current, changed *virtv1.VirtualMachineInstance) ([]byte, error) {
+	if current.Status.MigrationState == nil || changed.Status.MigrationState == nil {
+		return nil, fmt.Errorf("MigrationState is not set")
+	}
+	currentConf := current.Status.MigrationState.MigrationConfiguration
+	changedConf := changed.Status.MigrationState.MigrationConfiguration
+
+	if equality.Semantic.DeepEqual(currentConf, changedConf) {
+		return nil, nil
 	}
 
-	// Compare MigrationConfiguration. Handler may change options.
-	if current.Status.MigrationState != nil && current.Status.MigrationState.MigrationConfiguration != nil &&
-		changed.Status.MigrationState != nil && changed.Status.MigrationState.MigrationConfiguration != nil {
-		return !reflect.DeepEqual(
-			current.Status.MigrationState.MigrationConfiguration,
-			changed.Status.MigrationState.MigrationConfiguration,
-		)
+	op := patch.PatchReplaceOp
+	if currentConf == nil {
+		op = patch.PatchAddOp
 	}
 
-	return false
+	return patch.NewJsonPatch(patch.NewJsonPatchOperation(op, "/status/migrationState/migrationConfiguration", changedConf)).Bytes()
 }
