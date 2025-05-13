@@ -31,37 +31,38 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
-    - |
-      apt-get update && apt-get install -y \
-        {{ $builderDependencies.packages | join " " }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get update && apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
 
-      apt-get clean
-      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
   install:
-    - |
-      OUTDIR=/out
-      pkgver=$( echo {{ $version }} | cut -d "-" -f2)
+  - |
+    OUTDIR=/out
+    pkgver=$( echo {{ $version }} | cut -d "-" -f2)
 
-      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-      
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-      cd /src
-      
-      mkdir -p $OUTDIR/usr/lib64
-      
-      sed -i \
-        -e 's:\$(PREFIX)/man:\$(PREFIX)/share/man:g' \
-        -e 's:ln -s -f \$(PREFIX)/bin/:ln -s :' \
-        Makefile
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    cd /src
+    
+    mkdir -p $OUTDIR/usr/lib64
+    
+    sed -i \
+      -e 's:\$(PREFIX)/man:\$(PREFIX)/share/man:g' \
+      -e 's:ln -s -f \$(PREFIX)/bin/:ln -s :' \
+      Makefile
 
-      make -f Makefile-libbz2_so all -j $(nproc)
-      make all
+    make -f Makefile-libbz2_so all -j $(nproc)
+    make all
 
-      make -j $(nproc) PREFIX=${OUTDIR}/usr install
+    make -j $(nproc) PREFIX=${OUTDIR}/usr install
 
-      install -D libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.$pkgver
-      ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so
-      ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.${pkgver%%.*}
+    install -D libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.$pkgver
+    ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so
+    ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.${pkgver%%.*}
 
-      rm -rf $OUTDIR/usr/share
+    rm -rf $OUTDIR/usr/share

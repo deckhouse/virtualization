@@ -17,7 +17,6 @@ import:
 packages:
 - git gcc
 - automake autoconf-archive make libtool
-# - MAKEDEV
 - bash-completion
 - curl
 - qemu
@@ -49,33 +48,34 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
-    - |
-      apt-get update && apt-get install -y \
-        {{ $builderDependencies.packages | join " " }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get update && apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
 
-      apt-get update
-      apt-get clean
-      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+    apt-get update
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
   install:
-    - |
-      OUTDIR=/out
-      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  - |
+    OUTDIR=/out
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
-      cd /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+    cd /src
 
-      autoreconf -i
+    autoreconf -i
 
-      ./configure \
-        --disable-static \
-        --prefix=/usr \
-        --without-bash-completions
+    ./configure \
+      --disable-static \
+      --prefix=/usr \
+      --without-bash-completions
 
-      make -j$(nproc)
+    make -j$(nproc)
 
-      make DESTDIR=$OUTDIR install-strip
+    make DESTDIR=$OUTDIR install-strip
 
-      # We don't need man, test and samples files
-      rm -rf $OUTDIR/usr/include
-      rm -rf $OUTDIR/usr/share
+    # We don't need man, test and samples files
+    rm -rf $OUTDIR/usr/include
+    rm -rf $OUTDIR/usr/share
