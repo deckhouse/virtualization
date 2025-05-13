@@ -31,11 +31,6 @@ import (
 
 const nameAgentHandler = "AgentHandler"
 
-var agentConditions = []vmcondition.Type{
-	vmcondition.TypeAgentReady,
-	vmcondition.TypeAgentVersionNotSupported,
-}
-
 func NewAgentHandler() *AgentHandler {
 	return &AgentHandler{}
 }
@@ -48,10 +43,6 @@ func (h *AgentHandler) Handle(ctx context.Context, s state.VirtualMachineState) 
 	}
 	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
-
-	if update := addAllUnknown(changed, agentConditions...); update {
-		return reconcile.Result{Requeue: true}, nil
-	}
 
 	if isDeletion(current) {
 		return reconcile.Result{}, nil
@@ -80,7 +71,14 @@ func (h *AgentHandler) syncAgentReady(vm *virtv2.VirtualMachine, kvvmi *virtv1.V
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeAgentReady).Generation(vm.GetGeneration())
 
-	defer func() { conditions.SetCondition(cb, &vm.Status.Conditions) }()
+	defer func() {
+		phase := vm.Status.Phase
+		if phase == virtv2.MachinePending || phase == virtv2.MachineStarting || phase == virtv2.MachineStopped {
+			conditions.RemoveCondition(vmcondition.TypeAgentReady, &vm.Status.Conditions)
+		} else {
+			conditions.SetCondition(cb, &vm.Status.Conditions)
+		}
+	}()
 
 	if kvvmi == nil {
 		cb.Status(metav1.ConditionFalse).
@@ -116,7 +114,19 @@ func (h *AgentHandler) syncAgentVersionNotSupport(vm *virtv2.VirtualMachine, kvv
 
 	cb := conditions.NewConditionBuilder(vmcondition.TypeAgentVersionNotSupported).Generation(vm.GetGeneration())
 
-	defer func() { conditions.SetCondition(cb, &vm.Status.Conditions) }()
+	defer func() {
+		switch vm.Status.Phase {
+		case virtv2.MachinePending, virtv2.MachineStarting, virtv2.MachineStopped:
+			conditions.RemoveCondition(vmcondition.TypeAgentVersionNotSupported, &vm.Status.Conditions)
+
+		default:
+			if cb.Condition().Status == metav1.ConditionTrue {
+				conditions.SetCondition(cb, &vm.Status.Conditions)
+			} else {
+				conditions.RemoveCondition(vmcondition.TypeAgentVersionNotSupported, &vm.Status.Conditions)
+			}
+		}
+	}()
 
 	if kvvmi == nil {
 		cb.Status(metav1.ConditionFalse).

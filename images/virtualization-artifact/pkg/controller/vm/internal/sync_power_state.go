@@ -126,11 +126,7 @@ func (h *SyncPowerStateHandler) syncPowerState(
 		shutdownInfo = s.ShutdownInfo
 	})
 
-	appliedCondition, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied,
-		s.VirtualMachine().Changed().Status.Conditions)
-	isConfigurationApplied := appliedCondition.Status == metav1.ConditionTrue &&
-		appliedCondition.ObservedGeneration == s.VirtualMachine().Changed().Generation
-
+	isConfigurationApplied := checkVirtualMachineConfiguration(s.VirtualMachine().Changed())
 	var vmAction VMAction
 	switch runPolicy {
 	case virtv2.AlwaysOffPolicy:
