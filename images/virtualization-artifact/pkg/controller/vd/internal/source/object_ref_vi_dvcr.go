@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -175,7 +176,7 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 			Reason(vdcondition.Provisioning).
 			Message("PVC Provisioner not found: create the new one.")
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
 		vd.Status.Phase = virtv2.DiskPending
 		cb.
@@ -197,7 +198,7 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Provisioning).
 			Message("PVC not found: waiting for creation.")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 		ds.recorder.Event(
@@ -246,7 +247,7 @@ func (ds ObjectRefVirtualImageDVCR) Sync(ctx context.Context, vd *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
 func (ds ObjectRefVirtualImageDVCR) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
@@ -274,7 +275,11 @@ func (ds ObjectRefVirtualImageDVCR) CleanUpSupplements(ctx context.Context, vd *
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{Requeue: requeue}, nil
+	if requeue {
+		return reconcile.Result{RequeueAfter: time.Second}, nil
+	} else {
+		return reconcile.Result{}, nil
+	}
 }
 
 func (ds ObjectRefVirtualImageDVCR) getSource(sup *supplements.Generator, vi *virtv2.VirtualImage) *cdiv1.DataVolumeSource {

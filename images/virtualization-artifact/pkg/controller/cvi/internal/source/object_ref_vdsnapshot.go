@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -190,7 +191,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 		cvi.Status.Progress = "0%"
 		cvi.Status.SourceUID = pointer.GetPointer(vs.UID)
 
-		return reconcile.Result{Requeue: true}, err
+		return reconcile.Result{RequeueAfter: time.Second}, err
 	case pod == nil:
 		cvi.Status.Progress = ds.statService.GetProgress(cvi.GetUID(), pod, cvi.Status.Progress)
 		cvi.Status.Target.RegistryURL = ds.statService.GetDVCRImageName(pod)
@@ -219,7 +220,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 
 		log.Info("Create importer pod...", "progress", cvi.Status.Progress, "pod.phase", "nil")
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -265,7 +266,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 						Reason(vicondition.Provisioning).
 						Message("Waiting for PVC to be bound")
 
-					return reconcile.Result{Requeue: true}, nil
+					return reconcile.Result{RequeueAfter: time.Second}, nil
 				}
 
 				cb.
@@ -302,7 +303,7 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, cvi *virtv2.Clu
 		log.Info("Provisioning...", "progress", cvi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
 func (ds ObjectRefVirtualDiskSnapshot) CleanUpSupplements(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
@@ -323,7 +324,11 @@ func (ds ObjectRefVirtualDiskSnapshot) CleanUpSupplements(ctx context.Context, c
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{Requeue: importerRequeue || diskRequeue || pvcCleanupRequeue}, nil
+	if importerRequeue || diskRequeue || pvcCleanupRequeue {
+		return reconcile.Result{RequeueAfter: time.Second}, nil
+	} else {
+		return reconcile.Result{}, nil
+	}
 }
 
 func (ds ObjectRefVirtualDiskSnapshot) CleanUp(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (bool, error) {
