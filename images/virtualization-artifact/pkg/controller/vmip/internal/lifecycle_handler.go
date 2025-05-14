@@ -51,7 +51,8 @@ func NewLifecycleHandler(recorder eventrecord.EventRecorderLogger) *LifecycleHan
 func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(LifecycleHandlerName))
 
-	vmip, vm := state.VirtualMachineIP(), state.VirtualMachine()
+	vmip := state.VirtualMachineIP()
+	vm := state.VirtualMachine()
 
 	conditionBound := conditions.NewConditionBuilder(vmipcondition.BoundType).
 		Generation(vmip.GetGeneration()).
