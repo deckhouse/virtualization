@@ -43,6 +43,7 @@ packages:
 image: {{ $.ImageType }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
+cacheVersion: "14052025.0"
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -64,7 +65,7 @@ shell:
 
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
     cd /src
-
+    
     autoreconf -i
 
     ./configure \
