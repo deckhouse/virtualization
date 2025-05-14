@@ -32,8 +32,8 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/deckhouse/deckhouse-cli/internal/virtualization/templates"
 	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+	"github.com/deckhouse/virtualization/src/pkg/cli/templates"
 )
 
 const (

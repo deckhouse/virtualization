@@ -20,16 +20,16 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/deckhouse/deckhouse-cli/internal/virtualization/templates"
+	"github.com/deckhouse/virtualization/src/pkg/cli/templates"
 )
 
-func NewStopCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	lifecycle := NewLifecycle(Stop, clientConfig)
+func NewStartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	lifecycle := NewLifecycle(Start, clientConfig)
 	cmd := &cobra.Command{
-		Use:     "stop (VirtualMachine)",
-		Short:   "Stop a virtual machine.",
+		Use:     "start (VirtualMachine)",
+		Short:   "Start a virtual machine.",
 		Example: lifecycle.Usage(),
-		Args:    templates.ExactArgs("stop", 1),
+		Args:    templates.ExactArgs("start", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return lifecycle.Run(args)
 		},

@@ -24,7 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/deckhouse/deckhouse-cli/internal/virtualization/templates"
+	"github.com/deckhouse/virtualization/src/pkg/cli/templates"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/tools/clientcmd"
@@ -178,7 +178,7 @@ func usage() string {
 
   # Specify a username and namespace:
   {{ProgramName}} ssh --namespace=mynamespace --%s=user myvm
-  
+
   # Connect to 'myvm' using the local ssh binary found in $PATH:
   {{ProgramName}} ssh --%s=true user@myvm`,
 		IdentityFilePathFlag,

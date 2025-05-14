@@ -31,8 +31,8 @@ import (
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 
-	"github.com/deckhouse/deckhouse-cli/internal/virtualization/cmd/lifecycle/vmop"
-	"github.com/deckhouse/deckhouse-cli/internal/virtualization/templates"
+	"github.com/deckhouse/virtualization/src/pkg/cli/cmd/lifecycle/vmop"
+	"github.com/deckhouse/virtualization/src/pkg/cli/templates"
 )
 
 type Command string
