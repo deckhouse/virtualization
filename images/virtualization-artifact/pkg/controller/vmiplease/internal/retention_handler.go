@@ -57,7 +57,7 @@ func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseStat
 		if lease.Spec.VirtualMachineIPAddressRef.Name != "" || lease.Labels[annotations.LabelVirtualMachineIPAddressUID] != "" {
 			log.Debug("VirtualMachineIP not found: remove this ref from the spec, delete label value and retain VMIPLease")
 			lease.Spec.VirtualMachineIPAddressRef.Name = ""
-			lease.Labels[annotations.LabelVirtualMachineIPAddressUID] = ""
+			annotations.AddLabel(lease, annotations.LabelVirtualMachineIPAddressUID, "")
 			return reconcile.Result{RequeueAfter: h.retentionDuration}, nil
 		}
 

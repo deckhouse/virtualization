@@ -102,7 +102,7 @@ func (h IPLeaseHandler) updateLease(ctx context.Context, lease *virtv2.VirtualMa
 		Name:      vmip.Name,
 		Namespace: vmip.Namespace,
 	}
-	lease.Labels[annotations.LabelVirtualMachineIPAddressUID] = string(vmip.GetUID())
+	annotations.AddLabel(lease, annotations.LabelVirtualMachineIPAddressUID, string(vmip.GetUID()))
 
 	return reconcile.Result{}, h.client.Update(ctx, lease)
 }
