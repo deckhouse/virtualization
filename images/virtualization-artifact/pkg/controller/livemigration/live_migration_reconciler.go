@@ -103,7 +103,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 			jsonPatch := client.RawPatch(types.JSONPatchType, patchBytes)
 			if err := r.client.Patch(ctx, kvvmi.Current(), jsonPatch); err != nil {
-				return fmt.Errorf("error updating status subresource: %w", err)
+				return fmt.Errorf("error patching status field: %w", err)
 			}
 
 			return nil
