@@ -22,17 +22,13 @@ imageSpec:
 
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: builder/alt
+fromImage: builder/golang-bookworm-1.23
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get update && apt-get install -y \
-      git openssh golang
-    
+  - |    
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     export GOPATH=$(go env GOPATH)

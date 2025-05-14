@@ -146,7 +146,7 @@ shell:
     cd {{ $gitRepoName }}-{{ $version }}
   {{- if ne "$(cat /run/secrets/SOURCE_REPO)" "https://github.com" }}
     echo "Change submodule url"
-    git config --global url."https://$(cat /run/secrets/SOURCE_REPO)".insteadOf "https://github.com"
+    git config --global url."$(cat /run/secrets/SOURCE_REPO)".insteadOf "https://github.com"
     # git submodule set-url -- roms/seabios $(cat /run/secrets/SOURCE_REPO)/qemu-project/seabios.git
     # git submodule set-url -- roms/SLOF $(cat /run/secrets/SOURCE_REPO)/qemu-project/SLOF.git
     # git submodule set-url -- roms/ipxe $(cat /run/secrets/SOURCE_REPO)/qemu-project/ipxe.git
