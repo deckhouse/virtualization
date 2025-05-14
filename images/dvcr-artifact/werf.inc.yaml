@@ -33,6 +33,8 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
+libraries:
+- libnbd
 binaries:
 - /usr/local/bin/dvcr-importer
 - /usr/sbin/nbd*
@@ -42,6 +44,7 @@ binaries:
 - /usr/local/bin/dvcr-cleaner
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
+- /usr/lib64/libnbd.s*
 {{- end -}}
 
 {{ $dvcrDependencies := include "$name" . | fromYaml }}
@@ -79,6 +82,16 @@ import:
   to: /qemu-img
   before: install
 shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get update && apt-get install -y \
+      {{ $dvcrDependencies.libraries | join " " }}
+
+    apt-get update
+    apt-get clean
+    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
   install:
   - |
     cp -a /qemu-img/. /
@@ -86,6 +99,13 @@ shell:
     cp -a /file/. /
     cp -a /nbdkit/. /
     rm -rf /{file,bzip2,qemu-img}
+
   setup:
   - |
     /relocate_binaries.sh -i "{{ $dvcrDependencies.binaries | join " " }}" -o /relocate
+    SO_FILES=$(find /usr/lib64/nbdkit/ -name '*.so')
+    for file in $SO_FILES;do
+      new_place="/relocate$(dirname ${file})"
+      mkdir -p ${new_place}
+      cp -a ${file} ${new_place} || true
+    done

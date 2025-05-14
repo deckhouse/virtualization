@@ -70,6 +70,7 @@ shell:
     ./configure \
       --disable-static \
       --prefix=/usr \
+      --libdir=/usr/lib64 \
       --without-bash-completions
 
     make -j$(nproc)
