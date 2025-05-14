@@ -24,7 +24,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/deckhouse/virtualization/src/pkg/cli/templates"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/templates"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/client-go/tools/clientcmd"

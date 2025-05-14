@@ -27,8 +27,8 @@ import (
 
 	"github.com/povsister/scp"
 
-	"github.com/deckhouse/virtualization/src/pkg/cli/cmd/ssh"
-	"github.com/deckhouse/virtualization/src/pkg/cli/templates"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/ssh"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/templates"
 )
 
 func (o *SCP) nativeSCP(local templates.LocalSCPArgument, remote templates.RemoteSCPArgument, toRemote bool) error {

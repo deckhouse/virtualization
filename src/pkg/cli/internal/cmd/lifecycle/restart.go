@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/deckhouse/virtualization/src/pkg/cli/templates"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/templates"
 )
 
 func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {

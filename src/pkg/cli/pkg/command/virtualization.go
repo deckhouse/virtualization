@@ -17,7 +17,7 @@ limitations under the License.
 Initially copied from https://github.com/kubevirt/kubevirt/blob/main/pkg/virtctl/root.go
 */
 
-package virtualization
+package command
 
 import (
 	"os"
@@ -27,16 +27,16 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/logs"
 
-	"github.com/deckhouse/virtualization/src/pkg/cli/cmd/console"
-	"github.com/deckhouse/virtualization/src/pkg/cli/cmd/lifecycle"
-	"github.com/deckhouse/virtualization/src/pkg/cli/cmd/portforward"
-	"github.com/deckhouse/virtualization/src/pkg/cli/cmd/scp"
-	"github.com/deckhouse/virtualization/src/pkg/cli/cmd/ssh"
-	"github.com/deckhouse/virtualization/src/pkg/cli/cmd/vnc"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/console"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/lifecycle"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/portforward"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/scp"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/ssh"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/vnc"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 
-	"github.com/deckhouse/virtualization/src/pkg/cli/templates"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/templates"
 )
 
 func NewCommand(programName string) (*cobra.Command, clientcmd.ClientConfig) {

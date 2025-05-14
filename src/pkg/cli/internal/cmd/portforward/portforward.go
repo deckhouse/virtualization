@@ -33,7 +33,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
-	"github.com/deckhouse/virtualization/src/pkg/cli/templates"
+	"github.com/deckhouse/virtualization/src/pkg/cli/internal/templates"
 )
 
 const (
