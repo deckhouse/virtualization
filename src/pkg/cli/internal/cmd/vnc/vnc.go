@@ -153,6 +153,8 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 						"\n - network issues"+
 						"\n - machine restart\n")
 				}
+			} else if strings.Contains(err.Error(), "interrupt") {
+				os.Exit(0)
 			} else {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 			}
@@ -262,6 +264,7 @@ func connect(ln *net.TCPListener, virtCli kubeclient.Client, cmd *cobra.Command,
 		interrupt := make(chan os.Signal, 1)
 		signal.Notify(interrupt, os.Interrupt)
 		<-interrupt
+		viewResChan <- fmt.Errorf("interrupted")
 	}()
 
 	select {
