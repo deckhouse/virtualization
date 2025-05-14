@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -88,15 +89,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, kvvmi.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-		if livemigration.IsMigrationConfigurationChanged(kvvmi.Current(), kvvmi.Changed()) {
-			// Directly update kvvmi and not use kvvmi.Update as kvvmi status is a regular field, not a subresource.
+
+		patchBytes, err := livemigration.GenerateMigrationConfigurationPatch(kvvmi.Current(), kvvmi.Changed())
+		if err != nil {
+			return err
+		}
+
+		if patchBytes != nil {
 			log.Debug("About to update changed kvvmi",
 				"changed.migration.configuration", livemigration.DumpKVVMIMigrationConfiguration(kvvmi.Changed()),
 				"current.migration.configuration", livemigration.DumpKVVMIMigrationConfiguration(kvvmi.Current()),
 			)
-			if err := r.client.Update(ctx, kvvmi.Changed()); err != nil {
-				return fmt.Errorf("error updating status subresource: %w", err)
+
+			jsonPatch := client.RawPatch(types.JSONPatchType, patchBytes)
+			if err := r.client.Patch(ctx, kvvmi.Current(), jsonPatch); err != nil {
+				return fmt.Errorf("error patching status field: %w", err)
 			}
+
 			return nil
 		}
 
