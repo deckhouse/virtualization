@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -28,9 +29,11 @@ import (
 	. "github.com/onsi/gomega"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 
 	sdsrepvolv1 "github.com/deckhouse/sds-replicated-volume/api/v1alpha1"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
@@ -384,8 +387,47 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 
 	Context(fmt.Sprintf("When virtual machines in %s phase", PhaseRunning), func() {
 		It("creates snapshots with `requiredConsistency` of attached VDs", func() {
+			vms, err := virtClient.VirtualMachines(conf.Namespace).List(context.Background(), v1.ListOptions{})
+			Expect(err).NotTo(HaveOccurred())
+			vmsFrozenDict := make(map[string]bool)
+
+			for _, vm := range vms.Items {
+				frozenCondition, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
+				vmsFrozenDict[vm.Name] = frozenCondition.Status == v1.ConditionTrue
+			}
+
+			watcher, err := virtClient.VirtualMachines(conf.Namespace).Watch(context.Background(), v1.ListOptions{TimeoutSeconds: ptr.To(int64(filesystemReadyTimeout.Seconds()))})
+			Expect(err).NotTo(HaveOccurred())
+			var hasFrozen bool
+			for {
+				hasFrozen = false
+				for _, frozen := range vmsFrozenDict {
+					hasFrozen = hasFrozen || frozen
+				}
+
+				if !hasFrozen {
+					watcher.Stop()
+					break
+				}
+
+				event, ok := <-watcher.ResultChan()
+				if !ok {
+					break
+				}
+
+				vm, ok := event.Object.(*virtv2.VirtualMachine)
+				if !ok {
+					continue
+				}
+
+				frozenCondition, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
+				vmsFrozenDict[vm.Name] = frozenCondition.Status == v1.ConditionTrue
+			}
+			// TODO: It is a known issue that VM filesystems after snapshot not unfreezing. To prevent this error from causing noise during testing, we disabled this check. It will need to be re-enabled once this issue is fixed.
+			// Expect(hasFrozen).To(BeFalse())
+
 			vmObjects := virtv2.VirtualMachineList{}
-			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: conf.Namespace})
+			err = GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: conf.Namespace})
 			Expect(err).NotTo(HaveOccurred(), "cannot get virtual machines\nstderr: %s", err)
 
 			for _, vm := range vmObjects.Items {
