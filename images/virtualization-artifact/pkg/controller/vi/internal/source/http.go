@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
@@ -127,7 +128,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case podutil.IsPodComplete(pod):
 		err = ds.statService.CheckPod(pod)
 		if err != nil {
@@ -184,7 +185,7 @@ func (ds HTTPDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.VirtualImag
 		log.Info("Provisioning...", "progress", vi.Status.Progress, "pod.phase", pod.Status.Phase)
 	}
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
 func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
@@ -265,7 +266,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 
 		log.Info("Create importer pod...", "progress", vi.Status.Progress, "pod.phase", "nil")
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case !podutil.IsPodComplete(pod):
 		log.Info("Provisioning to DVCR is in progress", "podPhase", pod.Status.Phase)
 
@@ -345,7 +346,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 			Reason(vicondition.Provisioning).
 			Message("DVCR Provisioner not found: create the new one.")
 
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
 		vi.Status.Phase = virtv2.ImagePending
 		cb.
@@ -367,7 +368,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.Provisioning).
 			Message("PVC not found: waiting for creation.")
-		return reconcile.Result{Requeue: true}, nil
+		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case ds.diskService.IsImportDone(dv, pvc):
 		log.Info("Import has completed", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 		ds.recorder.Event(
@@ -407,7 +408,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 		return reconcile.Result{}, nil
 	}
 
-	return reconcile.Result{Requeue: true}, nil
+	return reconcile.Result{RequeueAfter: time.Second}, nil
 }
 
 func (ds HTTPDataSource) CleanUp(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
@@ -439,7 +440,11 @@ func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vi *virtv2.Virt
 		return reconcile.Result{}, err
 	}
 
-	return reconcile.Result{Requeue: importerRequeue || diskRequeue}, nil
+	if importerRequeue || diskRequeue {
+		return reconcile.Result{RequeueAfter: time.Second}, nil
+	} else {
+		return reconcile.Result{}, nil
+	}
 }
 
 func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualImage) error {
