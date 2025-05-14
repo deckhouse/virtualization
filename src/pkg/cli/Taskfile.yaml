@@ -15,6 +15,7 @@ tasks:
       - echo "Installing d8v to ~/.local/bin"
       - mkdir -p ~/.local/bin
       - cp out/d8v ~/.local/bin/d8v
+      - task: clean
   clean:
     cmds:
       - rm -rf out
