@@ -145,9 +145,6 @@ shell:
     - echo ============== Build virt-operator ====================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-operator ./cmd/virt-operator/
 
-    - echo ============== Build csv-generator ====================
-    - go build -ldflags="-s -w" -o /kubevirt-binaries/csv-generator ./tools/csv-generator
-
     - echo ============== Build sidecars =========================
     - go build -ldflags="-s -w" -o /kubevirt-binaries/sidecars ./cmd/sidecars/
 

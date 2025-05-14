@@ -7,7 +7,6 @@ import:
   to: /usr/bin
   includePaths:
   - cdi-operator
-  - csv-generator
   before: setup
 imageSpec:
   config:
