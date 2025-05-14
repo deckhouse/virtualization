@@ -61,13 +61,15 @@ import:
   before: install
 shell:
   install:
-    {{- include "alt packages proxy" . | nindent 2 }}
+  {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get update && apt-get install --yes \
       {{ $cdiImporterDependencies.packages | join " " }} \
       {{ $cdiImporterDependencies.libraries | join " " }}
     apt-get clean
+  {{- if not $.DistroPackagesProxy }}
     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- end }}
     
     cp -a /nbdkit/. /
     rm -rf /nbdkit

@@ -38,6 +38,8 @@ libraries:
 binaries:
 - /usr/local/bin/dvcr-importer
 - /usr/sbin/nbd*
+- /usr/lib64/nbdkit/filters/*.so
+- /usr/lib64/nbdkit/plugins/*.so
 - /usr/bin/file
 - /usr/share/misc/magic.mgc
 - /usr/local/bin/dvcr-uploader
@@ -105,10 +107,3 @@ shell:
   setup:
   - |
     /relocate_binaries.sh -i "{{ $dvcrDependencies.binaries | join " " }}" -o /relocate
-    
-    SO_FILES=$(find /usr/lib64/nbdkit/ -name '*.so')
-    for file in $SO_FILES;do
-      new_place="/relocate$(dirname ${file})"
-      mkdir -p ${new_place}
-      cp -a ${file} ${new_place} || true
-    done
