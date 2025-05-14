@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: false
-fromImage: BASE_GOLANG_24_BOOKWORM
+fromImage: builder/golang-bookworm-1.24
 git:
 - add: /images/{{ $.ImageName }}
   to: /app/images/hooks
