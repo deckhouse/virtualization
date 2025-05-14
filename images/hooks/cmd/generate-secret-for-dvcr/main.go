@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	"golang.org/x/crypto/bcrypt"
+	"k8s.io/utils/ptr"
 
 	"hooks/pkg/common"
 )
@@ -46,7 +47,7 @@ type dvcrSecretData struct {
 	Htpasswd   string `json:"htpasswd"`
 }
 
-var _ = registry.RegisterFunc(configDVCRSecrets, handlerDVVCRSecrets)
+var _ = registry.RegisterFunc(configDVCRSecrets, handlerDVCRSecrets)
 
 var configDVCRSecrets = &pkg.HookConfig{
 	OnBeforeHelm: &pkg.OrderedConfig{Order: 5},
@@ -66,13 +67,14 @@ var configDVCRSecrets = &pkg.HookConfig{
 					MatchNames: []string{common.MODULE_NAMESPACE},
 				},
 			},
+			ExecuteHookOnSynchronization: ptr.To(false),
 		},
 	},
 
 	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
 }
 
-func handlerDVVCRSecrets(_ context.Context, input *pkg.HookInput) error {
+func handlerDVCRSecrets(_ context.Context, input *pkg.HookInput) error {
 	dataFromSecret, err := getDVCRSecretsFromSecrets(input)
 	if err != nil {
 		return err
