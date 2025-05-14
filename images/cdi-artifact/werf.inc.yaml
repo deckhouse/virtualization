@@ -66,9 +66,6 @@ shell:
     - echo ============== Build cdi-importer ===========
     - CGO_ENABLED=1 go build -ldflags="-s -w" -o /cdi-binaries/cdi-importer ./cmd/cdi-importer
 
-    - echo ============== Build cdi-containerimage-server ===========
-    - go build -ldflags="-s -w" -o /cdi-binaries/cdi-containerimage-server ./tools/cdi-containerimage-server
-
     - echo ============== Build cdi-image-size-detection  ===========
     - go build -ldflags="-s -w" -o /cdi-binaries/cdi-image-size-detection ./tools/cdi-image-size-detection
 
@@ -77,9 +74,6 @@ shell:
 
     - echo ============== Build cdi-operator  ===========
     - go build -ldflags="-s -w" -o /cdi-binaries/cdi-operator ./cmd/cdi-operator
-
-    - echo ============== Build csv-generator  ===========
-    - go build -ldflags="-s -w" -o /cdi-binaries/csv-generator ./tools/csv-generator
 
     - strip /cdi-binaries/*
     - chmod +x /cdi-binaries/*

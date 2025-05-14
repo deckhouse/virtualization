@@ -48,7 +48,6 @@ import:
   to: /usr/bin
   before: setup
   includePaths:
-  - cdi-containerimage-server
   - cdi-image-size-detection
   - cdi-importer
   - cdi-source-update-poller
