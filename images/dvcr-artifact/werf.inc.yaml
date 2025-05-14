@@ -103,6 +103,7 @@ shell:
   setup:
   - |
     /relocate_binaries.sh -i "{{ $dvcrDependencies.binaries | join " " }}" -o /relocate
+    
     SO_FILES=$(find /usr/lib64/nbdkit/ -name '*.so')
     for file in $SO_FILES;do
       new_place="/relocate$(dirname ${file})"

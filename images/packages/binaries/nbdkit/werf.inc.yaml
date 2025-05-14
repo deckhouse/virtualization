@@ -2,6 +2,7 @@
 image: {{ $.ImageType }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
+cacheVersion: "14052025.0"
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out

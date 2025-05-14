@@ -21,8 +21,8 @@ packages:
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit
-  - /usr/lib/nbdkit/filters/*
-  - /usr/lib/nbdkit/plugins/*
+  - /usr/lib64/nbdkit/filters/*.so
+  - /usr/lib64/nbdkit/plugins/*.so
   # Sqlite libs
   - /usr/lib64/libsqlite3.so.0
   # CDI binaries
