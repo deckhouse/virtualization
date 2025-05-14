@@ -109,7 +109,7 @@ var _ = Describe("DVCR Secrets", func() {
 			}
 		})
 
-		Expect(handlerDVVCRSecrets(context.Background(), newInput())).To(Succeed())
+		Expect(handlerDVCRSecrets(context.Background(), newInput())).To(Succeed())
 	})
 
 	It("Should regenerate all secrets", func() {
@@ -144,7 +144,7 @@ var _ = Describe("DVCR Secrets", func() {
 			}
 		})
 
-		Expect(handlerDVVCRSecrets(context.Background(), newInput())).To(Succeed())
+		Expect(handlerDVCRSecrets(context.Background(), newInput())).To(Succeed())
 		Expect(validateHtpasswd(passwordRW, htpasswd)).To(BeTrue())
 	})
 
@@ -169,7 +169,7 @@ var _ = Describe("DVCR Secrets", func() {
 			}
 		})
 
-		Expect(handlerDVVCRSecrets(context.Background(), newInput())).To(Succeed())
+		Expect(handlerDVCRSecrets(context.Background(), newInput())).To(Succeed())
 	})
 
 	DescribeTable("Should regenerate only password and htpasswd", func(passwordRW, htpasswd string) {
@@ -205,7 +205,7 @@ var _ = Describe("DVCR Secrets", func() {
 			}
 		})
 
-		Expect(handlerDVVCRSecrets(context.Background(), newInput())).To(Succeed())
+		Expect(handlerDVCRSecrets(context.Background(), newInput())).To(Succeed())
 		Expect(validateHtpasswd(passwordRWForValidate, htpasswdForValidate)).To(BeTrue())
 	},
 		Entry("with empty htpasswd and password", "", ""),
