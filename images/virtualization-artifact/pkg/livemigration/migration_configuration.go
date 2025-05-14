@@ -97,7 +97,7 @@ func DumpKVVMIMigrationConfiguration(kvvmi *virtv1.VirtualMachineInstance) strin
 
 func GenerateMigrationConfigurationPatch(current, changed *virtv1.VirtualMachineInstance) ([]byte, error) {
 	if current.Status.MigrationState == nil || changed.Status.MigrationState == nil {
-		return nil, fmt.Errorf("MigrationState is not set")
+		return nil, nil
 	}
 	currentConf := current.Status.MigrationState.MigrationConfiguration
 	changedConf := changed.Status.MigrationState.MigrationConfiguration
