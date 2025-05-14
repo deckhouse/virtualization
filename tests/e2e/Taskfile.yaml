@@ -180,12 +180,34 @@ tasks:
           echo "Error: Deckhouse is not ready."
           exit 1
         fi
-        d8 k patch mpo virtualization --type merge -p "{\"spec\":{\"imageTag\":\"$v12n_tag\"}}"
+
+        d8 k patch mpo virtualization --type merge -p "{\"spec\":{\"imageTag\":\"$v12n_tag\"}}" 
         images_hash=$(crane export "dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:$v12n_tag" - | tar -Oxf - images_digests.json)
+
         v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
+        
+        audit_status=$(kubectl get mc virtualization -o=jsonpath='{.spec.settings.audit.enabled}')
+        audit_image_skip=$(if [ -z $audit_status ] || [ $audit_status == "false" ]; then echo "false";else echo "true";fi)
+
         retry_count=0
         max_retries=120
-        sleep_interval=5
+        sleep_interval=5 
+
+        if [ $audit_image_skip == "true" ]; then
+          SKIP_IMAGES=("virtualizationAudit")
+        fi
+
+        is_skipped_image() {
+          local img="$1"
+          if [ ${#img} -eq 0 ]; then return 1 ;fi
+
+          for skip in "${SKIP_IMAGES[@]}"; do
+            if [[ "$img" == "$skip" ]]; then
+              return 0  # image found in skip list
+            fi
+          done
+          return 1  # image not in skip list
+        }
 
         while true; do
           all_hashes_found=true
@@ -199,6 +221,11 @@ tasks:
             hash=$(echo "$image_entry" | jq -r '.value')
 
             if [[ "${image,,}" =~ (libguestfs|predeletehook) ]]; then
+              continue
+            fi
+
+            if is_skipped_image "$image"; then
+              echo "- ⏭️  Skipping $image"
               continue
             fi
 
