@@ -2,7 +2,6 @@
 image: {{ $.ImageType }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
-# cacheVersion: "14052025.0"
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
@@ -37,8 +36,6 @@ packages:
 - libnbd
 - libtorrent-rasterbar-devel
 - libssh
-# debug
-- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -46,7 +43,6 @@ packages:
 image: {{ $.ImageType }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
-# cacheVersion: "14052025.0"
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -54,14 +50,11 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get update && apt-get install -y \
+    apt-get install -y \
       {{ $builderDependencies.packages | join " " }}
 
-    apt-get update
-    apt-get clean
-  {{- if not $.DistroPackagesProxy }}
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-  {{- end }}
+  {{- include "alt packages clean" . | nindent 2 }}
+
 
   install:
   - |
@@ -86,5 +79,3 @@ shell:
     # We don't need man, test and samples files
     rm -rf $OUTDIR/usr/include
     rm -rf $OUTDIR/usr/share
-
-    tree $OUTDIR

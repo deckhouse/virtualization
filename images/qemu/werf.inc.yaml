@@ -111,7 +111,7 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get update && apt-get install -y \
+    apt-get install -y \
       {{ $builderDependencies.packages | join " " }} \
       {{ $builderDependencies.libraries | join " " }}
 

@@ -31,7 +31,7 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get update && apt-get install --yes \
+    apt-get install --yes \
     binutils \
     gcc-c++ \
     git \
