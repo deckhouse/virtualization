@@ -27,4 +27,6 @@ shell:
         {{ $builderDependencies.libraries | join " " }}
   - |
     apt-get clean
+  {{- if not $.DistroPackagesProxy }}
     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- end }}
