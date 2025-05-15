@@ -119,6 +119,7 @@ git:
       - hooks/lib/tests
       - hooks/test*
       - docs/images/*.drawio
+      - docs/images/*.sh
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
     {{- end }}
