@@ -71,21 +71,21 @@ shell:
     git clone $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-platforms.git
 
     cd {{ $gitRepoName }}-{{ $version }}
-  {{- if ne "$(cat /run/secrets/SOURCE_REPO)" "https://github.com" }}
-    echo "Change submodule url"
-    git submodule set-url -- CryptoPkg/Library/OpensslLib/openssl $(cat /run/secrets/SOURCE_REPO)/openssl/openssl
-    git submodule set-url -- UnitTestFrameworkPkg/Library/CmockaLib/cmocka $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-cmocka.git
-    git submodule set-url -- MdeModulePkg/Universal/RegularExpressionDxe/oniguruma $(cat /run/secrets/SOURCE_REPO)/kkos/oniguruma.git
-    git submodule set-url -- MdeModulePkg/Library/BrotliCustomDecompressLib/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
-    git submodule set-url -- BaseTools/Source/C/BrotliCompress/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
-    git submodule set-url -- RedfishPkg/Library/JsonLib/jansson $(cat /run/secrets/SOURCE_REPO)/akheron/jansson.git
-    git submodule set-url -- UnitTestFrameworkPkg/Library/GoogleTestLib/googletest $(cat /run/secrets/SOURCE_REPO)/google/googletest.git
-    git submodule set-url -- UnitTestFrameworkPkg/Library/SubhookLib/subhook $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-subhook.git
-    git submodule set-url -- MdePkg/Library/BaseFdtLib/libfdt $(cat /run/secrets/SOURCE_REPO)/devicetree-org/pylibfdt.git
-    git submodule set-url -- MdePkg/Library/MipiSysTLib/mipisyst $(cat /run/secrets/SOURCE_REPO)/MIPI-Alliance/public-mipi-sys-t.git
-    git submodule set-url -- CryptoPkg/Library/MbedTlsLib/mbedtls $(cat /run/secrets/SOURCE_REPO)/Mbed-TLS/mbedtls.git
-    git submodule set-url -- SecurityPkg/DeviceSecurity/SpdmLib/libspdm $(cat /run/secrets/SOURCE_REPO)/DMTF/libspdm.git
-  {{- end }}
+    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
+      echo "Change submodule url"
+      git submodule set-url -- CryptoPkg/Library/OpensslLib/openssl $(cat /run/secrets/SOURCE_REPO)/openssl/openssl
+      git submodule set-url -- UnitTestFrameworkPkg/Library/CmockaLib/cmocka $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-cmocka.git
+      git submodule set-url -- MdeModulePkg/Universal/RegularExpressionDxe/oniguruma $(cat /run/secrets/SOURCE_REPO)/kkos/oniguruma.git
+      git submodule set-url -- MdeModulePkg/Library/BrotliCustomDecompressLib/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
+      git submodule set-url -- BaseTools/Source/C/BrotliCompress/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
+      git submodule set-url -- RedfishPkg/Library/JsonLib/jansson $(cat /run/secrets/SOURCE_REPO)/akheron/jansson.git
+      git submodule set-url -- UnitTestFrameworkPkg/Library/GoogleTestLib/googletest $(cat /run/secrets/SOURCE_REPO)/google/googletest.git
+      git submodule set-url -- UnitTestFrameworkPkg/Library/SubhookLib/subhook $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-subhook.git
+      git submodule set-url -- MdePkg/Library/BaseFdtLib/libfdt $(cat /run/secrets/SOURCE_REPO)/devicetree-org/pylibfdt.git
+      git submodule set-url -- MdePkg/Library/MipiSysTLib/mipisyst $(cat /run/secrets/SOURCE_REPO)/MIPI-Alliance/public-mipi-sys-t.git
+      git submodule set-url -- CryptoPkg/Library/MbedTlsLib/mbedtls $(cat /run/secrets/SOURCE_REPO)/Mbed-TLS/mbedtls.git
+      git submodule set-url -- SecurityPkg/DeviceSecurity/SpdmLib/libspdm $(cat /run/secrets/SOURCE_REPO)/DMTF/libspdm.git
+    fi
 
     git submodule update --init --recursive
 

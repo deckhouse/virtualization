@@ -140,10 +140,10 @@ shell:
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} {{ $gitRepoName }}-{{ $version }}
 
     cd {{ $gitRepoName }}-{{ $version }}
-  {{- if ne "$(cat /run/secrets/SOURCE_REPO)" "https://github.com" }}
-    echo "Change submodule url"
-    git submodule set-url -- subprojects/keycodemapdb $(cat /run/secrets/SOURCE_REPO)/keycodemap/keycodemapdb.git
-  {{- end }}
+    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
+      echo "Change submodule url"
+      git submodule set-url -- subprojects/keycodemapdb $(cat /run/secrets/SOURCE_REPO)/keycodemap/keycodemapdb.git
+    fi
 
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "
