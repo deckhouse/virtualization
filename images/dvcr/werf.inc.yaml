@@ -45,6 +45,5 @@ shell:
     go build -o /container-registry-binary/ -ldflags '-s -w -X registry/version.Version=v{{ $version }} -X registry/version.Revision=v{{ $version }}' ./cmd/registry
   - |
     echo "Clean up"
-    apt-get clean
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
     rm -rf $(go env GOCACHE)
+  - ls -la /container-registry-binary
