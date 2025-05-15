@@ -37,6 +37,11 @@ on:
         type: number
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
+    # == debug only ==
+    branches:
+      - main
+      - fix/ci/fix-run-e2e-with-audit
+    # ================
   push:
     branches:
       - main
