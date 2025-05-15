@@ -34,6 +34,7 @@ shell:
     export GOPATH=$(go env GOPATH)
     export GOROOT=$(go env GOROOT)
     export GO111MODULE=off
+    export CGO_ENABLED=0
     
     mkdir -p /container-registry-binary
     mkdir -p $GOPATH/src/github.com/docker
@@ -46,4 +47,3 @@ shell:
   - |
     echo "Clean up"
     rm -rf $(go env GOCACHE)
-  - ls -la /container-registry-binary
