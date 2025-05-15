@@ -290,9 +290,13 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Run test hooks
+      - name: Run test Python hooks
         run: |
           task hooks:test
+
+      - name: Run test GO hooks
+        run: |
+          task gohooks:test
 
       - name: Run unit test virtualization-controller
         run: |
