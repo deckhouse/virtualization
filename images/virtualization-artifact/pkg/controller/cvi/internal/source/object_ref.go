@@ -317,7 +317,7 @@ func (ds ObjectRefDataSource) CleanUp(ctx context.Context, cvi *virtv2.ClusterVi
 
 func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterVirtualImage) error {
 	if cvi.Spec.DataSource.ObjectRef == nil {
-		return nil
+		return fmt.Errorf("nil object ref: %s", cvi.Spec.DataSource.Type)
 	}
 
 	switch cvi.Spec.DataSource.ObjectRef.Kind {
