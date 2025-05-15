@@ -1,8 +1,8 @@
 //go:build !windows
 
 /*
-Copyright 2018 The KubeVirt Authors.
-Copyright 2024 Flant JSC.
+Copyright 2018 The KubeVirt Authors
+Copyright 2024 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
