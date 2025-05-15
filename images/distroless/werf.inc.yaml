@@ -20,11 +20,10 @@ fromImage: base-alt-p11-binaries
 final: false
 shell:
   beforeInstall:
-    {{- include "alt packages proxy" . | nindent 2 }}
+  {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install ca-certificates tzdata -y
-    apt-get clean
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     mkdir -p /relocate/etc/{pki,ssl} /relocate/usr/{bin,sbin,share,lib,lib64}

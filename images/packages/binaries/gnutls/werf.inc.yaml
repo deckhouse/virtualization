@@ -40,10 +40,8 @@ shell:
   - |
     apt-get install -y \
       {{ $builderDependencies.packages | join " " }}
-    apt-get clean
 
   {{- include "alt packages clean" . | nindent 2 }}
-
 
   install:
   - |

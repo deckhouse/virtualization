@@ -49,9 +49,7 @@ shell:
   - |
     apt-get install --yes \
       {{ $cdiClonerDependencies.packages | join " " }}
-  - |
-    apt-get clean
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- include "alt packages clean" . | nindent 2 }}
   setup:
   - /relocate_binaries.sh -i "{{ $cdiClonerDependencies.binaries | join " " }}" -o /relocate
 # tmp folder need for ready file

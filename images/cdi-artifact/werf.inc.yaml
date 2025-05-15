@@ -24,73 +24,69 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
-    {{- include "alt packages proxy" . | nindent 2 }}
-  - | 
-    apt-get update
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
     apt-get install --yes libnbd-dev
-    apt-get clean
-  {{- if not $.DistroPackagesProxy }}
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-  {{- end }}
+  {{- include "alt packages clean" . | nindent 2 }}
 
   install:
-    - |
-      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-      
-      git clone --depth 1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /containerized-data-importer
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     
-      cd /containerized-data-importer
+    git clone --depth 1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /containerized-data-importer
+  
+    cd /containerized-data-importer
 
-      echo Download Go modules.
-      go get golang.org/x/crypto@v0.31.0
-      go mod download
-    
-      go mod tidy
-      go mod vendor
+    echo Download Go modules.
+    go get golang.org/x/crypto@v0.31.0
+    go mod download
+  
+    go mod tidy
+    go mod vendor
 
-    - |
-      for p in /patches/*.patch ; do
-        echo -n "Apply ${p} ... "
-        git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-      done
+  - |
+    for p in /patches/*.patch ; do
+      echo -n "Apply ${p} ... "
+      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
+    done
 
   setup:
-    - mkdir /cdi-binaries
-    - cd /containerized-data-importer
+  - mkdir /cdi-binaries
+  - cd /containerized-data-importer
 
-    - export GO111MODULE=on
-    - export GOOS=linux
-    - export CGO_ENABLED=0
-    - export GOARCH=amd64
+  - export GO111MODULE=on
+  - export GOOS=linux
+  - export CGO_ENABLED=0
+  - export GOARCH=amd64
 
-    - echo ============== Build cdi-apiserver ===========
-    - go build -ldflags="-s -w" -o /cdi-binaries/cdi-apiserver ./cmd/cdi-apiserver
+  - echo ============== Build cdi-apiserver ===========
+  - go build -ldflags="-s -w" -o /cdi-binaries/cdi-apiserver ./cmd/cdi-apiserver
 
-    - echo ============== Build cdi-cloner ===========
-    - go build -ldflags="-s -w" -o /cdi-binaries/cdi-cloner ./cmd/cdi-cloner
+  - echo ============== Build cdi-cloner ===========
+  - go build -ldflags="-s -w" -o /cdi-binaries/cdi-cloner ./cmd/cdi-cloner
 
-    - echo ============== Build cdi-controller ===========
-    - go build -ldflags="-s -w" -o /cdi-binaries/cdi-controller ./cmd/cdi-controller
+  - echo ============== Build cdi-controller ===========
+  - go build -ldflags="-s -w" -o /cdi-binaries/cdi-controller ./cmd/cdi-controller
 
-    - echo ============== Build cdi-uploadproxy ===========
-    - go build -ldflags="-s -w" -o /cdi-binaries/cdi-uploadproxy ./cmd/cdi-uploadproxy
+  - echo ============== Build cdi-uploadproxy ===========
+  - go build -ldflags="-s -w" -o /cdi-binaries/cdi-uploadproxy ./cmd/cdi-uploadproxy
 
-    - echo ============== Build cdi-importer ===========
-    - CGO_ENABLED=1 go build -ldflags="-s -w" -o /cdi-binaries/cdi-importer ./cmd/cdi-importer
+  - echo ============== Build cdi-importer ===========
+  - CGO_ENABLED=1 go build -ldflags="-s -w" -o /cdi-binaries/cdi-importer ./cmd/cdi-importer
 
-    - echo ============== Build cdi-image-size-detection  ===========
-    - go build -ldflags="-s -w" -o /cdi-binaries/cdi-image-size-detection ./tools/cdi-image-size-detection
+  - echo ============== Build cdi-image-size-detection  ===========
+  - go build -ldflags="-s -w" -o /cdi-binaries/cdi-image-size-detection ./tools/cdi-image-size-detection
 
-    - echo ============== Build cdi-source-update-poller  ===========
-    - CGO_ENABLED=1 go build -ldflags="-s -w" -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller
+  - echo ============== Build cdi-source-update-poller  ===========
+  - CGO_ENABLED=1 go build -ldflags="-s -w" -o /cdi-binaries/cdi-source-update-poller ./tools/cdi-source-update-poller
 
-    - echo ============== Build cdi-operator  ===========
-    - go build -ldflags="-s -w" -o /cdi-binaries/cdi-operator ./cmd/cdi-operator
+  - echo ============== Build cdi-operator  ===========
+  - go build -ldflags="-s -w" -o /cdi-binaries/cdi-operator ./cmd/cdi-operator
 
-    - strip /cdi-binaries/*
-    - chmod +x /cdi-binaries/*
-    - chown -R 64535:64535 /cdi-binaries/*
-    - ls -la /cdi-binaries
+  - strip /cdi-binaries/*
+  - chmod +x /cdi-binaries/*
+  - chown -R 64535:64535 /cdi-binaries/*
+  - ls -la /cdi-binaries
 
 ---
 image: {{ $.ImageName }}-cbuilder
@@ -104,11 +100,11 @@ git:
         - '*.c'
 shell:
   install:
-    {{- include "debian packages proxy" . | nindent 2 }}
+  {{- include "debian packages proxy" . | nindent 2 }}  
   - |
-    apt-get update && apt-get install --yes gcc musl-dev musl-tools
-    apt-get clean
-    
+    apt-get install --yes gcc musl-dev musl-tools
+  {{- include "debian packages clean" . | nindent 2 }}
+  - |
     echo "Building simple app that prints hello cdi"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/hello hello.c

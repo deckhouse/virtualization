@@ -13,10 +13,9 @@ git:
     - "**/*.go"
 shell:
   install:
-  - apt-get -qq update
+{{- include "debian packages proxy" . | nindent 2 }}
   - apt-get -qq install -y --no-install-recommends libnbd-dev
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/* /var/cache/apt/*
+{{- include "debian packages clean" . | nindent 2 }}
   setup:
   - mkdir /out
   - cd /src

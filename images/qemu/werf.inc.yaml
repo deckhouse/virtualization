@@ -115,8 +115,8 @@ shell:
       {{ $builderDependencies.packages | join " " }} \
       {{ $builderDependencies.libraries | join " " }}
 
-    apt-get clean
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- include "alt packages clean" . | nindent 2 }}
+  - |
     rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
     rpm -qa | sort > /packages.txt
 

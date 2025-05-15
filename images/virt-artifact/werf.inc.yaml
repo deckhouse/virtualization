@@ -49,12 +49,10 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get update
     apt-get install -y \
       {{ $virtArtifactDependencies.packages | join " " }}
-    apt-get clean
-    echo "rm -rf"
-    rm -rf /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  
+  {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |

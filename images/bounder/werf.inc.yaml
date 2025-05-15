@@ -21,11 +21,11 @@ git:
         - '*.c'
 shell:
   beforeInstall:
-    {{- include "debian packages proxy" . | nindent 2 }}
+  {{- include "debian packages proxy" . | nindent 2 }}
   - |
-    apt-get update && apt-get install --yes \
+    apt-get install --yes \
       gcc musl-dev musl-tools
-    apt-get clean
+  {{- include "debian packages clean" . | nindent 2 }}
   install:
   - |    
     echo "Building simple app that prints hello cdi"

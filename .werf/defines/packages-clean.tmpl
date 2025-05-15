@@ -5,3 +5,8 @@
 - rm --recursive --force /var/lib/apt/lists/{{ $.DistroPackagesProxy }}* 
   {{- end }}
 {{- end }}
+
+{{- define "debian packages clean" }}
+- apt-get clean
+- find /var/lib/apt/ /var/cache/apt/ -type f -delete
+{{- end }}

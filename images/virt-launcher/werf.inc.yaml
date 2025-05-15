@@ -463,7 +463,7 @@ shell:
   - |
     echo "install deps libvirt-dev"
     apt-get update && apt-get install -y libvirt-dev
-    apt-get clean
+  {{- include "alt packages proxy" . | nindent 2 }}
   - mkdir -p /binaries
   - |
     echo "Build node-labeller binaries"
@@ -494,8 +494,8 @@ shell:
   beforeInstall:
   {{- include "debian packages proxy" . | nindent 2 }}
   - |
-    apt-get update && apt-get install --yes gcc musl-dev musl-tools
-    apt-get clean
+    apt-get install --yes gcc musl-dev musl-tools
+  {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
     echo "Building simple app that prints I'am temp pod"

@@ -66,11 +66,8 @@ shell:
     apt-get install --yes \
       {{ $cdiImporterDependencies.packages | join " " }} \
       {{ $cdiImporterDependencies.libraries | join " " }}
-    apt-get clean
-  {{- if not $.DistroPackagesProxy }}
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-  {{- end }}
-    
+  {{- include "alt packages clean" . | nindent 2 }}
+  - |
     cp -a /nbdkit/. /
     rm -rf /nbdkit
   setup:
