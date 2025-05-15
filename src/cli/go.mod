@@ -1,4 +1,4 @@
-module github.com/deckhouse/virtualization/src/pkg/cli
+module github.com/deckhouse/virtualization/src/cli
 
 go 1.23.6
 

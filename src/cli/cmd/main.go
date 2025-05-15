@@ -19,7 +19,7 @@ package main
 import (
 	"os"
 
-	"github.com/deckhouse/virtualization/src/pkg/cli/pkg/command"
+	"github.com/deckhouse/virtualization/src/cli/pkg/command"
 )
 
 func main() {

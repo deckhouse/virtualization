@@ -36,7 +36,7 @@ import (
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/templates"
+	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"

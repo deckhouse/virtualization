@@ -32,8 +32,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/templates"
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/util"
+	"github.com/deckhouse/virtualization/src/cli/internal/templates"
+	"github.com/deckhouse/virtualization/src/cli/internal/util"
 )
 
 var timeout int

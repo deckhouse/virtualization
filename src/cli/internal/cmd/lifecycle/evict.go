@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+     http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -20,16 +20,16 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/templates"
+	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
 
-func NewRestartCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
-	lifecycle := NewLifecycle(Restart, clientConfig)
+func NewEvictCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+	lifecycle := NewLifecycle(Evict, clientConfig)
 	cmd := &cobra.Command{
-		Use:     "restart (VirtualMachine)",
-		Short:   "Restart a virtual machine.",
+		Use:     "evict (VirtualMachine)",
+		Short:   "Evict a virtual machine.",
 		Example: lifecycle.Usage(),
-		Args:    templates.ExactArgs("restart", 1),
+		Args:    templates.ExactArgs("evict", 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return lifecycle.Run(args)
 		},

@@ -27,16 +27,16 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/logs"
 
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/console"
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/lifecycle"
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/portforward"
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/scp"
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/ssh"
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/cmd/vnc"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/console"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/lifecycle"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/portforward"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/scp"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/ssh"
+	"github.com/deckhouse/virtualization/src/cli/internal/cmd/vnc"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 
-	"github.com/deckhouse/virtualization/src/pkg/cli/internal/templates"
+	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
 
 func NewCommand(programName string) (*cobra.Command, clientcmd.ClientConfig) {
