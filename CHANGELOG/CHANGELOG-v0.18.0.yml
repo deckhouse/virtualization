@@ -1,0 +1,70 @@
+core:
+  fixes:
+    - summary: add missing libisoburn to virt-launcher and fix acl build
+      pull_request: https://github.com/deckhouse/virtualization/pull/1019
+kubevirt:
+  fixes:
+    - summary: Fix VM migration with container disks (CVI, VI)
+      pull_request: https://github.com/deckhouse/virtualization/pull/1007
+module:
+  features:
+    - summary: >-
+        A dashboard has been added showing memory synchronization statistics of the VM during
+        migration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1029
+    - summary: >-
+        An audit controller has been added to track security events related to the virtualization
+        module's resources.
+      pull_request: https://github.com/deckhouse/virtualization/pull/801
+vd:
+  fixes:
+    - summary: Fix cleanup for CVI and VI when creating from object reference with the type VirtualDisk.
+      pull_request: https://github.com/deckhouse/virtualization/pull/996
+vm:
+  features:
+    - summary: >-
+        Report I/O errors to guest OS instead of stopping VM, allowing the guest system to deal with
+        the problem (e.g., through retry mechanisms, failover).
+      pull_request: https://github.com/deckhouse/virtualization/pull/983
+    - summary: >-
+        Ability to force migration with CPU throttling. Live migration policy can be set in VM and
+        user can override its value with VMOP.
+      pull_request: https://github.com/deckhouse/virtualization/pull/890
+  fixes:
+    - summary: fix live migration with image hotplug
+      pull_request: https://github.com/deckhouse/virtualization/pull/1041
+    - summary: replace mounted cvi, vi
+      pull_request: https://github.com/deckhouse/virtualization/pull/1016
+    - summary: >-
+        The InUse condition is now correctly removed when the virtual machine class is no longer
+        used by any VM.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1009
+    - summary: >-
+        Resolved an issue where it was impossible to stop a VM if there were unapplied changes in
+        its configuration.
+      pull_request: https://github.com/deckhouse/virtualization/pull/991
+    - summary: >-
+        Improved the logic for handling VM conditions and enhanced the status output for more
+        accurate monitoring.
+      pull_request: https://github.com/deckhouse/virtualization/pull/931
+    - summary: To enhance security, all images will be mounted as `read-only`.
+      pull_request: https://github.com/deckhouse/virtualization/pull/796
+vmipl:
+  fixes:
+    - summary: >-
+        Fixed an issue with the incorrect removal of the finalizer from the VirtualMachineIPLease
+        resource.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1006
+vmop:
+  fixes:
+    - summary: handle conflict error in evacuation-controller
+      pull_request: https://github.com/deckhouse/virtualization/pull/993
+    - summary: fix migration cancel test
+      pull_request: https://github.com/deckhouse/virtualization/pull/977
+vmsnapshot:
+  features:
+    - summary: >-
+        The status of the VirtualMachineSnapshot resource now displays information about the
+        resources included in the snapshot.
+      pull_request: https://github.com/deckhouse/virtualization/pull/978
+
