@@ -18,9 +18,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"hooks/pkg/common"
+
 	"github.com/deckhouse/virtualization/api/core"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+
+	"hooks/pkg/common"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/app"
@@ -33,10 +35,9 @@ const (
 	removePassthroughHookName     = "Prevent default VirtualMachineClasses deletion"
 	removePassthroughHookJQFilter = `.metadata`
 	// see https://helm.sh/docs/howto/charts_tips_and_tricks/#tell-helm-not-to-uninstall-a-resource
-	helmResourcePolicyKey           = "helm.sh/resource-policy"
-	helmResourcePolicyKeep          = "keep"
-	apiVersion 						= core.GroupName + "/" + v1alpha2.Version
-
+	helmResourcePolicyKey  = "helm.sh/resource-policy"
+	helmResourcePolicyKeep = "keep"
+	apiVersion             = core.GroupName + "/" + v1alpha2.Version
 )
 
 var _ = registry.RegisterFunc(config, Reconcile)
@@ -71,7 +72,7 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 
 	for _, vmc := range vmcs {
 		metadata := &metav1.ObjectMeta{}
-		if err := vmc.UnmarhalTo(metadata); err != nil {
+		if err := vmc.UnmarshalTo(metadata); err != nil {
 			input.Logger.Error(fmt.Sprintf("Failed to unmarshal metadata VirtualMachineClasses %v", err))
 		}
 

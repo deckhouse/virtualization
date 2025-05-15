@@ -18,6 +18,7 @@ package main
 import (
 	"context"
 	"fmt"
+
 	"hooks/pkg/common"
 
 	"github.com/deckhouse/module-sdk/pkg"
@@ -88,7 +89,7 @@ func handlerModuleCommonCA(_ context.Context, input *pkg.HookInput) error {
 	}
 
 	// CA secret is found, decode it and save to Values.
-	err := ca_secret[0].UnmarhalTo(&rootCA)
+	err := ca_secret[0].UnmarshalTo(&rootCA)
 	if err != nil {
 		return fmt.Errorf("unmarshalTo: %w", err)
 	}

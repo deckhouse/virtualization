@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: false
-fromImage: BASE_GOLANG_23_BOOKWORM
+fromImage: builder/golang-bookworm-1.24
 git:
 - add: /images/{{ $.ImageName }}
   to: /app/images/hooks
@@ -23,12 +23,13 @@ shell:
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
-  - go build -ldflags="-s -w" -a -o /hooks/000-ca-discovery ./cmd/000-ca-discovery
-  - go build -ldflags="-s -w" -o /hooks/001-tls-certificates-controller ./cmd/001-tls-certificates-controller
-  - go build -ldflags="-s -w" -o /hooks/002-tls-certificates-dvcr ./cmd/002-tls-certificates-dvcr
-  - go build -ldflags="-s -w" -o /hooks/003-tls-certificates-api ./cmd/003-tls-certificates-api
-  - go build -ldflags="-s -w" -o /hooks/004-tls-certificates-api-proxy ./cmd/004-tls-certificates-api-proxy
+  - go build -ldflags="-s -w" -a -o /hooks/ca-discovery ./cmd/ca-discovery
+  - go build -ldflags="-s -w" -o /hooks/tls-certificates-controller ./cmd/tls-certificates-controller
+  - go build -ldflags="-s -w" -o /hooks/tls-certificates-dvcr ./cmd/tls-certificates-dvcr
+  - go build -ldflags="-s -w" -o /hooks/tls-certificates-api ./cmd/tls-certificates-api
+  - go build -ldflags="-s -w" -o /hooks/tls-certificates-api-proxy ./cmd/tls-certificates-api-proxy
 {{- if eq .MODULE_EDITION "EE" }}
-  - go build -ldflags="-s -w" -o /hooks/005-tls-certificates-audit ./cmd/005-tls-certificates-audit
+  - go build -ldflags="-s -w" -o /hooks/tls-certificates-audit ./cmd/tls-certificates-audit
 {{- end }}
-  - go build -ldflags="-s -w" -o /hooks/006-prevent-default-vmclasses-deletion ./cmd/006-prevent-default-vmclasses-deletion
+  - go build -ldflags="-s -w" -o /hooks/prevent-default-vmclasses-deletion ./cmd/prevent-default-vmclasses-deletion
+  - go build -ldflags="-s -w" -o /hooks/generate-secret-for-dvcr ./cmd/generate-secret-for-dvcr

@@ -15,6 +15,9 @@ includes:
   hooks:
     taskfile: ./hooks
     dir: ./hooks
+  gohooks:
+    taskfile: ./images/hooks
+    dir: ./images/hooks
   e2e:
     taskfile: ./tests/e2e
     dir: ./tests/e2e
