@@ -73,7 +73,6 @@ shell:
     cd {{ $gitRepoName }}-{{ $version }}
   {{- if ne "$(cat /run/secrets/SOURCE_REPO)" "https://github.com" }}
     echo "Change submodule url"
-    # git config --global url."$(cat /run/secrets/SOURCE_REPO)".insteadOf "https://github.com"
     git submodule set-url -- CryptoPkg/Library/OpensslLib/openssl $(cat /run/secrets/SOURCE_REPO)/openssl/openssl
     git submodule set-url -- UnitTestFrameworkPkg/Library/CmockaLib/cmocka $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-cmocka.git
     git submodule set-url -- MdeModulePkg/Universal/RegularExpressionDxe/oniguruma $(cat /run/secrets/SOURCE_REPO)/kkos/oniguruma.git
