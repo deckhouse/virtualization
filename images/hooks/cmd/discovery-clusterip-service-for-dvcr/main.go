@@ -19,6 +19,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/app"
@@ -83,7 +84,7 @@ func handleDiscoveryService(_ context.Context, input *pkg.HookInput) error {
 func getClusterIP(input *pkg.HookInput) string {
 	snapshots := input.Snapshots.Get(discoveryService)
 	if len(snapshots) > 0 {
-		return snapshots[0].String()
+		return strings.Trim(snapshots[0].String(), `"`)
 	}
 	return ""
 }
