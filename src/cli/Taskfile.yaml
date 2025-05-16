@@ -1,0 +1,21 @@
+# https://taskfile.dev
+
+version: "3"
+
+silent: true
+
+tasks:
+  build:
+    cmds:
+      - go build -o out/d8v cmd/main.go
+  install:
+    deps: [build]
+    cmds:
+      - echo "Check that ~/.local/bin in your PATH"
+      - echo "Installing d8v to ~/.local/bin"
+      - mkdir -p ~/.local/bin
+      - cp out/d8v ~/.local/bin/d8v
+      - task: clean
+  clean:
+    cmds:
+      - rm -rf out
