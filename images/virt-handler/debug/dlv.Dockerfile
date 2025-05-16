@@ -15,17 +15,18 @@ RUN apt-get install -y \
     apt-get clean && \
     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
 
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
+ARG BRANCH="1.3.1-virtualization"
 ENV VERSION="1.3.1"
 ENV GOVERSION="1.22.7"
 
 RUN mkdir /kubevirt-config-files && echo "v$VERSION-dirty" > /kubevirt-config-files/.version
 
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
-
-RUN git clone --depth 1 --branch v$VERSION https://github.com/kubevirt/kubevirt.git /kubevirt
-COPY ./images/virt-artifact/patches /patches
+# Copy the git commits for rebuilding the image if the branch changes
+ADD "https://api.github.com/repos/deckhouse/3p-kubevirt/commits/$BRANCH" /.git-commit-hash.tmp
+RUN git clone --depth 1 --branch $BRANCH https://github.com/deckhouse/3p-kubevirt.git /kubevirt
 WORKDIR /kubevirt
-RUN for p in /patches/*.patch ; do git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1) ; done
 
 RUN go mod edit -go=$GOVERSION && \
     go mod download
@@ -51,6 +52,11 @@ RUN apt-get update && apt-get install --yes \
         xorriso==1.5.6-alt1 && \
     apt-get clean && \
     rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+
+RUN echo "qemu:x:107:107::/home/qemu:/bin/bash" >> /etc/passwd && \
+    echo "qemu:x:107:" >> /etc/group                           && \
+    mkdir -p /home/qemu                                        && \
+    chown -R 107:107 /home/qemu
 
 COPY --from=builder /kubevirt/cmd/virt-handler/virt_launcher.cil /virt_launcher.cil
 COPY --from=builder /kubevirt-config-files/.version /.version
