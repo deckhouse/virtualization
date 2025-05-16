@@ -35,7 +35,7 @@ shell:
 
     echo "Git clone CDI repository..."
     git config --global --add advice.detachedHead false
-    git clone --depth 1 --branch v{{ $version }} {{ .SOURCE_REPO }}/kubevirt/containerized-data-importer.git /containerized-data-importer
+    git clone --depth 1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
 
   - |
     cd /containerized-data-importer
