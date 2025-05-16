@@ -1,0 +1,13 @@
+diff --git a/pkg/virt-controller/services/template.go b/pkg/virt-controller/services/template.go
+index 7e2519d129..6a2b908fe4 100644
+--- a/pkg/virt-controller/services/template.go
++++ b/pkg/virt-controller/services/template.go
+@@ -384,7 +384,7 @@ func (t *templateService) renderLaunchManifest(vmi *v1.VirtualMachineInstance, i
+ 		logger.Infof("RUNNING doppleganger pod for %s", vmi.Name)
+ 		command = []string{"temp_pod"}
+ 	} else {
+-		command = []string{"/usr/bin/virt-launcher-monitor",
++		command = []string{"/usr/bin/tini", "--", "/usr/bin/virt-launcher-monitor",
+ 			"--qemu-timeout", generateQemuTimeoutWithJitter(t.launcherQemuTimeout),
+ 			"--name", domain,
+ 			"--uid", string(vmi.UID),

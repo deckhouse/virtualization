@@ -7,6 +7,10 @@ import:
     add: /relocate
     to: /
     after: install
+  - image: tools/tini-v0.19.0
+    add: /usr/bin/tini
+    to: /usr/bin/tini
+    after: install
 imageSpec:
   config:
     user: 0
