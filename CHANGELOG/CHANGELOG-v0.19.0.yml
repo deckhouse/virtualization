@@ -1,0 +1,25 @@
+api:
+  fixes:
+    - summary: Fixed the requeue loss bug during VD/VI/CVI provisioning.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1046
+docs:
+  fixes:
+    - summary: Deleted the repetitive paragraphs in IP address section
+      pull_request: https://github.com/deckhouse/virtualization/pull/1059
+vd:
+  features:
+    - summary: >-
+        The `vd-protection` finalizer will be removed from the virtual disk if the virtual machine
+        is stopped.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1014
+vm:
+  fixes:
+    - summary: trim quotes in discovered ClusterIP
+      pull_request: https://github.com/deckhouse/virtualization/pull/1052
+    - summary: Improve Status Reporting
+      pull_request: https://github.com/deckhouse/virtualization/pull/1023
+vmip:
+  fixes:
+    - summary: Fix creating many vmipleases from one vmip.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1012
+
