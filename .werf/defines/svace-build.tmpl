@@ -1,14 +1,11 @@
-{{- define "scave.build" }}
-    {{- if eq $.SVACE_ENABLED "true" }}
-commit_sha=$(git rev-parse --short HEAD)
-branch_name=$(git rev-parse --abbrev-ref HEAD)
-safe_branch_name=${branch_name//\//_}
-
-folder_name="${safe_branch_name}_${commit_sha}"
-mkdir -p /svace-analyze/$folder_name/{{ .ModuleName }}/{{ $.ImageName }}
+{{- define "svace.build" }}
+  {{- if eq $.SVACE_ENABLED "true" }}
+#mkdir -p /svace-build/virtualization/{{ $.Commit.Hash }}/{{ $.ImageName }}
+mkdir -p /svace-build/virtualization/svace/{{ $.ImageName }}
 
 svace build --init {{ .BuildCommand }}
-mv .svace-dir /svace-analyze/$folder_name/{{ .ModuleName }}/{{ $.ImageName }}/.svace-dir
+#mv .svace-dir /svace-build/virtualization/{{ $.Commit.Hash }}/{{ $.ImageName }}/.svace-dir
+mv .svace-dir /svace-build/virtualization/svace/{{ $.ImageName }}/.svace-dir
 rm -rf .svace-dir || exit 1
     {{- else }}
 {{ .BuildCommand }}

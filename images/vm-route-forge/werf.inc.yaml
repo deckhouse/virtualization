@@ -1,7 +1,11 @@
 ---
 image: {{ $.ImageName }}-builder
 final: false
+{{- if eq $.SVACE_ENABLED "true" }}
+fromImage: svace-builder
+{{- else }}
 fromImage: builder/golang-bookworm-1.23
+{{- end }}
 git:
 - add: /images/{{ $.ImageName }}
   to: /app/images/vm-route-forge
@@ -19,6 +23,8 @@ git:
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
+- fromPath: /svace-build
+  to: /svace-build
 shell:
   install:
   - cd /app/images/vm-route-forge
@@ -29,8 +35,8 @@ shell:
   - export GOARCH=amd64
   - export CGO_ENABLED=0
   - |
-    {{- include "scave.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go`) | indent 4 }}
-    
+    {{- include "svace.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go`) | indent 4 }}
+
 ---
 image: {{ $.ImageName }}
 fromImage: distroless
