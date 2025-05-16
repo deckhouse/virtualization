@@ -1,0 +1,12 @@
+{{- define "alt packages clean" }}
+- apt-get clean
+- rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- if $.DistroPackagesProxy }}
+- rm --recursive --force /var/lib/apt/lists/{{ $.DistroPackagesProxy }}* 
+  {{- end }}
+{{- end }}
+
+{{- define "debian packages clean" }}
+- apt-get clean
+- find /var/lib/apt/ /var/cache/apt/ -type f -delete
+{{- end }}

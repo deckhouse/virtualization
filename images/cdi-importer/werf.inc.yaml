@@ -21,8 +21,8 @@ packages:
 binaries:
   # nbd bins and libs
   - /usr/sbin/nbdkit
-  - /usr/lib/nbdkit/filters/*
-  - /usr/lib/nbdkit/plugins/*
+  - /usr/lib64/nbdkit/filters/*.so
+  - /usr/lib64/nbdkit/plugins/*.so
   # Sqlite libs
   - /usr/lib64/libsqlite3.so.0
   # CDI binaries
@@ -58,16 +58,18 @@ import:
 - image: packages/binaries/nbdkit
   add: /nbdkit
   to: /nbdkit
-  before: setup
+  before: install
 shell:
   install:
+  {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get update && apt-get install --yes \
+    apt-get install --yes \
       {{ $cdiImporterDependencies.packages | join " " }} \
       {{ $cdiImporterDependencies.libraries | join " " }}
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-  setup:
+  {{- include "alt packages clean" . | nindent 2 }}
   - |
     cp -a /nbdkit/. /
+    rm -rf /nbdkit
+  setup:
+  - |
     /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate
