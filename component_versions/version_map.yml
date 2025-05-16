@@ -17,4 +17,5 @@ package:
   bzip2: bzip2-1.0.8
   libbrotli: v1.1.0
   libburn: 1.4.6
+  libblkid: v2.41
   file: FILE5_45
