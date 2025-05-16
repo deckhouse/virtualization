@@ -23,27 +23,31 @@ imageSpec:
 image: {{ $.ImageName }}-builder
 final: false
 fromImage: builder/golang-bookworm-1.23
+mount:
+  - fromPath: ~/go-pkg-cache
+    to: /go/pkg
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-  - |    
+  - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
+    export GOOS=linux
+    export GOARCH=amd64
+    export CGO_ENABLED=0
+
+    # Docker distribution v2.8.3 is not a go module, backoff to GOPATH build. Remove these lines on migration to distribution v3.0.0.
     export GOPATH=$(go env GOPATH)
     export GOROOT=$(go env GOROOT)
     export GO111MODULE=off
-    export CGO_ENABLED=0
-    
+
     mkdir -p /container-registry-binary
     mkdir -p $GOPATH/src/github.com/docker
 
     cd $GOPATH/src/github.com/docker
-    git clone --depth 1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} 
+    git clone --depth 1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }}
     cd distribution
 
     go build -o /container-registry-binary/ -ldflags '-s -w -X registry/version.Version=v{{ $version }} -X registry/version.Revision=v{{ $version }}' ./cmd/registry
-  - |
-    echo "Clean up"
-    rm -rf $(go env GOCACHE)

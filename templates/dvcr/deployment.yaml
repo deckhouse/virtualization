@@ -66,7 +66,7 @@ spec:
           image: {{ include "helm_lib_module_image" (list . "dvcr") }}
           imagePullPolicy: IfNotPresent
           command:
-          - /bin/registry
+          - /usr/bin/registry
           - serve
           - /etc/docker/registry/config.yml
           ports:
@@ -97,7 +97,7 @@ spec:
         {{- $kubeRbacProxySettings := dict }}
         {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
         {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-            (dict "upstream" "http://127.0.0.1:5001/metrics" "path" "/metrics" "name" "dvcr") 
+            (dict "upstream" "http://127.0.0.1:5001/metrics" "path" "/metrics" "name" "dvcr")
         ) }}
         {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 8 }}
       volumes: {{ include "dvcr.volumes" . | nindent 8 }}

@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: BASE_GOLANG_22_BOOKWORM
+fromImage: builder/golang-bookworm-1.23
 git:
 - add: /images/{{ $.ImageName }}
   to: /src
@@ -13,9 +13,9 @@ git:
     - "**/*.go"
 shell:
   install:
-{{- include "debian packages proxy" . | nindent 2 }}
+  {{- include "debian packages proxy" . | nindent 2 }}
   - apt-get -qq install -y --no-install-recommends libnbd-dev
-{{- include "debian packages clean" . | nindent 2 }}
+  {{- include "debian packages clean" . | nindent 2 }}
   setup:
   - mkdir /out
   - cd /src

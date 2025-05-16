@@ -1,7 +1,7 @@
 ---
 image: pre-delete-hook-builder
 final: false
-fromImage: BASE_GOLANG_22_BOOKWORM
+fromImage: builder/golang-bookworm-1.23
 git:
 - add: /images/{{ $.ImageName }}
   to: /pre-delete-hook
