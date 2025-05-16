@@ -1,19 +1,42 @@
 ---
-image: {{ $.ImageName }}
+image: {{ $.ImageName }}-alt
 final: false
-from: alt:p11
+fromImage: BASE_ALT_P11
 shell:
   beforeInstall:
-  {{- define "alt packages proxy" }}
+  {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      bzip2 golang git binutils make gcc \
+      wget bzip2 golang git binutils make gcc \
       glibc-pthread glibc-devel glibc-devel-static
     
     echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
   install:
   - |
-    wget -O svace.tar.bz2 {{ $.SVACE_DOWNLOAD }}
+    wget -O svace.tar.bz2 "{{ .SVACE_DOWNLOAD }}"
+
+    mkdir -p /svace-download /opt/svace
+    tar -xf svace.tar.bz2 -C /svace-download
+    mv /svace-download/svace-*/* /opt/svace
+    ln -s /opt/svace/bin/svace /usr/local/bin/svace
+    
+    rm -f svace.tar.bz2
+    rm -rf /svace-download
+---
+image: {{ $.ImageName }}-debian
+final: false
+fromImage: builder/golang-bookworm-1.23
+shell:
+  beforeInstall:
+  {{- include "debian packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      wget bzip2 git binutils make gcc
+    
+    echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  install:
+  - |
+    wget -O svace.tar.bz2 "{{ .SVACE_DOWNLOAD }}"
 
     mkdir -p /svace-download /opt/svace
     tar -xf svace.tar.bz2 -C /svace-download
