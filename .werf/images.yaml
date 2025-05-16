@@ -34,6 +34,8 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
   {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
   {{- $_ := set $ctx "Version" $Root.Version }}
+  {{- $_ := set $ctx "SVACE_DOWNLOAD" $Root.SVACE_DOWNLOAD }}
+  {{- $_ := set $ctx "SVACE_ENABLED" $Root.SVACE_ENABLED }}
 
   {{- include "module_image_template" $ctx }}
   

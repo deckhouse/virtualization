@@ -1,0 +1,24 @@
+---
+image: {{ $.ImageName }}
+final: false
+from: alt:p11
+shell:
+  beforeInstall:
+  {{- define "alt packages proxy" }}
+  - |
+    apt-get install -y \
+      bzip2 golang git binutils make gcc \
+      glibc-pthread glibc-devel glibc-devel-static
+    
+    echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  install:
+  - |
+    wget -O svace.tar.bz2 {{ $.SVACE_DOWNLOAD }}
+
+    mkdir -p /svace-download /opt/svace
+    tar -xf svace.tar.bz2 -C /svace-download
+    mv /svace-download/svace-*/* /opt/svace
+    ln -s /opt/svace/bin/svace /usr/local/bin/svace
+    
+    rm -f svace.tar.bz2
+    rm -rf /svace-download
