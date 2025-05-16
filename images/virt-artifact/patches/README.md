@@ -347,3 +347,20 @@ AllowAutoConverge is a global configuration option or should be changed in clust
 This patch disables setting migration configuration from MigrationPolicies resources,
 and forces source virt-handler to wait for migrationConfiguration in KVVMI status before
 starting migration.
+
+#### `052-add-tini-to-virt-launcher.patch`
+
+##### Problem
+
+During normal operation, certain errors may occur that lead to incorrect termination of processes inside the `virt-launcher` container. As a result, orphaned or zombie processes can be left behind.
+
+##### Solution
+
+This patch adds [`Tini`](https://github.com/krallin/tini ) as the primary entry point for the `virt-launcher` container.  
+Tini is a minimal init system designed specifically for containers — it ensures proper reaping of zombie processes and forwards signals correctly to all child processes.
+
+Now, `virt-launcher` starts like this:
+```bash
+/usr/bin/tini -- /usr/bin/virt-launcher-monitor [...]
+```
+This improves container reliability and helps prevent issues caused by leftover processes after virtual machine shutdown.
