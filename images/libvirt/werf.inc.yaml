@@ -31,6 +31,9 @@ import:
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+mount:
+- fromPath: /svace-build
+  to: /svace-build
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
