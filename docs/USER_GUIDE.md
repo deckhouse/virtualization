@@ -1799,23 +1799,10 @@ ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12
 
 `VirtualMachineIPAddress` (`vmip`) resource: A project/namespace resource that is responsible for reserving leased IP addresses and binding them to virtual machines. IP addresses can be allocated automatically or by explicit request.
 
-To see a list of `vmip`, use the command:
-
-```bash
-d8 k get vmipl
-```
-
-Example output:
-
-```txt
-NAME             VIRTUALMACHINEIPADDRESS                              STATUS   AGE
-ip-10-66-10-14   {"name":"linux-vm-7prpx","namespace":"default"}     Bound    12h
-```
-
 By default, an ip address is automatically assigned to a virtual machine from the subnets defined in the module and is assigned to it until it is deleted. You can check the assigned ip address using the command:
 
 ```bash
-k get vmip
+d8 k get vmip
 ```
 
 Example output:
