@@ -43,6 +43,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type ObjectRefVirtualImagePVC struct {
@@ -260,7 +261,13 @@ func (ds ObjectRefVirtualImagePVC) Validate(ctx context.Context, vd *virtv2.Virt
 		return fmt.Errorf("unable to get VI: %w", err)
 	}
 
-	if vi == nil || vi.Status.Phase != virtv2.ImageReady || vi.Status.Target.PersistentVolumeClaim == "" {
+	var readyCondition metav1.Condition
+	var ok bool
+	if vi != nil {
+		readyCondition, ok = conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+	}
+
+	if vi == nil || !ok || readyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(readyCondition, vi) || vi.Status.Target.PersistentVolumeClaim == "" {
 		return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
