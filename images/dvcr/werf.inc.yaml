@@ -18,30 +18,32 @@ imageSpec:
     user: 64535
 ---
 {{- $version := "2.8.3" }}
+{{- $gitRepoUrl := "distribution/distribution.git" }}
 
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: base-alt-p10
+fromImage: builder/golang-bookworm-1.23
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   install:
-    - |
-      apt-get update && apt-get install -y \
-      git openssh golang
+  - |    
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-      export GOPATH=$(go env GOPATH)
-      export GOROOT=$(go env GOROOT)
-      export GO111MODULE=off
-      
-      mkdir -p /container-registry-binary
-      mkdir -p $GOPATH/src/github.com/docker
+    export GOPATH=$(go env GOPATH)
+    export GOROOT=$(go env GOROOT)
+    export GO111MODULE=off
+    export CGO_ENABLED=0
+    
+    mkdir -p /container-registry-binary
+    mkdir -p $GOPATH/src/github.com/docker
 
-      cd $GOPATH/src/github.com/docker
-      git clone --depth 1 --branch v{{ $version }} {{ $.SOURCE_REPO }}/docker/distribution.git
-      cd distribution
+    cd $GOPATH/src/github.com/docker
+    git clone --depth 1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} 
+    cd distribution
 
-      go build -o /container-registry-binary/ -ldflags '-s -w -X registry/version.Version=v{{ $version }} -X registry/version.Revision=v{{ $version }}' ./cmd/registry
-    - |
-      echo "Clean up"
-      apt-get clean
-      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-      rm -rf $(go env GOCACHE)
+    go build -o /container-registry-binary/ -ldflags '-s -w -X registry/version.Version=v{{ $version }} -X registry/version.Revision=v{{ $version }}' ./cmd/registry
+  - |
+    echo "Clean up"
+    rm -rf $(go env GOCACHE)

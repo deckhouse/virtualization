@@ -28,25 +28,25 @@ final: false
 fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
-    - |
-      apt-get update && apt-get install -y \
-        {{ $builderDependencies.packages | join " " }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
 
-      apt-get clean
-      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- include "alt packages clean" . | nindent 2 }}
 
   install:
-    - |
-      OUTDIR=/out
-      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-      
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-      cd /src
-      
-      ./Configure --prefix=/usr CC=/usr/bin/musl-gcc -static
-      make -j $(nproc)
-      make install_sw -j $(nproc) DESTDIR=$OUTDIR
-      strip $OUTDIR/usr/bin/openssl
+  - |
+    OUTDIR=/out
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    cd /src
+    
+    ./Configure --prefix=/usr CC=/usr/bin/musl-gcc -static
+    make -j $(nproc)
+    make install_sw -j $(nproc) DESTDIR=$OUTDIR
+    strip $OUTDIR/usr/bin/openssl

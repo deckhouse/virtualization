@@ -13,10 +13,9 @@ git:
     - "**/*.go"
 shell:
   install:
-  - apt-get -qq update
+{{- include "debian packages proxy" . | nindent 2 }}
   - apt-get -qq install -y --no-install-recommends libnbd-dev
-  - apt-get clean
-  - rm --recursive --force /var/lib/apt/lists/* /var/cache/apt/*
+{{- include "debian packages clean" . | nindent 2 }}
   setup:
   - mkdir /out
   - cd /src
@@ -33,15 +32,20 @@ shell:
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
+libraries:
+- libnbd
 binaries:
 - /usr/local/bin/dvcr-importer
-- /usr/bin/nbd*
+- /usr/sbin/nbd*
+- /usr/lib64/nbdkit/filters/*.so
+- /usr/lib64/nbdkit/plugins/*.so
 - /usr/bin/file
 - /usr/share/misc/magic.mgc
 - /usr/local/bin/dvcr-uploader
 - /usr/local/bin/dvcr-cleaner
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
+- /usr/lib64/libnbd.s*
 {{- end -}}
 
 {{ $dvcrDependencies := include "$name" . | fromYaml }}
@@ -70,22 +74,31 @@ import:
   add: /bzip2
   to: /bzip2
   before: install
+- image: packages/binaries/nbdkit
+  add: /nbdkit
+  to: /nbdkit
+  before: install
 - image: qemu
   add: /qemu-img
   to: /qemu-img
   before: install
 shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $dvcrDependencies.libraries | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
   install:
   - |
-    apt-get update && apt-get install --yes \
-      libnbd
-    apt-get clean
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-
     cp -a /qemu-img/. /
     cp -a /bzip2/. /
     cp -a /file/. /
+    cp -a /nbdkit/. /
     rm -rf /{file,bzip2,qemu-img}
+
   setup:
   - |
     /relocate_binaries.sh -i "{{ $dvcrDependencies.binaries | join " " }}" -o /relocate

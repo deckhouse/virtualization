@@ -21,6 +21,9 @@ build:
 # Edition module settings
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
 
+# Define packages proxy settings
+{{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
+
 # Component versions
 {{ $_ := set . "Version" dict }}
 {{ $_ := set . "Packages" dict }}

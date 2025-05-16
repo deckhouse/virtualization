@@ -1,7 +1,7 @@
 ---
 {{- $gitRepoName := $.ImageName }}
 {{- $version := get $.Version $gitRepoName }}
-{{- $gitRepoUrl := cat $.SOURCE_REPO "/libvirt/libvirt.git" | nospace }}
+{{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
 image: {{ $.ImageName }}
 final: false
@@ -24,10 +24,14 @@ import:
   add: /dmidecode
   to: /dmidecode
   before: install
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get update && apt-get install --yes \
+    apt-get install --yes \
     binutils \
     gcc-c++ \
     git \
@@ -108,9 +112,8 @@ shell:
     libfuse3-devel libnuma libslirp-devel \
     libyajl-devel libselinux-devel
 
-    apt-get clean
-    rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
-
+  {{- include "alt packages clean" . | nindent 2 }}
+  - |
     rm -f /usr/lib*/python3*/EXTERNALLY-MANAGED
     rpm -qa | sort > /packages.txt
     mkdir -p /usr/libexec/ccache-wrappers
@@ -122,6 +125,8 @@ shell:
 
   install:
   - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    
     cp -a /dmidecode/. /
     rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
@@ -132,10 +137,13 @@ shell:
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
 
-    git clone --depth=1 --branch v{{ $version }} {{ $gitRepoUrl }} {{ $gitRepoName }}-{{ $version }}
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} {{ $gitRepoName }}-{{ $version }}
 
     cd {{ $gitRepoName }}-{{ $version }}
-
+    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
+      echo "Change submodule url"
+      git submodule set-url -- subprojects/keycodemapdb $(cat /run/secrets/SOURCE_REPO)/keycodemap/keycodemapdb.git
+    fi
 
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "
