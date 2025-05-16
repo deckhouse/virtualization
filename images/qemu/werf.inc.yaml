@@ -79,7 +79,11 @@ libraries:
 
 image: {{ $.ImageName }}
 final: false
+{{- if eq $.SVACE_ENABLED "true" }}
+fromImage: svace-builder-alt
+{{- else }}
 fromImage: base-alt-p11
+{{- end }}
 git:
 - add: /images/{{ $.ImageName }}/
   to: /

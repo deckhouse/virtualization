@@ -2,7 +2,7 @@
 image: {{ $.ImageName }}-builder
 final: false
 {{- if eq $.SVACE_ENABLED "true" }}
-fromImage: svace-builder
+fromImage: svace-builder-debian
 {{- else }}
 fromImage: BASE_GOLANG_22_BOOKWORM
 {{- end }}
