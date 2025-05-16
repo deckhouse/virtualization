@@ -25,6 +25,7 @@ import (
 	k8snet "k8s.io/utils/net"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 )
 
@@ -94,6 +95,7 @@ func (s IpAddressService) AllocateNewIP(allocatedIPs ip.AllocatedIPs) (string, e
 			}
 
 			if _, ok := allocatedIPs[ip.String()]; !ok {
+
 				return ip.String(), nil
 			}
 		}
