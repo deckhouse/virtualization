@@ -28,7 +28,9 @@ shell:
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
-  - go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go
+  - |
+    {{- include "scave.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go`) | indent 4 }}
+    
 ---
 image: {{ $.ImageName }}
 fromImage: distroless

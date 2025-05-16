@@ -24,6 +24,9 @@ build:
 # Define packages proxy settings
 {{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
 
+{{- $_ := set . "SVACE_DOWNLOAD" (env "SVACE_DOWNLOAD" "") }}
+{{- $_ := set . "SVACE_ENABLED" (env "SVACE_ENABLED" "false") }}
+
 # Component versions
 {{ $_ := set . "Version" dict }}
 {{ $_ := set . "Packages" dict }}
