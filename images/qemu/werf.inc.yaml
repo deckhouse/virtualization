@@ -310,7 +310,7 @@ shell:
       --enable-xkbcommon \
       --enable-zstd
 
-      make -j$(nproc)
+    {{- include "svace.build" (set $ "BuildCommand" `make -j$(nproc)`) | indent 4 }}
 
   setup:
   - |
