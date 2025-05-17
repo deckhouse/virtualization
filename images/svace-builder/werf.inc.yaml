@@ -1,7 +1,23 @@
 ---
+image: {{ $.ImageName }}-download
+final: false
+fromImage: builder/alpine
+shell:
+  beforeInstall:
+  - apk update
+  - apk add wget
+  install:
+  - wget -O svace.tar.bz2 "{{ .SVACE_DOWNLOAD }}"
+
+---
 image: {{ $.ImageName }}-alt
 final: false
 fromImage: BASE_ALT_P11
+import:
+- image: {{ $.ImageName }}-download
+  add: /svace.tar.bz2
+  to: /svace.tar.bz2
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -13,8 +29,6 @@ shell:
     echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
   install:
   - |
-    wget -O svace.tar.bz2 "{{ .SVACE_DOWNLOAD }}"
-
     mkdir -p /svace-download /opt/svace
     tar -xf svace.tar.bz2 -C /svace-download
     mv /svace-download/svace-*/* /opt/svace
@@ -26,6 +40,11 @@ shell:
 image: {{ $.ImageName }}-debian
 final: false
 fromImage: builder/golang-bookworm-1.23
+import:
+- image: {{ $.ImageName }}-download
+  add: /svace.tar.bz2
+  to: /svace.tar.bz2
+  before: install
 shell:
   beforeInstall:
   {{- include "debian packages proxy" . | nindent 2 }}
@@ -37,8 +56,6 @@ shell:
     echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
   install:
   - |
-    wget -O svace.tar.bz2 "{{ .SVACE_DOWNLOAD }}"
-
     mkdir -p /svace-download /opt/svace
     tar -xf svace.tar.bz2 -C /svace-download
     mv /svace-download/svace-*/* /opt/svace
