@@ -2,12 +2,14 @@
   {{- if eq $.SVACE_ENABLED "true" }}
   {{- if .BinaryDir }}
 mkdir -p /svace-build/virtualization/svace/{{ $.ImageName }}/{{ .BinaryDir }}
+svace build --init {{ .BuildCommand }}
+mv .svace-dir /svace-build/virtualization/svace/{{ $.ImageName }}/{{ .BinaryDir }}/.svace-dir
   {{- else }}
 mkdir -p /svace-build/virtualization/svace/{{ $.ImageName }}
-  {{- end }}
-
 svace build --init {{ .BuildCommand }}
 mv .svace-dir /svace-build/virtualization/svace/{{ $.ImageName }}/.svace-dir
+  {{- end }}
+
 rm -rf .svace-dir || exit 1
     {{- else }}
 {{ .BuildCommand }}
