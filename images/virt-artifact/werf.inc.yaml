@@ -48,7 +48,7 @@ shell:
   - |
      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
      git config --global --add advice.detachedHead false
-     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch v{{ $version }} /kubevirt
+     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch {{ $tag }} /kubevirt
      cd /kubevirt
      go mod edit -go={{ $goVersion }}
      go mod download
