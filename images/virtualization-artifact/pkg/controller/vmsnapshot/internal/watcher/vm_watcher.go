@@ -98,6 +98,13 @@ func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		return false
 	}
 
+	oldAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, oldVM.Status.Conditions)
+	newAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, newVM.Status.Conditions)
+
+	if oldAgentReady != newAgentReady {
+		return true
+	}
+
 	oldFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, oldVM.Status.Conditions)
 	newFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, newVM.Status.Conditions)
 
