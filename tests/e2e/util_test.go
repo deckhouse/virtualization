@@ -658,26 +658,22 @@ func IsContainerRestarted(podName, containerName, namespace string, startedAt v1
 }
 
 func SaveTestResources(labels map[string]string, additional string) {
-	additional = strings.ToLower(additional)
-	additional = strings.ReplaceAll(strings.ToLower(additional), " ", "_")
+	replacer := strings.NewReplacer(
+		" ", "_",
+		":", "_",
+		"[", "_",
+		"]", "_",
+		"(", "_",
+		")", "_",
+		"|", "_",
+	)
+	additional = replacer.Replace(strings.ToLower(additional))
+
 	str := fmt.Sprintf("/tmp/e2e_failed__%s__%s.yaml", labels["testcase"], additional)
 
-	file, err := os.OpenFile(str, os.O_CREATE, 0644)
-	Expect(err).NotTo(HaveOccurred())
-	defer file.Close()
+	cmdr := kubectl.Get("virtualization -A", kc.GetOptions{Output: "yaml", Labels: labels})
+	Expect(cmdr.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
 
-	virt := kubectl.Get("virtualization -A", kc.GetOptions{Output: "yaml", Labels: labels})
-	if virt.Error() == nil {
-		_, err = file.Write(virt.StdOutBytes())
-		Expect(err).NotTo(HaveOccurred())
-	}
-
-	intVirt := kubectl.Get("intvirt -A", kc.GetOptions{Output: "yaml", Labels: labels})
-	if intVirt.Error() == nil {
-		_, err = file.WriteString("\n---\n")
-		Expect(err).NotTo(HaveOccurred())
-
-		_, err = file.Write(intVirt.StdOutBytes())
-		Expect(err).NotTo(HaveOccurred())
-	}
+	err := os.WriteFile(str, cmdr.StdOutBytes(), 0644)
+	Expect(err).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
 }
