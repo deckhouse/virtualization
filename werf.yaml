@@ -5,7 +5,7 @@ build:
     author: "Deckhouse <contact@deckhouse.io>"
     clearHistory: true
     config:
-      clearWerfLabels: true
+      keepEssentialWerfLabels: true
       removeLabels:
         - /.*/
 ---
@@ -20,6 +20,9 @@ build:
 
 # Edition module settings
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
+
+# Define packages proxy settings
+{{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
 
 # Component versions
 {{ $_ := set . "Version" dict }}
@@ -43,7 +46,7 @@ build:
 
 ---
 image: images-digests
-fromImage: BASE_ALPINE
+fromImage: builder/alpine
 dependencies:
   {{- range $ImageID := $.ImagesIDList }}
   {{- $ImageNameCamel  := $ImageID | splitList "/" | last  | camelcase | untitle }}

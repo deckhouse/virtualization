@@ -36,24 +36,25 @@ secrets:
   value: {{ $.SOURCE_REPO }}
 shell:
   beforeInstall:
-    - |
-      apt-get update && apt-get install -y \
-        {{ $builderDependencies.packages | join " " }}
-      apt-get clean
-      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
 
   install:
-    - |
-      OUTDIR=/out
-      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  - |
+    OUTDIR=/out
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-      cd /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    cd /src
 
-      ./bootstrap
+    ./bootstrap
 
-      ./configure --prefix=/usr --libdir=/usr/lib64 --disable-tests
+    ./configure --prefix=/usr --libdir=/usr/lib64 --disable-tests
 
-      make -j$(nproc)
+    make -j$(nproc)
 
-      make DESTDIR=$OUTDIR install-strip
+    make DESTDIR=$OUTDIR install-strip

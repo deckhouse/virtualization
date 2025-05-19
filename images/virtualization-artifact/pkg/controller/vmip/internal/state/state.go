@@ -18,72 +18,106 @@ package state
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/util"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
 type VMIPState interface {
+	Reload(ctx context.Context) error
 	VirtualMachineIP() *virtv2.VirtualMachineIPAddress
-	VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachineIPAddressLease, error)
-	VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, error)
+	VirtualMachineIPLease() *virtv2.VirtualMachineIPAddressLease
+	VirtualMachine() *virtv2.VirtualMachine
 
 	AllocatedIPs() ip.AllocatedIPs
 }
 
 type state struct {
 	client       client.Client
+	virtClient   kubeclient.Client
 	vmip         *virtv2.VirtualMachineIPAddress
 	lease        *virtv2.VirtualMachineIPAddressLease
 	vm           *virtv2.VirtualMachine
 	allocatedIPs ip.AllocatedIPs
 }
 
-func New(c client.Client, vmip *virtv2.VirtualMachineIPAddress) VMIPState {
-	return &state{client: c, vmip: vmip}
+func New(c client.Client, virtClient kubeclient.Client, vmip *virtv2.VirtualMachineIPAddress) VMIPState {
+	return &state{client: c, virtClient: virtClient, vmip: vmip}
+}
+
+func (s *state) Reload(ctx context.Context) error {
+	if err := s.reloadVirtualMachineIPLease(ctx); err != nil {
+		return err
+	}
+
+	if err := s.reloadVirtualMachine(ctx); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *state) VirtualMachineIP() *virtv2.VirtualMachineIPAddress {
 	return s.vmip
 }
 
-func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachineIPAddressLease, error) {
-	if s.lease != nil {
-		return s.lease, nil
-	}
+func (s *state) VirtualMachineIPLease() *virtv2.VirtualMachineIPAddressLease {
+	return s.lease
+}
 
+func (s *state) VirtualMachine() *virtv2.VirtualMachine {
+	return s.vm
+}
+
+func (s *state) AllocatedIPs() ip.AllocatedIPs {
+	return s.allocatedIPs
+}
+
+func (s *state) reloadVirtualMachineIPLease(ctx context.Context) error {
 	var err error
+	leaseName := ip.IpToLeaseName(s.vmip.Spec.StaticIP)
 
-	leaseName := ip.IpToLeaseName(s.vmip.Status.Address)
+	if leaseName == "" {
+		leaseName = ip.IpToLeaseName(s.vmip.Status.Address)
+	}
 
 	if leaseName != "" {
 		leaseKey := types.NamespacedName{Name: leaseName}
 		s.lease, err = object.FetchObject(ctx, leaseKey, s.client, &virtv2.VirtualMachineIPAddressLease{})
 		if err != nil {
-			return nil, fmt.Errorf("unable to get Lease %s: %w", leaseKey, err)
+			return fmt.Errorf("unable to get Lease %s: %w", leaseKey, err)
 		}
 	}
 
+	log := logger.FromContext(ctx)
 	if s.lease == nil {
-		var leases virtv2.VirtualMachineIPAddressLeaseList
-		err = s.client.List(ctx, &leases,
-			client.InNamespace(s.vmip.Namespace),
-			&client.MatchingFields{
-				indexer.IndexFieldVMIPLeaseByVMIP: s.vmip.Name,
-			})
+		leases := &virtv2.VirtualMachineIPAddressLeaseList{}
+
+		err = s.client.List(ctx, leases, &client.ListOptions{
+			LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineIPAddressUID: string(s.vmip.GetUID())}),
+		})
+
 		if err != nil {
-			return nil, err
+			return err
+		}
+
+		if len(leases.Items) > 1 {
+			log.Error("More than one VirtualMachineIPAddressLease found", "count", len(leases.Items))
 		}
 
 		for i, lease := range leases.Items {
@@ -96,30 +130,43 @@ func (s *state) VirtualMachineIPLease(ctx context.Context) (*virtv2.VirtualMachi
 	}
 
 	if s.lease == nil {
-		s.allocatedIPs, err = util.GetAllocatedIPs(ctx, s.client, s.vmip.Spec.Type)
+		leases, err := s.virtClient.VirtualMachineIPAddressLeases().List(ctx, metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", annotations.LabelVirtualMachineIPAddressUID, string(s.vmip.GetUID())),
+		})
 		if err != nil {
-			return nil, err
+			return err
+		}
+
+		if len(leases.Items) != 0 {
+			if len(leases.Items) > 1 {
+				log.Error("More than one VirtualMachineIPAddressLease found in kubeclient without cache", "count", len(leases.Items))
+			}
+			log.Warn("VirtualMachineIPAddressLease found in kubeclient without cache", "vmip", s.vmip.Name)
+			return errors.New("VirtualMachineIPAddressLease found in kubeclient without cache")
 		}
 	}
 
-	return s.lease, nil
-}
-
-func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, error) {
-	if s.vm != nil {
-		return s.vm, nil
+	if s.lease == nil {
+		s.allocatedIPs, err = util.GetAllocatedIPs(ctx, s.client, s.vmip.Spec.Type)
+		if err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+func (s *state) reloadVirtualMachine(ctx context.Context) error {
 	var err error
 	if s.vmip.Status.VirtualMachine != "" {
 		vmKey := types.NamespacedName{Name: s.vmip.Status.VirtualMachine, Namespace: s.vmip.Namespace}
 		vm, err := object.FetchObject(ctx, vmKey, s.client, &virtv2.VirtualMachine{})
 		if err != nil {
-			return nil, fmt.Errorf("unable to get VM %s: %w", vmKey, err)
+			return fmt.Errorf("unable to get VM %s: %w", vmKey, err)
 		}
 
 		if vm == nil {
-			return s.vm, nil
+			return nil
 		}
 
 		if vm.Status.VirtualMachineIPAddress == s.vmip.Name && vm.Status.IPAddress == s.vmip.Status.Address {
@@ -133,7 +180,7 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 			Namespace: s.vmip.Namespace,
 		})
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		for i, vm := range vms.Items {
@@ -144,9 +191,5 @@ func (s *state) VirtualMachine(ctx context.Context) (*virtv2.VirtualMachine, err
 		}
 	}
 
-	return s.vm, nil
-}
-
-func (s *state) AllocatedIPs() ip.AllocatedIPs {
-	return s.allocatedIPs
+	return nil
 }

@@ -97,6 +97,9 @@ const (
 	// LabelVirtualMachineUID is a label to link VirtualMachineIPAddress to VirtualMachine.
 	LabelVirtualMachineUID = LabelsPrefix + "/virtual-machine-uid"
 
+	// LabelVirtualMachineIPAddressUID is a label to link VirtualMachineIPAddressLease to VirtualMachineIPAddress.
+	LabelVirtualMachineIPAddressUID = LabelsPrefix + "/virtual-machine-ip-address-uid"
+
 	UploaderServiceLabel = "service"
 
 	// AppKubernetesManagedByLabel is the Kubernetes recommended managed-by label.

@@ -12,7 +12,7 @@ imageSpec:
 ---
 image: {{ $.ImageName }}-cbuilder
 final: false
-fromImage: BASE_DEBIAN_BOOKWORM_SLIM
+fromImage: builder/golang-bookworm-1.23
 git:
   - add: /images/{{ $.ImageName }}/static_binaries
     to: /
@@ -21,11 +21,11 @@ git:
         - '*.c'
 shell:
   beforeInstall:
-  - |
-    apt-get update && apt-get install --yes gcc musl-dev musl-tools
-    apt-get clean
+  {{- include "debian packages proxy" . | nindent 2 }}
+  - apt-get install --yes musl-dev musl-tools
+  {{- include "debian packages clean" . | nindent 2 }}
   install:
-  - |    
+  - |
     echo "Building simple app that prints hello cdi"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/hello_bounder hello_bounder.c

@@ -32,46 +32,51 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
-    - |
-      apt-get update && apt-get install -y \
-        {{ $builderDependencies.packages | join " " }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
 
-      cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF
-      rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus x86_64 classic
-      rpm [alt] http://ftp.altlinux.org/pub/distributions/ALTLinux/Sisyphus noarch classic
-      EOF
-      apt-get update
-      apt-get install -y libmnl-devel libnftnl-devel libgmp-devel libreadline-devel libjansson-devel libedit-devel
-      rm -f /etc/apt/sources.list.d/alt-sisyphus.list
+  {{ if not $.DistroPackagesProxy }}
+      REPO_URL=http://ftp.altlinux.org/pub/distributions
+  {{- else }}
+      REPO_URL=http://{{ $.DistroPackagesProxy }}/repository/archive-ALT-Linux-APT-Repository
+  {{- end }}
+    
+    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF
+    rpm [alt] $REPO_URL/ALTLinux/Sisyphus x86_64 classic
+    rpm [alt] $REPO_URL/ALTLinux/Sisyphus noarch classic
+    EOF
+    apt-get update
+    apt-get install -y libmnl-devel libnftnl-devel libgmp-devel libreadline-devel libjansson-devel libedit-devel
+    rm -f /etc/apt/sources.list.d/alt-sisyphus.list
 
-      apt-get update
-      apt-get clean
-      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- include "alt packages clean" . | nindent 2 }}
 
   install:
-    - |
-      OUTDIR=/out
-      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  - |
+    OUTDIR=/out
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
-      cd /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+    cd /src
 
-      ./autogen.sh
+    ./autogen.sh
 
-      ./configure \
-        --prefix=/usr \
-        --libdir=/usr/lib64 \
-        --with-json \
-        --with-cli=readline
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --with-json \
+      --with-cli=readline
 
-      make -j$(nproc)
+    make -j$(nproc)
 
-      make DESTDIR=$OUTDIR install
+    make DESTDIR=$OUTDIR install
 
-      strip $OUTDIR/usr/sbin/nft
-      ldd $OUTDIR/usr/sbin/nft
+    strip $OUTDIR/usr/sbin/nft
+    ldd $OUTDIR/usr/sbin/nft
 
-      # We don't need man, test and samples files
-      rm -rf $OUTDIR/usr/include
-      rm -rf $OUTDIR/usr/share
-      rm -rf $OUTDIR/usr/lib64/pkgconfig
+    # We don't need man, test and samples files
+    rm -rf $OUTDIR/usr/include
+    rm -rf $OUTDIR/usr/share
+    rm -rf $OUTDIR/usr/lib64/pkgconfig

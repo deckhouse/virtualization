@@ -1,30 +1,28 @@
 module github.com/deckhouse/virtualization-controller/dvcr-importers
 
-go 1.22.7
+go 1.23.0
+
+toolchain go1.23.9
 
 require (
 	github.com/containers/image/v5 v5.32.0
+	github.com/deckhouse/virtualization/api v0.0.0-20241220154636-ce1f73499998
 	github.com/distribution/reference v0.6.0
 	github.com/docker/cli v27.1.1+incompatible
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-containerregistry v0.20.0
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/manifoldco/promptui v0.9.0
 	github.com/openshift/library-go v0.0.0-20240621150525-4bb4238aef81
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.0
 	github.com/prometheus/client_model v0.6.0
-	golang.org/x/net v0.26.0 // indirect
-	golang.org/x/sync v0.10.0
+	github.com/spf13/cobra v1.8.1
+	golang.org/x/sync v0.14.0
 	k8s.io/klog/v2 v2.120.1
 	kubevirt.io/containerized-data-importer v0.0.0-00010101000000-000000000000
 	kubevirt.io/containerized-data-importer-api v1.60.3
-)
-
-require (
-	github.com/deckhouse/virtualization/api v0.0.0-20241220154636-ce1f73499998
-	github.com/manifoldco/promptui v0.9.0
-	github.com/spf13/cobra v1.8.1
 )
 
 require (
@@ -108,12 +106,13 @@ require (
 	go.opentelemetry.io/otel v1.24.0 // indirect
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
-	golang.org/x/crypto v0.31.0 // indirect
+	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
+	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/oauth2 v0.21.0 // indirect
-	golang.org/x/sys v0.28.0 // indirect
-	golang.org/x/term v0.27.0 // indirect
-	golang.org/x/text v0.21.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
+	golang.org/x/term v0.32.0 // indirect
+	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/api v0.155.0 // indirect
 	google.golang.org/genproto v0.0.0-20240123012728-ef4313101c80 // indirect
@@ -143,10 +142,14 @@ require (
 replace (
 	github.com/aws/aws-sdk-go => github.com/aws/aws-sdk-go v1.34.0
 	github.com/chzyer/logex => github.com/chzyer/logex v1.2.1
+	github.com/go-jose/go-jose/v3 => github.com/go-jose/go-jose/v3 v3.0.4
 	github.com/openshift/api => github.com/openshift/api v0.0.0-20230406152840-ce21e3fe5da2
 	github.com/openshift/client-go => github.com/openshift/client-go v0.0.0-20230324103026-3f1513df25e0
 	github.com/openshift/library-go => github.com/mhenriks/library-go v0.0.0-20230310153733-63d38b55bd5a
 	github.com/operator-framework/operator-lifecycle-manager => github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
+
+	golang.org/x/crypto => golang.org/x/crypto v0.38.0 // CVE-2024-45337,CVE-2025-22869
+	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
 
 	k8s.io/api => k8s.io/api v0.30.2
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.30.2

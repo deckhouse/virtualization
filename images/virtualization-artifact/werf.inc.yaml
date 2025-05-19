@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: false
-fromImage: BASE_GOLANG_22_BOOKWORM
+fromImage: builder/golang-bookworm-1.23
 git:
 - add: /api
   to: /usr/local/go/api
