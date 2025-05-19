@@ -658,11 +658,16 @@ func IsContainerRestarted(podName, containerName, namespace string, startedAt v1
 }
 
 func SaveTestResources(labels map[string]string, additional string) {
-	additional = strings.ToLower(additional)
-	additional = strings.ReplaceAll(strings.ToLower(additional), " ", "_")
-	additional = strings.ReplaceAll(strings.ToLower(additional), ":", "_")
-	additional = strings.ReplaceAll(strings.ToLower(additional), "[", "_")
-	additional = strings.ReplaceAll(strings.ToLower(additional), "]", "_")
+	replacer := strings.NewReplacer(
+		" ", "_",
+		":", "_",
+		"[", "_",
+		"]", "_",
+		"(", "_",
+		")", "_",
+		"|", "_",
+	)
+	additional = replacer.Replace(strings.ToLower(additional))
 
 	str := fmt.Sprintf("/tmp/e2e_failed__%s__%s.yaml", labels["testcase"], additional)
 
