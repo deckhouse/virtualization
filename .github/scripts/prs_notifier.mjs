@@ -22,7 +22,7 @@ const REPO = 'virtualization';
 const OWNER = 'deckhouse';
 const PROJECT = ':dvp: DVP';
 const MANAGER_LOGIN = '@yuriy.milyutin';
-const MIN_APPROVALS_NUMBER = 1
+const DOC_REVIEWER = "z9r5";
 
 async function fetchPullRequests() {
   try {
@@ -34,8 +34,7 @@ async function fetchPullRequests() {
     });
     return data.filter(pr => {
       if (pr.draft) return false;
-      console.log(pr.head.ref);
-      console.log(pr.base.ref);
+
       const isReleaseBranch = pr.head.ref.startsWith('release-');
       const hasAutoreleaseLabel = pr.labels.some(label => label.name.includes('autorelease'));
       const hasChangelogLabel = pr.labels.some(label => label.name === 'changelog');
@@ -73,7 +72,7 @@ function formatUser(user, details) {
   return `${user.login} (Set name in profile!)`;
 }
 
-async function formatForAssignees(pr) {
+async function getAssigneesInfo(pr) {
   let assigneesInfo = `NO ASSIGNEES! ${MANAGER_LOGIN} (opezdulit')`;
 
   const fetchedAssignees = [];
@@ -88,10 +87,10 @@ async function formatForAssignees(pr) {
     assigneesInfo = `Assignees: ${fetchedAssignees.join(', ')}`;
   }
 
-  return `- pr${pr.number}: [${pr.title}](${pr.html_url}) (created: ${moment(pr.created_at).fromNow()}) - ${assigneesInfo}`;
+  return assigneesInfo;
 }
 
-async function formatPRForReviewers(pr) {
+async function getReviewersInfo(pr) {
   let reviewersInfo = `NO REVIEWERS! ${MANAGER_LOGIN} (opezdulit')`;
 
   const uniqueLogins = new Set();
@@ -100,29 +99,46 @@ async function formatPRForReviewers(pr) {
   // Add requested reviewers
   if (pr.requested_reviewers && pr.requested_reviewers.length > 0) {
     for (const reviewer of pr.requested_reviewers) {
-      const details = await fetchUserDetails(reviewer.login);
       uniqueLogins.add(reviewer.login);
-      fetchedReviewers.push(formatUser(reviewer, details));
+      const details = await fetchUserDetails(reviewer.login);
+      let user = formatUser(reviewer.login, details);
+      user = DOC_REVIEWER === reviewer.login ? user : user.replace(/@/g, "");
+      fetchedReviewers.push(user);
     }
   }
 
   const reviews = await fetchReviewsForPR(pr.number);
   const { changesRequestedMap } = getChangesRequestedAndApproves(reviews);
-
   for (let [, review] of changesRequestedMap) {
     if (uniqueLogins.has(review.user.login)) {
       continue;
     }
     uniqueLogins.add(review.user.login);
     const details = await fetchUserDetails(review.user.login);
-    fetchedReviewers.push(formatUser(review.user, details));
+
+    let user = formatUser(review.user.login, details);
+    user = DOC_REVIEWER === review.user.login ? user : user.replace(/@/g, "");
+    fetchedReviewers.push(user);
   }
 
   if (fetchedReviewers.length > 0) {
     reviewersInfo = `Reviewers: ${fetchedReviewers.join(', ')}`;
   }
 
-  return `- pr${pr.number}: [${pr.title}](${pr.html_url}) (created: ${moment(pr.created_at).fromNow()}) - ${reviewersInfo}`;
+  return reviewersInfo
+}
+
+async function formatForAssignees(pr) {
+  const assigneesInfo = await getAssigneesInfo(pr)
+
+  return `- pr${pr.number}: [${pr.title}](${pr.html_url}) (created: ${moment(pr.created_at).fromNow()}) - ${assigneesInfo}`;
+}
+
+async function formatForReviewers(pr) {
+  const assigneesInfo = await getAssigneesInfo(pr)
+  const reviewersInfo = await getReviewersInfo(pr)
+
+  return `- pr${pr.number}: [${pr.title}](${pr.html_url}) (created: ${moment(pr.created_at).fromNow()}) - ${assigneesInfo}. ${reviewersInfo}`;
 }
 
 async function fetchReviewsForPR(prNumber) {
@@ -284,7 +300,7 @@ async function generateSummary(prs) {
   }
 
   if (reviewRequired.length > 0) {
-    const reviewRequiredPRsInfo = await Promise.all(reviewRequired.map(pr => formatPRForReviewers(pr)));
+    const reviewRequiredPRsInfo = await Promise.all(reviewRequired.map(pr => formatForReviewers(pr)));
     summary += `### PRs requiring review\n\n${reviewRequiredPRsInfo.join('\n')}\n`;
   }
 
