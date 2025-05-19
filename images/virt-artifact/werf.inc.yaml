@@ -53,13 +53,6 @@ shell:
      go get github.com/containers/common@v0.60.4
 
   - |
-    cd /kubevirt
-    for p in /patches/*.patch ; do
-      echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-    done
-
-  - |
     echo Download Go modules.
     go mod download
 
