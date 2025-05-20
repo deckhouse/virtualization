@@ -37,7 +37,8 @@ shell:
   - export CGO_ENABLED=0
   - export GOARCH=amd64
   - |
-    {{- include "svace.build" (set $ "BuildCommand" `go build -tags {{ .MODULE_EDITION }} -v -a -o virtualization-controller ./cmd/virtualization-controller`) | indent 4 }}
+    {{- $buildCommand := printf "go build -tags %s -v -a -o virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
+    {{- include "svace.build" (set $ "BuildCommand" $buildCommand) | indent 4 -}}
     {{- include "svace.build" (set $ "BuildCommand" `go build -v -a -o virtualization-api ./cmd/virtualization-api`) | indent 4 }}
 {{- if eq .MODULE_EDITION "EE" }}
   - go build -v -a -o virtualization-audit ./cmd/virtualization-audit
