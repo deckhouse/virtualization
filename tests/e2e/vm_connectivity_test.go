@@ -93,7 +93,7 @@ func CheckResultSshCommand(vmName, cmd, equal string) {
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(equal))
 }
 
-var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineConnectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
 		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)
