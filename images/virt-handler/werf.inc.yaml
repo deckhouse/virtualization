@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 fromImage: distroless
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ include "ImageName" (list . "bins") }}
   add: /relocate
   to: /
   after: install

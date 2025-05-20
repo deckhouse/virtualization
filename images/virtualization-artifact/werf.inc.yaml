@@ -1,5 +1,5 @@
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:

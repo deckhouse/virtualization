@@ -1,5 +1,5 @@
 ---
-image: {{ $.ImageName }}-builder
+image: {{ include "ImageName" (list . "builder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
@@ -30,7 +30,7 @@ shell:
   - export CGO_ENABLED=0
   - go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 fromImage: distroless
 import:
 - image: vm-route-forge-builder

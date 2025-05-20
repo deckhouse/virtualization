@@ -77,11 +77,11 @@ libraries:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 final: false
 fromImage: base-alt-p11
 git:
-- add: /images/{{ $.ImageName }}/
+- add: /images/{{ include "ImageName" (list . ) }}/
   to: /
   includePaths:
   - install-qemu.sh

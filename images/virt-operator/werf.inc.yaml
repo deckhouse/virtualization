@@ -1,5 +1,5 @@
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 fromImage: distroless
 import:
 - image: virt-artifact

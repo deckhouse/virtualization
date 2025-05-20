@@ -1,9 +1,9 @@
-{{/*
-TODO descroption
-usaege:
-1 value yes
-2 only .
-3 if exists ModuleName
+{{/* Helpers for generate images name with or without ModuleName
+
+Usage:
+{{ include "ImageName" (list . "bins") }} cdi-artifact-bins
+{{ include "ImageName" (list . ) }} - cdi-artifact
+{{ include "ImageName" (list . "bins") }} - .virtualization/cdi-artifact-bins
 */}}
 
 {{ define "ImageName" }}

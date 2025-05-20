@@ -1,6 +1,6 @@
 {{- if eq .MODULE_EDITION "EE" }}
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 fromImage: distroless
 import:
   - image: virtualization-artifact
