@@ -878,7 +878,7 @@ The `cores` and `coreFraction` parameters are taken into account when planning V
 
 ### Virtual Machine Resource Configuration and Sizing Policy
 
-The sizing policy in VirtualMachineClass (block `.spec.sizingPolicies`) sets the rules for configuring virtual machine resources - number of cores, memory and coreFraction. This policy is optional, but if it exists, the VM must strictly comply with it, otherwise its configuration cannot be saved.
+The sizing policy in VirtualMachineClass, defined in `.spec.sizingPolicies`, defines the rules for configuring virtual machine resources, including the number of cores, memory size, and `coreFraction`. This policy is not mandatory. If it is not present, you can specify arbitrary values for resources without strict requirements. However, if a sizing policy is present, the virtual machine configuration must strictly comply with it. Otherwise, the configuration cannot be saved.`
 
 The policy divides the number of cores (`cores`) into ranges, such as 1-4 cores or 5-8 cores. For each range, it specifies how much memory can be allocated (`memory`) and what `coreFraction` values are allowed.
 
