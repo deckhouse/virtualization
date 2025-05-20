@@ -1,21 +1,17 @@
 {{- define "imagename" }}
-  
-  {{- if not $.ModuleName }}
-    
-    {{- if not $.Image_Name }}
+
+{{-   if not $.ModuleName }}
+{{-       if not $.ImageNameSuffix }}
 image: {{ $.ImageName }}
-    {{- else }}
-image: {{ $.ImageName }}-{{ $.Image_Name }}
-    {{- end }}
-
-  {{- else }}
-  
-    {{- if not $.Image_Name }}
-image: {{ $.ModuleName }}/{{ $.ImageName }}-{{ $.Image_Name }}
-    {{- else }}
+{{-      else }}
+image: {{ $.ImageName }}-{{ $.ImageNameSuffix }}
+{{-       end }}
+{{-   else }}
+{{-      if not $.ImageNameSuffix }}
 image: {{ $.ModuleName }}/{{ $.ImageName }}
-    {{- end }}
-
-  {{- end }}
+{{-      else }}
+image: {{ $.ModuleName }}/{{ $.ImageName }}-{{ $.ImageNameSuffix }}
+{{-      end }}
+{{-   end }}
 
 {{- end }}
