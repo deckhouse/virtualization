@@ -66,22 +66,27 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		agentReady                          bool
 		firmwareUpToDate                    bool
 	)
-	if cond, found := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration,
-		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
+
+	awaitingRestartToApplyConfigurationCondition, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+	if awaitingRestartToApplyConfigurationCondition.Status == metav1.ConditionFalse {
 		awaitingRestartToApplyConfiguration = true
 	}
-	if cond, found := conditions.GetCondition(vmcondition.TypeConfigurationApplied,
-		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
+
+	configurationAppliedCondition, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, vm.Status.Conditions)
+	if configurationAppliedCondition.Status != metav1.ConditionFalse {
 		configurationApplied = true
 	}
-	if cond, found := conditions.GetCondition(vmcondition.TypeAgentReady,
-		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
+
+	agentReadyCondition, _ := conditions.GetCondition(vmcondition.TypeAgentReady, vm.Status.Conditions)
+	if agentReadyCondition.Status == metav1.ConditionTrue {
 		agentReady = true
 	}
-	if cond, found := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate,
-		vm.Status.Conditions); found && cond.Status == metav1.ConditionTrue {
+
+	firmwareUpToDateCondition, _ := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions)
+	if firmwareUpToDateCondition.Status != metav1.ConditionFalse {
 		firmwareUpToDate = true
 	}
+
 	pods := make([]virtv2.VirtualMachinePod, len(vm.Status.VirtualMachinePods))
 	for i, pod := range vm.Status.VirtualMachinePods {
 		pods[i] = *pod.DeepCopy()
