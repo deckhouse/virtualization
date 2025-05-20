@@ -26,6 +26,8 @@ git:
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
+- fromPath: /svace-build
+  to: /svace-build
 shell:
   install:
   - cd /usr/local/go/src/virtualization-controller
