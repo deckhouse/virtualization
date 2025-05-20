@@ -2,6 +2,7 @@
 # {{/* image: {{ $.ImageName }} */}}
 # {{/* {{- include "imagename" . }} */}}
 # image: {{ $.ImageName }}
+# {{- include "imagename" (set $ "Image_Name" "build") }}
 {{- include "imagename" . }}
 final: false
 fromImage: BASE_ALT_P11
