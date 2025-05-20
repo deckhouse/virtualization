@@ -43,7 +43,310 @@ const (
 	frozenReasonPollingInterval    = 1 * time.Second
 )
 
-func CreateVirtualDiskSnapshot(vdName, snapshotName, volumeSnapshotClassName string, requiredConsistency bool, labels map[string]string) error {
+var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), func() {
+	var (
+		defaultVolumeSnapshotClassName string
+		testCaseLabel                  = map[string]string{"testcase": "vd-snapshots"}
+		attachedVirtualDiskLabel       = map[string]string{"attachedVirtualDisk": ""}
+		hasNoConsumerLabel             = map[string]string{"hasNoConsumer": "vd-snapshots"}
+		vmAutomaticWithHotplug         = map[string]string{"vm": "automatic-with-hotplug"}
+		ns                             string
+	)
+
+	BeforeAll(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+
+		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
+
+		defaultVolumeSnapshotClassName, err = GetVolumeSnapshotClassName(conf.StorageClass.DefaultStorageClass)
+		Expect(err).NotTo(HaveOccurred(), "cannot define default `VolumeSnapshotClass`\nstderr: %s", err)
+	})
+
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
+	})
+
+	Context("When virtualization resources are applied:", func() {
+		It("result should be succeeded", func() {
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.VdSnapshots},
+				FilenameOption: kc.Kustomize,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+		})
+	})
+
+	Context("When virtual images are applied:", func() {
+		It("checks VIs phases", func() {
+			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
+			})
+		})
+	})
+
+	Context("When virtual disks are applied:", func() {
+		It("checks VDs phases", func() {
+			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
+			})
+		})
+	})
+
+	Context("When virtual machines are applied:", func() {
+		It("checks VMs phases", func() {
+			By("Virtual machine agents should be ready")
+			WaitVMAgentReady(kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
+			})
+		})
+	})
+
+	Context("When virtual machine block device attachments are applied:", func() {
+		It("checks VMBDAs phases", func() {
+			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
+			WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
+			})
+		})
+	})
+
+	Context(fmt.Sprintf("When unattached VDs in phase %s:", PhaseReady), func() {
+		It("creates VDs snapshots with `requiredConsistency`", func() {
+			res := kubectl.List(kc.ResourceVD, kc.GetOptions{
+				Labels:    hasNoConsumerLabel,
+				Namespace: ns,
+				Output:    "jsonpath='{.items[*].metadata.name}'",
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+
+			vds := strings.Split(res.StdOut(), " ")
+
+			volumeSnapshotClassName, getErr := GetVolumeSnapshotClassName(conf.StorageClass.ImmediateStorageClass)
+			Expect(getErr).NotTo(HaveOccurred(), "%s", getErr)
+
+			for _, vdName := range vds {
+				By(fmt.Sprintf("Create snapshot for %q with volume snapshot class %q", vdName, volumeSnapshotClassName))
+				err := CreateVirtualDiskSnapshot(vdName, vdName, volumeSnapshotClassName, ns, true, hasNoConsumerLabel)
+				Expect(err).NotTo(HaveOccurred(), "%s", err)
+			}
+		})
+
+		It("checks snapshots of unattached VDs", func() {
+			By(fmt.Sprintf("Snapshots should be in %s phase", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVDSnapshot, PhaseReady, kc.WaitOptions{
+				Labels:    hasNoConsumerLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
+			})
+			// TODO: It is a known issue that disk snapshots are not always created consistently. To prevent this error from causing noise during testing, we disabled this check. It will need to be re-enabled once the consistency issue is fixed.
+			// By("Snapshots should be consistent", func() {
+			// 	vdSnapshots := virtv2.VirtualDiskSnapshotList{}
+			// 	err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{Namespace: ns, Labels: hasNoConsumerLabel})
+			// 	Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
+			//
+			// 	for _, snapshot := range vdSnapshots.Items {
+			// 		Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
+			// 	}
+			// })
+		})
+	})
+
+	Context(fmt.Sprintf("When virtual machines in %s phase", PhaseRunning), func() {
+		It("creates snapshots with `requiredConsistency` of attached VDs", func() {
+			vmObjects := virtv2.VirtualMachineList{}
+			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: ns})
+			Expect(err).NotTo(HaveOccurred(), "cannot get virtual machines\nstderr: %s", err)
+
+			for _, vm := range vmObjects.Items {
+				Eventually(func() error {
+					frozen, err := CheckFileSystemFrozen(vm.Name, ns)
+					if frozen {
+						return errors.New("file system of the Virtual Machine is frozen")
+					}
+					return err
+				}).WithTimeout(
+					filesystemReadyTimeout,
+				).WithPolling(
+					filesystemReadyPollingInterval,
+				).Should(Succeed())
+
+				blockDevices := vm.Status.BlockDeviceRefs
+				for _, blockDevice := range blockDevices {
+					if blockDevice.Kind == virtv2.VirtualDiskKind {
+						By(fmt.Sprintf(
+							"Create snapshot for %q with volume snapshot class %q",
+							blockDevice.Name,
+							defaultVolumeSnapshotClassName,
+						))
+						err := CreateVirtualDiskSnapshot(blockDevice.Name, blockDevice.Name, defaultVolumeSnapshotClassName, ns, true, attachedVirtualDiskLabel)
+						Expect(err).NotTo(HaveOccurred(), "%s", err)
+
+						Eventually(func() error {
+							frozen, err := CheckFileSystemFrozen(vm.Name, ns)
+							if !frozen {
+								return fmt.Errorf("`Filesystem` should be frozen when controller is snapshotting the attached virtual disk")
+							}
+							return err
+						}).WithTimeout(
+							filesystemReadyTimeout,
+						).WithPolling(
+							frozenReasonPollingInterval,
+						).Should(Succeed())
+					}
+				}
+			}
+		})
+
+		It("creates `vdSnapshots` concurrently", func() {
+			vmObjects := virtv2.VirtualMachineList{}
+			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{
+				Namespace: ns,
+				Labels:    vmAutomaticWithHotplug,
+			})
+			Expect(err).NotTo(HaveOccurred(), "cannot get vmObject with label %q\nstderr: %s", vmAutomaticWithHotplug, err)
+
+			for _, vm := range vmObjects.Items {
+				Eventually(func() error {
+					frozen, err := CheckFileSystemFrozen(vm.Name, ns)
+					if frozen {
+						return errors.New("filesystem of the Virtual Machine is frozen")
+					}
+					return err
+				}).WithTimeout(
+					filesystemReadyTimeout,
+				).WithPolling(
+					filesystemReadyPollingInterval,
+				).Should(Succeed())
+
+				blockDevices := vm.Status.BlockDeviceRefs
+				for _, blockDevice := range blockDevices {
+					if blockDevice.Kind == virtv2.VirtualDiskKind {
+						By(fmt.Sprintf(
+							"Create five snapshots for %q of %q with volume snapshot class %q",
+							blockDevice.Name,
+							vm.Name,
+							defaultVolumeSnapshotClassName,
+						))
+						errs := make([]error, 0, 5)
+						wg := sync.WaitGroup{}
+						for i := 0; i < 5; i++ {
+							wg.Add(1)
+							go func(index int) {
+								defer wg.Done()
+								snapshotName := fmt.Sprintf("%s-%d", blockDevice.Name, index)
+								err := CreateVirtualDiskSnapshot(blockDevice.Name, snapshotName, defaultVolumeSnapshotClassName, ns, true, attachedVirtualDiskLabel)
+								if err != nil {
+									errs = append(errs, err)
+								}
+							}(i)
+						}
+						wg.Wait()
+						Expect(errs).To(BeEmpty(), "concurrent snapshotting error")
+
+						Eventually(func() error {
+							frozen, err := CheckFileSystemFrozen(vm.Name, ns)
+							if !frozen {
+								return fmt.Errorf("`Filesystem` should be frozen when controller is snapshotting the attached virtual disk")
+							}
+							return err
+						}).WithTimeout(
+							filesystemReadyTimeout,
+						).WithPolling(
+							frozenReasonPollingInterval,
+						).Should(Succeed())
+					}
+				}
+			}
+		})
+
+		// TODO: It is a known issue that disk snapshots are not always created consistently. To prevent this error from causing noise during testing, we disabled this check. It will need to be re-enabled once the consistency issue is fixed.
+		// It("checks snapshots of attached VDs", func() {
+		// 	By(fmt.Sprintf("Snapshots should be in %s phase", PhaseReady))
+		// 	WaitPhaseByLabel(kc.ResourceVDSnapshot, PhaseReady, kc.WaitOptions{
+		// 		Labels:    attachedVirtualDiskLabel,
+		// 		Namespace: ns,
+		// 		Timeout:   MaxWaitTimeout,
+		// 	})
+		// 	By("Snapshots should be consistent", func() {
+		// 		vdSnapshots := virtv2.VirtualDiskSnapshotList{}
+		// 		err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{
+		// 			ExcludedLabels: []string{"hasNoConsumer"},
+		// 			Namespace:      ns,
+		// 			Labels:         attachedVirtualDiskLabel,
+		// 		})
+		// 		Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
+		//
+		// 		for _, snapshot := range vdSnapshots.Items {
+		// 			Expect(snapshot.Status.Consistent).ToNot(BeNil())
+		// 			Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
+		// 		}
+		// 	})
+		// })
+
+		It("checks `FileSystemFrozen` status of VMs", func() {
+			By("Status should not be `Frozen`")
+			vmObjects := virtv2.VirtualMachineList{}
+			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: ns})
+			Expect(err).NotTo(HaveOccurred(), "cannot get virtual machines\nstderr: %s", err)
+
+			for _, vm := range vmObjects.Items {
+				Eventually(func() error {
+					frozen, err := CheckFileSystemFrozen(vm.Name, ns)
+					if err != nil {
+						return nil
+					}
+					if frozen {
+						return errors.New("Filesystem of the Virtual Machine is frozen")
+					}
+					return nil
+				}).WithTimeout(
+					filesystemReadyTimeout,
+				).WithPolling(
+					filesystemReadyPollingInterval,
+				).Should(Succeed())
+			}
+		})
+	})
+
+	Context("When test is completed", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{
+				KustomizationDir: conf.TestData.VdSnapshots,
+				AdditionalResources: []AdditionalResource{
+					{
+						Resource: kc.ResourceVDSnapshot,
+						Labels:   hasNoConsumerLabel,
+					},
+					{
+						Resource: kc.ResourceVDSnapshot,
+						Labels:   attachedVirtualDiskLabel,
+					},
+				},
+			})
+		})
+	})
+})
+
+func CreateVirtualDiskSnapshot(vdName, snapshotName, volumeSnapshotClassName, namespace string, requiredConsistency bool, labels map[string]string) error {
 	GinkgoHelper()
 	vdSnapshotName := fmt.Sprintf("%s-%s", snapshotName, volumeSnapshotClassName)
 	vdSnapshot := virtv2.VirtualDiskSnapshot{
@@ -54,7 +357,7 @@ func CreateVirtualDiskSnapshot(vdName, snapshotName, volumeSnapshotClassName str
 		ObjectMeta: v1.ObjectMeta{
 			Labels:    labels,
 			Name:      vdSnapshotName,
-			Namespace: conf.Namespace,
+			Namespace: namespace,
 		},
 		Spec: virtv2.VirtualDiskSnapshotSpec{
 			RequiredConsistency:     requiredConsistency,
@@ -95,9 +398,9 @@ func GetVolumeSnapshotClassName(storageClass *storagev1.StorageClass) (string, e
 	return "", fmt.Errorf("cannot found `VolumeSnapshotClass` by provisioner %q", storageClass.Provisioner)
 }
 
-func CheckFileSystemFrozen(vmName string) (bool, error) {
+func CheckFileSystemFrozen(vmName, vmNamespace string) (bool, error) {
 	vmObj := virtv2.VirtualMachine{}
-	err := GetObject(kc.ResourceVM, vmName, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+	err := GetObject(kc.ResourceVM, vmName, &vmObj, kc.GetOptions{Namespace: vmNamespace})
 	if err != nil {
 		return false, fmt.Errorf("cannot get `VirtualMachine`: %q\nstderr: %w", vmName, err)
 	}
@@ -110,305 +413,3 @@ func CheckFileSystemFrozen(vmName string) (bool, error) {
 
 	return false, nil
 }
-
-var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), func() {
-	var (
-		defaultVolumeSnapshotClassName string
-		testCaseLabel                  = map[string]string{"testcase": "vd-snapshots"}
-		attachedVirtualDiskLabel       = map[string]string{"attachedVirtualDisk": ""}
-		hasNoConsumerLabel             = map[string]string{"hasNoConsumer": "vd-snapshots"}
-		vmAutomaticWithHotplug         = map[string]string{"vm": "automatic-with-hotplug"}
-	)
-
-	BeforeAll(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-
-		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml")
-		ns, err := kustomize.GetNamespace(kustomization)
-		Expect(err).NotTo(HaveOccurred(), "%w", err)
-		conf.SetNamespace(ns)
-
-		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
-
-		defaultVolumeSnapshotClassName, err = GetVolumeSnapshotClassName(conf.StorageClass.DefaultStorageClass)
-		Expect(err).NotTo(HaveOccurred(), "cannot define default `VolumeSnapshotClass`\nstderr: %s", err)
-	})
-
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
-		}
-	})
-
-	Context("When virtualization resources are applied:", func() {
-		It("result should be succeeded", func() {
-			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.VdSnapshots},
-				FilenameOption: kc.Kustomize,
-			})
-			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-		})
-	})
-
-	Context("When virtual images are applied:", func() {
-		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When virtual disks are applied:", func() {
-		It("checks VDs phases", func() {
-			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When virtual machines are applied:", func() {
-		It("checks VMs phases", func() {
-			By("Virtual machine agents should be ready")
-			WaitVMAgentReady(kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When virtual machine block device attachments are applied:", func() {
-		It("checks VMBDAs phases", func() {
-			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
-			WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context(fmt.Sprintf("When unattached VDs in phase %s:", PhaseReady), func() {
-		It("creates VDs snapshots with `requiredConsistency`", func() {
-			res := kubectl.List(kc.ResourceVD, kc.GetOptions{
-				Labels:    hasNoConsumerLabel,
-				Namespace: conf.Namespace,
-				Output:    "jsonpath='{.items[*].metadata.name}'",
-			})
-			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-
-			vds := strings.Split(res.StdOut(), " ")
-
-			volumeSnapshotClassName, getErr := GetVolumeSnapshotClassName(conf.StorageClass.ImmediateStorageClass)
-			Expect(getErr).NotTo(HaveOccurred(), "%s", getErr)
-
-			for _, vdName := range vds {
-				By(fmt.Sprintf("Create snapshot for %q with volume snapshot class %q", vdName, volumeSnapshotClassName))
-				err := CreateVirtualDiskSnapshot(vdName, vdName, volumeSnapshotClassName, true, hasNoConsumerLabel)
-				Expect(err).NotTo(HaveOccurred(), "%s", err)
-			}
-		})
-
-		It("checks snapshots of unattached VDs", func() {
-			By(fmt.Sprintf("Snapshots should be in %s phase", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVDSnapshot, PhaseReady, kc.WaitOptions{
-				Labels:    hasNoConsumerLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-			// TODO: It is a known issue that disk snapshots are not always created consistently. To prevent this error from causing noise during testing, we disabled this check. It will need to be re-enabled once the consistency issue is fixed.
-			// By("Snapshots should be consistent", func() {
-			// 	vdSnapshots := virtv2.VirtualDiskSnapshotList{}
-			// 	err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{Namespace: conf.Namespace, Labels: hasNoConsumerLabel})
-			// 	Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
-			//
-			// 	for _, snapshot := range vdSnapshots.Items {
-			// 		Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
-			// 	}
-			// })
-		})
-	})
-
-	Context(fmt.Sprintf("When virtual machines in %s phase", PhaseRunning), func() {
-		It("creates snapshots with `requiredConsistency` of attached VDs", func() {
-			vmObjects := virtv2.VirtualMachineList{}
-			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: conf.Namespace})
-			Expect(err).NotTo(HaveOccurred(), "cannot get virtual machines\nstderr: %s", err)
-
-			for _, vm := range vmObjects.Items {
-				Eventually(func() error {
-					frozen, err := CheckFileSystemFrozen(vm.Name)
-					if frozen {
-						return errors.New("file system of the Virtual Machine is frozen")
-					}
-					return err
-				}).WithTimeout(
-					filesystemReadyTimeout,
-				).WithPolling(
-					filesystemReadyPollingInterval,
-				).Should(Succeed())
-
-				blockDevices := vm.Status.BlockDeviceRefs
-				for _, blockDevice := range blockDevices {
-					if blockDevice.Kind == virtv2.VirtualDiskKind {
-						By(fmt.Sprintf(
-							"Create snapshot for %q with volume snapshot class %q",
-							blockDevice.Name,
-							defaultVolumeSnapshotClassName,
-						))
-						err := CreateVirtualDiskSnapshot(blockDevice.Name, blockDevice.Name, defaultVolumeSnapshotClassName, true, attachedVirtualDiskLabel)
-						Expect(err).NotTo(HaveOccurred(), "%s", err)
-
-						Eventually(func() error {
-							frozen, err := CheckFileSystemFrozen(vm.Name)
-							if !frozen {
-								return fmt.Errorf("`Filesystem` should be frozen when controller is snapshotting the attached virtual disk")
-							}
-							return err
-						}).WithTimeout(
-							filesystemReadyTimeout,
-						).WithPolling(
-							frozenReasonPollingInterval,
-						).Should(Succeed())
-					}
-				}
-			}
-		})
-
-		It("creates `vdSnapshots` concurrently", func() {
-			vmObjects := virtv2.VirtualMachineList{}
-			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{
-				Namespace: conf.Namespace,
-				Labels:    vmAutomaticWithHotplug,
-			})
-			Expect(err).NotTo(HaveOccurred(), "cannot get vmObject with label %q\nstderr: %s", vmAutomaticWithHotplug, err)
-
-			for _, vm := range vmObjects.Items {
-				Eventually(func() error {
-					frozen, err := CheckFileSystemFrozen(vm.Name)
-					if frozen {
-						return errors.New("filesystem of the Virtual Machine is frozen")
-					}
-					return err
-				}).WithTimeout(
-					filesystemReadyTimeout,
-				).WithPolling(
-					filesystemReadyPollingInterval,
-				).Should(Succeed())
-
-				blockDevices := vm.Status.BlockDeviceRefs
-				for _, blockDevice := range blockDevices {
-					if blockDevice.Kind == virtv2.VirtualDiskKind {
-						By(fmt.Sprintf(
-							"Create five snapshots for %q of %q with volume snapshot class %q",
-							blockDevice.Name,
-							vm.Name,
-							defaultVolumeSnapshotClassName,
-						))
-						errs := make([]error, 0, 5)
-						wg := sync.WaitGroup{}
-						for i := 0; i < 5; i++ {
-							wg.Add(1)
-							go func(index int) {
-								defer wg.Done()
-								snapshotName := fmt.Sprintf("%s-%d", blockDevice.Name, index)
-								err := CreateVirtualDiskSnapshot(blockDevice.Name, snapshotName, defaultVolumeSnapshotClassName, true, attachedVirtualDiskLabel)
-								if err != nil {
-									errs = append(errs, err)
-								}
-							}(i)
-						}
-						wg.Wait()
-						Expect(errs).To(BeEmpty(), "concurrent snapshotting error")
-
-						Eventually(func() error {
-							frozen, err := CheckFileSystemFrozen(vm.Name)
-							if !frozen {
-								return fmt.Errorf("`Filesystem` should be frozen when controller is snapshotting the attached virtual disk")
-							}
-							return err
-						}).WithTimeout(
-							filesystemReadyTimeout,
-						).WithPolling(
-							frozenReasonPollingInterval,
-						).Should(Succeed())
-					}
-				}
-			}
-		})
-
-		// TODO: It is a known issue that disk snapshots are not always created consistently. To prevent this error from causing noise during testing, we disabled this check. It will need to be re-enabled once the consistency issue is fixed.
-		// It("checks snapshots of attached VDs", func() {
-		// 	By(fmt.Sprintf("Snapshots should be in %s phase", PhaseReady))
-		// 	WaitPhaseByLabel(kc.ResourceVDSnapshot, PhaseReady, kc.WaitOptions{
-		// 		Labels:    attachedVirtualDiskLabel,
-		// 		Namespace: conf.Namespace,
-		// 		Timeout:   MaxWaitTimeout,
-		// 	})
-		// 	By("Snapshots should be consistent", func() {
-		// 		vdSnapshots := virtv2.VirtualDiskSnapshotList{}
-		// 		err := GetObjects(kc.ResourceVDSnapshot, &vdSnapshots, kc.GetOptions{
-		// 			ExcludedLabels: []string{"hasNoConsumer"},
-		// 			Namespace:      conf.Namespace,
-		// 			Labels:         attachedVirtualDiskLabel,
-		// 		})
-		// 		Expect(err).NotTo(HaveOccurred(), "cannot get `vdSnapshots`\nstderr: %s", err)
-		//
-		// 		for _, snapshot := range vdSnapshots.Items {
-		// 			Expect(snapshot.Status.Consistent).ToNot(BeNil())
-		// 			Expect(*snapshot.Status.Consistent).To(BeTrue(), "consistent field should be `true`: %s", snapshot.Name)
-		// 		}
-		// 	})
-		// })
-
-		It("checks `FileSystemFrozen` status of VMs", func() {
-			By("Status should not be `Frozen`")
-			vmObjects := virtv2.VirtualMachineList{}
-			err := GetObjects(kc.ResourceVM, &vmObjects, kc.GetOptions{Namespace: conf.Namespace})
-			Expect(err).NotTo(HaveOccurred(), "cannot get virtual machines\nstderr: %s", err)
-
-			for _, vm := range vmObjects.Items {
-				Eventually(func() error {
-					frozen, err := CheckFileSystemFrozen(vm.Name)
-					if err != nil {
-						return nil
-					}
-					if frozen {
-						return errors.New("Filesystem of the Virtual Machine is frozen")
-					}
-					return nil
-				}).WithTimeout(
-					filesystemReadyTimeout,
-				).WithPolling(
-					filesystemReadyPollingInterval,
-				).Should(Succeed())
-			}
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
-				KustomizationDir: conf.TestData.VdSnapshots,
-				AdditionalResources: []AdditionalResource{
-					{
-						Resource: kc.ResourceVDSnapshot,
-						Labels:   hasNoConsumerLabel,
-					},
-					{
-						Resource: kc.ResourceVDSnapshot,
-						Labels:   attachedVirtualDiskLabel,
-					},
-				},
-			})
-		})
-	})
-})

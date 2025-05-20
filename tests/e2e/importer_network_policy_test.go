@@ -28,12 +28,13 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("ImporterNetworkPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "importer-network-policy"}
+	var ns string
 
 	AfterAll(func() {
 		By("Delete manifests")
-		DeleteTestCaseResources(ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
+		DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
 	})
 
 	BeforeEach(func() {
@@ -51,9 +52,9 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImporterNetworkPolicy, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
+			var err error
+			ns, err = kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
 		})
 
 		It("project apply", func() {
@@ -91,7 +92,7 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 			By(fmt.Sprintf("%ss should be in %s phases", resourceShortName, phase))
 			WaitPhaseByLabel(resource, phase, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		},

@@ -128,7 +128,7 @@ type Config struct {
 	VM               VMConf           `yaml:"vm"`
 	Ipam             IpamConf         `yaml:"ipam"`
 	HelperImages     HelperImages     `yaml:"helperImages"`
-	Namespace        string           `yaml:"namespaceSuffix"`
+	NamespaceSuffix  string           `yaml:"namespaceSuffix"`
 	TestData         TestData         `yaml:"testData"`
 	LogFilter        []string         `yaml:"logFilter"`
 	CleanupResources []string         `yaml:"cleanupResources"`
@@ -191,9 +191,6 @@ type HelperImages struct {
 }
 
 func (c *Config) setEnvs() error {
-	if e, ok := os.LookupEnv("E2E_NAMESPACE"); ok {
-		c.Namespace = e
-	}
 	// ClusterTransport
 	if e, ok := os.LookupEnv("E2E_CLUSTERTRANSPORT_KUBECONFIG"); ok {
 		c.ClusterTransport.KubeConfig = e
@@ -272,10 +269,6 @@ func GetNamePrefix() (string, error) {
 	commitHash = commitHash[:len(commitHash)-1]
 	commitHash = fmt.Sprintf("head-%s", commitHash)
 	return commitHash, nil
-}
-
-func (c *Config) SetNamespace(name string) {
-	c.Namespace = name
 }
 
 func (k *Kustomize) SetParams(filePath, namespace, namePrefix string) error {

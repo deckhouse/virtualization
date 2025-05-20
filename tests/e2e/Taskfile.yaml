@@ -91,6 +91,27 @@ tasks:
         echo "EOF" >> $GITHUB_ENV
         exit $EXIT_CODE'
 
+  runp:
+    desc: "Run e2e tests"
+    deps:
+      - copy
+      - ginkgo
+      - kubectl
+      - d8
+    cmds:
+      - |
+        ginkgo -v \
+          -p --procs=12 \
+          --race \
+          {{if .TIMEOUT -}}
+          --timeout={{ .TIMEOUT }} \
+          {{else -}}
+          --timeout=2h \
+          {{end -}}
+          {{if .FOCUS -}}
+          --focus "{{ .FOCUS }}"
+          {{end -}}
+
   run:
     desc: "Run e2e tests"
     deps:

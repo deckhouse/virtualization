@@ -30,43 +30,13 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-func AssignIPToVMIP(name string) error {
-	assignErr := fmt.Sprintf("cannot patch VMIP %q with unnassigned IP address", name)
-	unassignedIP, err := FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
-	if err != nil {
-		return fmt.Errorf("%s\n%w", assignErr, err)
-	}
-	patch := fmt.Sprintf("{\"spec\":{\"staticIP\":%q}}", unassignedIP)
-	err = MergePatchResource(kc.ResourceVMIP, name, patch)
-	if err != nil {
-		return fmt.Errorf("%s\n%w", assignErr, err)
-	}
-	vmip := virtv2.VirtualMachineIPAddress{}
-	err = GetObject(kc.ResourceVMIP, name, &vmip, kc.GetOptions{
-		Namespace: conf.Namespace,
-	})
-	if err != nil {
-		return fmt.Errorf("%s\n%w", assignErr, err)
-	}
-	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", PhaseAttached)
-	waitOpts := kc.WaitOptions{
-		Namespace: conf.Namespace,
-		For:       jsonPath,
-		Timeout:   ShortWaitDuration,
-	}
-	res := kubectl.WaitResources(kc.ResourceVMIP, waitOpts, name)
-	if res.Error() != nil {
-		return fmt.Errorf("%s\n%s", assignErr, res.StdErr())
-	}
-	return nil
-}
-
 var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel      = map[string]string{"testcase": "complex-test"}
 		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
 		alwaysOnLabel      = map[string]string{"alwaysOn": "complex-test"}
 		notAlwaysOnLabel   = map[string]string{"notAlwaysOn": "complex-test"}
+		ns                 string
 	)
 
 	AfterEach(func() {
@@ -78,9 +48,10 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ComplexTest, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
+			var err error
+			ns, err = kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
+			Expect(ns).NotTo(BeEmpty())
 		})
 	})
 
@@ -89,7 +60,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			if config.IsReusable() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
@@ -112,7 +83,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -123,7 +94,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By(fmt.Sprintf("CVIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceCVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -134,7 +105,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By(fmt.Sprintf("VMClasses should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVMClass, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -144,7 +115,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 		It("patches custom VMIP with unassigned address", func() {
 			vmipName := fmt.Sprintf("%s-%s", namePrefix, "vm-custom-ip")
 			Eventually(func() error {
-				return AssignIPToVMIP(vmipName)
+				return AssignIPToVMIP(ns, vmipName)
 			}).WithTimeout(LongWaitDuration).WithPolling(Interval).Should(Succeed())
 		})
 
@@ -152,7 +123,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By(fmt.Sprintf("VMIPs should be in %s phases", PhaseAttached))
 			WaitPhaseByLabel(kc.ResourceVMIP, PhaseAttached, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -164,7 +135,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				ExcludedLabels: []string{"hasNoConsumer"},
 				Labels:         testCaseLabel,
-				Namespace:      conf.Namespace,
+				Namespace:      ns,
 				Timeout:        MaxWaitTimeout,
 			})
 		})
@@ -173,7 +144,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By(fmt.Sprintf("VDs should be in %s phases", phaseByVolumeBindingMode))
 			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
 				Labels:    hasNoConsumerLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -184,7 +155,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By("Virtual machine agents should be ready")
 			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -195,7 +166,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By(fmt.Sprintf("VMBDAs should be in %s phases", PhaseAttached))
 			WaitPhaseByLabel(kc.ResourceVMBDA, PhaseAttached, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -206,14 +177,14 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("checks VMs external connectivity", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
-				CheckCiliumAgents(kubectl, vms...)
-				CheckExternalConnection(externalHost, httpStatusOk, vms...)
+				CheckCiliumAgents(kubectl, ns, vms...)
+				CheckExternalConnection(externalHost, httpStatusOk, ns, vms...)
 			})
 		})
 	})
@@ -231,7 +202,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				var vmList virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 				})
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -246,37 +217,37 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				}
 
 				By("Trying to stop AlwaysOn VMs")
-				StopVirtualMachinesByVMOP(alwaysOnLabel, alwaysOnVMs...)
+				StopVirtualMachinesByVMOP(alwaysOnLabel, ns, alwaysOnVMs...)
 				By("Trying to stop not AlwaysOn VMs")
-				StopVirtualMachinesByVMOP(notAlwaysOnLabel, notAlwaysOnVMs...)
+				StopVirtualMachinesByVMOP(notAlwaysOnLabel, ns, notAlwaysOnVMs...)
 			})
 
 			It("checks VMOPs and VMs phases", func() {
 				By(fmt.Sprintf("AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseFailed))
 				WaitResourcesByPhase(alwaysOnVMStopVMOPs, kc.ResourceVMOP, string(virtv2.VMOPPhaseFailed), kc.WaitOptions{
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("Not AlwaysOn VM VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitResourcesByPhase(notAlwaysOnVMStopVMs, kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("AlwaysOn VMs should be in %s phases", virtv2.MachineRunning))
 				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineRunning), kc.WaitOptions{
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", virtv2.MachineStopped))
 				WaitResourcesByPhase(notAlwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
 
 			It("cleanup AlwaysOn VM VMOPs", func() {
 				res := kubectl.Delete(kc.DeleteOptions{
-					Namespace:      conf.Namespace,
+					Namespace:      ns,
 					Labels:         alwaysOnLabel,
 					IgnoreNotFound: true,
 					Resource:       kc.ResourceVMOP,
@@ -289,7 +260,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("starts VMs by VMOP", func() {
 				var vms virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Labels:    testCaseLabel,
 				})
 				Expect(err).NotTo(HaveOccurred())
@@ -301,20 +272,20 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					}
 				}
 
-				StartVirtualMachinesByVMOP(testCaseLabel, notAlwaysOnVMs...)
+				StartVirtualMachinesByVMOP(testCaseLabel, ns, notAlwaysOnVMs...)
 			})
 
 			It("checks VMs and VMOPs phases", func() {
 				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machine agents should be ready")
 				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
@@ -325,7 +296,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				var vmList virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vmList, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 				})
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -342,37 +313,37 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				vms = append(vms, alwaysOnVMs...)
 				vms = append(vms, notAlwaysOnVMs...)
 
-				StopVirtualMachinesBySSH(vms...)
+				StopVirtualMachinesBySSH(ns, vms...)
 			})
 
 			It("checks VMs phases", func() {
 				By(fmt.Sprintf("Not AlwaysOn VMs should be in %s phases", virtv2.MachineStopped))
 				WaitResourcesByPhase(notAlwaysOnVMs, kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("AlwaysOn VMs should be in %s phases", virtv2.MachineRunning))
 				WaitResourcesByPhase(alwaysOnVMs, kc.ResourceVM, string(virtv2.MachineRunning), kc.WaitOptions{
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
 
 			It("start not AlwaysOn VMs", func() {
-				CreateAndApplyVMOPsWithSuffix(testCaseLabel, "-after-ssh-stopping", virtv2.VMOPTypeStart, notAlwaysOnVMs...)
+				CreateAndApplyVMOPsWithSuffix(testCaseLabel, "-after-ssh-stopping", virtv2.VMOPTypeStart, ns, notAlwaysOnVMs...)
 			})
 
 			It("checks VMs and VMOPs phases", func() {
 				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machine agents should be ready")
 				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
@@ -382,27 +353,27 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("reboot VMs by VMOP", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
 
-				RebootVirtualMachinesByVMOP(testCaseLabel, vms...)
+				RebootVirtualMachinesByVMOP(testCaseLabel, ns, vms...)
 			})
 
 			It("checks VMs and VMOPs phases", func() {
 				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machine agents should be ready")
 				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 			})
@@ -419,7 +390,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 						defer wg.Done()
 						WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
 							Labels:    testCaseLabel,
-							Namespace: conf.Namespace,
+							Namespace: ns,
 							Timeout:   MaxWaitTimeout,
 						})
 					}()
@@ -427,19 +398,19 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
 
-				RebootVirtualMachinesBySSH(vms...)
+				RebootVirtualMachinesBySSH(ns, vms...)
 
 				By("Virtual machines agent should be ready", func() {
 					WaitVMAgentReady(kc.WaitOptions{
 						Labels:    testCaseLabel,
-						Namespace: conf.Namespace,
+						Namespace: ns,
 						Timeout:   MaxWaitTimeout,
 					})
 				})
@@ -458,7 +429,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 						defer wg.Done()
 						WaitPhaseByLabel(kc.ResourceVM, string(virtv2.MachineStopped), kc.WaitOptions{
 							Labels:    testCaseLabel,
-							Namespace: conf.Namespace,
+							Namespace: ns,
 							Timeout:   MaxWaitTimeout,
 						})
 					}()
@@ -467,7 +438,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				res := kubectl.Delete(kc.DeleteOptions{
 					IgnoreNotFound: true,
 					Labels:         testCaseLabel,
-					Namespace:      conf.Namespace,
+					Namespace:      ns,
 					Resource:       kc.ResourcePod,
 				})
 				Expect(res.Error()).NotTo(HaveOccurred())
@@ -475,7 +446,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				By("Virtual machines agent should be ready", func() {
 					WaitVMAgentReady(kc.WaitOptions{
 						Labels:    testCaseLabel,
-						Namespace: conf.Namespace,
+						Namespace: ns,
 						Timeout:   MaxWaitTimeout,
 					})
 				})
@@ -486,15 +457,15 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("checks VMs external connection after reboot", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
 
-				CheckCiliumAgents(kubectl, vms...)
-				CheckExternalConnection(externalHost, httpStatusOk, vms...)
+				CheckCiliumAgents(kubectl, ns, vms...)
+				CheckExternalConnection(externalHost, httpStatusOk, ns, vms...)
 			})
 		})
 	})
@@ -504,14 +475,14 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("starts migrations", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
 
-				MigrateVirtualMachines(testCaseLabel, vms...)
+				MigrateVirtualMachines(testCaseLabel, ns, vms...)
 			})
 		})
 
@@ -520,13 +491,13 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 				WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machines should be migrated")
 				WaitByLabel(kc.ResourceVM, kc.WaitOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 					For:       "'jsonpath={.status.migrationState.result}=Succeeded'",
 				})
@@ -535,15 +506,15 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 			It("checks VMs external connection after migrations", func() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
 
-				CheckCiliumAgents(kubectl, vms...)
-				CheckExternalConnection(externalHost, httpStatusOk, vms...)
+				CheckCiliumAgents(kubectl, ns, vms...)
+				CheckExternalConnection(externalHost, httpStatusOk, ns, vms...)
 			})
 		})
 	})
@@ -563,7 +534,38 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				resourcesToDelete.KustomizationDir = conf.TestData.ComplexTest
 			}
 
-			DeleteTestCaseResources(resourcesToDelete)
+			DeleteTestCaseResources(ns, resourcesToDelete)
 		})
 	})
 })
+
+func AssignIPToVMIP(vmipNamespace, vmipName string) error {
+	assignErr := fmt.Sprintf("cannot patch VMIP %q with unnassigned IP address", vmipName)
+	unassignedIP, err := FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
+	if err != nil {
+		return fmt.Errorf("%s\n%w", assignErr, err)
+	}
+	patch := fmt.Sprintf("{\"spec\":{\"staticIP\":%q}}", unassignedIP)
+	err = MergePatchResource(kc.ResourceVMIP, vmipNamespace, vmipName, patch)
+	if err != nil {
+		return fmt.Errorf("%s\n%w", assignErr, err)
+	}
+	vmip := virtv2.VirtualMachineIPAddress{}
+	err = GetObject(kc.ResourceVMIP, vmipName, &vmip, kc.GetOptions{
+		Namespace: vmipNamespace,
+	})
+	if err != nil {
+		return fmt.Errorf("%s\n%w", assignErr, err)
+	}
+	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", PhaseAttached)
+	waitOpts := kc.WaitOptions{
+		Namespace: vmipNamespace,
+		For:       jsonPath,
+		Timeout:   ShortWaitDuration,
+	}
+	res := kubectl.WaitResources(kc.ResourceVMIP, waitOpts, vmipName)
+	if res.Error() != nil {
+		return fmt.Errorf("%s\n%s", assignErr, res.StdErr())
+	}
+	return nil
+}
