@@ -357,7 +357,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
+			DeleteTestCaseResources(conf.Namespace, ResourcesToDelete{
 				KustomizationDir: conf.TestData.VmLabelAnnotation,
 			})
 		})

@@ -124,41 +124,6 @@ func init() {
 	conf.Namespace = fmt.Sprintf("%s-%s", namePrefix, conf.Namespace)
 	conf.StorageClass.VolumeBindingMode = *defaultStorageClass.VolumeBindingMode
 	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(conf)
-	// TODO: get kustomization files from testdata directory when all tests will be refactored
-	var kustomizationFiles []string
-	v := reflect.ValueOf(conf.TestData)
-	t := reflect.TypeOf(conf.TestData)
-
-	if v.Kind() == reflect.Struct {
-		for i := 0; i < v.NumField(); i++ {
-			field := v.Field(i)
-			fieldType := t.Field(i)
-
-			// Ignore
-			if fieldType.Name == "Sshkey" || fieldType.Name == "SshUser" {
-				continue
-			}
-
-			if field.Kind() == reflect.String {
-				path := fmt.Sprintf("%s/%s", field.String(), "kustomization.yaml")
-				kustomizationFiles = append(kustomizationFiles, path)
-			}
-		}
-	}
-	for _, filePath := range kustomizationFiles {
-		if err = kustomize.SetParams(filePath, conf.Namespace, namePrefix); err != nil {
-			log.Fatal(err)
-		}
-	}
-
-	if !config.IsReusable() {
-		errs := Cleanup()
-		if len(errs) != 0 {
-			log.Fatal(errs)
-		}
-	} else {
-		log.Println("Run test in REUSABLE mode")
-	}
 }
 
 func newRestConfig(transport config.ClusterTransport) (*rest.Config, error) {
@@ -189,18 +154,50 @@ func TestTests(t *testing.T) {
 	if (ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() || !config.IsCleanUpNeeded() {
 		return
 	}
-
-	err := Cleanup()
-	if len(err) != 0 {
-		log.Fatal(err)
-	}
 }
 
-var _ = BeforeSuite(func() {
+var _ = SynchronizedBeforeSuite(func() {
+	// TODO: get kustomization files from testdata directory when all tests will be refactored
+	var kustomizationFiles []string
+	v := reflect.ValueOf(conf.TestData)
+	t := reflect.TypeOf(conf.TestData)
+
+	if v.Kind() == reflect.Struct {
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			fieldType := t.Field(i)
+
+			// Ignore
+			if fieldType.Name == "Sshkey" || fieldType.Name == "SshUser" {
+				continue
+			}
+
+			if field.Kind() == reflect.String {
+				path := fmt.Sprintf("%s/%s", field.String(), "kustomization.yaml")
+				kustomizationFiles = append(kustomizationFiles, path)
+			}
+		}
+	}
+	for _, filePath := range kustomizationFiles {
+		err := kustomize.SetParams(filePath, conf.Namespace, namePrefix)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	if !config.IsReusable() {
+		errs := Cleanup()
+		if len(errs) != 0 {
+			log.Fatal(errs)
+		}
+	} else {
+		log.Println("Run test in REUSABLE mode")
+	}
+}, func() {
 	StartV12nControllerLogStream(logStreamByV12nControllerPod)
 })
 
-var _ = AfterSuite(func() {
+var _ = SynchronizedAfterSuite(func() {
 	errs := make([]error, 0)
 	checkErrs := CheckV12nControllerRestarts(logStreamByV12nControllerPod)
 	if len(checkErrs) != 0 {
@@ -211,6 +208,11 @@ var _ = AfterSuite(func() {
 		errs = append(errs, stopErrs...)
 	}
 	Expect(errs).Should(BeEmpty())
+}, func() {
+	err := Cleanup()
+	if len(err) != 0 {
+		log.Fatal(err)
+	}
 })
 
 func Cleanup() []error {

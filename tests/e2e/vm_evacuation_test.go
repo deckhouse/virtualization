@@ -66,7 +66,7 @@ var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.Common
 		if config.IsCleanUpNeeded() {
 			resourcesToDelete.KustomizationDir = conf.TestData.VmEvacuation
 		}
-		DeleteTestCaseResources(resourcesToDelete)
+		DeleteTestCaseResources(conf.Namespace, resourcesToDelete)
 	})
 
 	evacuate := func(vms []string) {

@@ -187,7 +187,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 			It("changes VMClassName in VM specification with existing VMClass", func() {
 				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":%q}}", vmClassDiscovery)
-				err := MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyChanging, mergePatch)
+				err := MergePatchResource(kc.ResourceVM, conf.Namespace, vmNotValidSizingPolicyChanging, mergePatch)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -211,7 +211,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 			It("changes VMClassName in VM specification with not existing VMClass which have correct prefix for creating", func() {
 				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":%q}}", vmClassDiscoveryCopy)
-				err := MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyCreating, mergePatch)
+				err := MergePatchResource(kc.ResourceVM, conf.Namespace, vmNotValidSizingPolicyCreating, mergePatch)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -269,7 +269,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
+			DeleteTestCaseResources(conf.Namespace, ResourcesToDelete{
 				KustomizationDir: conf.TestData.SizingPolicy,
 				Files:            []string{newVmClassFilePath},
 			})

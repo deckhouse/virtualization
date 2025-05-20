@@ -270,7 +270,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
+			DeleteTestCaseResources(conf.Namespace, ResourcesToDelete{
 				KustomizationDir: conf.TestData.VmDiskAttachment,
 				AdditionalResources: []AdditionalResource{
 					{

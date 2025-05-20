@@ -65,7 +65,7 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 		if config.IsCleanUpNeeded() {
 			resourcesToDelete.KustomizationDir = conf.TestData.VmMigrationCancel
 		}
-		DeleteTestCaseResources(resourcesToDelete)
+		DeleteTestCaseResources(conf.Namespace, resourcesToDelete)
 	})
 
 	It("Cancel migrate", func() {
@@ -100,7 +100,7 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 		time.Sleep(20 * time.Second)
 
 		By("Starting migrations for virtual machines")
-		MigrateVirtualMachines(testCaseLabel, vmNames...)
+		MigrateVirtualMachines(testCaseLabel, conf.Namespace, vmNames...)
 
 		someCompleted := false
 

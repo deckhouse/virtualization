@@ -24,6 +24,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 
 	sdsrepvolv1 "github.com/deckhouse/sds-replicated-volume/api/v1alpha1"
+
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
@@ -151,7 +152,7 @@ var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators()
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
+			DeleteTestCaseResources(conf.Namespace, ResourcesToDelete{
 				KustomizationDir: conf.TestData.ImagesCreation,
 				AdditionalResources: []AdditionalResource{
 					{

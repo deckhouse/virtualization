@@ -33,7 +33,7 @@ var _ = Describe("Importer network policy", ginkgoutil.CommonE2ETestDecorators()
 
 	AfterAll(func() {
 		By("Delete manifests")
-		DeleteTestCaseResources(ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
+		DeleteTestCaseResources(conf.Namespace, ResourcesToDelete{KustomizationDir: conf.TestData.ImporterNetworkPolicy})
 	})
 
 	BeforeEach(func() {

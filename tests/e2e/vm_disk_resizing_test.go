@@ -80,7 +80,7 @@ func ResizeDisks(addedSize *resource.Quantity, config *cfg.Config, virtualDisks 
 			Expect(err).NotTo(HaveOccurred(), "%v", err)
 			newValue := resource.NewQuantity(diskObject.Spec.PersistentVolumeClaim.Size.Value()+addedSize.Value(), resource.BinarySI)
 			mergePatch := fmt.Sprintf("{\"spec\":{\"persistentVolumeClaim\":{\"size\":\"%s\"}}}", newValue.String())
-			err = MergePatchResource(kc.ResourceVD, vd, mergePatch)
+			err = MergePatchResource(kc.ResourceVD, conf.Namespace, vd, mergePatch)
 			Expect(err).NotTo(HaveOccurred(), "%v", err)
 		}()
 	}
@@ -391,7 +391,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
+			DeleteTestCaseResources(conf.Namespace, ResourcesToDelete{
 				KustomizationDir: conf.TestData.DiskResizing,
 			})
 		})

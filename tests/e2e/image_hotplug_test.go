@@ -407,7 +407,7 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 				resourcesToDelete.KustomizationDir = conf.TestData.ImageHotplug
 			}
 
-			DeleteTestCaseResources(resourcesToDelete)
+			DeleteTestCaseResources(conf.Namespace, resourcesToDelete)
 		})
 	})
 })
