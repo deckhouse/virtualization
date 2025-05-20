@@ -24,6 +24,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 
 	sdsrepvolv1 "github.com/deckhouse/sds-replicated-volume/api/v1alpha1"
+
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
@@ -31,10 +32,11 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualImageCreation", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		immediateStorageClassName string // require for unattached virtual disk snapshots
 		testCaseLabel             = map[string]string{"testcase": "images-creation"}
+		ns                        string
 	)
 
 	BeforeEach(func() {
@@ -52,9 +54,9 @@ var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators()
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.ImagesCreation, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
+			var err error
+			ns, err = kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
 		})
 
 		It("prepares `Immediate` storage class and virtual disk that use it", func() {
@@ -114,7 +116,7 @@ var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators()
 			By(fmt.Sprintf("VD should be in %s phase", virtv2.DiskReady))
 			WaitPhaseByLabel(kc.ResourceVD, string(virtv2.DiskReady), kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -123,7 +125,7 @@ var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators()
 			By(fmt.Sprintf("VDSnapshot should be in %s phase", virtv2.VirtualDiskSnapshotPhaseReady))
 			WaitPhaseByLabel(kc.ResourceVDSnapshot, string(virtv2.VirtualDiskSnapshotPhaseReady), kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -134,7 +136,7 @@ var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators()
 			By(fmt.Sprintf("VIs should be in %s phases", virtv2.ImageReady))
 			WaitPhaseByLabel(kc.ResourceVI, string(virtv2.ImageReady), kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -143,7 +145,7 @@ var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators()
 			By(fmt.Sprintf("CVIs should be in %s phases", virtv2.ImageReady))
 			WaitPhaseByLabel(kc.ResourceCVI, string(virtv2.ImageReady), kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -151,7 +153,7 @@ var _ = Describe("Virtual images creation", ginkgoutil.CommonE2ETestDecorators()
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
+			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.ImagesCreation,
 				AdditionalResources: []AdditionalResource{
 					{

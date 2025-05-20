@@ -29,7 +29,7 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineVersions", ginkgoutil.CommonE2ETestDecorators(), func() {
 	BeforeEach(func() {
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
@@ -37,6 +37,7 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 	})
 
 	testCaseLabel := map[string]string{"testcase": "vm-versions"}
+	var ns string
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
@@ -47,9 +48,9 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmVersions, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
+			var err error
+			ns, err = kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
 		})
 	})
 
@@ -68,7 +69,7 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 			By(fmt.Sprintf("VIs should be in %s phase", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -79,7 +80,7 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 			By(fmt.Sprintf("VM should be in %s phase", PhaseRunning))
 			WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -90,7 +91,7 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 			var vms virtv2.VirtualMachineList
 			err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 			})
 			Expect(err).NotTo(HaveOccurred())
 
@@ -112,7 +113,7 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
+			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.VmVersions,
 			})
 		})
