@@ -37,7 +37,7 @@ on:
         required: false
         type: number
       svace_enabled:
-        description: 'A boolean value which indicates whether svace analyze will be performed'
+        description: "A boolean value which indicates whether svace analyze will be performed"
         required: false
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
@@ -380,10 +380,9 @@ jobs:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
-          svace_enabled: 
+          svace_enabled: ${{ inputs.svace_enabled }}
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
- 
 
   pull_request_info:
     name: Get PR info
@@ -477,7 +476,7 @@ jobs:
           svacer_url: "${{ secrets.SVACER_URL }}"
           svacer_import_user: "${{ secrets.SVACER_IMPORT_USER }}"
           svacer_import_password: "${{ secrets.SVACER_IMPORT_PASSWORD }}"
-          svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"    
+          svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
 
   skip_e2e:
     if: ${{ github.event.label.name == 'skip/e2e' }}
