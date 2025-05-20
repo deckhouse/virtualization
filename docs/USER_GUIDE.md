@@ -857,7 +857,7 @@ When you create a virtual machine (VM), you can customize how much CPU resources
 
 {{< alert level="warning">}}
 Available `coreFraction` values may be defined in the VirtualMachineClass resource for a given range of cores (`cores`), in which case only those values may be used.
-{{{< /alert >}}
+{{< /alert >}}
 
 The `cores` parameter specifies the number of virtual processor cores available to the VM. For example, if you specify `cores: 2`, the VM will run as if it has two cores. The `coreFraction` parameter specifies the minimum guaranteed power share of each core in percent. For example, with `coreFraction: 10%` the VM will always get at least 10% of each core's performance, even if the node (physical server) is heavily loaded. If the node has free resources, however, the VM can use up to 100% of each core's power, maximizing performance.
 
@@ -872,7 +872,7 @@ In this case, the VM “sees” two virtual cores and is guaranteed to receive p
 
 {{< alert level="info">}}
 This approach resembles CPU resource oversubscription, where a VM can utilize more power than reserved if resources are available. However, unlike traditional oversubscription where there is no guarantee of minimum performance, coreFraction provides the VM with a predictable minimum of resources. This makes VM performance stable even under high cluster load.
-{{{< /alert >}}
+{{< /alert >}}
 
 The `cores` and `coreFraction` parameters are taken into account when planning VM placement on nodes. The guaranteed capacity (minimum share of each core) is considered while selecting a node so that it can provide the required performance for all the VMs. If a node does not have sufficient resources to fulfill the guarantees, a VM will not run on that node.
 
@@ -1677,7 +1677,7 @@ The live migration process involves several steps:
 
 {{< alert level="warning">}}
 Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
-{{{< /alert >}}
+{{< /alert >}}
 
 #### AutoConverge mechanism
 
