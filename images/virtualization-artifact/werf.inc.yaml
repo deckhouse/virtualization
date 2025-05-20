@@ -1,7 +1,11 @@
 ---
 image: {{ $.ImageName }}
 final: false
+{{- if eq $.SVACE_ENABLED "true" }}
+fromImage: svace-builder-debian
+{{- else }}
 fromImage: builder/golang-bookworm-1.23
+{{- end }}
 git:
 - add: /api
   to: /usr/local/go/api
