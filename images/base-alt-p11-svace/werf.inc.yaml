@@ -1,0 +1,31 @@
+---
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc glibc-utils git
+- mount xfsprogs xfstests util-linux e2fsprogs
+libraries:
+- libffi8 libssh-devel libssh2-devel glibc-pthread glibc-devel glibc-devel-static
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ $.ImageName }}
+final: false
+fromImage: base-alt-p11
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO }}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+        {{ $builderDependencies.packages | join " " }} \
+        {{ $builderDependencies.libraries | join " " }}
+  {{- include "alt packages clean" . | nindent 2 }}
+  # ssh auth to 3p repos
+  - echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  install:
+    - git clone --depth 1 --branch v4.0.250415 $(cat /run/secrets/SOURCE_REPO)/ispras/svace.git /opt/svace
+    - ln -s /opt/svace/bin/svace /usr/local/bin/svace

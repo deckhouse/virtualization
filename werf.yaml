@@ -29,6 +29,13 @@ build:
 {{ $_ := set . "Packages" dict }}
 {{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
 
+# svace analyze toggler
+{{- $_ := set . "SVACE_ENABLED" (env "SVACE_ENABLED" "false") }}
+
+{{- $_ := set . "SVACE_ANALYZE_HOST" (env "SVACE_ANALYZE_HOST" "example.host") }}
+
+{{- $_ := set . "SVACE_ANALYZE_SSH_USER" (env "SVACE_ANALYZE_SSH_USER" "user") }}
+
 {{- range $k, $v := $versions_ctx.firmware }}
   {{- $_ := set $.Version $k $v}}
 {{- end }}
