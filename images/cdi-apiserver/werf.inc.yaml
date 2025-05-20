@@ -1,5 +1,5 @@
 ---
-{{- include "imagename" . }}
+image: {{ include "ImageName" (list . ) }}
 fromImage: distroless
 import:
 - image: cdi-artifact

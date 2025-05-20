@@ -3,14 +3,14 @@
 {{- $gitRepoUrl := "kubevirt/containerized-data-importer.git" }}
 
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
 git:
-  - add: /images/{{ $.ImageName }}
+  - add: /images/{{ include "ImageName" (list . ) }}
     to: /
     stageDependencies:
       install:
@@ -101,11 +101,11 @@ shell:
   - ls -la /cdi-binaries
 
 ---
-image: {{ $.ImageName }}-cbuilder
+image: {{ include "ImageName" (list . "cbuilder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}/static_binaries
+  - add: /images/{{ include "ImageName" (list . ) }}/static_binaries
     to: /
     stageDependencies:
       install:

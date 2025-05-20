@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 fromImage: distroless
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ include "ImageName" (list . "bins") }}
   add: /relocate
   to: /
   before: setup
@@ -31,7 +31,7 @@ binaries:
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ include "ImageName" (list . "bins") }}
 final: false
 fromImage: base-alt-p11-binaries
 import:

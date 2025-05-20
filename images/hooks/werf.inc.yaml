@@ -1,9 +1,9 @@
 ---
-{{- include "imagename" . }}
+image: {{ include "ImageName" (list . ) }}
 final: false
 fromImage: builder/golang-bookworm-1.24
 git:
-- add: /images/{{ $.ImageName }}
+- add: /images/{{ include "ImageName" (list . ) }}
   to: /app/images/hooks
   stageDependencies:
     install:

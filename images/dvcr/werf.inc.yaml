@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 fromImage: distroless
 import:
-- image: {{ $.ImageName }}-builder
+- image: {{ include "ImageName" (list . "builder") }}
   add: /container-registry-binary
   to: /usr/bin
   before: setup
@@ -20,7 +20,7 @@ imageSpec:
 {{- $version := "2.8.3" }}
 {{- $gitRepoUrl := "distribution/distribution.git" }}
 
-image: {{ $.ImageName }}-builder
+image: {{ include "ImageName" (list . "builder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 mount:

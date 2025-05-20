@@ -1,8 +1,8 @@
 ---
-{{- include "imagename" . }}
+image: {{ include "ImageName" (list . "artifact") }}
 fromImage: distroless
 import:
-  - image: {{ $.ImageName }}-cbuilder
+  - image: {{ include "ImageName" (list . "cbuilder") }}
     add: /bins
     to: /usr/local/bin
     after: setup
@@ -10,11 +10,11 @@ imageSpec:
   config:
     cmd: ["hello_bounder"]
 ---
-{{- include "imagename" (set $ "ImageNameSuffix" "cbuilder") }}
+image: {{ include "ImageName" (list . "cbuilder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}/static_binaries
+  - add: /images/{{ include "ImageName" (list . ) }}/static_binaries
     to: /
     stageDependencies:
       install:

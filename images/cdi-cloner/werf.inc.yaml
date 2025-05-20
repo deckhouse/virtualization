@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 fromImage: distroless
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ include "ImageName" (list . "bins") }}
   add: /relocate
   to: /
   before: setup
@@ -21,11 +21,11 @@ binaries:
 
 {{ $virtCDIClonerDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ include "ImageName" (list . "bins") }}
 final: false
 fromImage: base-alt-p11-binaries
 import:
-- image: {{ $.ImageName }}-gobuild
+- image: {{ include "ImageName" (list . "gobuild") }}
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
@@ -49,11 +49,11 @@ shell:
   - |
     /relocate_binaries.sh -i "{{ $virtCDIClonerDependencies.binaries | join " " }}" -o /relocate
 ---
-image: {{ $.ImageName }}-gobuild
+image: {{ include "ImageName" (list . "gobuild") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}/cloner-startup
+  - add: /images/{{ include "ImageName" (list .) }}/cloner-startup
     to: /app
     stageDependencies:
       install:

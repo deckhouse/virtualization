@@ -10,11 +10,11 @@ libraries:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-{{- include "imagename" . }}
+image: {{ include "ImageName" (list . ) }}
 final: false
 fromImage: BASE_ALT_P11
 git:
-  - add: /images/{{ $.ImageName }}
+  - add: /images/{{ include "ImageName" (list . ) }}
     to: /
     includePaths:
     - relocate_binaries.sh

@@ -1,19 +1,29 @@
-{{- define "imagename" }}
+{{/*
+TODO descroption
+usaege:
+1 value yes
+2 only .
+3 if exists ModuleName
+*/}}
 
-{{-   if not $.ModuleName }}
-{{-       if not .ImageNameSuffix }}
-image: {{ $.ImageName }}
-{{-      else }}
-image: {{ $.ImageName }}-{{ .ImageNameSuffix }}
-{{-       end }}
-{{-   else }}
-{{-      if not .ImageNameSuffix }}
-image: {{ $.ModuleName }}/{{ $.ImageName }}
-{{-      else }}
-image: {{ $.ModuleName }}/{{ $.ImageName }}-{{ .ImageNameSuffix }}
-{{-      end }}
-{{-   end }}
+{{ define "ImageName" }}
+{{- $defineCtx := . -}}
+{{- $ImageNameSuffix := "" -}}
 
-{{- $_ := set . "ImageNameSuffix" nil -}}
+{{-   if (kindIs "slice" .) -}}
+{{-     $defineCtx = index . 0 -}}
+{{-     if ge (len .) 2 -}}
+{{-       $ImageNameSuffix = index . 1 -}}
+{{-     end -}}
+{{-   end -}}
 
-{{- end }}
+{{- include "ModuleNamePreffix" $defineCtx -}}
+{{- $defineCtx.ImageName -}}
+{{- if $ImageNameSuffix }}-{{ $ImageNameSuffix }}{{ end -}}
+
+{{ end }}
+
+
+{{ define "ModuleNamePreffix" }}
+{{- if .ModuleName }}{{ .ModuleName }}/{{ end -}}
+{{ end }}

@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (list . ) }}
 fromImage: distroless
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ include "ImageName" (list . "bins") }}
   add: /relocate
   to: /
   before: setup
@@ -20,7 +20,7 @@ packages:
 
 {{ $cdiClonerDependencies := include "cdi-controller-deps" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ include "ImageName" (list . "bins") }}
 final: false
 fromImage: base-alt-p11-binaries
 import:

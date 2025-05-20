@@ -1,9 +1,9 @@
 ---
-{{- include "imagename" . }}
+image: {{ include "ImageName" (list . ) }}
 final: false
 fromImage: builder/scratch
 import:
-  - image: {{ $.ImageName }}-artifact
+  - image: {{ include "ImageName" (list . "artifact") }}
     add: /relocate
     to: /
     before: setup
@@ -15,7 +15,7 @@ imageSpec:
       LC_ALL: POSIX
     user: 64535
 ---
-{{- include "imagename" (set $ "ImageNameSuffix" "artifact") }}
+image: {{ include "ImageName" (list . "artifact") }}
 fromImage: base-alt-p11-binaries
 final: false
 shell:

@@ -1,9 +1,9 @@
 ---
-{{- include "imagename" (set $ "ImageNameSuffix" "builder") }}
+image: {{ include "ImageName" (list . "builder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-- add: /images/{{ $.ImageName }}
+- add: /images/{{ include "ImageName" (list . ) }}
   to: /src
   stageDependencies:
     install:
@@ -50,7 +50,7 @@ binaries:
 
 {{ $dvcrDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ include "ImageName" (list . "bins") }}
 final: false
 fromImage: base-alt-p11-binaries
 import:
@@ -61,7 +61,7 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-- image: {{ $.ImageName }}-builder
+- image: {{ include "ImageName" (list . "builder") }}
   add: /out
   to: /usr/local/bin
   before: setup
