@@ -851,60 +851,6 @@ Conditions display information about the state of the VM, as well as on problems
 d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
 ```
 
-### Guest OS Agent
-
-To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
-
-How will the agent help?
-
-- It will provide consistent snapshots of disks and VMs.
-- Will provide information about the running OS, which will be reflected in the status of the VM.
-  Example:
-
-  ```yaml
-  status:
-    guestOSInfo:
-      id: fedora
-      kernelRelease: 6.11.4-301.fc41.x86_64
-      kernelVersion: '#1 SMP PREEMPT_DYNAMIC Sun Oct 20 15:02:33 UTC 2024'
-      machine: x86_64
-      name: Fedora Linux
-      prettyName: Fedora Linux 41 (Cloud Edition)
-      version: 41 (Cloud Edition)
-      versionId: “41”
-  ```
-
-- Will allow tracking that the OS has actually booted:
-
-  ```bash
-  d8 k get vm -o wide
-  ```
-
-  Sample output (`AGENT` column):
-  ```console
-  NAME     PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS    AGE
-  fedora   Running   6       5%             8000Mi   False          True    True         virtlab-pt-1   10.66.10.1   5d21h
-  ```
-
-How to install QEMU Guest Agent:
-
-For Debian-based OS:
-
-```bash
-sudo apt install qemu-guest-agent
-```
-
-For Centos-based OS:
-
-```bash
-sudo yum install qemu-guest-agent
-```
-
-Starting the agent service:
-
-```bash
-sudo systemctl enable --now qemu-guest-agent
-```
 ### Configuring CPU and coreFraction
 
 When you create a virtual machine (VM), you can customize how much CPU resources it will use by using the `cores` and `coreFraction` parameters. These parameters determine how many virtual cores the VM “sees” and what minimum fraction of their power it is guaranteed to receive.
@@ -975,7 +921,6 @@ spec:
     cores: 1
 ```
 
-
 Next, the system automatically determines the topology depending on the specified number of cores. The calculation rules depend on the range of the number of cores and are described below.
 
 - If the number of cores is between 1 and 16 (1 ≤ `.spec.cpu.cores` ≤ 16):
@@ -1023,6 +968,61 @@ status:
       topology:
         sockets: 1
         coresPerSocket: 1
+```
+
+### Guest OS Agent
+
+To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
+
+How will the agent help?
+
+- It will provide consistent snapshots of disks and VMs.
+- Will provide information about the running OS, which will be reflected in the status of the VM.
+  Example:
+
+  ```yaml
+  status:
+    guestOSInfo:
+      id: fedora
+      kernelRelease: 6.11.4-301.fc41.x86_64
+      kernelVersion: '#1 SMP PREEMPT_DYNAMIC Sun Oct 20 15:02:33 UTC 2024'
+      machine: x86_64
+      name: Fedora Linux
+      prettyName: Fedora Linux 41 (Cloud Edition)
+      version: 41 (Cloud Edition)
+      versionId: “41”
+  ```
+
+- Will allow tracking that the OS has actually booted:
+
+  ```bash
+  d8 k get vm -o wide
+  ```
+
+  Sample output (`AGENT` column):
+  ```console
+  NAME     PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS    AGE
+  fedora   Running   6       5%             8000Mi   False          True    True         virtlab-pt-1   10.66.10.1   5d21h
+  ```
+
+How to install QEMU Guest Agent:
+
+For Debian-based OS:
+
+```bash
+sudo apt install qemu-guest-agent
+```
+
+For Centos-based OS:
+
+```bash
+sudo yum install qemu-guest-agent
+```
+
+Starting the agent service:
+
+```bash
+sudo systemctl enable --now qemu-guest-agent
 ```
 
 ### Connecting to a virtual machine
