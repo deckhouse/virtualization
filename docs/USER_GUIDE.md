@@ -807,6 +807,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
       - When qemu-guest-agent is installed in the guest system, the `AgentReady` condition will be true and `.status.guestOSInfo` will display information about the running guest OS.
       - The `type: FirmwareUpToDate, status: False` condition informs that the VM firmware needs to be updated.
       - Condition `type: ConfigurationApplied, status: False` informs that the VM configuration is not applied to the running VM.
+      - The `type: SizingPolicyMatched, status: False` condition informs that the VM resource configuration does not match the sizing policy requirements for the VirtualMachineClass being used and requires that these settings be brought into compliance otherwise new changes to the VM configuration cannot be saved.
       - The `type: AwaitingRestartToApplyConfiguration, status: True` condition displays information about the need to manually reboot the VM because some configuration changes cannot be applied without rebooting the VM.
     - Possible problems:
       - An internal failure in the VM or hypervisor.
@@ -928,6 +929,39 @@ This approach resembles CPU resource oversubscription, where a VM can utilize mo
 The `cores` and `coreFraction` parameters are taken into account when planning VM placement on nodes. The guaranteed capacity (minimum share of each core) is considered while selecting a node so that it can provide the required performance for all the VMs. If a node does not have sufficient resources to fulfill the guarantees, a VM will not run on that node.
 
 ![](./images/vm-corefraction.png)
+
+### Virtual Machine Resource Configuration and Sizing Policy
+
+The sizing policy in VirtualMachineClass (block `.spec.sizingPolicies`) sets the rules for configuring virtual machine resources - number of cores, memory and coreFraction. This policy is optional, but if it exists, the VM must strictly comply with it, otherwise its configuration cannot be saved.
+
+The policy divides the number of cores (`cores`) into ranges, such as 1-4 cores or 5-8 cores. For each range, it specifies how much memory can be allocated (`memory`) and what `coreFraction` values are allowed.
+
+If the VM configuration (cores, memory, or coreFraction) does not match the policy, the `type: SizingPolicyMatched, status: False` condition appears in the status.
+
+If the policy in VirtualMachineClass changes over time, existing VMs will have to adjust to the new rules, otherwise their settings cannot be saved.
+
+For example:
+
+```yaml
+spec:
+  sizingPolicies:
+    - cores:
+        min: 1
+        max: 4
+      memory:
+        min: 1Gi
+        max: 8Gi
+      coreFractions: [5, 10, 20, 50, 100]
+    - cores:
+        min: 5
+        max: 8
+      memory:
+        min: 5Gi
+        max: 16Gi
+      coreFractions: [20, 50, 100]
+```
+
+If the VM uses 2 cores, it falls in the range of 1-4 cores. Then memory can be selected from 1GB to 8GB and coreFraction can only be 5%, 10%, 20%, 50% or 100%. For 6 cores, the range is 5-8 cores, where memory is from 5GB to 16GB and coreFraction is 20%, 50% or 100%.
 
 ### Automatic CPU Topology Configuration
 
