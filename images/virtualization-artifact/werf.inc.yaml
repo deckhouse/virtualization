@@ -32,8 +32,9 @@ shell:
   - export GOOS=linux
   - export CGO_ENABLED=0
   - export GOARCH=amd64
-  - go build -tags {{ .MODULE_EDITION }} -v -a -o virtualization-controller ./cmd/virtualization-controller
-  - go build -v -a -o virtualization-api ./cmd/virtualization-api
+  - |
+    {{- include "svace.build" (set $ "BuildCommand" `go build -tags {{ .MODULE_EDITION }} -v -a -o virtualization-controller ./cmd/virtualization-controller`) | indent 4 }}
+    {{- include "svace.build" (set $ "BuildCommand" `go build -v -a -o virtualization-api ./cmd/virtualization-api`) | indent 4 }}
 {{- if eq .MODULE_EDITION "EE" }}
   - go build -v -a -o virtualization-audit ./cmd/virtualization-audit
 {{- end }}
