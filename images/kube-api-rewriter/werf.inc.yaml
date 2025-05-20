@@ -27,7 +27,7 @@ shell:
     - go build -v -a -o kube-api-rewriter ./cmd/kube-api-rewriter
 
 ---
-{{- include "imagename" (set $ "ImageNameSuffix" "") }}
+{{- include "imagename" . }}
 fromImage: builder/scratch
 import:
   - image: {{ $.ImageName }}-builder

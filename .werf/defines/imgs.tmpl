@@ -1,17 +1,19 @@
 {{- define "imagename" }}
 
 {{-   if not $.ModuleName }}
-{{-       if not $.ImageNameSuffix }}
+{{-       if not .ImageNameSuffix }}
 image: {{ $.ImageName }}
 {{-      else }}
-image: {{ $.ImageName }}-{{ $.ImageNameSuffix }}
+image: {{ $.ImageName }}-{{ .ImageNameSuffix }}
 {{-       end }}
 {{-   else }}
-{{-      if not $.ImageNameSuffix }}
+{{-      if not .ImageNameSuffix }}
 image: {{ $.ModuleName }}/{{ $.ImageName }}
 {{-      else }}
-image: {{ $.ModuleName }}/{{ $.ImageName }}-{{ $.ImageNameSuffix }}
+image: {{ $.ModuleName }}/{{ $.ImageName }}-{{ .ImageNameSuffix }}
 {{-      end }}
 {{-   end }}
+
+{{- $_ := set . "ImageNameSuffix" nil -}}
 
 {{- end }}
