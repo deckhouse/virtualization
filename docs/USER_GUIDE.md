@@ -904,6 +904,30 @@ Starting the agent service:
 ```bash
 sudo systemctl enable --now qemu-guest-agent
 ```
+### Configuring CPU and coreFraction
+
+When you create a virtual machine (VM), you can customize how much CPU resources it will use by using the `cores` and `coreFraction` parameters. These parameters determine how many virtual cores the VM “sees” and what minimum fraction of their power it is guaranteed to receive.
+
+{{< alert level="warning">}}
+Available `coreFraction` values may be defined in the VirtualMachineClass resource for a given range of cores (`cores`), in which case only those values may be used.
+{{{< /alert >}}
+
+The `cores` parameter specifies the number of virtual processor cores available to the VM. For example, if you specify `cores: 2`, the VM will run as if it has two cores. The `coreFraction` parameter specifies the minimum guaranteed power share of each core in percent. For example, with `coreFraction: 10%` the VM will always get at least 10% of each core's performance, even if the node (physical server) is heavily loaded. If the node has free resources, however, the VM can use up to 100% of each core's power, maximizing performance.
+
+Let's look at an example configuration:
+```yaml
+spec:
+  cpu:
+    cores: 2
+    coreFraction: 10%
+```
+In this case, the VM “sees” two virtual cores and is guaranteed to receive power equivalent to 20% of one physical core (0.2 CPUs). If there are unused resources on the node, the VM can utilize up to 100% of the power of the two cores (2 CPUs).
+
+This approach resembles CPU resource oversubscription, where a VM can utilize more power than reserved if resources are available. However, unlike traditional oversubscription where there is no guarantee of minimum performance, coreFraction provides the VM with a predictable minimum of resources. This makes VM performance stable even under high cluster load.
+
+The `cores` and `coreFraction` parameters are taken into account when planning VM placement on nodes. The guaranteed capacity (minimum share of each core) is considered while selecting a node so that it can provide the required performance for all the VMs. If a node does not have sufficient resources to fulfill the guarantees, a VM will not run on that node.
+
+![](./images/vm-corefraction.png)
 
 ### Automatic CPU Topology Configuration
 
