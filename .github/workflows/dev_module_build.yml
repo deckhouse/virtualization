@@ -344,13 +344,15 @@ jobs:
 
       - name: Add ssh_known_hosts
         run: |
-          IPS="${{secrets.SVACE_ANALYZE_HOST}}"
+          hosts="${{secrets.SVACE_ANALYZE_HOST}}"
           REPOS="${{secrets.SOURCE_REPO_GIT}}"
 
-          hosts=${IPS}
           for repo in $REPOS; do
               host=$(grep -oP '(?<=@)[^/:]+' <<< ${repo})
               hosts+=" "${host}
+          done
+
+          for host in $hosts; do
               host_ips=$(nslookup "$host" | awk '/^Address: / { print $2 }')
               for host_ip in $host_ips; do
                   echo "::add-mask::$host_ip"
