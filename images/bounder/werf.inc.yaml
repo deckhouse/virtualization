@@ -1,5 +1,5 @@
 ---
-image: {{ $.ImageName }}
+{{- include "imagename" . }}
 fromImage: distroless
 import:
   - image: {{ $.ImageName }}-cbuilder
@@ -10,7 +10,7 @@ imageSpec:
   config:
     cmd: ["hello_bounder"]
 ---
-image: {{ $.ImageName }}-cbuilder
+{{- include "imagename" (set $ "ImageNameSuffix" "cbuilder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:

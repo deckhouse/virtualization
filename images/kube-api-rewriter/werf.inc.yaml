@@ -1,5 +1,5 @@
 ---
-image: {{ $.ImageName }}-builder
+{{- include "imagename" (set $ "ImageNameSuffix" "builder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
@@ -27,7 +27,7 @@ shell:
     - go build -v -a -o kube-api-rewriter ./cmd/kube-api-rewriter
 
 ---
-image: {{ $.ImageName }}
+{{- include "imagename" (set $ "ImageNameSuffix" "") }}
 fromImage: builder/scratch
 import:
   - image: {{ $.ImageName }}-builder

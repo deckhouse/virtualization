@@ -10,7 +10,7 @@ libraries:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}
+{{- include "imagename" . }}
 final: false
 fromImage: BASE_ALT_P11
 git:

@@ -3,7 +3,7 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := "tianocore/edk2.git" }}
 
-image: {{ $.ImageName }}
+{{- include "imagename" . }}
 final: false
 fromImage: base-alt-p11
 git:
