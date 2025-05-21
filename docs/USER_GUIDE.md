@@ -871,10 +871,30 @@ spec:
 In this case, the VM “sees” two virtual cores and is guaranteed to receive power equivalent to 20% of one physical core (0.2 CPUs). If there are unused resources on the node, the VM can utilize up to 100% of the power of the two cores (2 CPUs).
 
 {{< alert level="info">}}
-This approach resembles CPU resource oversubscription, where a VM can utilize more power than reserved if resources are available. However, unlike traditional oversubscription where there is no guarantee of minimum performance, coreFraction provides the VM with a predictable minimum of resources. This makes VM performance stable even under high cluster load.
+This approach is similar to overcommitment of CPU resources, where a VM can use more power than reserved if resources are available. But coreFraction guarantees the VM the requested amount of resources. This makes VM performance stable even under high cluster load.
 {{< /alert >}}
 
 The `cores` and `coreFraction` parameters are taken into account when planning VM placement on nodes. The guaranteed capacity (minimum share of each core) is considered while selecting a node so that it can provide the required performance for all the VMs. If a node does not have sufficient resources to fulfill the guarantees, a VM will not run on that node.
+
+Visualization on the example of virtual machines with the following CPU configurations, when placed on the same node:
+
+VM1:
+
+```
+spec:
+  cpu:
+    cores: 1
+    coreFraction: 20%
+```
+
+VM2:
+
+```
+spec:
+  cpu:
+    cores: 1
+    coreFraction: 80%
+```
 
 ![](./images/vm-corefraction.png)
 
