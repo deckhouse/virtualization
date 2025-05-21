@@ -3,12 +3,9 @@
 {{- $version := "v1.3.1" }}
 {{- $tag := print $version "-v12n.1"}}
 ---
-{{/*
 image: {{ include "ImageName" (list . "src-artifact") }}
-fromImage: common/src-artifact
 final: false
-*/}}
-{{ include "image-src-artifact" . }}
+fromImage: {{ include "FromImage" (list . "common/src-artifact") }}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}

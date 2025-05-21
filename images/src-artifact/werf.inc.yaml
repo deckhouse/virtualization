@@ -1,0 +1,12 @@
+---
+{{/*
+This image use only for git clone repository
+*/}}
+image: common/{{ $.ImageName }}
+final: false
+fromImage: BASE_ALT_P11
+shell:
+  setup:
+  - |
+    apt-get update && apt-get install -y git
+    git config --global advice.detachedHead false
