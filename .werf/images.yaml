@@ -34,7 +34,7 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
   {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
   {{- $_ := set $ctx "Version" $Root.Version }}
-  {{- $_ := set $ctx "ModuleName"  "virtualization" }}
+  {{- $_ := set $ctx "ProjectName" $ctx.ImageName }}
   {{- $_ := set $ctx "Commit" $Root.Commit }}
   {{- $_ := set $ctx "SVACE_ENABLED" $Root.SVACE_ENABLED }}
   {{- $_ := set $ctx "SVACE_ANALYZE_SSH_USER" $Root.SVACE_ANALYZE_SSH_USER }}
