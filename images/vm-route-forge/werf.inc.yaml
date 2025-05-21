@@ -31,7 +31,7 @@ shell:
   - go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go
 ---
 image: {{ include "ImageName" (tuple . .ImageName) }}
-fromImage: distroless
+fromImage: {{ include "ImageName" (tuple . "distroless") }}
 import:
 - image: {{ include "ImageName" (tuple . .ImageName "builder") }}
   add: /app/images/vm-route-forge/vm-route-forge

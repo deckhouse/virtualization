@@ -1,7 +1,7 @@
 ---
 image: {{ include "ImageName" (tuple . .ImageName) }}
 final: true
-fromImage: distroless
+fromImage: {{ include "ImageName" (tuple . "distroless") }}
 import:
   - image: {{ include "ImageName" (tuple . .ImageName "binaries") }}
     add: /relocate

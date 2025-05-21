@@ -1,6 +1,6 @@
 ---
 image: {{ include "ImageName" (tuple . .ImageName) }}
-fromImage: distroless
+fromImage: {{ include "ImageName" (tuple . "distroless") }}
 import:
 - image: {{ include "ImageName" (tuple . "virt-artifact") }}
   add: /kubevirt-binaries/
