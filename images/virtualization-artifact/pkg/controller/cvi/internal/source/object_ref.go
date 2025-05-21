@@ -104,7 +104,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		}
 
 		if vi == nil {
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, fmt.Errorf("VI object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
 		}
 
 		if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
@@ -118,7 +118,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		}
 
 		if vd == nil {
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, fmt.Errorf("VD object ref source %s is nil", cvi.Spec.DataSource.ObjectRef.Name)
 		}
 
 		return ds.vdSyncer.Sync(ctx, cvi, vd, cb)
@@ -131,7 +131,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, cvi *virtv2.ClusterVirtu
 		}
 
 		if vdSnapshot == nil {
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, fmt.Errorf("VDSnapshot object ref %s is nil", vdSnapshotKey)
 		}
 
 		return ds.vdSnapshotSyncer.Sync(ctx, cvi, vdSnapshot, cb)

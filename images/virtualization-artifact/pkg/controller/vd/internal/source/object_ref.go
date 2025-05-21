@@ -72,7 +72,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 		}
 
 		if vi == nil {
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, fmt.Errorf("VI object ref source %s is nil", vd.Spec.DataSource.ObjectRef.Name)
 		}
 
 		switch vi.Spec.Storage {

@@ -110,7 +110,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 		}
 
 		if viRef == nil {
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, fmt.Errorf("VI object ref %s is nil", viKey)
 		}
 
 		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
@@ -124,7 +124,7 @@ func (ds ObjectRefDataSource) StoreToPVC(ctx context.Context, vi *virtv2.Virtual
 		}
 
 		if vd == nil {
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, fmt.Errorf("VD object ref %s is nil", vdKey)
 		}
 
 		return ds.vdSyncer.StoreToPVC(ctx, vi, vd, cb)
@@ -317,7 +317,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 		}
 
 		if viRef == nil {
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, fmt.Errorf("VI object ref source %s is nil", vi.Spec.DataSource.ObjectRef.Name)
 		}
 
 		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
@@ -331,7 +331,7 @@ func (ds ObjectRefDataSource) StoreToDVCR(ctx context.Context, vi *virtv2.Virtua
 		}
 
 		if vd == nil {
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, fmt.Errorf("VD object ref %s is nil", viKey)
 		}
 
 		return ds.vdSyncer.StoreToDVCR(ctx, vi, vd, cb)
