@@ -138,9 +138,9 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 		return reconcile.Result{}, err
 	}
 	var cvisNotReady []client.Object
-	for _, cvi := range cvis.Items {
-		if cvi.Status.Phase != virtv2.ImageReady && cvi.Status.Phase != virtv2.ImageTerminating {
-			cvisNotReady = append(cvisNotReady, &cvi)
+	for _, cviItem := range cvis.Items {
+		if cviItem.Status.Phase != virtv2.ImageReady && cviItem.Status.Phase != virtv2.ImageTerminating {
+			cvisNotReady = append(cvisNotReady, &cviItem)
 		}
 	}
 
