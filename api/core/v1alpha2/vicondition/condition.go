@@ -107,6 +107,7 @@ const (
 	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
 	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
+
 	// InUse indicates that the `VirtualImage` is used by other resources and cannot be deleted now.
 	InUse InUseReason = "InUse"
 )
