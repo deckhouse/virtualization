@@ -1,0 +1,118 @@
+{{/* 
+Helpers for generate images name with or without ModuleName
+
+Usage:
+ Without ModuleName, but with suffix imane name:{{ include "ImageName" (list . "bins") }} cdi-artifact-bins
+Without ModuleName: {{ include "ImageName" (list . ) }} - cdi-artifact
+With ModuleName: {{ include "ImageName" (list . "bins") }} - virtualization/cdi-artifact-bins
+
+
+{{ define "ImageName" }}
+
+{{-  $ctx := . -}}
+{{-  $ImageNameSuffix := "" -}}
+
+{{-    if (kindIs "slice" .) -}}
+{{-      $ctx = index . 0 -}}
+{{-      if ge (len .) 2 -}}
+{{-        $ImageNameSuffix = index . 1 -}}
+{{-      end -}}
+{{-    end -}}
+
+{{-  include "ModuleNamePreffix" $ctx -}}
+{{-  $ctx.ImageName -}}
+{{-  if $ImageNameSuffix }}-{{ $ImageNameSuffix }}{{ end -}}
+
+{{ end }}
+
+
+{{ define "ModuleNamePreffix" }}
+{{- if .ModuleName }}{{ .ModuleName }}/{{ end -}}
+{{ end }}
+*/}}
+
+{{/* ----- 
+Usage "GitPath":
+With ModulePath
+git:
+- add: {{ include "GitPath" (list . "/images") }}/{{ $.ImageName }}
+
+- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}
+
+# /{{ $.ModulePath }}modules/999-{{ $.ModuleName }}/images/dvcr-artifact
+# /ee/modules/999-virtualization/images/dvcr-artifact
+
+Without ModulePath
+git:
+- add: {{ include "GitPath" (list . "/api") }}
+# /api
+------ */}}
+
+{{ define "GitPath" }}
+{{-   if .ModulePath -}}
+/{{      .ModulePath }}modules/999-{{ .ModuleName }}
+{{-   end -}}
+{{ end }}
+
+{{/* ====New ImageName===== */}}
+{{ define "ImageName" }}
+
+{{-  $ctx := . -}}
+{{-  $ImageName := "" -}}
+{{-  $ImageNameSuffix := "" -}}
+
+{{-    if (kindIs "slice" .) -}}
+{{-      $ctx = index . 0 -}}
+{{-      if ge (len .) 2 -}}
+{{-        $ImageName = index . 1 -}}
+{{-      end -}}
+{{-      if ge (len .) 3 -}}
+{{-        $ImageNameSuffix = index . 2 -}}
+{{-      end -}}
+{{-    else -}}
+{{- fail "Should be slice of 2 or 3 elem" }}
+{{-    end -}}
+
+
+{{-  include "ModuleNamePreffix" $ctx -}}
+{{-  $ImageName -}}
+{{-  if $ImageNameSuffix }}-{{ $ImageNameSuffix }}{{ end -}}
+
+{{ end }}
+
+{{ define "ModuleNamePreffix" }}
+{{- if .ModuleName }}{{ .ModuleName }}/{{ end -}}
+{{ end }}
+
+{{/* =========
+
+{{ define "DefineImage" }}
+{{ include "ImageName" (tuple . .ImageName) }}
+{{ include "ImageName" (tuple . .ImageName "src") }}
+{{ include "ImageName" (tuple . "dvcr-artifact") }}
+{{ include "ImageName" (tuple . "dvcr-artifact" "cbuilder") }}
+
+========= */}}
+
+
+
+
+
+
+{{/* ----- */}}
+{{ define "FromImage" }}
+
+{{-  $ctx := . -}}
+{{-  $ImageNameSuffix := "" -}}
+
+{{-    if (kindIs "slice" .) -}}
+{{-      $ctx = index . 0 -}}
+{{-      if ge (len .) 2 -}}
+{{-        $ImageNameSuffix = index . 1 -}}
+{{-      end -}}
+{{-    end -}}
+
+{{-  if $ctx.ModuleName }}{{ $ctx.ModuleName }}/{{ end -}}
+{{-  if $ImageNameSuffix }}{{ $ImageNameSuffix }}{{ end -}}
+
+{{ end }}
