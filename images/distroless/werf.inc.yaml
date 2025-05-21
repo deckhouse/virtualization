@@ -16,7 +16,7 @@ imageSpec:
     user: 64535
 ---
 image: {{ include "ImageName" (tuple . .ImageName "artifact") }}
-fromImage: base-alt-p11-binaries
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11" "binaries") }}
 final: false
 shell:
   beforeInstall:

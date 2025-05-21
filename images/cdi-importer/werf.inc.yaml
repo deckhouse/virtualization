@@ -33,7 +33,7 @@ binaries:
 
 image: {{ include "ImageName" (tuple . .ImageName "bins") }}
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11" "binaries") }}
 import:
 - image: tools/util-linux
   add: /
