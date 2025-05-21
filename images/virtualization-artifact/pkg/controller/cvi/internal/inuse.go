@@ -33,8 +33,6 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 )
 
-const inUseHandlerName = "InUseHandler"
-
 type InUseHandler struct {
 	client client.Client
 }
@@ -189,10 +187,6 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 	}
 
 	return reconcile.Result{}, nil
-}
-
-func (h InUseHandler) Name() string {
-	return inUseHandlerName
 }
 
 func getTerminationMessage(objectKind string, objects ...client.Object) string {
