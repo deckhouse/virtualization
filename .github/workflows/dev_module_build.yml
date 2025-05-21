@@ -37,7 +37,7 @@ on:
         required: false
         type: number
       svace_enabled:
-        description: "A boolean value which indicates whether svace analyze will be performed"
+        description: "Enable svace analysis"
         type: boolean
         required: false
   pull_request:
@@ -449,7 +449,7 @@ jobs:
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
 
   analyze_build:
-    # if: ${{ github.event.inputs.svace_enabled == true }}
+    if: github.event.inputs.svace_enabled == 'true'
     name: Analyze build
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     needs:
