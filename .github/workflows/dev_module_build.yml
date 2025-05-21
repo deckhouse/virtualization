@@ -448,7 +448,9 @@ jobs:
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
 
   analyze_build:
-    if: ${{ github.event.inputs.svace_enabled == true || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
+    if: |
+      github.event.inputs.svace_enabled == true || 
+      contains(github.event.pull_request.labels.*.name, 'analyze/svace')
     name: Analyze build
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     needs:
