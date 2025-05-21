@@ -81,6 +81,7 @@ const (
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
 	// Ready indicates that the import process is complete and the `ClusterVirtualImage` is ready for use.
 	Ready ReadyReason = "Ready"
+
 	// InUse indicates that the `ClusterVirtualImage` is used by other resources and cannot be deleted now.
 	InUse InUseReason = "InUse"
 )
