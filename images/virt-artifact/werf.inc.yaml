@@ -124,6 +124,7 @@ shell:
     {{- include "svace.build" (set $ "BuildCommand" `CGO_ENABLED=1 go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/`) | indent 6 }}
 
   - echo ============== Build virt-launcher-monitor ============
+  - export CGO_ENABLED=0
   # virt-launcher-monitor is wrapped in the final image. Add suffix here to prevent image size increasing as effect of file renaming.
   # - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-monitor ./cmd/virt-launcher-monitor/
   - |

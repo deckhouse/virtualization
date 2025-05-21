@@ -1,7 +1,7 @@
 giterminismConfigVersion: 1
 config:
   goTemplateRendering:	# The rules for the Go-template functions
-    allowEnvVariables: 
+    allowEnvVariables:
     - /CI_.+/
     - MODULES_MODULE_TAG
     - SOURCE_REPO
@@ -10,6 +10,8 @@ config:
     - DISTRO_PACKAGES_PROXY
     - SVACE_DOWNLOAD
     - SVACE_ENABLED
+    - SVACE_ANALYZE_HOST
+    - SVACE_ANALYZE_SSH_USER
   stapel:
     mount:
       allowBuildDir: true
