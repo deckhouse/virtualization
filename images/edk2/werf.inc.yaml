@@ -3,32 +3,32 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := "tianocore/edk2.git" }}
 
-image: {{ include "ImageName" (list . ) }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
 fromImage: base-alt-p11
 git:
-- add: /images/{{ include "ImageName" (list . ) }}
+- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}
   to: /
   includePaths:
   - build.sh
   stageDependencies:
     setup:
       - build.sh
-- add: /images/{{ include "ImageName" (list . ) }}/logo
+- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/logo
   to: /
   includePaths:
   - Logo.bmp
   stageDependencies:
     setup:
       - '**/*'
-- add: /images/{{ include "ImageName" (list . ) }}/json
+- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/json
   to: /FIRMWARE
   includePaths:
   - '*.json'
   stageDependencies:
     setup:
       - '*.json'
-- add: /images/{{ include "ImageName" (list . ) }}/uefi-revocation-list
+- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/uefi-revocation-list
   to: /FIRMWARE
   includePaths:
   - '*.bin'

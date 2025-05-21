@@ -1,9 +1,9 @@
 ---
-image: {{ include "ImageName" (list . ) }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 final: true
 fromImage: distroless
 import:
-  - image: {{ include "ImageName" (list . "binaries") }}
+  - image: {{ include "ImageName" (tuple . .ImageName "binaries") }}
     add: /relocate
     to: /
     after: install
@@ -153,12 +153,12 @@ binaries:
 {{- $gitRepoName := "libvirt" }}
 {{- $version := get $.Version $gitRepoName }}
 
-image: {{ include "ImageName" (list . "binaries") }}
+image: {{ include "ImageName" (tuple . .ImageName "binaries") }}
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11" "binaries") }}
 git:
   # Add qemu and virtqemud configs
-  - add: /images/{{ $.ImageName }}/configs
+  - add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/configs
     to: /relocate/etc/libvirt
     stageDependencies:
       setup:
@@ -167,7 +167,7 @@ git:
     includePaths:
     - qemu.conf
     - virtqemud.conf
-  - add: /images/{{ $.ImageName }}/configs
+  - add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/configs
     to: /relocate/etc
     stageDependencies:
       setup:
@@ -176,11 +176,11 @@ git:
     - nsswitch.conf
 import:
 # Libvirt and QEMU libraries and binaries
-- image: libvirt
+- image: {{ include "ImageName" (tuple . "libvirt") }}
   add: /BINS
   to: /libvirt-bins
   before: install
-- image: qemu
+- image: {{ include "ImageName" (tuple . "qemu") }}
   add: /BINS
   to: /qemu-bins
   before: install
@@ -190,7 +190,7 @@ import:
   before: install
 
 # EDK2 (uefi firmware)
-- image: edk2
+- image: {{ include "ImageName" (tuple . "edk2") }}
   add: /FIRMWARE/
   to: /relocate/usr/share/edk2/ovmf
   before: install
@@ -199,7 +199,7 @@ import:
   - '*.bin'
   - '*.efi'
   - '*.iso'
-- image: edk2
+- image: {{ include "ImageName" (tuple . "edk2") }}
   add: /FIRMWARE/
   to: /relocate/usr/share/qemu/firmware
   before: install
@@ -207,14 +207,14 @@ import:
   - '*.json'
 
 # Import from virt artifact
-- image: virt-artifact
+- image: {{ include "ImageName" (tuple . "virt-artifact") }}
   add: /kubevirt-config-files/
   to: /
   after: install
   includePaths:
   - .version
 
-- image: virt-artifact
+- image: {{ include "ImageName" (tuple . "virt-artifact") }}
   add: /kubevirt-binaries/
   to: /relocate/usr/bin
   before: setup
@@ -225,7 +225,7 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
-- image: {{ include "ImageName" (list . "gobuilder") }}
+- image: {{ include "ImageName" (tuple . .ImageName "gobuilder") }}
   add: /binaries
   to: /relocate/usr/bin
   before: setup
@@ -281,7 +281,7 @@ import:
   - usr/bin/coreutils
 
 
-- image: {{ include "ImageName" (list . "cbuilder") }}
+- image: {{ include "ImageName" (tuple . .ImageName "cbuilder") }}
   add: /bins
   to: /relocate/usr/bin
   before: setup
@@ -443,18 +443,18 @@ shell:
     cp -a etc/libvirt etc/libvirt-init
 
 ---
-image: {{ include "ImageName" (list . "gobuilder") }}
+image: {{ include "ImageName" (tuple . .ImageName "gobuilder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}/node-labeller
+  - add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/node-labeller
     to: /node-labeller
     includePaths:
       - '**/*'
     stageDependencies:
       install:
       - '**/*'
-  - add: /images/{{ $.ImageName }}/vlctl
+  - add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/vlctl
     to: /src-vlctl
     includePaths:
       - '**/*'
@@ -484,11 +484,11 @@ shell:
     go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go
     echo "Done"
 ---
-image: {{ include "ImageName" (list . "cbuilder") }}
+image: {{ include "ImageName" (tuple . .ImageName "cbuilder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}/static_binaries
+  - add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/static_binaries
     to: /
     stageDependencies:
       install:

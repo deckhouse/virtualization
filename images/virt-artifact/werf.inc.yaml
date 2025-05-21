@@ -3,9 +3,9 @@
 {{- $version := "v1.3.1" }}
 {{- $tag := print $version "-v12n.1"}}
 ---
-image: {{ include "ImageName" (list . "src-artifact") }}
+image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
 final: false
-fromImage: {{ include "FromImage" (list . "common/src-artifact") }}
+fromImage: {{ include "ImageName" (tuple . "src-artifact") }}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
@@ -40,17 +40,14 @@ packages:
 
 {{ $virtArtifactDependencies := include "$name" . | fromYaml }}
 
-image: {{ include "ImageName" (list . ) }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
 fromImage: base-alt-p11
 import:
-- image: {{ include "ImageName" (list . "src-artifact") }}
+- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
   add: /kubevirt
   to: /kubevirt
-  after: setup
-  includePaths:
-  - bin/mount
-  - bin/umount
+  before: install
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg

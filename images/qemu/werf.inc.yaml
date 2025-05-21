@@ -77,11 +77,11 @@ libraries:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ include "ImageName" (list . ) }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
 fromImage: base-alt-p11
 git:
-- add: /images/{{ include "ImageName" (list . ) }}/
+- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}
   to: /
   includePaths:
   - install-qemu.sh
@@ -92,7 +92,7 @@ git:
     setup:
       - install-qemu.sh
 
-- add: /images/base-alt-p11-binaries
+- add: {{ include "GitPath" . }}/images/base-alt-p11-binaries
   to: /
   includePaths:
   - relocate_binaries.sh

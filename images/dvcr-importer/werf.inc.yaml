@@ -1,8 +1,8 @@
 ---
-image: {{ include "ImageName" (list . ) }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 fromImage: distroless
 import:
-- image: dvcr-artifact-bins
+- image: {{ include "ImageName" (tuple . "dvcr-artifact" "bins") }}
   add: /relocate
   to: /
   after: install

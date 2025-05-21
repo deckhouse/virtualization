@@ -1,14 +1,14 @@
 ---
-image: {{ include "ImageName" (list . ) }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 fromImage: distroless
 import:
-- image: virt-artifact
+- image: {{ include "ImageName" (tuple . "virt-artifact") }}
   add: /kubevirt-binaries/
   to: /usr/bin
   includePaths:
   - virt-api
   before: setup
-- image: virt-artifact
+- image: {{ include "ImageName" (tuple . "virt-artifact") }}
   add: /kubevirt-config-files/
   to: /etc
   includePaths:

@@ -1,8 +1,8 @@
 ---
-image: {{ include "ImageName" (list . ) }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 fromImage: distroless
 import:
-- image: cdi-artifact
+- image: {{ include "ImageName" (tuple . "cdi-artifact") }}
   add: /cdi-binaries
   to: /usr/bin
   includePaths:

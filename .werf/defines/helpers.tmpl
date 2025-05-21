@@ -1,52 +1,12 @@
-{{/* 
-Helpers for generate images name with or without ModuleName
+{{/*
+Add .ModulePath }}modules/999-{{ .ModuleName }} if set .ModulePath 
 
-Usage:
- Without ModuleName, but with suffix imane name:{{ include "ImageName" (list . "bins") }} cdi-artifact-bins
-Without ModuleName: {{ include "ImageName" (list . ) }} - cdi-artifact
-With ModuleName: {{ include "ImageName" (list . "bins") }} - virtualization/cdi-artifact-bins
-
-
-{{ define "ImageName" }}
-
-{{-  $ctx := . -}}
-{{-  $ImageNameSuffix := "" -}}
-
-{{-    if (kindIs "slice" .) -}}
-{{-      $ctx = index . 0 -}}
-{{-      if ge (len .) 2 -}}
-{{-        $ImageNameSuffix = index . 1 -}}
-{{-      end -}}
-{{-    end -}}
-
-{{-  include "ModuleNamePreffix" $ctx -}}
-{{-  $ctx.ImageName -}}
-{{-  if $ImageNameSuffix }}-{{ $ImageNameSuffix }}{{ end -}}
-
-{{ end }}
-
-
-{{ define "ModuleNamePreffix" }}
-{{- if .ModuleName }}{{ .ModuleName }}/{{ end -}}
-{{ end }}
-*/}}
-
-{{/* ----- 
 Usage "GitPath":
-With ModulePath
+
 git:
-- add: {{ include "GitPath" (list . "/images") }}/{{ $.ImageName }}
-
-- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}
-
-# /{{ $.ModulePath }}modules/999-{{ $.ModuleName }}/images/dvcr-artifact
-# /ee/modules/999-virtualization/images/dvcr-artifact
-
-Without ModulePath
-git:
-- add: {{ include "GitPath" (list . "/api") }}
-# /api
------- */}}
+- add: {{ include "GitPath" }}/{{ $.ImageName }}
+- add: {{ include "GitPath" }}/src
+*/}}
 
 {{ define "GitPath" }}
 {{-   if .ModulePath -}}
@@ -54,7 +14,31 @@ git:
 {{-   end -}}
 {{ end }}
 
-{{/* ====New ImageName===== */}}
+{{/*
+Helpers for generate images name with or without ModuleName
+.ImageName - folder name
+"suffix" - optional, if set, then image name will be .ImageName-suffix
+
+Usage "ImageName":
+.ImageName := "cdi-artifact"
+
+{{ include "ImageName" (tuple . .ImageName) }}
+With set .ModuleName: virtualization/cdi-artifact
+Without .ModuleName: cdi-artifact
+
+{{ include "ImageName" (tuple . .ImageName "src") }}
+With set .ModuleName: virtualization/cdi-artifact-src
+Without .ModuleName: cdi-artifact-src
+
+{{ include "ImageName" (tuple . "dvcr-artifact") }}
+With set .ModuleName: virtualization/dvcr-artifact
+Without .ModuleName: cdi-artifact
+
+{{ include "ImageName" (tuple . "dvcr-artifact" "cbuilder") }}
+With set .ModuleName: virtualization/dvcr-artifact-cbuilder
+Without .ModuleName: dvcr-artifact-cbuilder
+*/}}
+
 {{ define "ImageName" }}
 
 {{-  $ctx := . -}}
@@ -82,37 +66,4 @@ git:
 
 {{ define "ModuleNamePreffix" }}
 {{- if .ModuleName }}{{ .ModuleName }}/{{ end -}}
-{{ end }}
-
-{{/* =========
-
-{{ define "DefineImage" }}
-{{ include "ImageName" (tuple . .ImageName) }}
-{{ include "ImageName" (tuple . .ImageName "src") }}
-{{ include "ImageName" (tuple . "dvcr-artifact") }}
-{{ include "ImageName" (tuple . "dvcr-artifact" "cbuilder") }}
-
-========= */}}
-
-
-
-
-
-
-{{/* ----- */}}
-{{ define "FromImage" }}
-
-{{-  $ctx := . -}}
-{{-  $ImageNameSuffix := "" -}}
-
-{{-    if (kindIs "slice" .) -}}
-{{-      $ctx = index . 0 -}}
-{{-      if ge (len .) 2 -}}
-{{-        $ImageNameSuffix = index . 1 -}}
-{{-      end -}}
-{{-    end -}}
-
-{{-  if $ctx.ModuleName }}{{ $ctx.ModuleName }}/{{ end -}}
-{{-  if $ImageNameSuffix }}{{ $ImageNameSuffix }}{{ end -}}
-
 {{ end }}

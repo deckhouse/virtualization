@@ -2,7 +2,7 @@
 {{/*
 This image use only for git clone repository
 */}}
-image: common/{{ $.ImageName }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
 fromImage: BASE_ALT_P11
 shell:
