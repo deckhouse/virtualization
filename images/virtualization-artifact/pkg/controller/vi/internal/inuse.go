@@ -64,7 +64,7 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 		return reconcile.Result{}, err
 	}
 
-	var vmUsedImage []client.Object
+	var vmsUsingImage []client.Object
 	for _, vm := range vms.Items {
 		if vm.Status.Phase == virtv2.MachineStopped {
 			continue
@@ -72,7 +72,7 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 
 		for _, bd := range vm.Status.BlockDeviceRefs {
 			if bd.Kind == virtv2.VirtualImageKind && bd.Name == vi.Name {
-				vmUsedImage = append(vmUsedImage, &vm)
+				vmsUsingImage = append(vmsUsingImage, &vm)
 				break
 			}
 		}
@@ -137,12 +137,12 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 		}
 	}
 
-	consumerCount := len(vmUsedImage) + len(vdsNotReady) + len(visNotReady) + len(cvisFiltered)
+	consumerCount := len(vmsUsingImage) + len(vdsNotReady) + len(visNotReady) + len(cvisFiltered)
 
 	if consumerCount > 0 {
 		var msgs []string
-		if len(vmUsedImage) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vmUsedImage...))
+		if len(vmsUsingImage) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vmsUsingImage...))
 		}
 
 		if len(vmbdaUsedImage) > 0 {
