@@ -25,17 +25,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type IPAMValidator struct {
-	ipam   internal.IPAM
 	client client.Client
 }
 
-func NewIPAMValidator(ipam internal.IPAM, client client.Client) *IPAMValidator {
-	return &IPAMValidator{ipam: ipam, client: client}
+func NewIPAMValidator(client client.Client) *IPAMValidator {
+	return &IPAMValidator{client: client}
 }
 
 func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
@@ -60,7 +58,7 @@ func (v *IPAMValidator) ValidateCreate(ctx context.Context, vm *v1alpha2.Virtual
 			" already exists: set spec.virtualMachineIPAddress field to %s to use IP %s", vmip.Name, vmip.Status.Address)
 	}
 
-	return nil, v.ipam.CheckIpAddressAvailableForBinding(vm.Name, vmip)
+	return nil, nil
 }
 
 func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
@@ -82,5 +80,5 @@ func (v *IPAMValidator) ValidateUpdate(ctx context.Context, oldVM, newVM *v1alph
 		return nil, nil
 	}
 
-	return nil, v.ipam.CheckIpAddressAvailableForBinding(newVM.Name, vmip)
+	return nil, nil
 }

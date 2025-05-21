@@ -21,65 +21,53 @@ import (
 	"fmt"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
-const RetentionHandlerName = "RetentionHandler"
+const retentionHandlerName = "RetentionHandler"
 
 type RetentionHandler struct {
 	retentionDuration time.Duration
+	client            client.Client
 }
 
-func NewRetentionHandler(retentionDuration time.Duration) *RetentionHandler {
+func NewRetentionHandler(retentionDuration time.Duration, client client.Client) *RetentionHandler {
 	return &RetentionHandler{
 		retentionDuration: retentionDuration,
+		client:            client,
 	}
 }
 
-func (h *RetentionHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler(RetentionHandlerName))
+func (h *RetentionHandler) Handle(ctx context.Context, lease *virtv2.VirtualMachineIPAddressLease) (reconcile.Result, error) {
+	log := logger.FromContext(ctx).With(logger.SlogHandler(retentionHandlerName))
 
-	lease := state.VirtualMachineIPAddressLease()
-	vmip, err := state.VirtualMachineIPAddress(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	// Make sure that the Lease can be deleted only if it has already been verified that it is indeed Released.
+	// Otherwise, we cannot guarantee that it is not still in use. In this case, it should remain and not be deleted.
+	boundCondition, _ := conditions.GetCondition(vmiplcondition.BoundType, lease.Status.Conditions)
+	if boundCondition.Reason == vmiplcondition.Released.String() && conditions.IsLastUpdated(boundCondition, lease) {
+		currentTime := time.Now().UTC()
 
-	if vmip == nil || vmip.Status.Address != "" && vmip.Status.Address != ip.LeaseNameToIP(lease.Name) {
-		if lease.Spec.VirtualMachineIPAddressRef.Name != "" || lease.Labels[annotations.LabelVirtualMachineIPAddressUID] != "" {
-			log.Debug("VirtualMachineIP not found: remove this ref from the spec, delete label value and retain VMIPLease")
-			lease.Spec.VirtualMachineIPAddressRef.Name = ""
-			annotations.AddLabel(lease, annotations.LabelVirtualMachineIPAddressUID, "")
-			return reconcile.Result{RequeueAfter: h.retentionDuration}, nil
-		}
+		duration := currentTime.Sub(boundCondition.LastTransitionTime.Time.UTC())
+		if duration >= h.retentionDuration {
+			log.Info(fmt.Sprintf("Released VirtualMachineIPAddressLease has not been used for more than %s. It will be deleted now.", h.retentionDuration.String()))
 
-		leaseStatus := &lease.Status
-		boundCondition, _ := conditions.GetCondition(vmipcondition.BoundType, leaseStatus.Conditions)
-		if boundCondition.Reason == vmiplcondition.Released.String() {
-			currentTime := time.Now().UTC()
-
-			duration := currentTime.Sub(boundCondition.LastTransitionTime.Time)
-			if duration >= h.retentionDuration {
-				log.Info(fmt.Sprintf("Delete VMIPLease after %s of being not claimed", h.retentionDuration.String()))
-				state.SetDeletion(true)
-				return reconcile.Result{}, nil
+			err := h.client.Delete(ctx, lease)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return reconcile.Result{}, fmt.Errorf("delete released lease: %w", err)
 			}
 
-			return reconcile.Result{RequeueAfter: h.retentionDuration - duration}, nil
+			return reconcile.Result{}, nil
 		}
+
+		return reconcile.Result{RequeueAfter: h.retentionDuration - duration}, nil
 	}
 
 	return reconcile.Result{}, nil
-}
-
-func (h *RetentionHandler) Name() string {
-	return RetentionHandlerName
 }

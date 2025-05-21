@@ -18,6 +18,7 @@ package vmiplease
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/utils/ptr"
@@ -26,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -43,14 +45,13 @@ func NewController(
 ) (controller.Controller, error) {
 	retentionDuration, err := time.ParseDuration(retentionDurationStr)
 	if err != nil {
-		log.Error("Failed to parse retention duration", "err", err)
-		return nil, err
+		return nil, fmt.Errorf("parse retention duration: %w", err)
 	}
 
 	handlers := []Handler{
+		internal.NewLifecycleHandler(mgr.GetClient()),
 		internal.NewProtectionHandler(),
-		internal.NewRetentionHandler(retentionDuration),
-		internal.NewLifecycleHandler(),
+		internal.NewRetentionHandler(retentionDuration, mgr.GetClient()),
 	}
 
 	r := NewReconciler(mgr.GetClient(), handlers...)

@@ -19,27 +19,26 @@ package vmip
 import (
 	"context"
 	"fmt"
+	"reflect"
 
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/watcher"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, s state.VMIPState) (reconcile.Result, error)
-	Name() string
+	Handle(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (reconcile.Result, error)
+}
+
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
 }
 
 type Reconciler struct {
@@ -57,107 +56,18 @@ func NewReconciler(client client.Client, virtClient kubeclient.Client, handlers 
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressLease{}),
-		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromLeases),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on leases: %w", err)
+	for _, w := range []Watcher{
+		watcher.NewVirtualMachineIPAddressWatcher(),
+		watcher.NewVirtualMachineIPAddressLeaseWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("faield to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+		}
 	}
 
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromVMs),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return true
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVm := e.ObjectOld.(*virtv2.VirtualMachine)
-				newVm := e.ObjectNew.(*virtv2.VirtualMachine)
-				return newVm.Spec.VirtualMachineIPAddress != oldVm.Spec.VirtualMachineIPAddress ||
-					newVm.Status.VirtualMachineIPAddress != oldVm.Status.VirtualMachineIPAddress
-			},
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on vms: %w", err)
-	}
-
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVmip := e.ObjectOld.(*virtv2.VirtualMachineIPAddress)
-				newVmip := e.ObjectNew.(*virtv2.VirtualMachineIPAddress)
-				return oldVmip.Spec != newVmip.Spec
-			},
-		})
-}
-
-func (r *Reconciler) enqueueRequestsFromVMs(ctx context.Context, obj client.Object) []reconcile.Request {
-	vm, ok := obj.(*virtv2.VirtualMachine)
-	if !ok {
-		return nil
-	}
-
-	var requests []reconcile.Request
-	if vm.Spec.VirtualMachineIPAddress == "" {
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      vm.Name,
-			Namespace: vm.Namespace,
-		}})
-	} else {
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-			Namespace: vm.Namespace,
-			Name:      vm.Spec.VirtualMachineIPAddress,
-		}})
-	}
-
-	vmipList := &virtv2.VirtualMachineIPAddressList{}
-	err := r.client.List(ctx, vmipList, client.InNamespace(vm.Namespace),
-		&client.MatchingFields{
-			indexer.IndexFieldVMIPByVM: vm.Name,
-		})
-	if err != nil {
-		return nil
-	}
-
-	for _, vmip := range vmipList.Items {
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-			Namespace: vmip.Namespace,
-			Name:      vmip.Name,
-		}})
-	}
-
-	return requests
-}
-
-func (r *Reconciler) enqueueRequestsFromLeases(_ context.Context, obj client.Object) []reconcile.Request {
-	lease, ok := obj.(*virtv2.VirtualMachineIPAddressLease)
-	if !ok {
-		return nil
-	}
-
-	if lease.Spec.VirtualMachineIPAddressRef == nil {
-		return nil
-	}
-
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Namespace: lease.Spec.VirtualMachineIPAddressRef.Namespace,
-				Name:      lease.Spec.VirtualMachineIPAddressRef.Name,
-			},
-		},
-	}
+	return nil
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -172,19 +82,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	s := state.New(r.client, r.virtClient, vmip.Changed())
-	err = s.Reload(ctx)
-	if err != nil {
-		if err.Error() == "VirtualMachineIPAddressLease found in kubeclient without cache" {
-			return reconcile.Result{}, nil
-		}
-
-		return reconcile.Result{}, err
-	}
+	log := logger.FromContext(ctx).
+		With("staticIP", vmip.Changed().Spec.StaticIP).
+		With("addressIP", vmip.Changed().Status.Address)
+	ctx = logger.ToContext(ctx, log)
 
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
-		return h.Handle(ctx, s)
+		return h.Handle(ctx, vmip.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		vmip.Changed().Status.ObservedGeneration = vmip.Changed().Generation

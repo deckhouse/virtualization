@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,22 +27,20 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type VirtualMachineBlockDeviceAttachmentWatcher struct{}
+type VirtualMachineIPAddressLeaseWatcher struct{}
 
-func NewVirtualMachineBlockDeviceAttachmentWatcher() *VirtualMachineBlockDeviceAttachmentWatcher {
-	return &VirtualMachineBlockDeviceAttachmentWatcher{}
+func NewVirtualMachineIPAddressLeaseWatcher() *VirtualMachineIPAddressLeaseWatcher {
+	return &VirtualMachineIPAddressLeaseWatcher{}
 }
 
-func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+func (w VirtualMachineIPAddressLeaseWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineBlockDeviceAttachment{}),
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressLease{}),
 		&handler.EnqueueRequestForObject{},
 		predicate.Funcs{
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
-			},
+			UpdateFunc: func(e event.UpdateEvent) bool { return true },
 		},
 	)
 }

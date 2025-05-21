@@ -49,25 +49,19 @@ func (r AttachedReason) String() string {
 const (
 	// VirtualMachineIPAddressIsOutOfTheValidRange is a BoundReason indicating when specified IP address is out of the range in controller settings.
 	VirtualMachineIPAddressIsOutOfTheValidRange BoundReason = "VirtualMachineIPAddressIsOutOfTheValidRange"
-
 	// VirtualMachineIPAddressLeaseAlreadyExists is a BoundReason indicating the IP address lease already exists.
 	VirtualMachineIPAddressLeaseAlreadyExists BoundReason = "VirtualMachineIPAddressLeaseAlreadyExists"
-
 	// VirtualMachineIPAddressLeaseLost is a BoundReason indicating the IP address lease was lost.
 	VirtualMachineIPAddressLeaseLost BoundReason = "VirtualMachineIPAddressLeaseLost"
-
 	// VirtualMachineIPAddressLeaseNotFound is a BoundReason indicating the IP address lease was not found.
 	VirtualMachineIPAddressLeaseNotFound BoundReason = "VirtualMachineIPAddressLeaseNotFound"
-
 	// VirtualMachineIPAddressLeaseNotReady is a BoundReason indicating the IP address lease was not ready.
 	VirtualMachineIPAddressLeaseNotReady BoundReason = "VirtualMachineIPAddressLeaseNotReady"
-
 	// Bound is a BoundReason indicating the IP address lease is successfully bound.
 	Bound BoundReason = "Bound"
 
 	// VirtualMachineNotFound is an AttachedReason indicating the Virtual Machine was not found.
 	VirtualMachineNotFound AttachedReason = "VirtualMachineNotFound"
-
 	// Attached is an AttachedReason indicating the IP address was successfully attached to the Virtual Machine.
 	Attached AttachedReason = "Attached"
 )

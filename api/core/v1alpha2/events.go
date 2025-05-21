@@ -124,6 +124,8 @@ const (
 	// ReasonNotAttached is event reason that VirtualMachineIPAddress is not attached to VirtualMachine.
 	ReasonNotAttached = "NotAttached"
 
+	// ReasonIPAddressHasBeenAllocated is the event reason indicating that a new IP address has been allocated.
+	ReasonIPAddressHasBeenAllocated = "IPAddressHasBeenAllocated"
 	// ReasonBound is the event reason indicating that a VirtualMachineIPLease is bound to a VirtualMachineIPAddress.
 	ReasonBound = "Bound"
 	// ReasonFailed is the event reason indicating that the binding of a VirtualMachineIPLease to a VirtualMachineIPAddress has failed.
