@@ -1,0 +1,34 @@
+{{/* common/src-artifact */}}
+
+{{ define "image-src-artifact" }}
+{{-  $ctx := . -}}
+{{-  $fromImage := "" -}}
+
+{{-  if $ctx.ModuleName -}}
+{{-     $fromImage = "fromImage: common/src-artifact"}}
+{{-  else -}}
+{{-     $fromImage = "fromImage: BASE_ALT_P11"}}
+{{-  end -}}
+
+image: {{ include "ImageName" (list . "src-artifact") }}
+{{ $fromImage }}
+final: false
+
+{{ end }}
+
+
+{{/*
+===
+git:
+  - add: {{ include "GitSourcePath" (list . "/api") }}
+    to: /src/src
+    stageDependencies:
+      install:
+        ...
+  - add: {{ include "GitSourcePath" (list . "/src/src") }}
+    to: /src/api
+    stageDependencies:
+      install:
+        ...
+=== 
+*/}}

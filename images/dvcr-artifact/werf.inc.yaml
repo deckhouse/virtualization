@@ -3,7 +3,7 @@ image: {{ include "ImageName" (list . "builder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-- add: /images/{{ include "ImageName" (list . ) }}
+- add: {{ include "GitPath" (list . "images") }}/{{ $.ImageName }}
   to: /src
   stageDependencies:
     install:
@@ -52,7 +52,7 @@ binaries:
 
 image: {{ include "ImageName" (list . "bins") }}
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ include "FromImage" (list . "base-alt-p11-binaries") }}
 import:
 - image: tools/util-linux
   add: /
