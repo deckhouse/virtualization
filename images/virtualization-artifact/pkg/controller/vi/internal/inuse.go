@@ -113,9 +113,9 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 		return reconcile.Result{}, err
 	}
 	var visNotReady []client.Object
-	for _, vi := range vis.Items {
-		if vi.Status.Phase != virtv2.ImageReady && vi.Status.Phase != virtv2.ImageTerminating {
-			visNotReady = append(visNotReady, &vi)
+	for _, viItem := range vis.Items {
+		if viItem.Status.Phase != virtv2.ImageReady && viItem.Status.Phase != virtv2.ImageTerminating {
+			visNotReady = append(visNotReady, &viItem)
 		}
 	}
 
