@@ -463,23 +463,27 @@ jobs:
           fi
 
   analyze_build:
-    if: ${{ github.event.inputs.svace_enabled == true }}
+    # if: ${{ github.event.inputs.svace_enabled == true }}
     name: Analyze build
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     needs:
       - set_vars
       - dev_setup_build
     steps:
-      - uses: deckhouse/modules-actions/svace_analyze@svace-analyze
-        with:
-          ci_commit_ref_name: ${{ github.ref_name }}
-          ci_commit_hash: "6c9b83de607ca8c1dc0796f748b7b7696d2ef017"
-          svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
-          svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
-          svacer_url: "${{ secrets.SVACER_URL }}"
-          svacer_import_user: "${{ secrets.SVACER_IMPORT_USER }}"
-          svacer_import_password: "${{ secrets.SVACER_IMPORT_PASSWORD }}"
-          svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
+      - name: check input
+        run: |
+          echo "Svace enabled: ${{ github.event.inputs.svace_enabled }}"
+
+      # - uses: deckhouse/modules-actions/svace_analyze@svace-analyze
+      #   with:
+      #     ci_commit_ref_name: ${{ github.ref_name }}
+      #     ci_commit_hash: "6c9b83de607ca8c1dc0796f748b7b7696d2ef017"
+      #     svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
+      #     svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+      #     svacer_url: "${{ secrets.SVACER_URL }}"
+      #     svacer_import_user: "${{ secrets.SVACER_IMPORT_USER }}"
+      #     svacer_import_password: "${{ secrets.SVACER_IMPORT_PASSWORD }}"
+      #     svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
 
   skip_e2e:
     if: ${{ github.event.label.name == 'skip/e2e' }}
