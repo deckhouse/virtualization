@@ -377,14 +377,14 @@ jobs:
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@svace-analyze
-        with:
-          module_source: ${{ vars.DEV_MODULE_SOURCE}}
-          module_name: ${{ vars.MODULE_NAME }}
-          module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
-          svace_enabled: ${{ inputs.svace_enabled }}
-          svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
-          svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+      # - uses: deckhouse/modules-actions/build@svace-analyze
+      #   with:
+      #     module_source: ${{ vars.DEV_MODULE_SOURCE}}
+      #     module_name: ${{ vars.MODULE_NAME }}
+      #     module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
+      #     svace_enabled: ${{ inputs.svace_enabled }}
+      #     svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
+      #     svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
 
   pull_request_info:
     name: Get PR info
@@ -448,9 +448,7 @@ jobs:
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
 
   analyze_build:
-    if: |
-      github.event.inputs.svace_enabled == true || 
-      contains(github.event.pull_request.labels.*.name, 'analyze/svace')
+    if: ${{ github.event.inputs.svace_enabled == true }}
     name: Analyze build
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     needs:
@@ -460,7 +458,7 @@ jobs:
       - uses: deckhouse/modules-actions/svace_analyze@svace-analyze
         with:
           ci_commit_ref_name: ${{ github.ref_name }}
-          ci_commit_hash: ${{ github.sha }}
+          ci_commit_hash: "6c9b83de607ca8c1dc0796f748b7b7696d2ef017"
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
           svacer_url: "${{ secrets.SVACER_URL }}"
