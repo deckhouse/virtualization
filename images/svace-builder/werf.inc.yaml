@@ -29,7 +29,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      wget bzip2 golang git binutils make gcc \
+      wget rsync bzip2 golang git binutils make gcc \
       glibc-pthread glibc-devel glibc-devel-static
 
     echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
@@ -51,7 +51,7 @@ shell:
   {{- include "debian packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-      bzip2
+      bzip2 rsync
 
     mkdir -p /root/.ssh
     echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
