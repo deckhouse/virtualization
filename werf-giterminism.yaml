@@ -16,7 +16,6 @@ config:
       allowBuildDir: true
       allowFromPaths:
       - ~/go-pkg-cache
-      - /svace-build
   secrets:
     allowValueIds:
     - SOURCE_REPO

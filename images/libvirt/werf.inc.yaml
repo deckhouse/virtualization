@@ -31,9 +31,6 @@ import:
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
-mount:
-- fromPath: /svace-build
-  to: /svace-build
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -133,7 +130,7 @@ shell:
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    
+
     cp -a /dmidecode/. /
     rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"

@@ -35,8 +35,6 @@ fromImage: base-alt-p11
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
-  - fromPath: /svace-build
-    to: /svace-build
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}

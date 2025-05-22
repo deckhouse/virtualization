@@ -111,9 +111,6 @@ import:
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
-mount:
-- fromPath: /svace-build
-  to: /svace-build
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -137,7 +134,7 @@ shell:
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    
+
     cp -a /dmidecode/. /
     rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
@@ -167,7 +164,7 @@ shell:
       git submodule set-url -- roms/opensbi $(cat /run/secrets/SOURCE_REPO)/qemu-project/opensbi.git
       git submodule set-url -- roms/qboot $(cat /run/secrets/SOURCE_REPO)/qemu-project/qboot.git
       git submodule set-url -- roms/vbootrom $(cat /run/secrets/SOURCE_REPO)/qemu-project/vbootrom.git
-      git submodule set-url -- tests/lcitool/libvirt-ci $(cat /run/secrets/SOURCE_REPO)/libvirt/libvirt-ci.git  
+      git submodule set-url -- tests/lcitool/libvirt-ci $(cat /run/secrets/SOURCE_REPO)/libvirt/libvirt-ci.git
     fi
 
     for p in /patches/*.patch ; do
