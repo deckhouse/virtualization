@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	vmbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vm"
+	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -72,11 +73,20 @@ var _ = Describe("SyncKvvmHandler", func() {
 	newVM := func(phase virtv2.MachinePhase) *virtv2.VirtualMachine {
 		vm := vmbuilder.NewEmpty(name, namespace)
 		vm.Status.Phase = phase
+		vm.Spec.VirtualMachineClassName = "vmclass"
+		vm.Spec.CPU.Cores = 2
+		vm.Spec.RunPolicy = virtv2.ManualPolicy
+		vm.Spec.VirtualMachineIPAddress = "test-ip"
+		vm.Spec.OsType = virtv2.GenericOs
+		vm.Spec.Disruptions = &virtv2.Disruptions{
+			RestartApprovalMode: virtv2.Manual,
+		}
+
 		return vm
 	}
 
-	newKVVM := func() *virtv1.VirtualMachine {
-		return &virtv1.VirtualMachine{
+	newKVVM := func(vm *virtv2.VirtualMachine) *virtv1.VirtualMachine {
+		kvvm := &virtv1.VirtualMachine{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: namespace,
@@ -85,6 +95,37 @@ var _ = Describe("SyncKvvmHandler", func() {
 				Template: &virtv1.VirtualMachineInstanceTemplateSpec{},
 			},
 		}
+		kvvm.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyAlways)
+
+		kvbuilder.SetLastAppliedSpec(kvvm, &virtv2.VirtualMachine{
+			Spec: virtv2.VirtualMachineSpec{
+				CPU: virtv2.CPUSpec{
+					Cores: vm.Spec.CPU.Cores,
+				},
+				VirtualMachineIPAddress: vm.Spec.VirtualMachineIPAddress,
+				RunPolicy:               vm.Spec.RunPolicy,
+				OsType:                  vm.Spec.OsType,
+				VirtualMachineClassName: vm.Spec.VirtualMachineClassName,
+				Disruptions: &virtv2.Disruptions{
+					RestartApprovalMode: vm.Spec.Disruptions.RestartApprovalMode,
+				},
+			},
+		})
+
+		kvbuilder.SetLastAppliedClassSpec(kvvm, &virtv2.VirtualMachineClass{
+			Spec: virtv2.VirtualMachineClassSpec{
+				CPU: virtv2.CPU{
+					Type: virtv2.CPUTypeHost,
+				},
+				NodeSelector: virtv2.NodeSelector{
+					MatchLabels: map[string]string{
+						"node1": "node1",
+					},
+				},
+			},
+		})
+
+		return kvvm
 	}
 
 	newKVVMI := func() *virtv1.VirtualMachineInstance {
@@ -100,27 +141,19 @@ var _ = Describe("SyncKvvmHandler", func() {
 		Expect(err).NotTo(HaveOccurred())
 	}
 
-	mutateVM := func(vm *virtv2.VirtualMachine) {
-		vm.Spec.VirtualMachineClassName = "vmclass"
-		vm.Spec.CPU.Cores = 2
-		vm.Spec.RunPolicy = virtv2.ManualPolicy
-		vm.Spec.VirtualMachineIPAddress = "test-ip"
-		vm.Spec.OsType = virtv2.GenericOs
-		vm.Spec.Disruptions = &virtv2.Disruptions{
-			RestartApprovalMode: virtv2.Manual,
-		}
-	}
-
-	mutateKVVM := func(kvvm *virtv1.VirtualMachine) {
+	mutateKVVM := func(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
 		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &virtv2.VirtualMachine{
 			Spec: virtv2.VirtualMachineSpec{
 				CPU: virtv2.CPUSpec{
 					Cores: 1,
 				},
-				VirtualMachineIPAddress: "test-ip",
-				RunPolicy:               virtv2.ManualPolicy,
-				OsType:                  virtv2.GenericOs,
-				VirtualMachineClassName: "vmclass",
+				VirtualMachineIPAddress: vm.Spec.VirtualMachineIPAddress,
+				RunPolicy:               vm.Spec.RunPolicy,
+				OsType:                  "BIOS",
+				VirtualMachineClassName: vm.Spec.VirtualMachineClassName,
+				Disruptions: &virtv2.Disruptions{
+					RestartApprovalMode: vm.Spec.Disruptions.RestartApprovalMode,
+				},
 			},
 		})).To(Succeed())
 
@@ -131,7 +164,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 				},
 				NodeSelector: virtv2.NodeSelector{
 					MatchLabels: map[string]string{
-						"test": "test",
+						"node2": "node2",
 					},
 				},
 			},
@@ -140,10 +173,6 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 	DescribeTable("AwaitingRestart Condition Tests",
 		func(phase virtv2.MachinePhase, needChange bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
-			vm := newVM(phase)
-			kvvm := newKVVM()
-			kvvmi := newKVVMI()
-
 			ip := &virtv2.VirtualMachineIPAddress{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-ip",
@@ -168,18 +197,22 @@ var _ = Describe("SyncKvvmHandler", func() {
 					},
 					NodeSelector: virtv2.NodeSelector{
 						MatchLabels: map[string]string{
-							"test2": "test2",
+							"node1": "node1",
 						},
 					},
 				},
 			}
 
+			vm := newVM(phase)
+			kvvm := newKVVM(vm)
+			kvvmi := newKVVMI()
+
 			if needChange {
-				mutateVM(vm)
-				mutateKVVM(kvvm)
+				mutateKVVM(vm, kvvm)
 			}
 
 			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, kvvmi, ip, vmClass)
+
 			reconcile()
 
 			newVM := &virtv2.VirtualMachine{}
@@ -213,6 +246,36 @@ var _ = Describe("SyncKvvmHandler", func() {
 
 	DescribeTable("ConfigurationApplied Condition Tests",
 		func(phase virtv2.MachinePhase, notReady bool, expectedStatus metav1.ConditionStatus, expectedExistence bool) {
+			ip := &virtv2.VirtualMachineIPAddress{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-ip",
+					Namespace: namespace,
+				},
+				Spec: virtv2.VirtualMachineIPAddressSpec{
+					Type:     virtv2.VirtualMachineIPAddressTypeStatic,
+					StaticIP: "192.168.1.10",
+				},
+				Status: virtv2.VirtualMachineIPAddressStatus{
+					Address: "192.168.1.10",
+					Phase:   virtv2.VirtualMachineIPAddressPhaseAttached,
+				},
+			}
+
+			vmClass := &virtv2.VirtualMachineClass{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "vmclass",
+				}, Spec: virtv2.VirtualMachineClassSpec{
+					CPU: virtv2.CPU{
+						Type: virtv2.CPUTypeHost,
+					},
+					NodeSelector: virtv2.NodeSelector{
+						MatchLabels: map[string]string{
+							"node1": "node1",
+						},
+					},
+				},
+			}
+
 			vm := newVM(phase)
 			if notReady {
 				vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
@@ -221,9 +284,9 @@ var _ = Describe("SyncKvvmHandler", func() {
 					Reason: "BlockDevicesNotReady",
 				})
 			}
-			kvvm := newKVVM()
+			kvvm := newKVVM(vm)
 
-			fakeClient, resource, vmState = setupEnvironment(vm, kvvm)
+			fakeClient, resource, vmState = setupEnvironment(vm, kvvm, ip, vmClass)
 			reconcile()
 
 			newVM := &virtv2.VirtualMachine{}
