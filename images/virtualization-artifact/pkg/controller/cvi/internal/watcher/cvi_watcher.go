@@ -70,6 +70,7 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj cli
 		return
 	}
 
+	// We need to trigger reconcile for the cvi resources that use changed image as a datasource so they can continue provisioning.
 	for _, cvi := range cviList.Items {
 		if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || cvi.Spec.DataSource.ObjectRef == nil {
 			continue
@@ -89,6 +90,7 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj cli
 	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
 	if ok && cvi.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
 		if cvi.Spec.DataSource.ObjectRef != nil && cvi.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind {
+			// Need to trigger reconcile for update InUse condition.
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name: cvi.Spec.DataSource.ObjectRef.Name,
