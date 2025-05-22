@@ -2,6 +2,7 @@
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
+{{- $virtHandlerNodeSelector := toJson (default (dict "kubernetes.io/os" "linux") .Values.virtualization.workload.nodeSelector) }}
 {{- $priorityClassName := "" | quote }}
 {{- if (.Values.global.enabledModules | has "priority-class") }}
 {{- $priorityClassName = include "priorityClassName" . | quote }}
@@ -84,6 +85,10 @@ spec:
     - resourceType: DaemonSet
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
+      type: json
+    - patch: '[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{{ $virtHandlerNodeSelector }}}]'
+      resourceName: virt-handler
+      resourceType: DaemonSet
       type: json
     {{- if (include "helm_lib_ha_enabled" .) }}
     - resourceType: Deployment
