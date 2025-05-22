@@ -92,10 +92,8 @@ git:
     setup:
       - install-qemu.sh
 
-- add: {{ include "GitPath" . }}/images/base-alt-p11-binaries
-  to: /
-  includePaths:
-  - relocate_binaries.sh
+- add: {{ include "GitPath" . }}/images/base-alt-p11-binaries/relocate_binaries.sh
+  to: /relocate_binaries.sh
   stageDependencies:
     setup:
     - '**/*'

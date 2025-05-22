@@ -10,13 +10,11 @@ mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
 git:
-  - add: {{ include "GitPath" . }}/images/{{ $.ImageName }}
-    to: /
+  - add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/patches
+    to: /patches
     stageDependencies:
       install:
         - '**/*'
-    includePaths:
-      - patches
     excludePaths:
       - patches/README.md
 secrets:
