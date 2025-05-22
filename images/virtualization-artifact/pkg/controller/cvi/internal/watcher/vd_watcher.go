@@ -70,6 +70,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 		return
 	}
 
+	// We need to trigger reconcile for the cvi resources that use changed disk as a datasource so they can continue provisioning.
 	for _, cvi := range cviList.Items {
 		if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || cvi.Spec.DataSource.ObjectRef == nil {
 			continue
@@ -89,6 +90,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 	vd, ok := obj.(*virtv2.VirtualDisk)
 	if ok && vd.Spec.DataSource != nil && vd.Spec.DataSource.Type == virtv2.DataSourceTypeObjectRef {
 		if vd.Spec.DataSource.ObjectRef != nil && vd.Spec.DataSource.ObjectRef.Kind == virtv2.ClusterVirtualImageKind {
+			// Need to trigger reconcile for update InUse condition.
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name: vd.Spec.DataSource.ObjectRef.Name,
