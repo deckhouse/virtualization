@@ -76,7 +76,6 @@ func NewController(
 		internal.NewLifeCycleHandler(sources, mgr.GetClient()),
 		internal.NewInUseHandler(mgr.GetClient()),
 		internal.NewDeletionHandler(sources),
-		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
 
 	cviController, err := controller.New(ControllerName, mgr, controller.Options{
