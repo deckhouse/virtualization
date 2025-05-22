@@ -79,7 +79,7 @@ libraries:
 
 image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
-fromImage: base-alt-p11
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11") }}
 git:
 - add: {{ include "GitPath" . }}/images/{{ $.ImageName }}
   to: /

@@ -42,7 +42,7 @@ packages:
 
 image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
-fromImage: base-alt-p11
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11") }}
 import:
 - image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
   add: /kubevirt
