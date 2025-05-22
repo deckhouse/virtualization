@@ -7,7 +7,7 @@ shell:
   - apk update
   - apk add wget
   install:
-  - wget -O svace.tar.bz2 "{{ .SVACE_DOWNLOAD }}"
+  - git clone --depth 1 --branch v4.0.250415 $(cat /run/secrets/SOURCE_REPO)/ispras/svace.git /opt/svace
 
 ---
 image: {{ $.ImageName }}-alt
@@ -15,8 +15,8 @@ final: false
 fromImage: BASE_ALT_P11
 import:
 - image: {{ $.ImageName }}-download
-  add: /svace.tar.bz2
-  to: /svace.tar.bz2
+  add: /opt/svace
+  to: /opt/svace
   before: install
 shell:
   beforeInstall:
@@ -25,25 +25,20 @@ shell:
     apt-get install -y \
       wget bzip2 golang git binutils make gcc \
       glibc-pthread glibc-devel glibc-devel-static
-    
+
     echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
   install:
   - |
-    mkdir -p /svace-download /opt/svace
-    tar -xf svace.tar.bz2 -C /svace-download
-    mv /svace-download/svace-*/* /opt/svace
     ln -s /opt/svace/bin/svace /usr/local/bin/svace
-    
-    rm -f svace.tar.bz2
-    rm -rf /svace-download
+
 ---
 image: {{ $.ImageName }}-debian
 final: false
 fromImage: builder/golang-bookworm-1.23
 import:
 - image: {{ $.ImageName }}-download
-  add: /svace.tar.bz2
-  to: /svace.tar.bz2
+  add: /opt/svace
+  to: /opt/svace
   before: install
 shell:
   beforeInstall:
@@ -51,15 +46,10 @@ shell:
   - |
     apt-get install -y \
       bzip2
-    
+
     mkdir -p /root/.ssh
     echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
   install:
   - |
-    mkdir -p /svace-download /opt/svace
-    tar -xf svace.tar.bz2 -C /svace-download
-    mv /svace-download/svace-*/* /opt/svace
     ln -s /opt/svace/bin/svace /usr/local/bin/svace
-    
-    rm -f svace.tar.bz2
-    rm -rf /svace-download
+
