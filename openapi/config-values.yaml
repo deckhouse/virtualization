@@ -1,6 +1,26 @@
 type: object
 required: [virtualMachineCIDRs, dvcr]
 properties:
+  compute:
+    type: object
+    description: |
+      Common compute settings.
+    default: {}
+    properties:
+      nodeSelector:
+        type: object
+        default:
+          kubernetes.io/os: linux
+        additionalProperties:
+          type: string
+        description: |
+          The same as in the Pods `spec.nodeSelector` parameter in Kubernetes.
+
+          Node labels are used to schedule control plane components that require hardware virtualization support (VMX for Intel CPUs or SVM for AMD CPUs) and are responsible for managing the lifecycle of virtual machines (VMs).
+          As a result, only nodes matching this selector will be able to run virtual machines.
+
+          If omitted, the default value `kubernetes.io/os=linux` is used.
+          To enable VMs to run on all compatible nodes, simply leave this field unset.
   highAvailability:
     type: boolean
     x-examples: [true, false]
