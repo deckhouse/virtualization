@@ -117,6 +117,7 @@ shell:
     apt-get install --yes musl-dev musl-tools
   {{- include "debian packages clean" . | nindent 2 }}
   - |
+    cd /static_binaries
     echo "Building simple app that prints hello cdi"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/hello hello.c
