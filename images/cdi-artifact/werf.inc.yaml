@@ -106,7 +106,7 @@ final: false
 fromImage: builder/golang-bookworm-1.23
 git:
   - add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/static_binaries
-    to: /
+    to: /static_binaries
     stageDependencies:
       install:
         - '*.c'
