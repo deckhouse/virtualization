@@ -113,18 +113,19 @@ shell:
     {{- $_ := set . "BinaryDir" "container-disk" -}}
     {{- include "svace.build" (set $ "BuildCommand" `gcc -static cmd/container-disk-v2alpha/main.c -o /kubevirt-binaries/container-disk`) | indent 6 }}
 
+  - export CGO_ENABLED=1
   - echo ============== Build virt-launcher ====================
   - |
     {{- $_ := set . "BinaryDir" "virt-launcher" -}}
-    {{- include "svace.build" (set $ "BuildCommand" `CGO_ENABLED=1 go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher ./cmd/virt-launcher/`) | indent 6 }}
+    {{- include "svace.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher ./cmd/virt-launcher/`) | indent 6 }}
 
   - echo ============== Build virt-handler =====================
   - |
     {{- $_ := set . "BinaryDir" "virt-handler" -}}
-    {{- include "svace.build" (set $ "BuildCommand" `CGO_ENABLED=1 go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/`) | indent 6 }}
+    {{- include "svace.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-handler ./cmd/virt-handler/`) | indent 6 }}
 
-  - echo ============== Build virt-launcher-monitor ============
   - export CGO_ENABLED=0
+  - echo ============== Build virt-launcher-monitor ============
   # virt-launcher-monitor is wrapped in the final image. Add suffix here to prevent image size increasing as effect of file renaming.
   # - go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-monitor ./cmd/virt-launcher-monitor/
   - |
