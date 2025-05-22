@@ -11,6 +11,7 @@ shell:
   - apk add wget
   - apk add git
   install:
+  - mkdir /opt/
   - git clone --depth 1 --branch v4.0.250415 $(cat /run/secrets/SOURCE_REPO)/ispras/svace.git /opt/svace
 
 ---
