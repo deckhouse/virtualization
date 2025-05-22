@@ -2,7 +2,8 @@
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
-{{- $virtHandlerNodeSelector := toJson (default (dict "kubernetes.io/os" "linux") .Values.virtualization.workload.nodeSelector) }}
+{{- $nodeSelector := get .Values "virtualization.workload.nodeSelector" nil }}
+{{- $virtHandlerNodeSelector := toJson (default (dict "kubernetes.io/os" "linux") $nodeSelector) }}
 {{- $priorityClassName := "" | quote }}
 {{- if (.Values.global.enabledModules | has "priority-class") }}
 {{- $priorityClassName = include "priorityClassName" . | quote }}
