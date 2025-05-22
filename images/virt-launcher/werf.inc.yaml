@@ -489,7 +489,7 @@ final: false
 fromImage: builder/golang-bookworm-1.23
 git:
   - add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/static_binaries
-    to: /
+    to: /static_binaries
     stageDependencies:
       install:
         - '*.c'
@@ -500,6 +500,7 @@ shell:
   {{- include "debian packages clean" . | nindent 2 }}
   install:
   - |
+    cd /static_binaries
     echo "Building simple app that prints I'am temp pod"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/temp_pod temp_pod.c
