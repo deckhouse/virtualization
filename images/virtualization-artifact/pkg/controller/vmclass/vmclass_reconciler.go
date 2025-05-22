@@ -111,6 +111,15 @@ func (r *Reconciler) SetupController(ctx context.Context, mgr manager.Manager, c
 					}
 				}
 
+				if len(class.Spec.CPU.Features) != 0 {
+					for _, feature := range class.Spec.CPU.Features {
+						v, ok := node.Annotations[annotations.AnnNodeCPUFeature+feature]
+						if !ok || v != "true" {
+							continue
+						}
+					}
+				}
+
 				result = append(result, reconcile.Request{
 					NamespacedName: object.NamespacedName(&class),
 				})
