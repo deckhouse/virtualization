@@ -4,8 +4,8 @@ Add .ModulePath }}modules/999-{{ .ModuleName }} if set .ModulePath
 Usage "GitPath":
 
 git:
-- add: {{ include "GitPath" }}/{{ $.ImageName }}
-- add: {{ include "GitPath" }}/src
+- add: {{ include "GitPath" . }}/{{ $.ImageName }}
+- add: {{ include "GitPath" . }}/src
 */}}
 
 {{ define "GitPath" }}

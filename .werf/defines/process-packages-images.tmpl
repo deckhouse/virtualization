@@ -8,13 +8,18 @@
 {{ define "process_packages_images" }}
 {{-   $Root := . }}
 
-{{    $ImagePackages := .Files.Glob "images/packages/*/*/{Dockerfile,werf.inc.yaml}" }}
+{{/*{{-   $packagesGlob := print "images/packages/././{Dockerfile,werf.inc.yaml}" }}*/}}
+{{-   $packagesGlob := print "images/packages/*/*/werf.inc.yaml" }}
+{{-   $regex := print "^images/(packages)/([0-9a-z-_]+)/([0-9a-z-_]+)/(werf.inc.yaml)$" }}
+
+{{    $ImagePackages := .Files.Glob $packagesGlob }}
 
 {{-    range $path, $content := $ImagePackages }}
 {{-      $ctx := dict }}
 {{-      $_ := set $ctx "ImageInstructionType" "Stapel" }}
 
-{{-      $ImageData := regexReplaceAll "^images/(packages)/([0-9a-z-_]+)/([0-9a-z-_]+)/(Dockerfile|werf.inc.yaml)$" $path "${1}#${2}#${3}#${4}" | split "#" }}
+{{/*{{-      $ImageData := regexReplaceAll $regex $path "${1}#${2}#${3}#${4}" | split "#" }}*/}}
+{{-      $ImageData := regexReplaceAll "^images/(packages)/([0-9a-z-_]+)/([0-9a-z-_]+)/(werf.inc.yaml)$" $path "${1}#${2}#${3}#${4}" | split "#" -}}
 
 {{-      $_ := set $ctx "ImageType" (printf "%s/%s" $ImageData._0 $ImageData._1) }}
 {{-      $_ := set $ctx "ImageName" $ImageData._2 }}
