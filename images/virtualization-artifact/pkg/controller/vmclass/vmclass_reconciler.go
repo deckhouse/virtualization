@@ -19,6 +19,7 @@ package vmclass
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
 	"slices"
 
@@ -71,6 +72,7 @@ func (r *Reconciler) SetupController(ctx context.Context, mgr manager.Manager, c
 		&handler.EnqueueRequestForObject{}); err != nil {
 		return fmt.Errorf("error setting watch on VMClass: %w", err)
 	}
+
 	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &corev1.Node{}),
 		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
@@ -93,15 +95,22 @@ func (r *Reconciler) SetupController(ctx context.Context, mgr manager.Manager, c
 					})
 					continue
 				}
-				if !annotations.MatchLabels(node.GetLabels(), class.Spec.NodeSelector.MatchLabels) {
-					continue
+
+				if len(class.Spec.NodeSelector.MatchLabels) != 0 {
+					if !annotations.MatchLabels(node.GetLabels(), class.Spec.NodeSelector.MatchLabels) {
+						continue
+					}
 				}
-				ns, err := nodeaffinity.NewNodeSelector(&corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: class.Spec.NodeSelector.MatchExpressions}},
-				})
-				if err != nil || !ns.Match(node) {
-					continue
+
+				if len(class.Spec.NodeSelector.MatchExpressions) != 0 {
+					ns, err := nodeaffinity.NewNodeSelector(&corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: class.Spec.NodeSelector.MatchExpressions}},
+					})
+					if err != nil || !ns.Match(node) {
+						continue
+					}
 				}
+
 				result = append(result, reconcile.Request{
 					NamespacedName: object.NamespacedName(&class),
 				})
@@ -116,6 +125,9 @@ func (r *Reconciler) SetupController(ctx context.Context, mgr manager.Manager, c
 				UpdateFunc: func(e event.UpdateEvent) bool {
 					oldNode := e.ObjectOld.(*corev1.Node)
 					newNode := e.ObjectNew.(*corev1.Node)
+					if !maps.Equal(oldNode.Annotations, newNode.Annotations) {
+						return true
+					}
 					if !oldNode.Status.Allocatable[corev1.ResourceCPU].Equal(newNode.Status.Allocatable[corev1.ResourceCPU]) {
 						return true
 					}
