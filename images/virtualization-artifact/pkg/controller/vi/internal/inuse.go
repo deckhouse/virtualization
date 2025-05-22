@@ -58,107 +58,53 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 
 	cb := conditions.NewConditionBuilder(vicondition.InUse).Generation(vi.Generation)
 
-	var vms virtv2.VirtualMachineList
-	err := h.client.List(ctx, &vms, client.InNamespace(vi.GetNamespace()))
+	vms, err := h.listVMsUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	var vmsUsingImage []client.Object
-	for _, vm := range vms.Items {
-		if vm.Status.Phase == virtv2.MachineStopped {
-			continue
-		}
-
-		for _, bd := range vm.Status.BlockDeviceRefs {
-			if bd.Kind == virtv2.VirtualImageKind && bd.Name == vi.Name {
-				vmsUsingImage = append(vmsUsingImage, &vm)
-				break
-			}
-		}
-	}
-
-	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
-	err = h.client.List(ctx, &vmbdas, client.InNamespace(vi.GetNamespace()))
+	vmbdas, err := h.listVMBDAsUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	var vmbdaUsedImage []client.Object
-	for _, vmbda := range vmbdas.Items {
-		if vmbda.Spec.BlockDeviceRef.Kind == virtv2.VirtualImageKind && vmbda.Spec.BlockDeviceRef.Name == vi.Name {
-			vmbdaUsedImage = append(vmbdaUsedImage, &vmbda)
-		}
-	}
-
-	var vds virtv2.VirtualDiskList
-	err = h.client.List(ctx, &vds, client.InNamespace(vi.GetNamespace()), client.MatchingFields{
-		indexer.IndexFieldVDByVIDataSource: vi.GetName(),
-	})
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	var vdsNotReady []client.Object
-	for _, vd := range vds.Items {
-		if vd.Status.Phase != virtv2.DiskReady && vd.Status.Phase != virtv2.DiskTerminating {
-			vdsNotReady = append(vdsNotReady, &vd)
-		}
-	}
-
-	var vis virtv2.VirtualImageList
-	err = h.client.List(ctx, &vis, client.InNamespace(vi.GetNamespace()), client.MatchingFields{
-		indexer.IndexFieldVIByVIDataSource: vi.GetName(),
-	})
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-	var visNotReady []client.Object
-	for _, viItem := range vis.Items {
-		if viItem.Status.Phase != virtv2.ImageReady && viItem.Status.Phase != virtv2.ImageTerminating {
-			visNotReady = append(visNotReady, &viItem)
-		}
-	}
-
-	var cvis virtv2.ClusterVirtualImageList
-	err = h.client.List(ctx, &cvis, client.MatchingFields{
-		indexer.IndexFieldCVIByVIDataSource: vi.GetName(),
-	})
+	vds, err := h.listVDsUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	var cvisFiltered []client.Object
-	for _, cvi := range cvis.Items {
-		if cvi.Spec.DataSource.ObjectRef == nil || cvi.Status.Phase == virtv2.ImageReady || cvi.Status.Phase == virtv2.ImageTerminating {
-			continue
-		}
-		if cvi.Spec.DataSource.ObjectRef.Namespace == vi.GetNamespace() {
-			cvisFiltered = append(cvisFiltered, &cvi)
-		}
+	vis, err := h.listVIsUsingImage(ctx, vi)
+	if err != nil {
+		return reconcile.Result{}, err
 	}
 
-	consumerCount := len(vmsUsingImage) + len(vdsNotReady) + len(visNotReady) + len(cvisFiltered)
+	cvis, err := h.listCVIsUsingImage(ctx, vi)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	consumerCount := len(vms) + len(vds) + len(vis) + len(cvis)
 
 	if consumerCount > 0 {
 		var msgs []string
-		if len(vmsUsingImage) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vmsUsingImage...))
+		if len(vms) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vms...))
 		}
 
-		if len(vmbdaUsedImage) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineBlockDeviceAttachmentKind, vmbdaUsedImage...))
+		if len(vmbdas) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineBlockDeviceAttachmentKind, vmbdas...))
 		}
 
-		if len(vdsNotReady) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualDiskKind, vdsNotReady...))
+		if len(vds) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualDiskKind, vds...))
 		}
 
-		if len(visNotReady) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualImageKind, visNotReady...))
+		if len(vis) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualImageKind, vis...))
 		}
 
-		if len(cvisFiltered) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.ClusterVirtualImageKind, cvisFiltered...))
+		if len(cvis) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.ClusterVirtualImageKind, cvis...))
 		}
 
 		cb.
@@ -175,6 +121,107 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 
 func (h InUseHandler) Name() string {
 	return inUseHandlerName
+}
+
+func (h InUseHandler) listVMsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+	var vms virtv2.VirtualMachineList
+	err := h.client.List(ctx, &vms, client.InNamespace(vi.GetNamespace()))
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var vmsUsingImage []client.Object
+	for _, vm := range vms.Items {
+		if vm.Status.Phase == virtv2.MachineStopped {
+			continue
+		}
+
+		for _, bd := range vm.Status.BlockDeviceRefs {
+			if bd.Kind == virtv2.VirtualImageKind && bd.Name == vi.Name {
+				vmsUsingImage = append(vmsUsingImage, &vm)
+				break
+			}
+		}
+	}
+
+	return vmsUsingImage, nil
+}
+
+func (h InUseHandler) listVMBDAsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+	err := h.client.List(ctx, &vmbdas, client.InNamespace(vi.GetNamespace()))
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var vmbdasUsedImage []client.Object
+	for _, vmbda := range vmbdas.Items {
+		if vmbda.Spec.BlockDeviceRef.Kind == virtv2.VirtualImageKind && vmbda.Spec.BlockDeviceRef.Name == vi.Name {
+			vmbdasUsedImage = append(vmbdasUsedImage, &vmbda)
+		}
+	}
+
+	return vmbdasUsedImage, nil
+}
+
+func (h InUseHandler) listVDsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+	var vds virtv2.VirtualDiskList
+	err := h.client.List(ctx, &vds, client.InNamespace(vi.GetNamespace()), client.MatchingFields{
+		indexer.IndexFieldVDByVIDataSource: vi.GetName(),
+	})
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var vdsNotReady []client.Object
+	for _, vd := range vds.Items {
+		if vd.Status.Phase != virtv2.DiskReady && vd.Status.Phase != virtv2.DiskTerminating {
+			vdsNotReady = append(vdsNotReady, &vd)
+		}
+	}
+
+	return vdsNotReady, nil
+}
+
+func (h InUseHandler) listVIsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+	var vis virtv2.VirtualImageList
+	err := h.client.List(ctx, &vis, client.InNamespace(vi.GetNamespace()), client.MatchingFields{
+		indexer.IndexFieldVIByVIDataSource: vi.GetName(),
+	})
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var visNotReady []client.Object
+	for _, viItem := range vis.Items {
+		if viItem.Status.Phase != virtv2.ImageReady && viItem.Status.Phase != virtv2.ImageTerminating {
+			visNotReady = append(visNotReady, &viItem)
+		}
+	}
+
+	return visNotReady, nil
+}
+
+func (h InUseHandler) listCVIsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+	var cvis virtv2.ClusterVirtualImageList
+	err := h.client.List(ctx, &cvis, client.MatchingFields{
+		indexer.IndexFieldCVIByVIDataSource: vi.GetName(),
+	})
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var cvisFiltered []client.Object
+	for _, cvi := range cvis.Items {
+		if cvi.Spec.DataSource.ObjectRef == nil || cvi.Status.Phase == virtv2.ImageReady || cvi.Status.Phase == virtv2.ImageTerminating {
+			continue
+		}
+		if cvi.Spec.DataSource.ObjectRef.Namespace == vi.GetNamespace() {
+			cvisFiltered = append(cvisFiltered, &cvi)
+		}
+	}
+
+	return cvisFiltered, nil
 }
 
 func getTerminationMessage(objectKind string, objects ...client.Object) string {
