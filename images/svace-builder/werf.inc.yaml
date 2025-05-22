@@ -2,6 +2,9 @@
 image: {{ $.ImageName }}-download
 final: false
 fromImage: builder/alpine
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
   - apk update
