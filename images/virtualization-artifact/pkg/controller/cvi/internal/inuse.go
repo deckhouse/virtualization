@@ -57,119 +57,56 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 
 	cb := conditions.NewConditionBuilder(cvicondition.InUse).Generation(cvi.Generation)
 
-	namespacesMap := make(map[string]struct{})
-
-	var vms virtv2.VirtualMachineList
-	err := h.client.List(ctx, &vms)
+	vms, err := h.listVMsUsingImage(ctx, cvi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	var vmsUsingImage []client.Object
-	for _, vm := range vms.Items {
-		if vm.Status.Phase == virtv2.MachineStopped {
-			continue
-		}
-
-		for _, bd := range vm.Status.BlockDeviceRefs {
-			if bd.Kind == virtv2.ClusterVirtualImageKind && bd.Name == cvi.Name {
-				vmsUsingImage = append(vmsUsingImage, &vm)
-				namespacesMap[vm.Namespace] = struct{}{}
-			}
-		}
-	}
-
-	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
-	err = h.client.List(ctx, &vmbdas)
+	vmbdas, err := h.listVMBDAsUsingImage(ctx, cvi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	var vmbdaUsedImage []client.Object
-	for _, vmbda := range vmbdas.Items {
-		if vmbda.Spec.BlockDeviceRef.Kind == virtv2.ClusterVirtualImageKind && vmbda.Spec.BlockDeviceRef.Name == cvi.Name {
-			vmbdaUsedImage = append(vmbdaUsedImage, &vmbda)
-		}
-	}
-
-	var vds virtv2.VirtualDiskList
-	err = h.client.List(ctx, &vds, client.MatchingFields{
-		indexer.IndexFieldVDByCVIDataSource: cvi.GetName(),
-	})
+	vds, err := h.listVDsUsingImage(ctx, cvi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	var vdsNotReady []client.Object
-	for _, vd := range vds.Items {
-		if vd.Status.Phase != virtv2.DiskReady && vd.Status.Phase != virtv2.DiskTerminating {
-			vdsNotReady = append(vdsNotReady, &vd)
-		}
-	}
 
-	for _, vd := range vdsNotReady {
-		namespacesMap[vd.GetNamespace()] = struct{}{}
-	}
-
-	var vis virtv2.VirtualImageList
-	err = h.client.List(ctx, &vis, client.MatchingFields{
-		indexer.IndexFieldVIByCVIDataSource: cvi.GetName(),
-	})
+	vis, err := h.listVIsUsingImage(ctx, cvi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	var visNotReady []client.Object
-	for _, vi := range vis.Items {
-		if vi.Status.Phase != virtv2.ImageReady && vi.Status.Phase != virtv2.ImageTerminating {
-			visNotReady = append(visNotReady, &vi)
-		}
-	}
 
-	for _, vi := range visNotReady {
-		namespacesMap[vi.GetNamespace()] = struct{}{}
-	}
-
-	var cvis virtv2.ClusterVirtualImageList
-	err = h.client.List(ctx, &cvis, client.MatchingFields{
-		indexer.IndexFieldCVIByCVIDataSource: cvi.GetName(),
-	})
+	cvis, err := h.listCVIsUsingImage(ctx, cvi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	var cvisNotReady []client.Object
-	for _, cviItem := range cvis.Items {
-		if cviItem.Status.Phase != virtv2.ImageReady && cviItem.Status.Phase != virtv2.ImageTerminating {
-			cvisNotReady = append(cvisNotReady, &cviItem)
-		}
-	}
 
-	consumerCount := len(vmsUsingImage) + len(vdsNotReady) + len(visNotReady) + len(cvisNotReady)
+	consumerCount := len(vms) + len(vds) + len(vis) + len(cvis)
 
 	if consumerCount > 0 {
 		var msgs []string
-		if len(vmsUsingImage) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vmsUsingImage...))
+		if len(vms) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vms...))
 		}
 
-		if len(vmbdaUsedImage) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineBlockDeviceAttachmentKind, vmbdaUsedImage...))
+		if len(vmbdas) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineBlockDeviceAttachmentKind, vmbdas...))
 		}
 
-		if len(vdsNotReady) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualDiskKind, vdsNotReady...))
+		if len(vds) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualDiskKind, vds...))
 		}
 
-		if len(visNotReady) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualImageKind, visNotReady...))
+		if len(vis) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.VirtualImageKind, vis...))
 		}
 
-		if len(cvisNotReady) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.ClusterVirtualImageKind, cvisNotReady...))
+		if len(cvis) > 0 {
+			msgs = append(msgs, getTerminationMessage(virtv2.ClusterVirtualImageKind, cvis...))
 		}
 
-		var namespaces []string
-		for namespace := range namespacesMap {
-			namespaces = append(namespaces, namespace)
-		}
+		namespaces := h.listNamespacesUsingImage(vms, vmbdas, vds, vis)
 
 		if len(namespaces) > 0 {
 			msgs = append(msgs, getNamespacesTerminationMessage(namespaces))
@@ -187,6 +124,128 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (h InUseHandler) listVMsUsingImage(ctx context.Context, cvi *virtv2.ClusterVirtualImage) ([]client.Object, error) {
+	var vms virtv2.VirtualMachineList
+	err := h.client.List(ctx, &vms)
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var vmsUsingImage []client.Object
+	for _, vm := range vms.Items {
+		if vm.Status.Phase == virtv2.MachineStopped {
+			continue
+		}
+
+		for _, bd := range vm.Status.BlockDeviceRefs {
+			if bd.Kind == virtv2.ClusterVirtualImageKind && bd.Name == cvi.Name {
+				vmsUsingImage = append(vmsUsingImage, &vm)
+			}
+		}
+	}
+
+	return vmsUsingImage, nil
+}
+
+func (h InUseHandler) listVMBDAsUsingImage(ctx context.Context, cvi *virtv2.ClusterVirtualImage) ([]client.Object, error) {
+	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+	err := h.client.List(ctx, &vmbdas)
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var vmbdasUsedImage []client.Object
+	for _, vmbda := range vmbdas.Items {
+		if vmbda.Spec.BlockDeviceRef.Kind == virtv2.ClusterVirtualImageKind && vmbda.Spec.BlockDeviceRef.Name == cvi.Name {
+			vmbdasUsedImage = append(vmbdasUsedImage, &vmbda)
+		}
+	}
+
+	return vmbdasUsedImage, nil
+}
+
+func (h InUseHandler) listVDsUsingImage(ctx context.Context, cvi *virtv2.ClusterVirtualImage) ([]client.Object, error) {
+	var vds virtv2.VirtualDiskList
+	err := h.client.List(ctx, &vds, client.MatchingFields{
+		indexer.IndexFieldVDByCVIDataSource: cvi.GetName(),
+	})
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var vdsNotReady []client.Object
+	for _, vd := range vds.Items {
+		if vd.Status.Phase != virtv2.DiskReady && vd.Status.Phase != virtv2.DiskTerminating {
+			vdsNotReady = append(vdsNotReady, &vd)
+		}
+	}
+
+	return vdsNotReady, nil
+}
+
+func (h InUseHandler) listVIsUsingImage(ctx context.Context, cvi *virtv2.ClusterVirtualImage) ([]client.Object, error) {
+	var vis virtv2.VirtualImageList
+	err := h.client.List(ctx, &vis, client.MatchingFields{
+		indexer.IndexFieldVIByCVIDataSource: cvi.GetName(),
+	})
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var visNotReady []client.Object
+	for _, vi := range vis.Items {
+		if vi.Status.Phase != virtv2.ImageReady && vi.Status.Phase != virtv2.ImageTerminating {
+			visNotReady = append(visNotReady, &vi)
+		}
+	}
+
+	return visNotReady, nil
+}
+
+func (h InUseHandler) listCVIsUsingImage(ctx context.Context, cvi *virtv2.ClusterVirtualImage) ([]client.Object, error) {
+	var cvis virtv2.ClusterVirtualImageList
+	err := h.client.List(ctx, &cvis, client.MatchingFields{
+		indexer.IndexFieldCVIByCVIDataSource: cvi.GetName(),
+	})
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var cvisNotReady []client.Object
+	for _, cviItem := range cvis.Items {
+		if cviItem.Status.Phase != virtv2.ImageReady && cviItem.Status.Phase != virtv2.ImageTerminating {
+			cvisNotReady = append(cvisNotReady, &cviItem)
+		}
+	}
+
+	return cvisNotReady, nil
+}
+
+func (h InUseHandler) listNamespacesUsingImage(vms []client.Object, vmbdas []client.Object, vds []client.Object, vis []client.Object) []string {
+	var objects []client.Object
+	objects = append(objects, vms...)
+	objects = append(objects, vmbdas...)
+	objects = append(objects, vds...)
+	objects = append(objects, vis...)
+
+	namespacesMap := make(map[string]struct{})
+	for _, obj := range objects {
+		namespace := obj.GetNamespace()
+		if namespace == "" {
+			namespace = "default"
+		}
+
+		namespacesMap[namespace] = struct{}{}
+	}
+
+	var namespaces []string
+	for key := range namespacesMap {
+		namespaces = append(namespaces, key)
+	}
+
+	return namespaces
 }
 
 func getTerminationMessage(objectKind string, objects ...client.Object) string {
