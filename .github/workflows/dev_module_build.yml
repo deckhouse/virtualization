@@ -37,7 +37,8 @@ on:
         required: false
         type: number
       svace_enabled:
-        description: "A boolean value which indicates whether svace analyze will be performed"
+        description: "Enable svace build"
+        type: boolean
         required: false
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
