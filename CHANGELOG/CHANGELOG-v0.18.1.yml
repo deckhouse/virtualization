@@ -1,0 +1,10 @@
+vm:
+  fixes:
+    - summary: >-
+        The collection of metrics based on conditions has been fixed.
+        `AwaitingRestartToApplyConfiguration`, `ConfigurationApplied`, `AgentReady` and
+        `FirmwareUpToDate` conditions of the virtual machine are no longer displayed to the user
+        unless they contain an issue or an important message. However, this change was not initially
+        reflected in the metrics. It has now been corrected.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1069
+
