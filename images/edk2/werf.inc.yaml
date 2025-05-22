@@ -7,17 +7,13 @@ image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
 fromImage: {{ include "ImageName" (tuple . "base-alt-p11") }}
 git:
-- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}
-  to: /
-  includePaths:
-  - build.sh
+- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/build.sh
+  to: /build.sh
   stageDependencies:
     setup:
       - build.sh
-- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/logo
-  to: /
-  includePaths:
-  - Logo.bmp
+- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/logo/Logo.bmp
+  to: /Logo.bmp
   stageDependencies:
     setup:
       - '**/*'

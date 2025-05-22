@@ -24,14 +24,12 @@ import:
   - virt-handler
   - container-disk
 - image: {{ include "ImageName" (tuple . "virt-artifact") }}
-  add: {{ include "GitPath" . }}/kubevirt/cmd/{{ $.ImageName }}/
-  to: /
+  add: /kubevirt/cmd/{{ $.ImageName }}/virt_launcher.cil
+  to: /virt_launcher.cil
   after: install
-  includePaths:
-  - virt_launcher.cil
 - image: {{ include "ImageName" (tuple . "virt-artifact") }}
-  add: /kubevirt-config-files/
-  to: /
+  add: /kubevirt-config-files/.version
+  to: /.version
   after: install
   includePaths:
   - .version

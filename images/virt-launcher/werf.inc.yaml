@@ -208,11 +208,9 @@ import:
 
 # Import from virt artifact
 - image: {{ include "ImageName" (tuple . "virt-artifact") }}
-  add: /kubevirt-config-files/
-  to: /
+  add: /kubevirt-config-files/.version
+  to: /.version
   after: install
-  includePaths:
-  - .version
 
 - image: {{ include "ImageName" (tuple . "virt-artifact") }}
   add: /kubevirt-binaries/
