@@ -255,6 +255,12 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	switch {
+	case s.VirtualMachine().Current().Status.Phase == virtv2.MachineStopped:
+		err = h.updateKVVM(ctx, s)
+		if err != nil {
+			return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
+		}
+		return true, nil
 	case h.canApplyChanges(s.VirtualMachine().Current(), kvvm, kvvmi, pod, allChanges):
 		// No need to wait, apply changes to KVVM immediately.
 		err = h.applyVMChangesToKVVM(ctx, s, allChanges)
