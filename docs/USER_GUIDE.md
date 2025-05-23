@@ -807,6 +807,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
       - When qemu-guest-agent is installed in the guest system, the `AgentReady` condition will be true and `.status.guestOSInfo` will display information about the running guest OS.
       - The `type: FirmwareUpToDate, status: False` condition informs that the VM firmware needs to be updated.
       - Condition `type: ConfigurationApplied, status: False` informs that the VM configuration is not applied to the running VM.
+      - The `type: SizingPolicyMatched, status: False` condition informs that the VM resource configuration does not match the sizing policy requirements for the VirtualMachineClass being used and requires that these settings be brought into compliance otherwise new changes to the VM configuration cannot be saved.
       - The `type: AwaitingRestartToApplyConfiguration, status: True` condition displays information about the need to manually reboot the VM because some configuration changes cannot be applied without rebooting the VM.
     - Possible problems:
       - An internal failure in the VM or hypervisor.
@@ -848,6 +849,147 @@ Conditions display information about the state of the VM, as well as on problems
 
 ```bash
 d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
+```
+
+### Configuring CPU and coreFraction
+
+When you create a virtual machine (VM), you can customize how much CPU resources it will use by using the `cores` and `coreFraction` parameters. These parameters determine how many virtual cores the VM “sees” and what minimum fraction of their power it is guaranteed to receive.
+
+{{< alert level="warning">}}
+Available `coreFraction` values may be defined in the VirtualMachineClass resource for a given range of cores (`cores`), in which case only those values may be used.
+{{< /alert >}}
+
+The `cores` parameter specifies the number of virtual processor cores available to the VM. For example, if you specify `cores: 2`, the VM will run as if it has two cores. The `coreFraction` parameter specifies the minimum guaranteed power share of each core in percent. For example, with `coreFraction: 10%` the VM will always get at least 10% of each core's performance, even if the node (physical server) is heavily loaded. If the node has free resources, however, the VM can use up to 100% of each core's power, maximizing performance.
+
+Let's look at an example configuration:
+```yaml
+spec:
+  cpu:
+    cores: 2
+    coreFraction: 10%
+```
+In this case, the VM “sees” two virtual cores and is guaranteed to receive power equivalent to 20% of one physical core (0.2 CPUs). If there are unused resources on the node, the VM can utilize up to 100% of the power of the two cores (2 CPUs).
+
+{{< alert level="info">}}
+This approach is similar to overcommitment of CPU resources, where a VM can use more power than reserved if resources are available. But coreFraction guarantees the VM the requested amount of resources. This makes VM performance stable even under high cluster load.
+{{< /alert >}}
+
+The `cores` and `coreFraction` parameters are taken into account when planning VM placement on nodes. The guaranteed capacity (minimum share of each core) is considered while selecting a node so that it can provide the required performance for all the VMs. If a node does not have sufficient resources to fulfill the guarantees, a VM will not run on that node.
+
+Visualization on the example of virtual machines with the following CPU configurations, when placed on the same node:
+
+VM1:
+
+```
+spec:
+  cpu:
+    cores: 1
+    coreFraction: 20%
+```
+
+VM2:
+
+```
+spec:
+  cpu:
+    cores: 1
+    coreFraction: 80%
+```
+
+![](./images/vm-corefraction.png)
+
+### Virtual Machine Resource Configuration and Sizing Policy
+
+The sizing policy in VirtualMachineClass, defined in `.spec.sizingPolicies`, defines the rules for configuring virtual machine resources, including the number of cores, memory size, and `coreFraction`. This policy is not mandatory. If it is not present, you can specify arbitrary values for resources without strict requirements. However, if a sizing policy is present, the virtual machine configuration must strictly comply with it. Otherwise, the configuration cannot be saved.`
+
+The policy divides the number of cores (`cores`) into ranges, such as 1-4 cores or 5-8 cores. For each range, it specifies how much memory can be allocated (`memory`) and what `coreFraction` values are allowed.
+
+If the VM configuration (cores, memory, or coreFraction) does not match the policy, the `type: SizingPolicyMatched, status: False` condition appears in the status.
+
+If the policy in VirtualMachineClass changes over time, existing VMs will have to adjust to the new rules, otherwise their settings cannot be saved.
+
+For example:
+
+```yaml
+spec:
+  sizingPolicies:
+    - cores:
+        min: 1
+        max: 4
+      memory:
+        min: 1Gi
+        max: 8Gi
+      coreFractions: [5, 10, 20, 50, 100]
+    - cores:
+        min: 5
+        max: 8
+      memory:
+        min: 5Gi
+        max: 16Gi
+      coreFractions: [20, 50, 100]
+```
+
+If the VM uses 2 cores, it falls in the range of 1-4 cores. Then memory can be selected from 1GB to 8GB and coreFraction can only be 5%, 10%, 20%, 50% or 100%. For 6 cores, the range is 5-8 cores, where memory is from 5GB to 16GB and coreFraction is 20%, 50% or 100%.
+
+### Automatic CPU Topology Configuration
+
+The CPU topology of a virtual machine (VM) determines how the CPU cores are allocated across sockets. This is important to ensure optimal performance and compatibility with applications that may depend on the CPU configuration. In the VM configuration, you specify only the total number of processor cores, and the topology (the number of sockets and cores in each socket) is automatically calculated based on this value.
+
+The number of processor cores is specified in the VM configuration as follows:
+
+```yaml
+spec:
+  cpu:
+    cores: 1
+```
+
+Next, the system automatically determines the topology depending on the specified number of cores. The calculation rules depend on the range of the number of cores and are described below.
+
+- If the number of cores is between 1 and 16 (1 ≤ `.spec.cpu.cores` ≤ 16):
+  - 1 socket is used.
+  - The number of cores in the socket is equal to the specified value.
+  - Change step: 1 (you can increase or decrease the number of cores one at a time).
+  - Valid values: any integer from 1 to 16 inclusive.
+  - Example: If `.spec.cpu.cores` = 8, topology: 1 socket with 8 cores.
+- If the number of cores is from 17 to 32 (16 < `.spec.cpu.cores` ≤ 32):
+  - 2 sockets are used.
+  - Cores are evenly distributed between sockets (the number of cores in each socket is the same).
+  - Change step: 2 (total number of cores must be even).
+  - Allowed values: 18, 20, 22, 24, 26, 28, 30, 32.
+  - Limitations: minimum 9 cores per socket, maximum 16 cores per socket.
+  - Example: If `.spec.cpu.cores` = 20, topology: 2 sockets with 10 cores each.
+- If the number of cores is between 33 and 64 (32 < `.spec.cpu.cores` ≤ 64):
+  - 4 sockets are used.
+  - Cores are evenly distributed among the sockets.
+  - Step change: 4 (the total number of cores must be a multiple of 4).
+  - Allowed values: 36, 40, 44, 48, 52, 56, 60, 64.
+  - Limitations: minimum 9 cores per socket, maximum 16 cores per socket.
+  - Example: If `.spec.cpu.cores` = 40, topology: 4 sockets with 10 cores each.
+- If the number of cores is greater than 64 (`.spec.cpu.cores` > 64):
+  - 8 sockets are used.
+  - Cores are evenly distributed among the sockets.
+  - Step change: 8 (the total number of cores must be a multiple of 8).
+  - Valid values: 72, 80, 88, 88, 96, and so on up to 248
+  - Limitations: minimum 9 cores per socket.
+  - Example: If `.spec.cpu.cores` = 80, topology: 8 sockets with 10 cores each.
+
+The change step indicates by how much the total number of cores can be increased or decreased so that they are evenly distributed across the sockets.
+
+The maximum possible number of cores is 248.
+
+The current VM topology (number of sockets and cores in each socket) is displayed in the VM status in the following format:
+
+```yaml
+status:
+  resources:
+    cpu:
+      coreFraction: 10%
+      cores: 1
+      requestedCores: "1"
+      runtimeOverhead: "0"
+      topology:
+        sockets: 1
+        coresPerSocket: 1
 ```
 
 ### Guest OS Agent
@@ -903,68 +1045,6 @@ Starting the agent service:
 
 ```bash
 sudo systemctl enable --now qemu-guest-agent
-```
-
-### Automatic CPU Topology Configuration
-
-The CPU topology of a virtual machine (VM) determines how the CPU cores are allocated across sockets. This is important to ensure optimal performance and compatibility with applications that may depend on the CPU configuration. In the VM configuration, you specify only the total number of processor cores, and the topology (the number of sockets and cores in each socket) is automatically calculated based on this value.
-
-The number of processor cores is specified in the VM configuration as follows:
-
-```yaml
-spec:
-  cpu:
-    cores: 1
-```
-
-
-Next, the system automatically determines the topology depending on the specified number of cores. The calculation rules depend on the range of the number of cores and are described below.
-
-- If the number of cores is between 1 and 16 (1 ≤ `.spec.cpu.cores` ≤ 16):
-  - 1 socket is used.
-  - The number of cores in the socket is equal to the specified value.
-  - Change step: 1 (you can increase or decrease the number of cores one at a time).
-  - Valid values: any integer from 1 to 16 inclusive.
-  - Example: If `.spec.cpu.cores` = 8, topology: 1 socket with 8 cores.
-- If the number of cores is from 17 to 32 (16 < `.spec.cpu.cores` ≤ 32):
-  - 2 sockets are used.
-  - Cores are evenly distributed between sockets (the number of cores in each socket is the same).
-  - Change step: 2 (total number of cores must be even).
-  - Allowed values: 18, 20, 22, 24, 26, 28, 30, 32.
-  - Limitations: minimum 9 cores per socket, maximum 16 cores per socket.
-  - Example: If `.spec.cpu.cores` = 20, topology: 2 sockets with 10 cores each.
-- If the number of cores is between 33 and 64 (32 < `.spec.cpu.cores` ≤ 64):
-  - 4 sockets are used.
-  - Cores are evenly distributed among the sockets.
-  - Step change: 4 (the total number of cores must be a multiple of 4).
-  - Allowed values: 36, 40, 44, 48, 52, 56, 60, 64.
-  - Limitations: minimum 9 cores per socket, maximum 16 cores per socket.
-  - Example: If `.spec.cpu.cores` = 40, topology: 4 sockets with 10 cores each.
-- If the number of cores is greater than 64 (`.spec.cpu.cores` > 64):
-  - 8 sockets are used.
-  - Cores are evenly distributed among the sockets.
-  - Step change: 8 (the total number of cores must be a multiple of 8).
-  - Valid values: 72, 80, 88, 88, 96, and so on up to 248
-  - Limitations: minimum 9 cores per socket.
-  - Example: If `.spec.cpu.cores` = 80, topology: 8 sockets with 10 cores each.
-
-The change step indicates by how much the total number of cores can be increased or decreased so that they are evenly distributed across the sockets.
-
-The maximum possible number of cores is 248.
-
-The current VM topology (number of sockets and cores in each socket) is displayed in the VM status in the following format:
-
-```yaml
-status:
-  resources:
-    cpu:
-      coreFraction: 10%
-      cores: 1
-      requestedCores: "1"
-      runtimeOverhead: "0"
-      topology:
-        sockets: 1
-        coresPerSocket: 1
 ```
 
 ### Connecting to a virtual machine
@@ -1617,7 +1697,7 @@ The live migration process involves several steps:
 
 {{< alert level="warning">}}
 Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
-{{{< /alert >}}
+{{< /alert >}}
 
 #### AutoConverge mechanism
 

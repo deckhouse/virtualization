@@ -81,8 +81,13 @@ We need to download it and publish it on some http-service available from the cl
           name: win-virtio-iso
     ```
 
-1. Once the resource is created, the virtual machine will be started.
-You need to connect to it and use the graphical wizard to add the `virtio` drivers
+1. After creating the resource, start the VM:
+
+    ```bash
+    d8 v start win-vm
+    ```
+
+1. You need to connect to it and use the graphical wizard to add the `virtio` drivers
 and perform the OS installation.
 
     ```bash
