@@ -119,7 +119,7 @@ shell:
 
     - echo ============== Build virt-launcher-monitor ============
     - export CGO_ENABLED=0
-    # virt-launcher-monitor is wrapped in the final image. Add suffix here to prevent image size increasing as effect of file renaming.
+    {{/* virt-launcher-monitor is wrapped in the final image. Add suffix here to prevent image size increasing as effect of file renaming. */}}
     {{- $_ := set $ "ProjectName" (list $.ImageName "virt-launcher-monitor" | join "/") }}
     - |
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-launcher-monitor ./cmd/virt-launcher-monitor/`) | nindent 6 }}
