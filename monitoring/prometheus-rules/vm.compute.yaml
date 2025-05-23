@@ -1,0 +1,264 @@
+- name: virtualization.vm.compute
+  rules:
+    - alert: D8VirtualizationVirtualMachineHighCPULoad
+      expr: |
+        (
+          (
+            sum by (namespace,name) (rate(d8_virtualization_virtualmachine_cpu_usage_milliseconds_total[1m]) / 1000)
+            /
+            sum by (namespace,name) (d8_virtualization_virtualmachine_cpu_cores)
+          )
+          *
+          (
+            1 / sum by (namespace,name) (d8_virtualization_virtualmachine_cpu_core_fraction / 100)
+          )
+        ) * 100
+        > 85
+      for: 5m
+      labels:
+        severity_level: "6"
+        tier: application
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_vm_high_cpu_load: "D8VirtualizationVMHighCPULoad,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_vm_high_cpu_load: "D8VirtualizationVMHighCPULoad,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualMachine has high average CPU load across all cores.
+        description: |
+          The VirtualMachine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has an average CPU load of more than 85% across all its cores over the last minute, and this has been sustained for more than 5 minutes.
+
+          This may indicate insufficient CPU resources allocated for VM workload.
+
+          Recommended actions:
+
+          - Consider increasing CPU cores (`.spec.cpu.cores`) or coreFraction (`.spec.cpu.coreFraction`) for the VirtualMachine if workload is expected.
+          - Investigate applications for possible inefficiencies or leaks.
+          - Monitor memory and disk I/O to detect correlated bottlenecks.
+
+    - alert: D8VirtualizationVirtualMachineHighMemoryUsage
+      expr: |
+        (
+          avg by (namespace, name)
+          (d8_virtualization_virtualmachine_os_memory_total_bytes - d8_virtualization_virtualmachine_os_memory_potentially_free_bytes)
+        )
+        /
+        (
+          avg by (namespace, name)
+          (d8_virtualization_virtualmachine_memory_size_bytes)
+        )
+        * 100 > 85
+      for: 5m
+      labels:
+        severity_level: "6"
+        tier: application
+      annotations:
+        summary: VirtualMachine has high memory usage for a long time.
+        description: |
+          The VirtualMachine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been using more than 85% of its allocated memory over the last 5 minutes.
+
+          This may indicate insufficient memory resources allocated for VM workload.
+
+          Recommended actions:
+
+          - Consider increasing memory `.spec.memory.size` if workload is expected to grow.
+          - Investigate top memory-consuming processes inside the guest OS.
+          - If memory pressure is frequent, consider enabling swap space (if acceptable for performance).
+
+    - alert: D8VirtualizationVirtualMachineNetworkPacketsDropped
+      expr: |
+        (
+          sum by (namespace, name, network) (
+            rate(d8_virtualization_virtualmachine_network_receive_packets_dropped_total[1m]) +
+            rate(d8_virtualization_virtualmachine_network_transmit_packets_dropped_total[1m])
+          )
+          /
+          sum by (namespace, name, network) (
+            rate(d8_virtualization_virtualmachine_network_receive_packets_total[1m]) +
+            rate(d8_virtualization_virtualmachine_network_transmit_packets_total[1m])
+          )
+        ) * 100 > 1
+      for: 0m
+      labels:
+        severity_level: "6"
+        tier: application
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_vm_network_packets_dropped: "D8VirtualizationVMNetworkPacketsDropped,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_vm_network_packets_dropped: "D8VirtualizationVMNetworkPacketsDropped,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualMachine is dropping network packets (> 1% per second).
+        description: |
+          The VirtualMachine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been dropping more than 1% packets per second (combined receive + transmit) on network interface `{{ $labels.network }}`.
+
+          This may indicate:
+          - Network congestion or oversubscription.
+          - Insufficient CPU or resources to process packets in time.
+
+    - alert: D8VirtualizationVirtualMachineMemoryUnderMemoryPressure
+      expr: |
+        (
+          rate(d8_virtualization_virtualmachine_os_memory_pgmajfault_total[5m])
+        ) > 1000
+      for: 0m
+      labels:
+        severity_level: "6"
+        tier: application
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_under_memory_pressure: "D8VirtualizationVirtualMachineMemoryUnderMemoryPressure,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachine_under_memory_pressure: "D8VirtualizationVirtualMachineMemoryUnderMemoryPressure,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualMachine is under memory pressure (high major page faults).
+        description: |
+          The VirtualMachine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` is experiencing more than major 1000 page faults per second.
+
+          This may indicate:
+          - High memory pressure inside the VM.
+          - Application is frequently accessing new memory regions.
+          - Swap usage is increasing (`pgmajfault`).
+          - Memory fragmentation or inefficient memory access patterns.
+
+          ### Recommended actions
+
+          - Investigate top memory-faulting processes inside the guest OS.
+          - Consider increasing memory `.spec.memory.size` if workload requires it.
+          - If `pgmajfault` is high, evaluate swap usage and performance impact.
+
+    - alert: D8VirtualizationVirtualMachineFileSystemAlmostFull
+      expr: |
+        (
+          sum by (name, namespace, mount_point)
+          (d8_virtualization_virtualmachine_filesystem_used_bytes{type!="cloudinit"})
+          /
+          sum by (name, namespace, mount_point)
+          (d8_virtualization_virtualmachine_filesystem_capacity_bytes)
+        ) * 100 > 95
+      for: 5m
+      labels:
+        severity_level: "6"
+        tier: application
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_vm_filesystem_full: "D8VirtualizationVMFileSystemAlmostFull,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_vm_filesystem_full: "D8VirtualizationVMFileSystemAlmostFull,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: Filesystem in VirtualMachine is almost full.
+        description: |
+          The filesystem mounted at `{{ $labels.mount_point }}` in the VirtualMachine `{{ $labels.name }}` (namespace `{{ $labels.namespace }}`) has reached more than 95% of its capacity.
+
+          This may indicate:
+          - Disk space exhaustion inside the guest OS.
+          - Incorrect disk sizing during VM provisioning.
+
+          Consider increasing disk size if workload requires it.
+
+    - alert: D8VirtualizationVirtualMachineHighSwapUsage
+      expr: |
+        (
+          sum by (name, namespace)(
+            rate(d8_virtualization_virtualmachine_os_memory_swap_in_traffic_bytes[5m])
+          )
+          +
+          sum by (name, namespace)(
+            rate(d8_virtualization_virtualmachine_os_memory_swap_out_traffic_bytes[5m])
+          )
+        ) > 10 * 1024 * 1024  # 10 MB/s
+      for: 5m
+      labels:
+        severity_level: "6"
+        tier: application
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_vm_high_swap_usage: "D8VirtualizationVMHighSwapUsage,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_vm_high_swap_usage: "D8VirtualizationVMHighSwapUsage,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualMachine has high swap usage.
+        description: |
+          The VirtualMachine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` is actively using swap memory, with more than 10 MB/s of data being swapped in or out over the last 5 minutes.
+
+          This may indicate:
+          - Memory exhaustion inside the VM.
+          - Application misbehaviour or memory leak.
+          - Insufficient memory allocation.
+          - Performance degradation due to disk-based memory swapping.
+
+          ### Recommended Actions
+
+          - Consider increasing memory `.spec.memory.size` if workload requires it.
+          - Investigate and optimize memory usage in the guest OS.
+          - Disable swap (if acceptable) to prevent performance degradation.
+
+    - alert: D8VirtualizationVirtualMachineHighDiskLatency
+      expr: |
+        (
+          sum by (namespace, name, block_device_name)
+          (
+            rate(d8_virtualization_virtualmachine_block_device_read_times_seconds_total[1m])
+            +
+            rate(d8_virtualization_virtualmachine_block_device_write_times_seconds_total[1m])
+          )
+          /
+          sum by (namespace, name, block_device_name)
+          (
+            rate(d8_virtualization_virtualmachine_block_device_iops_read_total[1m])
+            +
+            rate(d8_virtualization_virtualmachine_block_device_iops_write_total[1m])
+          )
+        ) * 1000 > 20
+      for: 5m
+      labels:
+        severity_level: "6"
+        tier: application
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_vm_high_disk_latency: "D8VirtualizationVMHighDiskLatency,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_vm_high_disk_latency: "D8VirtualizationVMHighDiskLatency,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualMachine has high disk I/O latency (>20ms average)
+        description: |
+          The VirtualMachine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` is experiencing **disk I/O latency higher than 20ms** on device `{{ $labels.block_device_name }}`.
+
+          This may indicate:
+          - Storage backend performance degradation.
+          - Disk saturation or contention.
+          - Overloaded node or storage system.
+
+          ### Recommended Actions
+
+          - Investigate storage backend.
+          - Consider moving disk to a faster storage class.
+          - Monitor other VMs on the same node/storage for similar issues.
+
+    - alert: D8VirtualizationVirtualMachineMigrationTooLongDueToDirtyMemory
+      expr: d8_virtualization_virtualmachine_migration_dirty_memory_rate_bytes > 0
+      for: 30m
+      labels:
+        severity_level: "6"
+        tier: application
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_create_group_if_not_exists__d8_virtualization_vm_migration_too_long_due_to_dirty_memory: "D8VirtualizationVMMigrationTooLongDueToDirtyMemory,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_vm_migration_too_long_due_to_dirty_memory: "D8VirtualizationVMMigrationTooLongDueToDirtyMemory,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: VirtualMachine migration is taking too long due to continuous memory changes.
+        description: |
+          The VirtualMachine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been in migration state for more than 30 minutes, and the dirty memory rate (`migration_dirty_memory_rate_bytes`) remains above zero. This means that memory inside the VM is still actively changing.
+
+          This may indicate:
+          - Applications inside the VM are continuously modifying memory.
+          - Migration cannot complete final sync stage.
+
+          ### Recommended Actions
+
+          - Temporarily suspend or reduce the workload on the VM to minimize frequent memory renewal.
+          - Restart the migration manually with force if it gets stuck:
+
+            1. Remove the VMOP resource responsible for migration:
+            ```bash
+            d8 k -n {{ $labels.namespace }} delete vmop <vmop-evict-name>
+            ```
+
+            2. Force migration for VM if it's possible:
+            ```bash
+            d8 v -n {{ $labels.namespace }} evict {{ $labels.name }} --force
+            ```
