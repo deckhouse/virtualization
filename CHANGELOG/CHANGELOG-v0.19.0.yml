@@ -1,0 +1,50 @@
+api:
+  fixes:
+    - summary: Fixed the requeue loss bug during VD/VI/CVI provisioning.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1046
+docs:
+  fixes:
+    - summary: Deleted the repetitive paragraphs in IP address section
+      pull_request: https://github.com/deckhouse/virtualization/pull/1059
+images:
+  fixes:
+    - summary: Disable false positive error logs about not ready datasource.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1050
+module:
+  fixes:
+    - summary: fix vm, vmop alerts
+      pull_request: https://github.com/deckhouse/virtualization/pull/1079
+vd:
+  features:
+    - summary: >-
+        The `vd-protection` finalizer will be removed from the virtual disk if the virtual machine
+        is stopped.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1014
+vm:
+  features:
+    - summary: >-
+        Add Tini as the init process in virt-launcher container to properly handle orphaned/zombie
+        processes and improve container stability.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1058
+  fixes:
+    - summary: Set max embedded cloud-init block size to 2048 bytes
+      pull_request: https://github.com/deckhouse/virtualization/pull/1083
+    - summary: trim quotes in discovered ClusterIP
+      pull_request: https://github.com/deckhouse/virtualization/pull/1052
+    - summary: Improve Status Reporting
+      pull_request: https://github.com/deckhouse/virtualization/pull/1023
+vmip:
+  fixes:
+    - summary: >-
+        Fixed issues with hanging and duplicating VirtualMachineIPAddressLease resources, as well as
+        issues with attaching VirtualMachineIPAddress to a virtual machine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1081
+    - summary: Fix creating many vmipleases from one vmip.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1012
+vmsnapshot:
+  fixes:
+    - summary: >-
+        The `VirtualMachineSnapshot` controller properly handles the agent status of the
+        `VirtualMachine`.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1065
+
