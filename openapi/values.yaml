@@ -116,3 +116,9 @@ properties:
           key:
             type: string
             default: ""
+      virtHandler:
+        type: object
+        default: {}
+        properties:
+          nodeCount:
+            type: integer
