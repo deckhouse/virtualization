@@ -9,9 +9,14 @@ git:
 */}}
 
 {{ define "GitPath" }}
+{{-   $FullPath := "" -}}
 {{-   if .ModuleName -}}
-/{{      .ModulePath }}modules/999-{{ .ModuleName }}
+{{-     $FullPath = (printf "/modules/%s-%s" .ModulePriority .ModuleName) -}}
+{{-     if .ModulePath -}}
+{{-       $FullPath = (printf "%smodules/%s-%s" .ModulePath .ModulePriority .ModuleName) -}}
+{{-     end -}}
 {{-   end -}}
+{{    print $FullPath }}
 {{ end }}
 
 {{/*
