@@ -22,12 +22,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
-
-const ProtectionHandlerName = "ProtectionHandler"
 
 type ProtectionHandler struct{}
 
@@ -35,25 +33,21 @@ func NewProtectionHandler() *ProtectionHandler {
 	return &ProtectionHandler{}
 }
 
-func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler(ProtectionHandlerName))
-	lease := state.VirtualMachineIPAddressLease()
+func (h *ProtectionHandler) Handle(_ context.Context, lease *virtv2.VirtualMachineIPAddressLease) (reconcile.Result, error) {
+	controllerutil.AddFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
 
-	vmip, err := state.VirtualMachineIPAddress(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
+	// 1. The lease has a finalizer throughout its lifetime to prevent it from being deleted without prior processing by the controller.
+	if lease.GetDeletionTimestamp() == nil {
+		return reconcile.Result{}, nil
 	}
 
-	if vmip != nil {
-		controllerutil.AddFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
-	} else {
-		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineIPAddressLease")
-		controllerutil.RemoveFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
+	// 2. It is necessary to protect the resource until we can unequivocally ensure that the resource is in the Released state.
+	boundCondition, _ := conditions.GetCondition(vmiplcondition.BoundType, lease.Status.Conditions)
+	if boundCondition.Reason != vmiplcondition.Released.String() || !conditions.IsLastUpdated(boundCondition, lease) {
+		return reconcile.Result{}, nil
 	}
 
+	// 3. All checks have passed, the resource can be deleted.
+	controllerutil.RemoveFinalizer(lease, virtv2.FinalizerIPAddressLeaseCleanup)
 	return reconcile.Result{}, nil
-}
-
-func (h *ProtectionHandler) Name() string {
-	return ProtectionHandlerName
 }

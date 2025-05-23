@@ -28,7 +28,25 @@ func IndexVMIPByVM() (obj client.Object, field string, extractValue client.Index
 		if !ok || vmip == nil {
 			return nil
 		}
-		return []string{vmip.Status.VirtualMachine}
+
+		var vmNames []string
+		if vmip.Status.VirtualMachine != "" {
+			vmNames = append(vmNames, vmip.Status.VirtualMachine)
+		}
+
+		for _, ownerRef := range vmip.OwnerReferences {
+			if ownerRef.Kind != virtv2.VirtualMachineKind {
+				continue
+			}
+
+			if ownerRef.Name == "" || ownerRef.Name == vmip.Status.VirtualMachine {
+				continue
+			}
+
+			vmNames = append(vmNames, ownerRef.Name)
+		}
+
+		return vmNames
 	}
 }
 

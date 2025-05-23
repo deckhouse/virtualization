@@ -19,27 +19,25 @@ package vmiplease
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"reflect"
 
-	"k8s.io/apimachinery/pkg/types"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/watcher"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, s state.VMIPLeaseState) (reconcile.Result, error)
-	Name() string
+	Handle(ctx context.Context, lease *virtv2.VirtualMachineIPAddressLease) (reconcile.Result, error)
+}
+
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
 }
 
 type Reconciler struct {
@@ -55,62 +53,23 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{}),
-		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromVMIP),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return false },
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on vmip: %w", err)
-	}
-
-	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressLease{}), &handler.EnqueueRequestForObject{})
-}
-
-func (r *Reconciler) enqueueRequestsFromVMIP(ctx context.Context, obj client.Object) []reconcile.Request {
-	vmip, ok := obj.(*virtv2.VirtualMachineIPAddress)
-	if !ok {
-		return nil
-	}
-
-	if vmip.Status.Address == "" {
-		return nil
-	}
-
-	var requests []reconcile.Request
-
-	var vmiplList virtv2.VirtualMachineIPAddressLeaseList
-	err := r.client.List(ctx, &vmiplList, &client.ListOptions{})
-	if err != nil {
-		slog.Default().Error(fmt.Sprintf("failed to list vmipl: %s", err))
-		return requests
-	}
-
-	for _, vmipl := range vmiplList.Items {
-		if vmipl.Spec.VirtualMachineIPAddressRef == nil {
-			continue
-		}
-
-		if vmipl.Spec.VirtualMachineIPAddressRef.Name == obj.GetName() {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name: vmipl.Name,
-				},
-			})
+	for _, w := range []Watcher{
+		watcher.NewVirtualMachineIPAddressLeaseWatcher(),
+		watcher.NewVirtualMachineIPAddressWatcher(mgr.GetClient()),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("faield to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
 		}
 	}
 
-	return requests
+	return nil
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	lease := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
-	var err error
-	err = lease.Fetch(ctx)
+	err := lease.Fetch(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -119,29 +78,29 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	s := state.New(r.client, lease.Changed())
-
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
-		return h.Handle(ctx, s)
+		return h.Handle(ctx, lease.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
+		var specToUpdate *virtv2.VirtualMachineIPAddressLeaseSpec
 		if !reflect.DeepEqual(lease.Current().Spec, lease.Changed().Spec) {
-			leaseStatus := lease.Changed().Status.DeepCopy()
-			err = r.client.Update(ctx, lease.Changed())
-			if err != nil {
-				return fmt.Errorf("failed to update spec: %w", err)
-			}
-			lease.Changed().Status = *leaseStatus
+			specToUpdate = lease.Changed().Spec.DeepCopy()
 		}
+
+		lease.Changed().Status.ObservedGeneration = lease.Changed().GetGeneration()
 
 		err = lease.Update(ctx)
-		if err != nil {
-			return err
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return fmt.Errorf("update status: %w", err)
 		}
 
-		if s.ShouldDeletion() {
-			return r.client.Delete(ctx, lease.Changed())
+		if specToUpdate != nil {
+			lease.Changed().Spec = *specToUpdate
+			err = r.client.Update(ctx, lease.Changed())
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return fmt.Errorf("update spec: %w", err)
+			}
 		}
 
 		return nil
