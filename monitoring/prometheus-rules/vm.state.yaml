@@ -28,12 +28,12 @@
           2. Choose one of the following options depending on your setup:
             #### Option A: Evict the VM to another node (live migration):
             ```bash
-            d8 v -n {{ $labels.namespace }} evict vm {{ $labels.name }}
+            d8 v -n {{ $labels.namespace }} evict {{ $labels.name }}
             ```
             > Requires live migration support.
             #### Option B: Reboot the VM:
             ```bash
-            d8 v -n {{ $labels.namespace }} restart vm {{ $labels.name }}
+            d8 v -n {{ $labels.namespace }} restart {{ $labels.name }}
             ```
             > Simpler, but causes downtime unless guest OS supports ACPI shutdown/restart.
           3. After migration or reboot, the VM will use the updated firmware automatically.
