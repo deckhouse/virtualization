@@ -210,7 +210,7 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 			return nil
 		}
 
-		return fmt.Errorf("error patching metadata: %w", err)
+		return fmt.Errorf("error patching metadata (%s): %w", string(metadataPatchBytes), err)
 	}
 
 	return nil
@@ -218,7 +218,6 @@ func (r *Resource[T, ST]) Update(ctx context.Context) error {
 
 func (r *Resource[T, ST]) JSONPatchOpsForFinalizers() []patch.JsonPatchOperation {
 	return []patch.JsonPatchOperation{
-		patch.NewJsonPatchOperation(patch.PatchTestOp, "/metadata/finalizers", r.currentObj.GetFinalizers()),
 		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", r.changedObj.GetFinalizers()),
 	}
 }

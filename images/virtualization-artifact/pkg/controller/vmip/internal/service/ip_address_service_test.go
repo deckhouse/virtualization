@@ -22,63 +22,49 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 var _ = Describe("IpAddressService", func() {
 	var (
 		ipService    *IpAddressService
 		allocatedIPs ip.AllocatedIPs
-		logger       *log.Logger
 	)
 
 	BeforeEach(func() {
 		virtualMachineCIDRs := []string{"192.168.1.0/24"}
-		ipService = NewIpAddressService(logger, virtualMachineCIDRs)
+		var err error
+		ipService, err = NewIpAddressService(virtualMachineCIDRs, nil, nil)
+		Expect(err).To(BeNil())
 		allocatedIPs = make(ip.AllocatedIPs)
 	})
 
 	Describe("IsAvailableAddress", func() {
 		Context("with a valid and available IP address", func() {
 			It("should return no error", func() {
-				err := ipService.IsAvailableAddress("192.168.1.10", allocatedIPs)
+				err := ipService.IsInsideOfRange("192.168.1.10")
 				Expect(err).To(BeNil())
 			})
 		})
 
 		Context("with an invalid IP address", func() {
 			It("should return an error", func() {
-				err := ipService.IsAvailableAddress("invalid-ip", allocatedIPs)
+				err := ipService.IsInsideOfRange("invalid-ip")
 				Expect(err).To(HaveOccurred())
 			})
 		})
 
 		Context("with an already allocated IP address", func() {
 			It("should return ErrIPAddressAlreadyExist", func() {
-				ref := virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
-					Name:      "test",
-					Namespace: "test",
-				}
-
-				spec := virtv2.VirtualMachineIPAddressLeaseSpec{
-					VirtualMachineIPAddressRef: &ref,
-				}
-
-				lease := &virtv2.VirtualMachineIPAddressLease{
-					Spec: spec,
-				}
-
-				allocatedIPs["192.168.1.10"] = lease
-				err := ipService.IsAvailableAddress("192.168.1.10", allocatedIPs)
+				allocatedIPs["192.168.1.10"] = struct{}{}
+				err := ipService.IsInsideOfRange("192.168.1.10")
 				Expect(err).To(Equal(ErrIPAddressAlreadyExist))
 			})
 		})
 
 		Context("with an IP address out of range", func() {
 			It("should return ErrIPAddressOutOfRange", func() {
-				err := ipService.IsAvailableAddress("10.0.0.1", allocatedIPs)
+				err := ipService.IsInsideOfRange("10.0.0.1")
 				Expect(err).To(Equal(ErrIPAddressOutOfRange))
 			})
 		})
@@ -97,8 +83,9 @@ var _ = Describe("IpAddressService", func() {
 		Context("when there are no available IP addresses in the range", func() {
 			It("should return an error", func() {
 				virtualMachineCIDRs := []string{"192.168.1.0/31"}
-				ipService := NewIpAddressService(logger, virtualMachineCIDRs)
-				_, err := ipService.AllocateNewIP(allocatedIPs)
+				ipService, err := NewIpAddressService(virtualMachineCIDRs, nil, nil)
+				Expect(err).To(BeNil())
+				_, err = ipService.AllocateNewIP(allocatedIPs)
 				Expect(err).To(MatchError("no remaining ips"))
 			})
 		})

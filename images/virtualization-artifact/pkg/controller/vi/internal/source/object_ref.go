@@ -501,7 +501,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vi *virtv2.VirtualIm
 		}
 
 		if viRef == nil {
-			return fmt.Errorf("VI object ref source %s is nil", vi.Spec.DataSource.ObjectRef.Name)
+			return NewImageNotReadyError(vi.Spec.DataSource.ObjectRef.Name)
 		}
 
 		if viRef.Spec.Storage == virtv2.StorageKubernetes || viRef.Spec.Storage == virtv2.StoragePersistentVolumeClaim {

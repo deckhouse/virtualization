@@ -19,80 +19,36 @@ package internal
 import (
 	"context"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
-const ProtectionHandlerName = "ProtectionHandler"
+type ProtectionHandler struct{}
 
-type ProtectionHandler struct {
-	client client.Client
+func NewProtectionHandler() *ProtectionHandler {
+	return &ProtectionHandler{}
 }
 
-func NewProtectionHandler(client client.Client) *ProtectionHandler {
-	return &ProtectionHandler{
-		client: client,
-	}
-}
+func (h *ProtectionHandler) Handle(_ context.Context, vmip *virtv2.VirtualMachineIPAddress) (reconcile.Result, error) {
+	controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
 
-func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMIPState) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler(ProtectionHandlerName))
-
-	vmip := state.VirtualMachineIP()
-
-	configuredVms, err := h.getConfiguredVM(ctx, vmip)
-	if err != nil {
-		return reconcile.Result{}, err
+	// 1. The vmip has a finalizer throughout its lifetime to prevent it from being deleted without prior processing by the controller.
+	if vmip.GetDeletionTimestamp() == nil {
+		return reconcile.Result{}, nil
 	}
 
-	switch {
-	case len(configuredVms) == 0:
-		log.Debug("Allow VirtualMachineIPAddress deletion: remove protection finalizer")
-		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
-	case vmip.DeletionTimestamp == nil:
-		log.Debug("Protect VirtualMachineIPAddress from deletion")
-		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
-	default:
-		log.Debug("VirtualMachineIPAddress deletion is delayed: it's protected by virtual machines")
+	// 2. It is necessary to keep vmip protected until we can unequivocally ensure that the resource is not in the Attached state.
+	attachedCondition, _ := conditions.GetCondition(vmipcondition.AttachedType, vmip.Status.Conditions)
+	if attachedCondition.Status == metav1.ConditionTrue || !conditions.IsLastUpdated(attachedCondition, vmip) {
+		return reconcile.Result{}, nil
 	}
 
-	vm := state.VirtualMachine()
-
-	if vm == nil || vm.DeletionTimestamp != nil {
-		log.Info("VirtualMachineIP is no longer attached to any VM: remove cleanup finalizer", "VirtualMachineIPName", vmip.Name)
-		controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
-	} else if vmip.GetDeletionTimestamp() == nil {
-		log.Info("VirtualMachineIP is still attached, finalizer added", "VirtualMachineIPName", vmip.Name)
-		controllerutil.AddFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
-	}
-
+	// 3. All checks have passed, the resource can be deleted.
+	controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
 	return reconcile.Result{}, nil
-}
-
-func (h *ProtectionHandler) Name() string {
-	return ProtectionHandlerName
-}
-
-func (h *ProtectionHandler) getConfiguredVM(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) ([]virtv2.VirtualMachine, error) {
-	var vms virtv2.VirtualMachineList
-	err := h.client.List(ctx, &vms, &client.ListOptions{
-		Namespace: vmip.Namespace,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var configuredVms []virtv2.VirtualMachine
-	for _, vm := range vms.Items {
-		if vm.Spec.VirtualMachineIPAddress == vmip.Name && vm.Status.Phase != virtv2.MachineTerminating {
-			configuredVms = append(configuredVms, vm)
-		}
-	}
-
-	return configuredVms, nil
 }

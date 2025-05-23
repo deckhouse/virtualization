@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -46,7 +47,7 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 	v.log.Info("Validate VirtualMachineIpAddressLease creating", "name", lease.Name)
 
 	if !isValidAddressFormat(ip.LeaseNameToIP(lease.Name)) {
-		return nil, fmt.Errorf("the lease address is not a valid textual representation of an IP address")
+		return nil, fmt.Errorf("the VirtualMachineIpAddressLease address is not a valid textual representation of an IP address")
 	}
 
 	return nil, nil

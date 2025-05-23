@@ -25,7 +25,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
 const AnnoIPAddressCNIRequest = "cni.cilium.io/ipAddress"
@@ -41,7 +43,13 @@ func (m IPAM) IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool 
 		return false
 	}
 
-	if vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseBound && vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseAttached {
+	boundCondition, _ := conditions.GetCondition(vmipcondition.BoundType, vmip.Status.Conditions)
+	if boundCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(boundCondition, vmip) {
+		return false
+	}
+
+	attachedCondition, _ := conditions.GetCondition(vmipcondition.AttachedType, vmip.Status.Conditions)
+	if attachedCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(attachedCondition, vmip) {
 		return false
 	}
 
