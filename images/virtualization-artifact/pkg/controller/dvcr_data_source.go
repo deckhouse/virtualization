@@ -26,7 +26,10 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type DVCRDataSource struct {
@@ -56,11 +59,13 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 			}
 
 			if vmi != nil {
+				readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, vmi.Status.Conditions)
+
 				dsDVCR.uid = vmi.UID
 				dsDVCR.size = vmi.Status.Size
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
-				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, vmi)
 				dsDVCR.target = vmi.Status.Target.RegistryURL
 			}
 		}
@@ -73,11 +78,13 @@ func NewDVCRDataSourcesForCVMI(ctx context.Context, ds virtv2.ClusterVirtualImag
 			}
 
 			if cvmi != nil {
+				readyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, cvmi.Status.Conditions)
+
 				dsDVCR.uid = cvmi.UID
 				dsDVCR.size = cvmi.Status.Size
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
-				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, cvmi)
 				dsDVCR.target = cvmi.Status.Target.RegistryURL
 			}
 		}
@@ -108,11 +115,13 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 					return DVCRDataSource{}, fmt.Errorf("the DVCR not used for virtual images with storage type '%s'", vmi.Spec.Storage)
 				}
 
+				readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, vmi.Status.Conditions)
+
 				dsDVCR.uid = vmi.UID
 				dsDVCR.size = vmi.Status.Size
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
-				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, vmi)
 				dsDVCR.target = vmi.Status.Target.RegistryURL
 			}
 		}
@@ -125,11 +134,13 @@ func NewDVCRDataSourcesForVMI(ctx context.Context, ds virtv2.VirtualImageDataSou
 			}
 
 			if cvmi != nil {
+				readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, cvmi.Status.Conditions)
+
 				dsDVCR.uid = cvmi.UID
 				dsDVCR.size = cvmi.Status.Size
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
-				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, cvmi)
 				dsDVCR.target = cvmi.Status.Target.RegistryURL
 			}
 		}
@@ -156,11 +167,13 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 			}
 
 			if vmi != nil {
+				readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, vmi.Status.Conditions)
+
 				dsDVCR.uid = vmi.UID
 				dsDVCR.size = vmi.Status.Size
 				dsDVCR.format = vmi.Status.Format
 				dsDVCR.meta = vmi.GetObjectMeta()
-				dsDVCR.isReady = vmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, vmi)
 				dsDVCR.target = vmi.Status.Target.RegistryURL
 			}
 		}
@@ -173,11 +186,13 @@ func NewDVCRDataSourcesForVMD(ctx context.Context, ds *virtv2.VirtualDiskDataSou
 			}
 
 			if cvmi != nil {
+				readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, cvmi.Status.Conditions)
+
 				dsDVCR.uid = cvmi.UID
 				dsDVCR.size = cvmi.Status.Size
 				dsDVCR.meta = cvmi.GetObjectMeta()
 				dsDVCR.format = cvmi.Status.Format
-				dsDVCR.isReady = cvmi.Status.Phase == virtv2.ImageReady
+				dsDVCR.isReady = readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, cvmi)
 				dsDVCR.target = cvmi.Status.Target.RegistryURL
 			}
 		}
