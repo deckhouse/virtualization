@@ -7,24 +7,24 @@ image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
 fromImage: {{ include "ImageName" (tuple . "base-alt-p11") }}
 git:
-- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/build.sh
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/build.sh
   to: /build.sh
   stageDependencies:
     setup:
       - build.sh
-- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/logo/Logo.bmp
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/logo/Logo.bmp
   to: /Logo.bmp
   stageDependencies:
     setup:
       - '**/*'
-- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/json
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/json
   to: /FIRMWARE
   includePaths:
   - '*.json'
   stageDependencies:
     setup:
       - '*.json'
-- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}/uefi-revocation-list
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/uefi-revocation-list
   to: /FIRMWARE
   includePaths:
   - '*.bin'

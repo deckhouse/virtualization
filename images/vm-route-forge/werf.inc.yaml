@@ -3,7 +3,7 @@ image: {{ include "ImageName" (tuple . .ImageName "builder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
   to: /app/images/vm-route-forge
   stageDependencies:
     install:
@@ -11,7 +11,7 @@ git:
     - go.sum
     setup:
     - "**/*.go"
-- add: {{ include "GitPath" . }}/api
+- add: {{ include "PreffixPath" . }}/api
   to: /app/api
   stageDependencies:
     setup:

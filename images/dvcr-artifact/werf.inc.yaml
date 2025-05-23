@@ -3,7 +3,7 @@ image: {{ include "ImageName" (tuple . .ImageName "builder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-- add: {{ include "GitPath" . }}/images/{{ $.ImageName }}
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
   to: /src
   stageDependencies:
     install:

@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageType }}/{{ $.ImageName }}
+image: {{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+- image: {{ $.ImageName }}-builder
   add: /out
   to: /dmidecode
   before: setup
@@ -21,7 +21,7 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+image: {{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 secrets:

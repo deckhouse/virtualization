@@ -1,14 +1,19 @@
 {{/*
-Add .ModulePath }}modules/999-{{ .ModuleName }} if set .ModulePath 
+Add {{.ModulePath }}modules/999-{{ .ModuleName }} if set .ModulePath 
 
-Usage "GitPath":
+Usage "PreffixPath":
 
 git:
-- add: {{ include "GitPath" . }}/{{ $.ImageName }}
-- add: {{ include "GitPath" . }}/src
+- add: {{ include "PreffixPath" . }}/{{ $.ImageName }}
+# /modules/999-virtualization/{{ $.ImageName }}
+# /{{ $.ImageName }}
+
+- add: {{ include "PreffixPath" . }}/src
+# /modules/999-virtualization/src
+# /src
 */}}
 
-{{ define "GitPath" }}
+{{ define "PreffixPath" }}
 {{-   $FullPath := "" -}}
 {{-   if .ModuleName -}}
 {{-     $FullPath = (printf "/modules/%s-%s" .ModulePriority .ModuleName) -}}
@@ -16,7 +21,7 @@ git:
 {{-       $FullPath = (printf "%smodules/%s-%s" .ModulePath .ModulePriority .ModuleName) -}}
 {{-     end -}}
 {{-   end -}}
-{{    print $FullPath }}
+{{-   $FullPath -}}
 {{ end }}
 
 {{/*
