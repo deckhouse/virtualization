@@ -74,32 +74,32 @@ shell:
     go mod vendor
 
   setup:
-  - mkdir /kubevirt-binaries
-  - mkdir /kubevirt-config-files
-  - cd /kubevirt
+    - mkdir /kubevirt-binaries
+    - mkdir /kubevirt-config-files
+    - cd /kubevirt
 
-  - echo "Create .version file"
-  - echo "v{{ $version }}-dirty" > /kubevirt-config-files/.version
+    - echo "Create .version file"
+    - echo "v{{ $version }}-dirty" > /kubevirt-config-files/.version
 
-  - echo "Create group file"
-  - |
-    GROUP_FILE=/kubevirt-config-files/group
-    echo "qemu:x:107:" > $GROUP_FILE
-    echo "root:x:0:" >> $GROUP_FILE
-    echo "nonroot-user:x:1001:" >> $GROUP_FILE
-    chmod 0644 $GROUP_FILE
+    - echo "Create group file"
+    - |
+      GROUP_FILE=/kubevirt-config-files/group
+      echo "qemu:x:107:" > $GROUP_FILE
+      echo "root:x:0:" >> $GROUP_FILE
+      echo "nonroot-user:x:1001:" >> $GROUP_FILE
+      chmod 0644 $GROUP_FILE
 
-  - echo "Create passwd file"
-  - |
-    PASSWD_FILE=/kubevirt-config-files/passwd
-    echo "qemu:x:107:107:user:/home/qemu:/bin/bash" > $PASSWD_FILE
-    echo "root:x:0:0:root:/root:/bin/bash" >> $PASSWD_FILE
-    echo "nonroot-user:x:1001:1001::/home/nonroot-user:/bin/bash" >> $PASSWD_FILE
-    chmod 0644 $PASSWD_FILE
+    - echo "Create passwd file"
+    - |
+      PASSWD_FILE=/kubevirt-config-files/passwd
+      echo "qemu:x:107:107:user:/home/qemu:/bin/bash" > $PASSWD_FILE
+      echo "root:x:0:0:root:/root:/bin/bash" >> $PASSWD_FILE
+      echo "nonroot-user:x:1001:1001::/home/nonroot-user:/bin/bash" >> $PASSWD_FILE
+      chmod 0644 $PASSWD_FILE
 
-  - export GOOS=linux
-  - export GOARCH=amd64
-  - export CGO_ENABLED=0
+    - export GOOS=linux
+    - export GOARCH=amd64
+    - export CGO_ENABLED=0
 
     - echo ============== Build container-disk ===================
     {{- $_ := set $ "ProjectName" (list $.ImageName "container-disk" | join "/") }}
