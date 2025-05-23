@@ -9,7 +9,7 @@ git:
 */}}
 
 {{ define "GitPath" }}
-{{-   if .ModulePath -}}
+{{-   if .ModuleName -}}
 /{{      .ModulePath }}modules/999-{{ .ModuleName }}
 {{-   end -}}
 {{ end }}
