@@ -22,10 +22,10 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
+  {{- include "debian packages proxy" . | nindent 2 }}
   - |
     apt-get install --yes libnbd-dev
-  {{- include "alt packages clean" . | nindent 2 }}
+  {{- include "debian packages clean" . | nindent 2 }}
 
   install:
   - |
