@@ -3,20 +3,18 @@
 {{- $gitRepoUrl := "kubevirt/containerized-data-importer.git" }}
 
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
 git:
-  - add: /images/{{ $.ImageName }}
-    to: /
+  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/patches
+    to: /patches
     stageDependencies:
       install:
         - '**/*'
-    includePaths:
-      - patches
     excludePaths:
       - patches/README.md
 secrets:
@@ -24,10 +22,10 @@ secrets:
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
-  {{- include "alt packages proxy" . | nindent 2 }}
+  {{- include "debian packages proxy" . | nindent 2 }}
   - |
     apt-get install --yes libnbd-dev
-  {{- include "alt packages clean" . | nindent 2 }}
+  {{- include "debian packages clean" . | nindent 2 }}
 
   install:
   - |
@@ -101,12 +99,12 @@ shell:
   - ls -la /cdi-binaries
 
 ---
-image: {{ $.ImageName }}-cbuilder
+image: {{ include "ImageName" (tuple . .ImageName "cbuilder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}/static_binaries
-    to: /
+  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/static_binaries
+    to: /static_binaries
     stageDependencies:
       install:
         - '*.c'
@@ -117,6 +115,7 @@ shell:
     apt-get install --yes musl-dev musl-tools
   {{- include "debian packages clean" . | nindent 2 }}
   - |
+    cd /static_binaries
     echo "Building simple app that prints hello cdi"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/hello hello.c

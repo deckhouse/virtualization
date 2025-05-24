@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ include "ImageName" (tuple . .ImageName) }}
+fromImage: {{ include "ImageName" (tuple . "distroless") }}
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ include "ImageName" (tuple . .ImageName "bins") }}
   add: /relocate
   to: /
   before: setup
@@ -20,9 +20,9 @@ packages:
 
 {{ $cdiClonerDependencies := include "cdi-controller-deps" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ include "ImageName" (tuple . .ImageName "bins") }}
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11" "binaries") }}
 import:
 - image: tools/util-linux
   add: /
@@ -30,13 +30,13 @@ import:
   after: setup
   includePaths:
   - sbin/blockdev
-- image: cdi-artifact-cbuilder
+- image: {{ include "ImageName" (tuple . "cdi-artifact" "cbuilder") }}
   add: /bins
   to: /relocate/usr/bin
   after: setup
   includePaths:
   - printFile
-- image: cdi-artifact
+- image: {{ include "ImageName" (tuple . "cdi-artifact") }}
   add: /cdi-binaries
   to: /usr/bin
   includePaths:

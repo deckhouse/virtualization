@@ -3,11 +3,11 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
-fromImage: base-alt-p11
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11") }}
 git:
-- add: /images/{{ $.ImageName }}/
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
   to: /
   includePaths:
   - install-libvirt.sh
