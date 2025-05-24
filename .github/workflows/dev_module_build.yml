@@ -472,8 +472,8 @@ jobs:
       - uses: deckhouse/modules-actions/svace_analyze@svace-analyze
         with:
           project_group: ${{ github.event.repository.name }}
-          ci_commit_ref_name: ${{ github.ref_name }}
-          ci_commit_hash: ${{ github.sha }}
+          ci_commit_ref_name: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          ci_commit_hash: ${{ github.event.pull_request.head.sha || github.sha }}
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
           svacer_url: "${{ secrets.SVACER_URL }}"
