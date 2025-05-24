@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}
+image: {{ $.PackagePath}}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageName }}-builder
+- image: {{ $.PackagePath}}/{{ $.ImageName }}-builder
   add: /out
   to: /openssl
   before: setup
@@ -23,7 +23,7 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-builder
+image: {{ $.PackagePath}}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 secrets:
