@@ -853,13 +853,22 @@ d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
 
 ### Configuring CPU and coreFraction
 
-When you create a virtual machine (VM), you can customize how much CPU resources it will use by using the `cores` and `coreFraction` parameters. These parameters determine how many virtual cores the VM “sees” and what minimum fraction of their power it is guaranteed to receive.
+When creating a virtual machine, you can configure how much CPU resources it will use using the `cores` and `coreFraction` parameters.
+The `cores` parameter specifies the number of virtual CPU cores allocated to the VM.
+The `coreFraction` parameter specifies the guaranteed minimum share of processing power allocated to each core.
 
 {{< alert level="warning">}}
 Available `coreFraction` values may be defined in the VirtualMachineClass resource for a given range of cores (`cores`), in which case only those values may be used.
 {{< /alert >}}
 
-The `cores` parameter specifies the number of virtual processor cores available to the VM. For example, if you specify `cores: 2`, the VM will run as if it has two cores. The `coreFraction` parameter specifies the minimum guaranteed power share of each core in percent. For example, with `coreFraction: 10%` the VM will always get at least 10% of each core's performance, even if the node (physical server) is heavily loaded. If the node has free resources, however, the VM can use up to 100% of each core's power, maximizing performance.
+Let's look at an example:
+If you specify `cores: 2`, the VM will be allocated two virtual cores corresponding to the two physical cores of the hypervisor.
+If `coreFraction: 20%`, the VM is guaranteed to receive at least 20% of the processing power of each core, regardless of the hypervisor node utilization. At the same time, if there are free resources on the node, the VM can use up to 100% of each core's power to maximize performance.
+Thus, the VM is guaranteed to receive 0.2 CPUs of each physical core and can utilize up to 100% of the power of two cores (2 CPUs) if there are idle resources on the node.
+
+{{< alert level="info">}}
+If the `coreFraction` parameter is not defined, each VM virtual core is allocated 100% of the physical hypervisor CPU core.
+{{{< /alert >}}
 
 Let's look at an example configuration:
 ```yaml
@@ -868,13 +877,11 @@ spec:
     cores: 2
     coreFraction: 10%
 ```
-In this case, the VM “sees” two virtual cores and is guaranteed to receive power equivalent to 20% of one physical core (0.2 CPUs). If there are unused resources on the node, the VM can utilize up to 100% of the power of the two cores (2 CPUs).
-
 {{< alert level="info">}}
-This approach is similar to overcommitment of CPU resources, where a VM can use more power than reserved if resources are available. But coreFraction guarantees the VM the requested amount of resources. This makes VM performance stable even under high cluster load.
-{{< /alert >}}
+This approach allows for stable VM performance even under high load under conditions of CPU resource oversubscription, where more cores are allocated to virtual machines than are available on the hypervisor.
+{{{< /alert >}}
 
-The `cores` and `coreFraction` parameters are taken into account when planning VM placement on nodes. The guaranteed capacity (minimum share of each core) is considered while selecting a node so that it can provide the required performance for all the VMs. If a node does not have sufficient resources to fulfill the guarantees, a VM will not run on that node.
+The `cores` and `coreFraction` parameters are taken into account when planning the placement of VMs on nodes. The guaranteed capacity (minimum fraction of each core) is considered when selecting a node so that it can provide the required performance for all VMs. If a node does not have sufficient resources to fulfill the guarantees, the VM will not run on that node.
 
 Visualization on the example of virtual machines with the following CPU configurations, when placed on the same node:
 
@@ -900,13 +907,14 @@ spec:
 
 ### Virtual Machine Resource Configuration and Sizing Policy
 
-The sizing policy in VirtualMachineClass, defined in `.spec.sizingPolicies`, defines the rules for configuring virtual machine resources, including the number of cores, memory size, and `coreFraction`. This policy is not mandatory. If it is not present, you can specify arbitrary values for resources without strict requirements. However, if a sizing policy is present, the virtual machine configuration must strictly comply with it. Otherwise, the configuration cannot be saved.`
+The sizing policy in VirtualMachineClass, defined in the `.spec.sizingPolicies` section, defines the rules for configuring virtual machine resources, including the number of cores, memory size, and core utilization fraction (`coreFraction`). This policy is not mandatory. If it is not present for a VM, you can specify arbitrary values for resources without strict requirements. However, if a sizing policy is present, the VM configuration must strictly comply with it. Otherwise, it will not be possible to save the configuration.
 
-The policy divides the number of cores (`cores`) into ranges, such as 1-4 cores or 5-8 cores. For each range, it specifies how much memory can be allocated (`memory`) and what `coreFraction` values are allowed.
+The policy divides the number of cores (`cores`) into ranges, such as 1-4 cores or 5-8 cores. For each range, it specifies how much memory can be allocated (`memory`) per core and/or what `coreFraction` values are allowed.
 
-If the VM configuration (cores, memory, or coreFraction) does not match the policy, the `type: SizingPolicyMatched, status: False` condition appears in the status.
+If the VM configuration (cores, memory, or coreFraction) does not match the policy, the status displays the condition `type: SizingPolicyMatched, status: False`.
 
-If the policy in VirtualMachineClass changes over time, existing VMs will have to adjust to the new rules, otherwise their settings cannot be saved.
+If you change the policy in VirtualMachineClass, the configuration of existing VMs may need to be changed to match the new policy.
+Virtual machines that do not comply with the new policy will continue to run, but any changes to their configuration cannot be saved until they comply with the new policy.
 
 For example:
 
@@ -929,7 +937,10 @@ spec:
       coreFractions: [20, 50, 100]
 ```
 
-If the VM uses 2 cores, it falls in the range of 1-4 cores. Then memory can be selected from 1GB to 8GB and coreFraction can only be 5%, 10%, 20%, 50% or 100%. For 6 cores, the range is 5-8 cores, where memory is from 5GB to 16GB and coreFraction is 20%, 50% or 100%.
+If the VM uses 2 cores, it falls in the range of 1-4 cores. Then memory can be selected from 1 GB to 8 GB, and coreFraction is only 5%, 10%, 20%, 50%, or 100%. For 6 cores, the range is 5-8 cores, where memory is from 5GB to 16GB and coreFraction is 20%, 50% or 100%.
+
+In addition to VM sizing, the policy also allows you to implement the desired maximum oversubscription for VMs.
+For example, by specifying `coreFraction: 20%` in the policy, you guarantee any VM at least 20% of the CPU compute resources, which would effectively define a maximum possible oversubscription of 5:1.
 
 ### Automatic CPU Topology Configuration
 
