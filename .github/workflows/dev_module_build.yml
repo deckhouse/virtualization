@@ -428,6 +428,9 @@ jobs:
           trivy_registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
       - name: Fail if CVEs were found
+        env:
+          MODULE_NAME: ${{ vars.MODULE_NAME }}
+          IMAGE_NAME: ${{needs.set_vars.outputs.modules_module_tag}}
         run: |
           report=out/json/d8_${MODULE_NAME}_${IMAGE_NAME}_report.json
           cve_count=$(cat $report | jq '.Results // [] | map(.Vulnerabilities | length) | add // 0')
