@@ -137,7 +137,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	for {
 		err := connect(ln, virtCli, cmd, namespace, vmName)
 		if err != nil {
-			if strings.Contains(err.Error(), "not found") {
+			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "could not find") {
 				return err
 			}
 
