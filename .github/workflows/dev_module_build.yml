@@ -429,7 +429,9 @@ jobs:
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
       - name: Fail if CVEs were found
         run: |
-          if [[ $(cat out/json/*.json | jq '.Results[].Vulnerabilities | length') -gt 0 ]]; then
+          report=out/json/d8_${MODULE_NAME}_${IMAGE_NAME}_report.json
+          cve_count=$(cat $report | jq '.Results // [] | map(.Vulnerabilities | length) | add // 0')
+          if [[ $cve_count -gt 0 ]]; then
             echo "::error::CVEs were found in images"
           fi
 
