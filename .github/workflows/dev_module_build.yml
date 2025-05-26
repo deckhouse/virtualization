@@ -340,7 +340,6 @@ jobs:
         with:
           ssh-private-key: |
             ${{secrets.SOURCE_REPO_SSH_KEY}}
-            ${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}
 
       - name: Add ssh_known_hosts
         run: |
