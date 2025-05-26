@@ -158,8 +158,9 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			} else {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 			}
-
 			time.Sleep(time.Second)
+		} else {
+			return nil
 		}
 	}
 }
@@ -283,8 +284,11 @@ func connect(ln *net.TCPListener, virtCli kubeclient.Client, cmd *cobra.Command,
 
 func checkAndRunVNCViewer(ctx context.Context, doneChan chan struct{}, viewResChan chan error, port int) {
 	defer close(doneChan)
-	var err error
-	args := []string{}
+	var (
+		err    error
+		output []byte
+		args   []string
+	)
 
 	vncBin := ""
 	osType := runtime.GOOS
@@ -342,7 +346,7 @@ func checkAndRunVNCViewer(ctx context.Context, doneChan chan struct{}, viewResCh
 		klog.V(4).Infof("Executing commandline: '%s %v'", vncBin, args)
 		// #nosec No risk for attacket injection. vncBin and args include predefined strings
 		cmd := exec.CommandContext(ctx, vncBin, args...)
-		output, err := cmd.CombinedOutput()
+		output, err = cmd.CombinedOutput()
 		if err != nil {
 			klog.Errorf("%s execution failed: %v, output: %v", vncBin, err, string(output))
 		} else {
