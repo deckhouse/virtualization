@@ -18,60 +18,84 @@ package internal
 
 import (
 	"context"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal/state"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
-const LifecycleHandlerName = "LifecycleHandler"
-
-type LifecycleHandler struct{}
-
-func NewLifecycleHandler() *LifecycleHandler {
-	return &LifecycleHandler{}
+type LifecycleHandler struct {
+	client client.Client
 }
 
-func (h *LifecycleHandler) Handle(ctx context.Context, state state.VMIPLeaseState) (reconcile.Result, error) {
-	lease := state.VirtualMachineIPAddressLease()
-	leaseStatus := &lease.Status
-
-	if state.ShouldDeletion() || lease.DeletionTimestamp != nil {
-		return reconcile.Result{}, nil
+func NewLifecycleHandler(client client.Client) *LifecycleHandler {
+	return &LifecycleHandler{
+		client: client,
 	}
+}
 
-	cb := conditions.NewConditionBuilder(vmiplcondition.BoundType).
-		Generation(lease.GetGeneration()).
-		Reason(conditions.ReasonUnknown).
-		Status(metav1.ConditionUnknown)
+func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMachineIPAddressLease) (reconcile.Result, error) {
+	cb := conditions.NewConditionBuilder(vmiplcondition.BoundType).Generation(lease.GetGeneration())
 
-	vmip, err := state.VirtualMachineIPAddress(ctx)
+	vmipKey := types.NamespacedName{Name: lease.Spec.VirtualMachineIPAddressRef.Name, Namespace: lease.Spec.VirtualMachineIPAddressRef.Namespace}
+	vmip, err := object.FetchObject(ctx, vmipKey, h.client, &virtv2.VirtualMachineIPAddress{})
 	if err != nil {
-		return reconcile.Result{}, err
+		cb.
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Message(fmt.Sprintf("Failed to fetch VirtualMachineIPAddress: %s.", err))
+		conditions.SetCondition(cb, &lease.Status.Conditions)
+		return reconcile.Result{}, fmt.Errorf("fetch vmip %s: %w", vmipKey, err)
 	}
 
-	if vmip != nil {
-		leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
-		cb.Status(metav1.ConditionTrue).
-			Reason(vmiplcondition.Bound)
-		conditions.SetCondition(cb, &leaseStatus.Conditions)
-
+	// Lease is Bound, if there is a vmip with matched Ref.
+	if isBound(lease, vmip) {
+		annotations.AddLabel(lease, annotations.LabelVirtualMachineIPAddressUID, string(vmip.UID))
+		lease.Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vmiplcondition.Bound).
+			Message("")
+		conditions.SetCondition(cb, &lease.Status.Conditions)
 	} else {
-		leaseStatus.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
-		cb.Status(metav1.ConditionFalse).
+		annotations.AddLabel(lease, annotations.LabelVirtualMachineIPAddressUID, "")
+		if lease.Spec.VirtualMachineIPAddressRef != nil {
+			lease.Spec.VirtualMachineIPAddressRef.Name = ""
+		}
+
+		lease.Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
+		cb.
+			Status(metav1.ConditionFalse).
 			Reason(vmiplcondition.Released).
-			Message("VirtualMachineIPAddressLease is not used by any VirtualMachineIPAddress")
-		conditions.SetCondition(cb, &leaseStatus.Conditions)
+			Message("VirtualMachineIPAddressLease is not bound to any VirtualMachineIPAddress.")
+		conditions.SetCondition(cb, &lease.Status.Conditions)
 	}
 
-	leaseStatus.ObservedGeneration = lease.GetGeneration()
 	return reconcile.Result{}, nil
 }
 
-func (h *LifecycleHandler) Name() string {
-	return LifecycleHandlerName
+func isBound(lease *virtv2.VirtualMachineIPAddressLease, vmip *virtv2.VirtualMachineIPAddress) bool {
+	if lease == nil || vmip == nil {
+		return false
+	}
+
+	vmipRef := lease.Spec.VirtualMachineIPAddressRef
+	if vmipRef == nil || vmip.Name != vmipRef.Name || vmip.Namespace != vmipRef.Namespace {
+		return false
+	}
+
+	if vmip.Status.Address != "" && vmip.Status.Address != ip.LeaseNameToIP(lease.Name) {
+		return false
+	}
+
+	return true
 }

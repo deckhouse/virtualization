@@ -53,6 +53,7 @@ runs:
           ci:low
           docs
           network
+          cli
 
     # Patch-version YAML changelog
     - name: Write Changelog YAML

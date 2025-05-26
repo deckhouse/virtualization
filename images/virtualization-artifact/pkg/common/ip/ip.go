@@ -19,15 +19,13 @@ package ip
 import (
 	"net"
 	"strings"
-
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const ipPrefix = "ip-"
 
-type AllocatedIPs map[string]*virtv2.VirtualMachineIPAddressLease
+type AllocatedIPs map[string]struct{}
 
-// IpToLeaseName generate the Virtual Machine IP Address Lease's name from the ip address
+// IpToLeaseName generate the Virtual Machine IP Address Lease's name from the ip address.
 func IpToLeaseName(ip string) string {
 	addr := net.ParseIP(ip)
 	if addr.To4() != nil {
@@ -38,7 +36,7 @@ func IpToLeaseName(ip string) string {
 	return ""
 }
 
-// LeaseNameToIP generate the ip address from the Virtual Machine IP Address Lease's name
+// LeaseNameToIP generate the ip address from the Virtual Machine IP Address Lease's name.
 func LeaseNameToIP(leaseName string) string {
 	if strings.HasPrefix(leaseName, ipPrefix) && len(leaseName) > len(ipPrefix) {
 		return strings.ReplaceAll(leaseName[len(ipPrefix):], "-", ".")

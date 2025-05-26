@@ -27,8 +27,8 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
@@ -47,12 +47,16 @@ func NewController(
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
-	ipService := service.NewIpAddressService(log, virtualMachineCIDRs)
+	ipService, err := service.NewIpAddressService(virtualMachineCIDRs, mgr.GetClient(), virtClient)
+	if err != nil {
+		return nil, err
+	}
 
 	handlers := []Handler{
-		internal.NewProtectionHandler(mgr.GetClient()),
-		internal.NewIPLeaseHandler(mgr.GetClient(), ipService, recorder),
+		internal.NewBoundHandler(ipService, mgr.GetClient()),
+		internal.NewAttachedHandler(recorder, mgr.GetClient()),
 		internal.NewLifecycleHandler(recorder),
+		internal.NewProtectionHandler(),
 	}
 
 	r, err := NewReconciler(mgr.GetClient(), virtClient, handlers...)

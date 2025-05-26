@@ -160,7 +160,14 @@ func PropagateVMMetadata(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine,
 		return false, err
 	}
 
-	newLabels, labelsChanged := merger.ApplyMapChanges(destObj.GetLabels(), lastPropagatedLabels, vm.GetLabels())
+	// Add label to prevent node shutdown.
+	propagateLabels := merger.MergeLabels(
+		vm.GetLabels(),
+		map[string]string{
+			annotations.InhibitNodeShutdownLabel: "",
+		},
+	)
+	newLabels, labelsChanged := merger.ApplyMapChanges(destObj.GetLabels(), lastPropagatedLabels, propagateLabels)
 	if labelsChanged {
 		destObj.SetLabels(newLabels)
 	}

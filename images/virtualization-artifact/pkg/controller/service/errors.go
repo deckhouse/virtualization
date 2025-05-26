@@ -26,8 +26,3 @@ var (
 	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
 	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
 )
-
-var (
-	ErrIPAddressAlreadyExist = errors.New("the IP address is already allocated")
-	ErrIPAddressOutOfRange   = errors.New("the IP address is out of range")
-)

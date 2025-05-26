@@ -15,4 +15,10 @@ package:
   glib2: 2.82.5
   acl: 2.3.1
   bzip2: bzip2-1.0.8
+  libbrotli: v1.1.0
+  libburn: 1.4.6
+  libblkid: v2.41
+  libattr: v2.5.2
+  libbsd: 0.12.2
+  libaudit: v4.0.3
   file: FILE5_45

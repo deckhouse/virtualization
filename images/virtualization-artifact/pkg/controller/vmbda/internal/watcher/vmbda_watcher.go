@@ -17,7 +17,6 @@ limitations under the License.
 package watcher
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -28,14 +27,10 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type VirtualMachineBlockDeviceAttachmentWatcher struct {
-	client client.Client
-}
+type VirtualMachineBlockDeviceAttachmentWatcher struct{}
 
-func NewVirtualMachineBlockDeviceAttachmentWatcher(client client.Client) *VirtualMachineBlockDeviceAttachmentWatcher {
-	return &VirtualMachineBlockDeviceAttachmentWatcher{
-		client: client,
-	}
+func NewVirtualMachineBlockDeviceAttachmentWatcher() *VirtualMachineBlockDeviceAttachmentWatcher {
+	return &VirtualMachineBlockDeviceAttachmentWatcher{}
 }
 
 func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {

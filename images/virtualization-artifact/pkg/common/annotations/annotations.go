@@ -119,12 +119,18 @@ const (
 	// AnnAuditReason is the Kubernetes annotation for audit event reason.
 	AnnAuditReason = "authorization.k8s.io/reason"
 
+	// AnnNodeCpuFeature is the Kubevirt annotation for CPU feature.
+	AnnNodeCPUFeature = "cpu-feature.node.virtualization.deckhouse.io/"
+
 	// AppLabel is the app name label.
 	AppLabel = "app"
 	// CDILabelValue provides a constant  for CDI Pod label values.
 	CDILabelValue = "containerized-data-importer"
 	// DVCRLabelValue provides a constant  for DVCR Pod label values.
 	DVCRLabelValue = "dvcr-data-importer"
+
+	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
+	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"
 )
 
 // AddAnnotation adds an annotation to an object

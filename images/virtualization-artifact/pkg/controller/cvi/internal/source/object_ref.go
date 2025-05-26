@@ -368,7 +368,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, cvi *virtv2.ClusterV
 		}
 
 		if vdSnapshot == nil {
-			return fmt.Errorf("VDSnapshot object ref %s is nil", vdSnapshotKey)
+			return NewVirtualDiskSnapshotNotReadyError(cvi.Spec.DataSource.ObjectRef.Name)
 		}
 
 		return ds.vdSnapshotSyncer.Validate(ctx, cvi)
