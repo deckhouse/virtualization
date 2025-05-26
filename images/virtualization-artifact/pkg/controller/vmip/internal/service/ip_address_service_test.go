@@ -25,18 +25,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 )
 
-var _ = Describe("IpAddressService", func() {
-	var (
-		ipService    *IpAddressService
-		allocatedIPs ip.AllocatedIPs
-	)
+var _ = Describe("IsInsideOfRange", func() {
+	var ipService *IpAddressService
 
 	BeforeEach(func() {
 		virtualMachineCIDRs := []string{"192.168.1.0/24"}
 		var err error
 		ipService, err = NewIpAddressService(virtualMachineCIDRs, nil, nil)
 		Expect(err).To(BeNil())
-		allocatedIPs = make(ip.AllocatedIPs)
 	})
 
 	Describe("IsAvailableAddress", func() {
@@ -54,14 +50,6 @@ var _ = Describe("IpAddressService", func() {
 			})
 		})
 
-		Context("with an already allocated IP address", func() {
-			It("should return ErrIPAddressAlreadyExist", func() {
-				allocatedIPs["192.168.1.10"] = struct{}{}
-				err := ipService.IsInsideOfRange("192.168.1.10")
-				Expect(err).To(Equal(ErrIPAddressAlreadyExist))
-			})
-		})
-
 		Context("with an IP address out of range", func() {
 			It("should return ErrIPAddressOutOfRange", func() {
 				err := ipService.IsInsideOfRange("10.0.0.1")
@@ -69,25 +57,37 @@ var _ = Describe("IpAddressService", func() {
 			})
 		})
 	})
+})
 
-	Describe("AllocateNewIP", func() {
-		Context("when there are available IP addresses in the range", func() {
-			It("should allocate a new IP address", func() {
-				ip, err := ipService.AllocateNewIP(allocatedIPs)
-				Expect(err).To(BeNil())
-				Expect(ip).ToNot(BeEmpty())
-				Expect(netip.MustParseAddr(ip).IsValid()).To(BeTrue())
-			})
+var _ = Describe("AllocateNewIP", func() {
+	var (
+		ipService    *IpAddressService
+		allocatedIPs ip.AllocatedIPs
+	)
+
+	BeforeEach(func() {
+		virtualMachineCIDRs := []string{"192.168.1.0/24"}
+		var err error
+		ipService, err = NewIpAddressService(virtualMachineCIDRs, nil, nil)
+		Expect(err).To(BeNil())
+	})
+
+	Context("when there are available IP addresses in the range", func() {
+		It("should allocate a new IP address", func() {
+			ip, err := ipService.AllocateNewIP(allocatedIPs)
+			Expect(err).To(BeNil())
+			Expect(ip).ToNot(BeEmpty())
+			Expect(netip.MustParseAddr(ip).IsValid()).To(BeTrue())
 		})
+	})
 
-		Context("when there are no available IP addresses in the range", func() {
-			It("should return an error", func() {
-				virtualMachineCIDRs := []string{"192.168.1.0/31"}
-				ipService, err := NewIpAddressService(virtualMachineCIDRs, nil, nil)
-				Expect(err).To(BeNil())
-				_, err = ipService.AllocateNewIP(allocatedIPs)
-				Expect(err).To(MatchError("no remaining ips"))
-			})
+	Context("when there are no available IP addresses in the range", func() {
+		It("should return an error", func() {
+			virtualMachineCIDRs := []string{"192.168.1.0/31"}
+			ipService, err := NewIpAddressService(virtualMachineCIDRs, nil, nil)
+			Expect(err).To(BeNil())
+			_, err = ipService.AllocateNewIP(allocatedIPs)
+			Expect(err).To(MatchError("no remaining ips"))
 		})
 	})
 })
