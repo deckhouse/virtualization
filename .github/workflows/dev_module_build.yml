@@ -432,6 +432,7 @@ jobs:
           MODULE_NAME: ${{ vars.MODULE_NAME }}
           IMAGE_NAME: ${{needs.set_vars.outputs.modules_module_tag}}
         run: |
+          ls out/json
           report=out/json/d8_${MODULE_NAME}_${IMAGE_NAME}_report.json
           cve_count=$(cat $report | jq '.Results // [] | map(.Vulnerabilities | length) | add // 0')
           if [[ $cve_count -gt 0 ]]; then
