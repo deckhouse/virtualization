@@ -43,7 +43,6 @@ shell:
       git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
       cd /src
       ./autogen.sh
-      cd ../
       mkdir /build
       cd /build
 
