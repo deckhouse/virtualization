@@ -429,13 +429,18 @@ jobs:
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
       - name: Fail if CVEs were found
         run: |
+          fail_count=0
           for report in out/json/d8_*_report.json; do
+            trivy convert $report
             cve_count=$(cat $report | jq '.Results // [] | map(.Vulnerabilities | length) | add // 0')
             if [[ $cve_count -gt 0 ]]; then
-              echo "::error::CVEs were found in images"
-              exit 1
+              fail_count=$((fail_count + cve_count))
             fi
           done
+          if [[ $fail_count -gt 0 ]]; then
+            echo "Found $fail_count vulnerabilities in images"
+            exit 1
+          fi
 
   skip_e2e:
     if: ${{ github.event.label.name == 'skip/e2e' }}
