@@ -3,10 +3,10 @@ image: {{ $.ImageType }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-  - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-    add: /out
-    to: /libbrotlidec
-    before: setup
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libbrotlidec
+  before: setup
 
 ---
 {{- $version := get $.Package $.ImageName }}
@@ -25,31 +25,30 @@ image: {{ $.ImageType }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 secrets:
-  - id: SOURCE_REPO
-    value: {{ $.SOURCE_REPO_GIT }}
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
-    - |
-      apt-get update && apt-get install -y \
-        {{ $builderDependencies.packages | join " " }}
-      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+  {{- include "alt packages clean" . | nindent 2 }}
 
   install:
-    - |
-      OUTDIR=/out
-      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  - |
+    OUTDIR=/out
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
-      mkdir /build
-      cd /build
+    mkdir /build
+    cd /build
 
-      cmake -DCMAKE_BUILD_TYPE=Release \
-      -DCMAKE_INSTALL_PREFIX=/usr \
-      -DCMAKE_INSTALL_LIBDIR=/usr/lib64 \
-      /src && \
+    cmake -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=/usr/lib64 \
+    /src && \
 
-
-      make -j$(nproc)
-
-      make DESTDIR=$OUTDIR install
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
