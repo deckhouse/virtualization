@@ -200,6 +200,7 @@ shell:
       -Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
       -Dlibiscsi=disabled
 
+    {{- $_ := set . "BinaryDir" "libvirt" -}}
     {{- include "svace.build" (set $ "BuildCommand" `ninja -C build -j$(nproc)`) | indent 4 }}
 
   setup:
