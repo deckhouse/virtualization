@@ -344,32 +344,21 @@ jobs:
 
       - name: Add ssh_known_hosts
         run: |
-          hosts="${{secrets.SVACE_ANALYZE_HOST}}"
-          REPOS="${{secrets.SOURCE_REPO_GIT}}"
-
-          for repo in $REPOS; do
-              host=$(grep -oP '(?<=@)[^/:]+' <<< ${repo})
-              hosts+=" "${host}
+          HOST=$(grep -oP '(?<=@)[^/:]+' <<< ${{secrets.SOURCE_REPO_GIT}})
+          echo "::add-mask::$HOST"
+          IPS=$(nslookup "$HOST" | awk '/^Address: / { print $2 }')
+          for IP in $IPS; do
+            echo "::add-mask::$IP"
           done
-
-          for host in $hosts; do
-              host_ips=$(nslookup "$host" | awk '/^Address: / { print $2 }')
-              for host_ip in $host_ips; do
-                  echo "::add-mask::$host_ip"
-              done
-          done
-
           mkdir -p ~/.ssh
           touch ~/.ssh/known_hosts
-          for host in $hosts; do
-              HOST_KEYS=$(ssh-keyscan -H "$host" 2>/dev/null)
-              while IFS= read -r KEY_LINE; do
-                  CONSTANT_PART=$(awk '{print $2, $3}' <<< "$KEY_LINE")
-                  if ! grep -q "$CONSTANT_PART" ~/.ssh/known_hosts; then
-                      echo "$KEY_LINE" >> ~/.ssh/known_hosts
-                  fi
-              done <<< "$HOST_KEYS"
-          done
+          HOST_KEYS=$(ssh-keyscan -H "$HOST" 2>/dev/null)
+          while IFS= read -r KEY_LINE; do
+            CONSTANT_PART=$(awk '{print $2, $3}' <<< "$KEY_LINE")
+            if ! grep -q "$CONSTANT_PART" ~/.ssh/known_hosts; then
+              echo "$KEY_LINE" >> ~/.ssh/known_hosts
+            fi
+          done <<< "$HOST_KEYS"
 
       - uses: deckhouse/modules-actions/setup@v2
         with:
@@ -385,6 +374,7 @@ jobs:
           svace_enabled: ${{ inputs.svace_enabled || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+          svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
 
   pull_request_info:
     name: Get PR info
@@ -480,8 +470,6 @@ jobs:
           svacer_import_user: "${{ secrets.SVACER_IMPORT_USER }}"
           svacer_import_password: "${{ secrets.SVACER_IMPORT_PASSWORD }}"
           svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
-
-          
 
   skip_e2e:
     if: ${{ github.event.label.name == 'skip/e2e' }}
