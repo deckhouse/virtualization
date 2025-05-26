@@ -3,10 +3,10 @@ image: {{ $.ImageType }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-  - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-    add: /out
-    to: /libblkid
-    before: setup
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libblkid
+  before: setup
 
 ---
 {{- $version := get $.Package $.ImageName }}
@@ -26,35 +26,37 @@ image: {{ $.ImageType }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 secrets:
-  - id: SOURCE_REPO
-    value: {{ $.SOURCE_REPO_GIT }}
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
-    - |
-      apt-get update && apt-get install -y \
-        {{ $builderDependencies.packages | join " " }}
-      rm --recursive --force /var/lib/apt/lists/ftp.altlinux.org* /var/cache/apt/*.bin
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
 
   install:
-    - |
-      OUTDIR=/out
-      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+  - |
+    OUTDIR=/out
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-      cd /src
-      ./autogen.sh
-      mkdir /build
-      cd /build
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    cd /src
+    ./autogen.sh
+    mkdir ../build
+    cd ../build
 
-      ../src/configure \
-        --prefix=/usr \
-        --libdir=/usr/lib64 \
-        --enable-libblkid \
-        --disable-all-programs \
-        --enable-shared \
-        --disable-static \
-        --disable-examples \
+    ../src/configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --enable-libblkid \
+      --disable-all-programs \
+      --enable-shared \
+      --disable-static \
+      --disable-examples \
 
-      make -j$(nproc)
+    make -j$(nproc)
 
-      make DESTDIR=$OUTDIR install
+    make DESTDIR=$OUTDIR install
