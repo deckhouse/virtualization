@@ -1,5 +1,9 @@
 {{- define "svace.build" }}
 {{-   if eq $.SVACE_ENABLED "true" }}
+{{- if not $.BinaryDir }}
+echo "BinaryDir variable is not set, cannot run svace build"
+exit 1
+{{- end }}
 svace build --init {{ .BuildCommand }}
 attempt=0
 retries=5
