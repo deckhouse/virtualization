@@ -80,7 +80,7 @@ func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context
 		opts.Namespace = vmipRef.Namespace
 	}
 
-	var vmips virtv2.VirtualMachineIPAddressLeaseList
+	var vmips virtv2.VirtualMachineIPAddressList
 	err := w.client.List(ctx, &vmips, &opts)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vmips: %s", err))
