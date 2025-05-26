@@ -433,7 +433,6 @@ jobs:
             echo "::error::CVEs were found in images"
           fi
 
-
   skip_e2e:
     if: ${{ github.event.label.name == 'skip/e2e' }}
     runs-on: ubuntu-latest
