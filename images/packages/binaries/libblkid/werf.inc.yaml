@@ -55,7 +55,7 @@ shell:
       --disable-all-programs \
       --enable-shared \
       --disable-static \
-      --disable-examples \
+      --disable-examples
 
     make -j$(nproc)
 
