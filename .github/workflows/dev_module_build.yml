@@ -427,6 +427,12 @@ jobs:
           trivy_registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           trivy_registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
+      - name: Fail if CVEs were found
+        run: |
+          if [[ $(cat out/json/*.json | jq '.Results[].Vulnerabilities | length') -gt 0 ]]; then
+            echo "::error::CVEs were found in images"
+          fi
+
 
   skip_e2e:
     if: ${{ github.event.label.name == 'skip/e2e' }}
