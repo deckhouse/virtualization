@@ -370,6 +370,10 @@ jobs:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          svace_enabled: ${{ inputs.svace_enabled || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
+          svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
+          svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+          svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
 
   pull_request_info:
     name: Get PR info
