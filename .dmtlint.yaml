@@ -4,6 +4,7 @@ linters-settings:
       license:
         directories:
           - tests/
+  images:
     # CDI patches are soon to be phased out by moving them to 3p repo
     patches:
       disable: true
