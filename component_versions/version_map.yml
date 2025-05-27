@@ -18,4 +18,5 @@ package:
   libbrotli: v1.1.0
   libburn: 1.4.6
   libblkid: v2.41
+  libattr: v2.5.2
   file: FILE5_45
