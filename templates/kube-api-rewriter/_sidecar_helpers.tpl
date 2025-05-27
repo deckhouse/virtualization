@@ -144,7 +144,7 @@ spec:
   {{- $isWebhook := hasKey $settings "WEBHOOK_ADDRESS" -}}
 - name: {{ include "kube_api_rewriter.sidecar_name" $ctx }}
   image: {{ include "kube_api_rewriter.image" $ctx }}
-  imagePullPolicy: Always
+  imagePullPolicy: IfNotPresent
   env:
     {{- if $isWebhook }}
     - name: WEBHOOK_ADDRESS
