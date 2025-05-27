@@ -12,7 +12,7 @@
 apiVersion: {{ $apiVersion }}
 kind: ValidatingAdmissionPolicy
 metadata:
-  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization")) | nindent 2 }}
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
   name: virtualization-restricted-access-policy
 spec:
   failurePolicy: Fail
