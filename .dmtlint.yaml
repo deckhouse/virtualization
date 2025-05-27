@@ -1,5 +1,7 @@
 linters-settings:
   module:
+    oss:
+      disable: true
     exclude-rules:
       license:
         directories:
