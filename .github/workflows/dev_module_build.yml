@@ -162,7 +162,7 @@ jobs:
   lint_dmt:
     runs-on: ubuntu-latest
     continue-on-error: true
-    name: Lint
+    name: Run DMT linter
     steps:
       - uses: actions/checkout@v4
       - uses: deckhouse/modules-actions/lint@v2
