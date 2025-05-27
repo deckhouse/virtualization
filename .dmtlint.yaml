@@ -1,0 +1,6 @@
+linters-settings:
+  module:
+    exclude-rules:
+      license:
+        directories:
+          - tests/*
