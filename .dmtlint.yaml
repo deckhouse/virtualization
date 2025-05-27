@@ -3,4 +3,4 @@ linters-settings:
     exclude-rules:
       license:
         directories:
-          - tests/*
+          - tests/
