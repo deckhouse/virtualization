@@ -19,4 +19,5 @@ package:
   libburn: 1.4.6
   libblkid: v2.41
   libattr: v2.5.2
+  libbsd: 0.12.2
   file: FILE5_45
