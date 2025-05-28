@@ -9,8 +9,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_vmop_stuck_in_progress_phase: "D8VirtualizationVirtualMachineOperationStuckInProgressPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_vmop_stuck_in_progress_phase: "D8VirtualizationVirtualMachineOperationStuckInProgressPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_operation_state: "D8VirtualizationVirtualMachineOperationState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachine_operation_state: "D8VirtualizationVirtualMachineOperationState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: The VirtualMachineOperation stuck in InProgress phase for a long time.
         description: |
           The `VirtualMachineOperation` object `{{ $labels.name }}` in namespace `{{ $labels.namespace }}` has been stuck in the `InProgress` phase for more than 60 minutes.

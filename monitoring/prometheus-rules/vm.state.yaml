@@ -9,8 +9,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_firmware_out_of_date: "D8VirtualizationVirtualMachineFirmwareOutOfDate,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_virtualmachine_firmware_out_of_date: "D8VirtualizationVirtualMachineFirmwareOutOfDate,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: VirtualMachine have out of date firmware.
         description: |
           The virtual machine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has outdated firmware.
