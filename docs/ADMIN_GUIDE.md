@@ -629,7 +629,6 @@ spec:
         min: 1Gi
         max: 8Gi
         step: 512Mi
-      dedicatedCores: [false]
       coreFractions: [5, 10, 20, 50, 100]
     # For a range of 5–8 cores, it is possible to use 5–16 GB of RAM in 1 GB increments,
     # i.e., 5 GB, 6 GB, 7 GB, etc.
@@ -642,7 +641,6 @@ spec:
         min: 5Gi
         max: 16Gi
         step: 1Gi
-      dedicatedCores: [false]
       coreFractions: [20, 50, 100]
     # For a range of 9–16 cores, it is possible to use 9–32 GB of RAM in 1 GB increments.
     # You can use dedicated cores if needed.
@@ -654,7 +652,6 @@ spec:
         min: 9Gi
         max: 32Gi
         step: 1Gi
-      dedicatedCores: [true, false]
       coreFractions: [50, 100]
     # For the range of 17–248 cores, it is possible to use 1–2 GB of RAM per core.
     # Only the dedicated cores are available for use.
@@ -666,7 +663,6 @@ spec:
         perCore:
           min: 1Gi
           max: 2Gi
-      dedicatedCores: [true]
       coreFractions: [100]
 ```
 
