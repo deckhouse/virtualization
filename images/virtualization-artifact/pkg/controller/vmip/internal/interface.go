@@ -14,18 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package internal
 
 import (
+	"context"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/step"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func HasReference(vmip *virtv2.VirtualMachineIPAddress, lease *virtv2.VirtualMachineIPAddressLease) bool {
-	if vmip == nil || lease == nil {
-		return false
-	}
+//go:generate moq -rm -out mock.go . IPAddressService
 
-	vmipRef := lease.Spec.VirtualMachineIPAddressRef
+type IPAddressService interface {
+	GetLease(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error)
 
-	return vmipRef != nil && vmipRef.Name == vmip.Name && vmipRef.Namespace == vmip.Namespace
+	step.Allocator
 }
