@@ -1,6 +1,6 @@
 giterminismConfigVersion: 1
 config:
-  goTemplateRendering:	# The rules for the Go-template functions
+  goTemplateRendering:  # The rules for the Go-template functions
     allowEnvVariables: 
     - /CI_.+/
     - MODULES_MODULE_TAG

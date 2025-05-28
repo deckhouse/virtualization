@@ -1,0 +1,60 @@
+{{/*
+# Parse variables for images from their path.
+# for example: `packages/binaries/swtpm/werf.inc.yaml` turns into
+# ImageType: packages/binaries
+# ImageName: swtpm
+*/}}
+
+{{ define "process_packages_images" }}
+{{-   $Root := . }}
+
+{{- /* need change nested values Version and Packages */ -}}
+{{- $_ := set $Root "Version" dict -}}
+{{- $_ := set $Root "Packages" dict -}}
+
+{{-    $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
+{{-    range $k, $v := $versions_ctx.firmware }}
+{{-      $_ := set $Root.Version $k $v }}
+{{-    end }}
+
+{{-    range $k, $v := $versions_ctx.package }}
+{{-      $_ := set $Root.Packages $k $v }}
+{{-    end }}
+{{- /* ================== */ -}}
+
+{{-   $packagesGlob := "images/packages/*/*/werf.inc.yaml" }}
+{{-   $packagesRegex := "^images/(packages)/([0-9a-z-_]+)/([0-9a-z-_]+)/(werf.inc.yaml)$" }}
+
+{{    $ImagePackages := .Files.Glob $packagesGlob }}
+
+{{-    range $path, $content := $ImagePackages }}
+{{-      $ctx := dict }}
+{{-      $_ := set $ctx "ImageInstructionType" "Stapel" }}
+
+{{-      $ImageData := regexReplaceAll $packagesRegex $path "${1}#${2}#${3}#${4}" | split "#" }}
+
+{{-      $_ := set $ctx "PackagePath" (printf "%s/%s" $ImageData._0 $ImageData._1) }}
+{{-      $_ := set $ctx "ImageName" $ImageData._2 }}
+{{-      $_ := set $ctx "ImageBuildData" $content }}
+{{-      $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
+{{-      $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
+{{-      $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
+{{-      $_ := set $ctx "Version" $Root.Version }}
+{{-      $_ := set $ctx "Package" $Root.Packages }}
+
+{{-      include "module_image_template" $ctx }}
+
+{{-      range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
+{{-        $ImageManifest := $ImageYamlMainfest | fromYaml }}
+{{-        if $ImageManifest | dig "final" true }}
+{{-          if $ImageManifest.image }}
+{{-            $_ := set $ "ImagesIDList" (append $.ImagesIDList $ImageManifest.image) }}
+{{-          end }}
+{{-        end }}
+{{-      end }}
+
+{{-    end }}
+
+{{- end }}
+
+

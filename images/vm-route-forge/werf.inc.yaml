@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}-builder
+image: {{ include "ImageName" (tuple . .ImageName "builder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-- add: /images/{{ $.ImageName }}
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
   to: /app/images/vm-route-forge
   stageDependencies:
     install:
@@ -11,7 +11,7 @@ git:
     - go.sum
     setup:
     - "**/*.go"
-- add: /api
+- add: {{ include "PreffixPath" . }}/api
   to: /app/api
   stageDependencies:
     setup:
@@ -30,10 +30,10 @@ shell:
   - export CGO_ENABLED=0
   - go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ include "ImageName" (tuple . .ImageName) }}
+fromImage: {{ include "ImageName" (tuple . "distroless") }}
 import:
-- image: vm-route-forge-builder
+- image: {{ include "ImageName" (tuple . .ImageName "builder") }}
   add: /app/images/vm-route-forge/vm-route-forge
   to: /app/vm-route-forge
   after: install
