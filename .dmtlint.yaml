@@ -29,23 +29,20 @@ linters-settings:
           name: virtualization-controller
           namespace: d8-virtualization
           container: virtualization-controller
-        # - kind: Deployment-
-        #   name: virtualization-controller
-        #   namespace: d8-virtualization
-        #   container: kube-rbac-proxy
-        # - kind: Deployment
-        #   name: virt-operator
-        #   namespace: d8-virtualization
-        #   container: kube-rbac-proxy
-        # - kind: Deployment
-        #   name: cdi-operator
-        #   namespace: d8-virtualization
-        #   container: kube-rbac-proxy
-        # - kind: Deployment
-        #   name: dvcr
-        #   namespace: d8-virtualization
-        #   container: kube-rbac-proxy
         - kind: Deployment
+          name: virtualization-controller
+          namespace: d8-virtualization
+          container: kube-rbac-proxy
+        - kind: Deployment
+          name: virt-operator
+          namespace: d8-virtualization
+          container: kube-rbac-proxy
+        - kind: Deployment
+          name: cdi-operator
+          namespace: d8-virtualization
+          container: kube-rbac-proxy
+        - kind: Deployment
+          name: dvcr
           namespace: d8-virtualization
           container: kube-rbac-proxy
         - kind: Deployment
