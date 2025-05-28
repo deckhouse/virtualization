@@ -1,16 +1,31 @@
 ---
-image: {{ $.ImageType }}/{{ $.ImageName }}
+image: {{ $.PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+- image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /nftables
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "nftables.git" }}
+{{- $PkgImageName := (printf "%s/%s" $.PackagePath $.ImageName) }}
+
+image: {{ include "ImageName" (tuple . $PkgImageName "src-artifact") }}
+final: false
+fromImage: {{ include "PkgImageName" (tuple . "src-artifact") }}
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -24,12 +39,14 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: {{ include "ImageName" (tuple . $PkgImageName "src-artifact") }}
+  add: /src
+  to: /src
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -56,9 +73,7 @@ shell:
   install:
   - |
     OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
     cd /src
 
     ./autogen.sh

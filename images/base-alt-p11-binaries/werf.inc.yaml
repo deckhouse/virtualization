@@ -10,14 +10,12 @@ libraries:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
 final: false
 fromImage: BASE_ALT_P11
 git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    includePaths:
-    - relocate_binaries.sh
+  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/relocate_binaries.sh
+    to: /relocate_binaries.sh
 shell:
   install:
   {{- include "alt packages proxy" . | nindent 2 }}

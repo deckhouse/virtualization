@@ -3,11 +3,11 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
 final: false
-fromImage: base-alt-p11{{ $.SVACE_IMAGE_SUFFIX }}
+fromImage: builder/src
 git:
-- add: /images/{{ $.ImageName }}/
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
   to: /
   includePaths:
   - install-libvirt.sh
@@ -17,100 +17,107 @@ git:
   stageDependencies:
     install:
       - '**/*'
-    setup:
-      - install-libvirt.sh
-import:
-- image: packages/binaries/dmidecode
-  add: /dmidecode
-  to: /dmidecode
-  before: install
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /{{ $gitRepoName }}-{{ $version }}
+
+    cd /{{ $gitRepoName }}-{{ $version }}
+
+    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
+      echo "Change submodule url"
+      git submodule set-url -- subprojects/keycodemapdb $(cat /run/secrets/SOURCE_REPO)/keycodemap/keycodemapdb.git
+    fi
+
+---
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- binutils
+- gcc-c++
+- git gettext
+- bash-completion
+- clang ccache
+- make cmake
+- meson ninja-build
+- attr
+- iproute iptables iptables-nft iptables-ipv6
+- openvswitch ebtables
+- pkgconfig
+- polkit kmod
+- lvm2 parted
+- qemu-img open-iscsi
+- xml-utils xsltproc
+- systemd-container polkit
+- python3 python3-devel
+- python3-module-pytest python3-module-docutils
+- python3-tools python3-module-pip
+- python3-module-black
+- mdevctl tshark
+- util-linux dmsetup pm-utils
+libraries:
+- libudev-devel
+- libpciaccess-devel
+- libyajl-devel sanlock-devel
+- libpcap-devel libnl-devel
+- libselinux-devel libsasl2-devel
+- libssh-devel
+- libssh2-devel
+- libparted-devel
+- libdevmapper-devel
+- ceph-devel
+- libiscsi-devel libglusterfs-devel
+- libnuma-devel libcap-ng-devel
+- libcurl-devel libaudit-devel
+- libfuse-devel libnbd-devel
+- libblkid-devel libgcrypt-devel
+- libgnutls-devel libp11-kit-devel
+- libreadline-devel libtasn1-devel
+- libattr-devel libbsd-devel
+- libsystemd-devel libuuid-devel
+- libjson-c-devel systemtap-sdt-devel
+- libacl-devel glib2-devel glibc-utils
+- libgio-devel libxml2-devel
+- libtirpc-devel libsasl2-devel
+- wireshark-devel
+- zlib-devel libclocale
+- libfuse3-devel libnuma libslirp-devel
+- libyajl-devel libselinux-devel
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+image: {{ include "ImageName" (tuple . .ImageName) }}
+final: false
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11") }}{{ $.SVACE_IMAGE_SUFFIX }}
+import:
+- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+  add: /{{ $gitRepoName }}-{{ $version }}
+  to: /{{ $gitRepoName }}-{{ $version }}
+  before: install
+- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+  add: /patches
+  to: /patches
+  before: install
+- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+  add: /install-libvirt.sh
+  to: /install-libvirt.sh
+  before: install
+- image: packages/binaries/dmidecode
+  add: /dmidecode
+  to: /dmidecode
+  before: install
+shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get install --yes \
-    binutils \
-    gcc-c++ \
-    git \
-    gettext \
-    bash-completion \
-    clang \
-    ccache \
-    make cmake \
-    meson \
-    ninja-build \
-    libudev-devel \
-    libpciaccess-devel \
-    libyajl-devel \
-    sanlock-devel \
-    libpcap-devel \
-    libnl-devel \
-    libselinux-devel \
-    iproute \
-    iptables \
-    iptables-nft \
-    iptables-ipv6 \
-    openvswitch \
-    ebtables \
-    libsasl2-devel \
-    pkgconfig \
-    libssh-devel \
-    libssh2-devel \
-    polkit kmod \
-    qemu-img \
-    lvm2 \
-    libparted-devel \
-    parted \
-    libdevmapper-devel \
-    ceph-devel \
-    open-iscsi \
-    libiscsi-devel \
-    libglusterfs-devel \
-    libnuma-devel \
-    libcap-ng-devel \
-    libcurl-devel \
-    libaudit-devel \
-    libfuse-devel \
-    libnbd-devel \
-    libblkid-devel \
-    libgcrypt-devel \
-    libgnutls-devel \
-    libp11-kit-devel \
-    libreadline-devel \
-    libtasn1-devel \
-    libattr-devel \
-    libbsd-devel \
-    libsystemd-devel \
-    libuuid-devel \
-    libjson-c-devel \
-    systemtap-sdt-devel \
-    systemd-container \
-    attr \
-    libacl-devel \
-    glib2-devel \
-    glibc-utils \
-    libgio-devel \
-    libxml2-devel \
-    xml-utils \
-    xsltproc \
-    python3 python3-devel \
-    python3-module-pytest \
-    python3-module-docutils \
-    python3-tools \
-    python3-module-pip \
-    polkit \
-    libtirpc-devel \
-    libsasl2-devel \
-    wireshark-devel \
-    tshark \
-    zlib-devel \
-    mdevctl \
-    util-linux dmsetup pm-utils libclocale \
-    libfuse3-devel libnuma libslirp-devel \
-    libyajl-devel libselinux-devel
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }} \
+      {{ $builderDependencies.libraries | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
   - |
@@ -120,8 +127,6 @@ shell:
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/cc
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
-
-    pip3 install black
 
   install:
   - |
@@ -137,13 +142,7 @@ shell:
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} {{ $gitRepoName }}-{{ $version }}
-
-    cd {{ $gitRepoName }}-{{ $version }}
-    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
-      echo "Change submodule url"
-      git submodule set-url -- subprojects/keycodemapdb $(cat /run/secrets/SOURCE_REPO)/keycodemap/keycodemapdb.git
-    fi
+    cd /{{ $gitRepoName }}-{{ $version }}
 
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "

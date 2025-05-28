@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}-builder
+image: {{ include "ImageName" (tuple . .ImageName "builder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
 git:
-- add: /images/{{ $.ImageName }}
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
   to: /app/images/vm-route-forge
   stageDependencies:
     install:
@@ -11,16 +11,20 @@ git:
     - go.sum
     setup:
     - "**/*.go"
-- add: /api
+- add: {{ include "PreffixPath" . }}/api
   to: /app/api
   stageDependencies:
     setup:
     - "**/*.go"
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
 shell:
   install:
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - cd /app/images/vm-route-forge
   - go mod download
   setup:
@@ -32,10 +36,10 @@ shell:
     {{- $_ := set $ "ProjectName" (list $.ImageName "vm-route-forge" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go`) | nindent 6 }}
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ include "ImageName" (tuple . .ImageName) }}
+fromImage: {{ include "ImageName" (tuple . "distroless") }}
 import:
-- image: vm-route-forge-builder
+- image: {{ include "ImageName" (tuple . .ImageName "builder") }}
   add: /app/images/vm-route-forge/vm-route-forge
   to: /app/vm-route-forge
   after: install

@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ include "ImageName" (tuple . .ImageName) }}
+fromImage: {{ include "ImageName" (tuple . "distroless") }}
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ include "ImageName" (tuple . .ImageName "bins") }}
   add: /relocate
   to: /
   before: setup
@@ -31,9 +31,9 @@ binaries:
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ include "ImageName" (tuple . .ImageName "bins") }}
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11" "binaries") }}
 import:
 - image: tools/util-linux
   add: /
@@ -43,7 +43,7 @@ import:
   - sbin/blockdev
   - bin/mount
   - bin/umount
-- image: cdi-artifact
+- image: {{ include "ImageName" (tuple . "cdi-artifact") }}
   add: /cdi-binaries
   to: /usr/bin
   before: setup
@@ -51,7 +51,7 @@ import:
   - cdi-image-size-detection
   - cdi-importer
   - cdi-source-update-poller
-- image: qemu
+- image: {{ include "ImageName" (tuple . "qemu") }}
   add: /qemu-img
   to: /relocate
   before: setup

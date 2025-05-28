@@ -3,41 +3,93 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := "tianocore/edk2.git" }}
 
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
 final: false
-fromImage: base-alt-p11
+fromImage: {{ include "ImageName" (tuple . "src-artifact") }}
 git:
-- add: /images/{{ $.ImageName }}
-  to: /
-  includePaths:
-  - build.sh
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/build.sh
+  to: /build.sh
   stageDependencies:
-    setup:
+    install:
       - build.sh
-- add: /images/{{ $.ImageName }}/logo
-  to: /
-  includePaths:
-  - Logo.bmp
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/logo/Logo.bmp
+  to: /Logo.bmp
   stageDependencies:
-    setup:
+    install:
       - '**/*'
-- add: /images/{{ $.ImageName }}/json
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/json
   to: /FIRMWARE
   includePaths:
   - '*.json'
   stageDependencies:
-    setup:
+    install:
       - '*.json'
-- add: /images/{{ $.ImageName }}/uefi-revocation-list
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/uefi-revocation-list
   to: /FIRMWARE
   includePaths:
   - '*.bin'
   stageDependencies:
-    setup:
+    install:
       - '*.bin'
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    
+    echo "Git clone Edk2 repository..."
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoName }}-{{ $version }}
+
+    git clone $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-platforms.git
+
+    cd /{{ $gitRepoName }}-{{ $version }}
+
+    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
+      echo "Change submodule url"
+      git submodule set-url -- CryptoPkg/Library/OpensslLib/openssl $(cat /run/secrets/SOURCE_REPO)/openssl/openssl
+      git submodule set-url -- UnitTestFrameworkPkg/Library/CmockaLib/cmocka $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-cmocka.git
+      git submodule set-url -- MdeModulePkg/Universal/RegularExpressionDxe/oniguruma $(cat /run/secrets/SOURCE_REPO)/kkos/oniguruma.git
+      git submodule set-url -- MdeModulePkg/Library/BrotliCustomDecompressLib/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
+      git submodule set-url -- BaseTools/Source/C/BrotliCompress/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
+      git submodule set-url -- RedfishPkg/Library/JsonLib/jansson $(cat /run/secrets/SOURCE_REPO)/akheron/jansson.git
+      git submodule set-url -- UnitTestFrameworkPkg/Library/GoogleTestLib/googletest $(cat /run/secrets/SOURCE_REPO)/google/googletest.git
+      git submodule set-url -- UnitTestFrameworkPkg/Library/SubhookLib/subhook $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-subhook.git
+      git submodule set-url -- MdePkg/Library/BaseFdtLib/libfdt $(cat /run/secrets/SOURCE_REPO)/devicetree-org/pylibfdt.git
+      git submodule set-url -- MdePkg/Library/MipiSysTLib/mipisyst $(cat /run/secrets/SOURCE_REPO)/MIPI-Alliance/public-mipi-sys-t.git
+      git submodule set-url -- CryptoPkg/Library/MbedTlsLib/mbedtls $(cat /run/secrets/SOURCE_REPO)/Mbed-TLS/mbedtls.git
+      git submodule set-url -- SecurityPkg/DeviceSecurity/SpdmLib/libspdm $(cat /run/secrets/SOURCE_REPO)/DMTF/libspdm.git
+    fi
+
+    git submodule update --init --recursive
+
+---
+
+image: {{ include "ImageName" (tuple . .ImageName) }}
+final: false
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11") }}
+import:
+- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+  add: /{{ $gitRepoName }}-{{ $version }}
+  to: /{{ $gitRepoName }}-{{ $version }}
+  before: install
+- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+  add: /edk2-platforms
+  to: /edk2-platforms
+  before: install
+- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+  add: /FIRMWARE
+  to: /FIRMWARE
+  before: install
+- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+  add: /Logo.bmp
+  to: /Logo.bmp
+  before: install
+- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+  add: /build.sh
+  to: /build.sh
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -64,30 +116,7 @@ shell:
 
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoName }}-{{ $version }}
-    
-    git clone $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-platforms.git
-
-    cd {{ $gitRepoName }}-{{ $version }}
-    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
-      echo "Change submodule url"
-      git submodule set-url -- CryptoPkg/Library/OpensslLib/openssl $(cat /run/secrets/SOURCE_REPO)/openssl/openssl
-      git submodule set-url -- UnitTestFrameworkPkg/Library/CmockaLib/cmocka $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-cmocka.git
-      git submodule set-url -- MdeModulePkg/Universal/RegularExpressionDxe/oniguruma $(cat /run/secrets/SOURCE_REPO)/kkos/oniguruma.git
-      git submodule set-url -- MdeModulePkg/Library/BrotliCustomDecompressLib/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
-      git submodule set-url -- BaseTools/Source/C/BrotliCompress/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
-      git submodule set-url -- RedfishPkg/Library/JsonLib/jansson $(cat /run/secrets/SOURCE_REPO)/akheron/jansson.git
-      git submodule set-url -- UnitTestFrameworkPkg/Library/GoogleTestLib/googletest $(cat /run/secrets/SOURCE_REPO)/google/googletest.git
-      git submodule set-url -- UnitTestFrameworkPkg/Library/SubhookLib/subhook $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-subhook.git
-      git submodule set-url -- MdePkg/Library/BaseFdtLib/libfdt $(cat /run/secrets/SOURCE_REPO)/devicetree-org/pylibfdt.git
-      git submodule set-url -- MdePkg/Library/MipiSysTLib/mipisyst $(cat /run/secrets/SOURCE_REPO)/MIPI-Alliance/public-mipi-sys-t.git
-      git submodule set-url -- CryptoPkg/Library/MbedTlsLib/mbedtls $(cat /run/secrets/SOURCE_REPO)/Mbed-TLS/mbedtls.git
-      git submodule set-url -- SecurityPkg/DeviceSecurity/SpdmLib/libspdm $(cat /run/secrets/SOURCE_REPO)/DMTF/libspdm.git
-    fi
-
-    git submodule update --init --recursive
+    cd /{{ $gitRepoName }}-{{ $version }}
 
     # Set env edk
     export EDK_TOOLS_PATH=$(pwd)/BaseTools

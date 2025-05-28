@@ -1,21 +1,33 @@
 ---
-image: {{ $.ImageName }}
+image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
 final: false
-fromImage: builder/golang-bookworm-1.24
+fromImage: builder/src
 git:
-- add: /images/{{ $.ImageName }}
+- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
   to: /app/images/hooks
   stageDependencies:
     install:
     - go.mod
     - go.sum
-    setup:
-    - "**/*.go"
+    - '**/*.go'
+---
+image: {{ include "ImageName" (tuple . .ImageName) }}
+final: false
+fromImage: builder/golang-bookworm-1.24
+import:
+  - image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+    add: /app/images/hooks
+    to: /app/images/hooks
+    before: install
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
   install:
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - cd /app/images/hooks
   - go mod download
   setup:

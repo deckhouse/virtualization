@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ include "ImageName" (tuple . .ImageName) }}
+fromImage: {{ include "ImageName" (tuple . "distroless") }}
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ include "ImageName" (tuple . .ImageName "bins") }}
   add: /relocate
   to: /
   before: setup
@@ -21,23 +21,23 @@ binaries:
 
 {{ $virtCDIClonerDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ include "ImageName" (tuple . .ImageName "bins") }}
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ include "ImageName" (tuple . "base-alt-p11" "binaries") }}
 import:
-- image: {{ $.ImageName }}-gobuild
+- image: {{ include "ImageName" (tuple . .ImageName "gobuild") }}
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
   - cloner-startup
   before: install
-- image: cdi-artifact-cbuilder
+- image: {{ include "ImageName" (tuple . "cdi-artifact-cbuilder") }}
   add: /bins
   to: /usr/bin
   before: install
   includePaths:
   - hello
-- image: cdi-artifact
+- image: {{ include "ImageName" (tuple . "cdi-artifact") }}
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
@@ -49,18 +49,23 @@ shell:
   - |
     /relocate_binaries.sh -i "{{ $virtCDIClonerDependencies.binaries | join " " }}" -o /relocate
 ---
-image: {{ $.ImageName }}-gobuild
+image: {{ include "ImageName" (tuple . .ImageName "gobuild") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}/cloner-startup
+  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/cloner-startup
     to: /app
     stageDependencies:
       install:
         - '**/*'
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
   install:
   - |
     mkdir -p /cdi-binaries
     cd /app
+    export GOPROXY=$(cat /run/secrets/GOPROXY)
+    go mod download
     go build -ldflags="-s -w" -o /cdi-binaries/cloner-startup ./cmd/cloner-startup
