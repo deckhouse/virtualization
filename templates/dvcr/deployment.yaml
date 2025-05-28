@@ -20,6 +20,7 @@ spec:
     updateMode: "Auto"
   resourcePolicy:
     containerPolicies:
+    {{- include "kube_rbac_proxy.vpa_container_policy" . | nindent 4 }}
     - containerName: dvcr
       minAllowed:
         {{- include "dvcr_resources" . | nindent 8 }}

@@ -66,6 +66,16 @@ spec:
 {{- include "helm_lib_module_common_image" (list . "kubeRbacProxy") -}}
 {{- end -}}
 
+{{- define "kube_rbac_proxy.vpa_container_policy" -}}
+- containerName: {{ $settings.containerName | default "kube-rbac-proxy" }}
+  minAllowed:
+    cpu: 10m
+    memory: 15Mi
+  maxAllowed:
+    cpu: 20m
+    memory: 30Mi
+{{- end -}}
+
 {{- define "kube_rbac_proxy.pod_spec_strategic_patch_json" -}}
   '{{ include "kube_rbac_proxy.pod_spec_strategic_patch" . | fromYaml | toJson }}'
 {{- end }}
