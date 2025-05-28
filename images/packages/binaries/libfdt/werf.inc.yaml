@@ -39,15 +39,16 @@ shell:
 
   install:
   - |
-    # OUTDIR=/out
-    # mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    OUTDIR=/out
+    mkdir $OUTDIR
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    # # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    # git clone --depth=1 git://git.kernel.org/pub/scm/utils/dtc/dtc.git --branch v1.7.2 /src
+    # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    git clone --depth=1 git://git.kernel.org/pub/scm/utils/dtc/dtc.git --branch v1.7.2 /src
 
-    # export SETUPTOOLS_SCM_PRETEND_VERSION=1.7.2
+    export SETUPTOOLS_SCM_PRETEND_VERSION=1.7.2
 
-    # meson setup build /src && meson compile -C build
+    meson setup build /src && meson compile -C build
 
     # make DESTDIR=$OUTDIR install
 
