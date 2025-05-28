@@ -98,7 +98,39 @@ linters-settings:
         - 'properties.logFormat'
         - 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.cloneStrategyOverride'
         - 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.contentType'
-
+  rbac:
+    exclude-rules:
+      wildcards:
+        - kind: ClusterRole
+          name: d8:virtualization:virtualization-api
+      placement:
+        - kind: ClusterRoleBinding
+          name: d8:containerized-data-importer:cdi-operator
+        - kind: ServiceAccount
+          name: virtualization-pre-delete-hook
+        - kind: ServiceAccount
+          name: cdi-operator
+        - kind: Role
+          name: cdi-operator
+        - kind: RoleBinding
+          name: cdi-operator
+        - kind: ServiceAccount
+          name: kubevirt-operator
+        - kind: Role
+          name: kubevirt-operator
+        - kind: RoleBinding
+          name: kubevirt-operator
+        - kind: RoleBinding
+          name: virt-operator
+        - kind: ClusterRole
+          name: d8:containerized-data-importer:cdi-operator
+      # binding-subject:
+      #   - kind: ClusterRoleBinding
+      #     name: d8:virtualization:cdi-deployment-rbac-proxy
+      #   - kind: ClusterRoleBinding
+      #     name: d8:virtualization:virt-controller-rbac-proxy
+      #   - kind: ClusterRoleBinding
+      #     name: d8:virtualization:virt-handler-rbac-proxy
   module:
     oss:
       disable: true
