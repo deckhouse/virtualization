@@ -29,11 +29,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	el "github.com/deckhouse/virtualization/tests/e2e/errlogger"
@@ -70,6 +73,7 @@ var (
 	kubeClient                   kubernetes.Interface
 	virtClient                   kubeclient.Client
 	kubectl                      kc.Kubectl
+	crClient                     client.Client
 	d8Virtualization             d8.D8Virtualization
 	git                          gt.Git
 	namePrefix                   string
@@ -108,6 +112,16 @@ func init() {
 		log.Fatal(err)
 	}
 	if virtClient, err = kubeclient.GetClientFromRESTConfig(restConfig); err != nil {
+		log.Fatal(err)
+	}
+
+	scheme := apiruntime.NewScheme()
+	err = virtv2.AddToScheme(scheme)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if crClient, err = client.New(restConfig, client.Options{Scheme: scheme}); err != nil {
 		log.Fatal(err)
 	}
 
