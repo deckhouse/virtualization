@@ -40,7 +40,6 @@ shell:
   install:
   - |
     OUTDIR=/out
-    mkdir $OUTDIR
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
@@ -48,7 +47,8 @@ shell:
 
     export SETUPTOOLS_SCM_PRETEND_VERSION=1.7.2
 
-    meson setup build /src && meson compile -C build
-
-    # make DESTDIR=$OUTDIR install
+    cd /src
+    meson setup build -Dprefix=$OUTDIR/usr
+    meson compile -C build
+    meson install -C build
 
