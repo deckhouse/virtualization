@@ -1,0 +1,4 @@
+---
+image: {{ include "ImageName" (tuple . .ImageName) }}
+final: false
+fromImage: builder/src

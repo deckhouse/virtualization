@@ -1,16 +1,32 @@
 ---
-image: {{ $.ImageType }}/{{ $.ImageName }}
+image: {{ $.PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+- image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /swtpm
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "stefanberger/swtpm.git" }}
+{{- $PkgImageName := (printf "%s/%s" $.PackagePath $.ImageName) }}
+
+image: {{ include "ImageName" (tuple . $PkgImageName "src-artifact") }}
+final: false
+fromImage: {{ include "PkgImageName" (tuple . "src-artifact") }}
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+---
+
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -31,43 +47,34 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: {{ include "ImageName" (tuple . $PkgImageName "src-artifact") }}
+  add: /src
+  to: /src
+  before: install
+- image: packages/binaries/libtpms
+  add: /libtpms
+  to: /libtpms
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
       {{ $builderDependencies.packages | join " " }}
-    
-  {{ if not $.DistroPackagesProxy }}
-      REPO_URL=http://ftp.altlinux.org/pub/distributions
-  {{- else }}
-      REPO_URL=http://{{ $.DistroPackagesProxy }}/repository/archive-ALT-Linux-APT-Repository
-  {{- end }}
-
-    # libtpms libtpms-devel requares version 0.10 that in sisyphus repo
-    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF
-    rpm [alt] $REPO_URL/ALTLinux/Sisyphus x86_64 classic
-    rpm [alt] $REPO_URL/ALTLinux/Sisyphus noarch classic
-    EOF
-    apt-get update
-    apt-get install -y libtpms-devel
-    rm -f /etc/apt/sources.list.d/alt-sisyphus.list
 
   {{- include "alt packages clean" . | nindent 2 }}
 
-
   install:
   - |
+    cp -a /libtpms/. /
+    rm -rf /libtpms
+
     OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+
     cd /src
     
     ./autogen.sh \
