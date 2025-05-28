@@ -1,16 +1,48 @@
 ---
-image: {{ $.ImageType }}/{{ $.ImageName }}
+image: {{ $.PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+- image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /gnutls
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "gnutls/gnutls.git" }}
+{{- $PkgImageName := (printf "%s/%s" $.PackagePath $.ImageName) }}
+
+image: {{ include "ImageName" (tuple . $PkgImageName "src-artifact") }}
+final: false
+fromImage: {{ include "PkgImageName" (tuple . "src-artifact") }}
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    
+    cd /src
+
+    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
+      git submodule set-url -- devel/openssl $(cat /run/secrets/SOURCE_REPO)/openssl/openssl.git
+      git submodule set-url -- tests/suite/tls-fuzzer/tlsfuzzer $(cat /run/secrets/SOURCE_REPO)/tomato42/tlsfuzzer.git
+      git submodule set-url -- tests/suite/tls-fuzzer/python-ecdsa $(cat /run/secrets/SOURCE_REPO)/warner/python-ecdsa
+      git submodule set-url -- gnulib $(cat /run/secrets/SOURCE_REPO)/libidn/gnulib-mirror.git
+      git submodule set-url -- devel/nettle $(cat /run/secrets/SOURCE_REPO)/gnutls/nettle.git
+      git submodule set-url -- devel/libtasn1 $(cat /run/secrets/SOURCE_REPO)/gnutls/libtasn1.git
+      git submodule set-url -- devel/abi-dump $(cat /run/secrets/SOURCE_REPO)/gnutls/abi-dump.git
+      git submodule set-url -- cligen $(cat /run/secrets/SOURCE_REPO)/gnutls/cligen.git
+      git submodule set-url -- tests/suite/tls-interoperability $(cat /run/secrets/SOURCE_REPO)/redhat-crypto/tests/interop.git
+    fi
+
+    # git submodule update --init --recursive
+
+---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -24,20 +56,24 @@ packages:
 - libtasn1-devel libtasn1-utils libidn2-devel zlib-devel
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libgcrypt-devel libopencdk-devel
+- liboqs-devel libzstd-devel libreadline-devel gcc-c++
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
+import:
+- image: {{ include "ImageName" (tuple . $PkgImageName "src-artifact") }}
+  add: /src
+  to: /src
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
+    apt-get update
     apt-get install -y \
       {{ $builderDependencies.packages | join " " }}
 
@@ -46,14 +82,17 @@ shell:
   install:
   - |
     OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
 
     ./bootstrap
 
-    ./configure --prefix=/usr --libdir=/usr/lib64 --disable-tests
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --with-default-trust-store-file=/usr/share/ca-certificates/ca-bundle.crt \
+      --disable-tests \
+      --disable-doc
 
     make -j$(nproc)
 

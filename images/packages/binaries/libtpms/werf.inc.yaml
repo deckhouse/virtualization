@@ -5,17 +5,34 @@ fromImage: builder/scratch
 import:
 - image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /libattr
+  to: /libtpms
   before: setup
 
 ---
 {{- $version := get $.PackageVersion $.ImageName }}
-{{- $gitRepoUrl := "attr.git" }}
+{{- $gitRepoUrl := "stefanberger/libtpms.git" }}
+{{- $PkgImageName := (printf "%s/%s" $.PackagePath $.ImageName) }}
+
+image: {{ include "ImageName" (tuple . $PkgImageName "src-artifact") }}
+final: false
+fromImage: {{ include "PkgImageName" (tuple . "src-artifact") }}
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libtool gettext-tools
+- gcc gcc-c++
+- make autoconf automake libtool
+- libssl-devel perl-podlators
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -23,9 +40,11 @@ packages:
 image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: {{ include "ImageName" (tuple . $PkgImageName "src-artifact") }}
+  add: /src
+  to: /src
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -38,16 +57,16 @@ shell:
   install:
   - |
     OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
+    
     ./autogen.sh
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --enable-shared \
-      --disable-static
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+      --with-tpm2 \
+      --with-openssl
 
+    make -j$(nproc)
+
+    make DESTDIR=$OUTDIR install

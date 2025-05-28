@@ -1,0 +1,145 @@
+{{/*
+Add {{.ModulePath }}modules/999-{{ .ModuleName }} if set .ModulePath 
+
+Usage "PreffixPath":
+
+git:
+- add: {{ include "PreffixPath" . }}/{{ $.ImageName }}
+# /modules/999-virtualization/{{ $.ImageName }}
+# /{{ $.ImageName }}
+
+- add: {{ include "PreffixPath" . }}/src
+# /modules/999-virtualization/src
+# /src
+*/}}
+
+{{ define "PreffixPath" }}
+{{-   $FullPath := "" -}}
+{{-   if .ModuleName -}}
+{{-     $FullPath = (printf "/modules/%s-%s" .ModulePriority .ModuleName) -}}
+{{-     if .ModulePath -}}
+{{-       $FullPath = (printf "%smodules/%s-%s" .ModulePath .ModulePriority .ModuleName) -}}
+{{-     end -}}
+{{-   end -}}
+{{-   $FullPath -}}
+{{ end }}
+
+{{/*
+Helpers for generate images name with or without ModuleName
+.ImageName - folder name
+"suffix" - optional, if set, then image name will be .ImageName-suffix
+
+Usage "ImageName":
+.ImageName := "cdi-artifact"
+
+{{ include "ImageName" (tuple . .ImageName) }}
+With set .ModuleName: virtualization/cdi-artifact
+Without .ModuleName: cdi-artifact
+
+{{ include "ImageName" (tuple . .ImageName "src") }}
+With set .ModuleName: virtualization/cdi-artifact-src
+Without .ModuleName: cdi-artifact-src
+
+{{ include "ImageName" (tuple . "dvcr-artifact") }}
+With set .ModuleName: virtualization/dvcr-artifact
+Without .ModuleName: cdi-artifact
+
+{{ include "ImageName" (tuple . "dvcr-artifact" "cbuilder") }}
+With set .ModuleName: virtualization/dvcr-artifact-cbuilder
+Without .ModuleName: dvcr-artifact-cbuilder
+*/}}
+
+{{ define "ImageName" }}
+
+{{-  $ctx := . -}}
+{{-  $ImageName := "" -}}
+{{-  $ImageNameSuffix := "" -}}
+
+{{-    if (kindIs "slice" .) -}}
+{{-      $ctx = index . 0 -}}
+{{-      if ge (len .) 2 -}}
+{{-        $ImageName = index . 1 -}}
+{{-      end -}}
+{{-      if ge (len .) 3 -}}
+{{-        $ImageNameSuffix = index . 2 -}}
+{{-      end -}}
+{{-    else -}}
+{{- fail "Should be slice of 2 or 3 elem" }}
+{{-    end -}}
+
+
+{{-  include "ModuleNamePreffix" $ctx -}}
+{{-  $ImageName -}}
+{{-  if $ImageNameSuffix }}-{{ $ImageNameSuffix }}{{ end -}}
+
+{{ end }}
+
+{{ define "ModuleNamePreffix" }}
+{{- if .ModuleName }}{{ .ModuleName }}/{{ end -}}
+{{ end }}
+
+{{/*
+Same as ImageName
+*/}}
+
+{{ define "PkgImageName" }}
+
+{{-  $ctx := . -}}
+{{-  $ImageName := "" -}}
+{{-  $ImageNameSuffix := "" -}}
+
+{{-    if (kindIs "slice" .) -}}
+{{-      $ctx = index . 0 -}}
+{{-      if ge (len .) 2 -}}
+{{-        $ImageName = index . 1 -}}
+{{-      end -}}
+{{-      if ge (len .) 3 -}}
+{{-        $ImageNameSuffix = index . 2 -}}
+{{-      end -}}
+{{-    else -}}
+{{- fail "Should be slice of 2 or 3 elem" }}
+{{-    end -}}
+
+{{-  include "PkgModuleNamePreffix" $ctx -}}
+{{-  $ImageName -}}
+{{-  if $ImageNameSuffix }}-{{ $ImageNameSuffix }}{{ end -}}
+
+{{ end }}
+
+{{ define "PkgModuleNamePreffix" }}
+{{- if .PkgModuleName }}{{ .PkgModuleName }}/{{ end -}}
+{{ end }}
+
+{{/*========*/}}
+{{/*
+Add new vars (Version and Package) in current context for build virt
+*/}}
+
+{{ define "virtualization software versions" }}
+{{-   if and (eq .ModuleName "virtualization") (not (hasKey . "Version")) -}}
+{{      include "Versions" . }}
+{{-   end -}}
+{{ end }}
+
+{{ define "Versions" }}
+
+{{-   $_ := set . "Version" dict -}}
+{{-   $_ := set . "Package" dict -}}
+{{-   $versions_path := "component_versions/version_map.yml" -}}
+
+{{-   if .ModuleName -}}
+{{-     $module_versions_ctx := (printf "%smodules/%s-%s/" .ModulePath .ModulePriority .ModuleName )  }}
+{{-     $versions_path = (printf "%s%s" $module_versions_ctx $versions_path) -}}
+{{-   end -}}
+
+{{-   $versions_ctx := (.Files.Get $versions_path | fromYaml) -}}
+
+{{-   range $k, $v := $versions_ctx.firmware -}}
+{{-     $_ := set $.Version $k $v -}}
+{{-   end -}}
+
+{{-   range $k, $v := $versions_ctx.package -}}
+{{-     $_ := set $.Package $k $v -}}
+{{-    end -}}
+
+{{ end }}
