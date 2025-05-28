@@ -77,7 +77,7 @@ func AttachConsole(stdinReader, stdoutReader *io.PipeReader, stdinWriter, stdout
 	go func() {
 		defer close(writeStop)
 
-		stdinWriter.Write([]byte("\r"))
+		_, err := stdinWriter.Write([]byte("\r"))
 		if err == io.EOF {
 			return
 		}
@@ -88,14 +88,12 @@ func AttachConsole(stdinReader, stdoutReader *io.PipeReader, stdinWriter, stdout
 				return
 			}
 		}
-
-		os.Exit(0)
 	}()
 
 	select {
-	case err = <-writeStop:
+	case <-writeStop:
 		return ErrorInterrupt
-	case err = <-readStop:
+	case <-readStop:
 		return ErrorInterrupt
 	case err = <-resChan:
 		return err
