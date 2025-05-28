@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/blockdevice"
+	"github.com/deckhouse/virtualization-controller/pkg/common/steptaker"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/step"
@@ -72,7 +72,7 @@ func (h *BoundHandler) Handle(ctx context.Context, vmip *virtv2.VirtualMachineIP
 		ctx = logger.ToContext(ctx, log)
 	}
 
-	return blockdevice.NewStepTakers[*virtv2.VirtualMachineIPAddress](
+	return steptaker.NewStepTakers[*virtv2.VirtualMachineIPAddress](
 		step.NewBindStep(lease, cb),
 		step.NewTakeLeaseStep(lease, h.client, cb),
 		step.NewCreateLeaseStep(lease, h.ipService, h.client, cb),
