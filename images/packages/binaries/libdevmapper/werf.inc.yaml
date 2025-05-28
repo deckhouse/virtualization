@@ -66,6 +66,42 @@ shell:
       --enable-udev_sync \
       --with-integrity=internal
 
+    # ./configure \
+    #   --prefix=/usr \
+    #   --libdir=/usr/lib64 \
+    #   --disable-static_link \
+    #   --enable-readline \
+    #   --with-group= \
+    #   --with-user= \
+    #   --enable-pkgconfig \
+    #   --with-device-uid=0 \
+    #   --with-device-gid=6 \
+    #   --with-device-mode=0660 \
+    #   --enable-write_install \
+    #   # --with-usrlibdir=%_libdir \
+    #   # --with-usrsbindir=%_sbindir \
+    #   --enable-dmeventd \
+    #   # --with-udevdir=%_udevrulesdir \
+    #   # %{subst_enable lvmpolld} \
+    #   # %{subst_enable dmfilemapd} \
+    #   # %{subst_enable cmirrord} \
+    #   --enable-udev_sync \
+    #   # %{subst_enable blkid_wiping} \
+    #   # %{?_enable_lvmlockd_dlm:--enable-lvmlockd-dlm --enable-lvmlockd-dlmcontrol} \
+    #   # %{?_enable_lvmlockd_sanlock:--enable-lvmlockd-sanlock} \
+    #   # %{?_enable_lvmdbusd:--enable-dbus-service} \
+    #   # %{?_enable_vdo:--with-vdo=internal --with-vdo-format=%_bindir/vdoformat} \
+    #   # %{?_enable_writecache:--with-writecache=internal} \
+    #   --with-integrity=internal
+    #   # --with-dmeventd-path="%_sbindir/dmeventd" \
+    #   # --with-systemdsystemunitdir=%_unitdir \
+    #   # --with-tmpfilesdir=%_tmpfilesdir \
+    #   # --with-default-pid-dir=%_runtimedir \
+    #   # --with-default-dm-run-dir=%_runtimedir \
+    #   # --with-default-run-dir=%_runtimedir/lvm \
+    #   # --with-default-locking-dir=%_lockdir/lvm \
+    #   # --disable-silent-rules
+
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
