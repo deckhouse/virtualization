@@ -89,4 +89,3 @@ shell:
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
-
