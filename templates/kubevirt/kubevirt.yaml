@@ -85,14 +85,25 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
+
     {{- if (include "helm_lib_ha_enabled" .) }}
+    # HA settings for deploy/virt-api.
     - resourceType: Deployment
       resourceName: virt-api
-      patch: {{ include "strategic_affinity_patch" (list "kubevirt.io" "virt-api") }}
+      patch: {{ include "spec_template_spec_antiaffinity_patch" (list "kubevirt.io" "virt-api") }}
+      type: strategic
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: {{ include "spec_strategy_rolling_update_patch" . }}
+      type: strategic
+    # HA settings for deploy/virt-controller.
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: {{ include "spec_template_spec_antiaffinity_patch" (list "kubevirt.io" "virt-controller") }}
       type: strategic
     - resourceType: Deployment
       resourceName: virt-controller
-      patch: {{ include "strategic_affinity_patch" (list "kubevirt.io" "virt-controller") }}
+      patch: {{ include "spec_strategy_rolling_update_patch" . }}
       type: strategic
     {{- end }}
 

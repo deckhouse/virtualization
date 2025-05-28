@@ -81,7 +81,7 @@ spec:
       {{- $kubeRbacProxySettings := dict }}
       {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+          (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
       ) }}
       {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 6 }}
       - name: cdi-operator

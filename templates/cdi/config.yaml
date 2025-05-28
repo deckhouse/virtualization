@@ -45,22 +45,31 @@ spec:
         type: json
 
     {{- if (include "helm_lib_ha_enabled" .) }}
+      # HA settings for deploy/cdi-apiserver.
       - resourceType: Deployment
         resourceName: cdi-apiserver
         patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
         type: json
       - resourceType: Deployment
         resourceName: cdi-apiserver
-        patch: {{ include "strategic_affinity_patch" (list "cdi.io" "cdi-apiserver") }}
+        patch: {{ include "spec_template_spec_antiaffinity_patch" (list "cdi.kubevirt.io" "cdi-apiserver") }}
         type: strategic
-
+      - resourceType: Deployment
+        resourceName: cdi-apiserver
+        patch: {{ include "spec_strategy_rolling_update_patch" . }}
+        type: strategic
+      # HA settings for deploy/cdi-deployment.
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
+        patch: '[{"op":"replace","path":"/spec/replicas","value":2},{"op":"replace","path":"/spec/strategy","value":{"type":"RollingUpdate"}}]'
         type: json
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: {{ include "strategic_affinity_patch" (list "cdi.io" "cdi-deployment") }}
+        patch: {{ include "spec_template_spec_antiaffinity_patch" (list "cdi.kubevirt.io" "cdi-deployment") }}
+        type: strategic
+      - resourceType: Deployment
+        resourceName: cdi-deployment
+        patch: {{ include "spec_strategy_rolling_update_patch" . }}
         type: strategic
     {{- end }}
 
