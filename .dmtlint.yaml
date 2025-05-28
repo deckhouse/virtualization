@@ -90,6 +90,14 @@ linters-settings:
           name: virt-operator
           namespace: d8-virtualization
           container: kube-rbac-proxy
+  openapi:
+    exclude-rules:
+      enum:
+        - 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.dataVolumeTemplates.items.properties.spec.properties.contentType.enum'
+        - 'properties.logLevel.enum'
+        - 'properties.logFormat.enum'
+        - 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.cloneStrategyOverride.enum'
+        - 'spec.versions[0].schema.openAPIV3Schema.properties.spec.properties.contentType.enum'
 
   module:
     oss:
