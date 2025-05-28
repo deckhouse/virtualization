@@ -67,6 +67,7 @@ spec:
 {{- end -}}
 
 {{- define "kube_rbac_proxy.vpa_container_policy" -}}
+{{- $settings := index . 1 }}
 - containerName: {{ $settings.containerName | default "kube-rbac-proxy" }}
   minAllowed:
     cpu: 10m
