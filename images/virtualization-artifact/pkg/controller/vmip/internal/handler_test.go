@@ -14,18 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package internal
 
 import (
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func HasReference(vmip *virtv2.VirtualMachineIPAddress, lease *virtv2.VirtualMachineIPAddressLease) bool {
-	if vmip == nil || lease == nil {
-		return false
-	}
-
-	vmipRef := lease.Spec.VirtualMachineIPAddressRef
-
-	return vmipRef != nil && vmipRef.Name == vmip.Name && vmipRef.Namespace == vmip.Namespace
+func TestHandlers(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Handlers")
 }
