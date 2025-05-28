@@ -153,10 +153,8 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 						"\n - network issues"+
 						"\n - machine restart\n")
 				}
-			} else if strings.Contains(err.Error(), "interrupt") {
-				os.Exit(0)
 			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
+				return fmt.Errorf("failed to connect to the VNC: %v", err)
 			}
 			time.Sleep(time.Second)
 		} else {
