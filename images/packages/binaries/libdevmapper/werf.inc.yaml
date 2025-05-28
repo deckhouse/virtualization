@@ -44,7 +44,7 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    RUN git clone https://github.com/lvmteam/lvm2 --depth=1 --branch v2_03_32 /src
+    git clone https://github.com/lvmteam/lvm2 --depth=1 --branch v2_03_32 /src
 
     cd /src
 
