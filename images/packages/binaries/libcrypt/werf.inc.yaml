@@ -60,3 +60,4 @@ shell:
 
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
+    libtool --finish /usr/lib64
