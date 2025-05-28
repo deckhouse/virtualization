@@ -1,0 +1,175 @@
+---
+image: {{ $.ImageType }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libgmp10
+  before: setup
+
+---
+{{- $version := get $.Package $.ImageName }}
+{{- $gitRepoUrl := "glibc.git" }}
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- wget
+- flex gcc-c++
+- make makeinfo autoconf automake
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+final: false
+fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    OUTDIR=/out
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    mkdir /src
+    cd /src
+    wget https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz
+    tar -xvf gmp-6.3.0.tar.xz
+    cd /src/gmp-6.3.0
+
+    ./configure
+    LANG=C awk 'NR>=3&&$1=="#define"&&$2~/^[a-z_0-9]+$/&&$3~/^__/{print gensub("^__MPN\\(([^)]+)\\)","__gmpn_\\1",1,$3)}' gmp.h > libgmp.sym
+    sed -n 's/^[^ ]\+ \(__gmp_[^ ]\+\) .*/\1/p' rand/randmt.h >> libgmp.sym
+
+    cat >>libgmp.sym <<'EOF'
+    __gmp_allocate_func
+    __gmp_asprintf_final
+    __gmp_asprintf_memory
+    __gmp_asprintf_reps
+    __gmp_assert_fail
+    __gmp_binvert_limb_table
+    __gmp_default_allocate
+    __gmp_default_free
+    __gmp_default_reallocate
+    __gmp_doprnt_integer
+    __gmp_doprnt_mpf2
+    __gmp_fib_table
+    __gmp_free_func
+    __gmp_randinit_mt_noseed
+    __gmp_rands
+    __gmp_rands_initialized
+    __gmp_reallocate_func
+    __gmp_tmp_reentrant_alloc
+    __gmp_tmp_reentrant_free
+    __gmpn_addaddmul_1msb0
+    __gmpn_bases
+    __gmpn_bdiv_qr
+    __gmpn_bdiv_qr_itch
+    __gmpn_broot
+    __gmpn_brootinv
+    __gmpn_clz_tab
+    __gmpn_cpuvec
+    __gmpn_cpuvec_init
+    __gmpn_cpuvec_initialized
+    __gmpn_dcpi1_bdiv_q
+    __gmpn_dcpi1_bdiv_qr
+    __gmpn_dcpi1_div_q
+    __gmpn_dcpi1_div_qr
+    __gmpn_dcpi1_divappr_q
+    __gmpn_div_q
+    __gmpn_divexact
+    __gmpn_dump
+    __gmpn_fft_best_k
+    __gmpn_fib2_ui
+    __gmpn_fib2m
+    __gmpn_gcd_22
+    __gmpn_get_d
+    __gmpn_hgcd
+    __gmpn_hgcd_appr
+    __gmpn_hgcd_appr_itch
+    __gmpn_hgcd_itch
+    __gmpn_hgcd_matrix_init
+    __gmpn_invert
+    __gmpn_invert_limb
+    __gmpn_jacobi_base
+    __gmpn_matrix22_mul
+    __gmpn_matrix22_mul_itch
+    __gmpn_mod_1_1p
+    __gmpn_mod_1_1p_cps
+    __gmpn_mod_1s_2p
+    __gmpn_mod_1s_2p_cps
+    __gmpn_mod_1s_3p
+    __gmpn_mod_1s_3p_cps
+    __gmpn_mod_1s_4p
+    __gmpn_mod_1s_4p_cps
+    __gmpn_mod_34lsub1
+    __gmpn_mu_bdiv_q
+    __gmpn_mu_bdiv_q_itch
+    __gmpn_mu_bdiv_qr
+    __gmpn_mu_bdiv_qr_itch
+    __gmpn_mu_div_q
+    __gmpn_mu_div_q_itch
+    __gmpn_mu_div_qr
+    __gmpn_mu_div_qr_itch
+    __gmpn_mu_divappr_q
+    __gmpn_mu_divappr_q_itch
+    __gmpn_mul_basecase
+    __gmpn_mul_fft
+    __gmpn_mullo_basecase
+    __gmpn_mullo_n
+    __gmpn_mulmid
+    __gmpn_mulmod_bknp1
+    __gmpn_mulmod_bnm1
+    __gmpn_mulmod_bnm1_next_size
+    __gmpn_powlo
+    __gmpn_preinv_divrem_1
+    __gmpn_sbpi1_bdiv_q
+    __gmpn_sbpi1_bdiv_qr
+    __gmpn_sbpi1_bdiv_r
+    __gmpn_sbpi1_div_q
+    __gmpn_sbpi1_div_qr
+    __gmpn_sbpi1_divappr_q
+    __gmpn_sqr_basecase
+    __gmpn_sqrlo
+    __gmpn_sqrmod_bknp1
+    __gmpn_sqrmod_bnm1
+    __gmpn_sqrmod_bnm1_next_size
+    __gmpn_toom22_mul
+    __gmpn_toom2_sqr
+    __gmpn_toom32_mul
+    __gmpn_toom33_mul
+    __gmpn_toom3_sqr
+    __gmpn_toom42_mul
+    __gmpn_toom43_mul
+    __gmpn_toom44_mul
+    __gmpn_toom4_sqr
+    __gmpn_toom52_mul
+    __gmpn_toom53_mul
+    __gmpn_toom54_mul
+    __gmpn_toom62_mul
+    __gmpn_toom63_mul
+    __gmpn_toom6_sqr
+    __gmpn_toom6h_mul
+    __gmpn_toom8_sqr
+    __gmpn_toom8h_mul
+    __gmpz_divexact_gcd
+    __gmpz_lucas_mod
+    EOF
+
+    sort -u -o libgmp.sym libgmp.sym
+
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
+
