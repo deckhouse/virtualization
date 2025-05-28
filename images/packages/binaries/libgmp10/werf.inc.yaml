@@ -15,7 +15,7 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- wget
+- git
 - flex gcc-c++
 - make makeinfo autoconf automake
 {{- end -}}
@@ -43,13 +43,13 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    mkdir /src
+    git clone https://github.com/eofff/libgmp10-clone /src
     cd /src
-    wget https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz
-    tar -xvf gmp-6.3.0.tar.xz
-    cd /src/gmp-6.3.0
 
-    ./configure
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64
+
     LANG=C awk 'NR>=3&&$1=="#define"&&$2~/^[a-z_0-9]+$/&&$3~/^__/{print gensub("^__MPN\\(([^)]+)\\)","__gmpn_\\1",1,$3)}' gmp.h > libgmp.sym
     sed -n 's/^[^ ]\+ \(__gmp_[^ ]\+\) .*/\1/p' rand/randmt.h >> libgmp.sym
 
@@ -172,4 +172,3 @@ shell:
 
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
-
