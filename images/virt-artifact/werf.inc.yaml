@@ -2,8 +2,22 @@
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $version := "v1.3.1" }}
 {{- $tag := print $version "-v12n.3"}}
+---
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch {{ $tag }} /kubevirt
 
-{{- $name := print $.ImageName "-dependencies" -}}
+---
+
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
 - git
@@ -25,16 +39,23 @@ packages:
 
 {{ $virtArtifactDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "base-alt-p11" "builder/alt-go-svace" }}
-fromCacheVersion: "19.06.2025.1"
+{{- $baseAltP11 := printf "%sbase-alt-p11" .ModuleNamePrefix }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary $baseAltP11 "builder/alt-go-svace" }}
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /kubevirt
+  to: /kubevirt
+  before: install
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -46,13 +67,12 @@ shell:
 
   install:
   - |
-     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-     git config --global --add advice.detachedHead false
-     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch {{ $tag }} /kubevirt
-     cd /kubevirt
-     go mod download
-     go get github.com/opencontainers/runc@v1.1.14
-     go get github.com/containers/common@v0.60.4
+    export GOPROXY=$(cat /run/secrets/GOPROXY)
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    cd /kubevirt
+    go mod download
+    go get github.com/opencontainers/runc@v1.1.14
+    go get github.com/containers/common@v0.60.4
 
   - |
     echo Download Go modules.

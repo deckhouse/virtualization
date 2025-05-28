@@ -1,21 +1,33 @@
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: builder/golang-bookworm-1.24
+fromImage: builder/src
 git:
-- add: /images/{{ $.ImageName }}
+- add: {{ .ImagePath }}
   to: /app/images/hooks
   stageDependencies:
     install:
     - go.mod
     - go.sum
-    setup:
-    - "**/*.go"
+    - '**/*.go'
+---
+image: {{ .ModuleNamePrefix }}go-hooks-artifact
+final: false
+fromImage: builder/golang-bookworm-1.24
+import:
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+    add: /app/images/hooks
+    to: /app/images/hooks
+    before: install
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
   install:
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - cd /app/images/hooks
   - go mod download
   setup:
@@ -23,16 +35,15 @@ shell:
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
-  - go build -ldflags="-s -w" -a -o /hooks/ca-discovery ./cmd/ca-discovery
-  - go build -ldflags="-s -w" -o /hooks/tls-certificates-controller ./cmd/tls-certificates-controller
-  - go build -ldflags="-s -w" -o /hooks/tls-certificates-dvcr ./cmd/tls-certificates-dvcr
-  - go build -ldflags="-s -w" -o /hooks/tls-certificates-api ./cmd/tls-certificates-api
-  - go build -ldflags="-s -w" -o /hooks/tls-certificates-api-proxy ./cmd/tls-certificates-api-proxy
+  - go build -ldflags="-s -w" -a -o /go-hooks/ca-discovery ./cmd/ca-discovery
+  - go build -ldflags="-s -w" -o /go-hooks/tls-certificates-controller ./cmd/tls-certificates-controller
+  - go build -ldflags="-s -w" -o /go-hooks/tls-certificates-dvcr ./cmd/tls-certificates-dvcr
+  - go build -ldflags="-s -w" -o /go-hooks/tls-certificates-api ./cmd/tls-certificates-api
+  - go build -ldflags="-s -w" -o /go-hooks/tls-certificates-api-proxy ./cmd/tls-certificates-api-proxy
 {{- if eq .MODULE_EDITION "EE" }}
-  - go build -ldflags="-s -w" -o /hooks/tls-certificates-audit ./cmd/tls-certificates-audit
+  - go build -ldflags="-s -w" -o /go-hooks/tls-certificates-audit ./cmd/tls-certificates-audit
 {{- end }}
-  - go build -ldflags="-s -w" -o /hooks/prevent-default-vmclasses-deletion ./cmd/prevent-default-vmclasses-deletion
-  - go build -ldflags="-s -w" -o /hooks/generate-secret-for-dvcr ./cmd/generate-secret-for-dvcr
-  - go build -ldflags="-s -w" -o /hooks/discovery-clusterip-service-for-dvcr ./cmd/discovery-clusterip-service-for-dvcr
-  - go build -ldflags="-s -w" -o /hooks/discovery-workload-nodes ./cmd/discovery-workload-nodes
-  - go build -ldflags="-s -w" -o /hooks/migrate-virthandler-kvm-node-labels ./cmd/migrate-virthandler-kvm-node-labels
+  - go build -ldflags="-s -w" -o /go-hooks/prevent-default-vmclasses-deletion ./cmd/prevent-default-vmclasses-deletion
+  - go build -ldflags="-s -w" -o /go-hooks/generate-secret-for-dvcr ./cmd/generate-secret-for-dvcr
+  - go build -ldflags="-s -w" -o /go-hooks/discovery-clusterip-service-for-dvcr ./cmd/discovery-clusterip-service-for-dvcr
+  - go build -ldflags="-s -w" -o /go-hooks/discovery-workload-nodes ./cmd/discovery-workload-nodes

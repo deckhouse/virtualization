@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-- add: /api
+- add: {{ .ModuleDir }}/api
   to: /src/api
   stageDependencies:
     install:
@@ -11,7 +11,7 @@ git:
       - go.sum
     setup:
       - "**/*.go"
-- add: /images/{{ $.ImageName }}
+- add: {{ .ImagePath }}
   to: /src/images/virtualization-artifact
   stageDependencies:
     install:
@@ -19,11 +19,15 @@ git:
     - go.sum
     setup:
     - "**/*.go"
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
 shell:
   install:
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - cd /src/images/virtualization-artifact
   - go mod download
   setup:

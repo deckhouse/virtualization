@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
   add: /relocate
   to: /
   before: setup
@@ -31,9 +31,9 @@ binaries:
 
 {{ $cdiImporterDependencies := include "cdi-importer-deps" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -43,7 +43,7 @@ import:
   - sbin/blockdev
   - bin/mount
   - bin/umount
-- image: cdi-artifact
+- image: {{ .ModuleNamePrefix }}cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
   before: setup
@@ -51,11 +51,11 @@ import:
   - cdi-image-size-detection
   - cdi-importer
   - cdi-source-update-poller
-- image: qemu
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
   before: setup
-- image: packages/binaries/nbdkit
+- image: {{ .ModuleNamePrefix }}packages/binaries/nbdkit
   add: /nbdkit
   to: /nbdkit
   before: install
