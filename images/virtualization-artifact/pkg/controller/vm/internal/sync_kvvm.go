@@ -255,7 +255,18 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	switch {
-	case h.canApplyChanges(s.VirtualMachine().Current(), kvvm, kvvmi, pod, allChanges):
+	case h.IsVmStopped(s.VirtualMachine().Current(), kvvm, kvvmi, pod):
+		// KVVM must be updated when the VM is stopped because all its components,
+		//  like VirtualDisk and other resources,
+		//  can be changed during the restoration process.
+		// For example, the PVC of the VirtualDisk will be changed,
+		//  and the volume with this PVC must be updated in the KVVM specification.
+		err = h.updateKVVM(ctx, s)
+		if err != nil {
+			return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
+		}
+		return true, nil
+	case h.HasNoneDisruptiveChanges(s.VirtualMachine().Current(), kvvm, kvvmi, allChanges):
 		// No need to wait, apply changes to KVVM immediately.
 		err = h.applyVMChangesToKVVM(ctx, s, allChanges)
 		if err != nil {
@@ -468,14 +479,33 @@ func (h *SyncKvvmHandler) detectClassSpecChanges(ctx context.Context, currentCla
 	return specChanges
 }
 
-// canApplyChanges returns true if changes can be applied right now.
-//
-// Wait if changes are disruptive, and approval mode is manual, and VM is still running.
-func (h *SyncKvvmHandler) canApplyChanges(
+// IsVmStopped return true if the instance of the KVVM is not created or Pod is in the Complete state.
+func (h *SyncKvvmHandler) IsVmStopped(
 	vm *virtv2.VirtualMachine,
 	kvvm *virtv1.VirtualMachine,
 	kvvmi *virtv1.VirtualMachineInstance,
 	pod *corev1.Pod,
+) bool {
+	if vm == nil {
+		return false
+	}
+
+	podStopped := true
+	if pod != nil {
+		phase := pod.Status.Phase
+		podStopped = phase != corev1.PodPending && phase != corev1.PodRunning
+	}
+
+	return IsKvvmStopped(kvvm) && (!IsKvvmCreated(kvvm) || podStopped)
+}
+
+// canApplyChanges returns true if changes can be applied right now.
+//
+// Wait if changes are disruptive, and approval mode is manual, and VM is still running.
+func (h *SyncKvvmHandler) HasNoneDisruptiveChanges(
+	vm *virtv2.VirtualMachine,
+	kvvm *virtv1.VirtualMachine,
+	kvvmi *virtv1.VirtualMachineInstance,
 	changes vmchange.SpecChanges,
 ) bool {
 	if vm == nil || changes.IsEmpty() {
@@ -485,18 +515,11 @@ func (h *SyncKvvmHandler) canApplyChanges(
 		return true
 	}
 
-	if vmIsPending(kvvm) {
+	if IsKvvmPending(kvvm) {
 		return true
 	}
 
-	// VM is stopped if instance is not created or Pod is in the Complete state.
-	podStopped := true
-	if pod != nil {
-		phase := pod.Status.Phase
-		podStopped = phase != corev1.PodPending && phase != corev1.PodRunning
-	}
-
-	return vmIsStopped(kvvm) && (!vmIsCreated(kvvm) || podStopped)
+	return false
 }
 
 // applyVMChangesToKVVM applies updates to underlying KVVM based on actions type.
