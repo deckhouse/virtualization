@@ -19,10 +19,11 @@ package source
 import (
 	"context"
 	"errors"
+	"fmt"
 
-	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -32,26 +33,26 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-type ObjectRefVirtualDiskSnapshot struct {
-	diskService ObjectRefVirtualDiskSnapshotDiskService
-	recorder    eventrecord.EventRecorderLogger
+type ObjectRefVirtualImage struct {
+	diskService ObjectRefVirtualImageDiskService
 	client      client.Client
 }
 
-func NewObjectRefVirtualDiskSnapshot(recorder eventrecord.EventRecorderLogger, diskService ObjectRefVirtualDiskSnapshotDiskService, client client.Client) *ObjectRefVirtualDiskSnapshot {
-	return &ObjectRefVirtualDiskSnapshot{
+func NewObjectRefVirtualImage(
+	diskService ObjectRefVirtualImageDiskService,
+	client client.Client,
+) *ObjectRefVirtualImage {
+	return &ObjectRefVirtualImage{
 		diskService: diskService,
-		recorder:    recorder,
 		client:      client,
 	}
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
+func (ds ObjectRefVirtualImage) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return reconcile.Result{}, errors.New("object ref missed for data source")
 	}
@@ -63,44 +64,50 @@ func (ds ObjectRefVirtualDiskSnapshot) Sync(ctx context.Context, vd *virtv2.Virt
 
 	pvc, err := object.FetchObject(ctx, supgen.PersistentVolumeClaim(), ds.client, &corev1.PersistentVolumeClaim{})
 	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, fmt.Errorf("fetch pvc: %w", err)
+	}
+
+	dv, err := object.FetchObject(ctx, supgen.DataVolume(), ds.client, &cdiv1.DataVolume{})
+	if err != nil {
+		return reconcile.Result{}, fmt.Errorf("fetch dv: %w", err)
 	}
 
 	return steptaker.NewStepTakers[*virtv2.VirtualDisk](
 		step.NewReadyStep(ds.diskService, pvc, cb),
 		step.NewTerminatingStep(pvc),
-		step.NewCreatePVCFromVDSnapshotStep(pvc, ds.recorder, ds.client, cb),
+		step.NewCreateDataVolumeFromVirtualImageStep(pvc, dv, ds.diskService, ds.client, cb),
+		step.NewEnsureNodePlacementStep(pvc, dv, ds.diskService, ds.client, cb),
+		step.NewWaitForDVStep(pvc, dv, ds.diskService, ds.client, cb),
 		step.NewWaitForPVCStep(pvc, ds.client, cb),
 	).Run(ctx, vd)
 }
 
-func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
+func (ds ObjectRefVirtualImage) Validate(ctx context.Context, vd *virtv2.VirtualDisk) error {
 	if vd.Spec.DataSource == nil || vd.Spec.DataSource.ObjectRef == nil {
 		return errors.New("object ref missed for data source")
 	}
 
-	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{
-		Name:      vd.Spec.DataSource.ObjectRef.Name,
-		Namespace: vd.Namespace,
-	}, ds.client, &virtv2.VirtualDiskSnapshot{})
+	viRefKey := types.NamespacedName{Name: vd.Spec.DataSource.ObjectRef.Name, Namespace: vd.Namespace}
+	viRef, err := object.FetchObject(ctx, viRefKey, ds.client, &virtv2.VirtualImage{})
 	if err != nil {
-		return err
+		return fmt.Errorf("fetch vi %q: %w", viRefKey, err)
 	}
 
-	if vdSnapshot == nil || vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseReady {
-		return NewVirtualDiskSnapshotNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
+	if viRef == nil || viRef.Status.Phase != virtv2.ImageReady {
+		return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
-	vs, err := object.FetchObject(ctx, types.NamespacedName{
-		Name:      vdSnapshot.Status.VolumeSnapshotName,
-		Namespace: vdSnapshot.Namespace,
-	}, ds.client, &vsv1.VolumeSnapshot{})
-	if err != nil {
-		return err
-	}
-
-	if vs == nil || vs.Status.ReadyToUse == nil || !*vs.Status.ReadyToUse {
-		return NewVirtualDiskSnapshotNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
+	switch viRef.Spec.Storage {
+	case virtv2.StoragePersistentVolumeClaim, virtv2.StorageKubernetes:
+		if viRef.Status.Target.PersistentVolumeClaim == "" {
+			return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
+		}
+	case virtv2.StorageContainerRegistry, "":
+		if viRef.Status.Target.RegistryURL == "" {
+			return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
+		}
+	default:
+		return fmt.Errorf("unexpected virtual image storage %s, please report a bug", viRef.Spec.Storage)
 	}
 
 	return nil

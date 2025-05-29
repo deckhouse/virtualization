@@ -29,11 +29,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -74,6 +76,12 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 		svc = &ObjectRefVirtualDiskSnapshotDiskServiceMock{
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
 				return "1Mi"
+			},
+			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
+				return false, nil
+			},
+			ProtectFunc: func(_ context.Context, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
+				return nil
 			},
 		}
 
@@ -214,6 +222,10 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 	})
 
 	Context("VirtualDisk is lost", func() {
+		BeforeEach(func() {
+			vd.Status.Progress = "100%"
+		})
+
 		It("is lost when PVC is not found", func() {
 			vd.Status.Target.PersistentVolumeClaim = pvc.Name
 			vd.Status.Conditions = []metav1.Condition{

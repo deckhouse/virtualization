@@ -19,6 +19,7 @@ package conditions
 import (
 	corev1 "k8s.io/api/core/v1"
 	virtv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 )
 
 func GetPodCondition(condType corev1.PodConditionType, conds []corev1.PodCondition) (corev1.PodCondition, bool) {
@@ -29,6 +30,22 @@ func GetPodCondition(condType corev1.PodConditionType, conds []corev1.PodConditi
 	}
 
 	return corev1.PodCondition{}, false
+}
+
+const (
+	DVRunningConditionType          cdiv1.DataVolumeConditionType = "Running"
+	DVQoutaNotExceededConditionType cdiv1.DataVolumeConditionType = "QuotaNotExceeded"
+	DVImagePullFailedReason         string                        = "ImagePullFailed"
+)
+
+func GetDataVolumeCondition(condType cdiv1.DataVolumeConditionType, conds []cdiv1.DataVolumeCondition) (cdiv1.DataVolumeCondition, bool) {
+	for _, cond := range conds {
+		if cond.Type == condType {
+			return cond, true
+		}
+	}
+
+	return cdiv1.DataVolumeCondition{}, false
 }
 
 func GetKVVMICondition(condType virtv1.VirtualMachineInstanceConditionType, conds []virtv1.VirtualMachineInstanceCondition) (virtv1.VirtualMachineInstanceCondition, bool) {

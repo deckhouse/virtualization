@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -49,7 +50,7 @@ func (s TerminatingStep) Take(ctx context.Context, _ *virtv2.VirtualDisk) (*reco
 
 		log.Debug("Wait until PVC will be terminated")
 
-		return &reconcile.Result{Requeue: true}, nil
+		return &reconcile.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 
 	return nil, nil
