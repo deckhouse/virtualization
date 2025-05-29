@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -74,6 +75,9 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 		svc = &ObjectRefVirtualDiskSnapshotDiskServiceMock{
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
 				return "1Mi"
+			},
+			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
+				return false, nil
 			},
 		}
 
@@ -214,6 +218,10 @@ var _ = Describe("ObjectRef VirtualDiskSnapshot", func() {
 	})
 
 	Context("VirtualDisk is lost", func() {
+		BeforeEach(func() {
+			vd.Status.Progress = "100%"
+		})
+
 		It("is lost when PVC is not found", func() {
 			vd.Status.Target.PersistentVolumeClaim = pvc.Name
 			vd.Status.Conditions = []metav1.Condition{

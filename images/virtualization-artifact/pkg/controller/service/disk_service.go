@@ -195,6 +195,10 @@ func (s DiskService) StartImmediate(
 }
 
 func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
+	if pvc == nil || pvc.Status.Phase == corev1.ClaimBound {
+		return nil
+	}
+
 	podName, ok := pvc.Annotations[annotations.AnnProvisionerName]
 	if !ok || podName == "" {
 		return nil

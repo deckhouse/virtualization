@@ -24,7 +24,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -34,6 +37,7 @@ const readyStep = "ready"
 
 type ReadyStepDiskService interface {
 	GetCapacity(pvc *corev1.PersistentVolumeClaim) string
+	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
 }
 
 type ReadyStep struct {
@@ -58,15 +62,12 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 	log := logger.FromContext(ctx).With(logger.SlogStep(readyStep))
 
 	if s.pvc == nil {
-		ready, _ := conditions.GetCondition(vdcondition.Ready, vd.Status.Conditions)
-		if ready.Status == metav1.ConditionTrue {
-			log.Debug("PVC is lost", ".status.target.pvc", vd.Status.Target.PersistentVolumeClaim)
-
+		if vd.Status.Progress == "100%" {
 			vd.Status.Phase = virtv2.DiskLost
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.Lost).
-				Message(fmt.Sprintf("PersistentVolumeClaim %q not found.", vd.Status.Target.PersistentVolumeClaim))
+				Message(fmt.Sprintf("The PersistentVolumeClaim %q not found.", vd.Status.Target.PersistentVolumeClaim))
 			return &reconcile.Result{}, nil
 		}
 
@@ -83,7 +84,7 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Lost).
-			Message(fmt.Sprintf("PersistentVolume %q not found.", s.pvc.Spec.VolumeName))
+			Message(fmt.Sprintf("The PersistentVolume %q not found.", s.pvc.Spec.VolumeName))
 
 		log.Debug("PVC is Lost")
 
@@ -98,6 +99,13 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 		vd.Status.Capacity = s.diskService.GetCapacity(s.pvc)
 
 		log.Debug("PVC is Bound")
+		if object.ShouldCleanupSubResources(vd) {
+			supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+			_, err := s.diskService.CleanUpSupplements(ctx, supgen)
+			if err != nil {
+				return nil, fmt.Errorf("clean up supplements: %w", err)
+			}
+		}
 
 		return &reconcile.Result{}, nil
 	default:
