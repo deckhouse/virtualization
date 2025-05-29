@@ -165,6 +165,7 @@ spec:
       {{- end }}
   securityContext:
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL

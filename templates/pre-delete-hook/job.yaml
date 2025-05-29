@@ -18,6 +18,7 @@ spec:
       serviceAccountName: virtualization-pre-delete-hook
       containers:
       - name: virtualization-pre-delete-hook
+        {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 8 }}
         image: {{ include "helm_lib_module_image" (list . "preDeleteHook") }}
         env:
         - name: WAIT_TIMEOUT
@@ -48,3 +49,4 @@ spec:
             cpu: 10m
             memory: 150Mi
       {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
+      {{- include "helm_lib_module_pod_security_context_run_as_user_deckhouse" . | nindent 6 }}
