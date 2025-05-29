@@ -1,0 +1,5 @@
+module:
+  fixes:
+    - summary: Fix the polk alerts annotations of the virtual machine state.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1094
+
