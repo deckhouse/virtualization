@@ -1,5 +1,5 @@
 name: virtualization
-stage: Preview
+stage: General Availability
 subsystems:
   - virtualization
 namespace: d8-virtualization
@@ -8,7 +8,7 @@ descriptions:
   ru: Модуль виртуализации позволяет запускать и управлять виртуальными машинами в рамках платформы Deckhouse.
 tags: ["virtualization"]
 requirements:
-  deckhouse: ">= 1.68.14"
+  deckhouse: ">= 1.69.4"
   modules:
     cni-cilium: ">= 0.0.0"
 disable:

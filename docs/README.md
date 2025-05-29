@@ -1,7 +1,7 @@
 ---
 title: "Virtualization"
 menuTitle: "Virtualization"
-moduleStatus: preview
+moduleStatus: General Availability
 weight: 10
 ---
 
@@ -52,8 +52,9 @@ List of controllers and operators deployed in the `d8-virtualization` namespace 
 | `virt-exportproxy-*`          | CORE      | Virtualization core component for disk and image management.                                                                 |
 | `virt-handler-*`              | CORE      | Virtualization core component for disk and image management. Must be present on all cluster nodes where VMs will be started. |
 | `virt-operator-*`             | CORE      | Virtualization core component for disk and image management.                                                                 |
-| `virtualization-api-*`        | API       | API for creating and managing module resources (images, disks, VMs, etc.).                                                     |
-| `virtualization-controller-*` | API       | API for creating and managing module resources (images, disks, VMs, etc.).                                                     |
+| `virtualization-api-*`        | API       | API for creating and managing module resources (images, disks, VMs, etc.).                                                   |
+| `virtualization-controller-*` | API       | API for creating and managing module resources (images, disks, VMs, etc.).                                                   |
+| `virtualization-audit-*`      | Security  | Audit logs for virtualization module reources.                                                                               |
 | `vm-route-forge-*`            | CORE      | Router for configuring routes to VMs. Must be present on all cluster nodes where VMs will be started.                        |
 
 The virtual machine runs inside the pod, which allows you to manage virtual machines as regular Kubernetes resources and utilize all the platform features, including load balancers, network policies, automation tools, etc.
