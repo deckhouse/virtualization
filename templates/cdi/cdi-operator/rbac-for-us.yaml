@@ -42,13 +42,10 @@ rules:
 - apiGroups:
     - cdi.internal.virtualization.deckhouse.io
     - upload.cdi.kubevirt.io
+  resources:
+    - '*'
   verbs:
-    - get
-    - list
-    - watch
-    - create
-    - update
-    - delete
+    - '*'
 - apiGroups:
     - admissionregistration.k8s.io
   resources:
@@ -277,13 +274,10 @@ rules:
     - get
 - apiGroups:
     - cdi.internal.virtualization.deckhouse.io
+  resources:
+    - '*'
   verbs:
-    - get
-    - list
-    - watch
-    - create
-    - update
-    - delete
+    - '*'
 - apiGroups:
     - storage.deckhouse.io
   resources:

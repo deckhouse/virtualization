@@ -166,6 +166,8 @@ rules:
     - update
 - apiGroups:
   - subresources.kubevirt.io
+  resources:
+  - '*'
   verbs:
   - get
   - patch
