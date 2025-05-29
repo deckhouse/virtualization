@@ -792,7 +792,7 @@ A virtual machine (VM) goes through several phases in its existence, from creati
   - Possible problems:
     - There is no suitable node to start.
     - There is not enough CPU or memory on suitable nodes.
-    - Neumspace or project quotas have been exceeded.
+    - Namespace or project quotas have been exceeded.
   - Diagnostics:
     - If the startup is delayed, check `.status.conditions`, the `type: Running` condition
 
