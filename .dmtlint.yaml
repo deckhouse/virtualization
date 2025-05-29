@@ -103,6 +103,12 @@ linters-settings:
       wildcards:
         - kind: ClusterRole
           name: d8:virtualization:virtualization-api
+        - kind: ClusterRole
+          name: d8:virtualization:virtualization-controller
+        - kind: ClusterRole
+          name: d8:virtualization:kubevirt-operator
+        - kind: ClusterRole
+          name: d8:containerized-data-importer:cdi-operator
       placement:
         - kind: ClusterRoleBinding
           name: d8:containerized-data-importer:cdi-operator

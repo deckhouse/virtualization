@@ -553,24 +553,16 @@ rules:
   - patch
 - apiGroups:
   - snapshot.internal.virtualization.deckhouse.io
+  resources:
+  - '*'
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-  - patch
+  - '*'
 - apiGroups:
   - export.internal.virtualization.deckhouse.io
+  resources:
+  - '*'
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-  - patch
+  - '*'
 - apiGroups:
   - pool.internal.virtualization.deckhouse.io
   resources:
@@ -588,14 +580,10 @@ rules:
   - get
 - apiGroups:
   - internal.virtualization.deckhouse.io
+  resources:
+  - '*'
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-  - patch
+  - '*'
 - apiGroups:
   - subresources.virtualization.deckhouse.io
   resources:
@@ -615,14 +603,10 @@ rules:
   - update
 - apiGroups:
   - cdi.internal.virtualization.deckhouse.io
+  resources:
+  - '*'
   verbs:
-  - get
-  - list
-  - watch
-  - create
-  - update
-  - delete
-  - patch
+  - '*'
 - apiGroups:
   - k8s.cni.cncf.io
   resources:
