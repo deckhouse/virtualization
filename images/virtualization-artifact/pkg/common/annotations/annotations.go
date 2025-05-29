@@ -82,6 +82,9 @@ const (
 	// AnnVmStartRequested is an annotation on KVVM that represents a request to start a virtual machine.
 	AnnVmStartRequested = AnnAPIGroupV + "/vm-start-requested"
 
+	// AnnAdditionalNetworkInterfaces example: "name1:multus,name2:macvtap"
+	AnnAdditionalNetworkInterfaces = AnnAPIGroup + "/additional-network-interfaces"
+
 	// AnnVmRestartRequested is an annotation on KVVM that represents a request to restart a virtual machine.
 	AnnVmRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
 

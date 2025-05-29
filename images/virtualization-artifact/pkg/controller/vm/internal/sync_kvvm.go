@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -519,6 +520,10 @@ func (h *SyncKvvmHandler) applyVMChangesToKVVM(ctx context.Context, s state.Virt
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return err
+	}
+
+	if s.VirtualMachine().Current().GetAnnotations()[annotations.AnnAdditionalNetworkInterfaces] != "" {
+		action = vmchange.ActionRestart
 	}
 
 	switch action {
