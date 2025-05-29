@@ -1,0 +1,44 @@
+{{- if .Values.virtualization.descheduler.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: descheduler-policy
+  namespace: d8-{{ .Chart.Name }}
+    {{- include "helm_lib_module_labels" (list $) | nindent 2 }}
+data:
+  policy.yaml: |
+    apiVersion: "descheduler/v1alpha2"
+    kind: "DeschedulerPolicy"
+    profiles:
+      - name: virtualization
+        pluginConfig:
+          - name: "DefaultEvictor"
+            args:
+              evictLocalStoragePods: true
+              evictSystemCriticalPods: false
+              ignorePvcPods: false
+              evictFailedBarePods: true
+              nodeFit: true
+              labelSelector:
+                matchExpressions:
+                  - key: "vm.kubevirt.internal.virtualization.deckhouse.io/name"
+                    operator: Exists
+          - name: "RemovePodsViolatingNodeAffinity"
+            args:
+              nodeAffinityType:
+                - requiredDuringSchedulingIgnoredDuringExecution
+          - name: "RemovePodsViolatingInterPodAntiAffinity"
+        plugins:
+          filter:
+            enabled:
+              - "DefaultEvictor"
+          preEvictionFilter:
+            enabled:
+              - "DefaultEvictor"
+          deschedule:
+            enabled:
+              - "RemovePodsViolatingNodeAffinity"
+              - "RemovePodsViolatingInterPodAntiAffinity"
+
+{{- end }}
