@@ -102,3 +102,4 @@ shell:
   setup:
   - |
     /relocate_binaries.sh -i "{{ $dvcrDependencies.binaries | join " " }}" -o /relocate
+    ldd /usr/bin/qemu-img
