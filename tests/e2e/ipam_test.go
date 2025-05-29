@@ -111,7 +111,9 @@ var _ = Describe("IPAM", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By("Delete the intermediate vmip automatically and check that the lease is released")
 			DeleteResource(ctx, intermediate)
 			lease = WaitForVirtualMachineIPAddressLease(ctx, lease.Name, func(_ watch.EventType, e *virtv2.VirtualMachineIPAddressLease) (bool, error) {
-				return e.Status.Phase == virtv2.VirtualMachineIPAddressLeasePhaseReleased, nil
+				boundCondition, err := GetCondition(vmiplcondition.BoundType.String(), e)
+				Expect(err).NotTo(HaveOccurred())
+				return boundCondition.Reason == vmiplcondition.Released.String() && boundCondition.ObservedGeneration == e.Generation, nil
 			})
 			ExpectToBeReleased(lease)
 
@@ -124,11 +126,21 @@ var _ = Describe("IPAM", ginkgoutil.CommonE2ETestDecorators(), func() {
 			ExpectToBeBound(vmipStatic, lease)
 
 			By("Delete the static vmip and lease, then create another static vmip with this ip address")
+
+			wait := make(chan struct{})
+			go func() {
+				defer close(wait)
+				defer GinkgoRecover()
+				WaitForVirtualMachineIPAddressLease(ctx, lease.Name, func(eType watch.EventType, _ *virtv2.VirtualMachineIPAddressLease) (bool, error) {
+					return eType == watch.Deleted, nil
+				})
+			}()
+
 			DeleteResource(ctx, vmipStatic)
 			DeleteResource(ctx, lease)
-			WaitForVirtualMachineIPAddressLease(ctx, lease.Name, func(eType watch.EventType, e *virtv2.VirtualMachineIPAddressLease) (bool, error) {
-				return eType == watch.Deleted, nil
-			})
+			// Wait for the lease to be deleted.
+			<-wait
+
 			vmipStatic = vmip.DeepCopy()
 			vmipStatic.Name += "-one-more-static"
 			vmipStatic.Spec.Type = virtv2.VirtualMachineIPAddressTypeStatic
@@ -183,6 +195,7 @@ func ExpectToBeReleased(lease *virtv2.VirtualMachineIPAddressLease) {
 	Expect(boundCondition.Status).To(Equal(metav1.ConditionFalse))
 	Expect(boundCondition.Reason).To(Equal(vmiplcondition.Released.String()))
 	Expect(boundCondition.ObservedGeneration).To(Equal(lease.Generation))
+	Expect(lease.Status.Phase).To(Equal(virtv2.VirtualMachineIPAddressLeasePhaseReleased))
 }
 
 func ExpectToBeBound(vmip *virtv2.VirtualMachineIPAddress, lease *virtv2.VirtualMachineIPAddressLease) {
