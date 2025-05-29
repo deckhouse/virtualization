@@ -476,7 +476,6 @@ jobs:
     name: Analyze build
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     needs:
-      - set_vars
       - dev_setup_build
     steps:
       - uses: deckhouse/modules-actions/svace_analyze@v4
