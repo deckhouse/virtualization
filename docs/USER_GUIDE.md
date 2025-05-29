@@ -1538,22 +1538,6 @@ To detach the disk from the virtual machine, delete the previously created resou
 d8 k delete vmbda attach-blank-disk
 ```
 
-### Publishing virtual machines using services
-
-Quite often there is a need to make access to these virtual machines possible from the outside, for example, for publishing services or remote administration. For these purposes, we can use services that provide routing of traffic from the external network to internal cluster resources. Let's consider several options.
-
-Preliminary, put the following labels on the previously created vm:
-
-```bash
-d8 k label vm linux-vm app=nginx
-```
-
-Example output:
-
-```txt
-virtualmachine.virtualization.deckhouse.io/linux-vm labeled
-```
-
 Attaching images is done by analogy. To do this, specify `VirtualImage` or `ClusterVirtualImage` and the image name as `kind`:
 
 ```yaml
@@ -1570,9 +1554,86 @@ spec:
 EOF
 ```
 
+### Organizing interaction with virtual machines
+
+Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
+
+Services simplify interaction with both individual VMs and groups of similar VMs. For example, the ClusterIP service type creates a fixed internal address that can be used to access both a single VM and a group of VMs, regardless of their actual IP addresses. This allows other system components to interact with resources through a stable name or IP, automatically directing traffic to the right machines.
+
+Services also serve as a load balancing tool: they distribute requests evenly among all connected machines, ensuring fault tolerance and ease of expansion without the need to reconfigure clients.
+
+For scenarios where direct access to specific VMs within the cluster is important (for example, for diagnostics or cluster configuration), headless services can be used. Headless services do not assign a common IP, but instead link the DNS name to the real addresses of all connected machines. A request to such a name returns a list of IPs, allowing you to select the desired VM manually while maintaining the convenience of predictable DNS records.
+
+For external access, services are supplemented with mechanisms such as NodePort, which opens a port on a cluster node, LoadBalancer, which automatically creates a cloud load balancer, or Ingress, which manages HTTP/HTTPS traffic routing.
+
+All these approaches are united by their ability to hide the complexity of the infrastructure behind simple interfaces: clients work with a specific address, and the system itself decides how to route the request to the desired VM, even if their number or status changes.
+
+The service name is formed as `<service-name>.<namespace or project name>.svc.<clustername>`, or more briefly: `<service-name>.<namespace or project name>.svc`. For example, if your service name is `http` and the namespace is `default`, the full DNS name will be `http.default.svc.cluster.local`.
+
+The VM's membership in the service is determined by a set of labels. To set labels on a VM in the context of infrastructure management, use the following command:
+
+```bash
+d8 k label vm <vm-name> label-name=label-value
+```
+
+Example:
+
+```bash
+d8 k label vm linux-vm app=nginx
+```
+
+Example output:
+
+```txt
+virtualmachine.virtualization.deckhouse.io/linux-vm labeled
+```
+#### Headless service
+
+A headless service allows you to easily route requests within a cluster without the need for load balancing. Instead, it simply returns all IP addresses of virtual machines connected to this service.
+
+Even if you use a headless service for only one virtual machine, it is still useful. By using a DNS name, you can access the machine without depending on its current IP address. This simplifies management and configuration because other applications within the cluster can use this DNS name to connect instead of using a specific IP address, which may change.
+
+Example of creating a headless service:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: http
+  namespace: default
+spec:
+  clusterIP: None
+  selector:
+    # Label by which the service determines which virtual machine to direct traffic to.
+    app: nginx
+```
+
+After creation, the VM or VM group can be accessed by name: `http.default.svc`
+
+#### ClusterIP service
+
+ClusterIP is a standard service type that provides an internal IP address for accessing the service within the cluster. This IP address is used to route traffic between different components of the system. ClusterIP allows virtual machines to interact with each other through a predictable and stable IP address, which simplifies internal communication within the cluster.
+
+Example ClusterIP configuration:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: http
+spec:
+  selector:
+    # Label by which the service determines which virtual machine to route traffic to.
+    app: nginx
+```
+
 #### Publish virtual machine services using a service with the NodePort type
 
-The `NodePort` service opens a specific port on all nodes in the cluster, redirecting traffic to a given internal service port.
+`NodePort` is an extension of the `ClusterIP` service that provides access to the service through a specified port on all nodes in the cluster. This makes the service accessible from outside the cluster through a combination of the node's IP address and port.
+
+NodePort is suitable for scenarios where direct access to the service from outside the cluster is required without using a external load balancer.
 
 Create the following service:
 
@@ -1599,9 +1660,11 @@ EOF
 
 In this example, a service with the type `NodePort` will be created that opens external port 31880 on all nodes in your cluster. This port will forward incoming traffic to internal port 80 on the virtual machine where the Nginx application is running.
 
+If you do not explicitly specify the `nodePort` value, an arbitrary port will be assigned to the service, which can be viewed in the service status immediately after its creation.
+
 #### Publishing virtual machine services using a service with the LoadBalancer service type
 
-When using the `LoadBalancer` service type, the cluster creates an external load balancer that will distribute incoming traffic to all instances of your virtual machine.
+`LoadBalancer` is a type of service that automatically creates an external load balancer with a static IP address. This balancer distributes incoming traffic among virtual machines, ensuring the service's availability from the Internet.
 
 ```yaml
 d8 k apply -f - <<EOF
