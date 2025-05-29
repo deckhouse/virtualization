@@ -46,6 +46,7 @@ spec:
             ]
         resources:
           requests:
+            {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
             cpu: 10m
             memory: 150Mi
       {{- include "helm_lib_tolerations" (tuple . "any-node") | nindent 6 }}
