@@ -2,10 +2,7 @@
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
-{{- $priorityClassName := "" | quote }}
-{{- if (.Values.global.enabledModules | has "priority-class") }}
-{{- $priorityClassName = include "priorityClassName" . | quote }}
-{{- end }}
+{{- $priorityClassName := include "priorityClassName" . | quote }}
 {{ $_ := set . "Version" dict }}
 {{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
 {{- range $k, $v := $versions_ctx.firmware }}
@@ -227,20 +224,20 @@ spec:
       type: strategic
 
     # Set priority class name for components.
-    {{- define "pod_spec_priotity_class_name_patch" -}}
+    {{- define "pod_spec_priority_class_name_patch" -}}
     '{"spec":{"template":{"spec":{"priorityClassName": {{ . }} }}}}'
     {{- end }}
     - resourceType: Deployment
       resourceName: virt-api
-      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
+      patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
       type: strategic
     - resourceType: Deployment
       resourceName: virt-controller
-      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
+      patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
       type: strategic
     - resourceType: DaemonSet
       resourceName: virt-handler
-      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
+      patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
       type: strategic
     # Patch service for https-metrics
     - resourceType: Service
