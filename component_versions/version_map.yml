@@ -22,4 +22,5 @@ package:
   libbsd: 0.12.2
   libaudit: v4.0.3
   file: FILE5_45
+  lvm2: v2_03_32
   dtc: v1.7.2
