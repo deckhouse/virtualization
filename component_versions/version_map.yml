@@ -22,7 +22,7 @@ package:
   libbsd: 0.12.2
   libaudit: v4.0.3
   file: FILE5_45
-  libgmp10: 6.3.0-alt1
+  libgmp10: 6.3.0
   lvm2: v2_03_32
   dtc: v1.7.2
   fuse3: fuse-3.16.2
