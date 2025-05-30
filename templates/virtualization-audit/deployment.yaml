@@ -80,7 +80,7 @@ spec:
             - --tls-cert-file=/etc/virtualization-audit/certificates/tls.crt
             - --tls-private-key-file=/etc/virtualization-audit/certificates/tls.key
           image: {{ include "helm_lib_module_image" (list . "virtualizationAudit") }}
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           volumeMounts:
             - mountPath: /etc/virtualization-audit/certificates
               name:  virtualization-audit-tls

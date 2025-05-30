@@ -23,6 +23,7 @@ spec:
   resourcePolicy:
     containerPolicies:
     {{- include "kube_api_rewriter.vpa_container_policy" . | nindent 4 }}
+    {{- include "kube_rbac_proxy.vpa_container_policy" . | nindent 4 }}
     - containerName: virtualization-controller
       minAllowed:
         {{- include "virtualization_controller_resources" . | nindent 8 }}
@@ -67,8 +68,9 @@ spec:
       containers:
         {{- include "kube_api_rewriter.sidecar_container" . | nindent 8 }}
         - name: virtualization-controller
+          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationController") }}
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           volumeMounts:
             - mountPath: /tmp/k8s-webhook-server/serving-certs
               name: admission-webhook-secret
@@ -95,8 +97,8 @@ spec:
         {{- $kubeRbacProxySettings := dict }}
         {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
         {{- $_ := set $kubeRbacProxySettings "upstreams" (list
-            (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virtualization-controller") 
-            (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter") 
+            (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virtualization-controller")
+            (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
         ) }}
         {{- include "kube_rbac_proxy.sidecar_container" (tuple . $kubeRbacProxySettings) | nindent 8 }}
       dnsPolicy: ClusterFirst
