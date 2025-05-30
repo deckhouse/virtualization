@@ -6,8 +6,8 @@ image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
 final: false
 fromImage: {{ include "ImageName" (tuple . "src-artifact") }}
 git:
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/patches
-    to: /patches
+  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
+    to: /src
     stageDependencies:
       install:
         - '**/*'
@@ -21,7 +21,9 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     echo "Git clone CDI repository..."
-    git clone --depth 1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
+    git clone --depth 1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
+
+    rm -rf /src/containerized-data-importer/.git
 
 ---
 image: {{ include "ImageName" (tuple . .ImageName) }}
@@ -32,11 +34,11 @@ mount:
     to: /go/pkg
 import:
 - image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
-  add: /containerized-data-importer
+  add: /src/containerized-data-importer
   to: /containerized-data-importer
   before: install
 - image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
-  add: /patches
+  add: /src/patches
   to: /patches
   before: install
 secrets:
@@ -118,8 +120,10 @@ image: {{ include "ImageName" (tuple . .ImageName "cbuilder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/static_binaries
+  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/src
     to: /static_binaries
+    includePaths:
+    - static_binaries
     stageDependencies:
       install:
         - '*.c'
