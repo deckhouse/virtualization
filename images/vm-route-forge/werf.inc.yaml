@@ -28,7 +28,10 @@ shell:
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
-  - go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go
+  -
+  - |
+    {{- $_ := set $ "ProjectName" (list $.ImageName "vm-route-forge" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go`) | nindent 6 }}
 ---
 image: {{ $.ImageName }}
 fromImage: distroless
