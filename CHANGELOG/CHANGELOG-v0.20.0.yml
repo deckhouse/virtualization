@@ -1,0 +1,16 @@
+cli:
+  fixes:
+    - summary: restore terminal after console disconnect, correct vnc closure
+      pull_request: https://github.com/deckhouse/virtualization/pull/1085
+module:
+  features:
+    - summary: move module from preview stage to general availability
+      pull_request: https://github.com/deckhouse/virtualization/pull/1109
+  fixes:
+    - summary: Restore system-cluster-critical priority class for critical components.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1113
+vmop:
+  fixes:
+    - summary: Fix false positive not found error when migration cancel.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1066
+
