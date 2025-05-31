@@ -9,8 +9,8 @@ import:
   before: setup
 
 ---
-# {{- $version := get $.Package $.ImageName }}
-# {{- $gitRepoUrl := "glibc.git" }}
+{{- $version := get "v1.7.2" }}
+{{- $gitRepoUrl := "dtc/dtc.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -42,8 +42,7 @@ shell:
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    git clone --depth=1 git://git.kernel.org/pub/scm/utils/dtc/dtc.git --branch v1.7.2 /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
     export SETUPTOOLS_SCM_PRETEND_VERSION=1.7.2
 
