@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}-builder
+image: {{ include "ImageName" (tuple . .ImageName "builder") }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}
+  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
     to: /src/kube-api-rewriter
     stageDependencies:
       install:
@@ -27,10 +27,11 @@ shell:
     - go build -v -a -o kube-api-rewriter ./cmd/kube-api-rewriter
 
 ---
-image: {{ $.ImageName }}
+
+image: {{ include "ImageName" (tuple . .ImageName) }}
 fromImage: builder/scratch
 import:
-  - image: {{ $.ImageName }}-builder
+  - image: {{ include "ImageName" (tuple . .ImageName "builder") }}
     add: /src/kube-api-rewriter/kube-api-rewriter
     to: /app/kube-api-rewriter
     after: install

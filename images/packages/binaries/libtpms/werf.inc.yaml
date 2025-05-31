@@ -5,12 +5,12 @@ fromImage: builder/scratch
 import:
 - image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /glibc
+  to: /libtpms
   before: setup
 
 ---
 {{- $version := get $.Package $.ImageName }}
-{{- $gitRepoUrl := "glibc.git" }}
+{{- $gitRepoUrl := "stefanberger/libtpms.git" }}
 {{- $PkgImageName := (printf "%s/%s" $.PackagePath $.ImageName) }}
 
 image: {{ include "ImageName" (tuple . $PkgImageName "src-artifact") }}
@@ -24,16 +24,15 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc
-- git pkg-config cmake
-- hardlink binutils glibc-kernheaders
-- make bison python3
+- gcc gcc-c++
+- make autoconf automake libtool
+- libssl-devel perl-podlators
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -59,20 +58,15 @@ shell:
   - |
     OUTDIR=/out
 
-    mkdir /build
-    cd /build
-
-    ../src/configure \
+    cd /src
+    
+    ./autogen.sh
+    ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --disable-crypt \
-      --disable-profile \
-      --enable-bind-now \
-      --enable-obsolete-rpc \
-      --enable-stack-protector=strong \
-      --enable-fortify-source=3 \
+      --with-tpm2 \
+      --with-openssl
 
     make -j$(nproc)
 
     make DESTDIR=$OUTDIR install
-
