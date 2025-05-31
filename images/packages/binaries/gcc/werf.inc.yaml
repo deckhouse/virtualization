@@ -9,8 +9,8 @@ import:
   before: setup
 
 ---
-# {{- $version := get $.Package $.ImageName }}
-# {{- $gitRepoUrl := "gnutls/gnutls.git" }}
+{{- $version := "releases/gcc-14.2.0" }}
+{{- $gitRepoUrl := "gcc.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -43,8 +43,7 @@ shell:
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    git clone git://gcc.gnu.org/git/gcc.git --depth=1 --branch releases/gcc-14.2.0 /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
 
     export AUTOCONF_VERSION=2.60
