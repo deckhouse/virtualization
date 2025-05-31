@@ -9,7 +9,7 @@ import:
   before: setup
 
 ---
-{{- $version := get "v1.7.2" }}
+{{- $version := "v1.7.2" }}
 {{- $gitRepoUrl := "dtc/dtc.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
