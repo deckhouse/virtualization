@@ -1349,14 +1349,33 @@ spec:
 
 ### Placement of VMs by nodes
 
-The following approaches can be used to manage the placement of virtual machines across nodes:
+The following methods can be used to manage the placement of virtual machines (placement parameters) across nodes:
 
-- Simple label binding (`nodeSelector`)
-- Preferred binding (`Affinity`)
-- Avoid co-location (`AntiAffinity`)
+- Simple label selection (`nodeSelector`) — the basic method for selecting nodes with specified labels.
+- Preferred selection (`Affinity`):
+- `nodeAffinity` — specifies priority nodes for placement.
+  - `virtualMachineAndPodAffinity` — ensures co-location of VMs and containers.
+- Co-location avoidance (`AntiAffinity`):
+- `virtualMachineAndPodAntiAffinity` — prevents VMs and containers from being placed on the same node.
+
+All of the above parameters (including the `.spec.nodeSelector` parameter from VirtualMachineClass) are applied together when scheduling VMs. If at least one condition cannot be met, the VM will not be started. To minimize risks, we recommend:
+
+- Creating consistent placement rules.
+- Checking the compatibility of rules before applying them.
+- Consider the types of conditions:
+- Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — require strict compliance.
+- Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — allow partial compliance.
+- Use combinations of labels instead of single restrictions. For example, instead of required for a single label (env=prod), use several preferred conditions.
+- Consider the order in which interdependent VMs are launched. When using Affinity between VMs (for example, the backend depends on the database), launch the VMs referenced by the rules first to avoid lockouts.
+- Plan backup nodes for critical workloads. For VMs with strict requirements (e.g., AntiAffinity), provide backup nodes to avoid downtime in case of failure.
+- Consider existing  `taints` on nodes.
 
 {{< alert level="info" >}}
-Virtual machine placement parameters can be changed in real time (available in Enterprise edition only). However, if the new placement parameters do not match the current placement parameters, the virtual machine will be moved to hosts that meet the new requirements.
+When changing placement parameters:
+- If the current location of the VM meets the new requirements, it remains on the current node.
+- If the requirements are violated:
+- In paid editions: The VM is automatically moved to a suitable node using live migration.
+- In the CE edition: The VM will require a reboot to apply.
 {{< /alert >}}
 
 #### Simple label binding (nodeSelector)
@@ -1371,15 +1390,17 @@ spec:
 
 ![](images/placement-nodeselector.png)
 
-In this example, the virtual machine will only be placed on hosts that have a `disktype` label with a value of `ssd`.
+In this example, there are three nodes in the cluster, two with fast disks (`disktype=ssd`) and one with slow disks (`disktype=hdd`). The virtual machine will only be placed on nodes that have the `disktype` label with the value `ssd`.
 
 #### Preferred Binding (Affinity)
 
-`Affinity` provides more flexible and powerful tools than `nodeSelector`. It allows you to specify `preferences` and `obligations` for virtual machine placement. `Affinity` supports two views: `nodeAffinity` and `virtualMachineAndPodAffinity`.
+Placement requirements can be:
+- Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — The VM is placed only on nodes that meet the condition.
+- Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — The VM is placed on suitable nodes, if possible.
 
-`nodeAffinity` allows you to define on which nodes a virtual machine can run using label expressions, and can be soft (preferred) or hard (required).
+`nodeAffinity` - determines on which nodes a VM can be launched using tag expressions.
 
-Example of using nodeAffinity:
+Example of using `nodeAffinity` with a strict rule:
 
 ```yaml
 spec:
@@ -1396,11 +1417,13 @@ spec:
 
 ![](images/placement-node-affinity.png)
 
-In this example, the virtual machine will only be placed on hosts that have a `disktype` label with a value of `ssd`.
+In this example, there are three nodes in the cluster, two with fast disks (`disktype=ssd`) and one with slow disks (`disktype=hdd`). The virtual machine will only be deployed on nodes that have the `disktype` label with the value `ssd`.
 
-`virtualMachineAndPodAffinity` controls the placement of virtual machines relative to other virtual machines. It allows you to set a preference for placing virtual machines on the same nodes where certain virtual machines are already running.
+If you use a soft requirement (`preferredDuringSchedulingIgnoredDuringExecution`) for this example, then if for some reason the VM cannot be started on nodes with fast disks, for example, there are no resources, it will be scheduled on a node with slow disks.
 
-Example:
+`virtualMachineAndPodAffinity` controls the placement of virtual machines relative to other virtual machines. It allows you to specify a preference for placing virtual machines on the same nodes where certain virtual machines are already running.
+
+Example of a soft rule:
 
 ```yaml
 spec:
