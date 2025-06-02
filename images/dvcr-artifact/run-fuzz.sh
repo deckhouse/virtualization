@@ -75,9 +75,8 @@ echo
 
 FUZZ_TESTS=(
     "FuzzParseHTTPHeader"
+    "FuzzValidateShouldHandleRequest"
     "FuzzNewContentReader"
-    "FuzzValidateHTTPRequest"
-    "FuzzSnappyDecompression"
 )
 
 log_step "Starting fuzzing tests (${#FUZZ_TESTS[@]} tests total)..."
