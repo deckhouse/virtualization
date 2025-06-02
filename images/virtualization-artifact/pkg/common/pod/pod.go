@@ -104,7 +104,7 @@ func IsPodComplete(pod *corev1.Pod) bool {
 }
 
 // QemuSubGid is the gid used as the qemu group in fsGroup
-const QemuSubGid = int64(107)
+const QemuSubGid = int64(107) //nolint:stylecheck // TODO: fix to QemuSubGID
 
 // SetRestrictedSecurityContext sets the pod security params to be compatible with restricted PSA
 func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {

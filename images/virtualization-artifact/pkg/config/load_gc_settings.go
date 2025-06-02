@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	GcVmopTtlVar              = "GC_VMOP_TTL"
+	GcVmopTtlVar              = "GC_VMOP_TTL" //nolint:stylecheck // TODO: fix to GcVmopTTLVar
 	GcVmopScheduleVar         = "GC_VMOP_SCHEDULE"
-	GcVMIMigrationTtlVar      = "GC_VMI_MIGRATION_TTL"
+	GcVMIMigrationTtlVar      = "GC_VMI_MIGRATION_TTL" //nolint:stylecheck // TODO: fix to GcVMIMigrationTTLVar
 	GcVMIMigrationScheduleVar = "GC_VMI_MIGRATION_SCHEDULE"
 )
 

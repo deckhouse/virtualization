@@ -26,7 +26,7 @@ const ipPrefix = "ip-"
 type AllocatedIPs map[string]struct{}
 
 // IpToLeaseName generate the Virtual Machine IP Address Lease's name from the ip address.
-func IpToLeaseName(ip string) string {
+func IpToLeaseName(ip string) string { //nolint:stylecheck // TODO: fix to IPToLeaseName
 	addr := net.ParseIP(ip)
 	if addr.To4() != nil {
 		// IPv4 address

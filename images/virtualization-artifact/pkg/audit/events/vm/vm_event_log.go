@@ -38,7 +38,7 @@ type VMEventLog struct {
 	Level          string `json:"level"`
 	Name           string `json:"name"`
 	Datetime       string `json:"datetime"`
-	Uid            string `json:"uid"`
+	Uid            string `json:"uid"` //nolint:stylecheck //TODO: fix
 	RequestSubject string `json:"request_subject"`
 
 	ActionType         string `json:"action_type"`

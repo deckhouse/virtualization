@@ -52,6 +52,7 @@ func (m *MockIPAM) IsBound(_ string, _ *v1alpha2.VirtualMachineIPAddress) bool {
 	return true
 }
 
+//nolint:stylecheck // TODO: fix to CheckIPAddressAvailableForBinding
 func (m *MockIPAM) CheckIpAddressAvailableForBinding(_ string, _ *v1alpha2.VirtualMachineIPAddress) error {
 	return nil
 }

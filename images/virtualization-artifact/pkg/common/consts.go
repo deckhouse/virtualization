@@ -108,7 +108,7 @@ const (
 
 	DockerRegistrySchemePrefix = "docker://"
 
-	VmBlockDeviceAttachedLimit = 16
+	VmBlockDeviceAttachedLimit = 16 //nolint:stylecheck // TODO: fix to VMBlockDeviceAttachedLimit
 
 	CmpLesser  = -1
 	CmpEqual   = 0

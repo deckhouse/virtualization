@@ -29,22 +29,26 @@ const (
 	PatchTestOp    = "test"
 )
 
+//nolint:stylecheck // TODO: fix to JSONPatch
 type JsonPatch struct {
 	operations []JsonPatchOperation
 }
 
+//nolint:stylecheck // TODO: fix to JSONPatchOperation
 type JsonPatchOperation struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
 	Value interface{} `json:"value,omitempty"`
 }
 
+//nolint:stylecheck // TODO: fix to NewJSONPatch
 func NewJsonPatch(patches ...JsonPatchOperation) *JsonPatch {
 	return &JsonPatch{
 		operations: patches,
 	}
 }
 
+//nolint:stylecheck // TODO: fix to NewJSONPatchOperation
 func NewJsonPatchOperation(op, path string, value interface{}) JsonPatchOperation {
 	return JsonPatchOperation{
 		Op:    op,
