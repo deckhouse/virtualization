@@ -34,7 +34,8 @@ shell:
   - export GOARCH=amd64
   - |
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-controller" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -tags {{ .MODULE_EDITION }} -v -a -o virtualization-controller ./cmd/virtualization-controller`) | nindent 6 }}
+    {{- $buildCommand := printf "go build -tags %s -v -a -o virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
+    {{- include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 6 }}
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-api" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o virtualization-api ./cmd/virtualization-api`) | nindent 6 }}
 {{- if eq .MODULE_EDITION "EE" }}
