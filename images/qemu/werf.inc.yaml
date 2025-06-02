@@ -79,7 +79,7 @@ libraries:
 
 image: {{ $.ImageName }}
 final: false
-fromImage: base-alt-p11
+{{- include "image-build.fromImageAlt" $ }}
 git:
 - add: /images/{{ $.ImageName }}/
   to: /

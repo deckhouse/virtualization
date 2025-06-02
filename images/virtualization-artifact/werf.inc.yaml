@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: false
-fromImage: builder/golang-bookworm-1.23
+{{- include "image-build.fromImageDebian" $ }}
 git:
 - add: /api
   to: /usr/local/go/api
