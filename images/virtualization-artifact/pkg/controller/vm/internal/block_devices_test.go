@@ -1600,6 +1600,7 @@ var _ = Describe("Capacity check", func() {
 	})
 })
 
+//nolint:stylecheck // TODO: fix to vmFactoryByVM
 func vmFactoryByVm(vm *virtv2.VirtualMachine) func() *virtv2.VirtualMachine {
 	return func() *virtv2.VirtualMachine {
 		return vm

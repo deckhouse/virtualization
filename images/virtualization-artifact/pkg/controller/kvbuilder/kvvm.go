@@ -215,6 +215,7 @@ func (b *KVVM) SetTopologySpreadConstraint(topology []corev1.TopologySpreadConst
 	b.Resource.Spec.Template.Spec.TopologySpreadConstraints = topology
 }
 
+//nolint:stylecheck // TODO: fix to SetCPU
 func (b *KVVM) SetCpu(cores int, coreFraction string) error {
 	domainSpec := &b.Resource.Spec.Template.Spec.Domain
 	if domainSpec.CPU == nil {

@@ -41,6 +41,8 @@ func New(cli client.Client, kv Kubevirt) *KvApi {
 }
 
 // Deprecated: use virt client.
+//
+//nolint:stylecheck // TODO: fix to KvAPI
 type KvApi struct {
 	client.Client
 	kubevirt Kubevirt

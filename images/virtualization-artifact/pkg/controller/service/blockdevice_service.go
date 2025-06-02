@@ -36,6 +36,7 @@ func NewBlockDeviceService(client client.Client) *BlockDeviceService {
 	}
 }
 
+//nolint:stylecheck // TODO: fix to CountBlockDevicesAttachedToVM
 func (s *BlockDeviceService) CountBlockDevicesAttachedToVm(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
 	count := len(vm.Spec.BlockDeviceRefs)
 
@@ -54,6 +55,7 @@ func (s *BlockDeviceService) CountBlockDevicesAttachedToVm(ctx context.Context, 
 	return count, nil
 }
 
+//nolint:stylecheck // TODO: fix to CountBlockDevicesAttachedToVMName
 func (s *BlockDeviceService) CountBlockDevicesAttachedToVmName(ctx context.Context, vmName, namespace string) (int, error) {
 	count := 0
 	var vm virtv2.VirtualMachine

@@ -56,6 +56,7 @@ func (m IPAM) IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool 
 	return vmip.Status.VirtualMachine == vmName
 }
 
+//nolint:stylecheck // TODO: fix to CheckIPAddressAvailableForBinding
 func (m IPAM) CheckIpAddressAvailableForBinding(vmName string, vmip *virtv2.VirtualMachineIPAddress) error {
 	if vmip == nil {
 		return errors.New("cannot to bind with empty ip address")
