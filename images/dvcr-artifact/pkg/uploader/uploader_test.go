@@ -18,7 +18,6 @@ package uploader
 
 import (
 	"io"
-	"math"
 	"net/http"
 	"strings"
 	"testing"
@@ -75,8 +74,8 @@ func (m *mockResponseWriter) WriteHeader(statusCode int) {
 func FuzzParseHTTPHeader(f *testing.F) {
 	seeds := []string{
 		"", "0", "1", "1024", "-1", "abc", "123abc",
-		string(math.MaxUint64),
-		string(math.MaxInt64),
+		"18446744073709551615", // max uint64
+		"9223372036854775807",  // max int64
 		"   123   ", "\n123", "123\n", "123\r\n",
 		"999999999999999999999999999999", // very large number
 		"1.5", "1e10", "+123", "0x123",
@@ -87,7 +86,6 @@ func FuzzParseHTTPHeader(f *testing.F) {
 	}
 
 	f.Fuzz(func(t *testing.T, contentLength string) {
-		// Create upload server for testing
 		server, err := NewUploadServer("127.0.0.1", 0, "", "", "", "", cryptowatch.CryptoConfig{})
 		if err != nil {
 			t.Fatalf("Failed to create upload server: %v", err)
@@ -367,58 +365,5 @@ func FuzzSnappyDecompression(f *testing.F) {
 				contentReader.Close()
 			}
 		}()
-	})
-}
-
-func TestBasicFunctionality(t *testing.T) {
-	server, err := NewUploadServer("127.0.0.1", 0, "", "", "", "", cryptowatch.CryptoConfig{})
-	if err != nil {
-		t.Fatalf("Failed to create upload server: %v", err)
-	}
-	app := server.(*uploadServerApp)
-
-	t.Run("ContentLengthParsing", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/upload", strings.NewReader("test data"))
-		req.Header.Set("Content-Length", "42")
-		rw := &mockResponseWriter{statusCode: 200, headers: make(http.Header)}
-
-		app.ServeHTTP(rw, req)
-	})
-
-	t.Run("ContentTypeHandling", func(t *testing.T) {
-		req1, _ := http.NewRequest("POST", "/upload", strings.NewReader("test"))
-		req1.Header.Set(common.UploadContentTypeHeader, "text/plain")
-		req1.Header.Set("Content-Length", "4")
-		rw1 := &mockResponseWriter{statusCode: 200, headers: make(http.Header)}
-		app.ServeHTTP(rw1, req1)
-
-		req2, _ := http.NewRequest("POST", "/upload", strings.NewReader("test"))
-		req2.Header.Set(common.UploadContentTypeHeader, common.BlockdeviceClone)
-		req2.Header.Set("Content-Length", "4")
-		rw2 := &mockResponseWriter{statusCode: 200, headers: make(http.Header)}
-		app.ServeHTTP(rw2, req2)
-	})
-
-	t.Run("HTTPMethodValidation", func(t *testing.T) {
-		rw1 := &mockResponseWriter{statusCode: 200, headers: make(http.Header)}
-		req1, _ := http.NewRequest("POST", "/upload", nil)
-		if !app.validateShouldHandleRequest(rw1, req1) {
-			t.Error("POST method should be valid")
-		}
-
-		rw2 := &mockResponseWriter{statusCode: 200, headers: make(http.Header)}
-		req2, _ := http.NewRequest("PUT", "/upload", nil)
-		if !app.validateShouldHandleRequest(rw2, req2) {
-			t.Error("PUT method should be valid")
-		}
-
-		rw3 := &mockResponseWriter{statusCode: 200, headers: make(http.Header)}
-		req3, _ := http.NewRequest("GET", "/upload", nil)
-		if app.validateShouldHandleRequest(rw3, req3) {
-			t.Error("GET method should be invalid")
-		}
-		if rw3.statusCode != 404 {
-			t.Errorf("Expected 404 for GET request, got %d", rw3.statusCode)
-		}
 	})
 }

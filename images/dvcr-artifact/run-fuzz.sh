@@ -95,8 +95,6 @@ for i in "${!FUZZ_TESTS[@]}"; do
 
     start_time=$(date +%s)
 
-    # Try running the fuzz test
-    export CGO_ENABLED=1
     test_output=$(timeout $TIMEOUT_DURATION go test -fuzz="$test" -fuzztime="$FUZZ_TIME" -v 2>&1)
     test_exit_code=$?
 
@@ -111,10 +109,10 @@ for i in "${!FUZZ_TESTS[@]}"; do
             log_warn "$test timed out after ${TIMEOUT_DURATION}s"
         elif [ $test_exit_code -eq 1 ]; then
             log_warn "$test found potential issues (exit code: $test_exit_code)"
-            echo "$test_output" | tail -5
+            echo "$test_output" | cat
         else
             log_error "$test failed with exit code: $test_exit_code"
-            echo "$test_output" | tail -5
+            echo "$test_output" | cat
         fi
         ((failed_tests++))
     fi
