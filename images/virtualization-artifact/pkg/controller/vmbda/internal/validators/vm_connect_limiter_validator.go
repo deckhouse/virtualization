@@ -47,8 +47,8 @@ func (v *VMConnectLimiterValidator) ValidateCreate(ctx context.Context, vmbda *v
 	}
 
 	// created entity counted too
-	if count+1 > common.VmBlockDeviceAttachedLimit {
-		return nil, fmt.Errorf("block device attached to VirtualMachine %q limit reached: %d devices found, %d is maximum", vmbda.Spec.VirtualMachineName, count, common.VmBlockDeviceAttachedLimit)
+	if count+1 > common.VMBlockDeviceAttachedLimit {
+		return nil, fmt.Errorf("block device attached to VirtualMachine %q limit reached: %d devices found, %d is maximum", vmbda.Spec.VirtualMachineName, count, common.VMBlockDeviceAttachedLimit)
 	}
 
 	return nil, nil
@@ -61,8 +61,8 @@ func (v *VMConnectLimiterValidator) ValidateUpdate(ctx context.Context, _, newVM
 		return nil, err
 	}
 
-	if count > common.VmBlockDeviceAttachedLimit {
-		return nil, fmt.Errorf("block device attached to VirtualMachine %q limit reached: %d devices found, %d is maximum", newVMBDA.Spec.VirtualMachineName, count, common.VmBlockDeviceAttachedLimit)
+	if count > common.VMBlockDeviceAttachedLimit {
+		return nil, fmt.Errorf("block device attached to VirtualMachine %q limit reached: %d devices found, %d is maximum", newVMBDA.Spec.VirtualMachineName, count, common.VMBlockDeviceAttachedLimit)
 	}
 
 	return nil, nil

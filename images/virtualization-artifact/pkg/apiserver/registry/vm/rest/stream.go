@@ -83,7 +83,7 @@ func streamLocation(
 	getter virtlisters.VirtualMachineLister,
 	name string,
 	pather pather,
-	kubevirt KubevirtApiServerConfig,
+	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	preConditions ...preconditionVirtualMachine,
 ) (*url.URL, *http.Transport, error) {

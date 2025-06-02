@@ -97,7 +97,7 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 	virtv1.VirtualMachineStatusStopped: func(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) virtv2.MachinePhase {
 		if vm != nil && kvvm != nil {
 			if !checkVirtualMachineConfiguration(vm) &&
-				kvvm != nil && kvvm.Annotations[annotations.AnnVmStartRequested] == "true" {
+				kvvm != nil && kvvm.Annotations[annotations.AnnVMStartRequested] == "true" {
 				return virtv2.MachinePending
 			}
 		}

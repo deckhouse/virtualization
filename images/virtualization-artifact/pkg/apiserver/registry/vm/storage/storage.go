@@ -68,7 +68,7 @@ var (
 func NewStorage(
 	groupResource schema.GroupResource,
 	vmLister virtlisters.VirtualMachineLister,
-	kubevirt vmrest.KubevirtApiServerConfig,
+	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	crd *apiextensionsv1.CustomResourceDefinition,
 	vmClient versionedv1alpha2.VirtualMachinesGetter,

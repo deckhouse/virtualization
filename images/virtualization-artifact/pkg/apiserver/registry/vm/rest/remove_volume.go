@@ -35,7 +35,7 @@ import (
 type RemoveVolumeREST struct {
 	vmLister         virtlisters.VirtualMachineLister
 	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtApiServerConfig
+	kubevirt         KubevirtAPIServerConfig
 }
 
 var (
@@ -43,7 +43,7 @@ var (
 	_ rest.Connecter = &RemoveVolumeREST{}
 )
 
-func NewRemoveVolumeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *RemoveVolumeREST {
+func NewRemoveVolumeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *RemoveVolumeREST {
 	return &RemoveVolumeREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -121,7 +121,7 @@ func RemoveVolumeRESTLocation(
 	getter virtlisters.VirtualMachineLister,
 	name string,
 	opts *subresources.VirtualMachineRemoveVolume,
-	kubevirt KubevirtApiServerConfig,
+	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	removeVolumePather pather,
 ) (*url.URL, *http.Transport, error) {

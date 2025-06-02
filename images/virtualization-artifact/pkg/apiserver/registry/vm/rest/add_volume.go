@@ -37,7 +37,7 @@ import (
 type AddVolumeREST struct {
 	vmLister         virtlisters.VirtualMachineLister
 	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtApiServerConfig
+	kubevirt         KubevirtAPIServerConfig
 }
 
 var (
@@ -45,7 +45,7 @@ var (
 	_ rest.Connecter = &AddVolumeREST{}
 )
 
-func NewAddVolumeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *AddVolumeREST {
+func NewAddVolumeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *AddVolumeREST {
 	return &AddVolumeREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -194,7 +194,7 @@ func AddVolumeLocation(
 	getter virtlisters.VirtualMachineLister,
 	name string,
 	opts *subresources.VirtualMachineAddVolume,
-	kubevirt KubevirtApiServerConfig,
+	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	addVolumePather pather,
 ) (*url.URL, *http.Transport, error) {

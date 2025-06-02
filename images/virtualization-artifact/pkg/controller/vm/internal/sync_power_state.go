@@ -209,7 +209,7 @@ func (h *SyncPowerStateHandler) handleManualPolicy(
 		return Nothing
 	}
 
-	if kvvm.Annotations[annotations.AnnVmRestartRequested] == "true" && kvvmi.Status.Phase == virtv1.Running {
+	if kvvm.Annotations[annotations.AnnVMRestartRequested] == "true" && kvvmi.Status.Phase == virtv1.Running {
 		h.recordRestartEventf(ctx, s.VirtualMachine().Current(), "Restart initiated "+
 			"by VirtualMachineOparation for Manual runPolicy")
 		return Restart
@@ -273,7 +273,7 @@ func (h *SyncPowerStateHandler) handleAlwaysOnPolicy(
 		return Nothing, nil
 	}
 
-	if kvvm.Annotations[annotations.AnnVmRestartRequested] == "true" && kvvmi.Status.Phase == virtv1.Running {
+	if kvvm.Annotations[annotations.AnnVMRestartRequested] == "true" && kvvmi.Status.Phase == virtv1.Running {
 		h.recordRestartEventf(ctx, s.VirtualMachine().Current(), "Restart initiated "+
 			"by VirtualMachineOparation for AlwaysOn runPolicy")
 		return Restart, nil
@@ -325,7 +325,7 @@ func (h *SyncPowerStateHandler) handleAlwaysOnUnlessStoppedManuallyPolicy(
 		return Nothing, nil
 	}
 
-	if kvvm.Annotations[annotations.AnnVmRestartRequested] == "true" && kvvmi.Status.Phase == virtv1.Running {
+	if kvvm.Annotations[annotations.AnnVMRestartRequested] == "true" && kvvmi.Status.Phase == virtv1.Running {
 		h.recordRestartEventf(ctx, s.VirtualMachine().Current(), "Restart initiated by "+
 			"VirtualMachineOparation for AlwaysOnUnlessStoppedManually runPolicy")
 		return Restart, nil
@@ -377,7 +377,7 @@ func (h *SyncPowerStateHandler) checkNeedStartVM(
 	runPolicy virtv2.RunPolicy,
 ) bool {
 	if isConfigurationApplied &&
-		(kvvm.Annotations[annotations.AnnVmStartRequested] == "true" || kvvm.Annotations[annotations.AnnVmRestartRequested] == "true") {
+		(kvvm.Annotations[annotations.AnnVMStartRequested] == "true" || kvvm.Annotations[annotations.AnnVMRestartRequested] == "true") {
 		h.recordStartEventf(ctx, s.VirtualMachine().Current(), "Start initiated by controller for %v policy", runPolicy)
 		return true
 	}

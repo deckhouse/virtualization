@@ -180,12 +180,12 @@ func (h *BlockDeviceHandler) handleBlockDeviceLimit(ctx context.Context, vm *vir
 		return false, err
 	}
 
-	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
+	if blockDeviceAttachedCount > common.VMBlockDeviceAttachedLimit {
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
 				Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonBlockDeviceLimitExceeded).
-				Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, vm.Name)).
+				Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VMBlockDeviceAttachedLimit, vm.Name)).
 				Generation(vm.Generation),
 			&vm.Status.Conditions,
 		)

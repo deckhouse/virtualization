@@ -167,7 +167,7 @@ func (v *Validator) validateAllocatedIPAddresses(ctx context.Context, ipAddress 
 	_, ok := allocatedIPs[ipAddress]
 	if ok {
 		var lease *v1alpha2.VirtualMachineIPAddressLease
-		lease, err = object.FetchObject(ctx, types.NamespacedName{Name: ip.IpToLeaseName(ipAddress)}, v.client, &v1alpha2.VirtualMachineIPAddressLease{})
+		lease, err = object.FetchObject(ctx, types.NamespacedName{Name: ip.IPToLeaseName(ipAddress)}, v.client, &v1alpha2.VirtualMachineIPAddressLease{})
 		if err != nil {
 			return fmt.Errorf("failed to fetch allocated IP address: %w", err)
 		}

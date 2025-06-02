@@ -33,7 +33,7 @@ import (
 type UnfreezeREST struct {
 	vmLister         virtlisters.VirtualMachineLister
 	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtApiServerConfig
+	kubevirt         KubevirtAPIServerConfig
 }
 
 var (
@@ -41,7 +41,7 @@ var (
 	_ rest.Connecter = &UnfreezeREST{}
 )
 
-func NewUnfreezeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *UnfreezeREST {
+func NewUnfreezeREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *UnfreezeREST {
 	return &UnfreezeREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -84,7 +84,7 @@ func UnfreezeLocation(
 	getter virtlisters.VirtualMachineLister,
 	name string,
 	opts *subresources.VirtualMachineUnfreeze,
-	kubevirt KubevirtApiServerConfig,
+	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
 	return streamLocation(

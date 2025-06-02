@@ -55,8 +55,8 @@ func (v *BlockDeviceLimiterValidator) validate(ctx context.Context, vm *virtv2.V
 		return nil, err
 	}
 
-	if count > common.VmBlockDeviceAttachedLimit {
-		err = fmt.Errorf("block device attached to VirtualMachine %q limit reached: %d devices found, %d is maximum", vm.Name, count, common.VmBlockDeviceAttachedLimit)
+	if count > common.VMBlockDeviceAttachedLimit {
+		err = fmt.Errorf("block device attached to VirtualMachine %q limit reached: %d devices found, %d is maximum", vm.Name, count, common.VMBlockDeviceAttachedLimit)
 		return nil, err
 	}
 

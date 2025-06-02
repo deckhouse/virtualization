@@ -141,7 +141,7 @@ func (s IPAddressService) GetLease(ctx context.Context, vmip *virtv2.VirtualMach
 
 func (s IPAddressService) getLeaseByIPAddress(ctx context.Context, ipAddress string) (*virtv2.VirtualMachineIPAddressLease, error) {
 	// 1. Trying to find the Lease in the local cache.
-	lease, err := object.FetchObject(ctx, types.NamespacedName{Name: ip.IpToLeaseName(ipAddress)}, s.client, &virtv2.VirtualMachineIPAddressLease{})
+	lease, err := object.FetchObject(ctx, types.NamespacedName{Name: ip.IPToLeaseName(ipAddress)}, s.client, &virtv2.VirtualMachineIPAddressLease{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch lease in local cache: %w", err)
 	}
@@ -152,7 +152,7 @@ func (s IPAddressService) getLeaseByIPAddress(ctx context.Context, ipAddress str
 
 	// The local cache might be outdated, which is why the Lease is not present in the cache, even though it may already exist in the cluster.
 	// Double-check Lease existence in the cluster by making a direct request to the Kubernetes API.
-	lease, err = s.virtClient.VirtualMachineIPAddressLeases().Get(ctx, ip.IpToLeaseName(ipAddress), metav1.GetOptions{})
+	lease, err = s.virtClient.VirtualMachineIPAddressLeases().Get(ctx, ip.IPToLeaseName(ipAddress), metav1.GetOptions{})
 	switch {
 	case err == nil:
 		logger.FromContext(ctx).Warn("The lease was not found by ip address in the local cache, but it already exists in the cluster", "leaseName", lease.Name)

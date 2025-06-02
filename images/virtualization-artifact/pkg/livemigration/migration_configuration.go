@@ -111,5 +111,5 @@ func GenerateMigrationConfigurationPatch(current, changed *virtv1.VirtualMachine
 		op = patch.PatchAddOp
 	}
 
-	return patch.NewJsonPatch(patch.NewJsonPatchOperation(op, "/status/migrationState/migrationConfiguration", changedConf)).Bytes()
+	return patch.NewJSONPatch(patch.NewJSONPatchOperation(op, "/status/migrationState/migrationConfiguration", changedConf)).Bytes()
 }

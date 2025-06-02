@@ -38,7 +38,7 @@ var ErrConfigInvalid = errors.New("configuration is invalid")
 type Config struct {
 	Apiserver           *genericapiserver.Config
 	Rest                *rest.Config
-	Kubevirt            vmrest.KubevirtApiServerConfig
+	Kubevirt            vmrest.KubevirtAPIServerConfig
 	ProxyClientCertFile string
 	ProxyClientKeyFile  string
 }

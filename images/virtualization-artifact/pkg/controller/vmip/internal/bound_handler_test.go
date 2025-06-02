@@ -71,7 +71,7 @@ var _ = Describe("BoundHandler", func() {
 				Labels: map[string]string{
 					annotations.LabelVirtualMachineIPAddressUID: string(vmip.UID),
 				},
-				Name:       ip.IpToLeaseName(ipAddress),
+				Name:       ip.IPToLeaseName(ipAddress),
 				Generation: 1,
 			},
 		}

@@ -96,7 +96,7 @@ func (r *qemuMaxLength36) Migrate(ctx context.Context) error {
 }
 
 func (r *qemuMaxLength36) genPatch(base, namespace string, spec *virtv1.VirtualMachineInstanceSpec, disks diskCache) (bool, client.Patch, error) {
-	var ops []patch.JsonPatchOperation
+	var ops []patch.JSONPatchOperation
 	for i, d := range spec.Domain.Devices.Disks {
 		if d.Disk == nil {
 			continue
@@ -136,7 +136,7 @@ func (r *qemuMaxLength36) genPatch(base, namespace string, spec *virtv1.VirtualM
 		newSerial := kvbuilder.GenerateSerial(string(uid))
 
 		if d.Serial != "" && d.Serial != newSerial {
-			ops = append(ops, patch.NewJsonPatchOperation(
+			ops = append(ops, patch.NewJSONPatchOperation(
 				patch.PatchReplaceOp,
 				fmt.Sprintf("%s/domain/devices/disks/%d/serial", base, i),
 				newSerial,
@@ -146,7 +146,7 @@ func (r *qemuMaxLength36) genPatch(base, namespace string, spec *virtv1.VirtualM
 	if len(ops) == 0 {
 		return false, nil, nil
 	}
-	bytes, err := patch.NewJsonPatch(ops...).Bytes()
+	bytes, err := patch.NewJSONPatch(ops...).Bytes()
 	if err != nil {
 		return false, nil, err
 	}

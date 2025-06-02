@@ -222,8 +222,8 @@ func generateVMVolumeRequestPatch(vm *virtv1.VirtualMachine, volumeRequest *virt
 	if len(vm.Status.VolumeRequests) > 0 {
 		verb = patch.PatchReplaceOp
 	}
-	jop := patch.NewJsonPatchOperation(verb, "/status/volumeRequests", vmCopy.Status.VolumeRequests)
-	jp := patch.NewJsonPatch(jop)
+	jop := patch.NewJSONPatchOperation(verb, "/status/volumeRequests", vmCopy.Status.VolumeRequests)
+	jp := patch.NewJSONPatch(jop)
 
 	return jp.String()
 }

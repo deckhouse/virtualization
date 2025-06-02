@@ -29,8 +29,8 @@ const (
 	VirtualizationApiAuthServiceAccountNamespaceVar = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAMESPACE" //nolint:stylecheck // TODO: fix to VirtualizationAPIAuthServiceAccountNamespaceVar
 )
 
-func LoadKubevirtAPIServerFromEnv() rest.KubevirtApiServerConfig {
-	conf := rest.KubevirtApiServerConfig{}
+func LoadKubevirtAPIServerFromEnv() rest.KubevirtAPIServerConfig {
+	conf := rest.KubevirtAPIServerConfig{}
 	conf.Endpoint = os.Getenv(KubevirtAPIServerEndpointVar)
 	conf.CaBundlePath = os.Getenv(KubevirtAPIServerCABundlePathVar)
 	conf.ServiceAccount.Name = os.Getenv(VirtualizationApiAuthServiceAccountNameVar)

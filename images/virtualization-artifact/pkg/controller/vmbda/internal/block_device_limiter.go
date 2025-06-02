@@ -52,7 +52,7 @@ func (h *BlockDeviceLimiter) Handle(ctx context.Context, vmbda *virtv2.VirtualMa
 		return reconcile.Result{}, nil
 	}
 
-	if blockDeviceAttachedCount <= common.VmBlockDeviceAttachedLimit {
+	if blockDeviceAttachedCount <= common.VMBlockDeviceAttachedLimit {
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vmbdacondition.CapacityAvailable).
@@ -61,7 +61,7 @@ func (h *BlockDeviceLimiter) Handle(ctx context.Context, vmbda *virtv2.VirtualMa
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmbdacondition.CapacityReached).
-			Message(fmt.Sprintf("Can not attach %d block devices (%d is maximum) to `VirtualMachine` %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, vmbda.Spec.VirtualMachineName))
+			Message(fmt.Sprintf("Can not attach %d block devices (%d is maximum) to `VirtualMachine` %q", blockDeviceAttachedCount, common.VMBlockDeviceAttachedLimit, vmbda.Spec.VirtualMachineName))
 	}
 
 	return reconcile.Result{}, nil

@@ -82,17 +82,17 @@ var _ = Describe("Test power actions with VMs", func() {
 	})
 
 	It("should handle start", func() {
-		setupKVVMAnnotations(kvvm, annotations.AnnVmStartRequested)
+		setupKVVMAnnotations(kvvm, annotations.AnnVMStartRequested)
 		setupTestEnvironment()
 
 		err := handler.start(ctx, vmState, kvvm, true)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvm.Status.StateChangeRequests[0].Action).To(Equal(virtv1.StateChangeRequestAction("Start")))
-		Expect(kvvm.Annotations[annotations.AnnVmStartRequested]).To(Equal(""))
+		Expect(kvvm.Annotations[annotations.AnnVMStartRequested]).To(Equal(""))
 	})
 
 	It("should handle restart", func() {
-		setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
+		setupKVVMAnnotations(kvvm, annotations.AnnVMRestartRequested)
 
 		setupTestEnvironment()
 
@@ -100,7 +100,7 @@ var _ = Describe("Test power actions with VMs", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(kvvm.Status.StateChangeRequests[0].Action).To(Equal(virtv1.StateChangeRequestAction("Stop")))
 		Expect(kvvm.Status.StateChangeRequests[1].Action).To(Equal(virtv1.StateChangeRequestAction("Start")))
-		Expect(kvvm.Annotations[annotations.AnnVmRestartRequested]).To(Equal(""))
+		Expect(kvvm.Annotations[annotations.AnnVMRestartRequested]).To(Equal(""))
 	})
 
 	It("should add start annotation", func() {
@@ -118,7 +118,7 @@ var _ = Describe("Test power actions with VMs", func() {
 		setupTestEnvironment()
 		err := handler.restart(ctx, vmState, kvvm, kvvmi, false)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(kvvm.Annotations[annotations.AnnVmStartRequested]).To(Equal("true"))
+		Expect(kvvm.Annotations[annotations.AnnVMStartRequested]).To(Equal("true"))
 	})
 })
 
@@ -169,7 +169,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 
 	Context("handleManualPolicy", func() {
 		It("should return start action", func() {
-			setupKVVMAnnotations(kvvm, annotations.AnnVmStartRequested)
+			setupKVVMAnnotations(kvvm, annotations.AnnVMStartRequested)
 
 			action := handler.handleManualPolicy(
 				ctx, vmState, kvvm, nil, true, powerstate.ShutdownInfo{},
@@ -189,7 +189,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		})
 
 		It("should return restart action", func() {
-			setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
+			setupKVVMAnnotations(kvvm, annotations.AnnVMRestartRequested)
 			kvvmi.Status.Phase = virtv1.Running
 
 			action := handler.handleManualPolicy(
@@ -219,7 +219,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(action).To(Equal(Nothing))
-			Expect(kvvm.Annotations[annotations.AnnVmStartRequested]).To(Equal("true"))
+			Expect(kvvm.Annotations[annotations.AnnVMStartRequested]).To(Equal("true"))
 		})
 
 		It("should return start action when kvvmi is nil and configuration applied", func() {
@@ -240,7 +240,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		})
 
 		It("should return restart action when restart requested", func() {
-			setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
+			setupKVVMAnnotations(kvvm, annotations.AnnVMRestartRequested)
 			kvvmi.Status.Phase = virtv1.Running
 			action, err := handler.handleAlwaysOnPolicy(
 				ctx, vmState, kvvm, kvvmi, true, powerstate.ShutdownInfo{},
@@ -290,7 +290,7 @@ var _ = Describe("Test action getters for different run policy", func() {
 		})
 
 		It("should return restart action when restart requested", func() {
-			setupKVVMAnnotations(kvvm, annotations.AnnVmRestartRequested)
+			setupKVVMAnnotations(kvvm, annotations.AnnVMRestartRequested)
 			kvvmi.Status.Phase = virtv1.Running
 			action, err := handler.handleAlwaysOnUnlessStoppedManuallyPolicy(
 				ctx, vmState, kvvm, kvvmi, false, powerstate.ShutdownInfo{},

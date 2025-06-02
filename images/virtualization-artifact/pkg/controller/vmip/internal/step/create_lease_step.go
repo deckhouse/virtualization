@@ -79,7 +79,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
-			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q doesn't exist.", ip.IpToLeaseName(vmip.Status.Address)))
+			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q doesn't exist.", ip.IPToLeaseName(vmip.Status.Address)))
 		return &reconcile.Result{}, nil
 	}
 
@@ -173,7 +173,7 @@ func buildVirtualMachineIPAddressLease(vmip *virtv2.VirtualMachineIPAddress, ipA
 			Labels: map[string]string{
 				annotations.LabelVirtualMachineIPAddressUID: string(vmip.GetUID()),
 			},
-			Name: ip.IpToLeaseName(ipAddress),
+			Name: ip.IPToLeaseName(ipAddress),
 		},
 		Spec: virtv2.VirtualMachineIPAddressLeaseSpec{
 			VirtualMachineIPAddressRef: &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{
