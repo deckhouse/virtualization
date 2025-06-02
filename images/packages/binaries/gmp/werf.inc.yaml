@@ -9,8 +9,8 @@ import:
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
-{{- $gitRepoUrl := "glibc.git" }}
+{{- $version := "6.3.0" }}
+{{- $gitRepoUrl := "gmp/gmp-6.3" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -42,8 +42,7 @@ shell:
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    git clone https://github.com/eofff/libgmp10-clone /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src
     cd /src
 
     ./configure \
