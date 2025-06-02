@@ -103,6 +103,7 @@ for i in "${!FUZZ_TESTS[@]}"; do
 
     if [ $test_exit_code -eq 0 ]; then
         log_info "✓ $test completed successfully in ${duration}s"
+        echo "$test_output" | cat
         ((passed_tests++))
     else
         if [ $test_exit_code -eq 124 ]; then
