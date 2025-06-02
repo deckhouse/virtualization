@@ -130,13 +130,10 @@ linters-settings:
           name: virt-operator
         - kind: ClusterRole
           name: d8:containerized-data-importer:cdi-operator
-      # binding-subject:
-      #   - kind: ClusterRoleBinding
-      #     name: d8:virtualization:cdi-deployment-rbac-proxy
-      #   - kind: ClusterRoleBinding
-      #     name: d8:virtualization:virt-controller-rbac-proxy
-      #   - kind: ClusterRoleBinding
-      #     name: d8:virtualization:virt-handler-rbac-proxy
+      binding-subject:
+        - cdi-sa
+        - kubevirt-internal-virtualization-controller
+        - kubevirt-internal-virtualization-handler
   module:
     oss:
       disable: true
