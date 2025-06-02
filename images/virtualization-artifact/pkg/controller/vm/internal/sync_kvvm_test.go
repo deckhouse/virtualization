@@ -112,7 +112,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 	}
 
 	mutateKVVM := func(kvvm *virtv1.VirtualMachine) {
-		kvbuilder.SetLastAppliedSpec(kvvm, &virtv2.VirtualMachine{
+		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &virtv2.VirtualMachine{
 			Spec: virtv2.VirtualMachineSpec{
 				CPU: virtv2.CPUSpec{
 					Cores: 1,
@@ -122,9 +122,9 @@ var _ = Describe("SyncKvvmHandler", func() {
 				OsType:                  virtv2.GenericOs,
 				VirtualMachineClassName: "vmclass",
 			},
-		})
+		})).To(Succeed())
 
-		kvbuilder.SetLastAppliedClassSpec(kvvm, &virtv2.VirtualMachineClass{
+		Expect(kvbuilder.SetLastAppliedClassSpec(kvvm, &virtv2.VirtualMachineClass{
 			Spec: virtv2.VirtualMachineClassSpec{
 				CPU: virtv2.CPU{
 					Type: virtv2.CPUTypeHost,
@@ -135,7 +135,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 					},
 				},
 			},
-		})
+		})).To(Succeed())
 	}
 
 	DescribeTable("AwaitingRestart Condition Tests",

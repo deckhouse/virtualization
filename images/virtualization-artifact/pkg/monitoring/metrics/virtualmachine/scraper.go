@@ -80,26 +80,31 @@ func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
 	}
 }
 
+//nolint:stylecheck // TODO: fix to updateMetricVirtualMachineCPUCores
 func (s *scraper) updateMetricVirtualMachineCpuCores(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineCpuCores,
 		m.CpuCores, m)
 }
 
+//nolint:stylecheck // TODO: fix to updateMetricVirtualMachineConfigurationCPUCores
 func (s *scraper) updateMetricVirtualMachineConfigurationCpuCores(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCores,
 		m.CpuConfigurationCores, m)
 }
 
+//nolint:stylecheck // TODO: fix to updateMetricVirtualMachineCPUCoreFraction
 func (s *scraper) updateMetricVirtualMachineCpuCoreFraction(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineCpuCoreFraction,
 		m.CpuCoreFraction, m)
 }
 
+//nolint:stylecheck // TODO: fix to updateMetricVirtualMachineConfigurationCPUCoreFraction
 func (s *scraper) updateMetricVirtualMachineConfigurationCpuCoreFraction(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCoreFraction,
 		m.CpuConfigurationCoreFraction, m)
 }
 
+//nolint:stylecheck // TODO: fix to updateMetricVirtualMachineConfigurationCPURuntimeOverhead
 func (s *scraper) updateMetricVirtualMachineConfigurationCpuRuntimeOverhead(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationCpuRuntimeOverhead,
 		m.CpuRuntimeOverhead, m)
