@@ -74,7 +74,10 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 		}
 
 		switch vmSnapshot.Status.Phase {
-		case virtv2.VirtualMachineSnapshotPhaseReady, virtv2.VirtualMachineSnapshotPhaseTerminating:
+		case virtv2.VirtualMachineSnapshotPhasePending:
+			cb.Status(metav1.ConditionTrue).
+				Message("The virtual machine is selected for taking a snapshot.").
+				Reason(vmcondition.WaitingForTheSnapshotToStart)
 			continue
 		case virtv2.VirtualMachineSnapshotPhaseInProgress:
 			cb.Status(metav1.ConditionTrue).
@@ -82,9 +85,6 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 				Reason(vmcondition.ReasonSnapshottingInProgress)
 			return reconcile.Result{}, nil
 		default:
-			cb.Status(metav1.ConditionTrue).
-				Message("The virtual machine is selected for taking a snapshot.").
-				Reason(vmcondition.WaitingForTheSnapshotToStart)
 			continue
 		}
 	}
