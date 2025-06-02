@@ -50,7 +50,22 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 
 	cb := conditions.NewConditionBuilder(vdscondition.VirtualDiskSnapshotReadyType).Generation(vdSnapshot.Generation)
 
-	defer func() { conditions.SetCondition(cb, &vdSnapshot.Status.Conditions) }()
+	defer func() {
+		if cb.Condition().Reason == vdscondition.VirtualDiskSnapshotFailed.String() {
+			vd, err := h.snapshotter.GetVirtualDisk(ctx, vdSnapshot.Spec.VirtualDiskName, vdSnapshot.Namespace)
+			if err == nil && vd != nil {
+				vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
+				if err == nil && vm != nil {
+					unfreezeError := h.snapshotter.Unfreeze(ctx, vm.Name, vm.Namespace)
+					if unfreezeError != nil {
+						cb.Message(fmt.Sprintf("%s, %s", unfreezeError.Error(), cb.Condition().Message))
+					}
+				}
+			}
+		}
+
+		conditions.SetCondition(cb, &vdSnapshot.Status.Conditions)
+	}()
 
 	vs, err := h.snapshotter.GetVolumeSnapshot(ctx, vdSnapshot.Name, vdSnapshot.Namespace)
 	if err != nil {
