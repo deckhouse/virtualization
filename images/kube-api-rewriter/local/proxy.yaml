@@ -25,7 +25,7 @@ spec:
       containers:
         - name: proxy
           image: "${IMAGE}"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command: ${CTR_COMMAND}
           env:
             - name: WEBHOOK_ADDRESS
@@ -43,7 +43,7 @@ spec:
               name: test-admission-webhook
         - name: controller
           image: "${IMAGE}"
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command:
             - /test-controller
           ports:
