@@ -151,12 +151,12 @@ func (f *FileCertificateManager) loadCertificates() (serverCrt *tls.Certificate,
 
 	crt, err := tls.X509KeyPair(certBytes, keyBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load certificate: %w\n", err)
+		return nil, fmt.Errorf("failed to load certificate: %w", err)
 	}
 
 	leaf, err := util.ParseCertsPEM(certBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load leaf certificate: %w\n", err)
+		return nil, fmt.Errorf("failed to load leaf certificate: %w", err)
 	}
 	crt.Leaf = leaf[0]
 	return &crt, nil

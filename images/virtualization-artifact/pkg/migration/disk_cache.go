@@ -26,9 +26,9 @@ import (
 )
 
 type diskCache struct {
-	CVINameUid map[string]types.UID
-	VINameUid  map[types.NamespacedName]types.UID
-	VDNameUid  map[types.NamespacedName]types.UID
+	CVINameUID map[string]types.UID
+	VINameUID  map[types.NamespacedName]types.UID
+	VDNameUID  map[types.NamespacedName]types.UID
 }
 
 func newDiskCache(ctx context.Context, c client.Client) (diskCache, error) {
@@ -36,18 +36,18 @@ func newDiskCache(ctx context.Context, c client.Client) (diskCache, error) {
 	if err := c.List(ctx, cviList, &client.ListOptions{}); err != nil {
 		return diskCache{}, err
 	}
-	cviNameUidMap := make(map[string]types.UID, len(cviList.Items))
+	cviNameUIDMap := make(map[string]types.UID, len(cviList.Items))
 	for i := range cviList.Items {
-		cviNameUidMap[cviList.Items[i].Name] = cviList.Items[i].UID
+		cviNameUIDMap[cviList.Items[i].Name] = cviList.Items[i].UID
 	}
 
 	viList := &virtv2.VirtualImageList{}
 	if err := c.List(ctx, viList, &client.ListOptions{}); err != nil {
 		return diskCache{}, err
 	}
-	viNameUidMap := make(map[types.NamespacedName]types.UID, len(viList.Items))
+	viNameUIDMap := make(map[types.NamespacedName]types.UID, len(viList.Items))
 	for i := range viList.Items {
-		viNameUidMap[types.NamespacedName{
+		viNameUIDMap[types.NamespacedName{
 			Namespace: viList.Items[i].Namespace,
 			Name:      viList.Items[i].Name,
 		}] = viList.Items[i].UID
@@ -57,17 +57,17 @@ func newDiskCache(ctx context.Context, c client.Client) (diskCache, error) {
 	if err := c.List(ctx, vdList, &client.ListOptions{}); err != nil {
 		return diskCache{}, err
 	}
-	vdNameUidMap := make(map[types.NamespacedName]types.UID, len(vdList.Items))
+	vdNameUIDMap := make(map[types.NamespacedName]types.UID, len(vdList.Items))
 	for i := range vdList.Items {
-		vdNameUidMap[types.NamespacedName{
+		vdNameUIDMap[types.NamespacedName{
 			Namespace: vdList.Items[i].Namespace,
 			Name:      vdList.Items[i].Name,
 		}] = vdList.Items[i].UID
 	}
 
 	return diskCache{
-		CVINameUid: cviNameUidMap,
-		VINameUid:  viNameUidMap,
-		VDNameUid:  vdNameUidMap,
+		CVINameUID: cviNameUIDMap,
+		VINameUID:  viNameUIDMap,
+		VDNameUID:  vdNameUIDMap,
 	}, nil
 }

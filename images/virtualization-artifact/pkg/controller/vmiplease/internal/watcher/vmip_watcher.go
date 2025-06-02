@@ -91,19 +91,3 @@ func (w VirtualMachineIPAddressWatcher) enqueueRequests(ctx context.Context, obj
 
 	return requests
 }
-
-func (w VirtualMachineIPAddressWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVMIP, ok := e.ObjectOld.(*virtv2.VirtualMachineIPAddress)
-	if !ok {
-		w.logger.Error(fmt.Sprintf("expected an old VirtualMachineIPAddress but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newVMIP, ok := e.ObjectNew.(*virtv2.VirtualMachineIPAddress)
-	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a new VirtualMachineIPAddress but got a %T", e.ObjectNew))
-		return false
-	}
-
-	return oldVMIP.Status.Address != newVMIP.Status.Address
-}
