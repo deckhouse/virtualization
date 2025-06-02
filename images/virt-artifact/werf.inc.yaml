@@ -27,7 +27,7 @@ packages:
 
 image: {{ $.ImageName }}
 final: false
-{{- include "image-build.fromImage" $ }}
+{{- include "image-build.fromImageAlt" $ }}
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
@@ -103,7 +103,7 @@ shell:
 
     - echo ============== Build container-disk ===================
     {{- $_ := set $ "ProjectName" (list $.ImageName "container-disk" | join "/") }}
-    - |    
+    - |
     {{- include "image-build.build" (set $ "BuildCommand" `gcc -static cmd/container-disk-v2alpha/main.c -o /kubevirt-binaries/container-disk`) | nindent 6 }}
 
     - echo ============== Build virt-launcher ====================
@@ -149,7 +149,7 @@ shell:
     - echo ============== Build virt-chroot ======================
     {{- $_ := set $ "ProjectName" (list $.ImageName "virt-chroot" | join "/") }}
     - |
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/`) | nindent 6 }}    
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /kubevirt-binaries/virt-chroot ./cmd/virt-chroot/`) | nindent 6 }}
 
     - echo ============== Build virt-exportproxy =================
     {{- $_ := set $ "ProjectName" (list $.ImageName "virt-exportproxy" | join "/") }}
