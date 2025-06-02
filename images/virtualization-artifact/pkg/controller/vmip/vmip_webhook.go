@@ -38,7 +38,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
-func NewValidator(log *log.Logger, client client.Client, ipAddressService *service.IpAddressService) *Validator {
+func NewValidator(log *log.Logger, client client.Client, ipAddressService *service.IPAddressService) *Validator {
 	return &Validator{
 		log:       log.With("webhook", "validation"),
 		client:    client,
@@ -49,7 +49,7 @@ func NewValidator(log *log.Logger, client client.Client, ipAddressService *servi
 type Validator struct {
 	log       *log.Logger
 	client    client.Client
-	ipService *service.IpAddressService
+	ipService *service.IPAddressService
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {

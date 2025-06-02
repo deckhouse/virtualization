@@ -46,7 +46,7 @@ func NewController(
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
-	ipService, err := service.NewIpAddressService(virtualMachineCIDRs, mgr.GetClient(), virtClient)
+	ipService, err := service.NewIPAddressService(virtualMachineCIDRs, mgr.GetClient(), virtClient)
 	if err != nil {
 		return nil, err
 	}

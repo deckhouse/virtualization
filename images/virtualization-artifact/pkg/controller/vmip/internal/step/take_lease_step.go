@@ -35,7 +35,7 @@ import (
 
 type TakeLeaseStep struct {
 	lease     *virtv2.VirtualMachineIPAddressLease
-	ipService *intsvc.IpAddressService
+	ipService *intsvc.IPAddressService
 	client    client.Client
 	cb        *conditions.ConditionBuilder
 }
