@@ -19,11 +19,18 @@ set -e
 {{-   end }}
 {{- end }}
 
-{{- define "image-build.fromImage" }}
+{{- define "image-build.fromImageAlt" }}
 {{-   if eq $.SVACE_ENABLED "true" }}
-fromImage: base-alt-p11-svace
+fromImage: svace-builder-alt
 {{-   else }}
 fromImage: base-alt-p11
 {{-   end }}
 {{- end }}
 
+{{- define "image-build.fromImageDebian" }}
+{{-   if eq $.SVACE_ENABLED "true" }}
+fromImage: svace-builder-debian
+{{-   else }}
+fromImage: builder/golang-bookworm-1.23
+{{-   end }}
+{{- end }}

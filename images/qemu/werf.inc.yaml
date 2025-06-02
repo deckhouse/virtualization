@@ -79,7 +79,7 @@ libraries:
 
 image: {{ $.ImageName }}
 final: false
-fromImage: base-alt-p11
+{{- include "image-build.fromImageAlt" $ }}
 git:
 - add: /images/{{ $.ImageName }}/
   to: /
@@ -130,7 +130,7 @@ shell:
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    
+
     cp -a /dmidecode/. /
     rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
@@ -160,7 +160,7 @@ shell:
       git submodule set-url -- roms/opensbi $(cat /run/secrets/SOURCE_REPO)/qemu-project/opensbi.git
       git submodule set-url -- roms/qboot $(cat /run/secrets/SOURCE_REPO)/qemu-project/qboot.git
       git submodule set-url -- roms/vbootrom $(cat /run/secrets/SOURCE_REPO)/qemu-project/vbootrom.git
-      git submodule set-url -- tests/lcitool/libvirt-ci $(cat /run/secrets/SOURCE_REPO)/libvirt/libvirt-ci.git  
+      git submodule set-url -- tests/lcitool/libvirt-ci $(cat /run/secrets/SOURCE_REPO)/libvirt/libvirt-ci.git
     fi
 
     for p in /patches/*.patch ; do
@@ -306,7 +306,8 @@ shell:
       --enable-xkbcommon \
       --enable-zstd
 
-      make -j$(nproc)
+    {{- $_ := set $ "ProjectName" (list $.ImageName "qemu" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
 
   setup:
   - |
