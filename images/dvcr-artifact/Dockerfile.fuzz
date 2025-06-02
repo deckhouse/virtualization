@@ -1,0 +1,41 @@
+# Dockerfile for running uploader package fuzzing tests
+FROM golang:1.24-alpine
+
+# Install essential tools
+RUN apk add --no-cache \
+  git \
+  bash \
+  build-base \
+  coreutils \
+  musl-dev \
+  libnbd-dev
+
+# Set working directory
+WORKDIR /app
+
+# Copy go files first for better caching
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN set -ex && \
+  go mod download && \
+  go mod verify
+
+# Copy entire source code
+COPY . .
+
+# Copy and make run script executable
+COPY run-fuzz.sh /app/run-fuzz.sh
+RUN chmod +x /app/run-fuzz.sh
+
+# Package will be built when tests run
+
+# Environment variables
+ENV CGO_ENABLED=0
+ENV GOOS=linux
+ENV GOARCH=amd64
+ENV FUZZ_TIME=2m
+ENV GO111MODULE=on
+
+# Default command runs the fuzzing script
+CMD ["/app/run-fuzz.sh"]
