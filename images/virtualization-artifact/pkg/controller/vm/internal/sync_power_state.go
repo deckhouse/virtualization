@@ -152,7 +152,6 @@ func (h *SyncPowerStateHandler) syncPowerState(
 		if exist && cbAwaitingRestart.Status == metav1.ConditionTrue &&
 			cbAwaitingRestart.ObservedGeneration == vm.GetGeneration() &&
 			vm.Spec.Disruptions.RestartApprovalMode == virtv2.Automatic {
-
 			log := logger.FromContext(ctx)
 			h.recorder.WithLogging(log).Event(vm, corev1.EventTypeNormal, virtv2.ReasonVMChangesApplied, "Apply disruptive changes with restart")
 			h.recorder.WithLogging(log).Event(

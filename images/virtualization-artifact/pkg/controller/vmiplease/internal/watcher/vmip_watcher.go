@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )

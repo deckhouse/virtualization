@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
