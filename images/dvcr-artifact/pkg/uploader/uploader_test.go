@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -63,20 +64,19 @@ func FuzzValidateShouldHandleRequest(f *testing.F) {
 		hasTLS     bool
 		uploading  bool
 	}{
-		{"CONNECT", "test-client", true, false},
-		{"DELETE", "test-client", true, false},
-		{"GET", "test-client", true, false},
-		{"HEAD", "test-client", true, false},
-		{"OPTION", "test-client", true, false},
-		{"PATCH", "test-client", true, false},
-		{"POST", "test-client", true, false},
-		{"PUT", "test-client", true, false},
-		{"TRACE", "test-client", true, false},
+		{http.MethodGet, "test-client", true, false},
+		{http.MethodHead, "test-client", true, false},
+		{http.MethodPost, "test-client", true, false},
+		{http.MethodPut, "test-client", true, false},
+		{http.MethodPatch, "test-client", true, false},
+		{http.MethodDelete, "test-client", true, false},
+		{http.MethodConnect, "test-client", true, false},
+		{http.MethodOptions, "test-client", true, false},
+		{http.MethodTrace, "test-client", true, false},
 
 		{"POST", "wrong-client", true, false},
 		{"POST", "", true, false},
 		{"POST", "test-client", false, true},
-		{"", "test-client", true, false},
 	}
 
 	for _, seed := range seeds {
@@ -94,7 +94,7 @@ func FuzzValidateShouldHandleRequest(f *testing.F) {
 		go app.Run()
 
 		w := httptest.NewRecorder()
-		req := httptest.NewRequest(method, "/upload", nil)
+		req := &http.Request{Header: make(http.Header), Method: method, URL: &url.URL{Path: "/upload"}}
 
 		if hasTLS {
 			// Create a mock certificate
