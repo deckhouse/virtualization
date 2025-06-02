@@ -9,8 +9,8 @@ import:
   before: setup
 
 ---
-# {{- $version := get $.Package $.ImageName }}
-# {{- $gitRepoUrl := "glibc.git" }}
+{{- $version := "fuse-3.16.2" }}
+{{- $gitRepoUrl := "libfuse/libfuse.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -42,8 +42,7 @@ shell:
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    # git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    git clone https://github.com/libfuse/libfuse.git --depth=1 --branch fuse-3.16.2 /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
     cd /src
     meson setup build -Duseroot=false -Dprefix=$OUTDIR/usr
