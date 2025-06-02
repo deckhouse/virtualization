@@ -37,6 +37,7 @@ type ConsoleREST struct {
 	kubevirt         KubevirtApiServerConfig
 }
 
+//nolint:stylecheck // TODO: fix
 type KubevirtApiServerConfig struct {
 	Endpoint       string
 	CaBundlePath   string
@@ -100,7 +101,6 @@ func ConsoleLocation(
 		ctx,
 		getter,
 		name,
-		opts,
 		newKVVMIPather("console"),
 		kubevirt,
 		proxyCertManager,

@@ -125,5 +125,5 @@ func RemoveVolumeRESTLocation(
 	proxyCertManager certmanager.CertificateManager,
 	removeVolumePather pather,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, removeVolumePather, kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, removeVolumePather, kubevirt, proxyCertManager)
 }

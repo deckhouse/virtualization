@@ -198,7 +198,7 @@ func AddVolumeLocation(
 	proxyCertManager certmanager.CertificateManager,
 	addVolumePather pather,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, addVolumePather, kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, addVolumePather, kubevirt, proxyCertManager)
 }
 
 type VirtualMachineVolumeRequest struct {

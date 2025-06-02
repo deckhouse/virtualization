@@ -91,7 +91,6 @@ func FreezeLocation(
 		ctx,
 		getter,
 		name,
-		opts,
 		newKVVMIPather("freeze"),
 		kubevirt,
 		proxyCertManager,

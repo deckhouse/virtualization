@@ -113,5 +113,5 @@ func CancelEvacuationRESTRESTLocation(
 	proxyCertManager certmanager.CertificateManager,
 	cancelEvacuationPather pather,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, cancelEvacuationPather, kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, cancelEvacuationPather, kubevirt, proxyCertManager)
 }

@@ -96,7 +96,6 @@ func PortForwardLocation(
 		ctx,
 		getter,
 		name,
-		opts,
 		newKVVMIPather(streamPath),
 		kubevirt,
 		proxyCertManager,

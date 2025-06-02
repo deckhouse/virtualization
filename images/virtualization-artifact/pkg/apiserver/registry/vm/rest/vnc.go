@@ -93,7 +93,6 @@ func VNCLocation(
 		ctx,
 		getter,
 		name,
-		opts,
 		newKVVMIPather("vnc"),
 		kubevirt,
 		proxyCertManager,
