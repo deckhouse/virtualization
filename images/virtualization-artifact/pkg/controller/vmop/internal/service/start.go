@@ -54,6 +54,7 @@ func (o StartOperation) Cancel(_ context.Context) (bool, error) {
 
 func (o StartOperation) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {
 	return phase == virtv2.MachineStopped || phase == virtv2.MachineStopping
+
 }
 
 func (o StartOperation) IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool {

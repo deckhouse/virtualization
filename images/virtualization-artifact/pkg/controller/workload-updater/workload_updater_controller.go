@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/workload-updater/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"

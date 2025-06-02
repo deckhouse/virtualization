@@ -34,7 +34,8 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type VirtualMachineSnapshotWatcher struct{}
+type VirtualMachineSnapshotWatcher struct {
+}
 
 func NewVirtualMachineSnapshotWatcher() *VirtualMachineSnapshotWatcher {
 	return &VirtualMachineSnapshotWatcher{}

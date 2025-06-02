@@ -20,11 +20,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation/internal/handler"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"

@@ -96,7 +96,7 @@ func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, vds m
 		"Waiting for block devices to be ready to use: %d/%d",
 		diskState.counts.readyToUse, summaryCount))
 
-	addUsageMessage := func(count int, name, usageType string) {
+	addUsageMessage := func(count int, name string, usageType string) {
 		if count == 0 {
 			return
 		}

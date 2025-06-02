@@ -70,7 +70,7 @@ var _ = Describe("TestNodePlacementHandler", func() {
 			fakeClient, _ = setupEnvironment(vm, kvvmi)
 
 			mockMigration := &OneShotMigrationMock{
-				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
+				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error) {
 					return true, serviceCompleteErr
 				},
 			}
