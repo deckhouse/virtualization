@@ -126,7 +126,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	DescribeTable("One not ready disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -235,7 +235,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	DescribeTable("One wffc disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -330,7 +330,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	DescribeTable("One ready disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -447,7 +447,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	DescribeTable("two disks: not ready disk & ready disk", func(vd1, vd2 *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2).Build()
 
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -539,7 +539,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	DescribeTable("two disks: two ready disks", func(vd1, vd2 *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2).Build()
 
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -674,7 +674,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vd3 := getNotReadyVD("vd3", metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String())
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -756,7 +756,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vd5 := getReadyVD("vd5", metav1.ConditionTrue, vdcondition.UsedForImageCreation.String())
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3, vd4, vd5).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -868,7 +868,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3, vd4, vd5).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1010,7 +1010,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3, vd4, vd5).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1083,7 +1083,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1156,7 +1156,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1389,7 +1389,7 @@ var _ = Describe("Capacity check", func() {
 		}
 
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm).Build()
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		_ = vmResource.Fetch(ctx)
 		vmState := state.New(fakeClient, vmResource)
 
@@ -1572,7 +1572,7 @@ var _ = Describe("Capacity check", func() {
 			}
 
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm, kvvmi, vi, cvi, vmbdaVi, vmbdaCvi).Build()
-			vmResource := reconciler.NewResource(namespacedVirtualMachine, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedVirtualMachine, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			_ = vmResource.Fetch(ctx)
 			vmState := state.New(fakeClient, vmResource)
 
@@ -1600,8 +1600,7 @@ var _ = Describe("Capacity check", func() {
 	})
 })
 
-//nolint:stylecheck // TODO: fix to vmFactoryByVM
-func vmFactoryByVm(vm *virtv2.VirtualMachine) func() *virtv2.VirtualMachine {
+func vmFactoryByVM(vm *virtv2.VirtualMachine) func() *virtv2.VirtualMachine {
 	return func() *virtv2.VirtualMachine {
 		return vm
 	}

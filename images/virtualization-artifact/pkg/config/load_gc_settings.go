@@ -25,9 +25,9 @@ import (
 )
 
 const (
-	GcVmopTtlVar              = "GC_VMOP_TTL" //nolint:stylecheck // TODO: fix to GcVmopTTLVar
+	GcVmopTTLVar              = "GC_VMOP_TTL"
 	GcVmopScheduleVar         = "GC_VMOP_SCHEDULE"
-	GcVMIMigrationTtlVar      = "GC_VMI_MIGRATION_TTL" //nolint:stylecheck // TODO: fix to GcVMIMigrationTTLVar
+	GcVMIMigrationTTLVar      = "GC_VMI_MIGRATION_TTL"
 	GcVMIMigrationScheduleVar = "GC_VMI_MIGRATION_SCHEDULE"
 )
 
@@ -43,13 +43,13 @@ type BaseGcSettings struct {
 
 func LoadGcSettings() (GCSettings, error) {
 	var gcSettings GCSettings
-	base, err := GetBaseGCSettingsFromEnv(GcVmopScheduleVar, GcVmopTtlVar)
+	base, err := GetBaseGCSettingsFromEnv(GcVmopScheduleVar, GcVmopTTLVar)
 	if err != nil {
 		return gcSettings, err
 	}
 	gcSettings.VMOP = base
 
-	base, err = GetBaseGCSettingsFromEnv(GcVMIMigrationScheduleVar, GcVMIMigrationTtlVar)
+	base, err = GetBaseGCSettingsFromEnv(GcVMIMigrationScheduleVar, GcVMIMigrationTTLVar)
 	if err != nil {
 		return gcSettings, err
 	}

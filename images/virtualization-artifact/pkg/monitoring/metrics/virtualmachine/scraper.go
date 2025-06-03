@@ -38,11 +38,11 @@ type scraper struct {
 
 func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVirtualMachineStatusPhase(m)
-	s.updateMetricVirtualMachineCpuCores(m)
-	s.updateMetricVirtualMachineConfigurationCpuCores(m)
-	s.updateMetricVirtualMachineCpuCoreFraction(m)
-	s.updateMetricVirtualMachineConfigurationCpuCoreFraction(m)
-	s.updateMetricVirtualMachineConfigurationCpuRuntimeOverhead(m)
+	s.updateMetricVirtualMachineCPUCores(m)
+	s.updateMetricVirtualMachineConfigurationCPUCores(m)
+	s.updateMetricVirtualMachineCPUCoreFraction(m)
+	s.updateMetricVirtualMachineConfigurationCPUCoreFraction(m)
+	s.updateMetricVirtualMachineConfigurationCPURuntimeOverhead(m)
 	s.updateMetricVirtualMachineConfigurationMemoryRuntimeOverheadBytes(m)
 	s.updateMetricVirtualMachineConfigurationMemorySizeBytes(m)
 	s.updateMetricVirtualMachineAwaitingRestartToApplyConfiguration(m)
@@ -80,32 +80,27 @@ func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
 	}
 }
 
-//nolint:stylecheck // TODO: fix to updateMetricVirtualMachineCPUCores
-func (s *scraper) updateMetricVirtualMachineCpuCores(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineCPUCores(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineCPUCores,
 		m.CPUCores, m)
 }
 
-//nolint:stylecheck // TODO: fix to updateMetricVirtualMachineConfigurationCPUCores
-func (s *scraper) updateMetricVirtualMachineConfigurationCpuCores(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineConfigurationCPUCores(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationCPUCores,
 		m.CPUConfigurationCores, m)
 }
 
-//nolint:stylecheck // TODO: fix to updateMetricVirtualMachineCPUCoreFraction
-func (s *scraper) updateMetricVirtualMachineCpuCoreFraction(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineCPUCoreFraction(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineCPUCoreFraction,
 		m.CPUCoreFraction, m)
 }
 
-//nolint:stylecheck // TODO: fix to updateMetricVirtualMachineConfigurationCPUCoreFraction
-func (s *scraper) updateMetricVirtualMachineConfigurationCpuCoreFraction(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineConfigurationCPUCoreFraction(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationCPUCoreFraction,
 		m.CPUConfigurationCoreFraction, m)
 }
 
-//nolint:stylecheck // TODO: fix to updateMetricVirtualMachineConfigurationCPURuntimeOverhead
-func (s *scraper) updateMetricVirtualMachineConfigurationCpuRuntimeOverhead(m *dataMetric) {
+func (s *scraper) updateMetricVirtualMachineConfigurationCPURuntimeOverhead(m *dataMetric) {
 	s.defaultUpdate(MetricVirtualMachineConfigurationCPURuntimeOverhead,
 		m.CPURuntimeOverhead, m)
 }

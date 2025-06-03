@@ -39,7 +39,7 @@ func NewBlockDeviceLimiter(service *service.BlockDeviceService) *BlockDeviceLimi
 }
 
 func (h *BlockDeviceLimiter) Handle(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (reconcile.Result, error) {
-	blockDeviceAttachedCount, err := h.service.CountBlockDevicesAttachedToVmName(ctx, vmbda.Spec.VirtualMachineName, vmbda.Namespace)
+	blockDeviceAttachedCount, err := h.service.CountBlockDevicesAttachedToVMName(ctx, vmbda.Spec.VirtualMachineName, vmbda.Namespace)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

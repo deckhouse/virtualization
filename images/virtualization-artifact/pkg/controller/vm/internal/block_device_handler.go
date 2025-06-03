@@ -175,7 +175,7 @@ func (h *BlockDeviceHandler) handleBlockDeviceConflicts(ctx context.Context, s s
 func (h *BlockDeviceHandler) handleBlockDeviceLimit(ctx context.Context, vm *virtv2.VirtualMachine) (bool, error) {
 	// Get number of connected block devices.
 	// If it's greater than the limit, then set the condition to false.
-	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVm(ctx, vm)
+	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVM(ctx, vm)
 	if err != nil {
 		return false, err
 	}

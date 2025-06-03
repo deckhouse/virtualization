@@ -49,7 +49,7 @@ func (v *BlockDeviceLimiterValidator) ValidateUpdate(ctx context.Context, _, new
 }
 
 func (v *BlockDeviceLimiterValidator) validate(ctx context.Context, vm *virtv2.VirtualMachine) (admission.Warnings, error) {
-	count, err := v.service.CountBlockDevicesAttachedToVm(ctx, vm)
+	count, err := v.service.CountBlockDevicesAttachedToVM(ctx, vm)
 	if err != nil {
 		v.log.Error(err.Error())
 		return nil, err
