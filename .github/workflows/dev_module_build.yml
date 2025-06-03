@@ -159,6 +159,17 @@ jobs:
 
           OUTER
 
+  lint_dmt:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    name: Run DMT linter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/lint@v2
+        env:
+          DMT_METRICS_URL: ${{ secrets.DMT_METRICS_URL }}
+          DMT_METRICS_TOKEN: ${{ secrets.DMT_METRICS_TOKEN }}
+
   lint_go:
     runs-on: ubuntu-22.04
     name: Run go linter

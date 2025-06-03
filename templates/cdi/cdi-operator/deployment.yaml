@@ -36,6 +36,7 @@ spec:
   resourcePolicy:
     containerPolicies:
     {{- include "kube_api_rewriter.vpa_container_policy" . | nindent 4 }}
+    {{- include "kube_rbac_proxy.vpa_container_policy" . | nindent 4 }}
     - containerName: cdi-operator
       minAllowed:
         {{- include "cdi_operator_resources" . | nindent 8 }}
