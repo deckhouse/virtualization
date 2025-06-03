@@ -29,7 +29,7 @@ func isDeletion(class *virtv2.VirtualMachineClass) bool {
 }
 
 func addAllUnknown(class *virtv2.VirtualMachineClass, conds ...vmclasscondition.Type) (update bool) {
-	//nolint:staticcheck //TODO: use direct SetCondition instead conditions.NewManage
+	//nolint:staticcheck // use direct SetCondition instead conditions.NewManage
 	mgr := conditions.NewManager(class.Status.Conditions)
 	for _, c := range conds {
 		if add := mgr.Add(conditions.NewConditionBuilder(c).

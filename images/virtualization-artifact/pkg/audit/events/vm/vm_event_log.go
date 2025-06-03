@@ -38,7 +38,7 @@ type VMEventLog struct {
 	Level          string `json:"level"`
 	Name           string `json:"name"`
 	Datetime       string `json:"datetime"`
-	Uid            string `json:"uid"` //nolint:stylecheck //TODO: fix
+	UID            string `json:"uid"`
 	RequestSubject string `json:"request_subject"`
 
 	ActionType         string `json:"action_type"`
@@ -60,7 +60,7 @@ func NewVMEventLog(event *audit.Event) *VMEventLog {
 		Level:           "info",
 		Name:            "unknown",
 		Datetime:        event.RequestReceivedTimestamp.Format(time.RFC3339),
-		Uid:             string(event.AuditID),
+		UID:             string(event.AuditID),
 		RequestSubject:  event.User.Username,
 		OperationResult: "unknown",
 
