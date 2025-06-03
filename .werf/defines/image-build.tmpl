@@ -1,5 +1,5 @@
 {{- define "image-build.build" }}
-{{-   if eq $.SVACE_ENABLED "true" }}
+{{-   if ne $.SVACE_ENABLED "false" }}
 svace build --init --clear-build-dir {{ .BuildCommand }}
 attempt=0
 retries=5
