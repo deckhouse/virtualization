@@ -22,4 +22,4 @@ package:
   libbsd: 0.12.2
   libaudit: v4.0.3
   file: FILE5_45
-  libfdf: 1.7.2
+  libfdf: v1.7.2
