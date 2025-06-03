@@ -5,7 +5,7 @@
 
 image: {{ $.ImageName }}
 final: false
-{{- include "image-build.fromImageAlt" $ }}
+fromImage: base-alt-p11{{ $.SVACE_IMAGE_SUFFIX }}
 git:
 - add: /images/{{ $.ImageName }}/
   to: /

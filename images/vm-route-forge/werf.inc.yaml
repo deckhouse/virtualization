@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}-builder
 final: false
-{{- include "image-build.fromImageDebian" $ }}
+fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
 git:
 - add: /images/{{ $.ImageName }}
   to: /app/images/vm-route-forge
@@ -28,9 +28,7 @@ shell:
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
-  - |
-    {{- $_ := set $ "ProjectName" (list $.ImageName "vm-route-forge" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go`) | nindent 6 }}
+  - go build -ldflags="-s -w" -o vm-route-forge cmd/vm-route-forge/main.go
 ---
 image: {{ $.ImageName }}
 fromImage: distroless
