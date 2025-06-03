@@ -8,6 +8,7 @@
 {{- range $k, $v := $versions_ctx.firmware }}
   {{- $_ := set $.Version $k $v}}
 {{- end }}
+{{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" -1 .Values.global | int }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt
@@ -34,7 +35,9 @@ spec:
       manufacturer: Flant
       family: Deckhouse
       product: DeckhouseVirtualizationPlatform
-      sku: "{{ add1 .Values.global.discovery.dvpNestingLevel }}"
+      {{- if ge $dvpNestingLevel 0 }}
+      sku: "{{ add1 $dvpNestingLevel }}"
+      {{- end }}
     evictionStrategy: LiveMigrate
     vmRolloutStrategy: LiveUpdate
     developerConfiguration:
@@ -86,7 +89,7 @@ spec:
     # Add node affinity for the lowest virtualization level
     - resourceType: DaemonSet
       resourceName: virt-handler
-      patch: '[{"op":"add","path":"/spec/template/spec/affinity","value":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node.deckhouse.io/dvp-nesting-level","operator":"In","values":["{{ .Values.global.discovery.dvpNestingLevel }}"]}]},{"matchExpressions":[{"key":"node.deckhouse.io/dvp-nesting-level","operator":"DoesNotExist"}]}]}}}}]'
+      patch: '[{"op":"add","path":"/spec/template/spec/affinity","value":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node.deckhouse.io/dvp-nesting-level","operator":"In","values":["{{ $dvpNestingLevel }}"]}]},{"matchExpressions":[{"key":"node.deckhouse.io/dvp-nesting-level","operator":"DoesNotExist"}]}]}}}}]'
       type: json
     {{- if (include "helm_lib_ha_enabled" .) }}
     # HA settings for deploy/virt-api.
