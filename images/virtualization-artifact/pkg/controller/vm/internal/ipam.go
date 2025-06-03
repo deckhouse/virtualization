@@ -75,7 +75,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	//nolint:staticcheck //conditions.NewManager is deprecated: use direct SetCondition instead.
+	//nolint:staticcheck // it's deprecated.
 	mgr := conditions.NewManager(changed.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vmcondition.TypeIPAddressReady).
 		Generation(current.GetGeneration())

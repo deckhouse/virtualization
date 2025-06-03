@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package resource_builder //nolint:stylecheck // we don't care
+package resource_builder //nolint:stylecheck,nolintlint
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
