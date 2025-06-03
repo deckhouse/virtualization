@@ -1,6 +1,6 @@
 ---
-{{- $version := "1.60.3" }}
-{{- $gitRepoUrl := "kubevirt/containerized-data-importer.git" }}
+{{- $version := "1.60.3-v12n.0" }}
+{{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer.git" }}
 
 ---
 image: {{ $.ImageName }}
@@ -51,18 +51,6 @@ shell:
 
     # CVE-2025-27144
     go get github.com/go-jose/go-jose/v3@v3.0.4
-
-    go mod tidy
-    go mod vendor
-
-  - |
-    # IMPORTANT!
-    # Apply patches after go mod vendor, as there are patches on modules in vendor directory.
-    cd /containerized-data-importer
-    for p in /patches/*.patch ; do
-      echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-    done
 
   setup:
   - mkdir /cdi-binaries
