@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -72,7 +71,7 @@ var _ = Describe("BoundHandler", func() {
 				Labels: map[string]string{
 					annotations.LabelVirtualMachineIPAddressUID: string(vmip.UID),
 				},
-				Name:       ip.IpToLeaseName(ipAddress),
+				Name:       ip.IPToLeaseName(ipAddress),
 				Generation: 1,
 			},
 		}

@@ -35,7 +35,7 @@ func NewSizingPoliciesValidator(client client.Client) *SizingPoliciesValidator {
 }
 
 func (v *SizingPoliciesValidator) ValidateCreate(_ context.Context, vmclass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
-	if HasCpuSizePoliciesCrosses(&vmclass.Spec) {
+	if HasCPUSizePoliciesCrosses(&vmclass.Spec) {
 		return nil, fmt.Errorf("vmclass %s has size policy cpu crosses", vmclass.Name)
 	}
 
@@ -43,14 +43,14 @@ func (v *SizingPoliciesValidator) ValidateCreate(_ context.Context, vmclass *v1a
 }
 
 func (v *SizingPoliciesValidator) ValidateUpdate(_ context.Context, _, newVMClass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
-	if HasCpuSizePoliciesCrosses(&newVMClass.Spec) {
+	if HasCPUSizePoliciesCrosses(&newVMClass.Spec) {
 		return nil, fmt.Errorf("vmclass %s has size policy cpu crosses", newVMClass.Name)
 	}
 
 	return nil, nil
 }
 
-func HasCpuSizePoliciesCrosses(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
+func HasCPUSizePoliciesCrosses(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
 	usedPairs := make(map[[2]int]struct{})
 
 	for i, policy1 := range vmclass.SizingPolicies {

@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/validators"
@@ -52,7 +51,7 @@ func NewValidator(ipam internal.IPAM, client client.Client, service *service.Blo
 			validators.NewBlockDeviceLimiterValidator(service, log),
 			validators.NewAffinityValidator(),
 			validators.NewTopologySpreadConstraintValidator(),
-			validators.NewCpuCountValidator(),
+			validators.NewCPUCountValidator(),
 		},
 		log: log.With("webhook", "validation"),
 	}

@@ -38,17 +38,17 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type IpAddressService struct {
+type IPAddressService struct {
 	parsedCIDRs []netip.Prefix
 	client      client.Client
 	virtClient  kubeclient.Client
 }
 
-func NewIpAddressService(
+func NewIPAddressService(
 	virtualMachineCIDRs []string,
 	client client.Client,
 	virtClient kubeclient.Client,
-) (*IpAddressService, error) {
+) (*IPAddressService, error) {
 	parsedCIDRs := make([]netip.Prefix, len(virtualMachineCIDRs))
 
 	for i, cidr := range virtualMachineCIDRs {
@@ -59,14 +59,14 @@ func NewIpAddressService(
 		parsedCIDRs[i] = parsedCIDR
 	}
 
-	return &IpAddressService{
+	return &IPAddressService{
 		parsedCIDRs: parsedCIDRs,
 		client:      client,
 		virtClient:  virtClient,
 	}, nil
 }
 
-func (s IpAddressService) IsInsideOfRange(address string) error {
+func (s IPAddressService) IsInsideOfRange(address string) error {
 	addr, err := netip.ParseAddr(address)
 	if err != nil || !addr.IsValid() {
 		return errors.New("invalid IP address format")
@@ -90,7 +90,7 @@ func (s IpAddressService) IsInsideOfRange(address string) error {
 	return ErrIPAddressOutOfRange
 }
 
-func (s IpAddressService) AllocateNewIP(allocatedIPs ip.AllocatedIPs) (string, error) {
+func (s IPAddressService) AllocateNewIP(allocatedIPs ip.AllocatedIPs) (string, error) {
 	for _, cidr := range s.parsedCIDRs {
 		for addr := cidr.Addr(); cidr.Contains(addr); addr = addr.Next() {
 			if k8snet.RangeSize(toIPNet(cidr)) != 1 {
@@ -111,7 +111,7 @@ func (s IpAddressService) AllocateNewIP(allocatedIPs ip.AllocatedIPs) (string, e
 	return "", errors.New("no remaining ips")
 }
 
-func (s IpAddressService) GetAllocatedIPs(ctx context.Context) (ip.AllocatedIPs, error) {
+func (s IPAddressService) GetAllocatedIPs(ctx context.Context) (ip.AllocatedIPs, error) {
 	var leases virtv2.VirtualMachineIPAddressLeaseList
 
 	err := s.client.List(ctx, &leases)
@@ -127,7 +127,7 @@ func (s IpAddressService) GetAllocatedIPs(ctx context.Context) (ip.AllocatedIPs,
 	return allocatedIPs, nil
 }
 
-func (s IpAddressService) GetLease(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
+func (s IPAddressService) GetLease(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
 	// The IP address cannot be changed for a vmip. Once it has been assigned, it will remain the same.
 	ipAddress := getAssignedIPAddress(vmip)
 	if ipAddress != "" {
@@ -139,9 +139,9 @@ func (s IpAddressService) GetLease(ctx context.Context, vmip *virtv2.VirtualMach
 	return s.getLeaseByLabel(ctx, vmip)
 }
 
-func (s IpAddressService) getLeaseByIPAddress(ctx context.Context, ipAddress string) (*virtv2.VirtualMachineIPAddressLease, error) {
+func (s IPAddressService) getLeaseByIPAddress(ctx context.Context, ipAddress string) (*virtv2.VirtualMachineIPAddressLease, error) {
 	// 1. Trying to find the Lease in the local cache.
-	lease, err := object.FetchObject(ctx, types.NamespacedName{Name: ip.IpToLeaseName(ipAddress)}, s.client, &virtv2.VirtualMachineIPAddressLease{})
+	lease, err := object.FetchObject(ctx, types.NamespacedName{Name: ip.IPToLeaseName(ipAddress)}, s.client, &virtv2.VirtualMachineIPAddressLease{})
 	if err != nil {
 		return nil, fmt.Errorf("fetch lease in local cache: %w", err)
 	}
@@ -152,7 +152,7 @@ func (s IpAddressService) getLeaseByIPAddress(ctx context.Context, ipAddress str
 
 	// The local cache might be outdated, which is why the Lease is not present in the cache, even though it may already exist in the cluster.
 	// Double-check Lease existence in the cluster by making a direct request to the Kubernetes API.
-	lease, err = s.virtClient.VirtualMachineIPAddressLeases().Get(ctx, ip.IpToLeaseName(ipAddress), metav1.GetOptions{})
+	lease, err = s.virtClient.VirtualMachineIPAddressLeases().Get(ctx, ip.IPToLeaseName(ipAddress), metav1.GetOptions{})
 	switch {
 	case err == nil:
 		logger.FromContext(ctx).Warn("The lease was not found by ip address in the local cache, but it already exists in the cluster", "leaseName", lease.Name)
@@ -164,7 +164,7 @@ func (s IpAddressService) getLeaseByIPAddress(ctx context.Context, ipAddress str
 	}
 }
 
-func (s IpAddressService) getLeaseByLabel(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
+func (s IPAddressService) getLeaseByLabel(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
 	// 1. Trying to find the Lease in the local cache.
 	{
 		leases := &virtv2.VirtualMachineIPAddressLeaseList{}

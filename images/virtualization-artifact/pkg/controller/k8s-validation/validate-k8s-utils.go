@@ -27,7 +27,7 @@ It makes it easier to copy and maintain instead of vendoring the whole kubernete
 creating dry runs of the pod object during admission validation.
 */
 
-package k8s_validation
+package k8s_validation //nolint:stylecheck,nolintlint
 
 import (
 	"fmt"

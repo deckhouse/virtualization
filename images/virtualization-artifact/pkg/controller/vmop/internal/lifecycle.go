@@ -195,10 +195,8 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 	}
 
 	// Check if force flag is applicable for effective liveMigrationPolicy.
-	msg, isApplicable, err := h.isApplicableForLiveMigrationPolicy(ctx, vmop, vm)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
+	msg, isApplicable := h.isApplicableForLiveMigrationPolicy(vmop, vm)
+
 	if !isApplicable {
 		vmop.Status.Phase = virtv2.VMOPPhaseFailed
 		h.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, msg)
@@ -278,12 +276,6 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *vi
 	return reconcile.Result{}, err
 }
 
-func (h LifecycleHandler) isFinalState(vmop *virtv2.VirtualMachineOperation) bool {
-	return vmop != nil && (vmop.Status.Phase == virtv2.VMOPPhaseCompleted ||
-		vmop.Status.Phase == virtv2.VMOPPhaseFailed ||
-		vmop.Status.Phase == virtv2.VMOPPhaseTerminating)
-}
-
 // otherVMOPIsInProgress check if there is at least one VMOP for the same VM in progress phase.
 func (h LifecycleHandler) otherVMOPIsInProgress(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
 	var vmopList virtv2.VirtualMachineOperationList
@@ -326,23 +318,23 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 	return false, nil
 }
 
-func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(ctx context.Context, vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (string, bool, error) {
+func (h LifecycleHandler) isApplicableForLiveMigrationPolicy(vmop *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine) (string, bool) {
 	// No need to check live migration policy if operation is not related to migrations.
 	if !commonvmop.IsMigration(vmop) {
-		return "", true, nil
+		return "", true
 	}
 
 	// No problems if force flag is not specified.
 	if vmop.Spec.Force == nil {
-		return "", true, nil
+		return "", true
 	}
 
 	effectivePolicy, autoConverge, err := livemigration.CalculateEffectivePolicy(*vm, vmop)
 	if err != nil {
 		msg := fmt.Sprintf("Operation is invalid: %v", err)
-		return msg, false, nil
+		return msg, false
 	}
 
 	msg := fmt.Sprintf("Migration settings for operation type %s: liveMigrationPolicy %s, autoConverge %v", vmop.Spec.Type, effectivePolicy, autoConverge)
-	return msg, true, nil
+	return msg, true
 }

@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -47,7 +46,7 @@ func NewController(
 	virtualMachineCIDRs []string,
 ) (controller.Controller, error) {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
-	ipService, err := service.NewIpAddressService(virtualMachineCIDRs, mgr.GetClient(), virtClient)
+	ipService, err := service.NewIPAddressService(virtualMachineCIDRs, mgr.GetClient(), virtClient)
 	if err != nil {
 		return nil, err
 	}

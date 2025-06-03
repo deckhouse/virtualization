@@ -113,17 +113,17 @@ func DeletePodByKVVMI(ctx context.Context, cli client.Client, kvvmi *virtv1.Virt
 }
 
 func AddRestartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
-	return object.EnsureAnnotation(ctx, cl, kvvm, annotations.AnnVmRestartRequested, "true")
+	return object.EnsureAnnotation(ctx, cl, kvvm, annotations.AnnVMRestartRequested, "true")
 }
 
 func AddStartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
-	return object.EnsureAnnotation(ctx, cl, kvvm, annotations.AnnVmStartRequested, "true")
+	return object.EnsureAnnotation(ctx, cl, kvvm, annotations.AnnVMStartRequested, "true")
 }
 
 func RemoveStartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
-	return object.RemoveAnnotation(ctx, cl, kvvm, annotations.AnnVmStartRequested)
+	return object.RemoveAnnotation(ctx, cl, kvvm, annotations.AnnVMStartRequested)
 }
 
 func RemoveRestartAnnotation(ctx context.Context, cl client.Client, kvvm *virtv1.VirtualMachine) error {
-	return object.RemoveAnnotation(ctx, cl, kvvm, annotations.AnnVmRestartRequested)
+	return object.RemoveAnnotation(ctx, cl, kvvm, annotations.AnnVMRestartRequested)
 }

@@ -37,7 +37,7 @@ func TestWorkloadUpdateHandlers(t *testing.T) {
 	RunSpecs(t, "WorkloadUpdate Handlers Suite")
 }
 
-func setupEnvironment(vm *virtv2.VirtualMachine, objs ...client.Object) (client.WithWatch, *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) {
+func setupEnvironment(vm *virtv2.VirtualMachine, objs ...client.Object) client.Client {
 	GinkgoHelper()
 	Expect(vm).ToNot(BeNil())
 	allObjects := []client.Object{vm}
@@ -60,7 +60,7 @@ func setupEnvironment(vm *virtv2.VirtualMachine, objs ...client.Object) (client.
 	err = resource.Fetch(context.Background())
 	Expect(err).NotTo(HaveOccurred())
 
-	return fakeClient, resource
+	return fakeClient
 }
 
 func newEmptyKVVMI(name, namespace string) *virtv1.VirtualMachineInstance {

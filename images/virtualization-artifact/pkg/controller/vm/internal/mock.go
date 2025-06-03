@@ -273,7 +273,7 @@ type BlockDeviceServiceMock struct {
 }
 
 // CountBlockDevicesAttachedToVm calls CountBlockDevicesAttachedToVmFunc.
-func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVm(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
+func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVM(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
 	if mock.CountBlockDevicesAttachedToVmFunc == nil {
 		panic("BlockDeviceServiceMock.CountBlockDevicesAttachedToVmFunc: method is nil but BlockDeviceService.CountBlockDevicesAttachedToVm was just called")
 	}

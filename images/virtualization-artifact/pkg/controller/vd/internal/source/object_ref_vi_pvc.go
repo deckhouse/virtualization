@@ -279,7 +279,6 @@ func (ds ObjectRefVirtualImagePVC) CleanUpSupplements(ctx context.Context, vd *v
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	} else {
 		return reconcile.Result{}, nil
-
 	}
 }
 

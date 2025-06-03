@@ -40,7 +40,7 @@ var _ = Describe("Spec policies validator", func() {
 		})
 
 		It("Should return no problem when empty value", func() {
-			Expect(validators.HasCpuSizePoliciesCrosses(&vmclass.Spec)).Should(BeFalse())
+			Expect(validators.HasCPUSizePoliciesCrosses(&vmclass.Spec)).Should(BeFalse())
 		})
 	})
 
@@ -71,7 +71,7 @@ var _ = Describe("Spec policies validator", func() {
 		})
 
 		It("Should return no problem with correct values", func() {
-			Expect(validators.HasCpuSizePoliciesCrosses(&vmclass.Spec)).Should(BeFalse())
+			Expect(validators.HasCPUSizePoliciesCrosses(&vmclass.Spec)).Should(BeFalse())
 		})
 	})
 
@@ -102,7 +102,7 @@ var _ = Describe("Spec policies validator", func() {
 		})
 
 		It("Should return problem with incorrect values", func() {
-			Expect(validators.HasCpuSizePoliciesCrosses(&vmclass.Spec)).Should(BeTrue())
+			Expect(validators.HasCPUSizePoliciesCrosses(&vmclass.Spec)).Should(BeTrue())
 		})
 	})
 })

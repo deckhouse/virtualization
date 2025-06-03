@@ -53,7 +53,7 @@ func (h *BoundHandler) Handle(ctx context.Context, vmip *virtv2.VirtualMachineIP
 
 	lease, err := h.ipService.GetLease(ctx, vmip)
 	if err != nil {
-		err = fmt.Errorf("error occured: %w", err)
+		err = fmt.Errorf("error occurred: %w", err)
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
