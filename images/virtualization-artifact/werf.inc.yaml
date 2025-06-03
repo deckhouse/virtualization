@@ -2,7 +2,6 @@
 image: {{ $.ImageName }}
 final: false
 fromImage: builder/golang-bookworm-1.23
-cacheVersion: "03-06-2025.0"
 git:
 - add: /api
   to: /usr/local/go/api
