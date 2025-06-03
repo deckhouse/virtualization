@@ -1,6 +1,6 @@
 ---
 {{- $version := "1.60.3-v12n.0" }}
-{{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer.git" }}
+{{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
 
 ---
 image: {{ $.ImageName }}
