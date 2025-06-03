@@ -120,69 +120,6 @@ func FuzzValidateShouldHandleRequest(f *testing.F) {
 	})
 }
 
-// func FuzzProcessUpload(f *testing.F) {
-// 	minimalQCow2 := [512]byte{
-// 		0x51, 0x46, 0x49, 0xfb, 0x01, 0x00, 0x00, 0x00,
-// 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-// 		0x00, 0x02, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
-// 	}
-//
-// 	seeds := []struct {
-// 		method      string
-// 		contentType string
-// 		body        string
-// 		uploading   bool
-// 	}{
-// 		// {"POST", "application/octet-stream", "test data", false},
-// 		// {"PUT", "application/json", `{"test": "data"}`, false},
-// 		// {"PUT", "application/json", `{"test": "data"}`, true},
-// 		// {"GET", "", "", false},
-// 		// {"POST", common.BlockdeviceClone, "compressed data", false},
-// 		{"POST", "text/plain", string(minimalQCow2[:]), false},
-// 		// {"POST", "text/plain", "plain text data", false},
-// 		// {"", "", "", false},
-// 	}
-//
-// 	for _, seed := range seeds {
-// 		f.Add(seed.method, seed.contentType, seed.body, seed.uploading)
-// 	}
-//
-// 	f.Fuzz(func(t *testing.T, method, contentType, body string, uploading bool) {
-// 		server, err := NewUploadServer("127.0.0.1", 0, "", "", "", "", cryptowatch.CryptoConfig{})
-// 		if err != nil {
-// 			t.Fatalf("Failed to create upload server: %v", err)
-// 		}
-//
-// 		app := server.(*uploadServerApp)
-//
-// 		go app.Run()
-//
-// 		w := httptest.NewRecorder()
-// 		req := httptest.NewRequest(method, "/upload", strings.NewReader(body))
-//
-// 		if contentType != "" {
-// 			req.Header.Set(common.UploadContentTypeHeader, contentType)
-// 			req.Header.Set("Content-Length", string(rune(len(body))))
-// 		}
-//
-// 		fmt.Println(body)
-// 		fmt.Println(req.ContentLength)
-//
-// 		irc := func(r *http.Request) (io.ReadCloser, error) {
-// 			return io.NopCloser(strings.NewReader(body)), nil
-// 		}
-//
-// 		// This will likely fail for most inputs due to registry operations,
-// 		// but we're testing for panics and proper error handling
-// 		app.processUpload(irc, w, req, cdiv1.DataVolumeKubeVirt)
-//
-// 		// Log status codes that might be interesting
-// 		if w.Code >= 500 && !uploading {
-// 			t.Errorf("Server error %d for method %s, contentType %s", w.Code, method, contentType)
-// 		}
-// 	})
-// }
-
 func FuzzNewContentReader(f *testing.F) {
 	seeds := []struct {
 		data        string
