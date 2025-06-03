@@ -9,7 +9,7 @@ import:
   before: setup
 
 ---
-{{- $version := "releases/gcc-14.2.0" }}
+{{- $version := get $.Package $.ImageName }}
 {{- $gitRepoUrl := "gcc.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
