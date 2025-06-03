@@ -38,9 +38,6 @@ on:
         type: number
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
-    branches:
-      - main
-      - chore/core/qemu-self-builded-binaries-to-images
   push:
     branches:
       - main
