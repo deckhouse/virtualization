@@ -16,7 +16,7 @@ shell:
   - git clone --depth 1 --branch v4.0.250415 $(cat /run/secrets/SOURCE_REPO)/ispras/svace.git /opt/svace
 
 ---
-image: base-alt-p11{{ $.SVACE_IMAGE_SUFFIX }}
+image: base-alt-p11/svace
 final: false
 fromImage: BASE_ALT_P11
 import:
@@ -36,7 +36,7 @@ shell:
   - |
     ln -s /opt/svace/bin/svace /usr/local/bin/svace
 ---
-image: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
+image: builder/golang-bookworm-1.23/svace
 final: false
 fromImage: builder/golang-bookworm-1.23
 import:
