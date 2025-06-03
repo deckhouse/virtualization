@@ -37,7 +37,7 @@ import (
 var _ = Describe("TestFirmwareHandler", func() {
 	const (
 		name          = "vm-firmware"
-		namespace     = "default"
+		namespace     = "default1"
 		expectedImage = "image:latest"
 	)
 

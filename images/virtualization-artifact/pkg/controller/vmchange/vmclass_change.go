@@ -27,7 +27,7 @@ func makePathWithClass(path string) string {
 	return fmt.Sprintf("VirtualMachineClass:%s", path)
 }
 
-func compareVmClassNodeSelector(current, desired *v1alpha2.VirtualMachineClassSpec) []FieldChange {
+func compareVMClassNodeSelector(current, desired *v1alpha2.VirtualMachineClassSpec) []FieldChange {
 	isEmpty := func(nodeSelector v1alpha2.NodeSelector) bool {
 		return len(nodeSelector.MatchExpressions) == 0 && len(nodeSelector.MatchLabels) == 0
 	}
@@ -44,7 +44,7 @@ func compareVmClassNodeSelector(current, desired *v1alpha2.VirtualMachineClassSp
 	)
 }
 
-func compareVmClassTolerations(current, desired *v1alpha2.VirtualMachineClassSpec) []FieldChange {
+func compareVMClassTolerations(current, desired *v1alpha2.VirtualMachineClassSpec) []FieldChange {
 	currentValue := NewValue(current.Tolerations, len(current.Tolerations) == 0, false)
 	desiredValue := NewValue(desired.Tolerations, len(desired.Tolerations) == 0, false)
 

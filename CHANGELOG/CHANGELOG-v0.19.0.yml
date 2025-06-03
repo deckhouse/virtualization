@@ -1,0 +1,63 @@
+api:
+  fixes:
+    - summary: Fixed the requeue loss bug during VD/VI/CVI provisioning.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1046
+docs:
+  fixes:
+    - summary: Deleted the repetitive paragraphs in IP address section
+      pull_request: https://github.com/deckhouse/virtualization/pull/1059
+images:
+  fixes:
+    - summary: Disable false positive error logs about not ready datasource.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1050
+module:
+  fixes:
+    - summary: >-
+        Fix the update parameters for control-plane components in HA mode, which caused the update
+        to hang.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1092
+    - summary: fix vm, vmop alerts
+      pull_request: https://github.com/deckhouse/virtualization/pull/1079
+vd:
+  features:
+    - summary: >-
+        Now the stopped virtual machine does not protect the virtual disk, and the virtual disk
+        becomes available for deletion
+      pull_request: https://github.com/deckhouse/virtualization/pull/1014
+vm:
+  fixes:
+    - summary: Set the maximum size of the embedded cloud-init block to 2048 bytes.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1083
+    - summary: Add a mechanism to clean up zombie processes from the virtual machine container.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1058
+    - summary: trim quotes in discovered ClusterIP
+      pull_request: https://github.com/deckhouse/virtualization/pull/1052
+    - summary: >-
+        Optimize the display of conditions. Now only relevant conditions are shown in the virtual
+        machine status.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1023
+vmclass:
+  fixes:
+    - summary: >-
+        Fix an issue when creating a VirtualMachineClass resource that could remain in a Pending
+        state during cluster creation or when adding nodes
+      pull_request: https://github.com/deckhouse/virtualization/pull/1075
+vmip:
+  fixes:
+    - summary: Fix the flickering of the Bound phase
+      pull_request: https://github.com/deckhouse/virtualization/pull/1093
+    - summary: Fix vmip listing in the watcher.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1084
+    - summary: >-
+        Fix an issue with the creation of duplicate VirtualMachineIPAddressLease resources for a
+        single virtual machine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1081
+    - summary: Fix creating many vmipleases from one vmip.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1012
+vmsnapshot:
+  fixes:
+    - summary: >-
+        Fix an issue where the VirtualMachineSnapshot resource could remain in a Pending state
+        because it was unable to determine the status of the virtual machine agent.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1065
+

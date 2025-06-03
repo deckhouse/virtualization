@@ -35,6 +35,7 @@ testData:
   vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
   vmVersions: "/tmp/testdata/vm-versions"
   vdSnapshots: "/tmp/testdata/vd-snapshots"
+  ipam: "/tmp/testdata/ipam"
   sshKey: "/tmp/testdata/sshkeys/id_ed"
   sshUser: "cloud"
 logFilter:

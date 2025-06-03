@@ -63,3 +63,4 @@ jobs:
             ci:low
             docs
             network
+            cli

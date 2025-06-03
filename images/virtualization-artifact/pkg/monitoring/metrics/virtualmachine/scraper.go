@@ -38,11 +38,11 @@ type scraper struct {
 
 func (s *scraper) Report(m *dataMetric) {
 	s.updateMetricVirtualMachineStatusPhase(m)
-	s.updateMetricVirtualMachineCpuCores(m)
-	s.updateMetricVirtualMachineConfigurationCpuCores(m)
-	s.updateMetricVirtualMachineCpuCoreFraction(m)
-	s.updateMetricVirtualMachineConfigurationCpuCoreFraction(m)
-	s.updateMetricVirtualMachineConfigurationCpuRuntimeOverhead(m)
+	s.updateMetricVirtualMachineCPUCores(m)
+	s.updateMetricVirtualMachineConfigurationCPUCores(m)
+	s.updateMetricVirtualMachineCPUCoreFraction(m)
+	s.updateMetricVirtualMachineConfigurationCPUCoreFraction(m)
+	s.updateMetricVirtualMachineConfigurationCPURuntimeOverhead(m)
 	s.updateMetricVirtualMachineConfigurationMemoryRuntimeOverheadBytes(m)
 	s.updateMetricVirtualMachineConfigurationMemorySizeBytes(m)
 	s.updateMetricVirtualMachineAwaitingRestartToApplyConfiguration(m)
@@ -80,29 +80,29 @@ func (s *scraper) updateMetricVirtualMachineStatusPhase(m *dataMetric) {
 	}
 }
 
-func (s *scraper) updateMetricVirtualMachineCpuCores(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineCpuCores,
-		m.CpuCores, m)
+func (s *scraper) updateMetricVirtualMachineCPUCores(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineCPUCores,
+		m.CPUCores, m)
 }
 
-func (s *scraper) updateMetricVirtualMachineConfigurationCpuCores(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCores,
-		m.CpuConfigurationCores, m)
+func (s *scraper) updateMetricVirtualMachineConfigurationCPUCores(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationCPUCores,
+		m.CPUConfigurationCores, m)
 }
 
-func (s *scraper) updateMetricVirtualMachineCpuCoreFraction(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineCpuCoreFraction,
-		m.CpuCoreFraction, m)
+func (s *scraper) updateMetricVirtualMachineCPUCoreFraction(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineCPUCoreFraction,
+		m.CPUCoreFraction, m)
 }
 
-func (s *scraper) updateMetricVirtualMachineConfigurationCpuCoreFraction(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationCpuCoreFraction,
-		m.CpuConfigurationCoreFraction, m)
+func (s *scraper) updateMetricVirtualMachineConfigurationCPUCoreFraction(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationCPUCoreFraction,
+		m.CPUConfigurationCoreFraction, m)
 }
 
-func (s *scraper) updateMetricVirtualMachineConfigurationCpuRuntimeOverhead(m *dataMetric) {
-	s.defaultUpdate(MetricVirtualMachineConfigurationCpuRuntimeOverhead,
-		m.CpuRuntimeOverhead, m)
+func (s *scraper) updateMetricVirtualMachineConfigurationCPURuntimeOverhead(m *dataMetric) {
+	s.defaultUpdate(MetricVirtualMachineConfigurationCPURuntimeOverhead,
+		m.CPURuntimeOverhead, m)
 }
 
 func (s *scraper) updateMetricVirtualMachineConfigurationMemoryRuntimeOverheadBytes(m *dataMetric) {

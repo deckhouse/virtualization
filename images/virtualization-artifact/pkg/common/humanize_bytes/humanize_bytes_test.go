@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package humanize_bytes
+package humanize_bytes //nolint:stylecheck,nolintlint
 
 import (
 	"testing"

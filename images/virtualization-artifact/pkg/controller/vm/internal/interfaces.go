@@ -29,5 +29,5 @@ import (
 type EventRecorder = record.EventRecorder
 
 type BlockDeviceService interface {
-	CountBlockDevicesAttachedToVm(ctx context.Context, vm *virtv2.VirtualMachine) (int, error)
+	CountBlockDevicesAttachedToVM(ctx context.Context, vm *virtv2.VirtualMachine) (int, error)
 }

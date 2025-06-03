@@ -29,6 +29,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdscondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var _ = Describe("LifeCycle handler", func() {
@@ -275,5 +276,51 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(ready.Reason).To(Equal(vdscondition.VirtualDiskSnapshotReady.String()))
 			Expect(ready.Message).To(BeEmpty())
 		})
+
+		DescribeTable("Check unfreeze if failed", func(vm *virtv2.VirtualMachine, expectUnfreezing bool) {
+			unFreezeCalled := false
+
+			snapshotter.IsFrozenFunc = func(_ *virtv2.VirtualMachine) bool {
+				return true
+			}
+			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
+				vs.Status = &vsv1.VolumeSnapshotStatus{
+					ReadyToUse: ptr.To(true),
+				}
+				return vs, nil
+			}
+			snapshotter.UnfreezeFunc = func(_ context.Context, _, _ string) error {
+				unFreezeCalled = true
+				return nil
+			}
+			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualMachine, error) {
+				return vm, nil
+			}
+
+			h := NewLifeCycleHandler(snapshotter)
+
+			vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseFailed
+			_, err := h.Handle(testContext(), vdSnapshot)
+
+			Expect(err).To(BeNil())
+			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseFailed))
+			Expect(unFreezeCalled).To(Equal(expectUnfreezing))
+		},
+			Entry("Has VM with frozen filesystem",
+				&virtv2.VirtualMachine{
+					Status: virtv2.VirtualMachineStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   vmcondition.TypeFilesystemFrozen.String(),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+				true,
+			),
+			Entry("Has VM with unfrozen filesystem", &virtv2.VirtualMachine{}, false),
+			Entry("Has no VM", nil, false),
+		)
 	})
 })

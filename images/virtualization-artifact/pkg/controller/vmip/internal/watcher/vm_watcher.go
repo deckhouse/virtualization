@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -32,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )

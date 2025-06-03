@@ -42,7 +42,7 @@ const nameIpamHandler = "IPAMHandler"
 
 type IPAM interface {
 	IsBound(vmName string, vmip *virtv2.VirtualMachineIPAddress) bool
-	CheckIpAddressAvailableForBinding(vmName string, vmip *virtv2.VirtualMachineIPAddress) error
+	CheckIPAddressAvailableForBinding(vmName string, vmip *virtv2.VirtualMachineIPAddress) error
 	CreateIPAddress(ctx context.Context, vm *virtv2.VirtualMachine, client client.Client) error
 }
 
@@ -75,7 +75,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 		return reconcile.Result{Requeue: true}, nil
 	}
 
-	//nolint:staticcheck
+	//nolint:staticcheck // it's deprecated.
 	mgr := conditions.NewManager(changed.Status.Conditions)
 	cb := conditions.NewConditionBuilder(vmcondition.TypeIPAddressReady).
 		Generation(current.GetGeneration())
@@ -151,7 +151,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	}
 
 	// 3. Check if possible to bind virtual machine with the found ip address.
-	err = h.ipam.CheckIpAddressAvailableForBinding(current.GetName(), ipAddress)
+	err = h.ipam.CheckIPAddressAvailableForBinding(current.GetName(), ipAddress)
 	if err != nil {
 		log.Info("Ip address is not available to be bound", "err", err, "vmipName", current.Spec.VirtualMachineIPAddress)
 		reason := vmcondition.ReasonIPAddressNotAvailable

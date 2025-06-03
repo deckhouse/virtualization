@@ -34,11 +34,11 @@ type dataMetric struct {
 	Node                                string
 	UID                                 string
 	Phase                               virtv2.MachinePhase
-	CpuConfigurationCores               float64
-	CpuConfigurationCoreFraction        float64
-	CpuCores                            float64
-	CpuCoreFraction                     float64
-	CpuRuntimeOverhead                  float64
+	CPUConfigurationCores               float64
+	CPUConfigurationCoreFraction        float64
+	CPUCores                            float64
+	CPUCoreFraction                     float64
+	CPURuntimeOverhead                  float64
 	MemoryConfigurationSize             float64
 	MemoryRuntimeOverhead               float64
 	AwaitingRestartToApplyConfiguration bool
@@ -98,11 +98,11 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 		Node:                                vm.Status.Node,
 		UID:                                 string(vm.UID),
 		Phase:                               vm.Status.Phase,
-		CpuConfigurationCores:               float64(vm.Spec.CPU.Cores),
-		CpuConfigurationCoreFraction:        float64(cfSpec.IntValue()),
-		CpuCores:                            float64(res.CPU.Cores),
-		CpuCoreFraction:                     float64(cf.IntValue()),
-		CpuRuntimeOverhead:                  float64(res.CPU.RuntimeOverhead.MilliValue()),
+		CPUConfigurationCores:               float64(vm.Spec.CPU.Cores),
+		CPUConfigurationCoreFraction:        float64(cfSpec.IntValue()),
+		CPUCores:                            float64(res.CPU.Cores),
+		CPUCoreFraction:                     float64(cf.IntValue()),
+		CPURuntimeOverhead:                  float64(res.CPU.RuntimeOverhead.MilliValue()),
 		MemoryConfigurationSize:             float64(vm.Spec.Memory.Size.Value()),
 		MemoryRuntimeOverhead:               float64(res.Memory.RuntimeOverhead.Value()),
 		AwaitingRestartToApplyConfiguration: awaitingRestartToApplyConfiguration,

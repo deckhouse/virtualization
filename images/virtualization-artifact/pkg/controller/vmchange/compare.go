@@ -42,11 +42,11 @@ var specComparators = []SpecFieldsComparator{
 	compareProvisioning,
 }
 
-type VmClassSpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineClassSpec) []FieldChange
+type VMClassSpecFieldsComparator func(prev, next *v1alpha2.VirtualMachineClassSpec) []FieldChange
 
-var vmclassSpecComparators = []VmClassSpecFieldsComparator{
-	compareVmClassNodeSelector,
-	compareVmClassTolerations,
+var vmclassSpecComparators = []VMClassSpecFieldsComparator{
+	compareVMClassNodeSelector,
+	compareVMClassTolerations,
 }
 
 func CompareSpecs(prev, next *v1alpha2.VirtualMachineSpec, prevClass, nextClass *v1alpha2.VirtualMachineClassSpec) SpecChanges {

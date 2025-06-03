@@ -134,9 +134,9 @@ func (h *SyncMetadataHandler) Name() string {
 }
 
 func (h *SyncMetadataHandler) patchLabelsAndAnnotations(ctx context.Context, obj client.Object, metadata metav1.ObjectMeta) error {
-	jp := patch.NewJsonPatch(
-		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/labels", metadata.Labels),
-		patch.NewJsonPatchOperation(patch.PatchReplaceOp, "/metadata/annotations", metadata.Annotations),
+	jp := patch.NewJSONPatch(
+		patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/metadata/labels", metadata.Labels),
+		patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/metadata/annotations", metadata.Annotations),
 	)
 	bytes, err := jp.Bytes()
 	if err != nil {

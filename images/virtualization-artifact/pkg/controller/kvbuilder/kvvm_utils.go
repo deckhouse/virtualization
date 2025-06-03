@@ -113,7 +113,7 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetTerminationGracePeriod(vm.Spec.TerminationGracePeriodSeconds)
 	kvvm.SetTopologySpreadConstraint(vm.Spec.TopologySpreadConstraints)
 	kvvm.SetMemory(vm.Spec.Memory.Size)
-	if err := kvvm.SetCpu(vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction); err != nil {
+	if err := kvvm.SetCPU(vm.Spec.CPU.Cores, vm.Spec.CPU.CoreFraction); err != nil {
 		return err
 	}
 

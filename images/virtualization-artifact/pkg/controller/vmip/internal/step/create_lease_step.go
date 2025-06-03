@@ -37,22 +37,28 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
+type Allocator interface {
+	GetAllocatedIPs(ctx context.Context) (ip.AllocatedIPs, error)
+	AllocateNewIP(allocatedIPs ip.AllocatedIPs) (string, error)
+	IsInsideOfRange(address string) error
+}
+
 type CreateLeaseStep struct {
 	lease     *virtv2.VirtualMachineIPAddressLease
-	ipService *intsvc.IpAddressService
+	allocator Allocator
 	client    client.Client
 	cb        *conditions.ConditionBuilder
 }
 
 func NewCreateLeaseStep(
 	lease *virtv2.VirtualMachineIPAddressLease,
-	ipService *intsvc.IpAddressService,
+	allocator Allocator,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
 ) *CreateLeaseStep {
 	return &CreateLeaseStep{
 		lease:     lease,
-		ipService: ipService,
+		allocator: allocator,
 		client:    client,
 		cb:        cb,
 	}
@@ -73,11 +79,11 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
-			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q doesn't exist.", ip.IpToLeaseName(vmip.Status.Address)))
+			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q doesn't exist.", ip.IPToLeaseName(vmip.Status.Address)))
 		return &reconcile.Result{}, nil
 	}
 
-	allocatedIPs, err := s.ipService.GetAllocatedIPs(ctx)
+	allocatedIPs, err := s.allocator.GetAllocatedIPs(ctx)
 	if err != nil {
 		err = fmt.Errorf("failed to get allcoated IP addresses: %w", err)
 		s.cb.
@@ -92,7 +98,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 	if vmip.Spec.Type == virtv2.VirtualMachineIPAddressTypeStatic {
 		ipAddress = vmip.Spec.StaticIP
 	} else {
-		ipAddress, err = s.ipService.AllocateNewIP(allocatedIPs)
+		ipAddress, err = s.allocator.AllocateNewIP(allocatedIPs)
 		if err != nil {
 			err = fmt.Errorf("failed to allocate new IP address: %w", err)
 			s.cb.
@@ -104,7 +110,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 	}
 
 	// 3. Verify that the allocated address does not exceed the permissible range.
-	err = s.ipService.IsInsideOfRange(ipAddress)
+	err = s.allocator.IsInsideOfRange(ipAddress)
 	if err != nil {
 		if errors.Is(err, intsvc.ErrIPAddressOutOfRange) {
 			s.cb.
@@ -167,7 +173,7 @@ func buildVirtualMachineIPAddressLease(vmip *virtv2.VirtualMachineIPAddress, ipA
 			Labels: map[string]string{
 				annotations.LabelVirtualMachineIPAddressUID: string(vmip.GetUID()),
 			},
-			Name: ip.IpToLeaseName(ipAddress),
+			Name: ip.IPToLeaseName(ipAddress),
 		},
 		Spec: virtv2.VirtualMachineIPAddressLeaseSpec{
 			VirtualMachineIPAddressRef: &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{

@@ -24,17 +24,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	. "github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-)
-
-const (
-	ReadyStatusTrue  = "True"
-	ReadyStatusFalse = "False"
 )
 
 func ValidateVirtualMachineByClass(virtualMachineClass *virtv2.VirtualMachineClass, virtualMachine *virtv2.VirtualMachine) {
@@ -57,12 +54,12 @@ func ValidateVirtualMachineByClass(virtualMachineClass *virtv2.VirtualMachineCla
 	Expect(checkCoreFraction).To(BeTrue(), fmt.Errorf("sizing policy core fraction list does not contain value from spec: %s\n%v", virtualMachine.Spec.CPU.CoreFraction, sizingPolicy.CoreFractions))
 }
 
-func CompareVirtualMachineClassReadyStatus(vmName, expectedStatus string) {
+func CompareVirtualMachineClassReadyStatus(vmName string, expectedStatus metav1.ConditionStatus) {
 	GinkgoHelper()
 	vm := virtv2.VirtualMachine{}
 	err := GetObject(kc.ResourceVM, vmName, &vm, kc.GetOptions{Namespace: conf.Namespace})
 	Expect(err).NotTo(HaveOccurred(), "%v", err)
-	status, err := GetConditionStatus(&vm, "VirtualMachineClassReady")
+	status, err := GetConditionStatus(&vm, vmcondition.TypeClassReady.String())
 	Expect(err).NotTo(HaveOccurred(), "%v", err)
 	Expect(status).To(Equal(expectedStatus), fmt.Sprintf("VirtualMachineClassReady status should be '%s'", expectedStatus))
 }
@@ -181,8 +178,8 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Describe("Not existing virtual machine class", func() {
 		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVmClassChanging, PhasePending), func() {
 			It("checks condition status before changing 'virtulaMachineCLass` field with existing class", func() {
-				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before changing", ReadyStatusFalse))
-				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, ReadyStatusFalse)
+				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before changing", metav1.ConditionFalse))
+				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, metav1.ConditionFalse)
 			})
 
 			It("changes VMClassName in VM specification with existing VMClass", func() {
@@ -198,15 +195,15 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' after changing", ReadyStatusTrue))
-				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, ReadyStatusTrue)
+				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' after changing", metav1.ConditionTrue))
+				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, metav1.ConditionTrue)
 			})
 		})
 
 		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVmClassCreating, PhasePending), func() {
 			It("checks condition status before creating `VirtualMachineClass`", func() {
-				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before creating", ReadyStatusFalse))
-				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, ReadyStatusFalse)
+				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before creating", metav1.ConditionFalse))
+				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, metav1.ConditionFalse)
 			})
 
 			It("changes VMClassName in VM specification with not existing VMClass which have correct prefix for creating", func() {
@@ -237,8 +234,8 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
-				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' after creating", ReadyStatusTrue))
-				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, ReadyStatusTrue)
+				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' after creating", metav1.ConditionTrue))
+				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, metav1.ConditionTrue)
 			})
 		})
 	})

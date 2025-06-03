@@ -47,7 +47,7 @@ type Options struct {
 	Features       *genericoptions.FeatureOptions
 	Logging        *logs.Options
 
-	Kubevirt vmrest.KubevirtApiServerConfig
+	Kubevirt vmrest.KubevirtAPIServerConfig
 
 	ProxyClientCertFile string
 	ProxyClientKeyFile  string

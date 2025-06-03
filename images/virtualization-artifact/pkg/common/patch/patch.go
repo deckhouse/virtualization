@@ -29,51 +29,51 @@ const (
 	PatchTestOp    = "test"
 )
 
-type JsonPatch struct {
-	operations []JsonPatchOperation
+type JSONPatch struct {
+	operations []JSONPatchOperation
 }
 
-type JsonPatchOperation struct {
+type JSONPatchOperation struct {
 	Op    string      `json:"op"`
 	Path  string      `json:"path"`
 	Value interface{} `json:"value,omitempty"`
 }
 
-func NewJsonPatch(patches ...JsonPatchOperation) *JsonPatch {
-	return &JsonPatch{
+func NewJSONPatch(patches ...JSONPatchOperation) *JSONPatch {
+	return &JSONPatch{
 		operations: patches,
 	}
 }
 
-func NewJsonPatchOperation(op, path string, value interface{}) JsonPatchOperation {
-	return JsonPatchOperation{
+func NewJSONPatchOperation(op, path string, value interface{}) JSONPatchOperation {
+	return JSONPatchOperation{
 		Op:    op,
 		Path:  path,
 		Value: value,
 	}
 }
 
-func WithAdd(path string, value interface{}) JsonPatchOperation {
-	return NewJsonPatchOperation(PatchAddOp, path, value)
+func WithAdd(path string, value interface{}) JSONPatchOperation {
+	return NewJSONPatchOperation(PatchAddOp, path, value)
 }
 
-func WithRemove(path string) JsonPatchOperation {
-	return NewJsonPatchOperation(PatchRemoveOp, path, nil)
+func WithRemove(path string) JSONPatchOperation {
+	return NewJSONPatchOperation(PatchRemoveOp, path, nil)
 }
 
-func WithReplace(path string, value interface{}) JsonPatchOperation {
-	return NewJsonPatchOperation(PatchReplaceOp, path, value)
+func WithReplace(path string, value interface{}) JSONPatchOperation {
+	return NewJSONPatchOperation(PatchReplaceOp, path, value)
 }
 
-func (jp *JsonPatch) Operations() []JsonPatchOperation {
+func (jp *JSONPatch) Operations() []JSONPatchOperation {
 	return jp.operations
 }
 
-func (jp *JsonPatch) Append(patches ...JsonPatchOperation) {
+func (jp *JSONPatch) Append(patches ...JSONPatchOperation) {
 	jp.operations = append(jp.operations, patches...)
 }
 
-func (jp *JsonPatch) Delete(op, path string) {
+func (jp *JSONPatch) Delete(op, path string) {
 	var idx int
 	var found bool
 	for i, o := range jp.operations {
@@ -88,11 +88,11 @@ func (jp *JsonPatch) Delete(op, path string) {
 	}
 }
 
-func (jp *JsonPatch) Len() int {
+func (jp *JSONPatch) Len() int {
 	return len(jp.operations)
 }
 
-func (jp *JsonPatch) String() (string, error) {
+func (jp *JSONPatch) String() (string, error) {
 	bytes, err := jp.Bytes()
 	if err != nil {
 		return "", err
@@ -100,7 +100,7 @@ func (jp *JsonPatch) String() (string, error) {
 	return string(bytes), nil
 }
 
-func (jp *JsonPatch) Bytes() ([]byte, error) {
+func (jp *JSONPatch) Bytes() ([]byte, error) {
 	if jp.Len() == 0 {
 		return nil, fmt.Errorf("list of patches is empty")
 	}

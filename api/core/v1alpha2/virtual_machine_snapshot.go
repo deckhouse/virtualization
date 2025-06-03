@@ -73,11 +73,11 @@ type VirtualMachineSnapshotSpec struct {
 }
 
 type ResourceRef struct {
-	// Kind of resource
+	// Kind of the resource.
 	Kind string `json:"kind,omitempty"`
-	// Api version of resource
+	// API version of the resource.
 	ApiVersion string `json:"apiVersion,omitempty"`
-	// Resource Name
+	// Name of the resource.
 	Name string `json:"name,omitempty"`
 }
 

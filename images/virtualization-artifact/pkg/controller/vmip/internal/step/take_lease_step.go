@@ -28,16 +28,14 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
 type TakeLeaseStep struct {
-	lease     *virtv2.VirtualMachineIPAddressLease
-	ipService *intsvc.IpAddressService
-	client    client.Client
-	cb        *conditions.ConditionBuilder
+	lease  *virtv2.VirtualMachineIPAddressLease
+	client client.Client
+	cb     *conditions.ConditionBuilder
 }
 
 func NewTakeLeaseStep(

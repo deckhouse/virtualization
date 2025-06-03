@@ -59,6 +59,7 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 
 	// Lease is Bound, if there is a vmip with matched Ref.
 	if isBound(lease, vmip) {
+		annotations.AddLabel(lease, annotations.LabelVirtualMachineIPAddressUID, string(vmip.UID))
 		lease.Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
 		cb.
 			Status(metav1.ConditionTrue).
@@ -87,16 +88,8 @@ func isBound(lease *virtv2.VirtualMachineIPAddressLease, vmip *virtv2.VirtualMac
 		return false
 	}
 
-	if lease.Spec.VirtualMachineIPAddressRef == nil {
-		return false
-	}
-
 	vmipRef := lease.Spec.VirtualMachineIPAddressRef
-	if vmip.Name != vmipRef.Name || vmip.Namespace != vmipRef.Namespace {
-		return false
-	}
-
-	if string(vmip.UID) != lease.Labels[annotations.LabelVirtualMachineIPAddressUID] {
+	if vmipRef == nil || vmip.Name != vmipRef.Name || vmip.Namespace != vmipRef.Namespace {
 		return false
 	}
 

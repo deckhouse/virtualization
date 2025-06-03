@@ -41,28 +41,28 @@ func NewVMConnectLimiterValidator(service *service.BlockDeviceService, log *log.
 }
 
 func (v *VMConnectLimiterValidator) ValidateCreate(ctx context.Context, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
-	count, err := v.service.CountBlockDevicesAttachedToVmName(ctx, vmbda.Spec.VirtualMachineName, vmbda.Namespace)
+	count, err := v.service.CountBlockDevicesAttachedToVMName(ctx, vmbda.Spec.VirtualMachineName, vmbda.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
 	// created entity counted too
-	if count+1 > common.VmBlockDeviceAttachedLimit {
-		return nil, fmt.Errorf("block device attached to VirtualMachine %q limit reached: %d devices found, %d is maximum", vmbda.Spec.VirtualMachineName, count, common.VmBlockDeviceAttachedLimit)
+	if count+1 > common.VMBlockDeviceAttachedLimit {
+		return nil, fmt.Errorf("block device attached to VirtualMachine %q limit reached: %d devices found, %d is maximum", vmbda.Spec.VirtualMachineName, count, common.VMBlockDeviceAttachedLimit)
 	}
 
 	return nil, nil
 }
 
 func (v *VMConnectLimiterValidator) ValidateUpdate(ctx context.Context, _, newVMBDA *virtv2.VirtualMachineBlockDeviceAttachment) (admission.Warnings, error) {
-	count, err := v.service.CountBlockDevicesAttachedToVmName(ctx, newVMBDA.Spec.VirtualMachineName, newVMBDA.Namespace)
+	count, err := v.service.CountBlockDevicesAttachedToVMName(ctx, newVMBDA.Spec.VirtualMachineName, newVMBDA.Namespace)
 	if err != nil {
 		v.log.Error(err.Error())
 		return nil, err
 	}
 
-	if count > common.VmBlockDeviceAttachedLimit {
-		return nil, fmt.Errorf("block device attached to VirtualMachine %q limit reached: %d devices found, %d is maximum", newVMBDA.Spec.VirtualMachineName, count, common.VmBlockDeviceAttachedLimit)
+	if count > common.VMBlockDeviceAttachedLimit {
+		return nil, fmt.Errorf("block device attached to VirtualMachine %q limit reached: %d devices found, %d is maximum", newVMBDA.Spec.VirtualMachineName, count, common.VMBlockDeviceAttachedLimit)
 	}
 
 	return nil, nil

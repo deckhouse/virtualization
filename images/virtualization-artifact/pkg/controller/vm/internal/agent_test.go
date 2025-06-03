@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -61,7 +60,7 @@ var _ = Describe("AgentHandler Tests", func() {
 		return vm
 	}
 
-	newKVVMI := func(agentConnected bool, agentUnsupported bool) *virtv1.VirtualMachineInstance {
+	newKVVMI := func(agentConnected, agentUnsupported bool) *virtv1.VirtualMachineInstance {
 		kvvmi := newEmptyKVVMI(name, namespace)
 		conditions := make([]virtv1.VirtualMachineInstanceCondition, 0)
 		if agentConnected {

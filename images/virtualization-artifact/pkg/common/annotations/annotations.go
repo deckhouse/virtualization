@@ -79,11 +79,11 @@ const (
 
 	AnnOsType = AnnAPIGroupV + "/os-type"
 
-	// AnnVmStartRequested is an annotation on KVVM that represents a request to start a virtual machine.
-	AnnVmStartRequested = AnnAPIGroupV + "/vm-start-requested"
+	// AnnVMStartRequested is an annotation on KVVM that represents a request to start a virtual machine.
+	AnnVMStartRequested = AnnAPIGroupV + "/vm-start-requested"
 
-	// AnnVmRestartRequested is an annotation on KVVM that represents a request to restart a virtual machine.
-	AnnVmRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
+	// AnnVMRestartRequested is an annotation on KVVM that represents a request to restart a virtual machine.
+	AnnVMRestartRequested = AnnAPIGroupV + "/vm-restart-requested"
 
 	// AnnVMOPWorkloadUpdate is an annotation on vmop that represents a vmop created by workload-updater controller.
 	AnnVMOPWorkloadUpdate                 = AnnAPIGroupV + "/workload-update"
@@ -118,6 +118,9 @@ const (
 	AnnAuditDecision = "authorization.k8s.io/decision"
 	// AnnAuditReason is the Kubernetes annotation for audit event reason.
 	AnnAuditReason = "authorization.k8s.io/reason"
+
+	// AnnNodeCpuFeature is the Kubevirt annotation for CPU feature.
+	AnnNodeCPUFeature = "cpu-feature.node.virtualization.deckhouse.io/"
 
 	// AppLabel is the app name label.
 	AppLabel = "app"

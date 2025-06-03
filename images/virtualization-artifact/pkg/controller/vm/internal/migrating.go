@@ -37,8 +37,7 @@ import (
 
 const nameMigratingHandler = "MigratingHandler"
 
-type MigratingHandler struct {
-}
+type MigratingHandler struct{}
 
 func NewMigratingHandler() *MigratingHandler {
 	return &MigratingHandler{}

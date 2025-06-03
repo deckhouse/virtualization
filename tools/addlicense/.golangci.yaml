@@ -1,7 +1,7 @@
 run:
   concurrency: 4
   timeout: 2m
-  skip-dirs:
+  exclude-dirs:
     - docs
     - scripts
 
@@ -19,7 +19,7 @@ linters-settings:
     comparison: false
     asserts: false
   errcheck:
-    ignore: fmt:.*,[rR]ead|[wW]rite|[cC]lose,io:Copy
+    igexclude-functions: fmt:.*,[rR]ead|[wW]rite|[cC]lose,io:Copy
 
 linters:
   disable-all: true
@@ -35,7 +35,7 @@ linters:
     - bodyclose
     - errname
     - errorlint
-    - looppointer
+    - copyloopvar
     - gci
     - gocritic
     - gofumpt

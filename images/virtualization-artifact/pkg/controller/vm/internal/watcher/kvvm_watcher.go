@@ -54,8 +54,8 @@ func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 				newVM := e.ObjectNew.(*virtv1.VirtualMachine)
 				return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
 					oldVM.Status.Ready != newVM.Status.Ready ||
-					oldVM.Annotations[annotations.AnnVmStartRequested] != newVM.Annotations[annotations.AnnVmStartRequested] ||
-					oldVM.Annotations[annotations.AnnVmRestartRequested] != newVM.Annotations[annotations.AnnVmRestartRequested]
+					oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
+					oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested]
 			},
 		},
 	); err != nil {

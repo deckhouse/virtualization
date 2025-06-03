@@ -24,11 +24,11 @@ import (
 
 const (
 	MetricVirtualMachineStatusPhase                             = "virtualmachine_status_phase"
-	MetricVirtualMachineCpuCores                                = "virtualmachine_cpu_cores"
-	MetricVirtualMachineConfigurationCpuCores                   = "virtualmachine_configuration_cpu_cores"
-	MetricVirtualMachineCpuCoreFraction                         = "virtualmachine_cpu_core_fraction"
-	MetricVirtualMachineConfigurationCpuCoreFraction            = "virtualmachine_configuration_cpu_core_fraction"
-	MetricVirtualMachineConfigurationCpuRuntimeOverhead         = "virtualmachine_configuration_cpu_runtime_overhead"
+	MetricVirtualMachineCPUCores                                = "virtualmachine_cpu_cores"
+	MetricVirtualMachineConfigurationCPUCores                   = "virtualmachine_configuration_cpu_cores"
+	MetricVirtualMachineCPUCoreFraction                         = "virtualmachine_cpu_core_fraction"
+	MetricVirtualMachineConfigurationCPUCoreFraction            = "virtualmachine_configuration_cpu_core_fraction"
+	MetricVirtualMachineConfigurationCPURuntimeOverhead         = "virtualmachine_configuration_cpu_runtime_overhead"
 	MetricVirtualMachineConfigurationMemorySizeBytes            = "virtualmachine_configuration_memory_size_bytes"
 	MetricVirtualMachineConfigurationMemoryRuntimeOverheadBytes = "virtualmachine_configuration_memory_runtime_overhead_bytes"
 	MetricVirtualMachineAwaitingRestartToApplyConfiguration     = "virtualmachine_awaiting_restart_to_apply_configuration"
@@ -68,35 +68,35 @@ var virtualMachineMetrics = map[string]metrics.MetricInfo{
 		nil,
 	),
 
-	MetricVirtualMachineCpuCores: metrics.NewMetricInfo(MetricVirtualMachineCpuCores,
+	MetricVirtualMachineCPUCores: metrics.NewMetricInfo(MetricVirtualMachineCPUCores,
 		"The virtualmachine current core count.",
 		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationCpuCores: metrics.NewMetricInfo(MetricVirtualMachineConfigurationCpuCores,
+	MetricVirtualMachineConfigurationCPUCores: metrics.NewMetricInfo(MetricVirtualMachineConfigurationCPUCores,
 		"The virtualmachine desired core count from the spec.",
 		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineCpuCoreFraction: metrics.NewMetricInfo(MetricVirtualMachineCpuCoreFraction,
+	MetricVirtualMachineCPUCoreFraction: metrics.NewMetricInfo(MetricVirtualMachineCPUCoreFraction,
 		"The virtualmachine current coreFraction.",
 		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationCpuCoreFraction: metrics.NewMetricInfo(MetricVirtualMachineConfigurationCpuCoreFraction,
+	MetricVirtualMachineConfigurationCPUCoreFraction: metrics.NewMetricInfo(MetricVirtualMachineConfigurationCPUCoreFraction,
 		"The virtualmachine desired coreFraction from the spec.",
 		prometheus.GaugeValue,
 		WithBaseLabels(),
 		nil,
 	),
 
-	MetricVirtualMachineConfigurationCpuRuntimeOverhead: metrics.NewMetricInfo(MetricVirtualMachineConfigurationCpuRuntimeOverhead,
+	MetricVirtualMachineConfigurationCPURuntimeOverhead: metrics.NewMetricInfo(MetricVirtualMachineConfigurationCPURuntimeOverhead,
 		"The virtualmachine current cpu runtime overhead.",
 		prometheus.GaugeValue,
 		WithBaseLabels(),

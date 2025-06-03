@@ -209,7 +209,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	needToFreeze := h.needToFreeze(vm)
+	needToFreeze := h.needToFreeze(vm, vmSnapshot.Spec.RequiredConsistency)
 
 	isAwaitingConsistency := needToFreeze && !h.snapshotter.CanFreeze(vm) && vmSnapshot.Spec.RequiredConsistency
 	if isAwaitingConsistency {
@@ -516,7 +516,11 @@ func (h LifeCycleHandler) areVirtualDiskSnapshotsConsistent(vdSnapshots []*virtv
 	return true
 }
 
-func (h LifeCycleHandler) needToFreeze(vm *virtv2.VirtualMachine) bool {
+func (h LifeCycleHandler) needToFreeze(vm *virtv2.VirtualMachine, requiredConsistency bool) bool {
+	if !requiredConsistency {
+		return false
+	}
+
 	if vm.Status.Phase == virtv2.MachineStopped {
 		return false
 	}

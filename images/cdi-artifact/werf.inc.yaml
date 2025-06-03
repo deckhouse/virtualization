@@ -1,6 +1,6 @@
 ---
-{{- $version := "1.60.3" }}
-{{- $gitRepoUrl := "kubevirt/containerized-data-importer.git" }}
+{{- $version := "v1.60.3-v12n.1" }}
+{{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
 
 ---
 image: {{ $.ImageName }}
@@ -9,19 +9,9 @@ fromImage: builder/golang-bookworm-1.23
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
-git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    stageDependencies:
-      install:
-        - '**/*'
-    includePaths:
-      - patches
-    excludePaths:
-      - patches/README.md
 secrets:
 - id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
+  value: {{ $.SOURCE_REPO }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -35,7 +25,7 @@ shell:
 
     echo "Git clone CDI repository..."
     git config --global --add advice.detachedHead false
-    git clone --depth 1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
+    git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
 
   - |
     echo Download Go modules.
@@ -51,18 +41,10 @@ shell:
 
     # CVE-2025-27144
     go get github.com/go-jose/go-jose/v3@v3.0.4
-
     go mod tidy
     go mod vendor
-
-  - |
-    # IMPORTANT!
-    # Apply patches after go mod vendor, as there are patches on modules in vendor directory.
-    cd /containerized-data-importer
-    for p in /patches/*.patch ; do
-      echo -n "Apply ${p} ... "
-      git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1)
-    done
+    # Apply patch for json-patch from 3p-cdi repo
+    git apply --ignore-space-change --ignore-whitespace patches/replace-op-for-evanphx-json-patch-v5-lib.patch
 
   setup:
   - mkdir /cdi-binaries

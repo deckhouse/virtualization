@@ -162,8 +162,8 @@ func EnsureAnnotation(ctx context.Context, cl client.Client, obj client.Object, 
 		}
 		op = patch.PatchReplaceOp
 	}
-	jsonOp := patch.NewJsonPatchOperation(op, fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(annoKey)), annoValue)
-	bytes, err := patch.NewJsonPatch(jsonOp).Bytes()
+	jsonOp := patch.NewJSONPatchOperation(op, fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(annoKey)), annoValue)
+	bytes, err := patch.NewJSONPatch(jsonOp).Bytes()
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func RemoveAnnotation(ctx context.Context, cl client.Client, obj client.Object, 
 		return nil
 	}
 	jsonOp := patch.WithRemove(fmt.Sprintf("/metadata/annotations/%s", patch.EscapeJSONPointer(annoKey)))
-	bytes, err := patch.NewJsonPatch(jsonOp).Bytes()
+	bytes, err := patch.NewJSONPatch(jsonOp).Bytes()
 	if err != nil {
 		return err
 	}

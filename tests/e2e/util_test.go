@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -33,9 +34,10 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/watch"
 	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
@@ -448,33 +450,45 @@ func FindUnassignedIP(subnets []string) (string, error) {
 	return "", findError
 }
 
-func GetConditionStatus(obj client.Object, conditionType string) (string, error) {
-	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+func GetConditionStatus(obj client.Object, conditionType string) (metav1.ConditionStatus, error) {
+	condition, err := GetCondition(conditionType, obj)
 	if err != nil {
 		return "", err
+	}
+
+	return condition.Status, nil
+}
+
+func GetCondition(conditionType string, obj client.Object) (metav1.Condition, error) {
+	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return metav1.Condition{}, err
 	}
 
 	unstructuredObj := &unstructured.Unstructured{Object: u}
 
 	conditions, found, err := unstructured.NestedSlice(unstructuredObj.Object, "status", "conditions")
 	if err != nil {
-		return "", err
+		return metav1.Condition{}, err
 	}
 	if !found {
-		return "", fmt.Errorf(".status.conditions not found")
+		return metav1.Condition{}, fmt.Errorf(".status.conditions not found")
 	}
 
 	for _, c := range conditions {
 		if conditionMap, isMap := c.(map[string]interface{}); isMap {
 			if conditionMap["type"] == conditionType {
-				if status, exists := conditionMap["status"].(string); exists {
-					return status, nil
-				}
+				return metav1.Condition{
+					Type:               conditionMap["type"].(string),
+					Status:             metav1.ConditionStatus(conditionMap["status"].(string)),
+					Reason:             conditionMap["reason"].(string),
+					ObservedGeneration: conditionMap["observedGeneration"].(int64),
+				}, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("condition %s not found", conditionType)
+	return metav1.Condition{}, fmt.Errorf("condition %s not found", conditionType)
 }
 
 func GetPhaseByVolumeBindingMode(c *Config) string {
@@ -576,11 +590,11 @@ func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopT
 
 func GenerateVMOP(vmName string, labels map[string]string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
 	return &virtv2.VirtualMachineOperation{
-		TypeMeta: v1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			APIVersion: virtv2.SchemeGroupVersion.String(),
 			Kind:       virtv2.VirtualMachineOperationKind,
 		},
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:   fmt.Sprintf("%s-%s", vmName, strings.ToLower(string(vmopType))),
 			Labels: labels,
 		},
@@ -637,7 +651,7 @@ func IsContainsLabelWithValue(obj client.Object, label, value string) bool {
 	return ok && val == value
 }
 
-func IsContainerRestarted(podName, containerName, namespace string, startedAt v1.Time) (bool, error) {
+func IsContainerRestarted(podName, containerName, namespace string, startedAt metav1.Time) (bool, error) {
 	podObj := &corev1.Pod{}
 	err := GetObject(kc.ResourcePod, podName, podObj, kc.GetOptions{
 		Namespace: namespace,
@@ -676,4 +690,53 @@ func SaveTestResources(labels map[string]string, additional string) {
 
 	err := os.WriteFile(str, cmdr.StdOutBytes(), 0644)
 	Expect(err).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
+}
+
+type Watcher interface {
+	Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error)
+}
+
+type Resource interface {
+	*virtv2.VirtualMachineIPAddress | *virtv2.VirtualMachineIPAddressLease
+}
+
+type EventHandler[R Resource] func(eventType watch.EventType, r R) (bool, error)
+
+func WaitFor[R Resource](ctx context.Context, w Watcher, h EventHandler[R], opts metav1.ListOptions) (R, error) {
+	wi, err := w.Watch(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	defer wi.Stop()
+
+	for event := range wi.ResultChan() {
+		r, ok := event.Object.(R)
+		if !ok {
+			return nil, errors.New("conversion error")
+		}
+
+		ok, err = h(event.Type, r)
+		if err != nil {
+			return nil, err
+		}
+
+		if ok {
+			return r, nil
+		}
+	}
+
+	return nil, fmt.Errorf("the condition for matching was not successfully met: %w", ctx.Err())
+}
+
+func CreateResource(ctx context.Context, obj client.Object) {
+	GinkgoHelper()
+	err := crClient.Create(ctx, obj)
+	Expect(err).NotTo(HaveOccurred())
+}
+
+func DeleteResource(ctx context.Context, obj client.Object) {
+	GinkgoHelper()
+	err := crClient.Delete(ctx, obj)
+	Expect(err).NotTo(HaveOccurred())
 }

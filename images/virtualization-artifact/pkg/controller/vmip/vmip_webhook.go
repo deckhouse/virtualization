@@ -29,7 +29,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -39,7 +38,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
-func NewValidator(log *log.Logger, client client.Client, ipAddressService *service.IpAddressService) *Validator {
+func NewValidator(log *log.Logger, client client.Client, ipAddressService *service.IPAddressService) *Validator {
 	return &Validator{
 		log:       log.With("webhook", "validation"),
 		client:    client,
@@ -50,7 +49,7 @@ func NewValidator(log *log.Logger, client client.Client, ipAddressService *servi
 type Validator struct {
 	log       *log.Logger
 	client    client.Client
-	ipService *service.IpAddressService
+	ipService *service.IPAddressService
 }
 
 func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
@@ -80,7 +79,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		}
 	}
 
-	return nil, nil
+	return warnings, nil
 }
 
 func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
@@ -168,7 +167,7 @@ func (v *Validator) validateAllocatedIPAddresses(ctx context.Context, ipAddress 
 	_, ok := allocatedIPs[ipAddress]
 	if ok {
 		var lease *v1alpha2.VirtualMachineIPAddressLease
-		lease, err = object.FetchObject(ctx, types.NamespacedName{Name: ip.IpToLeaseName(ipAddress)}, v.client, &v1alpha2.VirtualMachineIPAddressLease{})
+		lease, err = object.FetchObject(ctx, types.NamespacedName{Name: ip.IPToLeaseName(ipAddress)}, v.client, &v1alpha2.VirtualMachineIPAddressLease{})
 		if err != nil {
 			return fmt.Errorf("failed to fetch allocated IP address: %w", err)
 		}

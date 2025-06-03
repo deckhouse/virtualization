@@ -199,7 +199,7 @@ var _ = Describe("VMOP Events", func() {
 			Expect(eventLog.eventLog.Level).To(Equal(args.expectedLevel))
 			Expect(eventLog.eventLog.Name).To(Equal(args.expectedName))
 			Expect(eventLog.eventLog.Datetime).To(Equal(currentTime.Format(time.RFC3339)))
-			Expect(eventLog.eventLog.Uid).To(Equal("0000-0000-0000"))
+			Expect(eventLog.eventLog.UID).To(Equal("0000-0000-0000"))
 			Expect(eventLog.eventLog.RequestSubject).To(Equal("test-user"))
 			Expect(eventLog.eventLog.OperationResult).To(Equal("allow"))
 

@@ -22,7 +22,7 @@ imageSpec:
 
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: builder/golang-bookworm-1.23
+fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
@@ -50,4 +50,6 @@ shell:
     git clone --depth 1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }}
     cd distribution
 
-    go build -o /container-registry-binary/ -ldflags '-s -w -X registry/version.Version=v{{ $version }} -X registry/version.Revision=v{{ $version }}' ./cmd/registry
+    export VERSION={{ $version }}
+    {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -o /container-registry-binary/ -ldflags '-s -w -X registry/version.Version=v$VERSION -X registry/version.Revision=v$VERSION' ./cmd/registry`) | nindent 6 }}

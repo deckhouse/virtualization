@@ -60,21 +60,6 @@ func compareBools(path string, current, desired, defaultValue bool, onChange Act
 	return compareValues(path, currentValue, desiredValue, isEqual, onChange)
 }
 
-// comparePtrBools
-//
-//nolint:unused
-func comparePtrBools(path string, current, desired *bool, defaultValue bool, onChange ActionType) []FieldChange {
-	if current == nil && desired == nil {
-		return nil
-	}
-
-	currentValue := NewPtrBoolValue(current, defaultValue)
-	desiredValue := NewPtrBoolValue(desired, defaultValue)
-	isEqual := isEqualPtrBools(current, desired)
-
-	return compareValues(path, currentValue, desiredValue, isEqual, onChange)
-}
-
 // compareValues
 // current == default, desired == zeroValue => operation remove, no action required
 // current == zeroValue, desired == default => operation add, no action required
@@ -198,19 +183,6 @@ func NewPtrBoolValue(value *bool, defaultValue bool) Value {
 	isEmpty := value == nil
 	isDefault := !isEmpty && *value == defaultValue
 	return NewValue(value, isEmpty, isDefault)
-}
-
-// isEqualPtrBools returns true if bool pointers are both nils or if their values are equal.
-//
-//nolint:unused
-func isEqualPtrBools(a, b *bool) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a != nil && b != nil && *a == *b {
-		return true
-	}
-	return false
 }
 
 func NewPtrValue(value interface{}, isNil bool) Value {

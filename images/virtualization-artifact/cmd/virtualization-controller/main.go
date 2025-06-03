@@ -38,7 +38,6 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"

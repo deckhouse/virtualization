@@ -19,14 +19,14 @@ package internal
 import (
 	"context"
 
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("The protection handler test", func() {

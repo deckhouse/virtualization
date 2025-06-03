@@ -75,7 +75,7 @@ func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 func Install(
 	vmLister virtlisters.VirtualMachineLister,
 	server *genericapiserver.GenericAPIServer,
-	kubevirt vmrest.KubevirtApiServerConfig,
+	kubevirt vmrest.KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	crd *apiextensionsv1.CustomResourceDefinition,
 	vmClient versionedv1alpha2.VirtualMachinesGetter,

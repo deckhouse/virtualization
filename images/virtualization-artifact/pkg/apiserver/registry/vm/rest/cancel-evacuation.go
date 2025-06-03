@@ -35,7 +35,7 @@ import (
 type CancelEvacuationREST struct {
 	vmLister         virtlisters.VirtualMachineLister
 	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtApiServerConfig
+	kubevirt         KubevirtAPIServerConfig
 }
 
 var (
@@ -43,7 +43,7 @@ var (
 	_ rest.Connecter = &CancelEvacuationREST{}
 )
 
-func NewCancelEvacuationREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *CancelEvacuationREST {
+func NewCancelEvacuationREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *CancelEvacuationREST {
 	return &CancelEvacuationREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -109,9 +109,9 @@ func CancelEvacuationRESTRESTLocation(
 	getter virtlisters.VirtualMachineLister,
 	name string,
 	opts *subresources.VirtualMachineCancelEvacuation,
-	kubevirt KubevirtApiServerConfig,
+	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 	cancelEvacuationPather pather,
 ) (*url.URL, *http.Transport, error) {
-	return streamLocation(ctx, getter, name, opts, cancelEvacuationPather, kubevirt, proxyCertManager)
+	return streamLocation(ctx, getter, name, cancelEvacuationPather, kubevirt, proxyCertManager)
 }

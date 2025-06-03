@@ -34,7 +34,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 var imagePhasesUsingDisk = []virtv2.ImagePhase{virtv2.ImageProvisioning, virtv2.ImagePending}
@@ -122,22 +121,6 @@ func (h InUseHandler) isVDAttachedToVM(vdName string, vm virtv2.VirtualMachine) 
 	return false
 }
 
-func canStartVM(conditions []metav1.Condition) bool {
-	critConditions := []string{
-		vmcondition.TypeIPAddressReady.String(),
-		vmcondition.TypeClassReady.String(),
-		vmcondition.TypeProvisioningReady.String(),
-	}
-
-	for _, c := range conditions {
-		if slices.Contains(critConditions, c.Type) && c.Status == metav1.ConditionFalse {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (h InUseHandler) checkImageUsage(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
 	// If disk is not ready, it cannot be used for create image
 	if vd.Status.Phase != virtv2.DiskReady {
@@ -188,7 +171,7 @@ func (h InUseHandler) getVirtualMachineUsageMap(ctx context.Context, vd *virtv2.
 		case "":
 			usageMap[vm.GetName()] = false
 		case virtv2.MachinePending:
-			usageMap[vm.GetName()] = canStartVM(vm.Status.Conditions)
+			usageMap[vm.GetName()] = true
 		case virtv2.MachineStopped:
 			vmIsActive, err := h.isVMActive(ctx, vm)
 			if err != nil {

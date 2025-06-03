@@ -38,7 +38,7 @@ spec:
           name: Progress
           priority: 1
           type: string
-        - jsonPath: .spec.persistentVolumeClaim.storageClassName
+        - jsonPath: .status.storageClassName
           name: StorageClass
           priority: 1
           type: string

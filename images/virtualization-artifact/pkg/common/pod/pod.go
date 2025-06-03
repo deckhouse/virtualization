@@ -103,8 +103,8 @@ func IsPodComplete(pod *corev1.Pod) bool {
 	return pod != nil && pod.Status.Phase == corev1.PodSucceeded
 }
 
-// QemuSubGid is the gid used as the qemu group in fsGroup
-const QemuSubGid = int64(107)
+// QemuSubGID is the gid used as the qemu group in fsGroup
+const QemuSubGID = int64(107)
 
 // SetRestrictedSecurityContext sets the pod security params to be compatible with restricted PSA
 func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {
@@ -125,7 +125,7 @@ func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {
 			}
 			container.SecurityContext.AllowPrivilegeEscalation = ptr.To(false)
 			container.SecurityContext.RunAsNonRoot = ptr.To(true)
-			container.SecurityContext.RunAsUser = ptr.To(QemuSubGid)
+			container.SecurityContext.RunAsUser = ptr.To(QemuSubGID)
 			if len(container.VolumeMounts) > 0 {
 				hasVolumeMounts = true
 			}
@@ -136,6 +136,6 @@ func SetRestrictedSecurityContext(podSpec *corev1.PodSpec) {
 		if podSpec.SecurityContext == nil {
 			podSpec.SecurityContext = &corev1.PodSecurityContext{}
 		}
-		podSpec.SecurityContext.FSGroup = ptr.To(QemuSubGid)
+		podSpec.SecurityContext.FSGroup = ptr.To(QemuSubGID)
 	}
 }

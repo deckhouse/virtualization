@@ -12,6 +12,7 @@
 ## Fixes
 
 
+ - **[module]** Fix the polk alerts annotations of the virtual machine state. [#1094](https://github.com/deckhouse/virtualization/pull/1094)
  - **[vd]** Fix cleanup for CVI and VI when creating from object reference with the type VirtualDisk. [#996](https://github.com/deckhouse/virtualization/pull/996)
  - **[vm]** The collection of metrics based on conditions has been fixed. `AwaitingRestartToApplyConfiguration`, `ConfigurationApplied`, `AgentReady` and `FirmwareUpToDate` conditions of the virtual machine are no longer displayed to the user unless they contain an issue or an important message. However, this change was not initially reflected in the metrics. It has now been corrected. [#1069](https://github.com/deckhouse/virtualization/pull/1069)
  - **[vm]** The InUse condition is now correctly removed when the virtual machine class is no longer used by any VM. [#1009](https://github.com/deckhouse/virtualization/pull/1009)

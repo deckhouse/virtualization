@@ -17,16 +17,11 @@ limitations under the License.
 package service
 
 import (
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 func HasReference(vmip *virtv2.VirtualMachineIPAddress, lease *virtv2.VirtualMachineIPAddressLease) bool {
 	if vmip == nil || lease == nil {
-		return false
-	}
-
-	if lease.Labels[annotations.LabelVirtualMachineIPAddressUID] != string(vmip.GetUID()) {
 		return false
 	}
 

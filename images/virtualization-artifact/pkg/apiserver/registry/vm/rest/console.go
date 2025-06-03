@@ -34,10 +34,10 @@ import (
 type ConsoleREST struct {
 	vmLister         virtlisters.VirtualMachineLister
 	proxyCertManager certmanager.CertificateManager
-	kubevirt         KubevirtApiServerConfig
+	kubevirt         KubevirtAPIServerConfig
 }
 
-type KubevirtApiServerConfig struct {
+type KubevirtAPIServerConfig struct {
 	Endpoint       string
 	CaBundlePath   string
 	ServiceAccount types.NamespacedName
@@ -48,7 +48,7 @@ var (
 	_ rest.Connecter = &ConsoleREST{}
 )
 
-func NewConsoleREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtApiServerConfig, proxyCertManager certmanager.CertificateManager) *ConsoleREST {
+func NewConsoleREST(vmLister virtlisters.VirtualMachineLister, kubevirt KubevirtAPIServerConfig, proxyCertManager certmanager.CertificateManager) *ConsoleREST {
 	return &ConsoleREST{
 		vmLister:         vmLister,
 		kubevirt:         kubevirt,
@@ -93,14 +93,13 @@ func ConsoleLocation(
 	getter virtlisters.VirtualMachineLister,
 	name string,
 	opts *subresources.VirtualMachineConsole,
-	kubevirt KubevirtApiServerConfig,
+	kubevirt KubevirtAPIServerConfig,
 	proxyCertManager certmanager.CertificateManager,
 ) (*url.URL, *http.Transport, error) {
 	return streamLocation(
 		ctx,
 		getter,
 		name,
-		opts,
 		newKVVMIPather("console"),
 		kubevirt,
 		proxyCertManager,
