@@ -41,6 +41,7 @@ shell:
 
     # CVE-2025-27144
     go get github.com/go-jose/go-jose/v3@v3.0.4
+    go mod vendor
 
   setup:
   - mkdir /cdi-binaries
