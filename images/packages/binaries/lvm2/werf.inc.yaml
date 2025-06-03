@@ -9,7 +9,7 @@ import:
   before: setup
 
 ---
-{{- $version := "v2_03_32" }}
+{{- $version := get $.Package $.ImageName }}
 {{- $gitRepoUrl := "lvmteam/lvm2.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
