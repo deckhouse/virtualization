@@ -96,7 +96,7 @@ func (r *qemuMaxLength36) Migrate(ctx context.Context) error {
 }
 
 func (r *qemuMaxLength36) genPatch(base, namespace string, spec *virtv1.VirtualMachineInstanceSpec, disks diskCache) (bool, client.Patch, error) {
-	var ops []patch.JsonPatchOperation
+	var ops []patch.JSONPatchOperation
 	for i, d := range spec.Domain.Devices.Disks {
 		if d.Disk == nil {
 			continue
@@ -110,12 +110,12 @@ func (r *qemuMaxLength36) genPatch(base, namespace string, spec *virtv1.VirtualM
 		switch {
 		case strings.HasPrefix(d.Name, kvbuilder.CVMIDiskPrefix):
 			newName := strings.TrimPrefix(d.Name, kvbuilder.CVMIDiskPrefix)
-			if uid, found = disks.CVINameUid[newName]; !found {
+			if uid, found = disks.CVINameUID[newName]; !found {
 				continue
 			}
 		case strings.HasPrefix(d.Name, kvbuilder.VMIDiskPrefix):
 			newName := strings.TrimPrefix(d.Name, kvbuilder.VMIDiskPrefix)
-			if uid, found = disks.VINameUid[types.NamespacedName{
+			if uid, found = disks.VINameUID[types.NamespacedName{
 				Name:      newName,
 				Namespace: namespace,
 			}]; !found {
@@ -123,7 +123,7 @@ func (r *qemuMaxLength36) genPatch(base, namespace string, spec *virtv1.VirtualM
 			}
 		case strings.HasPrefix(d.Name, kvbuilder.VMDDiskPrefix):
 			newName := strings.TrimPrefix(d.Name, kvbuilder.VMDDiskPrefix)
-			if uid, found = disks.VDNameUid[types.NamespacedName{
+			if uid, found = disks.VDNameUID[types.NamespacedName{
 				Name:      newName,
 				Namespace: namespace,
 			}]; !found {
@@ -136,7 +136,7 @@ func (r *qemuMaxLength36) genPatch(base, namespace string, spec *virtv1.VirtualM
 		newSerial := kvbuilder.GenerateSerial(string(uid))
 
 		if d.Serial != "" && d.Serial != newSerial {
-			ops = append(ops, patch.NewJsonPatchOperation(
+			ops = append(ops, patch.NewJSONPatchOperation(
 				patch.PatchReplaceOp,
 				fmt.Sprintf("%s/domain/devices/disks/%d/serial", base, i),
 				newSerial,
@@ -146,7 +146,7 @@ func (r *qemuMaxLength36) genPatch(base, namespace string, spec *virtv1.VirtualM
 	if len(ops) == 0 {
 		return false, nil, nil
 	}
-	bytes, err := patch.NewJsonPatch(ops...).Bytes()
+	bytes, err := patch.NewJSONPatch(ops...).Bytes()
 	if err != nil {
 		return false, nil, err
 	}

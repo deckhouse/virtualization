@@ -2,15 +2,13 @@
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
-{{- $priorityClassName := "" | quote }}
-{{- if (.Values.global.enabledModules | has "priority-class") }}
-{{- $priorityClassName = include "priorityClassName" . | quote }}
-{{- end }}
+{{- $priorityClassName := include "priorityClassName" . | quote }}
 {{ $_ := set . "Version" dict }}
 {{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
 {{- range $k, $v := $versions_ctx.firmware }}
   {{- $_ := set $.Version $k $v}}
 {{- end }}
+{{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt
@@ -28,15 +26,18 @@ spec:
             qps: 5000
             burst: 6000
     migrations:
-      bandwidthPerMigration: 64Mi
+      bandwidthPerMigration: 640Mi
       completionTimeoutPerGiB: 800
-      parallelMigrationsPerCluster: 5
-      parallelOutboundMigrationsPerNode: 2
+      parallelMigrationsPerCluster: {{ .Values.virtualization.internal | dig "virtHandler" "nodeCount" 1 }}
+      parallelOutboundMigrationsPerNode: 1
       progressTimeout: 150
     smbios:
       manufacturer: Flant
       family: Deckhouse
       product: DeckhouseVirtualizationPlatform
+      {{- if ge $dvpNestingLevel 0 }}
+      sku: "{{ add1 $dvpNestingLevel }}"
+      {{- end }}
     evictionStrategy: LiveMigrate
     vmRolloutStrategy: LiveUpdate
     developerConfiguration:
@@ -85,14 +86,34 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
+    # Add node affinity for the lowest virtualization level for virt-handler pods
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "kubevirt.virthandler_nodeaffinity_strategic_patch_json" $dvpNestingLevel }}
+      type: strategic
+    # Run virt-handler pods on required nodes
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "kubevirt.virthandler_nodeseletor_strategic_patch_json" . }}
+      type: strategic
     {{- if (include "helm_lib_ha_enabled" .) }}
+    # HA settings for deploy/virt-api.
     - resourceType: Deployment
       resourceName: virt-api
-      patch: {{ include "strategic_affinity_patch" (list "kubevirt.io" "virt-api") }}
+      patch: {{ include "spec_template_spec_antiaffinity_patch" (list "kubevirt.io" "virt-api") }}
+      type: strategic
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: {{ include "spec_strategy_rolling_update_patch" . }}
+      type: strategic
+    # HA settings for deploy/virt-controller.
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: {{ include "spec_template_spec_antiaffinity_patch" (list "kubevirt.io" "virt-controller") }}
       type: strategic
     - resourceType: Deployment
       resourceName: virt-controller
-      patch: {{ include "strategic_affinity_patch" (list "kubevirt.io" "virt-controller") }}
+      patch: {{ include "spec_strategy_rolling_update_patch" . }}
       type: strategic
     {{- end }}
 
@@ -227,20 +248,20 @@ spec:
       type: strategic
 
     # Set priority class name for components.
-    {{- define "pod_spec_priotity_class_name_patch" -}}
+    {{- define "pod_spec_priority_class_name_patch" -}}
     '{"spec":{"template":{"spec":{"priorityClassName": {{ . }} }}}}'
     {{- end }}
     - resourceType: Deployment
       resourceName: virt-api
-      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
+      patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
       type: strategic
     - resourceType: Deployment
       resourceName: virt-controller
-      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
+      patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
       type: strategic
     - resourceType: DaemonSet
       resourceName: virt-handler
-      patch: {{ include "pod_spec_priotity_class_name_patch" $priorityClassName }}
+      patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
       type: strategic
     # Patch service for https-metrics
     - resourceType: Service

@@ -35,11 +35,11 @@ testData:
   vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
   vmVersions: "/tmp/testdata/vm-versions"
   vdSnapshots: "/tmp/testdata/vd-snapshots"
+  ipam: "/tmp/testdata/ipam"
   sshKey: "/tmp/testdata/sshkeys/id_ed"
   sshUser: "cloud"
 logFilter:
   - "pattern to exclude"
-  - "Server rejected event (will not retry!)" # Msg.
   - "validation failed for data source objectref" # Err.
   - "clean up failed for data source registry" # Err.
   - "the server rejected our request due to an error in our request" # Err.

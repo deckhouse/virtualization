@@ -25,7 +25,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )

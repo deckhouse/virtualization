@@ -25,15 +25,15 @@ import (
 const (
 	KubevirtAPIServerEndpointVar                    = "KUBEVIRT_APISERVER_ENDPOINT"
 	KubevirtAPIServerCABundlePathVar                = "KUBEVIRT_APISERVER_CABUNDLE"
-	VirtualizationApiAuthServiceAccountNameVar      = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAME"
-	VirtualizationApiAuthServiceAccountNamespaceVar = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAMESPACE"
+	VirtualizationAPIAuthServiceAccountNameVar      = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAME"
+	VirtualizationAPIAuthServiceAccountNamespaceVar = "VIRTUALIZATION_API_AUTH_SERVICE_ACCOUNT_NAMESPACE"
 )
 
-func LoadKubevirtAPIServerFromEnv() rest.KubevirtApiServerConfig {
-	conf := rest.KubevirtApiServerConfig{}
+func LoadKubevirtAPIServerFromEnv() rest.KubevirtAPIServerConfig {
+	conf := rest.KubevirtAPIServerConfig{}
 	conf.Endpoint = os.Getenv(KubevirtAPIServerEndpointVar)
 	conf.CaBundlePath = os.Getenv(KubevirtAPIServerCABundlePathVar)
-	conf.ServiceAccount.Name = os.Getenv(VirtualizationApiAuthServiceAccountNameVar)
-	conf.ServiceAccount.Namespace = os.Getenv(VirtualizationApiAuthServiceAccountNamespaceVar)
+	conf.ServiceAccount.Name = os.Getenv(VirtualizationAPIAuthServiceAccountNameVar)
+	conf.ServiceAccount.Namespace = os.Getenv(VirtualizationAPIAuthServiceAccountNamespaceVar)
 	return conf
 }

@@ -20,21 +20,14 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"slices"
 
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/component-helpers/scheduling/corev1/nodeaffinity"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal/watcher"
@@ -71,66 +64,9 @@ func (r *Reconciler) SetupController(ctx context.Context, mgr manager.Manager, c
 		&handler.EnqueueRequestForObject{}); err != nil {
 		return fmt.Errorf("error setting watch on VMClass: %w", err)
 	}
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &corev1.Node{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			node, ok := obj.(*corev1.Node)
-			if !ok {
-				return nil
-			}
-			var result []reconcile.Request
-
-			classList := &virtv2.VirtualMachineClassList{}
-			err := mgr.GetClient().List(ctx, classList)
-			if err != nil {
-				return nil
-			}
-
-			for _, class := range classList.Items {
-				if slices.Contains(class.Status.AvailableNodes, node.GetName()) {
-					result = append(result, reconcile.Request{
-						NamespacedName: object.NamespacedName(&class),
-					})
-					continue
-				}
-				if !annotations.MatchLabels(node.GetLabels(), class.Spec.NodeSelector.MatchLabels) {
-					continue
-				}
-				ns, err := nodeaffinity.NewNodeSelector(&corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{{MatchExpressions: class.Spec.NodeSelector.MatchExpressions}},
-				})
-				if err != nil || !ns.Match(node) {
-					continue
-				}
-				result = append(result, reconcile.Request{
-					NamespacedName: object.NamespacedName(&class),
-				})
-			}
-			return result
-		}),
-		predicate.Or(
-			predicate.LabelChangedPredicate{},
-			predicate.Funcs{
-				CreateFunc: func(e event.CreateEvent) bool { return true },
-				DeleteFunc: func(e event.DeleteEvent) bool { return true },
-				UpdateFunc: func(e event.UpdateEvent) bool {
-					oldNode := e.ObjectOld.(*corev1.Node)
-					newNode := e.ObjectNew.(*corev1.Node)
-					if !oldNode.Status.Allocatable[corev1.ResourceCPU].Equal(newNode.Status.Allocatable[corev1.ResourceCPU]) {
-						return true
-					}
-					if !oldNode.Status.Allocatable[corev1.ResourceMemory].Equal(newNode.Status.Allocatable[corev1.ResourceMemory]) {
-						return true
-					}
-					return false
-				},
-			},
-		),
-	); err != nil {
-		return fmt.Errorf("error setting watch on Node: %w", err)
-	}
 
 	for _, w := range []Watcher{
+		watcher.NewNodesWatcher(),
 		watcher.NewVirtualMachinesWatcher(),
 	} {
 		err := w.Watch(mgr, ctr)

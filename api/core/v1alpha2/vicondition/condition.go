@@ -28,7 +28,7 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `VirtualImage` is ready for use.
 	ReadyType Type = "Ready"
-	// StorageClassReadyType indicates whether the storageClass ready
+	// StorageClassReadyType indicates whether the storageClass ready.
 	StorageClassReadyType Type = "StorageClassReady"
 )
 

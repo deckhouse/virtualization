@@ -2,5 +2,5 @@ name: virtualization
 version: 0.0.1
 dependencies:
   - name: deckhouse_lib_helm
-    version: 1.7.0
+    version: 1.55.1
     repository: https://deckhouse.github.io/lib-helm

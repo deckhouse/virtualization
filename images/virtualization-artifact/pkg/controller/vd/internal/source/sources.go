@@ -104,25 +104,29 @@ func setPhaseConditionForFinishedDisk(
 	phase *virtv2.DiskPhase,
 	supgen *supplements.Generator,
 ) {
+	var newPhase virtv2.DiskPhase
 	switch {
 	case pvc == nil:
-		*phase = virtv2.DiskLost
+		newPhase = virtv2.DiskLost
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Lost).
 			Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
 	case pvc.Status.Phase == corev1.ClaimLost:
-		*phase = virtv2.DiskLost
+		newPhase = virtv2.DiskLost
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.Lost).
 			Message(fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName))
 	default:
-		*phase = virtv2.DiskReady
+		newPhase = virtv2.DiskReady
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.Ready).
 			Message("")
+	}
+	if phase != nil && string(newPhase) != "" {
+		*phase = newPhase
 	}
 }
 

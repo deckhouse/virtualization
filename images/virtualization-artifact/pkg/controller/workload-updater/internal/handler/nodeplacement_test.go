@@ -41,7 +41,7 @@ var _ = Describe("TestNodePlacementHandler", func() {
 	var (
 		serviceCompleteErr = errors.New("service is complete")
 		ctx                = testutil.ContextBackgroundWithNoOpLogger()
-		fakeClient         client.WithWatch
+		fakeClient         client.Client
 	)
 
 	AfterEach(func() {
@@ -67,10 +67,10 @@ var _ = Describe("TestNodePlacementHandler", func() {
 	DescribeTable("NodePlacementHandler should return serviceCompleteErr if migration executed",
 		func(needMigrate bool) {
 			vm, kvvmi := newVMAndKVVMI(needMigrate)
-			fakeClient, _ = setupEnvironment(vm, kvvmi)
+			fakeClient = setupEnvironment(vm, kvvmi)
 
 			mockMigration := &OneShotMigrationMock{
-				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error) {
+				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
 					return true, serviceCompleteErr
 				},
 			}

@@ -52,6 +52,10 @@ The `.spec.settings.dvcr.storage` block configures a persistent volume for stori
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.size`: Volume size (for example, `50G`). To expand the storage, increase the value of the parameter.
 - `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`: StorageClass name (for example, `sds-replicated-thin-r1`).
 
+{{< alert level="warning" >}}
+The storage serving this storage class (`.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`) must be accessible on the nodes where DVCR is running (system nodes, or worker nodes if there are no system nodes).
+{{< /alert >}}
+
 **Network settings**
 
 The `.spec.settings.virtualMachineCIDRs` block specifies subnets in CIDR format (for example, `10.66.10.0/24`). IP addresses for virtual machines are allocated from these ranges automatically or on request.
@@ -629,7 +633,6 @@ spec:
         min: 1Gi
         max: 8Gi
         step: 512Mi
-      dedicatedCores: [false]
       coreFractions: [5, 10, 20, 50, 100]
     # For a range of 5–8 cores, it is possible to use 5–16 GB of RAM in 1 GB increments,
     # i.e., 5 GB, 6 GB, 7 GB, etc.
@@ -642,7 +645,6 @@ spec:
         min: 5Gi
         max: 16Gi
         step: 1Gi
-      dedicatedCores: [false]
       coreFractions: [20, 50, 100]
     # For a range of 9–16 cores, it is possible to use 9–32 GB of RAM in 1 GB increments.
     # You can use dedicated cores if needed.
@@ -654,7 +656,6 @@ spec:
         min: 9Gi
         max: 32Gi
         step: 1Gi
-      dedicatedCores: [true, false]
       coreFractions: [50, 100]
     # For the range of 17–248 cores, it is possible to use 1–2 GB of RAM per core.
     # Only the dedicated cores are available for use.
@@ -666,7 +667,6 @@ spec:
         perCore:
           min: 1Gi
           max: 2Gi
-      dedicatedCores: [true]
       coreFractions: [100]
 ```
 

@@ -31,7 +31,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -39,10 +38,9 @@ import (
 
 const nameBlockDeviceHandler = "BlockDeviceHandler"
 
-func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger, blockDeviceService BlockDeviceService) *BlockDeviceHandler {
+func NewBlockDeviceHandler(cl client.Client, blockDeviceService BlockDeviceService) *BlockDeviceHandler {
 	return &BlockDeviceHandler{
 		client:             cl,
-		recorder:           recorder,
 		blockDeviceService: blockDeviceService,
 
 		viProtection:  service.NewProtectionService(cl, virtv2.FinalizerVIProtection),
@@ -53,7 +51,6 @@ func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderL
 
 type BlockDeviceHandler struct {
 	client             client.Client
-	recorder           eventrecord.EventRecorderLogger
 	blockDeviceService BlockDeviceService
 
 	viProtection  *service.ProtectionService
@@ -175,17 +172,17 @@ func (h *BlockDeviceHandler) handleBlockDeviceConflicts(ctx context.Context, s s
 func (h *BlockDeviceHandler) handleBlockDeviceLimit(ctx context.Context, vm *virtv2.VirtualMachine) (bool, error) {
 	// Get number of connected block devices.
 	// If it's greater than the limit, then set the condition to false.
-	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVm(ctx, vm)
+	blockDeviceAttachedCount, err := h.blockDeviceService.CountBlockDevicesAttachedToVM(ctx, vm)
 	if err != nil {
 		return false, err
 	}
 
-	if blockDeviceAttachedCount > common.VmBlockDeviceAttachedLimit {
+	if blockDeviceAttachedCount > common.VMBlockDeviceAttachedLimit {
 		conditions.SetCondition(
 			conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
 				Status(metav1.ConditionFalse).
 				Reason(vmcondition.ReasonBlockDeviceLimitExceeded).
-				Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VmBlockDeviceAttachedLimit, vm.Name)).
+				Message(fmt.Sprintf("Cannot attach %d block devices (%d is maximum) to VirtualMachine %q", blockDeviceAttachedCount, common.VMBlockDeviceAttachedLimit, vm.Name)).
 				Generation(vm.Generation),
 			&vm.Status.Conditions,
 		)

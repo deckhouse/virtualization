@@ -1,14 +1,15 @@
 FROM golang:1.22.7 AS builder
 
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
+ARG BRANCH="1.3.1-virtualization"
 ENV VERSION="1.3.1"
 ENV GOVERSION="1.22.7"
 
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
-
-RUN git clone --depth 1 --branch v$VERSION https://github.com/kubevirt/kubevirt.git /kubevirt
-COPY ./images/virt-artifact/patches /patches
+# Copy the git commits for rebuilding the image if the branch changes
+ADD "https://api.github.com/repos/deckhouse/3p-kubevirt/commits/$BRANCH" /.git-commit-hash.tmp
+RUN git clone --depth 1 --branch $BRANCH https://github.com/deckhouse/3p-kubevirt.git /kubevirt
 WORKDIR /kubevirt
-RUN for p in /patches/*.patch ; do git apply  --ignore-space-change --ignore-whitespace ${p} && echo OK || (echo FAIL ; exit 1) ; done
 
 RUN go mod edit -go=$GOVERSION && \
     go mod download

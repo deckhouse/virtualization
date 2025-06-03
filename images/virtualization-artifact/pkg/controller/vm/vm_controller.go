@@ -27,7 +27,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
@@ -57,7 +56,7 @@ func SetupController(
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
 		internal.NewIPAMHandler(ipam.New(), client, recorder),
-		internal.NewBlockDeviceHandler(client, recorder, blockDeviceService),
+		internal.NewBlockDeviceHandler(client, blockDeviceService),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
 		internal.NewFilesystemHandler(),

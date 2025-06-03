@@ -26,7 +26,7 @@ includes:
     dir: ./tests/performance
 
 vars:
-  deckhouse_lib_helm_ver: 1.7.0
+  deckhouse_lib_helm_ver: 1.55.1
   TRIVY_VERSION: 0.55.0
   target: ""
   VALIDATION_FILES: "tools/validation/{main,messages,diff,no_cyrillic,doc_changes,copyright}.go"
@@ -143,7 +143,8 @@ tasks:
 
   dlv:virt-controller:build:
     desc: "Build image virt-controller with dlv"
-    cmd: docker build -f ./images/virt-controller/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" .
+    cmds:
+      - docker build --build-arg BRANCH=$BRANCH -f ./images/virt-controller/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" . --platform linux/amd64 .
 
   dlv:virt-controller:build-push:
     desc: "Build and Push image virt-controller with dlv"
@@ -176,7 +177,8 @@ tasks:
 
   dlv:virt-handler:build:
     desc: "Build image virt-handler with dlv"
-    cmd: docker build -f ./images/virt-handler/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
+    cmds:
+      - docker build --build-arg BRANCH=$BRANCH -f ./images/virt-handler/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
   dlv:virt-handler:build-push:
     desc: "Build and Push image virt-handler with dlv"
@@ -209,7 +211,8 @@ tasks:
 
   dlv:virt-api:build:
     desc: "Build image virt-api with dlv"
-    cmd: docker build -f ./images/virt-api/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
+    cmds:
+      - docker build --build-arg BRANCH=$BRANCH -f ./images/virt-api/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" --platform linux/amd64 .
 
   dlv:virt-api:build-push:
     desc: "Build and Push image virt-api with dlv"

@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,17 +30,20 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
 )
 
 type LifecycleHandler struct {
-	client client.Client
+	client   client.Client
+	recorder eventrecord.EventRecorderLogger
 }
 
-func NewLifecycleHandler(client client.Client) *LifecycleHandler {
+func NewLifecycleHandler(client client.Client, recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
 	return &LifecycleHandler{
-		client: client,
+		client:   client,
+		recorder: recorder,
 	}
 }
 
@@ -59,6 +63,10 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 
 	// Lease is Bound, if there is a vmip with matched Ref.
 	if isBound(lease, vmip) {
+		annotations.AddLabel(lease, annotations.LabelVirtualMachineIPAddressUID, string(vmip.UID))
+		if lease.Status.Phase != virtv2.VirtualMachineIPAddressLeasePhaseBound {
+			h.recorder.Eventf(lease, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineIPAddressLease is bound to \"%s/%s\".", vmip.Namespace, vmip.Name)
+		}
 		lease.Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseBound
 		cb.
 			Status(metav1.ConditionTrue).
@@ -71,6 +79,9 @@ func (h *LifecycleHandler) Handle(ctx context.Context, lease *virtv2.VirtualMach
 			lease.Spec.VirtualMachineIPAddressRef.Name = ""
 		}
 
+		if lease.Status.Phase != virtv2.VirtualMachineIPAddressLeasePhaseReleased {
+			h.recorder.Eventf(lease, corev1.EventTypeWarning, virtv2.ReasonReleased, "VirtualMachineIPAddressLease is released.")
+		}
 		lease.Status.Phase = virtv2.VirtualMachineIPAddressLeasePhaseReleased
 		cb.
 			Status(metav1.ConditionFalse).
@@ -87,16 +98,8 @@ func isBound(lease *virtv2.VirtualMachineIPAddressLease, vmip *virtv2.VirtualMac
 		return false
 	}
 
-	if lease.Spec.VirtualMachineIPAddressRef == nil {
-		return false
-	}
-
 	vmipRef := lease.Spec.VirtualMachineIPAddressRef
-	if vmip.Name != vmipRef.Name || vmip.Namespace != vmipRef.Namespace {
-		return false
-	}
-
-	if string(vmip.UID) != lease.Labels[annotations.LabelVirtualMachineIPAddressUID] {
+	if vmipRef == nil || vmip.Name != vmipRef.Name || vmip.Namespace != vmipRef.Namespace {
 		return false
 	}
 

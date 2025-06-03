@@ -477,18 +477,18 @@ VolumeBindingMode property:
 
 `Immediate` - The disk is created immediately after the resource is created (the disk is assumed to be available for connection to a virtual machine on any node in the cluster).
 
-![](images/vd-immediate.png)
+![vd-immediate](images/vd-immediate.png)
 
 `WaitForFirstConsumer` - The disk is created only after it is connected to the virtual machine and is created on the node on which the virtual machine will be running.
 
-![](images/vd-wffc.png)
+![vd-wffc](images/vd-wffc.png)
 
 AccessMode:
 
 - `ReadWriteOnce (RWO)` - only one instance of the virtual machine is granted access to the disk. Live migration of virtual machines with these disks is not possible.
 - `ReadWriteMany (RWX)` - multiple disk access. Live migration of virtual machines with such disks is possible.
 
-![](images/vd-rwo-vs-rwx.png)
+![vd-rwo-vs-rwx](images/vd-rwo-vs-rwx.png)
 
 When creating a disk, the controller will independently determine the most optimal parameters supported by the storage.
 
@@ -515,7 +515,7 @@ nfs-4-1-wffc                         nfs.csi.k8s.io                        Delet
 
 A full description of the disk configuration settings can be found at [link](cr.html#virtualdisk).
 
-##Create an empty disk
+## Create an empty disk
 
 Empty disks are usually used to install an OS on them, or to store some data.
 
@@ -684,7 +684,7 @@ NAME          PHASE   CAPACITY   AGE
 linux-vm-root   Ready   11Gi       12m
 ```
 
-## Virtual Machines
+## Virtual machines
 
 The `VirtualMachine` resource is used to create a virtual machine, its parameters allow you to configure:
 
@@ -773,28 +773,28 @@ After creation, the virtual machine will automatically get an IP address from th
 
 A virtual machine (VM) goes through several phases in its existence, from creation to deletion. These stages are called phases and reflect the current state of the VM. To understand what is happening with the VM, you should check its status (`.status.phase` field), and for more detailed information - `.status.conditions` block. All the main phases of the VM life cycle, their meaning and peculiarities are described below.
 
-![](./images/vm-lifecycle.png)
+![vm-lifecycle](./images/vm-lifecycle.png)
 
 - `Pending` - waiting for resources to be ready
 
-    A VM has just been created, restarted or started after a shutdown and is waiting for the necessary resources (disks, images, ip addresses, etc.) to be ready.
-    - Possible problems:
-      - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
-    - Diagnostics: In `.status.conditions` you should pay attention to `*Ready` conditions. By them you can determine what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
+  A VM has just been created, restarted or started after a shutdown and is waiting for the necessary resources (disks, images, ip addresses, etc.) to be ready.
+  - Possible problems:
+    - Dependent resources are not ready: disks, images, VM classes, secret with initial configuration script, etc.
+  - Diagnostics: In `.status.conditions` you should pay attention to `*Ready` conditions. By them you can determine what is blocking the transition to the next phase, for example, waiting for disks to be ready (BlockDevicesReady) or VM class (VirtualMachineClassReady).
 
-      ``` bash
-      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type | test(".*Ready"))'
-      ```
+    ``` bash
+    d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type | test(".*Ready"))'
+    ```
 
 - `Starting` - starting the virtual machine
 
-    All dependent VM resources are ready and the system is attempting to start the VM on one of the cluster nodes.
-    - Possible problems:
-      - There is no suitable node to start.
-      - There is not enough CPU or memory on suitable nodes.
-      - Neumspace or project quotas have been exceeded.
-    - Diagnostics:
-      - If the startup is delayed, check `.status.conditions`, the `type: Running` condition
+  All dependent VM resources are ready and the system is attempting to start the VM on one of the cluster nodes.
+  - Possible problems:
+    - There is no suitable node to start.
+    - There is not enough CPU or memory on suitable nodes.
+    - Namespace or project quotas have been exceeded.
+  - Diagnostics:
+    - If the startup is delayed, check `.status.conditions`, the `type: Running` condition
 
       ``` bash
       d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
@@ -802,20 +802,21 @@ A virtual machine (VM) goes through several phases in its existence, from creati
 
 - `Running` - the virtual machine is running
 
-    The VM is successfully started and running.
-    - Features:
-      - When qemu-guest-agent is installed in the guest system, the `AgentReady` condition will be true and `.status.guestOSInfo` will display information about the running guest OS.
+  The VM is successfully started and running.
+  - Features:
+    - When qemu-guest-agent is installed in the guest system, the `AgentReady` condition will be true and `.status.guestOSInfo` will display information about the running guest OS.
       - The `type: FirmwareUpToDate, status: False` condition informs that the VM firmware needs to be updated.
       - Condition `type: ConfigurationApplied, status: False` informs that the VM configuration is not applied to the running VM.
+      - The `type: SizingPolicyMatched, status: False` condition informs that the VM resource configuration does not match the sizing policy requirements for the VirtualMachineClass being used and requires that these settings be brought into compliance otherwise new changes to the VM configuration cannot be saved.
       - The `type: AwaitingRestartToApplyConfiguration, status: True` condition displays information about the need to manually reboot the VM because some configuration changes cannot be applied without rebooting the VM.
     - Possible problems:
       - An internal failure in the VM or hypervisor.
     - Diagnosis:
       - Check `.status.conditions`, condition `type: Running`.
 
-      ``` bash
-      d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
-      ```
+        ``` bash
+        d8 k get vm <vm-name> -o json | jq '.status.conditions[] | select(.type=="Running")'
+        ``
 
 - `Stopping` - The VM is stopped or rebooted.
 
@@ -827,20 +828,20 @@ A virtual machine (VM) goes through several phases in its existence, from creati
 
 - `Migrating` - live migration of a VM
 
-    The VM is migrated to another node in the cluster (live migration).
-    - Features:
-      - VM migration is supported only for non-local disks, the `type: Migratable` condition displays information about whether the VM can migrate or not.
-    - Possible issues:
-      - Incompatibility of processor instructions (when using host or host-passthrough processor types).
-      - Difference in kernel versions on hypervisor nodes.
-      - Not enough CPU or memory on eligible nodes.
-      - Neumspace or project quotas have been exceeded.
-    - Diagnostics:
-      - Check the `.status.conditions` condition `type: Migrating` as well as the `.status.migrationState` block
+  The VM is migrated to another node in the cluster (live migration).
+  - Features:
+    - VM migration is supported only for non-local disks, the `type: Migratable` condition displays information about whether the VM can migrate or not.
+  - Possible issues:
+    - Incompatibility of processor instructions (when using host or host-passthrough processor types).
+    - Difference in kernel versions on hypervisor nodes.
+    - Not enough CPU or memory on eligible nodes.
+    - Neumspace or project quotas have been exceeded.
+  - Diagnostics:
+    - Check the `.status.conditions` condition `type: Migrating` as well as the `.status.migrationState` block
 
-    ```bash
-    d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
-    ```
+      ```bash
+      d8 k get vm <vm-name> -o json | jq '.status | {condition: .conditions[] | select(.type=="Migrating"), migrationState}'
+      ```
 
 The `type: SizingPolicyMatched, status: False` condition indicates that the resource configuration does not comply with the sizing policy of the VirtualMachineClass being used. If the policy is violated, it is impossible to save VM parameters without making the resources conform to the policy.
 
@@ -850,62 +851,99 @@ Conditions display information about the state of the VM, as well as on problems
 d8 k get vm fedora -o json | jq '.status.conditions[] | select(.message != "")'
 ```
 
-### Guest OS Agent
+### Configuring CPU and coreFraction
 
-To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
+When creating a virtual machine, you can configure how much CPU resources it will use using the `cores` and `coreFraction` parameters.
+The `cores` parameter specifies the number of virtual CPU cores allocated to the VM.
+The `coreFraction` parameter specifies the guaranteed minimum share of processing power allocated to each core.
 
-How will the agent help?
+{{< alert level="warning">}}
+Available `coreFraction` values may be defined in the VirtualMachineClass resource for a given range of cores (`cores`), in which case only those values may be used.
+{{< /alert >}}
 
-- It will provide consistent snapshots of disks and VMs.
-- Will provide information about the running OS, which will be reflected in the status of the VM.
-  Example:
+For example, if you specify `cores: 2`, the VM will be allocated two virtual cores corresponding to the two physical cores of the hypervisor.
+If `coreFraction: 20%`, the VM is guaranteed to receive at least 20% of the processing power of each core, regardless of the hypervisor node utilization. At the same time, if there are free resources on the node, the VM can use up to 100% of each core's power to maximize performance.
+Thus, the VM is guaranteed to receive 0.2 CPU of the processing power of each physical core and can utilize up to 100% of the power of two cores (2 CPUs) if there are idle resources on the node.
 
-  ```yaml
-  status:
-    guestOSInfo:
-      id: fedora
-      kernelRelease: 6.11.4-301.fc41.x86_64
-      kernelVersion: '#1 SMP PREEMPT_DYNAMIC Sun Oct 20 15:02:33 UTC 2024'
-      machine: x86_64
-      name: Fedora Linux
-      prettyName: Fedora Linux 41 (Cloud Edition)
-      version: 41 (Cloud Edition)
-      versionId: “41”
-  ```
+{{< alert level="info">}}
+If the `coreFraction` parameter is not defined, each VM virtual core is allocated 100% of the physical hypervisor CPU core.
+{{< /alert >}}
 
-- Will allow tracking that the OS has actually booted:
+Let's look at an example configuration:
 
-  ```bash
-  d8 k get vm -o wide
-  ```
-
-  Sample output (`AGENT` column):
-  ```console
-  NAME     PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS    AGE
-  fedora   Running   6       5%             8000Mi   False          True    True         virtlab-pt-1   10.66.10.1   5d21h
-  ```
-
-How to install QEMU Guest Agent:
-
-For Debian-based OS:
-
-```bash
-sudo apt install qemu-guest-agent
+```yaml
+spec:
+  cpu:
+    cores: 2
+    coreFraction: 10%
 ```
 
-For Centos-based OS:
+{{< alert level="info">}}
+This approach allows for stable VM performance even under high load under conditions of CPU resource oversubscription, where more cores are allocated to virtual machines than are available on the hypervisor.
+{{< /alert >}}
 
-```bash
-sudo yum install qemu-guest-agent
+The `cores` and `coreFraction` parameters are taken into account when planning the placement of VMs on nodes. The guaranteed capacity (minimum fraction of each core) is considered when selecting a node so that it can provide the required performance for all VMs. If a node does not have sufficient resources to fulfill the guarantees, the VM will not run on that node.
+
+Visualization on the example of virtual machines with the following CPU configurations, when placed on the same node:
+
+VM1:
+
+```
+spec:
+  cpu:
+    cores: 1
+    coreFraction: 20%
 ```
 
-Starting the agent service:
+VM2:
 
-```bash
-sudo systemctl enable --now qemu-guest-agent
+```yaml
+spec:
+  cpu:
+    cores: 1
+    coreFraction: 80%
 ```
 
-### Automatic CPU Topology Configuration
+![vm-corefraction](./images/vm-corefraction.png)
+
+### Virtual machine resource configuration and sizing policy
+
+The sizing policy in VirtualMachineClass, defined in the `.spec.sizingPolicies` section, defines the rules for configuring virtual machine resources, including the number of cores, memory size, and core utilization fraction (`coreFraction`). This policy is not mandatory. If it is not present for a VM, you can specify arbitrary values for resources without strict requirements. However, if a sizing policy is present, the VM configuration must strictly comply with it. Otherwise, it will not be possible to save the configuration.
+
+The policy divides the number of cores (`cores`) into ranges, such as 1-4 cores or 5-8 cores. For each range, it specifies how much memory can be allocated (`memory`) per core and/or what `coreFraction` values are allowed.
+
+If the VM configuration (cores, memory, or coreFraction) does not match the policy, the VM status will show the condition `type: SizingPolicyMatched, status: False`.
+
+If you change the policy in VirtualMachineClass, the configuration of existing VMs may need to be changed to match the new policy.
+Virtual machines that do not comply with the new policy will continue to run, but any changes to their configuration cannot be saved until they comply with the new policy.
+
+For example:
+
+```yaml
+spec:
+  sizingPolicies:
+    - cores:
+        min: 1
+        max: 4
+      memory:
+        min: 1Gi
+        max: 8Gi
+      coreFractions: [5, 10, 20, 50, 100]
+    - cores:
+        min: 5
+        max: 8
+      memory:
+        min: 5Gi
+        max: 16Gi
+      coreFractions: [20, 50, 100]
+```
+
+If the VM uses 2 cores, it falls in the range of 1-4 cores. Then memory can be selected from 1 GB to 8 GB, and coreFraction is only 5%, 10%, 20%, 50%, or 100%. For 6 cores, the range is 5-8 cores, where memory is from 5GB to 16GB and coreFraction is 20%, 50% or 100%.
+
+In addition to VM sizing, the policy also allows you to implement the desired maximum oversubscription for VMs.
+For example, by specifying `coreFraction: 20%` in the policy, you guarantee any VM at least 20% of the CPU compute resources, which would effectively define a maximum possible oversubscription of 5:1.
+
+### Automatic CPU topology configuration
 
 The CPU topology of a virtual machine (VM) determines how the CPU cores are allocated across sockets. This is important to ensure optimal performance and compatibility with applications that may depend on the CPU configuration. In the VM configuration, you specify only the total number of processor cores, and the topology (the number of sockets and cores in each socket) is automatically calculated based on this value.
 
@@ -916,7 +954,6 @@ spec:
   cpu:
     cores: 1
 ```
-
 
 Next, the system automatically determines the topology depending on the specified number of cores. The calculation rules depend on the range of the number of cores and are described below.
 
@@ -965,6 +1002,62 @@ status:
       topology:
         sockets: 1
         coresPerSocket: 1
+```
+
+### Guest OS agent
+
+To improve VM management efficiency, it is recommended to install the QEMU Guest Agent, a tool that enables communication between the hypervisor and the operating system inside the VM.
+
+How will the agent help?
+
+- It will provide consistent snapshots of disks and VMs.
+- It will provide information about the running OS, which will be reflected in the status of the VM.
+  Example:
+
+  ```yaml
+  status:
+    guestOSInfo:
+      id: fedora
+      kernelRelease: 6.11.4-301.fc41.x86_64
+      kernelVersion: '#1 SMP PREEMPT_DYNAMIC Sun Oct 20 15:02:33 UTC 2024'
+      machine: x86_64
+      name: Fedora Linux
+      prettyName: Fedora Linux 41 (Cloud Edition)
+      version: 41 (Cloud Edition)
+      versionId: "41"
+  ```
+
+- Will allow tracking that the OS has actually booted:
+
+  ```bash
+  d8 k get vm -o wide
+  ```
+
+  Example output (see `AGENT` column):
+
+  ```console
+  NAME     PHASE     CORES   COREFRACTION   MEMORY   NEED RESTART   AGENT   MIGRATABLE   NODE           IPADDRESS    AGE
+  fedora   Running   6       5%             8000Mi   False          True    True         virtlab-pt-1   10.66.10.1   5d21h
+  ```
+
+How to install QEMU Guest Agent:
+
+For Debian-based OS:
+
+```bash
+sudo apt install qemu-guest-agent
+```
+
+For CentOS-based OS:
+
+```bash
+sudo yum install qemu-guest-agent
+```
+
+Starting the agent service:
+
+```bash
+sudo systemctl enable --now qemu-guest-agent
 ```
 
 ### Connecting to a virtual machine
@@ -1256,14 +1349,33 @@ spec:
 
 ### Placement of VMs by nodes
 
-The following approaches can be used to manage the placement of virtual machines across nodes:
+The following methods can be used to manage the placement of virtual machines (placement parameters) across nodes:
 
-- Simple label binding (`nodeSelector`)
-- Preferred binding (`Affinity`)
-- Avoid co-location (`AntiAffinity`)
+- Simple label selection (`nodeSelector`) — the basic method for selecting nodes with specified labels.
+- Preferred selection (`Affinity`):
+- `nodeAffinity` — specifies priority nodes for placement.
+  - `virtualMachineAndPodAffinity` — defines workload co-location rules for VMs or containers.
+- Co-location avoidance (`AntiAffinity`):
+- `virtualMachineAndPodAntiAffinity` — defines workload rules for VMs or containers to be placed on the same node.
+
+All of the above parameters (including the `.spec.nodeSelector` parameter from VirtualMachineClass) are applied together when scheduling VMs. If at least one condition cannot be met, the VM will not be started. To minimize risks, we recommend:
+
+- Creating consistent placement rules.
+- Checking the compatibility of rules before applying them.
+- Consider the types of conditions:
+- Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — require strict compliance.
+- Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — allow partial compliance.
+- Use combinations of labels instead of single restrictions. For example, instead of required for a single label (e.g. env=prod), use several preferred conditions.
+- Consider the order in which interdependent VMs are launched. When using Affinity between VMs (for example, the backend depends on the database), launch the VMs referenced by the rules first to avoid lockouts.
+- Plan backup nodes for critical workloads. For VMs with strict requirements (e.g., AntiAffinity), provide backup nodes to avoid downtime in case of failure or maintenance.
+- Consider existing `taints` on nodes.
 
 {{< alert level="info" >}}
-Virtual machine placement parameters can be changed in real time (available in Enterprise edition only). However, if the new placement parameters do not match the current placement parameters, the virtual machine will be moved to hosts that meet the new requirements.
+When changing placement parameters:
+- If the current location of the VM meets the new requirements, it remains on the current node.
+- If the requirements are violated:
+- In commercial editions: The VM is automatically moved to a suitable node using live migration.
+- In the CE edition: The VM will require a reboot to apply.
 {{< /alert >}}
 
 #### Simple label binding (nodeSelector)
@@ -1278,15 +1390,17 @@ spec:
 
 ![](images/placement-nodeselector.png)
 
-In this example, the virtual machine will only be placed on hosts that have a `disktype` label with a value of `ssd`.
+In this example, there are three nodes in the cluster: two with fast disks (`disktype=ssd`) and one with slow disks (`disktype=hdd`). The virtual machine will only be placed on nodes that have the `disktype` label with the value `ssd`.
 
 #### Preferred Binding (Affinity)
 
-`Affinity` provides more flexible and powerful tools than `nodeSelector`. It allows you to specify `preferences` and `obligations` for virtual machine placement. `Affinity` supports two views: `nodeAffinity` and `virtualMachineAndPodAffinity`.
+Placement requirements can be:
+- Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — The VM is placed only on nodes that meet the condition.
+- Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — The VM is placed on suitable nodes, if possible.
 
-`nodeAffinity` allows you to define on which nodes a virtual machine can run using label expressions, and can be soft (preferred) or hard (required).
+`nodeAffinity` - determines on which nodes a VM can be launched using tag expressions.
 
-Example of using nodeAffinity:
+Example of using `nodeAffinity` with a strict rule:
 
 ```yaml
 spec:
@@ -1303,11 +1417,13 @@ spec:
 
 ![](images/placement-node-affinity.png)
 
-In this example, the virtual machine will only be placed on hosts that have a `disktype` label with a value of `ssd`.
+In this example, there are three nodes in the cluster, two with fast disks (`disktype=ssd`) and one with slow disks (`disktype=hdd`). The virtual machine will only be deployed on nodes that have the `disktype` label with the value `ssd`.
 
-`virtualMachineAndPodAffinity` controls the placement of virtual machines relative to other virtual machines. It allows you to set a preference for placing virtual machines on the same nodes where certain virtual machines are already running.
+If you use a soft requirement (`preferredDuringSchedulingIgnoredDuringExecution`), then if there are no resources to start the VM on nodes with disks labeled `disktype=ssd`, it will be scheduled on a node with disks labeled `disktype=hdd`.
 
-Example:
+`virtualMachineAndPodAffinity` controls the placement of virtual machines relative to other virtual machines. It allows you to specify a preference for placing virtual machines on the same nodes where certain virtual machines are already running.
+
+Example of a soft rule:
 
 ```yaml
 spec:
@@ -1329,6 +1445,14 @@ In this example, the virtual machine will be placed, if possible (since preferre
 #### Avoid co-location (AntiAffinity)
 
 `AntiAffinity` is the opposite of `Affinity`, which allows you to specify requirements to avoid co-location of virtual machines on the same hosts. This is useful for load balancing or fault tolerance.
+
+Placement requirements can be strict or soft:
+- Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled only on nodes that meet the condition.
+- Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled on suitable nodes if possible.
+
+{{< alert level=“warn” >}}
+Be careful when using strict requirements in small clusters with few nodes for VMs. If you apply `virtualMachineAndPodAntiAffinity` with `requiredDuringSchedulingIgnoredDuringExecution`, each VM replica must run on a separate node. In a cluster with limited nodes, this may cause some VMs to fail to start due to insufficient available nodes.
+{{< /alert >}}
 
 The terms `Affinity` and `AntiAffinity` apply only to the relationship between virtual machines. For nodes, the bindings used are called `nodeAffinity`. There is no separate antithesis in `nodeAffinity` as with `virtualMachineAndPodAffinity`, but you can create opposite conditions by specifying negative operators in label expressions: to emphasize the exclusion of certain nodes, you can use `nodeAffinity` with an operator such as `NotIn`.
 
@@ -1445,22 +1569,6 @@ To detach the disk from the virtual machine, delete the previously created resou
 d8 k delete vmbda attach-blank-disk
 ```
 
-### Publishing virtual machines using services
-
-Quite often there is a need to make access to these virtual machines possible from the outside, for example, for publishing services or remote administration. For these purposes, we can use services that provide routing of traffic from the external network to internal cluster resources. Let's consider several options.
-
-Preliminary, put the following labels on the previously created vm:
-
-```bash
-d8 k label vm linux-vm app=nginx
-```
-
-Example output:
-
-```txt
-virtualmachine.virtualization.deckhouse.io/linux-vm labeled
-```
-
 Attaching images is done by analogy. To do this, specify `VirtualImage` or `ClusterVirtualImage` and the image name as `kind`:
 
 ```yaml
@@ -1477,9 +1585,88 @@ spec:
 EOF
 ```
 
+### Organizing interaction with virtual machines
+
+Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
+
+Services simplify interaction with both individual VMs and groups of similar VMs. For example, the ClusterIP service type creates a fixed internal address that can be used to access both a single VM and a group of VMs, regardless of their actual IP addresses. This allows other system components to interact with resources through a stable name or IP, automatically directing traffic to the right machines.
+
+Services also serve as a load balancing tool: they distribute requests evenly among all connected machines, ensuring fault tolerance and ease of expansion without the need to reconfigure clients.
+
+For scenarios where direct access to specific VMs within the cluster is important (for example, for diagnostics or cluster configuration), headless services can be used. Headless services do not assign a common IP, but instead link the DNS name to the real addresses of all connected machines. A request to such a name returns a list of IPs, allowing you to select the desired VM manually while maintaining the convenience of predictable DNS records.
+
+For external access, services are supplemented with mechanisms such as NodePort, which opens a port on a cluster node, LoadBalancer, which automatically creates a cloud load balancer, or Ingress, which manages HTTP/HTTPS traffic routing.
+
+All these approaches are united by their ability to hide the complexity of the infrastructure behind simple interfaces: clients work with a specific address, and the system itself decides how to route the request to the desired VM, even if its number or status changes.
+
+The service name is formed as `<service-name>.<namespace or project name>.svc.<clustername>`, or more briefly: `<service-name>.<namespace or project name>.svc`. For example, if your service name is `http` and the namespace is `default`, the full DNS name will be `http.default.svc.cluster.local`.
+
+The VM's membership in the service is determined by a set of labels. To set labels on a VM in the context of infrastructure management, use the following command:
+
+```bash
+d8 k label vm <vm-name> label-name=label-value
+```
+
+Example:
+
+```bash
+d8 k label vm linux-vm app=nginx
+```
+
+Example output:
+
+```txt
+virtualmachine.virtualization.deckhouse.io/linux-vm labeled
+```
+#### Headless service
+
+A headless service allows you to easily route requests within a cluster without the need for load balancing. Instead, it simply returns all IP addresses of virtual machines connected to this service.
+
+Even if you use a headless service for only one virtual machine, it is still useful. By using a DNS name, you can access the machine without depending on its current IP address. This simplifies management and configuration because other applications within the cluster can use this DNS name to connect instead of using a specific IP address, which may change.
+
+Example of creating a headless service:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: http
+  namespace: default
+spec:
+  clusterIP: None
+  selector:
+    # Label by which the service determines which virtual machine to direct traffic to.
+    app: nginx
+EOF
+```
+
+After creation, the VM or VM group can be accessed by name: `http.default.svc`
+
+#### ClusterIP service
+
+ClusterIP is a standard service type that provides an internal IP address for accessing the service within the cluster. This IP address is used to route traffic between different components of the system. ClusterIP allows virtual machines to interact with each other through a predictable and stable IP address, which simplifies internal communication within the cluster.
+
+Example ClusterIP configuration:
+
+```yaml
+d8 k apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: http
+spec:
+  selector:
+    # Label by which the service determines which virtual machine to route traffic to.
+    app: nginx
+EOF
+```
+
 #### Publish virtual machine services using a service with the NodePort type
 
-The `NodePort` service opens a specific port on all nodes in the cluster, redirecting traffic to a given internal service port.
+`NodePort` is an extension of the `ClusterIP` service that provides access to the service through a specified port on all nodes in the cluster. This makes the service accessible from outside the cluster through a combination of the node's IP address and port.
+
+NodePort is suitable for scenarios where direct access to the service from outside the cluster is required without using a external load balancer.
 
 Create the following service:
 
@@ -1506,9 +1693,11 @@ EOF
 
 In this example, a service with the type `NodePort` will be created that opens external port 31880 on all nodes in your cluster. This port will forward incoming traffic to internal port 80 on the virtual machine where the Nginx application is running.
 
+If you do not explicitly specify the `nodePort` value, an arbitrary port will be assigned to the service, which can be viewed in the service status immediately after its creation.
+
 #### Publishing virtual machine services using a service with the LoadBalancer service type
 
-When using the `LoadBalancer` service type, the cluster creates an external load balancer that will distribute incoming traffic to all instances of your virtual machine.
+`LoadBalancer` is a type of service that automatically creates an external load balancer with a static IP address. This balancer distributes incoming traffic among virtual machines, ensuring the service's availability from the Internet.
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -1580,7 +1769,7 @@ EOF
 
 ![](images/lb-ingress.png)
 
-### Live Virtual Machine Migration
+### Live virtual machine migration
 
 Live virtual machine (VM) migration is the process of moving a running VM from one physical host to another without shutting it down. This feature plays a key role in the management of virtualized infrastructure, ensuring application continuity during maintenance, load balancing, or upgrades.
 
@@ -1617,7 +1806,7 @@ The live migration process involves several steps:
 
 {{< alert level="warning">}}
 Network speed plays an important role. If bandwidth is low, there are more iterations and VM downtime can increase. In the worst case, the migration may not complete at all.
-{{{< /alert >}}
+{{< /alert >}}
 
 #### AutoConverge mechanism
 
@@ -1639,7 +1828,7 @@ The working principles of AutoConverge mechanism:
 
 AutoConverge is a kind of "insurance" that ensures that the migration completes even if the network struggles to handle data transfer. However, CPU slowdown can affect the performance of applications running on the VM, so its use should be monitored.
 
-#### Configuring Migration Policy
+#### Configuring migration policy
 
 To configure migration behavior, use the  `.spec.liveMigrationPolicy` parameter in the VM configuration. The following options are available:
 
@@ -1648,7 +1837,7 @@ To configure migration behavior, use the  `.spec.liveMigrationPolicy` parameter 
 - `AlwaysForced` - Migration always uses AutoConverge, meaning the CPU is slowed down when necessary. This ensures that the migration completes even if the network is bad, but may degrade VM performance.
 - `PreferForced` - By default migration goes with AutoConverge, but slowdown can be manually disabled via VirtualMachineOperation with the parameter `type=Evict` and `force=false`.
 
-#### Migration Types
+#### Migration types
 
 Migration can be performed manually by the user, or automatically by the following system events:
 
@@ -1720,7 +1909,6 @@ execution of this command leads to the creation of the `VirtualMachineOperations
 
 You can also start the migration by creating a `VirtualMachineOperations` (`vmop`) resource with the `Evict` type manually:
 
-
 ```yaml
 d8 k create -f - <<EOF
 apiVersion: virtualization.deckhouse.io/v1alpha2
@@ -1776,7 +1964,6 @@ spec:
 ```
 
 Now the current node (groups green) does not match the new conditions. The system will automatically create a `VirtualMachineOperations` object of type Evict, which will initiate a live migration of the VM to an available node in group blue .
-
 
 ## IP addresses of virtual machines
 
@@ -2000,13 +2187,31 @@ EOF
 
 ### Creating snapshots of virtual machines
 
-The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
+A virtual machine snapshot is a saved state of a virtual machine at a specific point in time. The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
+
+#### Types of snapshots
+Snapshots can be consistent or inconsistent, which is determined by the `requiredConsistency` parameter. By default, the `requiredConsistency` parameter is set to `true`, which requires a consistent snapshot.
+
+A consistent snapshot guarantees a consistent and complete state of the virtual machine's disks. Such a snapshot can be created when one of the following conditions is met:
+- The virtual machine is turned off.
+- `qemu-guest-agent` is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
+
+An inconsistent snapshot may not reflect the consistent state of the virtual machine's disks and its components. Such a snapshot is created in the following cases:
+- The VM is running, and `qemu-guest-agent` is not installed or running in the guest OS.
+- The VM is running, and `qemu-guest-agent` is not installed in the guest OS, but the snapshot manifest specifies the `requiredConsistency: false` parameter, and you want to avoid suspending the file system.
+
+{{< alert level="warning" >}}
+There is a risk of data loss or integrity violation when restoring from such a snapshot.
+{{< /alert >}}
+
+#### Scenarios for using snapshots
 
 Snapshots can be used to realize the following scenarios:
+
 - [Restoring the VM at the time the snapshot was created](#restore-a-virtual-machine)
 - [Creating a VM clone / Using the snapshot as a template for VM creation](#creating-a-vm-clone--using-a-vm-snapshot-as-a-template-for-creating-a-vm)
 
-![](./images/vm-restore-clone.png)
+![vm-restore-clone](./images/vm-restore-clone.png)
 
 If you plan to use the snapshot as a template, perform the following steps in the guest OS before creating it:
 
@@ -2017,24 +2222,9 @@ If you plan to use the snapshot as a template, perform the following steps in th
 - Removing unique identifiers (e.g. via `sysprep` for Windows).
 - Optimizing disk space.
 - Resetting initialization configurations (`cloud-init clean`).
+- Create a snapshot with a clear indication not to save the IP address: `keepIPAddress: Never`
 
-{{< alert level="info">}}
-A snapshot contains the configuration of the virtual machine and snapshots of all its disks.
-
-Restoring a snapshot assumes that the virtual machine is fully restored to the time when the snapshot was created.
-{{{< /alert >}}
-
-The snapshot will be created successfully if:
-
-- The VM is shut down
-- `qemu-guest-agent` is installed and the file system is successfully “frozen”.
-
-If data integrity is not critical, the snapshot can be created on a running VM without freezing the file system. To do this, specify in the specification:
-
-```yaml
-spec:
-  requiredConsistency: false
-```
+#### Creating snapshots
 
 When creating a snapshot, you must specify the names of the `VolumeSnapshotClasses` volume snapshot classes that will be used to create snapshots of the disks attached to the virtual machine.
 

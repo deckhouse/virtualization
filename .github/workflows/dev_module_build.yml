@@ -36,6 +36,10 @@ on:
           For branches main, release-*, tag will be generated as branch name
         required: false
         type: number
+      svace_enabled:
+        description: "Enable svace build"
+        type: boolean
+        required: false
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
   push:
@@ -159,6 +163,17 @@ jobs:
 
           OUTER
 
+  lint_dmt:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    name: Run DMT linter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: deckhouse/modules-actions/lint@v2
+        env:
+          DMT_METRICS_URL: ${{ secrets.DMT_METRICS_URL }}
+          DMT_METRICS_TOKEN: ${{ secrets.DMT_METRICS_TOKEN }}
+
   lint_go:
     runs-on: ubuntu-22.04
     name: Run go linter
@@ -185,76 +200,51 @@ jobs:
           echo "golangci-lint v${{ env.GOLANGCI_LINT_VERSION}} installed successfully!"
 
       - name: Lint all directories with golangci-lint
-        id: linters
-        # continue-on-error: true
         shell: bash
         run: |
+          # set -eo pipefail
+          set -e
+
           # Find directories containing .golangci.yaml
-          mapfile -t config_dirs < <(find . -type f -name '.golangci.yaml' -printf '%h\0' | xargs -0 -n1 | sort -u)
+          mapfile -t config_dirs < <(
+            find . \
+              -path ./images/cdi-cloner/cloner-startup -prune -o \
+              -path ./images/dvcr-artifact -prune -o \
+              -path ./tests/performance/shatal -prune -o \
+              -type f -name '.golangci.yaml' -printf '%h\0' | \
+            xargs -0 -n1 | sort -u
+          )
           count=${#config_dirs[@]}
           echo "::notice title=Lint Setup::🔍 Found $count directories with linter configurations"
 
           report=""
           error_count=0
-          find_errors=0
 
           for dir in "${config_dirs[@]}"; do
-            # echo "::group::📂 Linting directory: $dir"
-            # cd "$dir" || { echo "::error::Failed to access directory $dir"; exit 1; }
-
+            find_errors=0
             cd "$dir" || { echo "::error::Failed to access directory $dir"; continue; }
 
-            # Run linter with multiple formats
-
-            output=$(golangci-lint run --out-format=json 2>/dev/null | jq '{warning: .Report.Warnings, error: .Report.Error}' || true)
-            find_errors=$(echo $output | jq '.error | select(.!=null)' | wc -l)
-
-            # Track errors
-            if [ $find_errors -ne 0 ]; then
+            if ! output=$(golangci-lint run --sort-results); then
               error_count=$(( error_count + 1 ))
               echo "::group::📂 Linting directory ❌: $dir"
+              echo -e "❌ Errors:\n$output\n"
+              golangci-lint run --sort-results || true
             else
               echo "::group::📂 Linting directory ✅: $dir"
-            fi
-
-            report_out_warning=$(echo $output | jq '.warning')
-            report_out_error=$(echo $output | jq '.error')
-
-            # Build report section
-            report+="\n\n### Directory: $dir\n"
-            report+="Find Errors: $find_errors\n"
-            report+="Output:\n\`\`\`\n$report_out_warning\n$report_out_error\n\`\`\`\n"
-            report+="---\n"
-
-            cd - &>/dev/null
-
-            if [ $find_errors -ne 0 ]; then
-              echo -e "⚠️ Warnings:\n$report_out_warning"
-              echo -e "❌ Errors:\n$report_out_error\n"
-            else
               echo -e "✅ All check passed\n"
             fi
 
+            cd - &>/dev/null
+
             echo "::endgroup::"
           done
-
-          echo "directory_count=$count" >> "$GITHUB_OUTPUT"
 
           has_errors=$( [[ "$error_count" -gt 0 ]] && echo true || echo false)
           echo "has_errors=$has_errors" >> "$GITHUB_OUTPUT"
 
           if [ $error_count -gt 0 ]; then
+            echo "$error_count error more than 0, exit 1"
             exit 1
-          fi
-
-      - name: Final status check
-        if: always()
-        run: |
-          if ${{ steps.linters.outputs.has_errors }}; then
-            echo "::error::🔥 Lint errors found in $error_count directories. Check step 'Lint all directories with golangci-lint' for details."
-            exit 1
-          else
-            echo "::notice::✅ All linters passed successfully in ${{ steps.linters.outputs.directory_count }} directories"
           fi
 
   lint_yaml:
@@ -336,6 +326,7 @@ jobs:
         with:
           ssh-private-key: |
             ${{secrets.SOURCE_REPO_SSH_KEY}}
+            ${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}
 
       - name: Add ssh_known_hosts
         run: |
@@ -355,17 +346,40 @@ jobs:
             fi
           done <<< "$HOST_KEYS"
 
+      - name: Add svace analyze server to ssh_known_hosts
+        continue-on-error: true
+        run: |
+          host=${{ secrets.SVACE_ANALYZE_HOST }}
+
+          host_ip=$(nslookup "$host" | awk '/^Address: / { print $2 }')
+          echo "::add-mask::$host_ip"
+
+          mkdir -p ~/.ssh
+          touch ~/.ssh/known_hosts
+          HOST_KEYS=$(ssh-keyscan -H "$host" 2>/dev/null)
+          while IFS= read -r KEY_LINE; do
+              CONSTANT_PART=$(awk '{print $2, $3}' <<< "$KEY_LINE")
+              if grep -q "$CONSTANT_PART" ~/.ssh/known_hosts; then
+                  ssh-keygen -R $host
+                  ssh-keygen -R $host_ip
+              fi
+              echo "$KEY_LINE" >> ~/.ssh/known_hosts
+          done <<< "$HOST_KEYS"
+
       - uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v2
+      - uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          svace_enabled: ${{ inputs.svace_enabled || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
+          svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
+          svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
 
   pull_request_info:
     name: Get PR info
@@ -427,6 +441,40 @@ jobs:
           trivy_registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
           trivy_registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
+      - name: Fail if CVEs were found
+        run: |
+          fail_count=0
+          for report in out/json/d8_*_report.json; do
+            trivy convert $report
+            cve_count=$(cat $report | jq '.Results // [] | map(.Vulnerabilities | length) | add // 0')
+            if [[ $cve_count -gt 0 ]]; then
+              fail_count=$((fail_count + cve_count))
+            fi
+          done
+          if [[ $fail_count -gt 0 ]]; then
+            echo "Found $fail_count vulnerabilities in images"
+            exit 1
+          fi
+
+  analyze_build:
+    if: ${{ github.event.inputs.svace_enabled == 'true' || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
+    name: Analyze build
+    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
+    needs:
+      - set_vars
+      - dev_setup_build
+    steps:
+      - uses: deckhouse/modules-actions/svace_analyze@v4
+        with:
+          project_group: ${{ github.event.repository.name }}
+          ci_commit_ref_name: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          ci_commit_hash: ${{ github.event.pull_request.head.sha || github.sha }}
+          svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
+          svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+          svacer_url: "${{ secrets.SVACER_URL }}"
+          svacer_import_user: "${{ secrets.SVACER_IMPORT_USER }}"
+          svacer_import_password: "${{ secrets.SVACER_IMPORT_PASSWORD }}"
+          svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
 
   skip_e2e:
     if: ${{ github.event.label.name == 'skip/e2e' }}
@@ -604,16 +652,22 @@ jobs:
       - set_vars
       - run_e2e
       - update_comment_on_finish
+      - analyze_build
     steps:
-      - name: Remove label and add comment
+      - uses: actions/checkout@v4
+      - name: Remove labels and add comment
         id: remove-label
         uses: actions/github-script@v6
         with:
           github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
-            const issueNumber = context.issue.number; const owner = context.repo.owner;
+            const ci = require('./.github/scripts/js/ci');
+            const issueNumber = context.issue.number;
+            const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const labelToRemove = 'e2e/run';
+
+            const labelToRemoveE2E = 'e2e/run';
+            const labelToRemoveSvace = 'analyze/svace';
 
             const { data: labels } = await github.rest.issues.listLabelsOnIssue({
               owner,
@@ -621,16 +675,9 @@ jobs:
               issue_number: issueNumber,
             });
 
-            if (labels.some(label => label.name === labelToRemove)) {
-              await github.rest.issues.removeLabel({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                name: labelToRemove,
-              });
-              console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
+            if (ci.removeLabel({github, context, labels, labelToRemove: labelToRemoveE2E})) {
               const commentIdStr = '${{ needs.run_e2e.outputs.comment_id }}';
-              const commentId = parseInt(commentIdStr, 10); // Cast to integer
+              const commentId = parseInt(commentIdStr, 10);
               const stepOutcome = '${{ needs.run_e2e.result }}';
               const body = `Workflow has started.
               Follow the progress here: [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
@@ -644,15 +691,6 @@ jobs:
                   comment_id: commentId, // Now an integer
                   body: body
                 });
-              } else {
-                // Invalid or missing, create a new comment
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.payload.pull_request.number,
-                  body: body
-                });
               }
-            } else {
-              console.log(`Label '${labelToRemove}' not found on PR #${issueNumber}`);
             }
+            ci.removeLabel({github, context, labels, labelToRemove: labelToRemoveSvace});

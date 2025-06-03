@@ -108,7 +108,7 @@ const (
 
 	DockerRegistrySchemePrefix = "docker://"
 
-	VmBlockDeviceAttachedLimit = 16
+	VMBlockDeviceAttachedLimit = 16
 
 	CmpLesser  = -1
 	CmpEqual   = 0

@@ -59,7 +59,7 @@ func TestCpuCountValidate(t *testing.T) {
 	for _, test := range tests {
 		t.Run("", func(t *testing.T) {
 			vm := &v1alpha2.VirtualMachine{Spec: v1alpha2.VirtualMachineSpec{CPU: v1alpha2.CPUSpec{Cores: test.desiredCores}}}
-			cpuCountValidator := NewCpuCountValidator()
+			cpuCountValidator := NewCPUCountValidator()
 
 			_, err := cpuCountValidator.Validate(vm)
 

@@ -47,7 +47,7 @@ var _ = Describe("TestFirmwareHandler", func() {
 	var (
 		serviceCompleteErr = errors.New("service is complete")
 		ctx                = testutil.ContextBackgroundWithNoOpLogger()
-		fakeClient         client.WithWatch
+		fakeClient         client.Client
 	)
 
 	AfterEach(func() {
@@ -100,10 +100,10 @@ var _ = Describe("TestFirmwareHandler", func() {
 
 	DescribeTable("FirmwareHandler should return serviceCompleteErr if migration executed",
 		func(vm *v1alpha2.VirtualMachine, deploy *appsv1.Deployment, needMigrate bool) {
-			fakeClient, _ = setupEnvironment(vm, deploy)
+			fakeClient = setupEnvironment(vm, deploy)
 
 			mockMigration := &OneShotMigrationMock{
-				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey string, annotationExpectedValue string) (bool, error) {
+				OnceMigrateFunc: func(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error) {
 					return true, serviceCompleteErr
 				},
 			}

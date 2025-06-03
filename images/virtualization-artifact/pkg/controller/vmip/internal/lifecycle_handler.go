@@ -19,6 +19,7 @@ package internal
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -47,6 +48,9 @@ func (h *LifecycleHandler) Handle(_ context.Context, vmip *virtv2.VirtualMachine
 
 	attachedCondition, _ := conditions.GetCondition(vmipcondition.AttachedType, vmip.Status.Conditions)
 	if attachedCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(boundCondition, vmip) {
+		if vmip.Status.Phase != virtv2.VirtualMachineIPAddressPhaseBound {
+			h.recorder.Eventf(vmip, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineIPAddress is bound.")
+		}
 		vmip.Status.Phase = virtv2.VirtualMachineIPAddressPhaseBound
 		return reconcile.Result{}, nil
 	}

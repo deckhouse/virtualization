@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -32,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -80,7 +80,7 @@ func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context
 		opts.Namespace = vmipRef.Namespace
 	}
 
-	var vmips virtv2.VirtualMachineIPAddressLeaseList
+	var vmips virtv2.VirtualMachineIPAddressList
 	err := w.client.List(ctx, &vmips, &opts)
 	if err != nil {
 		w.logger.Error(fmt.Sprintf("failed to list vmips: %s", err))
