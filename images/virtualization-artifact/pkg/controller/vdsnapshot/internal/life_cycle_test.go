@@ -277,64 +277,7 @@ var _ = Describe("LifeCycle handler", func() {
 			Expect(ready.Message).To(BeEmpty())
 		})
 
-		It("Check unfreeze if failed", func() {
-			var unFreezeCalled = false
-
-			snapshotter.IsFrozenFunc = func(_ *virtv2.VirtualMachine) bool {
-				return true
-			}
-			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
-				vs.Status = &vsv1.VolumeSnapshotStatus{
-					ReadyToUse: ptr.To(true),
-				}
-				return vs, nil
-			}
-			snapshotter.UnfreezeFunc = func(_ context.Context, _ string, _ string) error {
-				unFreezeCalled = true
-				return nil
-			}
-
-			vm.Status.Conditions = append(vm.Status.Conditions, metav1.Condition{
-				Type:   vmcondition.TypeFilesystemFrozen.String(),
-				Status: metav1.ConditionTrue,
-			})
-			h := NewLifeCycleHandler(snapshotter)
-
-			vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseFailed
-			_, err := h.Handle(testContext(), vdSnapshot)
-			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseFailed))
-			Expect(unFreezeCalled).To(BeTrue())
-		})
-
-		It("Check not unfreeze if failed but VM is not frozen", func() {
-			var unFreezeCalled = false
-
-			snapshotter.IsFrozenFunc = func(_ *virtv2.VirtualMachine) bool {
-				return true
-			}
-			snapshotter.GetVolumeSnapshotFunc = func(_ context.Context, _, _ string) (*vsv1.VolumeSnapshot, error) {
-				vs.Status = &vsv1.VolumeSnapshotStatus{
-					ReadyToUse: ptr.To(true),
-				}
-				return vs, nil
-			}
-			snapshotter.UnfreezeFunc = func(_ context.Context, _ string, _ string) error {
-				unFreezeCalled = true
-				return nil
-			}
-
-			h := NewLifeCycleHandler(snapshotter)
-
-			vdSnapshot.Status.Phase = virtv2.VirtualDiskSnapshotPhaseFailed
-			_, err := h.Handle(testContext(), vdSnapshot)
-
-			Expect(err).To(BeNil())
-			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseFailed))
-			Expect(unFreezeCalled).To(BeFalse())
-		})
-
-		It("Check not to call unfreeze if failed and has no VM", func() {
+		DescribeTable("Check unfreeze if failed", func(vm *virtv2.VirtualMachine, expectUnfreezing bool) {
 			var unFreezeCalled = false
 
 			snapshotter.IsFrozenFunc = func(_ *virtv2.VirtualMachine) bool {
@@ -351,7 +294,7 @@ var _ = Describe("LifeCycle handler", func() {
 				return nil
 			}
 			snapshotter.GetVirtualMachineFunc = func(_ context.Context, _, _ string) (*virtv2.VirtualMachine, error) {
-				return nil, nil
+				return vm, nil
 			}
 
 			h := NewLifeCycleHandler(snapshotter)
@@ -361,7 +304,23 @@ var _ = Describe("LifeCycle handler", func() {
 
 			Expect(err).To(BeNil())
 			Expect(vdSnapshot.Status.Phase).To(Equal(virtv2.VirtualDiskSnapshotPhaseFailed))
-			Expect(unFreezeCalled).To(BeFalse())
-		})
+			Expect(unFreezeCalled).To(Equal(expectUnfreezing))
+		},
+			Entry("Has VM with frozen filesystem",
+				&virtv2.VirtualMachine{
+					Status: virtv2.VirtualMachineStatus{
+						Conditions: []metav1.Condition{
+							{
+								Type:   vmcondition.TypeFilesystemFrozen.String(),
+								Status: metav1.ConditionTrue,
+							},
+						},
+					},
+				},
+				true,
+			),
+			Entry("Has VM with unfrozen filesystem", &virtv2.VirtualMachine{}, false),
+			Entry("Has no VM", nil, false),
+		)
 	})
 })
