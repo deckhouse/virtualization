@@ -51,19 +51,12 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 	cb := conditions.NewConditionBuilder(vdscondition.VirtualDiskSnapshotReadyType).Generation(vdSnapshot.Generation)
 
 	defer func() {
-		if vdSnapshot.Status.Phase == virtv2.VirtualDiskSnapshotPhaseFailed {
-			vd, err := h.snapshotter.GetVirtualDisk(ctx, vdSnapshot.Spec.VirtualDiskName, vdSnapshot.Namespace)
-			if err == nil && vd != nil {
-				vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
-				if err == nil && vm != nil {
-					frozenCondition, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
-					if frozenCondition.Status == metav1.ConditionTrue {
-						unfreezeError := h.snapshotter.Unfreeze(ctx, vm.Name, vm.Namespace)
-						if unfreezeError != nil {
-							cb.Message(fmt.Sprintf("%s, %s", unfreezeError.Error(), cb.Condition().Message))
-						}
-					}
-				}
+		err := h.unfreezeFilesystemIfFailed(ctx, vdSnapshot)
+		if err != nil {
+			if cb.Condition().Message != "" {
+				cb.Message(fmt.Sprintf("%s, %s", err.Error(), cb.Condition().Message))
+			} else {
+				cb.Message(err.Error())
 			}
 		}
 
@@ -358,4 +351,38 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.Vi
 		Status(metav1.ConditionFalse).
 		Reason(vdscondition.VirtualDiskSnapshotFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()))
+}
+
+func (h LifeCycleHandler) unfreezeFilesystemIfFailed(ctx context.Context, vdSnapshot *virtv2.VirtualDiskSnapshot) error {
+	if vdSnapshot.Status.Phase != virtv2.VirtualDiskSnapshotPhaseFailed {
+		return nil
+	}
+
+	vd, err := h.snapshotter.GetVirtualDisk(ctx, vdSnapshot.Spec.VirtualDiskName, vdSnapshot.Namespace)
+	if err != nil {
+		return err
+	}
+
+	if vd == nil {
+		return nil
+	}
+
+	vm, err := getVirtualMachine(ctx, vd, h.snapshotter)
+	if err != nil {
+		return err
+	}
+
+	if vm == nil {
+		return nil
+	}
+
+	frozenCondition, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, vm.Status.Conditions)
+	if frozenCondition.Status == metav1.ConditionTrue {
+		err = h.snapshotter.Unfreeze(ctx, vm.Name, vm.Namespace)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
