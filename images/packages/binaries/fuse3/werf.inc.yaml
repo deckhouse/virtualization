@@ -9,7 +9,7 @@ import:
   before: setup
 
 ---
-{{- $version := "fuse-3.16.2" }}
+{{- $version := get $.Package $.ImageName }}
 {{- $gitRepoUrl := "libfuse/libfuse.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
