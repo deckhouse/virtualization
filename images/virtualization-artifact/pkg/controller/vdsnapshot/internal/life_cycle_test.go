@@ -289,7 +289,7 @@ var _ = Describe("LifeCycle handler", func() {
 				}
 				return vs, nil
 			}
-			snapshotter.UnfreezeFunc = func(_ context.Context, _ string, _ string) error {
+			snapshotter.UnfreezeFunc = func(_ context.Context, _, _ string) error {
 				unFreezeCalled = true
 				return nil
 			}
