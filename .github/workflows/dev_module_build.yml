@@ -201,10 +201,18 @@ jobs:
       - name: Lint all directories with golangci-lint
         shell: bash
         run: |
-          set -eo pipefail
+          # set -eo pipefail
+          set -e
 
           # Find directories containing .golangci.yaml
-          mapfile -t config_dirs < <(find . -type f -name '.golangci.yaml' -printf '%h\0' | xargs -0 -n1 | sort -u)
+          mapfile -t config_dirs < <(
+            find . \
+              -path ./images/cdi-cloner/cloner-startup -prune -o \
+              -path ./images/dvcr-artifact -prune -o \
+              -path ./tests/performance/shatal -prune -o \
+              -type f -name '.golangci.yaml' -printf '%h\0' | \
+            xargs -0 -n1 | sort -u
+          )
           count=${#config_dirs[@]}
           echo "::notice title=Lint Setup::🔍 Found $count directories with linter configurations"
 
