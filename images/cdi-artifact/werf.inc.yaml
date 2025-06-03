@@ -1,5 +1,5 @@
 ---
-{{- $version := "1.60.3-v12n.0" }}
+{{- $version := "v1.60.3-v12n.0" }}
 {{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
 
 ---
@@ -25,7 +25,7 @@ shell:
 
     echo "Git clone CDI repository..."
     git config --global --add advice.detachedHead false
-    git clone --depth 1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-containerized-data-importer /containerized-data-importer
+    git clone --depth 1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-containerized-data-importer --branch {{ $version }} /containerized-data-importer
 
   - |
     echo Download Go modules.
