@@ -9,16 +9,6 @@ fromImage: builder/golang-bookworm-1.23
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
-git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    stageDependencies:
-      install:
-        - '**/*'
-    includePaths:
-      - patches
-    excludePaths:
-      - patches/README.md
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
