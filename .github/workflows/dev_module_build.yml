@@ -234,13 +234,7 @@ jobs:
               echo "::group::📂 Linting directory ✅: $dir"
               echo -e "✅ All check passed\n"
             fi
-            
-            # if [ $find_errors -ne 0 ]; then
-            #   echo -e "❌ Errors:\n$output\n"
-            # else
-            #   echo -e "✅ All check passed\n"
-            # fi
-            
+
             cd - &>/dev/null
 
             echo "::endgroup::"
