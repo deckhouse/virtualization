@@ -38,7 +38,7 @@ shell:
 ---
 image: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
 final: false
-fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
+fromImage: builder/golang-bookworm-1.23
 import:
 - image: {{ $.ImageName }}-download
   add: /opt/svace
