@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: false
-fromImage: builder/golang-bookworm-1.23
+fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
 git:
 - add: /api
   to: /usr/local/go/api
@@ -32,8 +32,12 @@ shell:
   - export GOOS=linux
   - export CGO_ENABLED=0
   - export GOARCH=amd64
-  - go build -tags {{ .MODULE_EDITION }} -v -a -o virtualization-controller ./cmd/virtualization-controller
-  - go build -v -a -o virtualization-api ./cmd/virtualization-api
+  - |
+    {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-controller" | join "/") }}
+    {{- $buildCommand := printf "go build -tags %s -v -a -o virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
+    {{- include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 6 }}
+    {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-api" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o virtualization-api ./cmd/virtualization-api`) | nindent 6 }}
 {{- if eq .MODULE_EDITION "EE" }}
   - go build -v -a -o virtualization-audit ./cmd/virtualization-audit
 {{- end }}

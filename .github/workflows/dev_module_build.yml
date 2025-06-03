@@ -36,6 +36,10 @@ on:
           For branches main, release-*, tag will be generated as branch name
         required: false
         type: number
+      svace_enabled:
+        description: "Enable svace build"
+        type: boolean
+        required: false
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
   push:
@@ -324,6 +328,7 @@ jobs:
         with:
           ssh-private-key: |
             ${{secrets.SOURCE_REPO_SSH_KEY}}
+            ${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}
 
       - name: Add ssh_known_hosts
         run: |
@@ -343,17 +348,40 @@ jobs:
             fi
           done <<< "$HOST_KEYS"
 
+      - name: Add svace analyze server to ssh_known_hosts
+        continue-on-error: true
+        run: |
+          host=${{ secrets.SVACE_ANALYZE_HOST }}
+
+          host_ip=$(nslookup "$host" | awk '/^Address: / { print $2 }')
+          echo "::add-mask::$host_ip"
+
+          mkdir -p ~/.ssh
+          touch ~/.ssh/known_hosts
+          HOST_KEYS=$(ssh-keyscan -H "$host" 2>/dev/null)
+          while IFS= read -r KEY_LINE; do
+              CONSTANT_PART=$(awk '{print $2, $3}' <<< "$KEY_LINE")
+              if grep -q "$CONSTANT_PART" ~/.ssh/known_hosts; then
+                  ssh-keygen -R $host
+                  ssh-keygen -R $host_ip
+              fi
+              echo "$KEY_LINE" >> ~/.ssh/known_hosts
+          done <<< "$HOST_KEYS"
+
       - uses: deckhouse/modules-actions/setup@v2
         with:
           registry: ${{ vars.DEV_REGISTRY }}
           registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
 
-      - uses: deckhouse/modules-actions/build@v2
+      - uses: deckhouse/modules-actions/build@v4
         with:
           module_source: ${{ vars.DEV_MODULE_SOURCE}}
           module_name: ${{ vars.MODULE_NAME }}
           module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          svace_enabled: ${{ inputs.svace_enabled || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
+          svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
+          svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
 
   pull_request_info:
     name: Get PR info
@@ -429,6 +457,26 @@ jobs:
             echo "Found $fail_count vulnerabilities in images"
             exit 1
           fi
+
+  analyze_build:
+    if: ${{ github.event.inputs.svace_enabled == 'true' || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
+    name: Analyze build
+    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
+    needs:
+      - set_vars
+      - dev_setup_build
+    steps:
+      - uses: deckhouse/modules-actions/svace_analyze@v4
+        with:
+          project_group: ${{ github.event.repository.name }}
+          ci_commit_ref_name: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          ci_commit_hash: ${{ github.event.pull_request.head.sha || github.sha }}
+          svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
+          svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+          svacer_url: "${{ secrets.SVACER_URL }}"
+          svacer_import_user: "${{ secrets.SVACER_IMPORT_USER }}"
+          svacer_import_password: "${{ secrets.SVACER_IMPORT_PASSWORD }}"
+          svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
 
   skip_e2e:
     if: ${{ github.event.label.name == 'skip/e2e' }}
