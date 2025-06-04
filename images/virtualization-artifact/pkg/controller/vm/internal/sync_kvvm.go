@@ -262,11 +262,11 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 		//  can be changed during the restoration process.
 		// For example, the PVC of the VirtualDisk will be changed,
 		//  and the volume with this PVC must be updated in the KVVM specification.
-		hasNoChanges, err := h.detectKvvmSpecChanges(ctx, s)
+		hasChanges, err := h.detectKvvmSpecChanges(ctx, s)
 		if err != nil {
 			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
 		}
-		if !hasNoChanges {
+		if hasChanges {
 			err := h.updateKVVM(ctx, s)
 			if err != nil {
 				return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
@@ -505,7 +505,7 @@ func (h *SyncKvvmHandler) isVMStopped(
 	return isVMStopped(kvvm) && (!isKVVMICreated(kvvm) || podStopped)
 }
 
-// detectKvvmSpecChanges returns true and no error if specification has no changes.
+// detectKvvmSpecChanges returns true and no error if specification has changes.
 func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
 	currentKvvm, err := s.KVVM(ctx)
 	if err != nil {
@@ -517,7 +517,7 @@ func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.Vir
 		return false, err
 	}
 
-	return equality.Semantic.DeepEqual(&currentKvvm.Spec, &newKvvm.Spec), nil
+	return !equality.Semantic.DeepEqual(&currentKvvm.Spec, &newKvvm.Spec), nil
 }
 
 // canApplyChanges returns true if changes can be applied right now.
