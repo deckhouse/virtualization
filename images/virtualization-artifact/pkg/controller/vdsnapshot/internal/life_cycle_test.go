@@ -278,7 +278,7 @@ var _ = Describe("LifeCycle handler", func() {
 		})
 
 		DescribeTable("Check unfreeze if failed", func(vm *virtv2.VirtualMachine, expectUnfreezing bool) {
-			var unFreezeCalled = false
+			unFreezeCalled := false
 
 			snapshotter.IsFrozenFunc = func(_ *virtv2.VirtualMachine) bool {
 				return true
@@ -289,7 +289,7 @@ var _ = Describe("LifeCycle handler", func() {
 				}
 				return vs, nil
 			}
-			snapshotter.UnfreezeFunc = func(_ context.Context, _ string, _ string) error {
+			snapshotter.UnfreezeFunc = func(_ context.Context, _, _ string) error {
 				unFreezeCalled = true
 				return nil
 			}
