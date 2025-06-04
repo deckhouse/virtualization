@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -48,7 +49,8 @@ func NewVirtualMachineIPAddressOverrideValidator(vmipTmpl *virtv2.VirtualMachine
 				Annotations: vmipTmpl.Annotations,
 				Labels:      vmipTmpl.Labels,
 			},
-			Spec: vmipTmpl.Spec,
+			Spec:   vmipTmpl.Spec,
+			Status: vmipTmpl.Status,
 		},
 		client: client,
 	}
@@ -96,6 +98,75 @@ func (v *VirtualMachineIPAddressOverrideValidator) Validate(ctx context.Context)
 	return nil
 }
 
+func (v *VirtualMachineIPAddressOverrideValidator) ValidateWithForce(ctx context.Context) error {
+	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
+	existed, err := object.FetchObject(ctx, vmipKey, v.client, &virtv2.VirtualMachineIPAddress{})
+	if err != nil {
+		return err
+	}
+
+	vmName := v.vmip.Status.VirtualMachine
+
+	if existed == nil {
+		if v.vmip.Spec.StaticIP == "" {
+			return nil
+		}
+
+		var vmips virtv2.VirtualMachineIPAddressList
+		err = v.client.List(ctx, &vmips, &client.ListOptions{
+			Namespace:     v.vmip.Namespace,
+			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMIPByAddress, v.vmip.Spec.StaticIP),
+		})
+		if err != nil {
+			return err
+		}
+
+		if len(vmips.Items) > 0 {
+			return fmt.Errorf(
+				"the set address %q is %w by the different virtual machine ip address %q and cannot be used for the restored virtual machine",
+				v.vmip.Spec.StaticIP, ErrAlreadyInUse, vmips.Items[0].Name,
+			)
+		}
+
+		return nil
+	}
+
+	if existed.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached && existed.Status.VirtualMachine == vmName {
+		return ErrAlreadyExists
+	}
+
+	if existed.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached || existed.Status.VirtualMachine != "" {
+		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, ErrAlreadyInUse)
+	}
+
+	return nil
+}
+
+func (v *VirtualMachineIPAddressOverrideValidator) ProcessWithForce(ctx context.Context, vmRestoreUID string) error {
+	return nil
+}
+
+func (v *VirtualMachineIPAddressOverrideValidator) AnnotateObject(vmRestoreUID string) {
+	if v.vmip.Annotations != nil {
+		v.vmip.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	} else {
+		v.vmip.Annotations = make(map[string]string)
+		v.vmip.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	}
+}
+
 func (v *VirtualMachineIPAddressOverrideValidator) Object() client.Object {
-	return v.vmip
+	return &virtv2.VirtualMachineIPAddress{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v.vmip.Kind,
+			APIVersion: v.vmip.APIVersion,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        v.vmip.Name,
+			Namespace:   v.vmip.Namespace,
+			Annotations: v.vmip.Annotations,
+			Labels:      v.vmip.Labels,
+		},
+		Spec: v.vmip.Spec,
+	}
 }

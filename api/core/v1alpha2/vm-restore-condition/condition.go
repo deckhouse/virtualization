@@ -41,6 +41,10 @@ const (
 	// VirtualMachineSnapshotReadyToUse indicates that the specified virtual machine snapshot is ready to restore.
 	VirtualMachineSnapshotReadyToUse VirtualMachineSnapshotReadyToUseReason = "VirtualMachineSnapshotReadyToUse"
 
+	// VirtualMachineResourcesAreNotReady signifies that the virtual machine resources is not ready to the `force` restoration.
+	VirtualMachineResourcesAreNotReady VirtualMachineRestoreReadyReason = "VirtualMachineResourcesAreNotReady"
+	// VirtualMachineIsNotStopped signifies that the virtual machine is not ready to the `force` restoration.
+	VirtualMachineIsNotStopped VirtualMachineRestoreReadyReason = "VirtualMachineIsNotStopped"
 	// VirtualMachineSnapshotNotReadyToUse signifies that the virtual machine snapshot is not ready to use.
 	VirtualMachineSnapshotNotReadyToUse VirtualMachineRestoreReadyReason = "VirtualMachineSnapshotNotReadyToUse"
 	// VirtualMachineRestoreConflict signifies that the virtual machine cannot be restored as it's resources already exist.
