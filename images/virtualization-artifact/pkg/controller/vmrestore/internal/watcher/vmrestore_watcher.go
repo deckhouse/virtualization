@@ -46,6 +46,21 @@ func (w VirtualMachineRestoreWatcher) Watch(mgr manager.Manager, ctr controller.
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
 			UpdateFunc: func(e event.UpdateEvent) bool {
+				oldVMRestore, ok := e.ObjectOld.(*virtv2.VirtualMachineRestore)
+				if !ok {
+					return false
+				}
+				newVMRestore, ok := e.ObjectNew.(*virtv2.VirtualMachineRestore)
+				if !ok {
+					return false
+				}
+				oldPhase := oldVMRestore.Status.Phase
+				newPhase := newVMRestore.Status.Phase
+
+				if oldPhase != newPhase {
+					return true
+				}
+
 				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 			},
 		},

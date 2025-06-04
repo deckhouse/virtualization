@@ -36,11 +36,15 @@ type (
 const (
 	// VirtualMachineSnapshotNotFound indicates that the specified virtual machine snapshot is absent.
 	VirtualMachineSnapshotNotFound VirtualMachineSnapshotReadyToUseReason = "VirtualMachineSnapshotNotFound"
-	// VirtualMachineSnapshotNotReady indicates that the specified virtual machine snapshot is not ready.
+	// VirtualMachineSnapshotNotReady indicates that the specified virtual machine snapshot is not ready, or resources, such as virtual images to be restored, are not present in the cluster.
 	VirtualMachineSnapshotNotReady VirtualMachineSnapshotReadyToUseReason = "VirtualMachineSnapshotNotReady"
 	// VirtualMachineSnapshotReadyToUse indicates that the specified virtual machine snapshot is ready to restore.
 	VirtualMachineSnapshotReadyToUse VirtualMachineSnapshotReadyToUseReason = "VirtualMachineSnapshotReadyToUse"
 
+	// VirtualMachineResourcesAreNotReady signifies that the virtual machine resources is not ready to the `force` restoration.
+	VirtualMachineResourcesAreNotReady VirtualMachineRestoreReadyReason = "VirtualMachineResourcesAreNotReady"
+	// VirtualMachineIsNotStopped signifies that the virtual machine is not ready to the `force` restoration.
+	VirtualMachineIsNotStopped VirtualMachineRestoreReadyReason = "VirtualMachineIsNotStopped"
 	// VirtualMachineSnapshotNotReadyToUse signifies that the virtual machine snapshot is not ready to use.
 	VirtualMachineSnapshotNotReadyToUse VirtualMachineRestoreReadyReason = "VirtualMachineSnapshotNotReadyToUse"
 	// VirtualMachineRestoreConflict signifies that the virtual machine cannot be restored as it's resources already exist.

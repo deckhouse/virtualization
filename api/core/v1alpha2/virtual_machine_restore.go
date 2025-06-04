@@ -54,6 +54,14 @@ type VirtualMachineRestoreList struct {
 }
 
 type VirtualMachineRestoreSpec struct {
+	// An attempt to restore a virtual machine with two modes:
+	//
+	// * Safe: Used when there are no conflicts with existing resources.
+	// * Forced: The operation can be destructive; a virtual machine will be updated, and all existing resources will be replaced. Use it carefully.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=Safe;Forced
+	// +kubebuilder:default:=Safe
+	RestoreMode RestoreMode `json:"restoreMode,omitempty"`
 	// Snapshot name to restore a virtual machine from.
 	//
 	// +kubebuilder:validation:MinLength=1
@@ -102,4 +110,11 @@ const (
 	VirtualMachineRestorePhaseReady       VirtualMachineRestorePhase = "Ready"
 	VirtualMachineRestorePhaseFailed      VirtualMachineRestorePhase = "Failed"
 	VirtualMachineRestorePhaseTerminating VirtualMachineRestorePhase = "Terminating"
+)
+
+type RestoreMode string
+
+const (
+	RestoreModeSafe   RestoreMode = "Safe"
+	RestoreModeForced RestoreMode = "Forced"
 )
