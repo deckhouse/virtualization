@@ -25,10 +25,10 @@ spec:
             qps: 5000
             burst: 6000
     migrations:
-      bandwidthPerMigration: 64Mi
+      bandwidthPerMigration: 640Mi
       completionTimeoutPerGiB: 800
-      parallelMigrationsPerCluster: 5
-      parallelOutboundMigrationsPerNode: 2
+      parallelMigrationsPerCluster: {{ .Values.virtualization.internal | dig "virtHandler" "nodeCount" 1 }}
+      parallelOutboundMigrationsPerNode: 1
       progressTimeout: 150
     smbios:
       manufacturer: Flant
