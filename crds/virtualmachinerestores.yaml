@@ -57,6 +57,12 @@ spec:
               type: object
             spec:
               properties:
+                force:
+                  default: false
+                  description:
+                    An attempt to immediately restore a virtual machine without
+                    deleting it.
+                  type: boolean
                 nameReplacements:
                   description: Renaming conventions for virtual machine resources.
                   items:

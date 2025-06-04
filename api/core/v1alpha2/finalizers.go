@@ -26,6 +26,7 @@ const (
 	FinalizerVDSnapshotProtection                 = "virtualization.deckhouse.io/vdsnapshot-protection"
 	FinalizerVMSnapshotProtection                 = "virtualization.deckhouse.io/vmsnapshot-protection"
 	FinalizerVMOPProtectionByEvacuationController = "virtualization.deckhouse.io/vmop-protection-by-evacuation-controller"
+	FinalizerVMOPProtectionByVMRestoreController  = "virtualization.deckhouse.io/vmop-protection-by-vmrestore-controller"
 
 	FinalizerCVICleanup            = "virtualization.deckhouse.io/cvi-cleanup"
 	FinalizerVDCleanup             = "virtualization.deckhouse.io/vd-cleanup"
