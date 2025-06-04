@@ -191,7 +191,7 @@ func (h InUseHandler) listCVIsUsingImage(ctx context.Context, cvi *virtv2.Cluste
 	return cvisNotReady, nil
 }
 
-func (h InUseHandler) listNamespacesUsingImage(vms []client.Object, vmbdas []client.Object, vds []client.Object, vis []client.Object) []string {
+func (h InUseHandler) listNamespacesUsingImage(vms, vmbdas, vds, vis []client.Object) []string {
 	var objects []client.Object
 	objects = append(objects, vms...)
 	objects = append(objects, vmbdas...)
