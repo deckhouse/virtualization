@@ -75,6 +75,30 @@ func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) Validate(ctx con
 	return nil
 }
 
+func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) ValidateWithForce(ctx context.Context) error {
+	return nil
+}
+
+func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) ProcessWithForce(ctx context.Context) error {
+	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
+	vmbdaObj, err := object.FetchObject(ctx, vmbdaKey, v.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the `VirtualMachineBlockDeviceAttachment`: %w", err)
+	}
+	if vmbdaObj != nil && vmbdaObj.DeletionTimestamp != nil {
+		return fmt.Errorf("%s %q: %w", vmbdaObj.Kind, vmbdaObj.Name, ErrTerminating)
+	}
+
+	if vmbdaObj != nil {
+		err = v.client.Delete(ctx, vmbdaObj)
+		if err != nil {
+			return fmt.Errorf("failed to delete the `VirtualMachineBlockDeviceAttachment`: %w", err)
+		}
+	}
+
+	return nil
+}
+
 func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) Object() client.Object {
 	return v.vmbda
 }
