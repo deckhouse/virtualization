@@ -18,8 +18,6 @@ package internal
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,7 +25,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
@@ -45,25 +42,19 @@ func NewInUseHandler(client client.Client) *InUseHandler {
 }
 
 func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
-	if vi.DeletionTimestamp == nil {
-		conditions.RemoveCondition(vicondition.InUse, &vi.Status.Conditions)
-		return reconcile.Result{}, nil
-	}
-
+	cb := conditions.NewConditionBuilder(vicondition.InUse).Generation(vi.Generation)
 	readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
 	if readyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(readyCondition, vi) {
-		conditions.RemoveCondition(vicondition.InUse, &vi.Status.Conditions)
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vicondition.NotInUse).
+			Message("")
+
+		conditions.SetCondition(cb, &vi.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
-	cb := conditions.NewConditionBuilder(vicondition.InUse).Generation(vi.Generation)
-
 	vms, err := h.listVMsUsingImage(ctx, vi)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	vmbdas, err := h.listVMBDAsUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -86,36 +77,18 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 	consumerCount := len(vms) + len(vds) + len(vis) + len(cvis)
 
 	if consumerCount > 0 {
-		var msgs []string
-		if len(vms) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineKind, vms...))
-		}
-
-		if len(vmbdas) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualMachineBlockDeviceAttachmentKind, vmbdas...))
-		}
-
-		if len(vds) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualDiskKind, vds...))
-		}
-
-		if len(vis) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.VirtualImageKind, vis...))
-		}
-
-		if len(cvis) > 0 {
-			msgs = append(msgs, getTerminationMessage(virtv2.ClusterVirtualImageKind, cvis...))
-		}
-
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vicondition.InUse).
-			Message(service.CapitalizeFirstLetter(fmt.Sprintf("%s.", strings.Join(msgs, ", "))))
-		conditions.SetCondition(cb, &vi.Status.Conditions)
+			Message("")
 	} else {
-		conditions.RemoveCondition(vicondition.InUse, &vi.Status.Conditions)
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.NotInUse).
+			Message("")
 	}
 
+	conditions.SetCondition(cb, &vi.Status.Conditions)
 	return reconcile.Result{}, nil
 }
 
@@ -145,23 +118,6 @@ func (h InUseHandler) listVMsUsingImage(ctx context.Context, vi *virtv2.VirtualI
 	}
 
 	return vmsUsingImage, nil
-}
-
-func (h InUseHandler) listVMBDAsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
-	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
-	err := h.client.List(ctx, &vmbdas, client.InNamespace(vi.GetNamespace()))
-	if err != nil {
-		return []client.Object{}, err
-	}
-
-	var vmbdasUsedImage []client.Object
-	for _, vmbda := range vmbdas.Items {
-		if vmbda.Spec.BlockDeviceRef.Kind == virtv2.VirtualImageKind && vmbda.Spec.BlockDeviceRef.Name == vi.Name {
-			vmbdasUsedImage = append(vmbdasUsedImage, &vmbda)
-		}
-	}
-
-	return vmbdasUsedImage, nil
 }
 
 func (h InUseHandler) listVDsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
@@ -222,55 +178,4 @@ func (h InUseHandler) listCVIsUsingImage(ctx context.Context, vi *virtv2.Virtual
 	}
 
 	return cvisFiltered, nil
-}
-
-func getTerminationMessage(objectKind string, objects ...client.Object) string {
-	var objectFilteredNames []string
-	for _, obj := range objects {
-		if obj.GetObjectKind().GroupVersionKind().Kind == objectKind {
-			objectFilteredNames = append(objectFilteredNames, obj.GetName())
-		}
-	}
-
-	switch objectKind {
-	case virtv2.VirtualMachineKind:
-		return getVMTerminationMessage(objectFilteredNames)
-	case virtv2.VirtualMachineBlockDeviceAttachmentKind:
-		return getVMBDATerminationMessage(objectFilteredNames)
-	default:
-		return getDefaultTerminationMessage(objectKind, objectFilteredNames)
-	}
-}
-
-func getDefaultTerminationMessage(objectKind string, objectNames []string) string {
-	switch len(objectNames) {
-	case 1:
-		return fmt.Sprintf("the VirtualImage is currently being used to create the %s %s", objectKind, objectNames[0])
-	case 2, 3:
-		return fmt.Sprintf("the VirtualImage is currently being used to create the %ss: %s", objectKind, strings.Join(objectNames, ", "))
-	default:
-		return fmt.Sprintf("the VirtualImage is currently used to create %d %ss", len(objectNames), objectKind)
-	}
-}
-
-func getVMTerminationMessage(objectNames []string) string {
-	switch len(objectNames) {
-	case 1:
-		return fmt.Sprintf("the VirtualImage is currently attached to the VirtualMachine %s", objectNames[0])
-	case 2, 3:
-		return fmt.Sprintf("the VirtualImage is currently attached to the VirtualMachines: %s", strings.Join(objectNames, ", "))
-	default:
-		return fmt.Sprintf("%d VirtualMachines are using the VirtualImage", len(objectNames))
-	}
-}
-
-func getVMBDATerminationMessage(objectNames []string) string {
-	switch len(objectNames) {
-	case 1:
-		return fmt.Sprintf("the VirtualImage is currently being used by the VMBDA %s", objectNames[0])
-	case 2, 3:
-		return fmt.Sprintf("the VirtualImage is currently being used by the VMBDAs: %s", strings.Join(objectNames, ", "))
-	default:
-		return fmt.Sprintf("the VirtualImage is currently used by %d VMBDAs", len(objectNames))
-	}
 }

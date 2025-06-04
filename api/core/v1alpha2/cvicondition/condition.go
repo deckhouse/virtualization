@@ -84,4 +84,6 @@ const (
 
 	// InUse indicates that the `ClusterVirtualImage` is used by other resources and cannot be deleted now.
 	InUse InUseReason = "InUse"
+	// NotInUse indicates that the `ClusterVirtualImage` is not used by other resources and can be deleted now.
+	NotInUse InUseReason = "NotInUse"
 )
