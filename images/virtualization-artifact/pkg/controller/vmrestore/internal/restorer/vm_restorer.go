@@ -20,20 +20,32 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
+const ReasonPVCNotFound = "PVC not found"
+
 type VirtualMachineOverrideValidator struct {
-	vm     *virtv2.VirtualMachine
-	client client.Client
+	vm           *virtv2.VirtualMachine
+	client       client.Client
+	vmRestoreUID string
 }
 
-func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client client.Client) *VirtualMachineOverrideValidator {
+func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client client.Client, vmRestoreUID string) *VirtualMachineOverrideValidator {
+	if vmTmpl.Annotations != nil {
+		vmTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	} else {
+		vmTmpl.Annotations = make(map[string]string)
+		vmTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	}
 	return &VirtualMachineOverrideValidator{
 		vm: &virtv2.VirtualMachine{
 			TypeMeta: metav1.TypeMeta{
@@ -48,7 +60,8 @@ func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client cl
 			},
 			Spec: vmTmpl.Spec,
 		},
-		client: client,
+		client:       client,
+		vmRestoreUID: vmRestoreUID,
 	}
 }
 
@@ -74,6 +87,47 @@ func (v *VirtualMachineOverrideValidator) Validate(ctx context.Context) error {
 
 	if existed != nil {
 		return fmt.Errorf("the virtual machine %q %w", vmKey.Name, ErrAlreadyExists)
+	}
+
+	return nil
+}
+
+func (v *VirtualMachineOverrideValidator) ValidateWithForce(ctx context.Context) error {
+	return nil
+}
+
+func (v *VirtualMachineOverrideValidator) ProcessWithForce(ctx context.Context) error {
+	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+	vmObj, err := object.FetchObject(ctx, vmKey, v.client, &virtv2.VirtualMachine{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
+	}
+
+	if vmObj != nil {
+		var (
+			vmHasCorrectVMRestoreUID bool
+			vmHasVMSnapshotSpec      bool
+		)
+
+		if value, ok := vmObj.Annotations[annotations.AnnVMRestore]; !ok || value != v.vmRestoreUID {
+			vmHasCorrectVMRestoreUID = false
+			vmObj.SetAnnotations(map[string]string{annotations.AnnVMRestore: v.vmRestoreUID})
+		}
+		if !equality.Semantic.DeepEqual(vmObj.Spec, v.vm.Spec) {
+			vmHasVMSnapshotSpec = false
+			vmObj.Spec = v.vm.Spec
+		}
+
+		if !vmHasCorrectVMRestoreUID || !vmHasVMSnapshotSpec {
+			updErr := v.client.Update(ctx, vmObj)
+			if updErr != nil {
+				if apierrors.IsConflict(updErr) {
+					return fmt.Errorf("waiting for the `VirtualMachine` %w", ErrUpdating)
+				} else {
+					return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
+				}
+			}
+		}
 	}
 
 	return nil

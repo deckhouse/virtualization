@@ -23,3 +23,7 @@ import (
 func SIGMigration() Labels {
 	return Label("SIG-Migration")
 }
+
+func SIGRestoration() Labels {
+	return Label("SIG-Restoration")
+}
