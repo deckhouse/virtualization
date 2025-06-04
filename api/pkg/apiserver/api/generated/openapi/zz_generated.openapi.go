@@ -4664,6 +4664,13 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreSpec(ref commo
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"restoreMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "An attempt to restore a virtual machine with two modes:\n\n* Safe: Used when there are no conflicts with existing resources. * Forced: The operation can be destructive; a virtual machine will be updated, and all existing resources will be replaced. Use it carefully.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"virtualMachineSnapshotName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Snapshot name to restore a virtual machine from.",

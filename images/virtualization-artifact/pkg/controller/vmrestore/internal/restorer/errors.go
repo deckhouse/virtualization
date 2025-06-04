@@ -19,6 +19,10 @@ package restorer
 import "errors"
 
 var (
-	ErrAlreadyExists = errors.New("already exists")
-	ErrAlreadyInUse  = errors.New("already in use")
+	ErrAlreadyExists           = errors.New("already exists")
+	ErrAlreadyExistsAndHasDiff = errors.New("already exists and has not the same data content")
+	ErrAlreadyInUse            = errors.New("already in use")
+	ErrRestoring               = errors.New("will be restored")
+	ErrUpdating                = errors.New("will be updated")
+	ErrIncomplete              = errors.New("still incomplete")
 )
