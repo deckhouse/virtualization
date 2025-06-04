@@ -26,8 +26,8 @@ const (
 	// TypeCompleted is a type for condition that indicates operation is complete.
 	TypeCompleted Type = "Completed"
 
-	// SignalSentType is a type for condition that indicates operation signal has been sent.
-	SignalSentType Type = "SignalSent"
+	// TypeSignalSent is a type for condition that indicates operation signal has been sent.
+	TypeSignalSent Type = "SignalSent"
 )
 
 // ReasonCompleted represents specific reasons for the 'Completed' condition type.
@@ -50,8 +50,11 @@ const (
 	// ReasonNotApplicableForLiveMigrationPolicy is a ReasonCompleted indicating that the specified operation type is not applicable for the virtual machine live migration policy.
 	ReasonNotApplicableForLiveMigrationPolicy ReasonCompleted = "NotApplicableForLiveMigrationPolicy"
 
-	// ReasonOtherOperationsAreInProgress is a ReasonCompleted indicating that there are other operations in progress.
-	ReasonOtherOperationsAreInProgress ReasonCompleted = "OtherOperationsAreInProgress"
+	// ReasonNotReadyToBeExecuted is a ReasonCompleted indicating that the operation is not ready to be executed.
+	ReasonNotReadyToBeExecuted ReasonCompleted = "NotReadyToBeExecuted"
+
+	// ReasonReadyToBeExecuted is a ReasonCompleted indicating that the operation is ready to be executed.
+	ReasonReadyToBeExecuted ReasonCompleted = "ReadyToBeExecuted"
 
 	// ReasonRestartInProgress is a ReasonCompleted indicating that the restart signal has been sent and restart is in progress.
 	ReasonRestartInProgress ReasonCompleted = "RestartInProgress"
