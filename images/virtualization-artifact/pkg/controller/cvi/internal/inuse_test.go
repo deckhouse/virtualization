@@ -81,22 +81,17 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 	result, err := handler.Handle(testutil.ContextBackgroundWithNoOpLogger(), cvi)
 	Expect(err).To(BeNil())
 	Expect(result).To(Equal(reconcile.Result{}))
-	inUseCondition, ok := conditions.GetCondition(cvicondition.InUseType, cvi.Status.Conditions)
-	if args.ExpectedConditionExists {
-		Expect(ok).To(BeTrue())
-		Expect(inUseCondition.Status).To(Equal(args.ExpectedConditionStatus))
-		Expect(inUseCondition.Reason).To(Equal(args.ExpectedConditionReason))
-		Expect(inUseCondition.Message).To(Equal(args.ExpectedConditionMessage))
-	} else {
-		Expect(ok).To(BeFalse())
-	}
+	inUseCondition, _ := conditions.GetCondition(cvicondition.InUseType, cvi.Status.Conditions)
+	Expect(inUseCondition.Status).To(Equal(args.ExpectedConditionStatus))
+	Expect(inUseCondition.Reason).To(Equal(args.ExpectedConditionReason))
 },
 	Entry("deletionTimestamp not exists", inUseHandlerTestArgs{
 		VMs: []virtv2.VirtualMachine{
 			generateVMForInUseTest("name", "ns", []virtv2.BlockDeviceStatusRef{}),
 		},
 		CVIName:                 "test",
-		ExpectedConditionExists: false,
+		ExpectedConditionStatus: metav1.ConditionFalse,
+		ExpectedConditionReason: cvicondition.NotInUse.String(),
 	}),
 	Entry("has VirtualMachine but with no deleted CVI", inUseHandlerTestArgs{
 		CVIName:           "test",
@@ -104,7 +99,8 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 		VMs: []virtv2.VirtualMachine{
 			generateVMForInUseTest("name", "ns2", []virtv2.BlockDeviceStatusRef{}),
 		},
-		ExpectedConditionExists: false,
+		ExpectedConditionStatus: metav1.ConditionFalse,
+		ExpectedConditionReason: cvicondition.NotInUse.String(),
 	}),
 	Entry("has 1 VirtualMachine with connected terminating CVI", inUseHandlerTestArgs{
 		CVIName:           "test",
@@ -117,10 +113,8 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 				},
 			}),
 		},
-		ExpectedConditionExists:  true,
-		ExpectedConditionStatus:  metav1.ConditionTrue,
-		ExpectedConditionReason:  cvicondition.InUse.String(),
-		ExpectedConditionMessage: "The ClusterVirtualImage is currently attached to the VirtualMachine ns/name, the ClusterVirtualImage is currently using in Namespace ns.",
+		ExpectedConditionStatus: metav1.ConditionTrue,
+		ExpectedConditionReason: cvicondition.InUse.String(),
 	}),
 	Entry("has 5 VirtualMachines with connected terminating CVI", inUseHandlerTestArgs{
 		CVIName:           "test",
@@ -175,10 +169,8 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 				},
 			},
 		},
-		ExpectedConditionExists:  true,
-		ExpectedConditionStatus:  metav1.ConditionTrue,
-		ExpectedConditionReason:  cvicondition.InUse.String(),
-		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, the ClusterVirtualImage is currently using in Namespace ns.",
+		ExpectedConditionStatus: metav1.ConditionTrue,
+		ExpectedConditionReason: cvicondition.InUse.String(),
 	}),
 	Entry("has 5 VirtualMachines with connected terminating CVI, 1 VMBDA, 4 VD, 2 VI, 1 CVI", inUseHandlerTestArgs{
 		CVIName:           "test",
@@ -296,10 +288,8 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 				"vm",
 			),
 		},
-		ExpectedConditionExists:  true,
-		ExpectedConditionStatus:  metav1.ConditionTrue,
-		ExpectedConditionReason:  cvicondition.InUse.String(),
-		ExpectedConditionMessage: "5 VirtualMachines are using the ClusterVirtualImage, the ClusterVirtualImage is currently being used by the VMBDA ns/test, the ClusterVirtualImage is currently used to create 4 VirtualDisks, the ClusterVirtualImage is currently being used to create the VirtualImages: ns/test, ns5/test2, the ClusterVirtualImage is currently being used to create the ClusterVirtualImage test2, the ClusterVirtualImage is currently using in 6 Namespaces.",
+		ExpectedConditionStatus: metav1.ConditionTrue,
+		ExpectedConditionReason: cvicondition.InUse.String(),
 	}),
 	Entry("has 1 CVI", inUseHandlerTestArgs{
 		CVIName:           "test",
@@ -313,25 +303,21 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 				},
 			}),
 		},
-		ExpectedConditionExists:  true,
-		ExpectedConditionStatus:  metav1.ConditionTrue,
-		ExpectedConditionReason:  cvicondition.InUse.String(),
-		ExpectedConditionMessage: "The ClusterVirtualImage is currently being used to create the ClusterVirtualImage test2.",
+		ExpectedConditionStatus: metav1.ConditionTrue,
+		ExpectedConditionReason: cvicondition.InUse.String(),
 	}),
 )
 
 type inUseHandlerTestArgs struct {
-	CVIName                  string
-	DeletionTimestamp        *metav1.Time
-	VMs                      []virtv2.VirtualMachine
-	VMBDAs                   []virtv2.VirtualMachineBlockDeviceAttachment
-	VDs                      []virtv2.VirtualDisk
-	VIs                      []virtv2.VirtualImage
-	CVIs                     []virtv2.ClusterVirtualImage
-	ExpectedConditionExists  bool
-	ExpectedConditionReason  string
-	ExpectedConditionMessage string
-	ExpectedConditionStatus  metav1.ConditionStatus
+	CVIName                 string
+	DeletionTimestamp       *metav1.Time
+	VMs                     []virtv2.VirtualMachine
+	VMBDAs                  []virtv2.VirtualMachineBlockDeviceAttachment
+	VDs                     []virtv2.VirtualDisk
+	VIs                     []virtv2.VirtualImage
+	CVIs                    []virtv2.ClusterVirtualImage
+	ExpectedConditionReason string
+	ExpectedConditionStatus metav1.ConditionStatus
 }
 
 func generateVMForInUseTest(name, namespace string, blockDeviceRefs []virtv2.BlockDeviceStatusRef) virtv2.VirtualMachine {

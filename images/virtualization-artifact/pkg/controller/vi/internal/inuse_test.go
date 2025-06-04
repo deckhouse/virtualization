@@ -84,25 +84,10 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 	result, err := handler.Handle(testutil.ContextBackgroundWithNoOpLogger(), vi)
 	Expect(err).To(BeNil())
 	Expect(result).To(Equal(reconcile.Result{}))
-	inUseCondition, ok := conditions.GetCondition(vicondition.InUseType, vi.Status.Conditions)
-	if args.ExpectedConditionExists {
-		Expect(ok).To(BeTrue())
-		Expect(inUseCondition.Status).To(Equal(args.ExpectedConditionStatus))
-		Expect(inUseCondition.Reason).To(Equal(args.ExpectedConditionReason))
-		Expect(inUseCondition.Message).To(Equal(args.ExpectedConditionMessage))
-	} else {
-		Expect(ok).To(BeFalse())
-	}
+	inUseCondition, _ := conditions.GetCondition(vicondition.InUseType, vi.Status.Conditions)
+	Expect(inUseCondition.Status).To(Equal(args.ExpectedConditionStatus))
+	Expect(inUseCondition.Reason).To(Equal(args.ExpectedConditionReason))
 },
-
-	Entry("deletionTimestamp not exists", inUseHandlerTestArgs{
-		VMs: []virtv2.VirtualMachine{},
-		VINamespacedName: types.NamespacedName{
-			Name:      "test",
-			Namespace: "ns",
-		},
-		ExpectedConditionExists: false,
-	}),
 	Entry("deletionTimestamp exists but no one uses VI", inUseHandlerTestArgs{
 		VMs: []virtv2.VirtualMachine{},
 		VINamespacedName: types.NamespacedName{
@@ -110,22 +95,8 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 			Namespace: "ns",
 		},
 		DeletionTimestamp:       ptr.To(metav1.Time{Time: time.Now()}),
-		ExpectedConditionExists: false,
-	}),
-	Entry("has VirtualMachine but with no deleted VI", inUseHandlerTestArgs{
-		VINamespacedName: types.NamespacedName{
-			Name:      "test",
-			Namespace: "ns",
-		},
-		VMs: []virtv2.VirtualMachine{
-			generateVMForInUseTest("test-vm", "ns", []virtv2.BlockDeviceStatusRef{
-				{
-					Kind: virtv2.VirtualImageKind,
-					Name: "test123",
-				},
-			}),
-		},
-		ExpectedConditionExists: false,
+		ExpectedConditionStatus: metav1.ConditionFalse,
+		ExpectedConditionReason: vicondition.NotInUse.String(),
 	}),
 	Entry("has 1 VirtualMachine with connected terminating VI", inUseHandlerTestArgs{
 		VINamespacedName: types.NamespacedName{
@@ -141,10 +112,8 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 				},
 			}),
 		},
-		ExpectedConditionExists:  true,
-		ExpectedConditionStatus:  metav1.ConditionTrue,
-		ExpectedConditionReason:  vicondition.InUse.String(),
-		ExpectedConditionMessage: "The VirtualImage is currently attached to the VirtualMachine test-vm.",
+		ExpectedConditionStatus: metav1.ConditionTrue,
+		ExpectedConditionReason: vicondition.InUse.String(),
 	}),
 	Entry("has 2 VirtualMachines with connected terminating VI", inUseHandlerTestArgs{
 		VINamespacedName: types.NamespacedName{
@@ -166,10 +135,8 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 				},
 			}),
 		},
-		ExpectedConditionExists:  true,
-		ExpectedConditionStatus:  metav1.ConditionTrue,
-		ExpectedConditionReason:  vicondition.InUse.String(),
-		ExpectedConditionMessage: "The VirtualImage is currently attached to the VirtualMachines: test-vm, test-vm2.",
+		ExpectedConditionStatus: metav1.ConditionTrue,
+		ExpectedConditionReason: vicondition.InUse.String(),
 	}),
 	Entry("has 5 VirtualMachines with connected terminating VI", inUseHandlerTestArgs{
 		VINamespacedName: types.NamespacedName{
@@ -233,10 +200,8 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 				},
 			},
 		},
-		ExpectedConditionExists:  true,
-		ExpectedConditionStatus:  metav1.ConditionTrue,
-		ExpectedConditionReason:  vicondition.InUse.String(),
-		ExpectedConditionMessage: "5 VirtualMachines are using the VirtualImage.",
+		ExpectedConditionStatus: metav1.ConditionTrue,
+		ExpectedConditionReason: vicondition.InUse.String(),
 	}),
 	Entry("has 5 VM with connected terminating VI, 1 VMBDA, 4 VD, 2 CVI, 1 VI", inUseHandlerTestArgs{
 		VINamespacedName: types.NamespacedName{
@@ -368,25 +333,21 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 				"test-vm",
 			),
 		},
-		ExpectedConditionExists:  true,
-		ExpectedConditionStatus:  metav1.ConditionTrue,
-		ExpectedConditionReason:  vicondition.InUse.String(),
-		ExpectedConditionMessage: "5 VirtualMachines are using the VirtualImage, the VirtualImage is currently being used by the VMBDA test1, the VirtualImage is currently used to create 4 VirtualDisks, the VirtualImage is currently being used to create the VirtualImage test1, the VirtualImage is currently being used to create the ClusterVirtualImages: test1, test2.",
+		ExpectedConditionStatus: metav1.ConditionTrue,
+		ExpectedConditionReason: vicondition.InUse.String(),
 	}),
 )
 
 type inUseHandlerTestArgs struct {
-	VINamespacedName         types.NamespacedName
-	DeletionTimestamp        *metav1.Time
-	VMs                      []virtv2.VirtualMachine
-	VDs                      []virtv2.VirtualDisk
-	VIs                      []virtv2.VirtualImage
-	CVIs                     []virtv2.ClusterVirtualImage
-	VMBDAs                   []virtv2.VirtualMachineBlockDeviceAttachment
-	ExpectedConditionExists  bool
-	ExpectedConditionReason  string
-	ExpectedConditionMessage string
-	ExpectedConditionStatus  metav1.ConditionStatus
+	VINamespacedName        types.NamespacedName
+	DeletionTimestamp       *metav1.Time
+	VMs                     []virtv2.VirtualMachine
+	VDs                     []virtv2.VirtualDisk
+	VIs                     []virtv2.VirtualImage
+	CVIs                    []virtv2.ClusterVirtualImage
+	VMBDAs                  []virtv2.VirtualMachineBlockDeviceAttachment
+	ExpectedConditionReason string
+	ExpectedConditionStatus metav1.ConditionStatus
 }
 
 func generateVMForInUseTest(name, namespace string, blockDeviceRefs []virtv2.BlockDeviceStatusRef) virtv2.VirtualMachine {

@@ -110,4 +110,6 @@ const (
 
 	// InUse indicates that the `VirtualImage` is used by other resources and cannot be deleted now.
 	InUse InUseReason = "InUse"
+	// InUse indicates that the `VirtualImage` is not used by other resources and can be deleted now.
+	NotInUse InUseReason = "NotInUse"
 )
