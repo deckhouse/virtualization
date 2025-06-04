@@ -26,7 +26,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . Handler BlankDataSourceDiskService ObjectRefVirtualImageDiskService ObjectRefVirtualDiskSnapshotDiskService
+//go:generate moq -rm -out mock.go . Handler BlankDataSourceDiskService ObjectRefVirtualImageDiskService ObjectRefClusterVirtualImageDiskService ObjectRefVirtualDiskSnapshotDiskService
 
 type Handler interface {
 	Name() string
@@ -43,6 +43,13 @@ type BlankDataSourceDiskService interface {
 }
 
 type ObjectRefVirtualImageDiskService interface {
+	step.ReadyStepDiskService
+	step.WaitForDVStepDiskService
+	step.CreateDataVolumeStepDiskService
+	step.EnsureNodePlacementStepDiskService
+}
+
+type ObjectRefClusterVirtualImageDiskService interface {
 	step.ReadyStepDiskService
 	step.WaitForDVStepDiskService
 	step.CreateDataVolumeStepDiskService
