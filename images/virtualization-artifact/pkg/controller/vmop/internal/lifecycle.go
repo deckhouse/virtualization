@@ -145,7 +145,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 				Status(metav1.ConditionFalse),
 			&vmop.Status.Conditions)
 	} else {
-		vmop.Status.Phase = virtv2.VMOPPhasePending
+		vmop.Status.Phase = virtv2.VMOPPhaseFailed
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonNotReadyToBeExecuted).
@@ -285,6 +285,9 @@ func (h LifecycleHandler) canBeRun(ctx context.Context, vmop *virtv2.VirtualMach
 
 	var oldest *virtv2.VirtualMachineOperation
 	for _, other := range vmopList.Items {
+		if other.Spec.VirtualMachine != vmop.Spec.VirtualMachine {
+			continue
+		}
 		if oldest == nil || other.CreationTimestamp.Before(ptr.To(oldest.CreationTimestamp)) {
 			oldest = &other
 		}
