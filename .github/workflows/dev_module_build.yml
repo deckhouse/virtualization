@@ -226,10 +226,8 @@ jobs:
 
             if ! output=$(golangci-lint run --sort-results); then
               error_count=$(( error_count + 1 ))
-              # find_errors=$(( find_errors + 1 ))
               echo "::group::📂 Linting directory ❌: $dir"
               echo -e "❌ Errors:\n$output\n"
-              echo "== debug =="
               golangci-lint run --sort-results || true
             else
               echo "::group::📂 Linting directory ✅: $dir"
