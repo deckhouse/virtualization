@@ -31,11 +31,13 @@ import (
 )
 
 type VirtualMachineIPAddressOverrideValidator struct {
-	vmip   *virtv2.VirtualMachineIPAddress
-	client client.Client
+	vmip     *virtv2.VirtualMachineIPAddress
+	client   client.Client
+	forceOpt bool
+	vmName   string
 }
 
-func NewVirtualMachineIPAddressOverrideValidator(vmipTmpl *virtv2.VirtualMachineIPAddress, client client.Client) *VirtualMachineIPAddressOverrideValidator {
+func NewVirtualMachineIPAddressOverrideValidator(vmipTmpl *virtv2.VirtualMachineIPAddress, client client.Client, vmName string) *VirtualMachineIPAddressOverrideValidator {
 	return &VirtualMachineIPAddressOverrideValidator{
 		vmip: &virtv2.VirtualMachineIPAddress{
 			TypeMeta: metav1.TypeMeta{
@@ -51,6 +53,7 @@ func NewVirtualMachineIPAddressOverrideValidator(vmipTmpl *virtv2.VirtualMachine
 			Spec: vmipTmpl.Spec,
 		},
 		client: client,
+		vmName: vmName,
 	}
 }
 
@@ -80,6 +83,13 @@ func (v *VirtualMachineIPAddressOverrideValidator) Validate(ctx context.Context)
 		}
 
 		if len(vmips.Items) > 0 {
+			if v.forceOpt {
+				for _, vmip := range vmips.Items {
+					if vmip.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached && vmip.Status.VirtualMachine == v.vmip.Status.VirtualMachine {
+						return nil
+					}
+				}
+			}
 			return fmt.Errorf(
 				"the set address %q is %w by the different virtual machine ip address %q and cannot be used for the restored virtual machine",
 				v.vmip.Spec.StaticIP, ErrAlreadyInUse, vmips.Items[0].Name,
@@ -89,7 +99,60 @@ func (v *VirtualMachineIPAddressOverrideValidator) Validate(ctx context.Context)
 		return nil
 	}
 
+	if v.forceOpt {
+		if existed.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached && existed.Status.VirtualMachine == v.vmName {
+			return nil
+		}
+	}
+
 	if existed.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached || existed.Status.VirtualMachine != "" {
+		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, ErrAlreadyInUse)
+	}
+
+	return nil
+}
+
+func (v *VirtualMachineIPAddressOverrideValidator) ProcessWithForce(ctx context.Context) error {
+	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
+	vmipObj, err := object.FetchObject(ctx, vmipKey, v.client, &virtv2.VirtualMachineIPAddress{})
+	if err != nil {
+		return err
+	}
+
+	if vmipObj == nil {
+		if v.vmip.Spec.StaticIP == "" {
+			return ErrDoesNotExist
+		}
+
+		var vmips virtv2.VirtualMachineIPAddressList
+		err = v.client.List(ctx, &vmips, &client.ListOptions{
+			Namespace:     v.vmip.Namespace,
+			FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMIPByAddress, v.vmip.Spec.StaticIP),
+		})
+		if err != nil {
+			return err
+		}
+
+		if len(vmips.Items) > 0 {
+			for _, vmip := range vmips.Items {
+				if vmip.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached && vmip.Status.VirtualMachine == v.vmName {
+					return ErrAttachedToTargetVM
+				}
+			}
+			return fmt.Errorf(
+				"the set address %q is %w by the different virtual machine ip address %q and cannot be used for the restored virtual machine",
+				v.vmip.Spec.StaticIP, ErrAlreadyInUse, vmips.Items[0].Name,
+			)
+		}
+
+		return ErrDoesNotExist
+	}
+
+	if vmipObj.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached && vmipObj.Status.VirtualMachine == v.vmName {
+		return ErrAttachedToTargetVM
+	}
+
+	if vmipObj.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached || vmipObj.Status.VirtualMachine != "" {
 		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, ErrAlreadyInUse)
 	}
 

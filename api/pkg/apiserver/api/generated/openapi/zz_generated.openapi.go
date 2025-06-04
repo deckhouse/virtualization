@@ -4649,6 +4649,13 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreSpec(ref commo
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"force": {
+						SchemaProps: spec.SchemaProps{
+							Description: "An attempt to immediately restore a virtual machine without deleting it.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 					"virtualMachineSnapshotName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Snapshot name to restore a virtual machine from.",

@@ -80,6 +80,24 @@ func (v *ProvisionerOverrideValidator) Validate(ctx context.Context) error {
 	return nil
 }
 
+func (v *ProvisionerOverrideValidator) ProcessWithForce(ctx context.Context) error {
+	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
+	secret, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
+	if err != nil {
+		return err
+	}
+
+	if secret == nil {
+		return ErrDoesNotExist
+	}
+
+	if !maps.EqualFunc(secret.Data, v.secret.Data, bytes.Equal) {
+		return fmt.Errorf("the provisioner secret %q alreay exists: %w", secretKey.Name, ErrDoesNotConsistent)
+	}
+
+	return nil
+}
+
 func (v *ProvisionerOverrideValidator) Object() client.Object {
 	return v.secret
 }

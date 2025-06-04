@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,8 +30,9 @@ import (
 )
 
 type VirtualMachineOverrideValidator struct {
-	vm     *virtv2.VirtualMachine
-	client client.Client
+	vm       *virtv2.VirtualMachine
+	client   client.Client
+	forceOpt bool
 }
 
 func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client client.Client) *VirtualMachineOverrideValidator {
@@ -73,9 +75,32 @@ func (v *VirtualMachineOverrideValidator) Validate(ctx context.Context) error {
 	}
 
 	if existed != nil {
+		if v.forceOpt {
+			return nil
+		}
 		return fmt.Errorf("the virtual machine %q %w", vmKey.Name, ErrAlreadyExists)
 	}
 
+	return nil
+}
+
+func (v *VirtualMachineOverrideValidator) ProcessWithForce(ctx context.Context) error {
+	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+	vmObj, err := object.FetchObject(ctx, vmKey, v.client, &virtv2.VirtualMachine{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
+	}
+	if vmObj != nil {
+		if !equality.Semantic.DeepEqual(vmObj.Spec, v.vm.Spec) {
+			vmObj.Spec = v.vm.Spec
+			err = v.client.Update(ctx, vmObj)
+			if err != nil {
+				return fmt.Errorf("failed to update the `VirtualMachine`: %w", err)
+			}
+		}
+	} else {
+		return fmt.Errorf("the `VirtualMachine` %s status: %w", vmKey.Name, ErrDoesNotExist)
+	}
 	return nil
 }
 
