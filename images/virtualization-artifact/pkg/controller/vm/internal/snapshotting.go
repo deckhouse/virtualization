@@ -81,7 +81,7 @@ func (h *SnapshottingHandler) Handle(ctx context.Context, s state.VirtualMachine
 			continue
 		case virtv2.VirtualMachineSnapshotPhaseInProgress:
 			cb.Status(metav1.ConditionTrue).
-				Message("The virtual machine is the process of snapshotting.").
+				Message("The virtual machine is in the process of snapshotting.").
 				Reason(vmcondition.ReasonSnapshottingInProgress)
 			return reconcile.Result{}, nil
 		default:
