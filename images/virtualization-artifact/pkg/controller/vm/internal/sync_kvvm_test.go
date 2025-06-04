@@ -97,7 +97,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 		}
 		kvvm.Spec.RunStrategy = pointer.GetPointer(virtv1.RunStrategyAlways)
 
-		kvbuilder.SetLastAppliedSpec(kvvm, &virtv2.VirtualMachine{
+		Expect(kvbuilder.SetLastAppliedSpec(kvvm, &virtv2.VirtualMachine{
 			Spec: virtv2.VirtualMachineSpec{
 				CPU: virtv2.CPUSpec{
 					Cores: vm.Spec.CPU.Cores,
@@ -110,9 +110,9 @@ var _ = Describe("SyncKvvmHandler", func() {
 					RestartApprovalMode: vm.Spec.Disruptions.RestartApprovalMode,
 				},
 			},
-		})
+		})).To(Succeed())
 
-		kvbuilder.SetLastAppliedClassSpec(kvvm, &virtv2.VirtualMachineClass{
+		Expect(kvbuilder.SetLastAppliedClassSpec(kvvm, &virtv2.VirtualMachineClass{
 			Spec: virtv2.VirtualMachineClassSpec{
 				CPU: virtv2.CPU{
 					Type: virtv2.CPUTypeHost,
@@ -123,7 +123,7 @@ var _ = Describe("SyncKvvmHandler", func() {
 					},
 				},
 			},
-		})
+		})).To(Succeed())
 
 		return kvvm
 	}

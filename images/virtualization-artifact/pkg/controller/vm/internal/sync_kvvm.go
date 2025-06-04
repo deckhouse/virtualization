@@ -24,6 +24,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -255,18 +256,24 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	switch {
-	case h.IsVmStopped(s.VirtualMachine().Current(), kvvm, kvvmi, pod):
+	case h.isVMStopped(s.VirtualMachine().Current(), kvvm, pod):
 		// KVVM must be updated when the VM is stopped because all its components,
 		//  like VirtualDisk and other resources,
 		//  can be changed during the restoration process.
 		// For example, the PVC of the VirtualDisk will be changed,
 		//  and the volume with this PVC must be updated in the KVVM specification.
-		err = h.updateKVVM(ctx, s)
+		hasNoChanges, err := h.detectKvvmSpecChanges(ctx, s)
 		if err != nil {
-			return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
+			return false, fmt.Errorf("detect changes on the stopped internal virtual machine: %w", err)
+		}
+		if !hasNoChanges {
+			err := h.updateKVVM(ctx, s)
+			if err != nil {
+				return false, fmt.Errorf("update stopped internal virtual machine: %w", err)
+			}
 		}
 		return true, nil
-	case h.HasNoneDisruptiveChanges(s.VirtualMachine().Current(), kvvm, kvvmi, allChanges):
+	case h.hasNoneDisruptiveChanges(s.VirtualMachine().Current(), kvvm, kvvmi, allChanges):
 		// No need to wait, apply changes to KVVM immediately.
 		err = h.applyVMChangesToKVVM(ctx, s, allChanges)
 		if err != nil {
@@ -480,10 +487,9 @@ func (h *SyncKvvmHandler) detectClassSpecChanges(ctx context.Context, currentCla
 }
 
 // IsVmStopped return true if the instance of the KVVM is not created or Pod is in the Complete state.
-func (h *SyncKvvmHandler) IsVmStopped(
+func (h *SyncKvvmHandler) isVMStopped(
 	vm *virtv2.VirtualMachine,
 	kvvm *virtv1.VirtualMachine,
-	kvvmi *virtv1.VirtualMachineInstance,
 	pod *corev1.Pod,
 ) bool {
 	if vm == nil {
@@ -496,13 +502,28 @@ func (h *SyncKvvmHandler) IsVmStopped(
 		podStopped = phase != corev1.PodPending && phase != corev1.PodRunning
 	}
 
-	return IsKvvmStopped(kvvm) && (!IsKvvmCreated(kvvm) || podStopped)
+	return isVMStopped(kvvm) && (!isKVVMICreated(kvvm) || podStopped)
+}
+
+// detectKvvmSpecChanges returns true and no error if specification has no changes.
+func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+	currentKvvm, err := s.KVVM(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	newKvvm, err := h.makeKVVMFromVMSpec(ctx, s)
+	if err != nil {
+		return false, err
+	}
+
+	return equality.Semantic.DeepEqual(&currentKvvm.Spec, &newKvvm.Spec), nil
 }
 
 // canApplyChanges returns true if changes can be applied right now.
 //
 // Wait if changes are disruptive, and approval mode is manual, and VM is still running.
-func (h *SyncKvvmHandler) HasNoneDisruptiveChanges(
+func (h *SyncKvvmHandler) hasNoneDisruptiveChanges(
 	vm *virtv2.VirtualMachine,
 	kvvm *virtv1.VirtualMachine,
 	kvvmi *virtv1.VirtualMachineInstance,
@@ -515,7 +536,7 @@ func (h *SyncKvvmHandler) HasNoneDisruptiveChanges(
 		return true
 	}
 
-	if IsKvvmPending(kvvm) {
+	if isVMPending(kvvm) {
 		return true
 	}
 

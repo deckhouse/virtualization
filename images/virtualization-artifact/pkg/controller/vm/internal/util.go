@@ -66,15 +66,15 @@ func conditionStatus(status string) metav1.ConditionStatus {
 	}
 }
 
-func IsKvvmPending(kvvm *virtv1.VirtualMachine) bool {
+func isVMPending(kvvm *virtv1.VirtualMachine) bool {
 	return getPhase(nil, kvvm) == virtv2.MachinePending
 }
 
-func IsKvvmStopped(kvvm *virtv1.VirtualMachine) bool {
+func isVMStopped(kvvm *virtv1.VirtualMachine) bool {
 	return getPhase(nil, kvvm) == virtv2.MachineStopped
 }
 
-func IsKvvmCreated(kvvm *virtv1.VirtualMachine) bool {
+func isKVVMICreated(kvvm *virtv1.VirtualMachine) bool {
 	return kvvm != nil && kvvm.Status.Created
 }
 
