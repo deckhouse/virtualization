@@ -270,6 +270,13 @@ var _ = DescribeTable("InUseHandler Handle", func(args inUseHandlerTestArgs) {
 					Name: "test",
 				},
 			}),
+			generateVDForInUseTest("test5", "ns2", virtv2.VirtualDiskDataSource{
+				Type: virtv2.DataSourceTypeObjectRef,
+				ObjectRef: &virtv2.VirtualDiskObjectRef{
+					Kind: virtv2.VirtualImageKind,
+					Name: "test",
+				},
+			}),
 		},
 		VIs: []virtv2.VirtualImage{
 			generateVIForInUseTest("test1", "ns", virtv2.VirtualImageDataSource{
