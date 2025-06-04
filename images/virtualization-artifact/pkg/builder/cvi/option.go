@@ -17,9 +17,10 @@ limitations under the License.
 package cvi
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type Option func(cvi *v1alpha2.ClusterVirtualImage)
