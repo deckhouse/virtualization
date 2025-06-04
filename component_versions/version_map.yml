@@ -24,3 +24,4 @@ package:
   file: FILE5_45
   lvm2: v2_03_32
   dtc: v1.7.2
+  fuse3: fuse-3.16.2
