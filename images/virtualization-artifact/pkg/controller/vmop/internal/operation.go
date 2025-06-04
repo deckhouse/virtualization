@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -65,27 +66,21 @@ func (h OperationHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 		return reconcile.Result{}, nil
 	}
 
-	// Do not perform operation if vmop not in the Pending phase.
-	if vmop.Status.Phase != virtv2.VMOPPhasePending {
-		log.Debug("Skip operation, VMOP is not in the Pending phase", "vmop.phase", vmop.Status.Phase)
+	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+	if completed.Reason != vmopcondition.ReasonReadyToBeExecuted.String() {
+		log.Debug("Skip operation, VMOP is not ready to be executed", "vmop.phase", vmop.Status.Phase)
 		return reconcile.Result{}, nil
 	}
 
-	// VirtualMachineOperation should contain Complete condition in Unknown state to perform operation.
-	// Other statuses may indicate waiting state, e.g. non-existent VM or other VMOPs in progress.
-	completeCondition, found := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-	if !found {
-		log.Debug("Skip operation, no Complete condition found", "vmop.phase", vmop.Status.Phase)
-		return reconcile.Result{}, nil
-	}
-	if completeCondition.Status != metav1.ConditionUnknown {
-		log.Debug("Skip operation, Complete condition is not Unknown", "vmop.complete.status", completeCondition.Status, "vmop.phase", vmop.Status.Phase)
+	signalSent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
+	if signalSent.Status == metav1.ConditionTrue {
+		log.Debug("Skip operation, signal has been sent", "vmop.phase", vmop.Status.Phase)
 		return reconcile.Result{}, nil
 	}
 
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 		Generation(vmop.GetGeneration())
-	signalSendCond := conditions.NewConditionBuilder(vmopcondition.SignalSentType).
+	signalSendCond := conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
 		Generation(vmop.GetGeneration())
 
 	// Send signal to perform operation, set phase to InProgress on success and to Fail on error.
@@ -124,6 +119,10 @@ func (h OperationHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 	vmop.Status.Phase = virtv2.VMOPPhaseInProgress
 
 	reason, err := svcOp.GetInProgressReason(ctx)
+	if commonvmop.IsMigration(vmop) && reason == vmopcondition.ReasonMigrationPending {
+		vmop.Status.Phase = virtv2.VMOPPhasePending
+	}
+
 	conditions.SetCondition(
 		completedCond.
 			Reason(reason).
