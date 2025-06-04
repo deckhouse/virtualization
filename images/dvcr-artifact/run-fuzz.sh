@@ -94,7 +94,7 @@ for i in "${!FUZZ_TESTS[@]}"; do
 
     start_time=$(date +%s)
 
-    test_output=$(timeout $TIMEOUT_DURATION go test -fuzz="$test" -fuzztime="$FUZZ_TIME" -v 2>&1)
+    test_output=$(timeout $TIMEOUT_DURATION go test -fuzz="$test" -fuzztime="$FUZZ_TIME" -cover -v 2>&1)
     test_exit_code=$?
 
     end_time=$(date +%s)
