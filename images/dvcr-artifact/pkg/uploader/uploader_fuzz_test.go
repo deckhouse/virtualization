@@ -1,26 +1,23 @@
 package uploader
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
+	"os"
 	"testing"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/fuzz"
+	"kubevirt.io/containerized-data-importer/pkg/common"
 	cryptowatch "kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch"
 )
 
 func FuzzUploader(f *testing.F) {
 	addr := "127.0.0.1"
-	port := 8000
-	uri := fmt.Sprintf("http://%s:%d/upload", addr, port)
+	url := fmt.Sprintf("https://%s:%d/upload", addr, 8000)
 
-	initializeUploaderServer(f, addr, port)
+	startUploaderServer(f, addr, 8000)
 
-	dvcrServer := createDVCRMockServer()
-	defer dvcrServer.Close()
+	startDVCRMockServer(f, addr, 8400)
 
 	minimalQCow2 := [512]byte{
 		0x51, 0x46, 0x49, 0xfb, 0x01, 0x00, 0x00, 0x00,
@@ -30,17 +27,25 @@ func FuzzUploader(f *testing.F) {
 	f.Add(minimalQCow2[:])
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		fuzz.ProcessRequests(t, data, uri, http.MethodPut, http.MethodPost)
+		fuzz.ProcessRequest(t, data, url, http.MethodPut)
 	})
 }
 
-func initializeUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp {
+func startUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp {
 	tb.Helper()
+
+	endpoint := fmt.Sprintf("%s:%d/uploader", addr, port)
+	os.Setenv(common.UploaderDestinationEndpoint, endpoint)
+	os.Setenv(common.UploaderDestinationAuthConfig, "testdata/auth.json")
 
 	uploaderServer, err := NewUploadServer(addr, port, "", "", "", "", cryptowatch.CryptoConfig{})
 	if err != nil {
 		tb.Fatalf("failed to initialize uploader server; %v", err)
 	}
+
+	srv := uploaderServer.(*uploadServerApp)
+	srv.keepAlive = true
+	srv.keepCuncurrent = true
 
 	go func() {
 		if err := uploaderServer.Run(); err != nil {
@@ -48,37 +53,24 @@ func initializeUploaderServer(tb testing.TB, addr string, port int) *uploadServe
 		}
 	}()
 
-	srv := uploaderServer.(*uploadServerApp)
-	srv.keepAlive = true
-	srv.keepCuncurrent = true
-
 	return srv
 }
 
-var jwksMock = `{ "k": "v" }`
+func startDVCRMockServer(tb testing.TB, addr string, port int) {
+	tb.Helper()
 
-func createDVCRMockServer() *httptest.Server {
+	url := fmt.Sprintf("%s:%d", addr, port)
+
 	mux := http.NewServeMux()
 
-	server := httptest.NewServer(mux)
-
-	mux.HandleFunc("/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		// json.NewEncoder(w).Encode(config)
-	})
-
-	mux.HandleFunc("/auth", func(w http.ResponseWriter, r *http.Request) {
-		// http.Redirect(w, r, "http://localhost:8250/oidc/callback?code=mock-code", http.StatusFound)
-	})
-
-	mux.HandleFunc("/jwks", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+	mux.HandleFunc("/v2/", func(w http.ResponseWriter, r *http.Request) {
+		tb.Logf("request: %s", r.URL.Path)
 		w.WriteHeader(http.StatusOK)
-		err := json.NewEncoder(w).Encode(jwksMock)
-		if err != nil {
-			log.Error("failed to encode jwks", err)
-		}
 	})
 
-	return server
+	go func() {
+		if err := http.ListenAndServe(url, mux); err != nil {
+			fmt.Printf("err: %v", err)
+		}
+	}()
 }
