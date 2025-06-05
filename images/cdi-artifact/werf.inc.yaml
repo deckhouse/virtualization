@@ -43,6 +43,8 @@ shell:
     go get github.com/go-jose/go-jose/v3@v3.0.4
     go mod tidy
     go mod vendor
+    cd /containerized-data-importer
+    git apply --ignore-space-change --ignore-whitespace patches/replace-op-for-evanphx-json-patch-v5-lib.patch
 
   setup:
   - mkdir /cdi-binaries
