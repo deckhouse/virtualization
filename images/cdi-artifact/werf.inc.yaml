@@ -43,6 +43,7 @@ shell:
     go get github.com/go-jose/go-jose/v3@v3.0.4
     go mod tidy
     go mod vendor
+    # Apply patch for json-patch from 3p-cdi repoV
     git apply --ignore-space-change --ignore-whitespace patches/replace-op-for-evanphx-json-patch-v5-lib.patch
 
   setup:
