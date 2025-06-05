@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: builder/golang-bookworm-1.23
+fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
 git:
 - add: /images/{{ $.ImageName }}
   to: /src
@@ -24,9 +24,15 @@ shell:
     export GOOS=linux
     export CGO_ENABLED=1
     export GOARCH=amd64
-  - go build -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer
-  - go build -ldflags="-s -w" -o /out/dvcr-uploader ./cmd/dvcr-uploader
-  - CGO_ENABLED=0 go build -ldflags="-s -w" -o /out/dvcr-cleaner ./cmd/dvcr-cleaner
+  - |
+    {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-importer" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer`) | nindent 6 }}
+    {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-uploader" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-uploader ./cmd/dvcr-uploader`) | nindent 6 }}
+  - |
+    export CGO_ENABLED=0
+    {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-cleaner" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-cleaner ./cmd/dvcr-cleaner`) | nindent 6 }}
   - chown -R 64535:64535 /out
 
 ---
