@@ -47,6 +47,7 @@ shell:
     git apply --ignore-space-change --ignore-whitespace patches/replace-op-for-evanphx-json-patch-v5-lib.patch
 
   setup:
+  - cd /containerized-data-importer
   - mkdir /cdi-binaries
 
   - export GOOS=linux
