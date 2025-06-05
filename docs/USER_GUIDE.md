@@ -1368,7 +1368,7 @@ All of the above parameters (including the `.spec.nodeSelector` parameter from V
 - Use combinations of labels instead of single restrictions. For example, instead of required for a single label (e.g. env=prod), use several preferred conditions.
 - Consider the order in which interdependent VMs are launched. When using Affinity between VMs (for example, the backend depends on the database), launch the VMs referenced by the rules first to avoid lockouts.
 - Plan backup nodes for critical workloads. For VMs with strict requirements (e.g., AntiAffinity), provide backup nodes to avoid downtime in case of failure or maintenance.
-- Consider existing  `taints` on nodes.
+- Consider existing `taints` on nodes.
 
 {{< alert level="info" >}}
 When changing placement parameters:
@@ -1390,7 +1390,7 @@ spec:
 
 ![](images/placement-nodeselector.png)
 
-In this example, there are three nodes in the cluster, two with fast disks (`disktype=ssd`) and one with slow disks (`disktype=hdd`). The virtual machine will only be placed on nodes that have the `disktype` label with the value `ssd`.
+In this example, there are three nodes in the cluster: two with fast disks (`disktype=ssd`) and one with slow disks (`disktype=hdd`). The virtual machine will only be placed on nodes that have the `disktype` label with the value `ssd`.
 
 #### Preferred Binding (Affinity)
 
@@ -1419,7 +1419,7 @@ spec:
 
 In this example, there are three nodes in the cluster, two with fast disks (`disktype=ssd`) and one with slow disks (`disktype=hdd`). The virtual machine will only be deployed on nodes that have the `disktype` label with the value `ssd`.
 
-If you use a soft requirement (`preferredDuringSchedulingIgnoredDuringExecution`) instead and VM cannot be started on nodes with `disktype=ssd` (e.g. there are no resources) it will be scheduled on a node with `disktype=hdd`.
+If you use a soft requirement (`preferredDuringSchedulingIgnoredDuringExecution`), then if there are no resources to start the VM on nodes with disks labeled `disktype=ssd`, it will be scheduled on a node with disks labeled `disktype=hdd`.
 
 `virtualMachineAndPodAffinity` controls the placement of virtual machines relative to other virtual machines. It allows you to specify a preference for placing virtual machines on the same nodes where certain virtual machines are already running.
 
@@ -1445,6 +1445,14 @@ In this example, the virtual machine will be placed, if possible (since preferre
 #### Avoid co-location (AntiAffinity)
 
 `AntiAffinity` is the opposite of `Affinity`, which allows you to specify requirements to avoid co-location of virtual machines on the same hosts. This is useful for load balancing or fault tolerance.
+
+Placement requirements can be strict or soft:
+- Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled only on nodes that meet the condition.
+- Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled on suitable nodes if possible.
+
+{{< alert level=“warn” >}}
+Be careful when using strict requirements in small clusters with few nodes for VMs. If you apply `virtualMachineAndPodAntiAffinity` with `requiredDuringSchedulingIgnoredDuringExecution`, each VM replica must run on a separate node. In a cluster with limited nodes, this may cause some VMs to fail to start due to insufficient available nodes.
+{{< /alert >}}
 
 The terms `Affinity` and `AntiAffinity` apply only to the relationship between virtual machines. For nodes, the bindings used are called `nodeAffinity`. There is no separate antithesis in `nodeAffinity` as with `virtualMachineAndPodAffinity`, but you can create opposite conditions by specifying negative operators in label expressions: to emphasize the exclusion of certain nodes, you can use `nodeAffinity` with an operator such as `NotIn`.
 
@@ -1589,7 +1597,7 @@ For scenarios where direct access to specific VMs within the cluster is importan
 
 For external access, services are supplemented with mechanisms such as NodePort, which opens a port on a cluster node, LoadBalancer, which automatically creates a cloud load balancer, or Ingress, which manages HTTP/HTTPS traffic routing.
 
-All these approaches are united by their ability to hide the complexity of the infrastructure behind simple interfaces: clients work with a specific address, and the system itself decides how to route the request to the desired VM, even if their number or status changes.
+All these approaches are united by their ability to hide the complexity of the infrastructure behind simple interfaces: clients work with a specific address, and the system itself decides how to route the request to the desired VM, even if its number or status changes.
 
 The service name is formed as `<service-name>.<namespace or project name>.svc.<clustername>`, or more briefly: `<service-name>.<namespace or project name>.svc`. For example, if your service name is `http` and the namespace is `default`, the full DNS name will be `http.default.svc.cluster.local`.
 
@@ -1630,6 +1638,7 @@ spec:
   selector:
     # Label by which the service determines which virtual machine to direct traffic to.
     app: nginx
+EOF
 ```
 
 After creation, the VM or VM group can be accessed by name: `http.default.svc`
@@ -1650,6 +1659,7 @@ spec:
   selector:
     # Label by which the service determines which virtual machine to route traffic to.
     app: nginx
+EOF
 ```
 
 #### Publish virtual machine services using a service with the NodePort type
@@ -2180,15 +2190,15 @@ EOF
 A virtual machine snapshot is a saved state of a virtual machine at a specific point in time. The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
 
 #### Types of snapshots
-Snapshots can be consistent or inconsistent, which is determined by the `requiredConsistency` parameter. By default, its value is `true`, which means that a consistent snapshot is required.
+Snapshots can be consistent or inconsistent, which is determined by the `requiredConsistency` parameter. By default, the `requiredConsistency` parameter is set to `true`, which requires a consistent snapshot.
 
 A consistent snapshot guarantees a consistent and complete state of the virtual machine's disks. Such a snapshot can be created when one of the following conditions is met:
 - The virtual machine is turned off.
-- qemu-guest-agent is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
+- `qemu-guest-agent` is installed in the guest system, which temporarily suspends the file system at the time the snapshot is created to ensure its consistency.
 
 An inconsistent snapshot may not reflect the consistent state of the virtual machine's disks and its components. Such a snapshot is created in the following cases:
-- The VM is running, and qemu-guest-agent is not installed or running in the guest OS.
-- The VM is running, and qemu-guest-agent is not installed in the guest OS, but the snapshot manifest specifies the requiredConsistency: false parameter, and you want to avoid suspending the file system.
+- The VM is running, and `qemu-guest-agent` is not installed or running in the guest OS.
+- The VM is running, and `qemu-guest-agent` is not installed in the guest OS, but the snapshot manifest specifies the `requiredConsistency: false` parameter, and you want to avoid suspending the file system.
 
 {{< alert level="warning" >}}
 There is a risk of data loss or integrity violation when restoring from such a snapshot.
