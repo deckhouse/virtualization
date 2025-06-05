@@ -64,11 +64,6 @@ func startDVCRMockServer(tb testing.TB, addr string, port int) {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/v2/uploader/blobs/uploads", func(w http.ResponseWriter, r *http.Request) {
-		tb.Logf("request: %s", r.URL.Path)
-		w.WriteHeader(http.StatusAccepted)
-	})
-
 	mux.HandleFunc("/v2/", func(w http.ResponseWriter, r *http.Request) {
 		tb.Logf("request: %s", r.URL.Path)
 
@@ -76,7 +71,7 @@ func startDVCRMockServer(tb testing.TB, addr string, port int) {
 			w.WriteHeader(http.StatusOK)
 		} else {
 			w.WriteHeader(http.StatusAccepted)
-			w.Header().Add("Location", fmt.Sprintf("v2/uploader/blobs/uploads/test_data"))
+			w.Header().Set("Location", fmt.Sprintf("/v2/uploader/blobs/uploads/test_data"))
 		}
 	})
 
