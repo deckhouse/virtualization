@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -39,11 +40,11 @@ func ProcessRequests(t *testing.T, data []byte, addr string, methods ...string) 
 		t.Fatalf("no methods specified")
 	}
 	for _, method := range methods {
-		processRequest(t, data, addr, method)
+		ProcessRequest(t, data, addr, method)
 	}
 }
 
-func processRequest(t *testing.T, data []byte, addr, method string) {
+func ProcessRequest(t *testing.T, data []byte, addr, method string) {
 	t.Helper()
 
 	switch method {
@@ -62,10 +63,12 @@ func processRequest(t *testing.T, data []byte, addr, method string) {
 		defer req.Body.Close()
 
 		resp := fuzzHTTPRequest(t, req, false)
-		if resp.StatusCode > 500 {
-			t.Errorf("resp: %v", resp)
+		if resp != nil {
+			if resp.StatusCode > 500 {
+				t.Errorf("resp: %v", resp)
+			}
+			defer resp.Body.Close()
 		}
-		defer resp.Body.Close()
 	default:
 		t.Errorf("Unsupported HTTP method: %s", method)
 	}
@@ -98,7 +101,7 @@ func fuzzHTTPRequest(t *testing.T, fuzzReq *http.Request, disableRedirect bool) 
 		return nil
 	}
 
-	fmt.Printf("fuzzing request, %s, %s", fuzzReq.Method, fuzzReq.URL)
+	t.Logf("fuzzing request, %s, %s", fuzzReq.Method, fuzzReq.URL)
 
 	resp, err := client.Do(fuzzReq)
 	if err != nil && !strings.Contains(err.Error(), "checkRedirect disabled for test") {
@@ -148,7 +151,8 @@ func (s *fuzzRequest) Fuzz(t *testing.T, data []byte, method, addr string) *http
 		}
 	}
 	req.Header.Set("Origin", hostURLRegexp.FindString(addr))
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Length", strconv.Itoa(len(s.Body)))
+	req.Header.Set("Content-Type", "application/octet-stream")
 
 	req.Form = s.Form
 	req.PostForm = s.PostForm
