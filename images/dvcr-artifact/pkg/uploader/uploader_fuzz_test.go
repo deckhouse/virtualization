@@ -15,19 +15,26 @@ import (
 func FuzzUploader(f *testing.F) {
 	addr := "127.0.0.1"
 	port := 8000
-	uri := fmt.Sprintf("http://%s:%d", addr, port)
+	uri := fmt.Sprintf("http://%s:%d/upload", addr, port)
+
+	initializeUploaderServer(f, addr, port)
 
 	dvcrServer := createDVCRMockServer()
 	defer dvcrServer.Close()
 
-	InitializeUploaderServer(f, addr, port)
+	minimalQCow2 := [512]byte{
+		0x51, 0x46, 0x49, 0xfb, 0x01, 0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+		0x00, 0x02, 0x00, 0x00, 0x03, 0x00, 0x00, 0x00,
+	}
+	f.Add(minimalQCow2[:])
 
 	f.Fuzz(func(t *testing.T, data []byte) {
 		fuzz.ProcessRequests(t, data, uri, http.MethodPut, http.MethodPost)
 	})
 }
 
-func InitializeUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp {
+func initializeUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp {
 	tb.Helper()
 
 	uploaderServer, err := NewUploadServer(addr, port, "", "", "", "", cryptowatch.CryptoConfig{})
@@ -42,6 +49,8 @@ func InitializeUploaderServer(tb testing.TB, addr string, port int) *uploadServe
 	}()
 
 	srv := uploaderServer.(*uploadServerApp)
+	srv.keepAlive = true
+	srv.keepCuncurrent = true
 
 	return srv
 }
