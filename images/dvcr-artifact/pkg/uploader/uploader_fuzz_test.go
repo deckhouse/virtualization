@@ -13,7 +13,7 @@ import (
 
 func FuzzUploader(f *testing.F) {
 	addr := "127.0.0.1"
-	url := fmt.Sprintf("https://%s:%d/upload", addr, 8000)
+	url := fmt.Sprintf("http://%s:%d/upload", addr, 8000)
 
 	startUploaderServer(f, addr, 8000)
 
@@ -34,7 +34,7 @@ func FuzzUploader(f *testing.F) {
 func startUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp {
 	tb.Helper()
 
-	endpoint := fmt.Sprintf("%s:%d/uploader", addr, port)
+	endpoint := fmt.Sprintf("%s:%d/uploader", addr, 8400)
 	os.Setenv(common.UploaderDestinationEndpoint, endpoint)
 	os.Setenv(common.UploaderDestinationAuthConfig, "testdata/auth.json")
 
@@ -46,6 +46,7 @@ func startUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp 
 	srv := uploaderServer.(*uploadServerApp)
 	srv.keepAlive = true
 	srv.keepCuncurrent = true
+	srv.destInsecure = true
 
 	go func() {
 		if err := uploaderServer.Run(); err != nil {
@@ -63,9 +64,20 @@ func startDVCRMockServer(tb testing.TB, addr string, port int) {
 
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("/v2/uploader/blobs/uploads", func(w http.ResponseWriter, r *http.Request) {
+		tb.Logf("request: %s", r.URL.Path)
+		w.WriteHeader(http.StatusAccepted)
+	})
+
 	mux.HandleFunc("/v2/", func(w http.ResponseWriter, r *http.Request) {
 		tb.Logf("request: %s", r.URL.Path)
-		w.WriteHeader(http.StatusOK)
+
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusOK)
+		} else {
+			w.WriteHeader(http.StatusAccepted)
+			w.Header().Add("Location", fmt.Sprintf("v2/uploader/blobs/uploads/test_data"))
+		}
 	})
 
 	go func() {
