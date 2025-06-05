@@ -652,16 +652,19 @@ jobs:
       - set_vars
       - run_e2e
       - update_comment_on_finish
+      - analyze_build
     steps:
-      - name: Remove label and add comment
+      - name: Remove labels and add comment
         id: remove-label
         uses: actions/github-script@v6
         with:
           github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
-            const issueNumber = context.issue.number; const owner = context.repo.owner;
+            const issueNumber = context.issue.number;
+            const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const labelToRemove = 'e2e/run';
+            const labelToRemoveE2E = 'e2e/run';
+            const labelToRemoveSvace = 'analyze/svace';
 
             const { data: labels } = await github.rest.issues.listLabelsOnIssue({
               owner,
@@ -669,16 +672,16 @@ jobs:
               issue_number: issueNumber,
             });
 
-            if (labels.some(label => label.name === labelToRemove)) {
+            if (labels.some(label => label.name === labelToRemoveE2E)) {
               await github.rest.issues.removeLabel({
                 owner,
                 repo,
                 issue_number: issueNumber,
-                name: labelToRemove,
+                name: labelToRemoveE2E,
               });
-              console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
+              console.log(`Removed label '${labelToRemoveE2E}' from PR #${issueNumber}`);
               const commentIdStr = '${{ needs.run_e2e.outputs.comment_id }}';
-              const commentId = parseInt(commentIdStr, 10); // Cast to integer
+              const commentId = parseInt(commentIdStr, 10);
               const stepOutcome = '${{ needs.run_e2e.result }}';
               const body = `Workflow has started.
               Follow the progress here: [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
@@ -702,5 +705,17 @@ jobs:
                 });
               }
             } else {
-              console.log(`Label '${labelToRemove}' not found on PR #${issueNumber}`);
+              console.log(`Label '${labelToRemoveE2E}' not found on PR #${issueNumber}`);
+            }
+
+            if (labels.some(label => label.name === labelToRemoveSvace)) {
+              await github.rest.issues.removeLabel({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                name: labelToRemoveSvace,
+              });
+              console.log(`Removed label '${labelToRemoveSvace}' from PR #${issueNumber}`);
+            } else {
+              console.log(`Label '${labelToRemoveSvace}' not found on PR #${issueNumber}`);
             }
