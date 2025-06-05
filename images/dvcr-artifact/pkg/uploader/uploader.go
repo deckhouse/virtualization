@@ -324,7 +324,7 @@ func (app *uploadServerApp) processUpload(irc imageReadCloser, w http.ResponseWr
 
 	cdiContentType := r.Header.Get(common.UploadContentTypeHeader)
 
-	klog.Infof("Content type header is %q\n", cdiContentType)
+	// klog.Infof("Content type header is %q\n", cdiContentType)
 
 	readCloser, err := irc(r)
 	if err != nil {
