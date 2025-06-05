@@ -25,7 +25,7 @@ shell:
 
     echo "Git clone CDI repository..."
     git config --global --add advice.detachedHead false
-    git clone --depth 1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /containerized-data-importer
+    git clone --depth 1 --branch v{{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
 
   - |
     echo Download Go modules.
@@ -43,12 +43,10 @@ shell:
     go get github.com/go-jose/go-jose/v3@v3.0.4
     go mod tidy
     go mod vendor
-    cd /containerized-data-importer
     git apply --ignore-space-change --ignore-whitespace patches/replace-op-for-evanphx-json-patch-v5-lib.patch
 
   setup:
   - mkdir /cdi-binaries
-  - cd /containerized-data-importer
 
   - export GOOS=linux
   - export GOARCH=amd64
