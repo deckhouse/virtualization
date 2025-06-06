@@ -30,7 +30,7 @@ class ModuleConfigValidateHook(Hook):
     def __init__(self, module_name: str):
         self.module_name = module_name
         self.queue = f"/modules/{self.module_name}/{self.SNAPSHOT_MODULE_CONFIG}"
-        self.path = "virtualization.internal.ready"
+        self.path = "virtualization.internal.isReady"
 
     def generate_config(self) -> dict:
         """executeHookOnEvent is empty because we need only execute at module start."""

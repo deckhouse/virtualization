@@ -1,4 +1,4 @@
-{{- if .Values.virtualization.internal.ready }}
+{{- if .Values.virtualization.internal.isReady }}
 ---
 apiVersion: v1
 kind: ServiceAccount
