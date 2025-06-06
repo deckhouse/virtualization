@@ -25,20 +25,8 @@ env:
 
 on:
   workflow_dispatch:
-    inputs:
-      pr_number:
-        description: |
-          Pull request number, like 563, or leave empty and choose a branch
-          For branches main, release-*, tag will be generated as branch name
-        required: false
-        type: number
-  schedule:
-    - cron: "00 04 * * 6"
-  # debug
-  pull_request:
-    branches: [main, feat/ci/add-svace-cronjob]
-  push:
-    branches: [main, feat/ci/add-svace-cronjob]
+#   schedule:
+#     - cron: "00 04 * * 6"
 defaults:
   run:
     shell: bash
