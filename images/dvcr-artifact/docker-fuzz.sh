@@ -58,8 +58,8 @@ if [ ! -f "$DOCKERFILE" ]; then
     exit 1
 fi
 
-if [ ! -f "run-fuzz.sh" ]; then
-    echo "Error: run-fuzz.sh not found in current directory"
+if [ ! -f "fuzz.sh" ]; then
+    echo "Error: fuzz.sh not found in current directory"
     exit 1
 fi
 
