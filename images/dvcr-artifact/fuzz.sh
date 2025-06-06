@@ -18,7 +18,7 @@ set -e
 export GOMAXPROCS=1
 export GOGC=10
 export GOMEMLIMIT=1GiB
-fuzzTime=${1:-10}
+fuzzTime=${FUZZ_TIME:-2m}
 files=$(grep -r --include='**_test.go' --files-with-matches 'func Fuzz' .)
 for file in ${files}
 do
@@ -27,7 +27,7 @@ do
   do
     echo "Fuzzing $func in $file"
     parentDir=$(dirname $file)
-    go test $parentDir -run=$func -fuzz=$func -fuzztime=${fuzzTime}m -cover -v
+    go test $parentDir -run=$func -fuzz=$func -fuzztime=${fuzzTime} -cover -v
   done
 done
 

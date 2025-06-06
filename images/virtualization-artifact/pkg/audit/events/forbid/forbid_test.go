@@ -117,9 +117,7 @@ var _ = Describe("Forbid Events", func() {
 			})
 
 			eventLoggerOptions := events.EventLoggerOptionsMock{
-				GetCtxFunc: func() context.Context {
-					return context.Background()
-				},
+				GetCtxFunc: context.Background,
 				GetEventFunc: func() *audit.Event {
 					return event
 				},
