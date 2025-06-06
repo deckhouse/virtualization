@@ -8,7 +8,7 @@
 {{- range $k, $v := $versions_ctx.firmware }}
   {{- $_ := set $.Version $k $v}}
 {{- end }}
-{{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" -1 .Values.global | int }}
+{{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt
