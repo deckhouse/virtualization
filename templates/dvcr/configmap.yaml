@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -26,4 +27,4 @@ data:
       storagedriver:
         enabled: true
         interval: 10s
-        threshold: 3
+        threshold: 3{{- end }}

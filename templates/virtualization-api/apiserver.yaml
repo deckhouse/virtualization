@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 apiVersion: apiregistration.k8s.io/v1
 kind: APIService
 metadata:
@@ -13,3 +14,4 @@ spec:
     port: 443
   version: v1alpha2
   versionPriority: 15
+{{- end }}

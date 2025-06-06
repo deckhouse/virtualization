@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 {{- $priorityClassName := include "priorityClassName" . }}
 
 {{- define "virtualization_api_resources" }}
@@ -128,3 +129,4 @@ spec:
             defaultMode: 420
             optional: true
             secretName: virtualization-api-proxy-tls
+{{- end }}

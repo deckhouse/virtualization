@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 {{- $priorityClassName := include "priorityClassName" . }}
 
 {{- define "virtualization_controller_resources" }}
@@ -113,3 +114,4 @@ spec:
             secretName: virtualization-controller-tls
         {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 8 }}
 
+{{- end }}

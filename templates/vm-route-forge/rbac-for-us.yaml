@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 {{- if (.Values.global.enabledModules | has "cni-cilium") }}
 ---
 apiVersion: v1
@@ -51,4 +52,5 @@ roleRef:
   kind: ClusterRole
   name: d8:{{ .Chart.Name }}:vm-route-forge
   apiGroup: rbac.authorization.k8s.io
+{{- end }}
 {{- end }}

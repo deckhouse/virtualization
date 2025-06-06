@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 {{- $nodeSelectorSystem := index (include "helm_lib_node_selector" (tuple . "system") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
@@ -156,3 +157,4 @@ spec:
   workload:
     nodeSelector:
       kubernetes.io/os: linux
+{{- end }}

@@ -122,3 +122,6 @@ properties:
         properties:
           nodeCount:
             type: integer
+      ready:
+        type: boolean
+        default: false

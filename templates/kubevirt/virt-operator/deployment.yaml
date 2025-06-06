@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 {{- $priorityClassName := include "priorityClassName" . }}
 {{- define "kubevirt_images" -}}
 - name: VIRT_OPERATOR_IMAGE
@@ -163,3 +164,4 @@ spec:
         name: profile-data
       {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 6 }}
 
+{{- end }}

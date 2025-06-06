@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 apiVersion: deckhouse.io/v1alpha1
 kind: NodeGroupConfiguration
 metadata:
@@ -72,3 +73,4 @@ spec:
     else
       exit 0
     fi
+{{- end }}
