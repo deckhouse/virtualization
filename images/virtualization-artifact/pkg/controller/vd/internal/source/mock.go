@@ -5,11 +5,14 @@ package source
 
 import (
 	"context"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sync"
 )
@@ -236,11 +239,17 @@ var _ BlankDataSourceDiskService = &BlankDataSourceDiskServiceMock{}
 //			CleanUpFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
 //				panic("mock out the CleanUp method")
 //			},
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
+//				panic("mock out the CleanUpSupplements method")
+//			},
 //			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
 //				panic("mock out the GetCapacity method")
 //			},
 //			GetVolumeAndAccessModesFunc: func(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 //				panic("mock out the GetVolumeAndAccessModes method")
+//			},
+//			ProtectFunc: func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+//				panic("mock out the Protect method")
 //			},
 //		}
 //
@@ -252,16 +261,29 @@ type BlankDataSourceDiskServiceMock struct {
 	// CleanUpFunc mocks the CleanUp method.
 	CleanUpFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
 
+	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
+	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
+
 	// GetCapacityFunc mocks the GetCapacity method.
 	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
 
 	// GetVolumeAndAccessModesFunc mocks the GetVolumeAndAccessModes method.
 	GetVolumeAndAccessModesFunc func(ctx context.Context, sc *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error)
 
+	// ProtectFunc mocks the Protect method.
+	ProtectFunc func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+
 	// calls tracks calls to the methods.
 	calls struct {
 		// CleanUp holds details about calls to the CleanUp method.
 		CleanUp []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+		}
+		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
+		CleanUpSupplements []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Sup is the sup argument value.
@@ -279,10 +301,23 @@ type BlankDataSourceDiskServiceMock struct {
 			// Sc is the sc argument value.
 			Sc *storagev1.StorageClass
 		}
+		// Protect holds details about calls to the Protect method.
+		Protect []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Owner is the owner argument value.
+			Owner client.Object
+			// Dv is the dv argument value.
+			Dv *cdiv1.DataVolume
+			// Pvc is the pvc argument value.
+			Pvc *corev1.PersistentVolumeClaim
+		}
 	}
 	lockCleanUp                 sync.RWMutex
+	lockCleanUpSupplements      sync.RWMutex
 	lockGetCapacity             sync.RWMutex
 	lockGetVolumeAndAccessModes sync.RWMutex
+	lockProtect                 sync.RWMutex
 }
 
 // CleanUp calls CleanUpFunc.
@@ -318,6 +353,42 @@ func (mock *BlankDataSourceDiskServiceMock) CleanUpCalls() []struct {
 	mock.lockCleanUp.RLock()
 	calls = mock.calls.CleanUp
 	mock.lockCleanUp.RUnlock()
+	return calls
+}
+
+// CleanUpSupplements calls CleanUpSupplementsFunc.
+func (mock *BlankDataSourceDiskServiceMock) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
+	if mock.CleanUpSupplementsFunc == nil {
+		panic("BlankDataSourceDiskServiceMock.CleanUpSupplementsFunc: method is nil but BlankDataSourceDiskService.CleanUpSupplements was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}{
+		Ctx: ctx,
+		Sup: sup,
+	}
+	mock.lockCleanUpSupplements.Lock()
+	mock.calls.CleanUpSupplements = append(mock.calls.CleanUpSupplements, callInfo)
+	mock.lockCleanUpSupplements.Unlock()
+	return mock.CleanUpSupplementsFunc(ctx, sup)
+}
+
+// CleanUpSupplementsCalls gets all the calls that were made to CleanUpSupplements.
+// Check the length with:
+//
+//	len(mockedBlankDataSourceDiskService.CleanUpSupplementsCalls())
+func (mock *BlankDataSourceDiskServiceMock) CleanUpSupplementsCalls() []struct {
+	Ctx context.Context
+	Sup *supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}
+	mock.lockCleanUpSupplements.RLock()
+	calls = mock.calls.CleanUpSupplements
+	mock.lockCleanUpSupplements.RUnlock()
 	return calls
 }
 
@@ -389,6 +460,464 @@ func (mock *BlankDataSourceDiskServiceMock) GetVolumeAndAccessModesCalls() []str
 	return calls
 }
 
+// Protect calls ProtectFunc.
+func (mock *BlankDataSourceDiskServiceMock) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+	if mock.ProtectFunc == nil {
+		panic("BlankDataSourceDiskServiceMock.ProtectFunc: method is nil but BlankDataSourceDiskService.Protect was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Owner client.Object
+		Dv    *cdiv1.DataVolume
+		Pvc   *corev1.PersistentVolumeClaim
+	}{
+		Ctx:   ctx,
+		Owner: owner,
+		Dv:    dv,
+		Pvc:   pvc,
+	}
+	mock.lockProtect.Lock()
+	mock.calls.Protect = append(mock.calls.Protect, callInfo)
+	mock.lockProtect.Unlock()
+	return mock.ProtectFunc(ctx, owner, dv, pvc)
+}
+
+// ProtectCalls gets all the calls that were made to Protect.
+// Check the length with:
+//
+//	len(mockedBlankDataSourceDiskService.ProtectCalls())
+func (mock *BlankDataSourceDiskServiceMock) ProtectCalls() []struct {
+	Ctx   context.Context
+	Owner client.Object
+	Dv    *cdiv1.DataVolume
+	Pvc   *corev1.PersistentVolumeClaim
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Owner client.Object
+		Dv    *cdiv1.DataVolume
+		Pvc   *corev1.PersistentVolumeClaim
+	}
+	mock.lockProtect.RLock()
+	calls = mock.calls.Protect
+	mock.lockProtect.RUnlock()
+	return calls
+}
+
+// Ensure, that ObjectRefVirtualImageDiskServiceMock does implement ObjectRefVirtualImageDiskService.
+// If this is not the case, regenerate this file with moq.
+var _ ObjectRefVirtualImageDiskService = &ObjectRefVirtualImageDiskServiceMock{}
+
+// ObjectRefVirtualImageDiskServiceMock is a mock implementation of ObjectRefVirtualImageDiskService.
+//
+//	func TestSomethingThatUsesObjectRefVirtualImageDiskService(t *testing.T) {
+//
+//		// make and configure a mocked ObjectRefVirtualImageDiskService
+//		mockedObjectRefVirtualImageDiskService := &ObjectRefVirtualImageDiskServiceMock{
+//			CheckProvisioningFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
+//				panic("mock out the CheckProvisioning method")
+//			},
+//			CleanUpFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
+//				panic("mock out the CleanUp method")
+//			},
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
+//				panic("mock out the CleanUpSupplements method")
+//			},
+//			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
+//				panic("mock out the GetCapacity method")
+//			},
+//			GetProgressFunc: func(dv *cdiv1.DataVolume, prevProgress string, opts ...service.GetProgressOption) string {
+//				panic("mock out the GetProgress method")
+//			},
+//			ProtectFunc: func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+//				panic("mock out the Protect method")
+//			},
+//			StartFunc: func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj service.ObjectKind, sup *supplements.Generator, opts ...service.Option) error {
+//				panic("mock out the Start method")
+//			},
+//		}
+//
+//		// use mockedObjectRefVirtualImageDiskService in code that requires ObjectRefVirtualImageDiskService
+//		// and then make assertions.
+//
+//	}
+type ObjectRefVirtualImageDiskServiceMock struct {
+	// CheckProvisioningFunc mocks the CheckProvisioning method.
+	CheckProvisioningFunc func(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error
+
+	// CleanUpFunc mocks the CleanUp method.
+	CleanUpFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
+
+	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
+	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
+
+	// GetCapacityFunc mocks the GetCapacity method.
+	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
+
+	// GetProgressFunc mocks the GetProgress method.
+	GetProgressFunc func(dv *cdiv1.DataVolume, prevProgress string, opts ...service.GetProgressOption) string
+
+	// ProtectFunc mocks the Protect method.
+	ProtectFunc func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
+
+	// StartFunc mocks the Start method.
+	StartFunc func(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj service.ObjectKind, sup *supplements.Generator, opts ...service.Option) error
+
+	// calls tracks calls to the methods.
+	calls struct {
+		// CheckProvisioning holds details about calls to the CheckProvisioning method.
+		CheckProvisioning []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Pvc is the pvc argument value.
+			Pvc *corev1.PersistentVolumeClaim
+		}
+		// CleanUp holds details about calls to the CleanUp method.
+		CleanUp []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+		}
+		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
+		CleanUpSupplements []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+		}
+		// GetCapacity holds details about calls to the GetCapacity method.
+		GetCapacity []struct {
+			// Pvc is the pvc argument value.
+			Pvc *corev1.PersistentVolumeClaim
+		}
+		// GetProgress holds details about calls to the GetProgress method.
+		GetProgress []struct {
+			// Dv is the dv argument value.
+			Dv *cdiv1.DataVolume
+			// PrevProgress is the prevProgress argument value.
+			PrevProgress string
+			// Opts is the opts argument value.
+			Opts []service.GetProgressOption
+		}
+		// Protect holds details about calls to the Protect method.
+		Protect []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Owner is the owner argument value.
+			Owner client.Object
+			// Dv is the dv argument value.
+			Dv *cdiv1.DataVolume
+			// Pvc is the pvc argument value.
+			Pvc *corev1.PersistentVolumeClaim
+		}
+		// Start holds details about calls to the Start method.
+		Start []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// PvcSize is the pvcSize argument value.
+			PvcSize resource.Quantity
+			// Sc is the sc argument value.
+			Sc *storagev1.StorageClass
+			// Source is the source argument value.
+			Source *cdiv1.DataVolumeSource
+			// Obj is the obj argument value.
+			Obj service.ObjectKind
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+			// Opts is the opts argument value.
+			Opts []service.Option
+		}
+	}
+	lockCheckProvisioning  sync.RWMutex
+	lockCleanUp            sync.RWMutex
+	lockCleanUpSupplements sync.RWMutex
+	lockGetCapacity        sync.RWMutex
+	lockGetProgress        sync.RWMutex
+	lockProtect            sync.RWMutex
+	lockStart              sync.RWMutex
+}
+
+// CheckProvisioning calls CheckProvisioningFunc.
+func (mock *ObjectRefVirtualImageDiskServiceMock) CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
+	if mock.CheckProvisioningFunc == nil {
+		panic("ObjectRefVirtualImageDiskServiceMock.CheckProvisioningFunc: method is nil but ObjectRefVirtualImageDiskService.CheckProvisioning was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Pvc *corev1.PersistentVolumeClaim
+	}{
+		Ctx: ctx,
+		Pvc: pvc,
+	}
+	mock.lockCheckProvisioning.Lock()
+	mock.calls.CheckProvisioning = append(mock.calls.CheckProvisioning, callInfo)
+	mock.lockCheckProvisioning.Unlock()
+	return mock.CheckProvisioningFunc(ctx, pvc)
+}
+
+// CheckProvisioningCalls gets all the calls that were made to CheckProvisioning.
+// Check the length with:
+//
+//	len(mockedObjectRefVirtualImageDiskService.CheckProvisioningCalls())
+func (mock *ObjectRefVirtualImageDiskServiceMock) CheckProvisioningCalls() []struct {
+	Ctx context.Context
+	Pvc *corev1.PersistentVolumeClaim
+} {
+	var calls []struct {
+		Ctx context.Context
+		Pvc *corev1.PersistentVolumeClaim
+	}
+	mock.lockCheckProvisioning.RLock()
+	calls = mock.calls.CheckProvisioning
+	mock.lockCheckProvisioning.RUnlock()
+	return calls
+}
+
+// CleanUp calls CleanUpFunc.
+func (mock *ObjectRefVirtualImageDiskServiceMock) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
+	if mock.CleanUpFunc == nil {
+		panic("ObjectRefVirtualImageDiskServiceMock.CleanUpFunc: method is nil but ObjectRefVirtualImageDiskService.CleanUp was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}{
+		Ctx: ctx,
+		Sup: sup,
+	}
+	mock.lockCleanUp.Lock()
+	mock.calls.CleanUp = append(mock.calls.CleanUp, callInfo)
+	mock.lockCleanUp.Unlock()
+	return mock.CleanUpFunc(ctx, sup)
+}
+
+// CleanUpCalls gets all the calls that were made to CleanUp.
+// Check the length with:
+//
+//	len(mockedObjectRefVirtualImageDiskService.CleanUpCalls())
+func (mock *ObjectRefVirtualImageDiskServiceMock) CleanUpCalls() []struct {
+	Ctx context.Context
+	Sup *supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}
+	mock.lockCleanUp.RLock()
+	calls = mock.calls.CleanUp
+	mock.lockCleanUp.RUnlock()
+	return calls
+}
+
+// CleanUpSupplements calls CleanUpSupplementsFunc.
+func (mock *ObjectRefVirtualImageDiskServiceMock) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
+	if mock.CleanUpSupplementsFunc == nil {
+		panic("ObjectRefVirtualImageDiskServiceMock.CleanUpSupplementsFunc: method is nil but ObjectRefVirtualImageDiskService.CleanUpSupplements was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}{
+		Ctx: ctx,
+		Sup: sup,
+	}
+	mock.lockCleanUpSupplements.Lock()
+	mock.calls.CleanUpSupplements = append(mock.calls.CleanUpSupplements, callInfo)
+	mock.lockCleanUpSupplements.Unlock()
+	return mock.CleanUpSupplementsFunc(ctx, sup)
+}
+
+// CleanUpSupplementsCalls gets all the calls that were made to CleanUpSupplements.
+// Check the length with:
+//
+//	len(mockedObjectRefVirtualImageDiskService.CleanUpSupplementsCalls())
+func (mock *ObjectRefVirtualImageDiskServiceMock) CleanUpSupplementsCalls() []struct {
+	Ctx context.Context
+	Sup *supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}
+	mock.lockCleanUpSupplements.RLock()
+	calls = mock.calls.CleanUpSupplements
+	mock.lockCleanUpSupplements.RUnlock()
+	return calls
+}
+
+// GetCapacity calls GetCapacityFunc.
+func (mock *ObjectRefVirtualImageDiskServiceMock) GetCapacity(pvc *corev1.PersistentVolumeClaim) string {
+	if mock.GetCapacityFunc == nil {
+		panic("ObjectRefVirtualImageDiskServiceMock.GetCapacityFunc: method is nil but ObjectRefVirtualImageDiskService.GetCapacity was just called")
+	}
+	callInfo := struct {
+		Pvc *corev1.PersistentVolumeClaim
+	}{
+		Pvc: pvc,
+	}
+	mock.lockGetCapacity.Lock()
+	mock.calls.GetCapacity = append(mock.calls.GetCapacity, callInfo)
+	mock.lockGetCapacity.Unlock()
+	return mock.GetCapacityFunc(pvc)
+}
+
+// GetCapacityCalls gets all the calls that were made to GetCapacity.
+// Check the length with:
+//
+//	len(mockedObjectRefVirtualImageDiskService.GetCapacityCalls())
+func (mock *ObjectRefVirtualImageDiskServiceMock) GetCapacityCalls() []struct {
+	Pvc *corev1.PersistentVolumeClaim
+} {
+	var calls []struct {
+		Pvc *corev1.PersistentVolumeClaim
+	}
+	mock.lockGetCapacity.RLock()
+	calls = mock.calls.GetCapacity
+	mock.lockGetCapacity.RUnlock()
+	return calls
+}
+
+// GetProgress calls GetProgressFunc.
+func (mock *ObjectRefVirtualImageDiskServiceMock) GetProgress(dv *cdiv1.DataVolume, prevProgress string, opts ...service.GetProgressOption) string {
+	if mock.GetProgressFunc == nil {
+		panic("ObjectRefVirtualImageDiskServiceMock.GetProgressFunc: method is nil but ObjectRefVirtualImageDiskService.GetProgress was just called")
+	}
+	callInfo := struct {
+		Dv           *cdiv1.DataVolume
+		PrevProgress string
+		Opts         []service.GetProgressOption
+	}{
+		Dv:           dv,
+		PrevProgress: prevProgress,
+		Opts:         opts,
+	}
+	mock.lockGetProgress.Lock()
+	mock.calls.GetProgress = append(mock.calls.GetProgress, callInfo)
+	mock.lockGetProgress.Unlock()
+	return mock.GetProgressFunc(dv, prevProgress, opts...)
+}
+
+// GetProgressCalls gets all the calls that were made to GetProgress.
+// Check the length with:
+//
+//	len(mockedObjectRefVirtualImageDiskService.GetProgressCalls())
+func (mock *ObjectRefVirtualImageDiskServiceMock) GetProgressCalls() []struct {
+	Dv           *cdiv1.DataVolume
+	PrevProgress string
+	Opts         []service.GetProgressOption
+} {
+	var calls []struct {
+		Dv           *cdiv1.DataVolume
+		PrevProgress string
+		Opts         []service.GetProgressOption
+	}
+	mock.lockGetProgress.RLock()
+	calls = mock.calls.GetProgress
+	mock.lockGetProgress.RUnlock()
+	return calls
+}
+
+// Protect calls ProtectFunc.
+func (mock *ObjectRefVirtualImageDiskServiceMock) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+	if mock.ProtectFunc == nil {
+		panic("ObjectRefVirtualImageDiskServiceMock.ProtectFunc: method is nil but ObjectRefVirtualImageDiskService.Protect was just called")
+	}
+	callInfo := struct {
+		Ctx   context.Context
+		Owner client.Object
+		Dv    *cdiv1.DataVolume
+		Pvc   *corev1.PersistentVolumeClaim
+	}{
+		Ctx:   ctx,
+		Owner: owner,
+		Dv:    dv,
+		Pvc:   pvc,
+	}
+	mock.lockProtect.Lock()
+	mock.calls.Protect = append(mock.calls.Protect, callInfo)
+	mock.lockProtect.Unlock()
+	return mock.ProtectFunc(ctx, owner, dv, pvc)
+}
+
+// ProtectCalls gets all the calls that were made to Protect.
+// Check the length with:
+//
+//	len(mockedObjectRefVirtualImageDiskService.ProtectCalls())
+func (mock *ObjectRefVirtualImageDiskServiceMock) ProtectCalls() []struct {
+	Ctx   context.Context
+	Owner client.Object
+	Dv    *cdiv1.DataVolume
+	Pvc   *corev1.PersistentVolumeClaim
+} {
+	var calls []struct {
+		Ctx   context.Context
+		Owner client.Object
+		Dv    *cdiv1.DataVolume
+		Pvc   *corev1.PersistentVolumeClaim
+	}
+	mock.lockProtect.RLock()
+	calls = mock.calls.Protect
+	mock.lockProtect.RUnlock()
+	return calls
+}
+
+// Start calls StartFunc.
+func (mock *ObjectRefVirtualImageDiskServiceMock) Start(ctx context.Context, pvcSize resource.Quantity, sc *storagev1.StorageClass, source *cdiv1.DataVolumeSource, obj service.ObjectKind, sup *supplements.Generator, opts ...service.Option) error {
+	if mock.StartFunc == nil {
+		panic("ObjectRefVirtualImageDiskServiceMock.StartFunc: method is nil but ObjectRefVirtualImageDiskService.Start was just called")
+	}
+	callInfo := struct {
+		Ctx     context.Context
+		PvcSize resource.Quantity
+		Sc      *storagev1.StorageClass
+		Source  *cdiv1.DataVolumeSource
+		Obj     service.ObjectKind
+		Sup     *supplements.Generator
+		Opts    []service.Option
+	}{
+		Ctx:     ctx,
+		PvcSize: pvcSize,
+		Sc:      sc,
+		Source:  source,
+		Obj:     obj,
+		Sup:     sup,
+		Opts:    opts,
+	}
+	mock.lockStart.Lock()
+	mock.calls.Start = append(mock.calls.Start, callInfo)
+	mock.lockStart.Unlock()
+	return mock.StartFunc(ctx, pvcSize, sc, source, obj, sup, opts...)
+}
+
+// StartCalls gets all the calls that were made to Start.
+// Check the length with:
+//
+//	len(mockedObjectRefVirtualImageDiskService.StartCalls())
+func (mock *ObjectRefVirtualImageDiskServiceMock) StartCalls() []struct {
+	Ctx     context.Context
+	PvcSize resource.Quantity
+	Sc      *storagev1.StorageClass
+	Source  *cdiv1.DataVolumeSource
+	Obj     service.ObjectKind
+	Sup     *supplements.Generator
+	Opts    []service.Option
+} {
+	var calls []struct {
+		Ctx     context.Context
+		PvcSize resource.Quantity
+		Sc      *storagev1.StorageClass
+		Source  *cdiv1.DataVolumeSource
+		Obj     service.ObjectKind
+		Sup     *supplements.Generator
+		Opts    []service.Option
+	}
+	mock.lockStart.RLock()
+	calls = mock.calls.Start
+	mock.lockStart.RUnlock()
+	return calls
+}
+
 // Ensure, that ObjectRefVirtualDiskSnapshotDiskServiceMock does implement ObjectRefVirtualDiskSnapshotDiskService.
 // If this is not the case, regenerate this file with moq.
 var _ ObjectRefVirtualDiskSnapshotDiskService = &ObjectRefVirtualDiskSnapshotDiskServiceMock{}
@@ -399,14 +928,14 @@ var _ ObjectRefVirtualDiskSnapshotDiskService = &ObjectRefVirtualDiskSnapshotDis
 //
 //		// make and configure a mocked ObjectRefVirtualDiskSnapshotDiskService
 //		mockedObjectRefVirtualDiskSnapshotDiskService := &ObjectRefVirtualDiskSnapshotDiskServiceMock{
+//			CleanUpSupplementsFunc: func(ctx context.Context, sup *supplements.Generator) (bool, error) {
+//				panic("mock out the CleanUpSupplements method")
+//			},
 //			GetCapacityFunc: func(pvc *corev1.PersistentVolumeClaim) string {
 //				panic("mock out the GetCapacity method")
 //			},
-//			GetVirtualDiskSnapshotFunc: func(ctx context.Context, name string, namespace string) (*virtv2.VirtualDiskSnapshot, error) {
-//				panic("mock out the GetVirtualDiskSnapshot method")
-//			},
-//			GetVolumeSnapshotFunc: func(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error) {
-//				panic("mock out the GetVolumeSnapshot method")
+//			ProtectFunc: func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+//				panic("mock out the Protect method")
 //			},
 //		}
 //
@@ -415,44 +944,80 @@ var _ ObjectRefVirtualDiskSnapshotDiskService = &ObjectRefVirtualDiskSnapshotDis
 //
 //	}
 type ObjectRefVirtualDiskSnapshotDiskServiceMock struct {
+	// CleanUpSupplementsFunc mocks the CleanUpSupplements method.
+	CleanUpSupplementsFunc func(ctx context.Context, sup *supplements.Generator) (bool, error)
+
 	// GetCapacityFunc mocks the GetCapacity method.
 	GetCapacityFunc func(pvc *corev1.PersistentVolumeClaim) string
 
-	// GetVirtualDiskSnapshotFunc mocks the GetVirtualDiskSnapshot method.
-	GetVirtualDiskSnapshotFunc func(ctx context.Context, name string, namespace string) (*virtv2.VirtualDiskSnapshot, error)
-
-	// GetVolumeSnapshotFunc mocks the GetVolumeSnapshot method.
-	GetVolumeSnapshotFunc func(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error)
+	// ProtectFunc mocks the Protect method.
+	ProtectFunc func(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// CleanUpSupplements holds details about calls to the CleanUpSupplements method.
+		CleanUpSupplements []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Sup is the sup argument value.
+			Sup *supplements.Generator
+		}
 		// GetCapacity holds details about calls to the GetCapacity method.
 		GetCapacity []struct {
 			// Pvc is the pvc argument value.
 			Pvc *corev1.PersistentVolumeClaim
 		}
-		// GetVirtualDiskSnapshot holds details about calls to the GetVirtualDiskSnapshot method.
-		GetVirtualDiskSnapshot []struct {
+		// Protect holds details about calls to the Protect method.
+		Protect []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Name is the name argument value.
-			Name string
-			// Namespace is the namespace argument value.
-			Namespace string
-		}
-		// GetVolumeSnapshot holds details about calls to the GetVolumeSnapshot method.
-		GetVolumeSnapshot []struct {
-			// Ctx is the ctx argument value.
-			Ctx context.Context
-			// Name is the name argument value.
-			Name string
-			// Namespace is the namespace argument value.
-			Namespace string
+			// Owner is the owner argument value.
+			Owner client.Object
+			// Dv is the dv argument value.
+			Dv *cdiv1.DataVolume
+			// Pvc is the pvc argument value.
+			Pvc *corev1.PersistentVolumeClaim
 		}
 	}
-	lockGetCapacity            sync.RWMutex
-	lockGetVirtualDiskSnapshot sync.RWMutex
-	lockGetVolumeSnapshot      sync.RWMutex
+	lockCleanUpSupplements sync.RWMutex
+	lockGetCapacity        sync.RWMutex
+	lockProtect            sync.RWMutex
+}
+
+// CleanUpSupplements calls CleanUpSupplementsFunc.
+func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
+	if mock.CleanUpSupplementsFunc == nil {
+		panic("ObjectRefVirtualDiskSnapshotDiskServiceMock.CleanUpSupplementsFunc: method is nil but ObjectRefVirtualDiskSnapshotDiskService.CleanUpSupplements was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}{
+		Ctx: ctx,
+		Sup: sup,
+	}
+	mock.lockCleanUpSupplements.Lock()
+	mock.calls.CleanUpSupplements = append(mock.calls.CleanUpSupplements, callInfo)
+	mock.lockCleanUpSupplements.Unlock()
+	return mock.CleanUpSupplementsFunc(ctx, sup)
+}
+
+// CleanUpSupplementsCalls gets all the calls that were made to CleanUpSupplements.
+// Check the length with:
+//
+//	len(mockedObjectRefVirtualDiskSnapshotDiskService.CleanUpSupplementsCalls())
+func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) CleanUpSupplementsCalls() []struct {
+	Ctx context.Context
+	Sup *supplements.Generator
+} {
+	var calls []struct {
+		Ctx context.Context
+		Sup *supplements.Generator
+	}
+	mock.lockCleanUpSupplements.RLock()
+	calls = mock.calls.CleanUpSupplements
+	mock.lockCleanUpSupplements.RUnlock()
+	return calls
 }
 
 // GetCapacity calls GetCapacityFunc.
@@ -487,82 +1052,46 @@ func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetCapacityCalls() []st
 	return calls
 }
 
-// GetVirtualDiskSnapshot calls GetVirtualDiskSnapshotFunc.
-func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetVirtualDiskSnapshot(ctx context.Context, name string, namespace string) (*virtv2.VirtualDiskSnapshot, error) {
-	if mock.GetVirtualDiskSnapshotFunc == nil {
-		panic("ObjectRefVirtualDiskSnapshotDiskServiceMock.GetVirtualDiskSnapshotFunc: method is nil but ObjectRefVirtualDiskSnapshotDiskService.GetVirtualDiskSnapshot was just called")
+// Protect calls ProtectFunc.
+func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) Protect(ctx context.Context, owner client.Object, dv *cdiv1.DataVolume, pvc *corev1.PersistentVolumeClaim) error {
+	if mock.ProtectFunc == nil {
+		panic("ObjectRefVirtualDiskSnapshotDiskServiceMock.ProtectFunc: method is nil but ObjectRefVirtualDiskSnapshotDiskService.Protect was just called")
 	}
 	callInfo := struct {
-		Ctx       context.Context
-		Name      string
-		Namespace string
+		Ctx   context.Context
+		Owner client.Object
+		Dv    *cdiv1.DataVolume
+		Pvc   *corev1.PersistentVolumeClaim
 	}{
-		Ctx:       ctx,
-		Name:      name,
-		Namespace: namespace,
+		Ctx:   ctx,
+		Owner: owner,
+		Dv:    dv,
+		Pvc:   pvc,
 	}
-	mock.lockGetVirtualDiskSnapshot.Lock()
-	mock.calls.GetVirtualDiskSnapshot = append(mock.calls.GetVirtualDiskSnapshot, callInfo)
-	mock.lockGetVirtualDiskSnapshot.Unlock()
-	return mock.GetVirtualDiskSnapshotFunc(ctx, name, namespace)
+	mock.lockProtect.Lock()
+	mock.calls.Protect = append(mock.calls.Protect, callInfo)
+	mock.lockProtect.Unlock()
+	return mock.ProtectFunc(ctx, owner, dv, pvc)
 }
 
-// GetVirtualDiskSnapshotCalls gets all the calls that were made to GetVirtualDiskSnapshot.
+// ProtectCalls gets all the calls that were made to Protect.
 // Check the length with:
 //
-//	len(mockedObjectRefVirtualDiskSnapshotDiskService.GetVirtualDiskSnapshotCalls())
-func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetVirtualDiskSnapshotCalls() []struct {
-	Ctx       context.Context
-	Name      string
-	Namespace string
+//	len(mockedObjectRefVirtualDiskSnapshotDiskService.ProtectCalls())
+func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) ProtectCalls() []struct {
+	Ctx   context.Context
+	Owner client.Object
+	Dv    *cdiv1.DataVolume
+	Pvc   *corev1.PersistentVolumeClaim
 } {
 	var calls []struct {
-		Ctx       context.Context
-		Name      string
-		Namespace string
+		Ctx   context.Context
+		Owner client.Object
+		Dv    *cdiv1.DataVolume
+		Pvc   *corev1.PersistentVolumeClaim
 	}
-	mock.lockGetVirtualDiskSnapshot.RLock()
-	calls = mock.calls.GetVirtualDiskSnapshot
-	mock.lockGetVirtualDiskSnapshot.RUnlock()
-	return calls
-}
-
-// GetVolumeSnapshot calls GetVolumeSnapshotFunc.
-func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetVolumeSnapshot(ctx context.Context, name string, namespace string) (*vsv1.VolumeSnapshot, error) {
-	if mock.GetVolumeSnapshotFunc == nil {
-		panic("ObjectRefVirtualDiskSnapshotDiskServiceMock.GetVolumeSnapshotFunc: method is nil but ObjectRefVirtualDiskSnapshotDiskService.GetVolumeSnapshot was just called")
-	}
-	callInfo := struct {
-		Ctx       context.Context
-		Name      string
-		Namespace string
-	}{
-		Ctx:       ctx,
-		Name:      name,
-		Namespace: namespace,
-	}
-	mock.lockGetVolumeSnapshot.Lock()
-	mock.calls.GetVolumeSnapshot = append(mock.calls.GetVolumeSnapshot, callInfo)
-	mock.lockGetVolumeSnapshot.Unlock()
-	return mock.GetVolumeSnapshotFunc(ctx, name, namespace)
-}
-
-// GetVolumeSnapshotCalls gets all the calls that were made to GetVolumeSnapshot.
-// Check the length with:
-//
-//	len(mockedObjectRefVirtualDiskSnapshotDiskService.GetVolumeSnapshotCalls())
-func (mock *ObjectRefVirtualDiskSnapshotDiskServiceMock) GetVolumeSnapshotCalls() []struct {
-	Ctx       context.Context
-	Name      string
-	Namespace string
-} {
-	var calls []struct {
-		Ctx       context.Context
-		Name      string
-		Namespace string
-	}
-	mock.lockGetVolumeSnapshot.RLock()
-	calls = mock.calls.GetVolumeSnapshot
-	mock.lockGetVolumeSnapshot.RUnlock()
+	mock.lockProtect.RLock()
+	calls = mock.calls.Protect
+	mock.lockProtect.RUnlock()
 	return calls
 }
