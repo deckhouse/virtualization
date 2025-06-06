@@ -80,8 +80,8 @@ func NewController(
 		internal.NewStorageClassReadyHandler(recorder, scService),
 		internal.NewDatasourceReadyHandler(sources),
 		internal.NewLifeCycleHandler(recorder, sources, mgr.GetClient()),
+		internal.NewInUseHandler(mgr.GetClient()),
 		internal.NewDeletionHandler(sources),
-		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
 
 	viController, err := controller.New(ControllerName, mgr, controller.Options{
