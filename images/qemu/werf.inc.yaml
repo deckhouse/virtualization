@@ -306,7 +306,8 @@ shell:
       --enable-xkbcommon \
       --enable-zstd
 
-      make -j$(nproc)
+    {{- $_ := set $ "ProjectName" (list $.ImageName "qemu" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
 
   setup:
   - |
