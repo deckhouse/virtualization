@@ -1,0 +1,153 @@
+# Copyright 2024 Flant JSC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Build main with Svace every weekend
+env:
+  MODULES_REGISTRY: ${{ vars.DEV_REGISTRY }}
+  CI_COMMIT_REF_NAME: ${{ github.ref_name }}
+  MODULES_MODULE_NAME: ${{ vars.MODULE_NAME }}
+  MODULES_MODULE_SOURCE: ${{ vars.DEV_MODULE_SOURCE }}
+  MODULES_REGISTRY_LOGIN: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+  MODULES_REGISTRY_PASSWORD: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+  SOURCE_REPO: "${{secrets.SOURCE_REPO}}"
+  SOURCE_REPO_GIT: "${{secrets.SOURCE_REPO_GIT}}"
+
+on:
+  workflow_dispatch:
+#   schedule:
+#     - cron: "00 04 * * 6"
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  set_vars:
+    runs-on: ubuntu-latest
+    name: Set MODULES_MODULE_TAG
+    outputs:
+      modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
+      runner_type: ${{ steps.modules_module_tag.outputs.RUNNER_TYPE }}
+    steps:
+      - name: Set vars
+        id: modules_module_tag
+        run: |
+          if [[ "${{ github.ref_name }}" == 'main' ]]; then
+            MODULES_MODULE_TAG="${{ github.ref_name }}"
+          elif [[ "${{ github.ref_name }}" =~ ^release-[0-9]+\.[0-9]+ ]]; then
+            MODULES_MODULE_TAG="${{ github.ref_name }}"
+          elif [[ -n "${{ github.event.pull_request.number }}" ]]; then
+            MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
+          elif [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
+            MODULES_MODULE_TAG="pr${{ github.event.inputs.pr_number }}"
+          else
+            echo "::error title=Module image tag is required::Can't detect module tag from workflow context. Dev build uses branch name as tag for main and release branches, and PR number for builds from pull requests. Check workflow for correctness."
+            exit 1
+          fi
+
+          echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
+
+          # Select runner
+          if echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/github/ubuntu"; then
+            echo "RUNNER_TYPE=[\"ubuntu-22.04\"]" >> "$GITHUB_OUTPUT"
+          elif echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/self-hosted/regular"; then
+            echo "RUNNER_TYPE=[\"self-hosted\", \"regular\"]" >> "$GITHUB_OUTPUT"
+          else
+            echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
+          fi
+
+  dev_setup_build:
+    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
+    name: Build and Push images
+    needs: set_vars
+    env:
+      MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
+      MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
+      WERF_VIRTUAL_MERGE: 0
+    steps:
+      - name: Print vars
+        run: |
+          echo MODULES_REGISTRY=$MODULES_REGISTRY
+          echo CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME
+          echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
+          echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
+          echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Remove unwanted software
+        if: ${{ !contains(needs.set_vars.outputs.runner_type, 'self-hosted') }}
+        uses: ./.github/actions/remove-unwanted-software
+
+      - name: Start ssh-agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: |
+            ${{secrets.SOURCE_REPO_SSH_KEY}}
+            ${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}
+
+      - name: Add ssh_known_hosts
+        run: |
+          HOST=$(grep -oP '(?<=@)[^/:]+' <<< ${{secrets.SOURCE_REPO_GIT}})
+          echo "::add-mask::$HOST"
+          IPS=$(nslookup "$HOST" | awk '/^Address: / { print $2 }')
+          for IP in $IPS; do
+            echo "::add-mask::$IP"
+          done
+          mkdir -p ~/.ssh
+          touch ~/.ssh/known_hosts
+          HOST_KEYS=$(ssh-keyscan -H "$HOST" 2>/dev/null)
+          while IFS= read -r KEY_LINE; do
+            CONSTANT_PART=$(awk '{print $2, $3}' <<< "$KEY_LINE")
+            if ! grep -q "$CONSTANT_PART" ~/.ssh/known_hosts; then
+              echo "$KEY_LINE" >> ~/.ssh/known_hosts
+            fi
+          done <<< "$HOST_KEYS"
+
+      - name: Add svace analyze server to ssh_known_hosts
+        continue-on-error: true
+        run: |
+          host=${{ secrets.SVACE_ANALYZE_HOST }}
+
+          host_ip=$(nslookup "$host" | awk '/^Address: / { print $2 }')
+          echo "::add-mask::$host_ip"
+
+          mkdir -p ~/.ssh
+          touch ~/.ssh/known_hosts
+          HOST_KEYS=$(ssh-keyscan -H "$host" 2>/dev/null)
+          while IFS= read -r KEY_LINE; do
+              CONSTANT_PART=$(awk '{print $2, $3}' <<< "$KEY_LINE")
+              if grep -q "$CONSTANT_PART" ~/.ssh/known_hosts; then
+                  ssh-keygen -R $host
+                  ssh-keygen -R $host_ip
+              fi
+              echo "$KEY_LINE" >> ~/.ssh/known_hosts
+          done <<< "$HOST_KEYS"
+
+      - uses: deckhouse/modules-actions/setup@v2
+        with:
+          registry: ${{ vars.DEV_REGISTRY }}
+          registry_login: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
+
+      - uses: deckhouse/modules-actions/build@v4
+        with:
+          module_source: ${{ vars.DEV_MODULE_SOURCE}}
+          module_name: ${{ vars.MODULE_NAME }}
+          module_tag: ${{needs.set_vars.outputs.modules_module_tag}}
+          svace_enabled: "true"
+          svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
+          svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
