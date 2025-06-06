@@ -14,16 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package object
 
-import (
-	. "github.com/onsi/ginkgo/v2"
+const (
+	ubuntuHTTP     = "https://89d64382-20df-4581-8cc7-80df331f67fa.selstorage.ru/ubuntu/jammy-minimal-cloudimg-amd64.img"
+	Mi256          = 256 * 1024 * 1024
+	defaultVMClass = "generic"
 )
-
-func SIGMigration() Labels {
-	return Label("SIG-Migration")
-}
-
-func SIGScheduling() Labels {
-	return Label("SIG-Scheduling")
-}
