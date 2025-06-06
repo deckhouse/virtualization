@@ -1,4 +1,4 @@
-{{- if .Values.virtualization.internal.ready }}
+{{- if .Values.virtualization.internal.isReady }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
 metadata:

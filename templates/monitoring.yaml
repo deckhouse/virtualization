@@ -1,4 +1,4 @@
-{{- if .Values.virtualization.internal.ready }}
+{{- if .Values.virtualization.internal.isReady }}
 {{- include "helm_lib_grafana_dashboard_definitions" . }}
 {{- include "helm_lib_prometheus_rules" (list . "d8-virtualization") }}
 {{- end }}

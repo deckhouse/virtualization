@@ -1,4 +1,4 @@
-{{- if .Values.virtualization.internal.ready }}
+{{- if .Values.virtualization.internal.isReady }}
 {{- if (.Values.global.enabledModules | has "operator-prometheus-crd") }}
 ---
 apiVersion: monitoring.coreos.com/v1

@@ -122,6 +122,6 @@ properties:
         properties:
           nodeCount:
             type: integer
-      ready:
+      isReady:
         type: boolean
         default: false

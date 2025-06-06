@@ -1,4 +1,3 @@
-{{- if .Values.virtualization.internal.ready }}
 {{- $priorityClassName := include "priorityClassName" . }}
 {{- define "kubevirt_images" -}}
 - name: VIRT_OPERATOR_IMAGE
@@ -16,6 +15,7 @@
 cpu: 10m
 memory: 150Mi
 {{- end }}
+{{- if .Values.virtualization.internal.isReady }}
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
 apiVersion: autoscaling.k8s.io/v1

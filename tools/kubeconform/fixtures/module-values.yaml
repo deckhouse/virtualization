@@ -376,6 +376,7 @@ virtualization:
       ca: ""
       crt: ROOT-CA-CRT
       key: ROOT-CA-KEY
+    isReady: true
   logLevel: debug
   registry:
     base: some-registry.io/sys/deckhouse-oss/modules
