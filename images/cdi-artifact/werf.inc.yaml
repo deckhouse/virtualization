@@ -37,12 +37,6 @@ import:
   add: /src/containerized-data-importer
   to: /containerized-data-importer
   before: install
-  excludePaths:
-  - patches
-- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
-  add: /src/containerized-data-importer/patches
-  to: /patches
-  before: install
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
