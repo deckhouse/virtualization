@@ -75,7 +75,7 @@ func startDVCRMockServer(tb testing.TB, addr string, port int) {
 
 	go func() {
 		if err := http.ListenAndServe(url, mux); err != nil {
-			fmt.Printf("err: %v", err)
+			tb.Fatalf("failed to start dvcr mock server; %v", err)
 		}
 	}()
 }
