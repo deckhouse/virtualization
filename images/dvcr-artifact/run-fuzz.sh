@@ -73,11 +73,17 @@ else
 fi
 echo
 
-FUZZ_TESTS=(
-    "FuzzParseHTTPHeader"
-    "FuzzValidateShouldHandleRequest"
-    "FuzzNewContentReader"
-)
+log_step "Discovering fuzz tests..."
+FUZZ_TESTS=($(grep -r --include='*_test.go' 'func Fuzz[A-Za-z0-9_]*' . | sed 's/.*func \(Fuzz[A-Za-z0-9_]*\).*/\1/' | sort | uniq))
+
+if [ ${#FUZZ_TESTS[@]} -eq 0 ]; then
+    log_error "No fuzz tests found in the package"
+    log_info "Looking for files with pattern: func Fuzz*"
+    exit 1
+fi
+
+log_info "Discovered ${#FUZZ_TESTS[@]} fuzz test(s): ${FUZZ_TESTS[*]}"
+echo
 
 log_step "Starting fuzzing tests (${#FUZZ_TESTS[@]} tests total)..."
 echo
@@ -94,7 +100,7 @@ for i in "${!FUZZ_TESTS[@]}"; do
 
     start_time=$(date +%s)
 
-    test_output=$(timeout $TIMEOUT_DURATION go test -fuzz="$test" -fuzztime="$FUZZ_TIME" -cover -v 2>&1)
+    test_output=$(timeout $TIMEOUT_DURATION go test -fuzz="$test" -fuzztime="$FUZZ_TIME" -cover 2>&1)
     test_exit_code=$?
 
     end_time=$(date +%s)
