@@ -8,6 +8,10 @@ spec:
           properties:
             spec:
               properties:
+                force:
+                  default: false
+                  description: Попытка немедленно восстановить виртуальную машину, не удаляя её.
+                  type: boolean
                 nameReplacements:
                   description: Правила переименования ресурсов виртуальной машины.
                   items:

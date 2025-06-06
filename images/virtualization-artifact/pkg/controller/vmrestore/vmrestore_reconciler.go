@@ -80,6 +80,9 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	for _, w := range []Watcher{
 		watcher.NewVirtualMachineRestoreWatcher(mgr.GetClient()),
 		watcher.NewVirtualMachineSnapshotWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
+		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineBlockDeviceAttachmentWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
