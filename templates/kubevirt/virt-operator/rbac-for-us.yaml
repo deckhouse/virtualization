@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -1228,3 +1229,4 @@ subjects:
 - kind: ServiceAccount
   name: kubevirt-operator
   namespace: d8-{{ .Chart.Name }}
+{{- end }}

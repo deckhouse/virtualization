@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 {{- $priorityClassName := include "priorityClassName" . }}
 
 {{- define "cdi_images" -}}
@@ -123,3 +124,4 @@ spec:
       serviceAccountName: cdi-operator
       volumes:
       {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 6 }}
+{{- end }}

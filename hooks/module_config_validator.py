@@ -30,6 +30,7 @@ class ModuleConfigValidateHook(Hook):
     def __init__(self, module_name: str):
         self.module_name = module_name
         self.queue = f"/modules/{self.module_name}/{self.SNAPSHOT_MODULE_CONFIG}"
+        self.path = "virtualization.internal.ready"
 
     def generate_config(self) -> dict:
         """executeHookOnEvent is empty because we need only execute at module start."""
@@ -86,7 +87,13 @@ class ModuleConfigValidateHook(Hook):
                 .get("filterResult", {})
                 .get("cidrs", [])
             ]
-            self.check_overlaps_cidrs(cidrs)
+
+            try:
+                self.check_overlaps_cidrs(cidrs)
+            except ValueError as e:
+                print(f"ERROR: {e}")
+
+                self.set_value(self.path, ctx.values, False)
 
             node_addresses: list[IPv4Address] = [
                 ip_address(addr["address"])
@@ -94,8 +101,14 @@ class ModuleConfigValidateHook(Hook):
                 for addr in (snap.get("filterResult", {}).get("addresses") or [])
                 if addr.get("type") in {"InternalIP", "ExternalIP"}
             ]
-            self.check_node_addresses_overlap(cidrs, node_addresses)
 
+            try:
+                self.check_node_addresses_overlap(cidrs, node_addresses)
+            except ValueError as e:
+                print(f"ERROR: {e}")
+                self.set_value(self.path, ctx.values, False)
+
+            self.set_value(self.path, ctx.values, True)
         return r
 
 

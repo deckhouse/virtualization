@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 {{- if ne (dig "dvcr" "serviceIP" "" .Values.virtualization.internal) "" }}
 ---
     {{- $ca := printf "%s" .Values.virtualization.internal.dvcr.cert.ca }}
@@ -53,4 +54,5 @@ spec:
             [plugins."io.containerd.grpc.v1.cri".registry.mirrors."{{ $registry }}"]
               endpoint = ["https://{{ $endpoint }}"]
     EOF
+{{- end }}
 {{- end }}

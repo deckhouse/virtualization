@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 {{- if ((.Values.virtualization.audit).enabled) }}
 {{- if (.Values.global.enabledModules | has "log-shipper") }}
 {{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
@@ -16,6 +17,7 @@ spec:
       protocol: TCP
   selector:
     app: virtualization-audit
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

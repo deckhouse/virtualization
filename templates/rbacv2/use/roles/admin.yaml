@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -14,3 +15,4 @@ aggregationRule:
         rbac.deckhouse.io/kind: use
         rbac.deckhouse.io/aggregate-to-virtualization-as: admin
 rules: []
+{{- end }}

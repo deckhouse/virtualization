@@ -1,3 +1,4 @@
+{{- if .Values.virtualization.internal.ready }}
 {{- $priorityClassName := include "priorityClassName" . }}
 
 {{- define "virtualization_audit_resources" }}
@@ -107,6 +108,7 @@ spec:
             defaultMode: 420
             optional: true
             secretName: virtualization-audit-tls
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
