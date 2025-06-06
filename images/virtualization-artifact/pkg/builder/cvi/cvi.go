@@ -24,11 +24,11 @@ import (
 
 func New(options ...Option) *v1alpha2.ClusterVirtualImage {
 	cvi := NewEmpty("")
-	ApplyOptions(cvi, options)
+	ApplyOptions(cvi, options...)
 	return cvi
 }
 
-func ApplyOptions(cvi *v1alpha2.ClusterVirtualImage, opts []Option) {
+func ApplyOptions(cvi *v1alpha2.ClusterVirtualImage, opts ...Option) {
 	if cvi == nil {
 		return
 	}
