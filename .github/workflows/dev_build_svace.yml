@@ -29,7 +29,7 @@ on:
     - cron: "00 04 * * 6"
   # debug
   pull_request:
-    branches: [main]
+    branches: [main, feat/ci/add-svace-cronjob]
 defaults:
   run:
     shell: bash
