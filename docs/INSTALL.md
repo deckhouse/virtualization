@@ -92,11 +92,11 @@ The module has no additional restrictions and is compatible with any hardware th
 
 ## Supported OS for platform nodes
 
-| Linux distribution          | Supported versions              |
-| --------------------------- | ------------------------------- |
-| CentOS                      | 7, 8, 9                         |
-| Debian                      | 10, 11, 12                      |
-| Ubuntu                      | 20.04, 22.04, 24.04      |
+| Linux distribution | Supported versions  |
+| ------------------ | ------------------- |
+| CentOS             | 7, 8, 9             |
+| Debian             | 10, 11, 12          |
+| Ubuntu             | 20.04, 22.04, 24.04 |
 
 {{< alert level="warning">}}
 Ensuring stable operation of live migration mechanisms requires the use of an identical version of the Linux kernel on all cluster nodes.
@@ -110,9 +110,9 @@ The virtualization platform supports operating systems running on `x86` and `x86
 
 Successful startup of the operating system is determined by the following criteria:
 
-* Correct installation and booting of the OS.
-* Uninterrupted operation of key components such as networking and storage.
-* No crashes or errors during operation.
+- Correct installation and booting of the OS.
+- Uninterrupted operation of key components such as networking and storage.
+- No crashes or errors during operation.
 
 For Linux family operating systems, it is recommended to use guest OS images with `cloud-init` support, which allows initializing virtual machines after their creation.
 
@@ -128,15 +128,15 @@ For Windows family operating systems, the platform supports initialization with 
 
 Virtual machines use `PersistentVolume` resources. To manage these resources and allocate disk space within the cluster, one or more supported storage systems must be installed:
 
-| Storage System                              | Disk Location              |
-|---------------------------------------------|----------------------------|
-| sds-local-volume                            | Local                      |
-| sds-replicated-volume                       | Replicas on cluster nodes  |
-| Ceph Cluster                                | External storage           |
-| NFS (Network File System)                   | External storage           |
-| TATLIN.UNIFIED (Yadro)                      | External storage           |
-| Huawei Dorado                               | External storage           |
-| HPE 3par                                    | External storage           |
+| Storage System            | Disk Location             |
+| ------------------------- | ------------------------- |
+| sds-local-volume          | Local                     |
+| sds-replicated-volume     | Replicas on cluster nodes |
+| Ceph Cluster              | External storage          |
+| NFS (Network File System) | External storage          |
+| TATLIN.UNIFIED (Yadro)    | External storage          |
+| Huawei Dorado             | External storage          |
+| HPE 3par                  | External storage          |
 
 ## Installation
 
@@ -162,8 +162,8 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
 
    To enable the `virtualization` module, create a `ModuleConfig` resource with the module settings.
 
-   {{< alert level="info" >}}
-   Detailed settings are described in the [Administrator guide](./admin_guide.html#module-parameters).
+   {{< alert level="warning" >}}
+   Before enabling the module, carefully review its settings, which are described in the [Administrator guide](./admin_guide.html#module-parameters).
    {{< /alert >}}
 
    Example of module configuration:
@@ -188,17 +188,6 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
    EOF
    ```
 
-   Where:
-
-   - The `.spec.settings.dvcr` block describes the settings for the repository for storing virtual machine images. It specifies the size of the storage provided for storing images `.spec.settings.dvcr.storage.persistentVolumeClaim.size` and the storage class `.spec.settings.dvcr.storage.persistentVolumeClaim.storageClassName`.
-   - The `.spec.settings.virtualMachineCIDRs` block specifies the list of subnets. Virtual machine addresses will be allocated automatically or on request from the specified subnet ranges in order.
-
-   {{< alert level="warning">}}
-   Subnets of `.spec.settings.virtualMachineCIDRs` block must not overlap with subnets of nodes, subnet of services, and pods.
-
-   It is forbidden to delete subnets if addresses from them have already been given to virtual machines.
-   {{< /alert >}}
-
    To check if the module is ready, use the following command:
 
    ```bash
@@ -213,6 +202,32 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
    ```
 
    The module phase should be `Ready`.
+
+## Component placement by nodes
+
+The distribution of components across cluster nodes depends on the cluster configuration. For example, a cluster may contain:
+
+- only master nodes, for running the control plane and workload components;aster nodes;
+- only master nodes and worker nodes;
+- master nodes, system nodes, and worker nodes;
+- other combinations (depending on the architecture).
+
+The table lists the management plane components and the node types for their placement. Components are distributed by priority only if the corresponding nodes are available in the cluster configuration.
+
+| Name                          | Node group for running components                             | Comment                                      |
+| ----------------------------- | ------------------------------------------------------------- | -------------------------------------------- |
+| `cdi-operator-*`              | system/worker                                                 |                                              |
+| `cdi-apiserver-*`             | master                                                        |                                              |
+| `cdi-deployment-*`            | system/worker                                                 |                                              |
+| `virt-api-*`                  | master                                                        |                                              |
+| `virt-controller-*`           | system/worker                                                 |                                              |
+| `virt-operator-*`             | system/worker                                                 |                                              |
+| `virtualization-api-*`        | master                                                        |                                              |
+| `virtualization-controller-*` | master                                                        |                                              |
+| `virtualization-audit-*`      | system/worker                                                 |                                              |
+| `dvcr-*`                      | system/worker                                                 | Storage availability on the node is required |
+| `virt-handler-*`              | All cluster nodes / or nodes specified in the module settings |                                              |
+| `vm-route-forge-*`            | All cluster nodes                                             |                                              |
 
 ## Module update
 
