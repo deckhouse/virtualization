@@ -43,13 +43,11 @@ jobs:
         id: modules_module_tag
         run: |
           if [[ "${{ github.ref_name }}" == 'main' ]]; then
-            MODULES_MODULE_TAG="${{ github.ref_name }}"
+            MODULES_MODULE_TAG="${{ github.ref_name }}-svace"
           elif [[ "${{ github.ref_name }}" =~ ^release-[0-9]+\.[0-9]+ ]]; then
-            MODULES_MODULE_TAG="${{ github.ref_name }}"
+            MODULES_MODULE_TAG="${{ github.ref_name }}-svace"
           elif [[ -n "${{ github.event.pull_request.number }}" ]]; then
-            MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}"
-          elif [[ -n "${{ github.event.inputs.pr_number }}" ]]; then
-            MODULES_MODULE_TAG="pr${{ github.event.inputs.pr_number }}"
+            MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}-svace"
           else
             echo "::error title=Module image tag is required::Can't detect module tag from workflow context. Dev build uses branch name as tag for main and release branches, and PR number for builds from pull requests. Check workflow for correctness."
             exit 1
@@ -151,3 +149,22 @@ jobs:
           svace_enabled: "true"
           svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
           svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+
+  analyze_build:
+    name: Analyze build
+    runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
+    needs:
+      - set_vars
+      - dev_setup_build
+    steps:
+      - uses: deckhouse/modules-actions/svace_analyze@v4
+        with:
+          project_group: ${{ github.event.repository.name }}
+          ci_commit_ref_name: ${{ github.event.pull_request.head.ref || github.ref_name }}
+          ci_commit_hash: ${{ github.event.pull_request.head.sha || github.sha }}
+          svace_analyze_host: "${{ secrets.SVACE_ANALYZE_HOST }}"
+          svace_analyze_ssh_user: "${{ secrets.SVACE_ANALYZE_SSH_USER }}"
+          svacer_url: "${{ secrets.SVACER_URL }}"
+          svacer_import_user: "${{ secrets.SVACER_IMPORT_USER }}"
+          svacer_import_password: "${{ secrets.SVACER_IMPORT_PASSWORD }}"
+          svace_analyze_ssh_private_key: "${{ secrets.SVACE_ANALYZE_SSH_PRIVATE_KEY }}"
