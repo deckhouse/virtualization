@@ -25,11 +25,15 @@ env:
 
 on:
   workflow_dispatch:
-#   schedule:
-#     - cron: "00 04 * * 6"
+  schedule:
+    - cron: "00 04 * * 6"
 defaults:
   run:
     shell: bash
+
+concurrency:
+  group: "${{ github.workflow }}"
+  cancel-in-progress: true
 
 jobs:
   set_vars:
@@ -63,6 +67,9 @@ jobs:
           else
             echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
           fi
+
+          # EE for virtualization-audit
+          echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
 
   dev_setup_build:
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
