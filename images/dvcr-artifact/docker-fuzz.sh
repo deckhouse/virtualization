@@ -14,8 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Simple Docker fuzzing script for uploader package
-
 IMAGE_NAME="uploader-fuzz"
 DOCKERFILE="Dockerfile.fuzz"
 DEFAULT_FUZZ_TIME="2m"
