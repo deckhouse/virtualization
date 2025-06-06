@@ -30,6 +30,8 @@ on:
   # debug
   pull_request:
     branches: [main, feat/ci/add-svace-cronjob]
+  push:
+    branches: [main, feat/ci/add-svace-cronjob]
 defaults:
   run:
     shell: bash
