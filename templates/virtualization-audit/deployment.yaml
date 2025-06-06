@@ -5,6 +5,7 @@ cpu: 10m
 memory: 150Mi
 {{- end }}
 
+{{- if .Values.virtualization.internal.isReady }}
 {{- if ((.Values.virtualization.audit).enabled) }}
 {{- if (.Values.global.enabledModules | has "log-shipper") }}
 {{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
@@ -107,6 +108,7 @@ spec:
             defaultMode: 420
             optional: true
             secretName: virtualization-audit-tls
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}
