@@ -69,7 +69,7 @@ var config = &pkg.HookConfig{
 }
 
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
-	input.Logger.Info("hello from MigrateDeleteRenamedValidationAadmissionPolicy hook")
+	input.Logger.Info("Start MigrateDeleteRenamedValidationAadmissionPolicy hook")
 	found_deprecated := 0
 
 	var clientsObj []client.Object
@@ -77,24 +77,24 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	policy_snapshots := input.Snapshots.Get(POLICY_SNAPSHOT_NAME)
 	binding_snapshots := input.Snapshots.Get(BINDING_SNAPSHOT_NAME)
 
-	for _, binding := range policy_snapshots {
+	for _, snap := range policy_snapshots {
 		var ap admissionregistrationv1.ValidatingAdmissionPolicy
 
-		err := binding.UnmarshalTo(&ap)
+		err := snap.UnmarshalTo(&ap)
 		if err != nil {
-			input.Logger.Error("error unmarshalling snapshot %s", binding.String())
+			input.Logger.Error("error unmarshalling snapshot %s", snap.String())
 			return err
 		}
 
 		clientsObj = append(clientsObj, &ap)
 	}
 
-	for _, binding := range binding_snapshots {
+	for _, snap := range binding_snapshots {
 		var ap admissionregistrationv1.ValidatingAdmissionPolicyBinding
 
-		err := binding.UnmarshalTo(&ap)
+		err := snap.UnmarshalTo(&ap)
 		if err != nil {
-			input.Logger.Error("error unmarshalling snapshot %s", binding.String())
+			input.Logger.Error("error unmarshalling snapshot %s", snap.String())
 			return err
 		}
 
@@ -116,6 +116,7 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 
 			err = client.Delete(ctx, obj)
 			if err != nil {
+				input.Logger.Error("%s, can't delete %s %s", err, name, kind)
 				continue
 			}
 
