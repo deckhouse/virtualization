@@ -88,9 +88,9 @@ const (
 	   2) The ClusterVirtualImage must be used in one of the following ways:
 	       - Be attached to one or more VirtualMachines (all VirtualMachine phases except Stopped)
 	       - Be attached via a VirtualMachineBlockDeviceAttachment (any VMBDA phases)
-	       - Be used for provisioning vi (phases: Pending, Provisioning, Failed)
-	       - Be used for provisioning cvi (phases: Pending, Provisioning, Failed)
-	       - Be used for provisioning vd (phases: Pending, Provisioning, WaitForFirstConsumer, Failed)
+	       - Be used for provisioning VirtualImage (phases: Pending, Provisioning, Failed)
+	       - Be used for provisioning ClusterVirtualImage (phases: Pending, Provisioning, Failed)
+	       - Be used for provisioning VirtualDisk (phases: Pending, Provisioning, WaitForFirstConsumer, Failed)
 	*/
 	// InUse indicates that the `ClusterVirtualImage` is used by other resources and cannot be deleted now.
 	InUse InUseReason = "InUse"
