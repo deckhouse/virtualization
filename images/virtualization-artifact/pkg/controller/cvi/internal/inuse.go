@@ -42,11 +42,19 @@ func NewInUseHandler(client client.Client) *InUseHandler {
 func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(cvicondition.InUse).Generation(cvi.Generation)
 	readyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-	if readyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(readyCondition, cvi) {
+	if readyCondition.Status == metav1.ConditionFalse && conditions.IsLastUpdated(readyCondition, cvi) {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(cvicondition.NotInUse).
 			Message("")
+		conditions.SetCondition(cb, &cvi.Status.Conditions)
+		return reconcile.Result{}, nil
+	} else if readyCondition.Status == metav1.ConditionUnknown || !conditions.IsLastUpdated(readyCondition, cvi) {
+		cb.
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
+			Message("")
+		conditions.SetCondition(cb, &cvi.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 

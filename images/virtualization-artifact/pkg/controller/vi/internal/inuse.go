@@ -44,10 +44,18 @@ func NewInUseHandler(client client.Client) *InUseHandler {
 func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vicondition.InUse).Generation(vi.Generation)
 	readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
-	if readyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(readyCondition, vi) {
+	if readyCondition.Status == metav1.ConditionFalse && conditions.IsLastUpdated(readyCondition, vi) {
 		cb.
-			Status(metav1.ConditionTrue).
+			Status(metav1.ConditionFalse).
 			Reason(vicondition.NotInUse).
+			Message("")
+
+		conditions.SetCondition(cb, &vi.Status.Conditions)
+		return reconcile.Result{}, nil
+	} else if readyCondition.Status == metav1.ConditionUnknown || !conditions.IsLastUpdated(readyCondition, vi) {
+		cb.
+			Status(metav1.ConditionUnknown).
+			Reason(conditions.ReasonUnknown).
 			Message("")
 
 		conditions.SetCondition(cb, &vi.Status.Conditions)

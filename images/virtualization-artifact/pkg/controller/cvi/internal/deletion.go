@@ -48,7 +48,7 @@ func (h DeletionHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualI
 
 	if cvi.DeletionTimestamp != nil {
 		inUseCondition, _ := conditions.GetCondition(cvicondition.InUseType, cvi.Status.Conditions)
-		if inUseCondition.Status == metav1.ConditionTrue || !conditions.IsLastUpdated(inUseCondition, cvi) {
+		if inUseCondition.Status != metav1.ConditionFalse || !conditions.IsLastUpdated(inUseCondition, cvi) {
 			return reconcile.Result{}, nil
 		}
 
