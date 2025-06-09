@@ -194,7 +194,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 				return reconcile.Result{}, nil
 			}
 
-			if viReady.Status == metav1.ConditionTrue && pvc.Status.Phase != corev1.ClaimBound {
+			if pvc.Status.Phase != corev1.ClaimBound {
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
