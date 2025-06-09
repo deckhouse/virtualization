@@ -77,24 +77,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 				return reconcile.Result{}, err
 			}
 
-			switch {
-			case pvc == nil:
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdcondition.Lost).
-					Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
-				needRequeue = true
-			case pvc.Status.Phase == corev1.ClaimLost:
-				cb.
-					Status(metav1.ConditionFalse).
-					Reason(vdcondition.Lost).
-					Message(fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName))
-				needRequeue = true
-			default:
-				cb.
-					Status(metav1.ConditionTrue).
-					Reason(vdcondition.Ready).
-					Message("")
+			source.SetPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
+			if cb.Condition().Status != metav1.ConditionTrue {
+				needRequeue = true // If a PVC is lost, we need to recheck InUseCondition status.
 			}
 
 			conditions.SetCondition(cb, &vd.Status.Conditions)
