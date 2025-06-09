@@ -89,8 +89,8 @@ spec:
     # Add node affinity for the lowest virtualization level
     - resourceType: DaemonSet
       resourceName: virt-handler
-      patch: '[{"op":"add","path":"/spec/template/spec/affinity","value":{"nodeAffinity":{"requiredDuringSchedulingIgnoredDuringExecution":{"nodeSelectorTerms":[{"matchExpressions":[{"key":"node.deckhouse.io/dvp-nesting-level","operator":"In","values":["{{ $dvpNestingLevel }}"]}]},{"matchExpressions":[{"key":"node.deckhouse.io/dvp-nesting-level","operator":"DoesNotExist"}]}]}}}}]'
-      type: json
+      patch: {{ include "kubevirt.virthandler_nodeaffinity_strategic_patch_json" $dvpNestingLevel }}
+      type: strategic
     {{- if (include "helm_lib_ha_enabled" .) }}
     # HA settings for deploy/virt-api.
     - resourceType: Deployment
