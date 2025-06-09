@@ -28,7 +28,7 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `ClusterVirtualImage` is ready for use.
 	ReadyType Type = "Ready"
-	// InUse indicates that the `ClusterVirtualImage` is used by other resources and cannot be deleted now.
+	// InUseType indicates that the `ClusterVirtualImage` is used by other resources and cannot be deleted now.
 	InUseType Type = "InUse"
 )
 

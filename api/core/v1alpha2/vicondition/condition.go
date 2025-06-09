@@ -30,7 +30,7 @@ const (
 	ReadyType Type = "Ready"
 	// StorageClassReadyType indicates whether the storageClass ready.
 	StorageClassReadyType Type = "StorageClassReady"
-	// InUse indicates that the `VirtualImage` is used by other resources and cannot be deleted now.
+	// InUseType indicates that the `VirtualImage` is used by other resources and cannot be deleted now.
 	InUseType Type = "InUse"
 )
 
