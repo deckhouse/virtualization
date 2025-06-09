@@ -18,36 +18,47 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/deckhouse/module-sdk/pkg/utils/ptr"
+
 	"hooks/pkg/common"
-	"k8s.io/api/admission/v1beta1"
+
+	"github.com/deckhouse/module-sdk/pkg/utils/ptr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/pointer"
-	"slices"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	// admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	//"k8s.io/api/admissionregistration/v1"
-	"net/http"
 )
 
-type snapShot struct {
+type VAP struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	//filterResult `json:"filterResult"`
+	Spec              admissionregistrationv1.ValidatingAdmissionPolicy `json:"spec,omitempty"`
+}
+type VAPB struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              admissionregistrationv1.ValidatingAdmissionPolicyBinding `json:"spec,omitempty"`
 }
 
-type filterResult struct {
-	Name   string   `json:"name"`
-	Labels []string `json:"labels"`
-	Kind   string   `json:"kind"`
-}
+// type snapShot struct {
+// 	metav1.TypeMeta   `json:",inline"`
+// 	metav1.ObjectMeta `json:"metadata,omitempty"`
+// 	// filterResult `json:"filterResult"`
+// }
+
+// type filterResult struct {
+// 	Name   string   `json:"name"`
+// 	Labels []string `json:"labels"`
+// 	Kind   string   `json:"kind"`
+// }
 
 var _ = registry.RegisterFunc(config, reconcile)
 
 const (
-	BINDING_SNAPSHOT_NAME  = "validating_admission_policy"
-	POLICY_SNAPSHOT_NAME   = "validating_admission_policy_binding"
+	POLICY_SNAPSHOT_NAME   = "validating_admission_policy"
+	BINDING_SNAPSHOT_NAME  = "validating_admission_policy_binding"
 	managed_by_label       = "app.kubernetes.io/managed-by"
 	managed_by_label_value = "virt-operator-internal-virtualization"
 )
@@ -55,7 +66,7 @@ const (
 var config = &pkg.HookConfig{
 	Kubernetes: []pkg.KubernetesConfig{
 		{
-			Name:       BINDING_SNAPSHOT_NAME,
+			Name:       POLICY_SNAPSHOT_NAME,
 			APIVersion: "admissionregistration.k8s.io/v1beta1",
 			Kind:       "ValidatingAdmissionPolicy",
 			NameSelector: &pkg.NameSelector{
@@ -66,7 +77,7 @@ var config = &pkg.HookConfig{
 			ExecuteHookOnEvents:          ptr.Bool(false),
 		},
 		{
-			Name:       POLICY_SNAPSHOT_NAME,
+			Name:       BINDING_SNAPSHOT_NAME,
 			APIVersion: "admissionregistration.k8s.io/v1beta1",
 			Kind:       "ValidatingAdmissionPolicyBinding",
 			NameSelector: &pkg.NameSelector{
@@ -84,26 +95,32 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("hello from patch hook")
 	found_deprecated := 0
 
-	var mvt snapShot
+	// var snapShots pkg.Snapshots
+	var apb VAP
+	// var snapShots snapShot
 
-	binding_snapshot := input.Snapshots.Get(BINDING_SNAPSHOT_NAME)
-	//policy_snapshot := input.Snapshots.Get(POLICY_SNAPSHOT_NAME)
+	binding_snapshot := input.Snapshots.Get(POLICY_SNAPSHOT_NAME)
+	// policy_snapshot := input.Snapshots.Get(POLICY_SNAPSHOT_NAME)
 
 	for _, binding := range binding_snapshot {
-		err := binding.UnmarshalTo(&mvt)
+
+		// metadata := &metav1.ObjectMeta{}
+
+		err := binding.UnmarshalTo(&apb)
 		if err != nil {
-			input.Logger.Error("error unmarshalling snapshot %s", binding)
+			input.Logger.Error("error unmarshalling snapshot %s", binding.String())
 			return err
 		}
 
-		if _, ok := mvt.Labels[managed_by_label]; ok {
-			continue
-		}
+		// if _, ok := binding.UnmarshalTo(v any)
+		// // if _, ok := snapShots.Labels[managed_by_label]; ok {
+		// 	continue
+		// }
 
-		if mvt.Labels[managed_by_label] == managed_by_label_value {
+		if apb.Labels[managed_by_label] == managed_by_label_value {
 			found_deprecated++
-			name := mvt.Name
-			kind := mvt.Kind
+			name := apb.Name
+			kind := apb.Kind
 			input.Logger.Info("Delete deprecated %s %s", name, kind)
 
 			client, err := input.DC.GetK8sClient()
@@ -111,7 +128,10 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 				input.Logger.Error("error unmarshalling snapshot %s", err)
 				return err
 			}
-			err = client.Delete(ctx, mvt)
+
+			vap := admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: name}}
+
+			err = client.Delete(ctx, &vap)
 			if err != nil {
 				continue
 			}
