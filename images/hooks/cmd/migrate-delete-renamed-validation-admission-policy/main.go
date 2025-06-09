@@ -21,38 +21,14 @@ import (
 
 	"hooks/pkg/common"
 
+	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/utils/ptr"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	// admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
-	//"k8s.io/api/admissionregistration/v1"
 )
-
-type VAP struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              admissionregistrationv1.ValidatingAdmissionPolicy `json:"spec,omitempty"`
-}
-type VAPB struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              admissionregistrationv1.ValidatingAdmissionPolicyBinding `json:"spec,omitempty"`
-}
-
-// type snapShot struct {
-// 	metav1.TypeMeta   `json:",inline"`
-// 	metav1.ObjectMeta `json:"metadata,omitempty"`
-// 	// filterResult `json:"filterResult"`
-// }
-
-// type filterResult struct {
-// 	Name   string   `json:"name"`
-// 	Labels []string `json:"labels"`
-// 	Kind   string   `json:"kind"`
-// }
 
 var _ = registry.RegisterFunc(config, reconcile)
 
@@ -95,32 +71,40 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("hello from patch hook")
 	found_deprecated := 0
 
-	// var snapShots pkg.Snapshots
-	var apb VAP
-	// var snapShots snapShot
+	var clientsObj []client.Object
 
-	binding_snapshot := input.Snapshots.Get(POLICY_SNAPSHOT_NAME)
-	// policy_snapshot := input.Snapshots.Get(POLICY_SNAPSHOT_NAME)
+	policy_snapshots := input.Snapshots.Get(POLICY_SNAPSHOT_NAME)
+	binding_snapshots := input.Snapshots.Get(BINDING_SNAPSHOT_NAME)
 
-	for _, binding := range binding_snapshot {
+	for _, binding := range policy_snapshots {
+		var ap admissionregistrationv1.ValidatingAdmissionPolicy
 
-		// metadata := &metav1.ObjectMeta{}
-
-		err := binding.UnmarshalTo(&apb)
+		err := binding.UnmarshalTo(&ap)
 		if err != nil {
 			input.Logger.Error("error unmarshalling snapshot %s", binding.String())
 			return err
 		}
 
-		// if _, ok := binding.UnmarshalTo(v any)
-		// // if _, ok := snapShots.Labels[managed_by_label]; ok {
-		// 	continue
-		// }
+		clientsObj = append(clientsObj, &ap)
+	}
 
-		if apb.Labels[managed_by_label] == managed_by_label_value {
+	for _, binding := range binding_snapshots {
+		var ap admissionregistrationv1.ValidatingAdmissionPolicyBinding
+
+		err := binding.UnmarshalTo(&ap)
+		if err != nil {
+			input.Logger.Error("error unmarshalling snapshot %s", binding.String())
+			return err
+		}
+
+		clientsObj = append(clientsObj, &ap)
+	}
+
+	for _, obj := range clientsObj {
+		if obj.GetLabels()[managed_by_label] == managed_by_label_value {
 			found_deprecated++
-			name := apb.Name
-			kind := apb.Kind
+			name := obj.GetName()
+			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			input.Logger.Info("Delete deprecated %s %s", name, kind)
 
 			client, err := input.DC.GetK8sClient()
@@ -129,9 +113,7 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 				return err
 			}
 
-			vap := admissionregistrationv1.ValidatingAdmissionPolicy{ObjectMeta: metav1.ObjectMeta{Name: name}}
-
-			err = client.Delete(ctx, &vap)
+			err = client.Delete(ctx, obj)
 			if err != nil {
 				continue
 			}
@@ -144,4 +126,8 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	}
 
 	return nil
+}
+
+func main() {
+	app.Run()
 }
