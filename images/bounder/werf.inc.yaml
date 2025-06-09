@@ -14,7 +14,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/static_binaries
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/static_binaries
     to: /static_binaries
     stageDependencies:
       install:

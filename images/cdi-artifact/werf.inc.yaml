@@ -6,7 +6,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}
     to: /src
     stageDependencies:
       install:
@@ -114,7 +114,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}
     to: /
     includePaths:
     - static_binaries

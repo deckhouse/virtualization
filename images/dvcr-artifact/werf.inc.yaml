@@ -3,7 +3,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
 git:
-- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
+- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}
   to: /src
   stageDependencies:
     install:

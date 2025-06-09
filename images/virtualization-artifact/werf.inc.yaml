@@ -3,7 +3,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
 git:
-- add: {{ include "PreffixPath" . }}/api
+- add: {{ .ModulePathPrefix }}/api
   to: /usr/local/go/api
   stageDependencies:
     install:
@@ -11,7 +11,7 @@ git:
       - go.sum
     setup:
       - "**/*.go"
-- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
+- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}
   to: /usr/local/go/src/virtualization-controller
   stageDependencies:
     install:

@@ -7,7 +7,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: {{ .ModuleNamePrefix }}src-artifact
 git:
-- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}
+- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}
   to: /
   includePaths:
   - install-qemu.sh
@@ -17,7 +17,7 @@ git:
   stageDependencies:
     install:
       - '**/*'
-- add: {{ include "PreffixPath" . }}/images/base-alt-p11-binaries/relocate_binaries.sh
+- add: {{ .ModulePathPrefix }}/images/base-alt-p11-binaries/relocate_binaries.sh
   to: /relocate_binaries.sh
   stageDependencies:
     install:
