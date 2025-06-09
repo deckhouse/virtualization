@@ -31,7 +31,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -39,10 +38,9 @@ import (
 
 const nameBlockDeviceHandler = "BlockDeviceHandler"
 
-func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderLogger, blockDeviceService BlockDeviceService) *BlockDeviceHandler {
+func NewBlockDeviceHandler(cl client.Client, blockDeviceService BlockDeviceService) *BlockDeviceHandler {
 	return &BlockDeviceHandler{
 		client:             cl,
-		recorder:           recorder,
 		blockDeviceService: blockDeviceService,
 
 		viProtection:  service.NewProtectionService(cl, virtv2.FinalizerVIProtection),
@@ -53,7 +51,6 @@ func NewBlockDeviceHandler(cl client.Client, recorder eventrecord.EventRecorderL
 
 type BlockDeviceHandler struct {
 	client             client.Client
-	recorder           eventrecord.EventRecorderLogger
 	blockDeviceService BlockDeviceService
 
 	viProtection  *service.ProtectionService
