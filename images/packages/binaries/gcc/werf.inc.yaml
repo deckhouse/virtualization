@@ -54,6 +54,7 @@ shell:
 
     autoreconf -fvi
 
+    # taken from alt linux specfile: https://packages.altlinux.org/ru/sisyphus/srpms/gcc14/specfiles/3135719547156898666
     set -eux; \
         for f in */aclocal.m4; do \
             d="${f%%/*}"; \
