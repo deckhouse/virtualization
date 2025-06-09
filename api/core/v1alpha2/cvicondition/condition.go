@@ -84,7 +84,7 @@ const (
 
 	/*
 	   A ClusterVirtualImage can be considered in use if it meets the following two criteria:
-	   1) Provisioning must be completed. The ReadyCondition must be True.
+	   1) Provisioning of the ClusterVirtualImage must be completed. The ReadyCondition must be True.
 	   2) The ClusterVirtualImage must be used in one of the following ways:
 	       - Be attached to one or more VirtualMachines (all VirtualMachine phases except Stopped)
 	       - Be attached via a VirtualMachineBlockDeviceAttachment (any VMBDA phases)

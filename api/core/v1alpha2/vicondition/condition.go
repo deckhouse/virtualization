@@ -110,7 +110,7 @@ const (
 
 	/*
 	   A VirtualImage can be considered in use if it meets the following two criteria:
-	   1) Provisioning must be completed. The ReadyCondition must be True or have the Reason PVCLost.
+	   1) Provisioning of the VirtualImage must be completed. The ReadyCondition must be True or have the Reason PVCLost.
 	   2) The VirtualImage must be used in one of the following ways:
 	       - Be attached to one or more VirtualMachines (all VirtualMachine phases except Stopped)
 	       - Be attached via a VirtualMachineBlockDeviceAttachment (any VMBDA phases)
