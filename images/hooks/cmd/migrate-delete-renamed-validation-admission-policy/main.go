@@ -64,7 +64,8 @@ var config = &pkg.HookConfig{
 			ExecuteHookOnEvents:          ptr.Bool(false),
 		},
 	},
-	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
+	OnAfterHelm: &pkg.OrderedConfig{Order: 5},
+	Queue:       fmt.Sprintf("modules/%s", common.MODULE_NAME),
 }
 
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
