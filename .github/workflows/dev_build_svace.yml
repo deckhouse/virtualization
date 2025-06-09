@@ -53,7 +53,8 @@ jobs:
           elif [[ -n "${{ github.event.pull_request.number }}" ]]; then
             MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}-svace"
           else
-            MODULES_MODULE_TAG="${{ github.ref_name }}-svace"
+            underscored_branch=$(echo "${{ github.ref_name }}" | tr '/' '_')
+            MODULES_MODULE_TAG="$underscored_branch-svace"
           fi
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
