@@ -68,7 +68,7 @@ var config = &pkg.HookConfig{
 }
 
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
-	input.Logger.Info("hello from patch hook")
+	input.Logger.Info("hello from MigrateDeleteRenamedValidationAadmissionPolicy hook")
 	found_deprecated := 0
 
 	var clientsObj []client.Object
