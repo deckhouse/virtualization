@@ -3,7 +3,7 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
-image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -91,19 +91,19 @@ libraries:
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
-image: {{ include "ImageName" (tuple . .ImageName) }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ include "ImageName" (tuple . "base-alt-p11") }}{{ $.SVACE_IMAGE_SUFFIX }}
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11{{ $.SVACE_IMAGE_SUFFIX }}
 import:
-- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
   before: install
-- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /patches
   to: /patches
   before: install
-- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /install-libvirt.sh
   to: /install-libvirt.sh
   before: install

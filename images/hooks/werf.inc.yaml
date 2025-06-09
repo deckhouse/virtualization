@@ -1,5 +1,5 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -11,11 +11,11 @@ git:
     - go.sum
     - '**/*.go'
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: builder/golang-bookworm-1.24
 import:
-  - image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
     add: /app/images/hooks
     to: /app/images/hooks
     before: install

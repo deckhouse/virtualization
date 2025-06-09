@@ -1,4 +1,4 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: builder/src

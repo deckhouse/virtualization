@@ -1,8 +1,8 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
-fromImage: {{ include "ImageName" (tuple . "distroless") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-  - image: {{ include "ImageName" (tuple . "virtualization-artifact") }}
+  - image: {{ .ModuleNamePrefix }}virtualization-artifact
     add: /usr/local/go/src/virtualization-controller/virtualization-api
     to: /app/virtualization-api
     after: install

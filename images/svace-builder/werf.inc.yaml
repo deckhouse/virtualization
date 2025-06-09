@@ -1,5 +1,5 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName "download") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-download
 final: false
 fromImage: builder/alpine
 secrets:
@@ -16,11 +16,11 @@ shell:
   - git clone --depth 1 --branch v4.0.250415 $(cat /run/secrets/SOURCE_REPO)/ispras/svace.git /opt/svace
 
 ---
-image: {{ include "ImageName" (tuple . "base-alt" "p11/svace") }}
+image: {{ .ModuleNamePrefix }}base-alt-p11/svace
 final: false
 fromImage: BASE_ALT_P11
 import:
-- image: {{ include "ImageName" (tuple . .ImageName "download") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-download
   add: /opt/svace
   to: /opt/svace
   before: install
@@ -36,11 +36,11 @@ shell:
   - |
     ln -s /opt/svace/bin/svace /usr/local/bin/svace
 ---
-image: {{ include "ImageName" (tuple . "builder/golang-bookworm" "1.23/svace") }}
+image: {{ .ModuleNamePrefix }}builder/golang-bookworm-1.23/svace
 final: false
 fromImage: builder/golang-bookworm-1.23
 import:
-- image: {{ include "ImageName" (tuple . .ImageName "download") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-download
   add: /opt/svace
   to: /opt/svace
   before: install

@@ -1,5 +1,5 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
 git:

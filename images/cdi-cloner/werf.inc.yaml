@@ -1,8 +1,8 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
-fromImage: {{ include "ImageName" (tuple . "distroless") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-- image: {{ include "ImageName" (tuple . .ImageName "bins") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
   add: /relocate
   to: /
   before: setup
@@ -21,23 +21,23 @@ binaries:
 
 {{ $virtCDIClonerDependencies := include "$name" . | fromYaml }}
 
-image: {{ include "ImageName" (tuple . .ImageName "bins") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: {{ include "ImageName" (tuple . "base-alt-p11" "binaries") }}
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
-- image: {{ include "ImageName" (tuple . .ImageName "gobuild") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuild
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
   - cloner-startup
   before: install
-- image: {{ include "ImageName" (tuple . "cdi-artifact-cbuilder") }}
+- image: {{ .ModuleNamePrefix }}cdi-artifact-cbuilder
   add: /bins
   to: /usr/bin
   before: install
   includePaths:
   - hello
-- image: {{ include "ImageName" (tuple . "cdi-artifact") }}
+- image: {{ .ModuleNamePrefix }}cdi-artifact
   add: /cdi-binaries
   to: /usr/bin
   includePaths:
@@ -49,7 +49,7 @@ shell:
   - |
     /relocate_binaries.sh -i "{{ $virtCDIClonerDependencies.binaries | join " " }}" -o /relocate
 ---
-image: {{ include "ImageName" (tuple . .ImageName "gobuild") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuild
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
