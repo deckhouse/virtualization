@@ -11,7 +11,7 @@ spec:
               - key: node.deckhouse.io/dvp-nesting-level
                 operator: In
                 values:
-                - {{ $dvpNestingLevel }}
+                - "{{ $dvpNestingLevel }}"
             - matchExpressions:
               - key: node.deckhouse.io/dvp-nesting-level
                 operator: DoesNotExist
