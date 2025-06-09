@@ -31,6 +31,10 @@ defaults:
   run:
     shell: bash
 
+concurrency:
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
+
 jobs:
   set_vars:
     runs-on: ubuntu-latest
@@ -49,8 +53,8 @@ jobs:
           elif [[ -n "${{ github.event.pull_request.number }}" ]]; then
             MODULES_MODULE_TAG="pr${{ github.event.pull_request.number }}-svace"
           else
-            echo "::error title=Module image tag is required::Can't detect module tag from workflow context. Dev build uses branch name as tag for main and release branches, and PR number for builds from pull requests. Check workflow for correctness."
-            exit 1
+            underscored_branch=$(echo "${{ github.ref_name }}" | tr '/' '_')
+            MODULES_MODULE_TAG="$underscored_branch-svace"
           fi
 
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
@@ -63,6 +67,9 @@ jobs:
           else
             echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
           fi
+
+          # EE for virtualization-audit
+          echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
 
   dev_setup_build:
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
