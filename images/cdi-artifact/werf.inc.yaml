@@ -2,7 +2,7 @@
 {{- $version := "v1.60.3-v12n.1" }}
 {{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
 
-image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
@@ -26,14 +26,14 @@ shell:
     rm -rf /src/containerized-data-importer/.git
 
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: builder/golang-bookworm-1.23
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
 import:
-- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /src/containerized-data-importer
   to: /containerized-data-importer
   before: install
@@ -110,7 +110,7 @@ shell:
   - ls -la /cdi-binaries
 
 ---
-image: {{ include "ImageName" (tuple . .ImageName "cbuilder") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:

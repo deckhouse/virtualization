@@ -1,5 +1,5 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName "builder") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
@@ -32,10 +32,10 @@ shell:
 
 ---
 
-image: {{ include "ImageName" (tuple . .ImageName) }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: builder/scratch
 import:
-  - image: {{ include "ImageName" (tuple . .ImageName "builder") }}
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
     add: /src/kube-api-rewriter/kube-api-rewriter
     to: /app/kube-api-rewriter
     after: install

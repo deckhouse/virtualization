@@ -1,8 +1,8 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
-fromImage: {{ include "ImageName" (tuple . "distroless") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-- image: {{ include "ImageName" (tuple . "dvcr-artifact" "bins") }}
+- image: {{ .ModuleNamePrefix }}dvcr-artifact-bins
   add: /relocate
   to: /
   after: install

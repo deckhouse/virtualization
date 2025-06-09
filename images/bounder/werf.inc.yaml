@@ -1,8 +1,8 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
-fromImage: {{ include "ImageName" (tuple . "distroless") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-  - image: {{ include "ImageName" (tuple . .ImageName "cbuilder") }}
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
     add: /bins
     to: /usr/local/bin
     after: setup
@@ -10,7 +10,7 @@ imageSpec:
   config:
     cmd: ["hello_bounder"]
 ---
-image: {{ include "ImageName" (tuple . .ImageName "cbuilder") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:

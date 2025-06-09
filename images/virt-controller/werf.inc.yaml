@@ -1,14 +1,14 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
-fromImage: {{ include "ImageName" (tuple . "distroless") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-- image: {{ include "ImageName" (tuple . "virt-artifact") }}
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
   includePaths:
   - virt-controller
   before: setup
-- image: {{ include "ImageName" (tuple . "virt-artifact") }}
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-config-files/
   to: /etc
   includePaths:

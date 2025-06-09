@@ -1,8 +1,8 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
-fromImage: {{ include "ImageName" (tuple . "distroless") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-- image: {{ include "ImageName" (tuple . .ImageName "bins") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
   add: /relocate
   to: /
   after: install
@@ -15,7 +15,7 @@ import:
   includePaths:
   - usr/bin/cp
   - usr/bin/coreutils
-- image: {{ include "ImageName" (tuple . "virt-artifact") }}
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
   after: install
@@ -23,17 +23,17 @@ import:
   - virt-chroot
   - virt-handler
   - container-disk
-- image: {{ include "ImageName" (tuple . "virt-artifact") }}
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt/cmd/{{ $.ImageName }}/virt_launcher.cil
   to: /virt_launcher.cil
   after: install
-- image: {{ include "ImageName" (tuple . "virt-artifact") }}
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-config-files/.version
   to: /.version
   after: install
   includePaths:
   - .version
-- image: {{ include "ImageName" (tuple . "virt-artifact") }}
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc
   after: install
@@ -64,9 +64,9 @@ binaries:
 
 {{ $virtHandlerDependencies := include "$name" . | fromYaml }}
 
-image: {{ include "ImageName" (tuple . .ImageName "bins") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: {{ include "ImageName" (tuple . "base-alt-p11" "binaries") }}
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -87,7 +87,7 @@ import:
   add: /acl
   to: /acl
   before: install
-- image: {{ include "ImageName" (tuple . "qemu") }}
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
   before: setup

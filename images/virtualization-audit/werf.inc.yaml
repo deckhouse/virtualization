@@ -1,9 +1,9 @@
 {{- if eq .MODULE_EDITION "EE" }}
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
-fromImage: {{ include "ImageName" (tuple . "distroless") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-  - image: {{ include "ImageName" (tuple . "virtualization-artifact") }}
+  - image: {{ .ModuleNamePrefix }}virtualization-artifact
     add: /usr/local/go/src/virtualization-controller/virtualization-audit
     to: /app/virtualization-audit
     after: install

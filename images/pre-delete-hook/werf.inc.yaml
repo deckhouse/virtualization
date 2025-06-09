@@ -1,5 +1,5 @@
 ---
-image: {{ include "ImageName" (tuple . .ImageName "builder") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
@@ -29,10 +29,10 @@ shell:
   - export CGO_ENABLED=0
   - go build -v -a -o pre-delete-hook main.go
 ---
-image: {{ include "ImageName" (tuple . .ImageName) }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: builder/scratch
 import:
-- image: {{ include "ImageName" (tuple . .ImageName "builder") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /pre-delete-hook/pre-delete-hook
   to: /pre-delete-hook
   after: install

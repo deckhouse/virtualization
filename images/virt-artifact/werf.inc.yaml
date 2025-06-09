@@ -3,9 +3,9 @@
 {{- $version := "v1.3.1" }}
 {{- $tag := print $version "-v12n.1"}}
 ---
-image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: {{ include "ImageName" (tuple . "src-artifact") }}
+fromImage: {{ .ModuleNamePrefix }}src-artifact
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
@@ -17,7 +17,7 @@ shell:
 
 ---
 
-{{- $name := print $.ImageName "-dependencies" -}}
+{{- $name := print .ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
 - git
@@ -39,11 +39,11 @@ packages:
 
 {{ $virtArtifactDependencies := include "$name" . | fromYaml }}
 
-image: {{ include "ImageName" (tuple . .ImageName) }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ include "ImageName" (tuple . "base-alt-p11") }}{{ $.SVACE_IMAGE_SUFFIX }}
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11{{ $.SVACE_IMAGE_SUFFIX }}
 import:
-- image: {{ include "ImageName" (tuple . .ImageName "src-artifact") }}
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /kubevirt
   to: /kubevirt
   before: install
