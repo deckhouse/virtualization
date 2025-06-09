@@ -8,6 +8,7 @@
 {{- range $k, $v := $versions_ctx.firmware }}
   {{- $_ := set $.Version $k $v}}
 {{- end }}
+{{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt
@@ -34,6 +35,9 @@ spec:
       manufacturer: Flant
       family: Deckhouse
       product: DeckhouseVirtualizationPlatform
+      {{- if ge $dvpNestingLevel 0 }}
+      sku: "{{ add1 $dvpNestingLevel }}"
+      {{- end }}
     evictionStrategy: LiveMigrate
     vmRolloutStrategy: LiveUpdate
     developerConfiguration:
@@ -82,7 +86,11 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
-
+    # Add node affinity for the lowest virtualization level
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "kubevirt.virthandler_nodeaffinity_strategic_patch_json" $dvpNestingLevel }}
+      type: strategic
     {{- if (include "helm_lib_ha_enabled" .) }}
     # HA settings for deploy/virt-api.
     - resourceType: Deployment
