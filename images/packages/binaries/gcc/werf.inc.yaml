@@ -95,4 +95,4 @@ shell:
 
     make -j$(nproc)
 
-    make DESTDIR=$OUTDIR install-strip
+    make DESTDIR=$OUTDIR install
