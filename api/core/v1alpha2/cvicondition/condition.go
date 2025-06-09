@@ -82,6 +82,16 @@ const (
 	// Ready indicates that the import process is complete and the `ClusterVirtualImage` is ready for use.
 	Ready ReadyReason = "Ready"
 
+	/*
+	   A ClusterVirtualImage can be considered in use if it meets the following two criteria:
+	   1) Provisioning must be completed. The ReadyCondition must be True.
+	   2) The ClusterVirtualImage must be used in one of the following ways:
+	       - Be attached to one or more VirtualMachines (all VirtualMachine phases except Stopped)
+	       - Be attached via a VirtualMachineBlockDeviceAttachment (any VMBDA phases)
+	       - Be used for provisioning vi (phases: Pending, Provisioning, Failed)
+	       - Be used for provisioning cvi (phases: Pending, Provisioning, Failed)
+	       - Be used for provisioning vd (phases: Pending, Provisioning, WaitForFirstConsumer, Failed)
+	*/
 	// InUse indicates that the `ClusterVirtualImage` is used by other resources and cannot be deleted now.
 	InUse InUseReason = "InUse"
 	// NotInUse indicates that the `ClusterVirtualImage` is not used by other resources and can be deleted now.

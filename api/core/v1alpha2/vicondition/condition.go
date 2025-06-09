@@ -108,6 +108,16 @@ const (
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
 	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
 
+	/*
+	   A VirtualImage can be considered in use if it meets the following two criteria:
+	   1) Provisioning must be completed. The ReadyCondition must be True or have the Reason PVCLost.
+	   2) The VirtualImage must be used in one of the following ways:
+	       - Be attached to one or more VirtualMachines (all VirtualMachine phases except Stopped)
+	       - Be attached via a VirtualMachineBlockDeviceAttachment (any VMBDA phases)
+	       - Be used for provisioning vi (phases: Pending, Provisioning, Failed)
+	       - Be used for provisioning cvi (phases: Pending, Provisioning, Failed)
+	       - Be used for provisioning vd (phases: Pending, Provisioning, WaitForFirstConsumer, Failed)
+	*/
 	// InUse indicates that the `VirtualImage` is used by other resources and cannot be deleted now.
 	InUse InUseReason = "InUse"
 	// InUse indicates that the `VirtualImage` is not used by other resources and can be deleted now.
