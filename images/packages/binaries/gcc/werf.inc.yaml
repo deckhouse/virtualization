@@ -95,4 +95,6 @@ shell:
 
     make -j$(nproc)
 
-    make DESTDIR=$OUTDIR install
+    make install-strip
+    mkdir $OUTDIR
+    cp -r x86_64-pc-linux-gnu/libgcc /out/
