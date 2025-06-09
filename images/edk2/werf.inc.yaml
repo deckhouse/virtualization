@@ -7,24 +7,24 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: {{ .ModuleNamePrefix }}src-artifact
 git:
-- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/build.sh
+- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/build.sh
   to: /build.sh
   stageDependencies:
     install:
       - build.sh
-- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/logo/Logo.bmp
+- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/logo/Logo.bmp
   to: /Logo.bmp
   stageDependencies:
     install:
       - '**/*'
-- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/json
+- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/json
   to: /FIRMWARE
   includePaths:
   - '*.json'
   stageDependencies:
     install:
       - '*.json'
-- add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/uefi-revocation-list
+- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/uefi-revocation-list
   to: /FIRMWARE
   includePaths:
   - '*.bin'

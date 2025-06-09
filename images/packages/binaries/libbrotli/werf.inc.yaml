@@ -1,15 +1,15 @@
 ---
-image: {{ $.PackagePath }}/{{ $.ImageName }}
+image: {{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
+- image: {{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
   to: /libbrotli
   before: setup
 
 ---
-{{- $version := get $.PackageVersion $.ImageName }}
+{{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "google/brotli.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -21,7 +21,7 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.PackagePath }}/{{ $.ImageName }}-builder
+image: {{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 secrets:

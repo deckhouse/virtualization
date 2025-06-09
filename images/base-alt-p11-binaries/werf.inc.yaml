@@ -14,7 +14,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: BASE_ALT_P11
 git:
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/relocate_binaries.sh
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/relocate_binaries.sh
     to: /relocate_binaries.sh
 shell:
   install:

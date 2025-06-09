@@ -158,7 +158,7 @@ final: false
 fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 git:
   # Add qemu and virtqemud configs
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/configs
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/configs
     to: /relocate/etc/libvirt
     stageDependencies:
       setup:
@@ -167,7 +167,7 @@ git:
     includePaths:
     - qemu.conf
     - virtqemud.conf
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/configs
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/configs
     to: /relocate/etc
     stageDependencies:
       setup:
@@ -440,14 +440,14 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/node-labeller
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/node-labeller
     to: /node-labeller
     includePaths:
       - '**/*'
     stageDependencies:
       install:
       - '**/*'
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/vlctl
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/vlctl
     to: /src-vlctl
     includePaths:
       - '**/*'
@@ -485,7 +485,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/static_binaries
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/static_binaries
     to: /static_binaries
     stageDependencies:
       install:

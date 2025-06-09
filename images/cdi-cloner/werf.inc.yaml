@@ -53,7 +53,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuild
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: {{ include "PreffixPath" . }}/images/{{ $.ImageName }}/cloner-startup
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/cloner-startup
     to: /app
     stageDependencies:
       install:
