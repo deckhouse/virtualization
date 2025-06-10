@@ -38,7 +38,7 @@ shell:
     {{- include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 6 }}
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-api" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o virtualization-api ./cmd/virtualization-api`) | nindent 6 }}
-{{- if eq .MODULE_EDITION "EE" }}
+{{- if or (eq .MODULE_EDITION "EE") (eq .SVACE_ENABLED "true") }}
   - |
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-audit" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o virtualization-audit ./cmd/virtualization-audit`) | nindent 6 }}
