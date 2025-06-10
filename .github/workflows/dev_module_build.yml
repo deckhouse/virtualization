@@ -675,7 +675,7 @@ jobs:
               issue_number: issueNumber,
             });
 
-            if (ci.removeLabel({github, context, labels, labelToRemoveE2E})) {
+            if (ci.removeLabel({github, context, labels, labelToRemove: labelToRemoveE2E})) {
               const commentIdStr = '${{ needs.run_e2e.outputs.comment_id }}';
               const commentId = parseInt(commentIdStr, 10);
               const stepOutcome = '${{ needs.run_e2e.result }}';
@@ -693,4 +693,4 @@ jobs:
                 });
               }
             }
-            ci.removeLabel({github, context, labels, labelToRemoveSvace});
+            ci.removeLabel({github, context, labels, labelToRemove: labelToRemoveSvace});
