@@ -35,12 +35,20 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
+type PVCGetter interface {
+	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+}
+
+func newDiskServiceAsPVCGetter(client client.Client) PVCGetter {
+	return service.NewDiskService(client, nil, nil, "vd")
+}
+
 type LifeCycleHandler struct {
 	client      client.Client
 	blank       source.Handler
 	sources     Sources
 	recorder    eventrecord.EventRecorderLogger
-	diskService *service.DiskService
+	diskService PVCGetter
 }
 
 func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, blank source.Handler, sources Sources, client client.Client) *LifeCycleHandler {
@@ -49,7 +57,7 @@ func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, blank source.
 		blank:       blank,
 		sources:     sources,
 		recorder:    recorder,
-		diskService: service.NewDiskService(client, nil, nil, "vd"),
+		diskService: newDiskServiceAsPVCGetter(client),
 	}
 }
 
