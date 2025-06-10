@@ -27,7 +27,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -38,16 +37,16 @@ import (
 type LifeCycleHandler struct {
 	client      client.Client
 	sources     Sources
-	diskService *service.DiskService
+	diskService DiskService
 	recorder    eventrecord.EventRecorderLogger
 }
 
-func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, sources Sources, client client.Client) *LifeCycleHandler {
+func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, sources Sources, client client.Client, diskService DiskService) *LifeCycleHandler {
 	return &LifeCycleHandler{
 		recorder:    recorder,
 		client:      client,
 		sources:     sources,
-		diskService: service.NewDiskService(client, nil, nil, "vi"),
+		diskService: diskService,
 	}
 }
 

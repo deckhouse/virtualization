@@ -27,7 +27,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -35,29 +34,21 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-type PVCGetter interface {
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-}
-
-func newDiskServiceAsPVCGetter(client client.Client) PVCGetter {
-	return service.NewDiskService(client, nil, nil, "vd")
-}
-
 type LifeCycleHandler struct {
 	client      client.Client
 	blank       source.Handler
 	sources     Sources
 	recorder    eventrecord.EventRecorderLogger
-	diskService PVCGetter
+	diskService DiskService
 }
 
-func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, blank source.Handler, sources Sources, client client.Client) *LifeCycleHandler {
+func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, blank source.Handler, sources Sources, client client.Client, diskService DiskService) *LifeCycleHandler {
 	return &LifeCycleHandler{
 		client:      client,
 		blank:       blank,
 		sources:     sources,
 		recorder:    recorder,
-		diskService: newDiskServiceAsPVCGetter(client),
+		diskService: diskService,
 	}
 }
 
