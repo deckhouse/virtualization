@@ -44,19 +44,6 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 		snapshots *mock.SnapshotsMock
 	)
 
-	// testDataVap := admissionregistrationv1.ValidatingAdmissionPolicy{
-	// 	TypeMeta: metav1.TypeMeta{
-	// 		Kind:       "ValidatingAdmissionPolicy",
-	// 		APIVersion: "admissionregistration.k8s.io/v1",
-	// 	},
-	// 	ObjectMeta: metav1.ObjectMeta{
-	// 		Name: "test-vap",
-	// 		Labels: map[string]string{
-	// 			"test": "test",
-	// 		},
-	// 	},
-	// }
-
 	setSnapshots := func(snapPolicy, snapBinding []pkg.Snapshot) {
 		snapshots.GetMock.When(POLICY_SNAPSHOT_NAME).Then(snapPolicy)
 		snapshots.GetMock.When(BINDING_SNAPSHOT_NAME).Then(snapBinding)
@@ -113,6 +100,7 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 			[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})})
 		Expect(reconcile(context.Background(), newInput())).To(Succeed())
 	})
+
 	It("test with labels app.kubernetes.io/managed-by:\"\"", func() {
 		setSnapshots(
 			[]pkg.Snapshot{newSnapshotPolicy(map[string]string{managed_by_label: managed_by_label_value})},
@@ -149,11 +137,6 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 				})
 			return c, nil
 		})
-
-		// setSnapshots(
-		// 	[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
-		// 	[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})})
-		// Expect(reconcile(context.Background(), newInput())).To(Succeed())
 	})
 	It(fmt.Sprintf("sohuld skip vap %s", BINDING_SNAPSHOT_NAME), func() {
 		setSnapshots(
@@ -165,7 +148,7 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 			c := mock.NewKubernetesClientMock(GinkgoT())
 			c.DeleteMock.Set(
 				func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
-					vap, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy)
+					vap, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
 					Expect(ok).To(BeTrue())
 					Expect(vap.Name).To(Equal(BINDING_SNAPSHOT_NAME))
 					return nil
@@ -183,7 +166,7 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 			c := mock.NewKubernetesClientMock(GinkgoT())
 			c.DeleteMock.Set(
 				func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
-					vap, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy)
+					vap, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
 					Expect(ok).To(BeTrue())
 					Expect(vap.Name).To(Equal(BINDING_SNAPSHOT_NAME))
 					return nil
