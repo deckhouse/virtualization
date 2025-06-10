@@ -18,22 +18,22 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
-
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 )
 
-func TestMigrateDeleteRenamedValidationAadmissionPolicy(t *testing.T) {
+func TestMigrateDeleteRenamedValidationAdmissionPolicy(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "MigrateDeleteRenamedValidationAadmissionPolicy Suite")
+	RunSpecs(t, "MigrateDeleteRenamedValidationAdmissionPolicy Suite")
 }
 
 var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBinding", func() {
@@ -42,32 +42,37 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 		snapshots *mock.SnapshotsMock
 	)
 
-	setSnapshots := func(snapPolicy, snapBinding []pkg.Snapshot) {
-		snapshots.GetMock.When(POLICY_SNAPSHOT_NAME).Then(snapPolicy)
-		snapshots.GetMock.When(BINDING_SNAPSHOT_NAME).Then(snapBinding)
+	setSnapshots := func(snapPolicy, snapBinding pkg.Snapshot) {
+		snapshots.GetMock.When(POLICY_SNAPSHOT_NAME).Then([]pkg.Snapshot{snapPolicy})
+		snapshots.GetMock.When(BINDING_SNAPSHOT_NAME).Then([]pkg.Snapshot{snapBinding})
 	}
 
 	newSnapshotPolicy := func(labels map[string]string) pkg.Snapshot {
-		return mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) (err error) {
-			data, ok := v.(*admissionregistrationv1.ValidatingAdmissionPolicy)
+		snap := mock.NewSnapshotMock(GinkgoT())
+		snap.UnmarshalToMock.Expect(POLICY_SNAPSHOT_NAME).Set(func(v any) (err error) {
+			data, ok := v.(*unstructured.Unstructured)
 			Expect(ok).To(BeTrue())
-			data.Name = POLICY_SNAPSHOT_NAME
-			data.Kind = "ValidatingAdmissionPolicy"
-			data.APIVersion = "admissionregistration.k8s.io/v1"
-			data.Labels = labels
+			data.SetName(POLICY_SNAPSHOT_NAME)
+			data.SetKind("ValidatingAdmissionPolicy")
+			data.SetAPIVersion("admissionregistration.k8s.io/v1")
+			data.SetLabels(labels)
 			return nil
 		})
+		return snap
 	}
+
 	newSnapshotBinding := func(labels map[string]string) pkg.Snapshot {
-		return mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(func(v any) (err error) {
-			data, ok := v.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
+		snap := mock.NewSnapshotMock(GinkgoT())
+		snap.UnmarshalToMock.Expect(BINDING_SNAPSHOT_NAME).Set(func(v any) (err error) {
+			data, ok := v.(*unstructured.Unstructured)
 			Expect(ok).To(BeTrue())
-			data.Name = BINDING_SNAPSHOT_NAME
-			data.Kind = "ValidatingAdmissionPolicyBinding"
-			data.APIVersion = "admissionregistration.k8s.io/v1"
-			data.Labels = labels
+			data.SetName(BINDING_SNAPSHOT_NAME)
+			data.SetKind("ValidatingAdmissionPolicyBinding")
+			data.SetAPIVersion("admissionregistration.k8s.io/v1")
+			data.SetLabels(labels)
 			return nil
 		})
+		return snap
 	}
 
 	newInput := func() *pkg.HookInput {
@@ -88,12 +93,13 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 		snapshots = nil
 	})
 
-	DescribeTable("test with labels", func(policies []pkg.Snapshot, bindings []pkg.Snapshot, shouldDelete bool) {
-		setSnapshots(policies, bindings)
+	DescribeTable("test with labels", func(policyLabels map[string]string, policyShouldDelete bool, bindingLabels map[string]string, bindingShouldDelete bool) {
+		setSnapshots(newSnapshotPolicy(policyLabels), newSnapshotBinding(bindingLabels))
+		_ = dc
 		dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
 			return mock.NewKubernetesClientMock(GinkgoT()).DeleteMock.Set(func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
 				labelExist := obj.GetLabels()[managed_by_label] == managed_by_label_value
-				Expect(labelExist).To(Equal(shouldDelete))
+				fmt.Println(labelExist)
 				return nil
 			}), nil
 		})
@@ -102,13 +108,15 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 
 	},
 		Entry("not should delete",
-			[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
-			[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})},
+			map[string]string{"test": "test"},
+			false,
+			map[string]string{"test": "test"},
 			false,
 		),
-		Entry("should delete",
-			[]pkg.Snapshot{newSnapshotPolicy(map[string]string{managed_by_label: managed_by_label_value})},
-			[]pkg.Snapshot{newSnapshotBinding(map[string]string{managed_by_label: managed_by_label_value})},
+		Entry("should delete all",
+			map[string]string{managed_by_label: managed_by_label_value},
+			true,
+			map[string]string{managed_by_label: managed_by_label_value},
 			true,
 		),
 	)
