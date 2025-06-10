@@ -44,7 +44,9 @@ func NewInUseHandler(client client.Client) *InUseHandler {
 func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vicondition.InUse).Generation(vi.Generation)
 	readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
-	if readyCondition.Status == metav1.ConditionFalse && conditions.IsLastUpdated(readyCondition, vi) {
+	if readyCondition.Status == metav1.ConditionFalse &&
+		readyCondition.Reason != vicondition.Lost.String() &&
+		conditions.IsLastUpdated(readyCondition, vi) {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.NotInUse).
@@ -66,36 +68,51 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	if len(vms) > 0 {
+		setInUseConditionTrue(vi, cb)
+		return reconcile.Result{}, nil
+	}
+
+	vmbdas, err := h.listVMBDAsUsingImage(ctx, vi)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(vmbdas) > 0 {
+		setInUseConditionTrue(vi, cb)
+		return reconcile.Result{}, nil
+	}
 
 	vds, err := h.listVDsUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+	if len(vds) > 0 {
+		setInUseConditionTrue(vi, cb)
+		return reconcile.Result{}, nil
 	}
 
 	vis, err := h.listVIsUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	if len(vis) > 0 {
+		setInUseConditionTrue(vi, cb)
+		return reconcile.Result{}, nil
+	}
 
 	cvis, err := h.listCVIsUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-	consumerCount := len(vms) + len(vds) + len(vis) + len(cvis)
-
-	if consumerCount > 0 {
-		cb.
-			Status(metav1.ConditionTrue).
-			Reason(vicondition.InUse).
-			Message("")
-	} else {
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vicondition.NotInUse).
-			Message("")
+	if len(cvis) > 0 {
+		setInUseConditionTrue(vi, cb)
+		return reconcile.Result{}, nil
 	}
 
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(vicondition.NotInUse).
+		Message("")
 	conditions.SetCondition(cb, &vi.Status.Conditions)
 	return reconcile.Result{}, nil
 }
@@ -128,6 +145,23 @@ func (h InUseHandler) listVMsUsingImage(ctx context.Context, vi *virtv2.VirtualI
 	return vmsUsingImage, nil
 }
 
+func (h InUseHandler) listVMBDAsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
+	err := h.client.List(ctx, &vmbdas, client.InNamespace(vi.GetNamespace()))
+	if err != nil {
+		return []client.Object{}, err
+	}
+
+	var vmbdasUsingImage []client.Object
+	for _, vmbda := range vmbdas.Items {
+		if vmbda.Spec.BlockDeviceRef.Kind == virtv2.VMBDAObjectRefKindVirtualImage && vmbda.Spec.BlockDeviceRef.Name == vi.Name {
+			vmbdasUsingImage = append(vmbdasUsingImage, &vmbda)
+		}
+	}
+
+	return vmbdasUsingImage, nil
+}
+
 func (h InUseHandler) listVDsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
 	var vds virtv2.VirtualDiskList
 	err := h.client.List(ctx, &vds, client.InNamespace(vi.GetNamespace()), client.MatchingFields{
@@ -139,7 +173,13 @@ func (h InUseHandler) listVDsUsingImage(ctx context.Context, vi *virtv2.VirtualI
 
 	var vdsNotReady []client.Object
 	for _, vd := range vds.Items {
-		if vd.Status.Phase != virtv2.DiskReady && vd.Status.Phase != virtv2.DiskTerminating {
+		phase := vd.Status.Phase
+		isProvisioning := (phase == virtv2.DiskPending) ||
+			(phase == virtv2.DiskProvisioning) ||
+			(phase == virtv2.DiskWaitForFirstConsumer) ||
+			(phase == virtv2.DiskFailed)
+
+		if isProvisioning {
 			vdsNotReady = append(vdsNotReady, &vd)
 		}
 	}
@@ -158,7 +198,9 @@ func (h InUseHandler) listVIsUsingImage(ctx context.Context, vi *virtv2.VirtualI
 
 	var visNotReady []client.Object
 	for _, viItem := range vis.Items {
-		if viItem.Status.Phase != virtv2.ImageReady && viItem.Status.Phase != virtv2.ImageTerminating {
+		phase := viItem.Status.Phase
+		isProvisioning := (phase == virtv2.ImagePending) || (phase == virtv2.ImageProvisioning) || (phase == virtv2.ImageFailed)
+		if isProvisioning {
 			visNotReady = append(visNotReady, &viItem)
 		}
 	}
@@ -177,13 +219,29 @@ func (h InUseHandler) listCVIsUsingImage(ctx context.Context, vi *virtv2.Virtual
 
 	var cvisFiltered []client.Object
 	for _, cvi := range cvis.Items {
-		if cvi.Spec.DataSource.ObjectRef == nil || cvi.Status.Phase == virtv2.ImageReady || cvi.Status.Phase == virtv2.ImageTerminating {
+		if cvi.Spec.DataSource.ObjectRef == nil {
 			continue
 		}
+
+		phase := cvi.Status.Phase
+		isProvisioning := (phase == virtv2.ImagePending) || (phase == virtv2.ImageProvisioning) || (phase == virtv2.ImageFailed)
+		if !isProvisioning {
+			continue
+		}
+
 		if cvi.Spec.DataSource.ObjectRef.Namespace == vi.GetNamespace() {
 			cvisFiltered = append(cvisFiltered, &cvi)
 		}
 	}
 
 	return cvisFiltered, nil
+}
+
+func setInUseConditionTrue(vi *virtv2.VirtualImage, cb *conditions.ConditionBuilder) {
+	cb.
+		Status(metav1.ConditionTrue).
+		Reason(vicondition.InUse).
+		Message("")
+
+	conditions.SetCondition(cb, &vi.Status.Conditions)
 }
