@@ -153,7 +153,13 @@ func (h InUseHandler) listVDsUsingImage(ctx context.Context, cvi *virtv2.Cluster
 
 	var vdsNotReady []client.Object
 	for _, vd := range vds.Items {
-		if vd.Status.Phase != virtv2.DiskReady && vd.Status.Phase != virtv2.DiskTerminating {
+		phase := vd.Status.Phase
+		isProvisioning := (phase == virtv2.DiskPending) ||
+			(phase == virtv2.DiskProvisioning) ||
+			(phase == virtv2.DiskWaitForFirstConsumer) ||
+			(phase == virtv2.DiskFailed)
+
+		if isProvisioning {
 			vdsNotReady = append(vdsNotReady, &vd)
 		}
 	}
@@ -172,7 +178,10 @@ func (h InUseHandler) listVIsUsingImage(ctx context.Context, cvi *virtv2.Cluster
 
 	var visNotReady []client.Object
 	for _, vi := range vis.Items {
-		if vi.Status.Phase != virtv2.ImageReady && vi.Status.Phase != virtv2.ImageTerminating {
+		phase := vi.Status.Phase
+		isProvisioning := (phase == virtv2.ImagePending) || (phase == virtv2.ImageProvisioning) || (phase == virtv2.ImageFailed)
+
+		if isProvisioning {
 			visNotReady = append(visNotReady, &vi)
 		}
 	}
@@ -191,7 +200,10 @@ func (h InUseHandler) listCVIsUsingImage(ctx context.Context, cvi *virtv2.Cluste
 
 	var cvisNotReady []client.Object
 	for _, cviItem := range cvis.Items {
-		if cviItem.Status.Phase != virtv2.ImageReady && cviItem.Status.Phase != virtv2.ImageTerminating {
+		phase := cviItem.Status.Phase
+		isProvisioning := (phase == virtv2.ImagePending) || (phase == virtv2.ImageProvisioning) || (phase == virtv2.ImageFailed)
+
+		if isProvisioning {
 			cvisNotReady = append(cvisNotReady, &cviItem)
 		}
 	}
