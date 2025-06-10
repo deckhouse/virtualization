@@ -654,6 +654,7 @@ jobs:
       - update_comment_on_finish
       - analyze_build
     steps:
+      - uses: actions/checkout@v4
       - name: Remove labels and add comment
         id: remove-label
         uses: actions/github-script@v6
