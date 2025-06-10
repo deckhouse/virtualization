@@ -18,7 +18,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
@@ -49,7 +48,7 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 
 	newSnapshotPolicy := func(labels map[string]string) pkg.Snapshot {
 		snap := mock.NewSnapshotMock(GinkgoT())
-		snap.UnmarshalToMock.Expect(POLICY_SNAPSHOT_NAME).Set(func(v any) (err error) {
+		snap.UnmarshalToMock.Set(func(v any) (err error) {
 			data, ok := v.(*unstructured.Unstructured)
 			Expect(ok).To(BeTrue())
 			data.SetName(POLICY_SNAPSHOT_NAME)
@@ -63,7 +62,7 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 
 	newSnapshotBinding := func(labels map[string]string) pkg.Snapshot {
 		snap := mock.NewSnapshotMock(GinkgoT())
-		snap.UnmarshalToMock.Expect(BINDING_SNAPSHOT_NAME).Set(func(v any) (err error) {
+		snap.UnmarshalToMock.Set(func(v any) (err error) {
 			data, ok := v.(*unstructured.Unstructured)
 			Expect(ok).To(BeTrue())
 			data.SetName(BINDING_SNAPSHOT_NAME)
@@ -95,15 +94,27 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 
 	DescribeTable("test with labels", func(policyLabels map[string]string, policyShouldDelete bool, bindingLabels map[string]string, bindingShouldDelete bool) {
 		setSnapshots(newSnapshotPolicy(policyLabels), newSnapshotBinding(bindingLabels))
-		_ = dc
-		dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
-			return mock.NewKubernetesClientMock(GinkgoT()).DeleteMock.Set(func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
-				labelExist := obj.GetLabels()[managed_by_label] == managed_by_label_value
-				fmt.Println(labelExist)
-				return nil
-			}), nil
-		})
+		if policyShouldDelete || bindingShouldDelete {
+			dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
+				return mock.NewKubernetesClientMock(GinkgoT()).DeleteMock.Set(func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
+					labelExist := obj.GetLabels()[managed_by_label] == managed_by_label_value
 
+					switch obj.GetObjectKind().GroupVersionKind().Kind {
+					case "ValidatingAdmissionPolicy":
+						Expect(labelExist).To(Equal(policyShouldDelete))
+					case "ValidatingAdmissionPolicyBinding":
+						Expect(labelExist).To(Equal(bindingShouldDelete))
+					default:
+						Fail("unexpected kind")
+					}
+					return nil
+				}), nil
+			})
+		} else {
+			dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
+				return mock.NewKubernetesClientMock(GinkgoT()), nil
+			})
+		}
 		Expect(reconcile(context.Background(), newInput())).To(Succeed())
 
 	},
@@ -112,6 +123,18 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 			false,
 			map[string]string{"test": "test"},
 			false,
+		),
+		Entry("should delete policy",
+			map[string]string{managed_by_label: managed_by_label_value},
+			true,
+			map[string]string{"test": "test"},
+			false,
+		),
+		Entry("should delete binding",
+			map[string]string{"test": "test"},
+			false,
+			map[string]string{managed_by_label: managed_by_label_value},
+			true,
 		),
 		Entry("should delete all",
 			map[string]string{managed_by_label: managed_by_label_value},
