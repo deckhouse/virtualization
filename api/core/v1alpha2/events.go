@@ -128,6 +128,8 @@ const (
 	ReasonIPAddressHasBeenAllocated = "IPAddressHasBeenAllocated"
 	// ReasonBound is the event reason indicating that a VirtualMachineIPLease is bound to a VirtualMachineIPAddress.
 	ReasonBound = "Bound"
+	// ReasonReleased is the event reason indicating that a VirtualMachineIPLease is released.
+	ReasonReleased = "Released"
 	// ReasonFailed is the event reason indicating that the binding of a VirtualMachineIPLease to a VirtualMachineIPAddress has failed.
 	ReasonFailed = "Failed"
 
