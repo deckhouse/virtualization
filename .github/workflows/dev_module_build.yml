@@ -662,6 +662,9 @@ jobs:
           github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
             const ci = require('./.github/scripts/js/ci');
+            const issueNumber = context.issue.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
 
             const labelToRemoveE2E = 'e2e/run';
             const labelToRemoveSvace = 'analyze/svace';
