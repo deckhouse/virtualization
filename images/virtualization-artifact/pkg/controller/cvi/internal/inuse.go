@@ -87,7 +87,7 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 	consumerCount := len(vms) + len(vds) + len(vis) + len(cvis)
 
 	if consumerCount > 0 {
-		cvi.Status.UsedInNamespaces = h.listNamespacesUsingImage(vms, vmbdas, vds, vis)
+		cvi.Status.UsedInNamespaces = h.extractNamespacesFromObjects(vms, vmbdas, vds, vis)
 		cb.
 			Status(metav1.ConditionTrue).
 			Reason(cvicondition.InUse).
@@ -212,7 +212,7 @@ func (h InUseHandler) listCVIsUsingImage(ctx context.Context, cvi *virtv2.Cluste
 	return cvisNotReady, nil
 }
 
-func (h InUseHandler) listNamespacesUsingImage(vms, vmbdas, vds, vis []client.Object) []string {
+func (h InUseHandler) extractNamespacesFromObjects(vms, vmbdas, vds, vis []client.Object) []string {
 	var objects []client.Object
 	objects = append(objects, vms...)
 	objects = append(objects, vmbdas...)
