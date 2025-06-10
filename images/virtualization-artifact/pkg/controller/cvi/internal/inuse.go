@@ -49,7 +49,8 @@ func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImag
 			Message("")
 		conditions.SetCondition(cb, &cvi.Status.Conditions)
 		return reconcile.Result{}, nil
-	} else if readyCondition.Status == metav1.ConditionUnknown || !conditions.IsLastUpdated(readyCondition, cvi) {
+	}
+	if readyCondition.Status == metav1.ConditionUnknown || !conditions.IsLastUpdated(readyCondition, cvi) {
 		cb.
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown).

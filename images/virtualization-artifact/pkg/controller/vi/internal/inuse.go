@@ -54,7 +54,8 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 
 		conditions.SetCondition(cb, &vi.Status.Conditions)
 		return reconcile.Result{}, nil
-	} else if readyCondition.Status == metav1.ConditionUnknown || !conditions.IsLastUpdated(readyCondition, vi) {
+	}
+	if readyCondition.Status == metav1.ConditionUnknown || !conditions.IsLastUpdated(readyCondition, vi) {
 		cb.
 			Status(metav1.ConditionUnknown).
 			Reason(conditions.ReasonUnknown).
