@@ -123,12 +123,11 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 }
 
 func snapsToUnstructured(snaps []pkg.Snapshot) ([]*unstructured.Unstructured, error) {
-	objs := make([]*unstructured.Unstructured, 0, len(snaps))
+	objs := make([]*unstructured.Unstructured, len(snaps))
 
 	for i, snap := range snaps {
 		ut := &unstructured.Unstructured{}
-		err := snap.UnmarshalTo(ut)
-		if err != nil {
+		if err := snap.UnmarshalTo(ut); err != nil {
 			return nil, err
 		}
 		objs[i] = ut
