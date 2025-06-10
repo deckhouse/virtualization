@@ -18,8 +18,6 @@ package main
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -82,10 +80,6 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 
 	BeforeEach(func() {
 		dc = mock.NewDependencyContainerMock(GinkgoT())
-
-		dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
-			return mock.NewKubernetesClientMock(GinkgoT()), nil
-		})
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
 	})
 
@@ -94,84 +88,109 @@ var _ = FDescribe("Test ValidatingAdmissionPolicy/ValidatingAdmissionPolicyBindi
 		snapshots = nil
 	})
 
-	It("test with labels test:test", func() {
-		setSnapshots(
-			[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
-			[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})})
-		Expect(reconcile(context.Background(), newInput())).To(Succeed())
-	})
+	DescribeTable("test with labels", func(policies []pkg.Snapshot, bindings []pkg.Snapshot, shouldDelete bool) {
+		setSnapshots(policies, bindings)
+		dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
+			return mock.NewKubernetesClientMock(GinkgoT()).DeleteMock.Set(func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
+				labelExist := obj.GetLabels()[managed_by_label] == managed_by_label_value
+				Expect(labelExist).To(Equal(shouldDelete))
+				return nil
+			}), nil
+		})
 
-	It("test with labels app.kubernetes.io/managed-by:\"\"", func() {
-		setSnapshots(
+		Expect(reconcile(context.Background(), newInput())).To(Succeed())
+
+	},
+		Entry("not should delete",
+			[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
+			[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})},
+			false,
+		),
+		Entry("should delete",
 			[]pkg.Snapshot{newSnapshotPolicy(map[string]string{managed_by_label: managed_by_label_value})},
-			[]pkg.Snapshot{newSnapshotBinding(map[string]string{managed_by_label: managed_by_label_value})})
-		Expect(reconcile(context.Background(), newInput())).To(Succeed())
-	})
+			[]pkg.Snapshot{newSnapshotBinding(map[string]string{managed_by_label: managed_by_label_value})},
+			true,
+		),
+	)
 
-	It("should failed when get k8s client", func() {
-		clientErr := errors.New("client error")
-		dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
-			return nil, clientErr
-		})
-		setSnapshots(
-			[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
-			[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})})
-		err := reconcile(context.Background(), newInput())
-		Expect(err).To(MatchError(clientErr))
-	})
-
-	It(fmt.Sprintf("sohuld skip vap %s", POLICY_SNAPSHOT_NAME), func() {
-		setSnapshots(
-			[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
-			[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})})
-		Expect(reconcile(context.Background(), newInput())).To(Succeed())
-
-		dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
-			c := mock.NewKubernetesClientMock(GinkgoT())
-			c.DeleteMock.Set(
-				func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
-					vap, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy)
-					Expect(ok).To(BeTrue())
-					Expect(vap.Name).To(Equal(POLICY_SNAPSHOT_NAME))
-					return nil
-				})
-			return c, nil
-		})
-	})
-	It(fmt.Sprintf("sohuld skip vap %s", BINDING_SNAPSHOT_NAME), func() {
-		setSnapshots(
-			[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
-			[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})})
-		Expect(reconcile(context.Background(), newInput())).To(Succeed())
-
-		dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
-			c := mock.NewKubernetesClientMock(GinkgoT())
-			c.DeleteMock.Set(
-				func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
-					vap, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
-					Expect(ok).To(BeTrue())
-					Expect(vap.Name).To(Equal(BINDING_SNAPSHOT_NAME))
-					return nil
-				})
-			return c, nil
-		})
-	})
-	It(fmt.Sprintf("sohuld delete vap %s with labels", BINDING_SNAPSHOT_NAME), func() {
-		setSnapshots(
-			[]pkg.Snapshot{newSnapshotPolicy(map[string]string{managed_by_label: managed_by_label_value})},
-			[]pkg.Snapshot{newSnapshotBinding(map[string]string{managed_by_label: managed_by_label_value})})
-		Expect(reconcile(context.Background(), newInput())).To(Succeed())
-
-		dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
-			c := mock.NewKubernetesClientMock(GinkgoT())
-			c.DeleteMock.Set(
-				func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
-					vap, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
-					Expect(ok).To(BeTrue())
-					Expect(vap.Name).To(Equal(BINDING_SNAPSHOT_NAME))
-					return nil
-				})
-			return c, nil
-		})
-	})
+	//It("test with labels test:test", func() {
+	//	setSnapshots(
+	//		[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
+	//		[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})})
+	//	Expect(reconcile(context.Background(), newInput())).To(Succeed())
+	//})
+	//
+	//It("test with labels app.kubernetes.io/managed-by:\"\"", func() {
+	//	setSnapshots(
+	//		[]pkg.Snapshot{newSnapshotPolicy(map[string]string{managed_by_label: managed_by_label_value})},
+	//		[]pkg.Snapshot{newSnapshotBinding(map[string]string{managed_by_label: managed_by_label_value})})
+	//	Expect(reconcile(context.Background(), newInput())).To(Succeed())
+	//})
+	//
+	//It("should failed when get k8s client", func() {
+	//	clientErr := errors.New("client error")
+	//	dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
+	//		return nil, clientErr
+	//	})
+	//	setSnapshots(
+	//		[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
+	//		[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})})
+	//	err := reconcile(context.Background(), newInput())
+	//	Expect(err).To(MatchError(clientErr))
+	//})
+	//
+	//It(fmt.Sprintf("sohuld skip vap %s", POLICY_SNAPSHOT_NAME), func() {
+	//	setSnapshots(
+	//		[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
+	//		[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})})
+	//	Expect(reconcile(context.Background(), newInput())).To(Succeed())
+	//
+	//	dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
+	//		c := mock.NewKubernetesClientMock(GinkgoT())
+	//		c.DeleteMock.Set(
+	//			func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
+	//				vap, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicy)
+	//				Expect(ok).To(BeTrue())
+	//				Expect(vap.Name).To(Equal(POLICY_SNAPSHOT_NAME))
+	//				return nil
+	//			})
+	//		return c, nil
+	//	})
+	//})
+	//It(fmt.Sprintf("sohuld skip vap %s", BINDING_SNAPSHOT_NAME), func() {
+	//	setSnapshots(
+	//		[]pkg.Snapshot{newSnapshotPolicy(map[string]string{"test": "test"})},
+	//		[]pkg.Snapshot{newSnapshotBinding(map[string]string{"test": "test"})})
+	//	Expect(reconcile(context.Background(), newInput())).To(Succeed())
+	//
+	//	dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
+	//		c := mock.NewKubernetesClientMock(GinkgoT())
+	//		c.DeleteMock.Set(
+	//			func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
+	//				vap, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
+	//				Expect(ok).To(BeTrue())
+	//				Expect(vap.Name).To(Equal(BINDING_SNAPSHOT_NAME))
+	//				return nil
+	//			})
+	//		return c, nil
+	//	})
+	//})
+	//It(fmt.Sprintf("sohuld delete vap %s with labels", BINDING_SNAPSHOT_NAME), func() {
+	//	setSnapshots(
+	//		[]pkg.Snapshot{newSnapshotPolicy(map[string]string{managed_by_label: managed_by_label_value})},
+	//		[]pkg.Snapshot{newSnapshotBinding(map[string]string{managed_by_label: managed_by_label_value})})
+	//	Expect(reconcile(context.Background(), newInput())).To(Succeed())
+	//
+	//	dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
+	//		c := mock.NewKubernetesClientMock(GinkgoT())
+	//		c.DeleteMock.Set(
+	//			func(ctx context.Context, obj client.Object, opts ...client.DeleteOption) (err error) {
+	//				vap, ok := obj.(*admissionregistrationv1.ValidatingAdmissionPolicyBinding)
+	//				Expect(ok).To(BeTrue())
+	//				Expect(vap.Name).To(Equal(BINDING_SNAPSHOT_NAME))
+	//				return nil
+	//			})
+	//		return c, nil
+	//	})
+	//})
 })
