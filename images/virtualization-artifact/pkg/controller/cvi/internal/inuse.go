@@ -219,6 +219,7 @@ func (h InUseHandler) extractNamespacesFromObjects(vms, vmbdas, vds, vis []clien
 	objects = append(objects, vds...)
 	objects = append(objects, vis...)
 
+	var namespaces []string
 	namespacesMap := make(map[string]struct{})
 	for _, obj := range objects {
 		namespace := obj.GetNamespace()
@@ -226,12 +227,11 @@ func (h InUseHandler) extractNamespacesFromObjects(vms, vmbdas, vds, vis []clien
 			namespace = "default"
 		}
 
-		namespacesMap[namespace] = struct{}{}
-	}
-
-	var namespaces []string
-	for key := range namespacesMap {
-		namespaces = append(namespaces, key)
+		_, ok := namespacesMap[namespace]
+		if !ok {
+			namespaces = append(namespaces, namespace)
+			namespacesMap[namespace] = struct{}{}
+		}
 	}
 
 	return namespaces
