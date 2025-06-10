@@ -65,47 +65,47 @@ func (h InUseHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (reco
 		return reconcile.Result{}, nil
 	}
 
-	vms, err := h.listVMsUsingImage(ctx, vi)
+	hasVM, err := h.hasVMUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if len(vms) > 0 {
+	if hasVM {
 		setInUseConditionTrue(vi, cb)
 		return reconcile.Result{}, nil
 	}
 
-	vmbdas, err := h.listVMBDAsUsingImage(ctx, vi)
+	hasVMBDA, err := h.hasVMBDAsUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if len(vmbdas) > 0 {
+	if hasVMBDA {
 		setInUseConditionTrue(vi, cb)
 		return reconcile.Result{}, nil
 	}
 
-	vds, err := h.listVDsUsingImage(ctx, vi)
+	hasVD, err := h.hasVDUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if len(vds) > 0 {
+	if hasVD {
 		setInUseConditionTrue(vi, cb)
 		return reconcile.Result{}, nil
 	}
 
-	vis, err := h.listVIsUsingImage(ctx, vi)
+	hasVI, err := h.hasVIUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if len(vis) > 0 {
+	if hasVI {
 		setInUseConditionTrue(vi, cb)
 		return reconcile.Result{}, nil
 	}
 
-	cvis, err := h.listCVIsUsingImage(ctx, vi)
+	hasCVI, err := h.hasCVIUsingImage(ctx, vi)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if len(cvis) > 0 {
+	if hasCVI {
 		setInUseConditionTrue(vi, cb)
 		return reconcile.Result{}, nil
 	}
@@ -122,14 +122,13 @@ func (h InUseHandler) Name() string {
 	return inUseHandlerName
 }
 
-func (h InUseHandler) listVMsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+func (h InUseHandler) hasVMUsingImage(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	var vms virtv2.VirtualMachineList
 	err := h.client.List(ctx, &vms, client.InNamespace(vi.GetNamespace()))
 	if err != nil {
-		return []client.Object{}, err
+		return false, err
 	}
 
-	var vmsUsingImage []client.Object
 	for _, vm := range vms.Items {
 		if vm.Status.Phase == virtv2.MachineStopped {
 			continue
@@ -137,42 +136,39 @@ func (h InUseHandler) listVMsUsingImage(ctx context.Context, vi *virtv2.VirtualI
 
 		for _, bd := range vm.Status.BlockDeviceRefs {
 			if bd.Kind == virtv2.VirtualImageKind && bd.Name == vi.Name {
-				vmsUsingImage = append(vmsUsingImage, &vm)
-				break
+				return true, nil
 			}
 		}
 	}
 
-	return vmsUsingImage, nil
+	return false, nil
 }
 
-func (h InUseHandler) listVMBDAsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+func (h InUseHandler) hasVMBDAsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
 	err := h.client.List(ctx, &vmbdas, client.InNamespace(vi.GetNamespace()))
 	if err != nil {
-		return []client.Object{}, err
+		return false, err
 	}
 
-	var vmbdasUsingImage []client.Object
 	for _, vmbda := range vmbdas.Items {
 		if vmbda.Spec.BlockDeviceRef.Kind == virtv2.VMBDAObjectRefKindVirtualImage && vmbda.Spec.BlockDeviceRef.Name == vi.Name {
-			vmbdasUsingImage = append(vmbdasUsingImage, &vmbda)
+			return true, nil
 		}
 	}
 
-	return vmbdasUsingImage, nil
+	return false, nil
 }
 
-func (h InUseHandler) listVDsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+func (h InUseHandler) hasVDUsingImage(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	var vds virtv2.VirtualDiskList
 	err := h.client.List(ctx, &vds, client.InNamespace(vi.GetNamespace()), client.MatchingFields{
 		indexer.IndexFieldVDByVIDataSource: vi.GetName(),
 	})
 	if err != nil {
-		return []client.Object{}, err
+		return false, err
 	}
 
-	var vdsNotReady []client.Object
 	for _, vd := range vds.Items {
 		phase := vd.Status.Phase
 		isProvisioning := (phase == virtv2.DiskPending) ||
@@ -181,44 +177,42 @@ func (h InUseHandler) listVDsUsingImage(ctx context.Context, vi *virtv2.VirtualI
 			(phase == virtv2.DiskFailed)
 
 		if isProvisioning {
-			vdsNotReady = append(vdsNotReady, &vd)
+			return true, nil
 		}
 	}
 
-	return vdsNotReady, nil
+	return false, nil
 }
 
-func (h InUseHandler) listVIsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+func (h InUseHandler) hasVIUsingImage(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	var vis virtv2.VirtualImageList
 	err := h.client.List(ctx, &vis, client.InNamespace(vi.GetNamespace()), client.MatchingFields{
 		indexer.IndexFieldVIByVIDataSource: vi.GetName(),
 	})
 	if err != nil {
-		return []client.Object{}, err
+		return false, err
 	}
 
-	var visNotReady []client.Object
 	for _, viItem := range vis.Items {
 		phase := viItem.Status.Phase
 		isProvisioning := (phase == virtv2.ImagePending) || (phase == virtv2.ImageProvisioning) || (phase == virtv2.ImageFailed)
 		if isProvisioning {
-			visNotReady = append(visNotReady, &viItem)
+			return true, nil
 		}
 	}
 
-	return visNotReady, nil
+	return false, nil
 }
 
-func (h InUseHandler) listCVIsUsingImage(ctx context.Context, vi *virtv2.VirtualImage) ([]client.Object, error) {
+func (h InUseHandler) hasCVIUsingImage(ctx context.Context, vi *virtv2.VirtualImage) (bool, error) {
 	var cvis virtv2.ClusterVirtualImageList
 	err := h.client.List(ctx, &cvis, client.MatchingFields{
 		indexer.IndexFieldCVIByVIDataSource: vi.GetName(),
 	})
 	if err != nil {
-		return []client.Object{}, err
+		return false, err
 	}
 
-	var cvisFiltered []client.Object
 	for _, cvi := range cvis.Items {
 		if cvi.Spec.DataSource.ObjectRef == nil {
 			continue
@@ -231,11 +225,11 @@ func (h InUseHandler) listCVIsUsingImage(ctx context.Context, vi *virtv2.Virtual
 		}
 
 		if cvi.Spec.DataSource.ObjectRef.Namespace == vi.GetNamespace() {
-			cvisFiltered = append(cvisFiltered, &cvi)
+			return true, nil
 		}
 	}
 
-	return cvisFiltered, nil
+	return false, nil
 }
 
 func setInUseConditionTrue(vi *virtv2.VirtualImage, cb *conditions.ConditionBuilder) {
