@@ -41,6 +41,7 @@ jobs:
     name: Set MODULES_MODULE_TAG
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
+      module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
       runner_type: ${{ steps.modules_module_tag.outputs.RUNNER_TYPE }}
     steps:
       - name: Set vars
@@ -68,12 +69,16 @@ jobs:
             echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
           fi
 
+          # EE for virtualization-audit
+          echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
+
   dev_setup_build:
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     name: Build and Push images
     needs: set_vars
     env:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
+      MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
       WERF_VIRTUAL_MERGE: 0
     steps:
       - name: Print vars
@@ -82,6 +87,7 @@ jobs:
           echo CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME
           echo MODULES_MODULE_NAME=$MODULES_MODULE_NAME
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
+          echo MODULE_EDITION=$MODULE_EDITION
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
 
       - uses: actions/checkout@v4
