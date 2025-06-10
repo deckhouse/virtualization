@@ -348,6 +348,7 @@ func generateCVIForInUseTest(name string, datasource virtv2.ClusterVirtualImageD
 	return *cvibuilder.New(
 		cvibuilder.WithName(name),
 		cvibuilder.WithDatasource(datasource),
+		cvibuilder.WithPhase(virtv2.ImagePending),
 	)
 }
 
