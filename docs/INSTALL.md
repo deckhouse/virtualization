@@ -163,7 +163,7 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
    To enable the `virtualization` module, create a `ModuleConfig` resource with the module settings.
 
    {{< alert level="warning" >}}
-   Before enabling the module, carefully review its settings, which are described in the [Administrator guide](./admin_guide.html#module-parameters).
+   Before enabling the module, carefully review its settings in the [Administrator guide](./admin_guide.html#module-parameters).
    {{< /alert >}}
 
    Example of module configuration:
@@ -205,9 +205,9 @@ Virtual machines use `PersistentVolume` resources. To manage these resources and
 
 ## Component placement by nodes
 
-The distribution of components across cluster nodes depends on the cluster configuration. For example, a cluster may contain:
+The distribution of components across cluster nodes depends on the cluster's configuration. For example, a cluster may consist of:
 
-- only master nodes, for running the control plane and workload components;aster nodes;
+- only master nodes, for running the control plane and workload components;
 - only master nodes and worker nodes;
 - master nodes, system nodes, and worker nodes;
 - other combinations (depending on the architecture).
