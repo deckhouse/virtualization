@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	"github.com/deckhouse/virtualization-controller/pkg/common/resource_builder"
 )
 
@@ -81,8 +82,9 @@ func (s ProtectionService) AddProtection(ctx context.Context, objs ...client.Obj
 			continue
 		}
 
+		currentFinalizers := obj.GetFinalizers()
 		if controllerutil.AddFinalizer(obj, s.finalizer) {
-			patch, err := GetPatchFinalizers(obj.GetFinalizers())
+			patch, err := GetPatchFinalizers(currentFinalizers, obj.GetFinalizers())
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			if err != nil {
 				return fmt.Errorf("failed to generate patch for %q, %q: %w", kind, obj.GetName(), err)
@@ -104,8 +106,9 @@ func (s ProtectionService) RemoveProtection(ctx context.Context, objs ...client.
 			continue
 		}
 
+		currentFinalizers := obj.GetFinalizers()
 		if controllerutil.RemoveFinalizer(obj, s.finalizer) {
-			patch, err := GetPatchFinalizers(obj.GetFinalizers())
+			patch, err := GetPatchFinalizers(currentFinalizers, obj.GetFinalizers())
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			if err != nil {
 				return fmt.Errorf("failed to generate patch for %q, %q: %w", kind, obj.GetName(), err)
@@ -147,15 +150,16 @@ func GetPatchOwnerReferences(ownerReferences []metav1.OwnerReference) (client.Pa
 	return client.RawPatch(types.MergePatchType, data), nil
 }
 
-func GetPatchFinalizers(finalizers []string) (client.Patch, error) {
-	data, err := json.Marshal(map[string]interface{}{
-		"metadata": map[string]interface{}{
-			"finalizers": finalizers,
-		},
-	})
+func GetPatchFinalizers(currentFinalizers, newFinalizers []string) (client.Patch, error) {
+	metadataPatch := patch.NewJSONPatch()
+
+	metadataPatch.Append(patch.NewJSONPatchOperation(patch.PatchTestOp, "/metadata/finalizers", currentFinalizers))
+	metadataPatch.Append(patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", newFinalizers))
+
+	metadataPatchBytes, err := metadataPatch.Bytes()
 	if err != nil {
 		return nil, err
 	}
 
-	return client.RawPatch(types.MergePatchType, data), nil
+	return client.RawPatch(types.JSONPatchType, metadataPatchBytes), nil
 }
