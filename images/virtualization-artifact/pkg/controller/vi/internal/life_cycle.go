@@ -64,8 +64,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 	}
 
 	if vi.DeletionTimestamp != nil {
-		needRequeue := false
-
 		// It is necessary to update this condition in order to use this image as a datasource.
 		if readyCondition.Status == metav1.ConditionTrue {
 			cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
@@ -83,16 +81,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 				}
 
 				source.SetPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
-				if cb.Condition().Status != metav1.ConditionTrue {
-					needRequeue = true // If a PVC is lost, we need to recheck InUseCondition status.
-				}
 			}
 
 			conditions.SetCondition(cb, &vi.Status.Conditions)
 		}
 
 		vi.Status.Phase = virtv2.ImageTerminating
-		return reconcile.Result{Requeue: needRequeue}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if vi.Status.Phase == "" {

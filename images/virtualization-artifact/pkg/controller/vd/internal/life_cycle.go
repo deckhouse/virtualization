@@ -66,7 +66,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if vd.DeletionTimestamp != nil {
-		needRequeue := false
 		vd.Status.Phase = virtv2.DiskTerminating
 		if readyCondition.Status == metav1.ConditionTrue {
 			cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
@@ -78,13 +77,10 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 			}
 
 			source.SetPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
-			if cb.Condition().Status != metav1.ConditionTrue {
-				needRequeue = true // If a PVC is lost, we need to recheck InUseCondition status.
-			}
 
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 		}
-		return reconcile.Result{Requeue: needRequeue}, nil
+		return reconcile.Result{}, nil
 	}
 
 	if vd.Status.Phase == "" {
