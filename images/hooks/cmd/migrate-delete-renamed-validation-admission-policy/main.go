@@ -48,7 +48,8 @@ var config = &pkg.HookConfig{
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{"kubevirt-node-restriction-policy"},
 			},
-			JqFilter:                     "{\"name\": .metadata.name, \"kind\": .kind, \"labels\": .metadata.labels}",
+			// JqFilter:                     "{\"name\": .metadata.name, \"kind\": .kind, \"labels\": .metadata.labels}",
+			JqFilter:                     ".metadata",
 			ExecuteHookOnSynchronization: ptr.Bool(false),
 			ExecuteHookOnEvents:          ptr.Bool(false),
 		},
@@ -59,7 +60,8 @@ var config = &pkg.HookConfig{
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{"kubevirt-node-restriction-binding"},
 			},
-			JqFilter:                     "{\"name\": .metadata.name, \"kind\": .kind, \"labels\": .metadata.labels}",
+			// JqFilter:                     "{\"name\": .metadata.name, \"kind\": .kind, \"labels\": .metadata.labels}",
+			JqFilter:                     ".metadata",
 			ExecuteHookOnSynchronization: ptr.Bool(false),
 			ExecuteHookOnEvents:          ptr.Bool(false),
 		},
@@ -101,6 +103,12 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 		clientsObj = append(clientsObj, &ap)
 	}
 
+	client, err := input.DC.GetK8sClient()
+	if err != nil {
+		input.Logger.Error("Error get kubernetes client %v", err)
+		return err
+	}
+
 	for _, obj := range clientsObj {
 		if obj.GetLabels()[managed_by_label] == managed_by_label_value {
 			found_deprecated++
@@ -108,18 +116,11 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			input.Logger.Info("Delete deprecated %s %s", name, kind)
 
-			client, err := input.DC.GetK8sClient()
-			if err != nil {
-				input.Logger.Error("error unmarshalling snapshot %s", err)
-				return err
-			}
-
+			// input.PatchCollector.Delete(apiVersion string, kind string, namespace string, name string)
 			err = client.Delete(ctx, obj)
 			if err != nil {
-				input.Logger.Error("%s, can't delete %s %s", err, name, kind)
-				continue
+				input.Logger.Error("%v, can't delete %s %s", err, name, kind)
 			}
-
 		}
 	}
 
