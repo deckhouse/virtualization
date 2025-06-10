@@ -652,16 +652,22 @@ jobs:
       - set_vars
       - run_e2e
       - update_comment_on_finish
+      - analyze_build
     steps:
-      - name: Remove label and add comment
+      - uses: actions/checkout@v4
+      - name: Remove labels and add comment
         id: remove-label
         uses: actions/github-script@v6
         with:
           github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
-            const issueNumber = context.issue.number; const owner = context.repo.owner;
+            const ci = require('./.github/scripts/js/ci');
+            const issueNumber = context.issue.number;
+            const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const labelToRemove = 'e2e/run';
+
+            const labelToRemoveE2E = 'e2e/run';
+            const labelToRemoveSvace = 'analyze/svace';
 
             const { data: labels } = await github.rest.issues.listLabelsOnIssue({
               owner,
@@ -669,16 +675,9 @@ jobs:
               issue_number: issueNumber,
             });
 
-            if (labels.some(label => label.name === labelToRemove)) {
-              await github.rest.issues.removeLabel({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                name: labelToRemove,
-              });
-              console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
+            if (ci.removeLabel({github, context, labels, labelToRemove: labelToRemoveE2E})) {
               const commentIdStr = '${{ needs.run_e2e.outputs.comment_id }}';
-              const commentId = parseInt(commentIdStr, 10); // Cast to integer
+              const commentId = parseInt(commentIdStr, 10);
               const stepOutcome = '${{ needs.run_e2e.result }}';
               const body = `Workflow has started.
               Follow the progress here: [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
@@ -692,15 +691,6 @@ jobs:
                   comment_id: commentId, // Now an integer
                   body: body
                 });
-              } else {
-                // Invalid or missing, create a new comment
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.payload.pull_request.number,
-                  body: body
-                });
               }
-            } else {
-              console.log(`Label '${labelToRemove}' not found on PR #${issueNumber}`);
             }
+            ci.removeLabel({github, context, labels, labelToRemove: labelToRemoveSvace});
