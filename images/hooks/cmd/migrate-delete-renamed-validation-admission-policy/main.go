@@ -47,7 +47,6 @@ var config = &pkg.HookConfig{
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{"kubevirt-node-restriction-policy"},
 			},
-			// JqFilter:                     "{\"name\": .metadata.name, \"kind\": .kind, \"labels\": .metadata.labels}",
 			JqFilter:                     ".metadata",
 			ExecuteHookOnSynchronization: ptr.Bool(false),
 			ExecuteHookOnEvents:          ptr.Bool(false),
@@ -59,7 +58,6 @@ var config = &pkg.HookConfig{
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{"kubevirt-node-restriction-binding"},
 			},
-			// JqFilter:                     "{\"name\": .metadata.name, \"kind\": .kind, \"labels\": .metadata.labels}",
 			JqFilter:                     ".metadata",
 			ExecuteHookOnSynchronization: ptr.Bool(false),
 			ExecuteHookOnEvents:          ptr.Bool(false),
@@ -82,14 +80,14 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 
 	snapObjs, err := snapsToUnstructured(policySnapshots)
 	if err != nil {
-		input.Logger.Error("error unmarshalling snapshots for ValidatingAdmissionPolicy")
+		input.Logger.Error("Error unmarshalling snapshots for ValidatingAdmissionPolicy")
 		return err
 	}
 	uts = append(uts, snapObjs...)
 
 	snapObjs, err = snapsToUnstructured(bindingSnapshots)
 	if err != nil {
-		input.Logger.Error("error unmarshalling snapshots for ValidatingAdmissionPolicyBinding")
+		input.Logger.Error("Error unmarshalling snapshots for ValidatingAdmissionPolicyBinding")
 		return err
 	}
 	uts = append(uts, snapObjs...)
@@ -107,7 +105,6 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			input.Logger.Info("Delete deprecated %s %s", name, kind)
 
-			// input.PatchCollector.Delete(apiVersion string, kind string, namespace string, name string)
 			err = c.Delete(ctx, obj)
 			if err != nil {
 				input.Logger.Error("%v, can't delete %s %s", err, name, kind)
