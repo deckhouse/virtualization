@@ -68,7 +68,6 @@ jobs:
             echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
           fi
 
-
   dev_setup_build:
     runs-on: ${{ fromJSON(needs.set_vars.outputs.runner_type)}}
     name: Build and Push images
