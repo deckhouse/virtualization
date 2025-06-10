@@ -19,15 +19,14 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"hooks/pkg/common"
 
-	"github.com/deckhouse/module-sdk/pkg/app"
-	"github.com/deckhouse/module-sdk/pkg/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	"github.com/deckhouse/module-sdk/pkg/utils/ptr"
 )
 
 var _ = registry.RegisterFunc(config, reconcile)
@@ -72,63 +71,70 @@ var config = &pkg.HookConfig{
 
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("Start MigrateDeleteRenamedValidationAadmissionPolicy hook")
-	found_deprecated := 0
 
-	var clientsObj []client.Object
+	var (
+		foundDeprecated int
+		uts             []*unstructured.Unstructured
+	)
 
-	policy_snapshots := input.Snapshots.Get(POLICY_SNAPSHOT_NAME)
-	binding_snapshots := input.Snapshots.Get(BINDING_SNAPSHOT_NAME)
+	policySnapshots := input.Snapshots.Get(POLICY_SNAPSHOT_NAME)
+	bindingSnapshots := input.Snapshots.Get(BINDING_SNAPSHOT_NAME)
 
-	for _, snap := range policy_snapshots {
-		var ap admissionregistrationv1.ValidatingAdmissionPolicy
-
-		err := snap.UnmarshalTo(&ap)
-		if err != nil {
-			input.Logger.Error("error unmarshalling snapshot %s", snap.String())
-			return err
-		}
-
-		clientsObj = append(clientsObj, &ap)
+	snapObjs, err := snapsToUnstructured(policySnapshots)
+	if err != nil {
+		input.Logger.Error("error unmarshalling snapshots for ValidatingAdmissionPolicy")
+		return err
 	}
+	uts = append(uts, snapObjs...)
 
-	for _, snap := range binding_snapshots {
-		var ap admissionregistrationv1.ValidatingAdmissionPolicyBinding
-
-		err := snap.UnmarshalTo(&ap)
-		if err != nil {
-			input.Logger.Error("error unmarshalling snapshot %s", snap.String())
-			return err
-		}
-
-		clientsObj = append(clientsObj, &ap)
+	snapObjs, err = snapsToUnstructured(bindingSnapshots)
+	if err != nil {
+		input.Logger.Error("error unmarshalling snapshots for ValidatingAdmissionPolicyBinding")
+		return err
 	}
+	uts = append(uts, snapObjs...)
 
-	client, err := input.DC.GetK8sClient()
+	c, err := input.DC.GetK8sClient()
 	if err != nil {
 		input.Logger.Error("Error get kubernetes client %v", err)
 		return err
 	}
 
-	for _, obj := range clientsObj {
+	for _, obj := range uts {
 		if obj.GetLabels()[managed_by_label] == managed_by_label_value {
-			found_deprecated++
+			foundDeprecated++
 			name := obj.GetName()
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			input.Logger.Info("Delete deprecated %s %s", name, kind)
 
 			// input.PatchCollector.Delete(apiVersion string, kind string, namespace string, name string)
-			err = client.Delete(ctx, obj)
+			err = c.Delete(ctx, obj)
 			if err != nil {
 				input.Logger.Error("%v, can't delete %s %s", err, name, kind)
 			}
 		}
 	}
 
-	if found_deprecated == 0 {
+	if foundDeprecated == 0 {
 		input.Logger.Info("No deprecated resources found, migration not required.")
 	}
 
 	return nil
+}
+
+func snapsToUnstructured(snaps []pkg.Snapshot) ([]*unstructured.Unstructured, error) {
+	objs := make([]*unstructured.Unstructured, 0, len(snaps))
+
+	for i, snap := range snaps {
+		ut := &unstructured.Unstructured{}
+		err := snap.UnmarshalTo(ut)
+		if err != nil {
+			return nil, err
+		}
+		objs[i] = ut
+	}
+
+	return objs, nil
 }
 
 func main() {
