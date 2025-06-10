@@ -660,9 +660,8 @@ jobs:
         with:
           github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
-            const issueNumber = context.issue.number;
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
+            const ci = require('./.github/scripts/js/ci');
+
             const labelToRemoveE2E = 'e2e/run';
             const labelToRemoveSvace = 'analyze/svace';
 
@@ -672,14 +671,7 @@ jobs:
               issue_number: issueNumber,
             });
 
-            if (labels.some(label => label.name === labelToRemoveE2E)) {
-              await github.rest.issues.removeLabel({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                name: labelToRemoveE2E,
-              });
-              console.log(`Removed label '${labelToRemoveE2E}' from PR #${issueNumber}`);
+            if (ci.removeLabel({github, context, labels, labelToRemoveE2E})) {
               const commentIdStr = '${{ needs.run_e2e.outputs.comment_id }}';
               const commentId = parseInt(commentIdStr, 10);
               const stepOutcome = '${{ needs.run_e2e.result }}';
@@ -695,27 +687,6 @@ jobs:
                   comment_id: commentId, // Now an integer
                   body: body
                 });
-              } else {
-                // Invalid or missing, create a new comment
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.payload.pull_request.number,
-                  body: body
-                });
               }
-            } else {
-              console.log(`Label '${labelToRemoveE2E}' not found on PR #${issueNumber}`);
             }
-
-            if (labels.some(label => label.name === labelToRemoveSvace)) {
-              await github.rest.issues.removeLabel({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                name: labelToRemoveSvace,
-              });
-              console.log(`Removed label '${labelToRemoveSvace}' from PR #${issueNumber}`);
-            } else {
-              console.log(`Label '${labelToRemoveSvace}' not found on PR #${issueNumber}`);
-            }
+            ci.removeLabel({github, context, labels, labelToRemoveSvace});
