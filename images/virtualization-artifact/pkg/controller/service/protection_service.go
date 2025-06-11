@@ -82,7 +82,8 @@ func (s ProtectionService) AddProtection(ctx context.Context, objs ...client.Obj
 			continue
 		}
 
-		currentFinalizers := obj.GetFinalizers()
+		var currentFinalizers []string
+		currentFinalizers = append(currentFinalizers, obj.GetFinalizers()...)
 		if controllerutil.AddFinalizer(obj, s.finalizer) {
 			patch, err := GetPatchFinalizers(currentFinalizers, obj.GetFinalizers())
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
@@ -106,7 +107,8 @@ func (s ProtectionService) RemoveProtection(ctx context.Context, objs ...client.
 			continue
 		}
 
-		currentFinalizers := obj.GetFinalizers()
+		var currentFinalizers []string
+		currentFinalizers = append(currentFinalizers, obj.GetFinalizers()...)
 		if controllerutil.RemoveFinalizer(obj, s.finalizer) {
 			patch, err := GetPatchFinalizers(currentFinalizers, obj.GetFinalizers())
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
