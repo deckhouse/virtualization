@@ -19,6 +19,10 @@ package restorer
 import "errors"
 
 var (
-	ErrAlreadyExists = errors.New("already exists")
-	ErrAlreadyInUse  = errors.New("already in use")
+	ErrAlreadyExists      = errors.New("already exists")
+	ErrAlreadyInUse       = errors.New("already in use")
+	ErrTerminating        = errors.New("in the deleting process")
+	ErrDoesNotExist       = errors.New("does not exist")
+	ErrDoesNotConsistent  = errors.New("does not consistent")
+	ErrAttachedToTargetVM = errors.New("attached to the target `VirtualMachine`")
 )

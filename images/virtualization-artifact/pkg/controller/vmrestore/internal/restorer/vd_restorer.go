@@ -70,6 +70,27 @@ func (v VirtualDiskOverrideValidator) Validate(ctx context.Context) error {
 	return nil
 }
 
+func (v VirtualDiskOverrideValidator) ProcessWithForce(ctx context.Context) error {
+	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+	vdObj, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the `VirtualDisk`: %w", err)
+	}
+
+	if vdObj != nil && vdObj.DeletionTimestamp != nil {
+		return fmt.Errorf("%s %q: %w", vdObj.Kind, vdObj.Name, ErrTerminating)
+	}
+
+	if vdObj != nil {
+		err := v.client.Delete(ctx, vdObj)
+		if err != nil {
+			return fmt.Errorf("failed to delete the `VirtualDisk`: %w", err)
+		}
+	}
+
+	return ErrDoesNotExist
+}
+
 func (v VirtualDiskOverrideValidator) Object() client.Object {
 	return v.vd
 }
