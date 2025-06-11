@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -73,7 +74,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 		Generation(vmop.GetGeneration())
-	signalSendCond := conditions.NewConditionBuilder(vmopcondition.SignalSentType).
+	signalSendCond := conditions.NewConditionBuilder(vmopcondition.TypeSignalSent).
 		Generation(vmop.GetGeneration())
 
 	// Initialize new VMOP resource: set label with vm name, set phase to Pending and all conditions to Unknown.
@@ -123,32 +124,38 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 	}
 	annotations.AddLabel(vmop, annotations.LabelVirtualMachineUID, string(vm.GetUID()))
 
-	if vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+	if isOperationInProgress(vmop) {
 		log.Debug("Operation in progress, check if VM is completed", "vm.phase", vm.Status.Phase, "vmop.phase", vmop.Status.Phase)
-		return h.syncOperationComplete(ctx, vmop, vm, svcOp)
+		return h.syncOperationComplete(ctx, vmop, svcOp)
 	}
 
 	// At this point VMOP is in Pending phase, do some validation checks.
 
-	// Fail if there is at least one other VirtualMachineOperation in progress.
-	found, err := h.otherVMOPIsInProgress(ctx, vmop)
+	can, err := h.canBeRun(ctx, vmop)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	if found {
-		vmop.Status.Phase = virtv2.VMOPPhaseFailed
-		h.recorder.Event(vmop, corev1.EventTypeWarning, virtv2.ReasonErrVMOPFailed, "Other VirtualMachineOperations are in progress")
+	if can {
+		vmop.Status.Phase = virtv2.VMOPPhasePending
 		conditions.SetCondition(
 			completedCond.
-				Reason(vmopcondition.ReasonOtherOperationsAreInProgress).
-				Status(metav1.ConditionFalse).
-				Message("Other VirtualMachineOperations are in progress"),
+				Reason(vmopcondition.ReasonReadyToBeExecuted).
+				Message("VMOP is waiting to be executed.").
+				Status(metav1.ConditionFalse),
+			&vmop.Status.Conditions)
+	} else {
+		vmop.Status.Phase = virtv2.VMOPPhaseFailed
+		conditions.SetCondition(
+			completedCond.
+				Reason(vmopcondition.ReasonNotReadyToBeExecuted).
+				Message("VMOP cannot be executed now. Previously created operation should finish first.").
+				Status(metav1.ConditionFalse),
 			&vmop.Status.Conditions)
 		return reconcile.Result{}, nil
 	}
 
 	// Fail if there is at least one other migration in progress.
-	found, err = h.otherMigrationsAreInProgress(ctx, vmop)
+	found, err := h.otherMigrationsAreInProgress(ctx, vmop)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -219,8 +226,7 @@ func (h LifecycleHandler) Name() string {
 }
 
 // syncOperationComplete detects if operation is completed and VM has desired phase.
-// TODO detect if VM is stuck to prevent infinite InProgress state.
-func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *virtv2.VirtualMachineOperation, vm *virtv2.VirtualMachine, svcOp service.Operation) (reconcile.Result, error) {
+func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *virtv2.VirtualMachineOperation, svcOp service.Operation) (reconcile.Result, error) {
 	completedCond := conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
 		Generation(changed.GetGeneration())
 
@@ -255,29 +261,23 @@ func (h LifecycleHandler) syncOperationComplete(ctx context.Context, changed *vi
 
 	// Keep InProgress phase as-is (InProgress), set complete condition to false.
 	reason, err := svcOp.GetInProgressReason(ctx)
-	if vm.Status.Phase == virtv2.MachinePending {
-		conditions.SetCondition(
-			completedCond.
-				Reason(reason).
-				Status(metav1.ConditionFalse).
-				Message("The request to restart the VirtualMachine has been sent. "+
-					"The VirtualMachine is currently in the 'Pending' phase. "+
-					"We are waiting for it to enter the 'Starting' phase."),
-			&changed.Status.Conditions)
-	} else {
-		conditions.SetCondition(
-			completedCond.
-				Reason(reason).
-				Status(metav1.ConditionFalse).
-				Message("Wait until operation completed"),
-			&changed.Status.Conditions)
+	if commonvmop.IsMigration(changed) && reason != vmopcondition.ReasonMigrationPending {
+		changed.Status.Phase = virtv2.VMOPPhaseInProgress
 	}
+
+	conditions.SetCondition(
+		completedCond.
+			Reason(reason).
+			Status(metav1.ConditionFalse).
+			Message("Wait until operation completed"),
+		&changed.Status.Conditions)
 
 	return reconcile.Result{}, err
 }
 
-// otherVMOPIsInProgress check if there is at least one VMOP for the same VM in progress phase.
-func (h LifecycleHandler) otherVMOPIsInProgress(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
+// Should run oldest VMOP first.
+// If reconciling VMOP is oldest, and it is not finished, it should be run.
+func (h LifecycleHandler) canBeRun(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
 	var vmopList virtv2.VirtualMachineOperationList
 	err := h.client.List(ctx, &vmopList, client.InNamespace(vmop.GetNamespace()))
 	if err != nil {
@@ -285,20 +285,31 @@ func (h LifecycleHandler) otherVMOPIsInProgress(ctx context.Context, vmop *virtv
 	}
 
 	for _, other := range vmopList.Items {
-		// Ignore ourself.
-		if other.GetName() == vmop.GetName() {
-			continue
-		}
-		// Ignore VMOPs for different VMs.
 		if other.Spec.VirtualMachine != vmop.Spec.VirtualMachine {
 			continue
 		}
-		// Return true if other VMOP is in progress.
-		if other.Status.Phase == virtv2.VMOPPhaseInProgress {
-			return true, nil
+		if commonvmop.IsFinished(&other) {
+			continue
+		}
+		if other.GetUID() == vmop.GetUID() {
+			continue
+		}
+
+		if other.CreationTimestamp.Before(ptr.To(vmop.CreationTimestamp)) {
+			return false, nil
+		}
+		if isOperationInProgress(&other) {
+			return false, nil
 		}
 	}
-	return false, nil
+
+	return true, nil
+}
+
+func isOperationInProgress(vmop *virtv2.VirtualMachineOperation) bool {
+	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
+	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue
 }
 
 func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {

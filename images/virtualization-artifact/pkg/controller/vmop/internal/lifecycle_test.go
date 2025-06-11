@@ -54,13 +54,15 @@ var _ = Describe("LifecycleHandler", func() {
 	})
 
 	newVMOPEvictPending := func(opts ...vmopbuilder.Option) *virtv2.VirtualMachineOperation {
-		vmop := vmopbuilder.NewEmpty(name, namespace)
-		vmop.Status.Phase = virtv2.VMOPPhasePending
-		vmopbuilder.ApplyOptions(vmop,
+		options := []vmopbuilder.Option{
+			vmopbuilder.WithName(name),
+			vmopbuilder.WithNamespace(namespace),
 			vmopbuilder.WithType(virtv2.VMOPTypeEvict),
 			vmopbuilder.WithVirtualMachine(name),
-		)
-		vmopbuilder.ApplyOptions(vmop, opts...)
+		}
+		options = append(options, opts...)
+		vmop := vmopbuilder.New(options...)
+		vmop.Status.Phase = virtv2.VMOPPhasePending
 		return vmop
 	}
 
