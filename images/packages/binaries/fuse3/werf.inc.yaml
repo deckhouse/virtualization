@@ -11,7 +11,22 @@ import:
 ---
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "libfuse/libfuse.git" }}
+{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
 
+image: {{ $PkgImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    rm -rf /src/.git
+---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -40,9 +55,6 @@ shell:
   install:
   - |
     OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
     cd /src
     meson setup build -Duseroot=false -Dprefix=$OUTDIR/usr

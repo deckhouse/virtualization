@@ -5,7 +5,7 @@
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
-fromImage: {{ .ModuleNamePrefix }}src-artifact
+fromImage: builder/src
 git:
 - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}
   to: /
