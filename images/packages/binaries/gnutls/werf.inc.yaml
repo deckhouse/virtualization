@@ -40,7 +40,8 @@ shell:
       git submodule set-url -- tests/suite/tls-interoperability $(cat /run/secrets/SOURCE_REPO)/redhat-crypto/tests/interop.git
     fi
 
-    # git submodule update --init --recursive
+    git submodule update --init --recursive
+    rm -rf /src/.git
 
 ---
 
