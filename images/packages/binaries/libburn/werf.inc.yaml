@@ -41,6 +41,7 @@ packages:
 image: {{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
+import:
 - image: {{ $PkgImageName }}-src-artifact
   add: /src
   to: /src
