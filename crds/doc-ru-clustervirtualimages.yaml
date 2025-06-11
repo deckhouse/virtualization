@@ -174,7 +174,7 @@ spec:
                     Устаревшее поле. Используйте `imageUploadURLs`.
                 usedInNamespaces:
                   description: |
-                    Список пространств имён, в которых используется образ, отображается при его удалении.
+                    Список пространств имён в которых используется образ.
                 imageUploadURLs:
                   properties:
                     external:

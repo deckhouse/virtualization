@@ -409,7 +409,7 @@ spec:
                   type: string
                 usedInNamespaces:
                   description: |
-                    Displays the list of namespaces where the image is currently used when attempting to delete it.
+                    Displays the list of namespaces where the image is currently used.
                   items:
                     type: string
                   type: array
