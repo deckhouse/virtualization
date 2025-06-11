@@ -107,7 +107,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdscondition.VolumeSnapshotLost).
-				Message(fmt.Sprintf("The underlieng volume snapshot %q is not ready to use.", vdSnapshot.Status.VolumeSnapshotName))
+				Message(fmt.Sprintf("The underlying volume snapshot %q is not ready to use.", vdSnapshot.Status.VolumeSnapshotName))
 			return reconcile.Result{Requeue: true}, nil
 		}
 

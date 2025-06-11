@@ -207,7 +207,7 @@ const (
 	DiskWaitForFirstConsumer DiskPhase = "WaitForFirstConsumer"
 	DiskProvisioning         DiskPhase = "Provisioning"
 	DiskFailed               DiskPhase = "Failed"
-	DiskLost                 DiskPhase = "Lost"
+	DiskLost                 DiskPhase = "PVCLost"
 	DiskReady                DiskPhase = "Ready"
 	DiskResizing             DiskPhase = "Resizing"
 	DiskTerminating          DiskPhase = "Terminating"
