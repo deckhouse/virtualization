@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,20 +59,22 @@ type UploadServer interface {
 }
 
 type uploadServerApp struct {
-	bindAddress  string
-	bindPort     int
-	tlsKey       string
-	tlsCert      string
-	clientCert   string
-	clientName   string
-	cryptoConfig cryptowatch.CryptoConfig
-	keyFile      string
-	certFile     string
-	mux          *http.ServeMux
-	uploading    bool
-	doneChan     chan struct{}
-	errChan      chan error
-	mutex        sync.Mutex
+	bindAddress    string
+	bindPort       int
+	tlsKey         string
+	tlsCert        string
+	clientCert     string
+	clientName     string
+	cryptoConfig   cryptowatch.CryptoConfig
+	keyFile        string
+	certFile       string
+	mux            *http.ServeMux
+	uploading      bool
+	doneChan       chan struct{}
+	errChan        chan error
+	keepAlive      bool
+	keepCuncurrent bool
+	mutex          sync.Mutex
 
 	healthzServer *http.Server
 	uploadServer  *http.Server
@@ -289,7 +291,7 @@ func (app *uploadServerApp) validateShouldHandleRequest(w http.ResponseWriter, r
 	app.mutex.Lock()
 	defer app.mutex.Unlock()
 
-	if app.uploading {
+	if app.uploading && !app.keepCuncurrent {
 		klog.Warning("Got concurrent upload request")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return false
@@ -322,7 +324,7 @@ func (app *uploadServerApp) processUpload(irc imageReadCloser, w http.ResponseWr
 
 	cdiContentType := r.Header.Get(common.UploadContentTypeHeader)
 
-	klog.Infof("Content type header is %q\n", cdiContentType)
+	// klog.Infof("Content type header is %q\n", cdiContentType)
 
 	readCloser, err := irc(r)
 	if err != nil {
@@ -342,7 +344,9 @@ func (app *uploadServerApp) processUpload(irc imageReadCloser, w http.ResponseWr
 		return
 	}
 
-	close(app.doneChan)
+	if !app.keepAlive {
+		close(app.doneChan)
+	}
 }
 
 func (app *uploadServerApp) uploadHandler(irc imageReadCloser) http.HandlerFunc {
