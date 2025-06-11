@@ -73,6 +73,7 @@ shell:
     export ac_cv_func_fprintf_unlocked="no"
 
     ./configure \
+      --enable-languages=c \
       --prefix=/usr \
       --libdir=/usr/lib64 \
       --enable-shared \
