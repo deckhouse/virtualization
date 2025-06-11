@@ -41,7 +41,7 @@ shell:
     fi
 
     git submodule update --init --recursive
-    rm -rf /src/.git
+    # rm -rf /src/.git
 
 ---
 
