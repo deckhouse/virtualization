@@ -148,7 +148,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 		conditions.SetCondition(
 			completedCond.
 				Reason(vmopcondition.ReasonNotReadyToBeExecuted).
-				Message("VMOP cannot be executed now. Other operation is in progress or other vmop should be executed first.").
+				Message("VMOP cannot be executed now. Previously created operation should finish first.").
 				Status(metav1.ConditionFalse),
 			&vmop.Status.Conditions)
 		return reconcile.Result{}, nil
@@ -284,7 +284,6 @@ func (h LifecycleHandler) canBeRun(ctx context.Context, vmop *virtv2.VirtualMach
 		return false, err
 	}
 
-	oldest := vmop
 	for _, other := range vmopList.Items {
 		if other.Spec.VirtualMachine != vmop.Spec.VirtualMachine {
 			continue
@@ -296,7 +295,7 @@ func (h LifecycleHandler) canBeRun(ctx context.Context, vmop *virtv2.VirtualMach
 			continue
 		}
 
-		if other.CreationTimestamp.Before(ptr.To(oldest.CreationTimestamp)) {
+		if other.CreationTimestamp.Before(ptr.To(vmop.CreationTimestamp)) {
 			return false, nil
 		}
 		if isOperationInProgress(&other) {
