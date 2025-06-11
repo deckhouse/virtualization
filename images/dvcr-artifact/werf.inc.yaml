@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
 git:
-- add: /images/{{ $.ImageName }}
+- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}
   to: /src
   stageDependencies:
     install:
@@ -11,6 +11,9 @@ git:
     - go.sum
     setup:
     - "**/*.go"
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
   install:
   {{- include "debian packages proxy" . | nindent 2 }}
@@ -20,6 +23,7 @@ shell:
   - mkdir /out
   - cd /src
   - |
+    export GOPROXY=$(cat /run/secrets/GOPROXY)
     export GO111MODULE=on
     export GOOS=linux
     export CGO_ENABLED=1
@@ -56,9 +60,9 @@ binaries:
 
 {{ $dvcrDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -67,24 +71,24 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-- image: {{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /out
   to: /usr/local/bin
   before: setup
-- image: packages/binaries/file
+- image: {{ .ModuleNamePrefix }}packages/binaries/file
   add: /file
   to: /file
   before: install
 # deps for file
-- image: packages/binaries/bzip2
+- image: {{ .ModuleNamePrefix }}packages/binaries/bzip2
   add: /bzip2
   to: /bzip2
   before: install
-- image: packages/binaries/nbdkit
+- image: {{ .ModuleNamePrefix }}packages/binaries/nbdkit
   add: /nbdkit
   to: /nbdkit
   before: install
-- image: qemu
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
   before: install
