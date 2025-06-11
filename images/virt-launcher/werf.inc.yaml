@@ -184,7 +184,7 @@ import:
   add: /BINS
   to: /qemu-bins
   before: install
-- image: packages/binaries/dmidecode
+- image: {{ .ModuleNamePrefix }}packages/binaries/dmidecode
   add: /dmidecode
   to: /dmidecode
   before: install
@@ -231,29 +231,29 @@ import:
   - node-labeller
   - vlctl
 
-- image: packages/binaries/swtpm
+- image: {{ .ModuleNamePrefix }}packages/binaries/swtpm
   add: /swtpm
   to: /swtpm
   before: install
 
-- image: packages/binaries/numactl
+- image: {{ .ModuleNamePrefix }}packages/binaries/numactl
   add: /numactl
   to: /numactl
   before: install
 
-- image: packages/binaries/xorriso
+- image: {{ .ModuleNamePrefix }}packages/binaries/xorriso
   add: /xorriso
   to: /xorriso
   before: install
-- image: packages/binaries/gnutls
+- image: {{ .ModuleNamePrefix }}packages/binaries/gnutls
   add: /gnutls
   to: /gnutls
   before: install
-- image: packages/binaries/acl
+- image: {{ .ModuleNamePrefix }}packages/binaries/acl
   add: /acl
   to: /acl
   before: install
-- image: packages/binaries/libtpms
+- image: {{ .ModuleNamePrefix }}packages/binaries/libtpms
   add: /libtpms
   to: /libtpms
   before: install
@@ -262,7 +262,7 @@ import:
   - usr/lib64/*.so.*
 
 # Statically builded
-- image: packages/binaries/openssl
+- image: {{ .ModuleNamePrefix }}packages/binaries/openssl
   add: /openssl
   to: /relocate
   after: setup

@@ -131,7 +131,7 @@ import:
   add: /{{ $gitRepoName }}-{{ $version }}
   to: /{{ $gitRepoName }}-{{ $version }}
   before: install
-- image: packages/binaries/dmidecode
+- image: {{ .ModuleNamePrefix }}packages/binaries/dmidecode
   add: /dmidecode
   to: /dmidecode
   before: install

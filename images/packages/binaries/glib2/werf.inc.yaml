@@ -1,9 +1,9 @@
 ---
-image: {{ .PackagePath }}/{{ .ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ .PackagePath }}/{{ .ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
   to: /glib2
   before: setup
@@ -13,7 +13,7 @@ import:
 {{- $gitRepoUrl := "GNOME/glib.git" }}
 {{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
 
-image: {{ $PkgImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
@@ -38,11 +38,11 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ .PackagePath }}/{{ .ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
-- image: {{ $PkgImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
   add: /src
   to: /src
   before: install

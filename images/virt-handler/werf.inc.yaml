@@ -75,15 +75,15 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-- image: packages/binaries/xorriso
+- image: {{ .ModuleNamePrefix }}packages/binaries/xorriso
   add: /xorriso
   to: /xorriso
   before: install
-- image: packages/binaries/nftables
+- image: {{ .ModuleNamePrefix }}packages/binaries/nftables
   add: /nftables
   to: /nftables
   before: install
-- image: packages/binaries/acl
+- image: {{ .ModuleNamePrefix }}packages/binaries/acl
   add: /acl
   to: /acl
   before: install
