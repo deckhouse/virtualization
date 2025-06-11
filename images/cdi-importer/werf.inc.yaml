@@ -55,7 +55,7 @@ import:
   add: /qemu-img
   to: /relocate
   before: setup
-- image: packages/binaries/nbdkit
+- image: {{ .ModuleNamePrefix }}packages/binaries/nbdkit
   add: /nbdkit
   to: /nbdkit
   before: install

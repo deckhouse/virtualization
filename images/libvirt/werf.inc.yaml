@@ -107,7 +107,7 @@ import:
   add: /install-libvirt.sh
   to: /install-libvirt.sh
   before: install
-- image: packages/binaries/dmidecode
+- image: {{ .ModuleNamePrefix }}packages/binaries/dmidecode
   add: /dmidecode
   to: /dmidecode
   before: install

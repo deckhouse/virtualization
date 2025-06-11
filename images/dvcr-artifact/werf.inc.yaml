@@ -75,16 +75,16 @@ import:
   add: /out
   to: /usr/local/bin
   before: setup
-- image: packages/binaries/file
+- image: {{ .ModuleNamePrefix }}packages/binaries/file
   add: /file
   to: /file
   before: install
 # deps for file
-- image: packages/binaries/bzip2
+- image: {{ .ModuleNamePrefix }}packages/binaries/bzip2
   add: /bzip2
   to: /bzip2
   before: install
-- image: packages/binaries/nbdkit
+- image: {{ .ModuleNamePrefix }}packages/binaries/nbdkit
   add: /nbdkit
   to: /nbdkit
   before: install
