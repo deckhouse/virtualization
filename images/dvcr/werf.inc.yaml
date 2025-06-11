@@ -22,7 +22,7 @@ imageSpec:
 
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
