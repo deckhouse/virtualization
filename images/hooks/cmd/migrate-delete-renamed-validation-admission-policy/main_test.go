@@ -42,8 +42,8 @@ var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
 	)
 
 	setSnapshots := func(snapPolicy, snapBinding pkg.Snapshot) {
-		snapshots.GetMock.When(POLICY_SNAPSHOT_NAME).Then([]pkg.Snapshot{snapPolicy})
-		snapshots.GetMock.When(BINDING_SNAPSHOT_NAME).Then([]pkg.Snapshot{snapBinding})
+		snapshots.GetMock.When(policySnapshotName).Then([]pkg.Snapshot{snapPolicy})
+		snapshots.GetMock.When(bindingSnapshotName).Then([]pkg.Snapshot{snapBinding})
 	}
 
 	newSnapshotPolicy := func(labels map[string]string) pkg.Snapshot {
@@ -51,7 +51,7 @@ var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
 		snap.UnmarshalToMock.Set(func(v any) (err error) {
 			data, ok := v.(*unstructured.Unstructured)
 			Expect(ok).To(BeTrue())
-			data.SetName(POLICY_SNAPSHOT_NAME)
+			data.SetName(policySnapshotName)
 			data.SetKind("ValidatingAdmissionPolicy")
 			data.SetAPIVersion("admissionregistration.k8s.io/v1")
 			data.SetLabels(labels)
@@ -65,7 +65,7 @@ var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
 		snap.UnmarshalToMock.Set(func(v any) (err error) {
 			data, ok := v.(*unstructured.Unstructured)
 			Expect(ok).To(BeTrue())
-			data.SetName(BINDING_SNAPSHOT_NAME)
+			data.SetName(bindingSnapshotName)
 			data.SetKind("ValidatingAdmissionPolicyBinding")
 			data.SetAPIVersion("admissionregistration.k8s.io/v1")
 			data.SetLabels(labels)
@@ -104,7 +104,7 @@ var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
 							func(ctx context.Context,
 								obj client.Object, opts ...client.DeleteOption,
 							) (err error) {
-								labelExist := obj.GetLabels()[managed_by_label] == managed_by_label_value
+								labelExist := obj.GetLabels()[managedByLabel] == managedByLabelValue
 
 								switch obj.GetObjectKind().GroupVersionKind().Kind {
 								case "ValidatingAdmissionPolicy":
@@ -131,7 +131,7 @@ var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
 			false,
 		),
 		Entry("delete, when policy has label app.kubernetes.io/managed-by",
-			map[string]string{managed_by_label: managed_by_label_value},
+			map[string]string{managedByLabel: managedByLabelValue},
 			true,
 			map[string]string{"test": "test"},
 			false,
@@ -139,13 +139,13 @@ var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
 		Entry("delete, when binding has label app.kubernetes.io/managed-by",
 			map[string]string{"test": "test"},
 			false,
-			map[string]string{managed_by_label: managed_by_label_value},
+			map[string]string{managedByLabel: managedByLabelValue},
 			true,
 		),
 		Entry("delete policy and binding, when label app.kubernetes.io/managed-by",
-			map[string]string{managed_by_label: managed_by_label_value},
+			map[string]string{managedByLabel: managedByLabelValue},
 			true,
-			map[string]string{managed_by_label: managed_by_label_value},
+			map[string]string{managedByLabel: managedByLabelValue},
 			true,
 		),
 	)
