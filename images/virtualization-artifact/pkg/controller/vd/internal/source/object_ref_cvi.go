@@ -43,6 +43,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
@@ -107,7 +108,7 @@ func (ds ObjectRefClusterVirtualImage) Sync(ctx context.Context, vd *virtv2.Virt
 	case IsDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
+		SetPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vd, nil, pvc)
@@ -259,7 +260,14 @@ func (ds ObjectRefClusterVirtualImage) Validate(ctx context.Context, vd *virtv2.
 	if err != nil {
 		return err
 	}
-	if cvi == nil || cvi.Status.Phase != virtv2.ImageReady || cvi.Status.Target.RegistryURL == "" {
+
+	var readyCondition metav1.Condition
+	var ok bool
+	if cvi != nil {
+		readyCondition, ok = conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+	}
+
+	if cvi == nil || !ok || readyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(readyCondition, cvi) || cvi.Status.Target.RegistryURL == "" {
 		return NewClusterImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 

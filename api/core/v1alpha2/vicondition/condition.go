@@ -28,8 +28,10 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `VirtualImage` is ready for use.
 	ReadyType Type = "Ready"
-	// StorageClassReadyType indicates whether the storageClass ready
+	// StorageClassReadyType indicates whether the storageClass ready.
 	StorageClassReadyType Type = "StorageClassReady"
+	// InUseType indicates that the `VirtualImage` is used by other resources and cannot be deleted now.
+	InUseType Type = "InUse"
 )
 
 type (
@@ -39,6 +41,8 @@ type (
 	ReadyReason string
 	// StorageClassReadyReason represents the various reasons for the StorageClassReady condition type.
 	StorageClassReadyReason string
+	// InUseReason represents the various reasons for the InUseType condition type.
+	InUseReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -50,6 +54,10 @@ func (s ReadyReason) String() string {
 }
 
 func (s StorageClassReadyReason) String() string {
+	return string(s)
+}
+
+func (s InUseReason) String() string {
 	return string(s)
 }
 
@@ -99,4 +107,19 @@ const (
 	StorageClassNotFound StorageClassReadyReason = "StorageClassNotFound"
 	// DVCRTypeUsed indicates that the DVCR provisioning chosen.
 	DVCRTypeUsed StorageClassReadyReason = "DVCRTypeUsed"
+
+	/*
+	   A VirtualImage can be considered in use if it meets the following two criteria:
+	   1) Provisioning of the VirtualImage must be completed. The ReadyCondition must be True or have the Reason PVCLost.
+	   2) The VirtualImage must be used in one of the following ways:
+	       - Be attached to one or more VirtualMachines (all VirtualMachine phases except Stopped)
+	       - Be attached via a VirtualMachineBlockDeviceAttachment (any VMBDA phases)
+	       - Be used for provisioning VirtualImage (phases: Pending, Provisioning, Failed)
+	       - Be used for provisioning ClusterVirtualImage (phases: Pending, Provisioning, Failed)
+	       - Be used for provisioning VirtualDisk (phases: Pending, Provisioning, WaitForFirstConsumer, Failed)
+	*/
+	// InUse indicates that the `VirtualImage` is used by other resources and cannot be deleted now.
+	InUse InUseReason = "InUse"
+	// InUse indicates that the `VirtualImage` is not used by other resources and can be deleted now.
+	NotInUse InUseReason = "NotInUse"
 )
