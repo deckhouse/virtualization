@@ -32,16 +32,16 @@ import (
 var _ = registry.RegisterFunc(config, reconcile)
 
 const (
-	POLICY_SNAPSHOT_NAME   = "validating_admission_policy"
-	BINDING_SNAPSHOT_NAME  = "validating_admission_policy_binding"
-	managed_by_label       = "app.kubernetes.io/managed-by"
-	managed_by_label_value = "virt-operator-internal-virtualization"
+	policySnapshotName  = "validating_admission_policy"
+	bindingSnapshotName = "validating_admission_policy_binding"
+	managedByLabel      = "app.kubernetes.io/managed-by"
+	managedByLabelValue = "virt-operator-internal-virtualization"
 )
 
 var config = &pkg.HookConfig{
 	Kubernetes: []pkg.KubernetesConfig{
 		{
-			Name:       POLICY_SNAPSHOT_NAME,
+			Name:       policySnapshotName,
 			APIVersion: "admissionregistration.k8s.io/v1beta1",
 			Kind:       "ValidatingAdmissionPolicy",
 			NameSelector: &pkg.NameSelector{
@@ -52,7 +52,7 @@ var config = &pkg.HookConfig{
 			ExecuteHookOnEvents:          ptr.Bool(false),
 		},
 		{
-			Name:       BINDING_SNAPSHOT_NAME,
+			Name:       bindingSnapshotName,
 			APIVersion: "admissionregistration.k8s.io/v1beta1",
 			Kind:       "ValidatingAdmissionPolicyBinding",
 			NameSelector: &pkg.NameSelector{
@@ -71,12 +71,12 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("Start MigrateDeleteRenamedValidationAadmissionPolicy hook")
 
 	var (
-		foundDeprecated int
-		uts             []*unstructured.Unstructured
+		foundDeprecatedCount int
+		uts                  []*unstructured.Unstructured
 	)
 
-	policySnapshots := input.Snapshots.Get(POLICY_SNAPSHOT_NAME)
-	bindingSnapshots := input.Snapshots.Get(BINDING_SNAPSHOT_NAME)
+	policySnapshots := input.Snapshots.Get(policySnapshotName)
+	bindingSnapshots := input.Snapshots.Get(bindingSnapshotName)
 
 	snapObjs, err := snapsToUnstructured(policySnapshots)
 	if err != nil {
@@ -99,8 +99,8 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	}
 
 	for _, obj := range uts {
-		if obj.GetLabels()[managed_by_label] == managed_by_label_value {
-			foundDeprecated++
+		if obj.GetLabels()[managedByLabel] == managedByLabelValue {
+			foundDeprecatedCount++
 			name := obj.GetName()
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			input.Logger.Info("Delete deprecated %s %s", name, kind)
@@ -112,7 +112,7 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 		}
 	}
 
-	if foundDeprecated == 0 {
+	if foundDeprecatedCount == 0 {
 		input.Logger.Info("No deprecated resources found, migration not required.")
 	}
 
