@@ -250,7 +250,8 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 		// When we delete a namespace, there is a race condition with the removal of the Kubernetes finalizer.
 		// If an error causes our code to add the finalizer after Kubernetes has already removed it,
 		// simply retry the operation.
-		if err != nil {
+		switch {
+		case k8serrors.IsInvalid(err):
 			// retry with actual pvc state
 			pvc, err = s.GetPersistentVolumeClaim(ctx, sup)
 			if err != nil {
@@ -261,6 +262,8 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 			if err != nil {
 				return false, err
 			}
+		case err != nil:
+			return false, err
 		}
 
 		err = s.client.Delete(ctx, pvc)
