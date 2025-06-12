@@ -86,10 +86,15 @@ spec:
       resourceName: virt-handler
       patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
       type: json
-    # Add node affinity for the lowest virtualization level
+    # Add node affinity for the lowest virtualization level for virt-handler pods
     - resourceType: DaemonSet
       resourceName: virt-handler
       patch: {{ include "kubevirt.virthandler_nodeaffinity_strategic_patch_json" $dvpNestingLevel }}
+      type: strategic
+    # Run virt-handler pods on required nodes
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "kubevirt.virthandler_nodeseletor_strategic_patch_json" . }}
       type: strategic
     {{- if (include "helm_lib_ha_enabled" .) }}
     # HA settings for deploy/virt-api.
