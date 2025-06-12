@@ -89,11 +89,11 @@ func cleanUpNodeLabels(_ context.Context, input *pkg.HookInput) error {
 			continue
 		}
 
-		patches := []map[string]interface{}{}
+		patches := make([]map[string]string, 0)
 
 		for key, _ := range nodeInfo.Labels {
 			if strings.Contains(key, labelPattern) {
-				patches = append(patches, map[string]interface{}{
+				patches = append(patches, map[string]string{
 					"op":   "remove",
 					"path": fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(key)),
 				})
