@@ -34,18 +34,27 @@ import (
 )
 
 const (
-	nodesMetadataSnapshot = "virthandler-nodes"
-	virtHandlerLabel      = "kubevirt.internal.virtualization.deckhouse.io/schedulable"
-	nodeJQFilter          = ".metadata"
+	nodesSnapshot    = "virthandler-nodes"
+	virtHandlerLabel = "kubevirt.internal.virtualization.deckhouse.io/schedulable"
+	labelPattern     = "virtualization.deckhouse.io"
+	nodeJQFilter     = `{
+		"name": .metadata.name,
+		"labels": .metadata.labels,
+	}`
 )
 
-var _ = registry.RegisterFunc(configDiscoveryService, handleVirtHandlerNodes)
+type NodeInfo struct {
+	Name   string            `json:"name"`
+	Labels map[string]string `json:"labels"`
+}
+
+var _ = registry.RegisterFunc(configDiscoveryService, cleanUpNodeLabels)
 
 var configDiscoveryService = &pkg.HookConfig{
 	OnAfterDeleteHelm: &pkg.OrderedConfig{Order: 5},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
-			Name:       nodesMetadataSnapshot,
+			Name:       nodesSnapshot,
 			APIVersion: "v1",
 			Kind:       "Node",
 			JqFilter:   nodeJQFilter,
@@ -65,26 +74,25 @@ var configDiscoveryService = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
 }
 
-func handleVirtHandlerNodes(_ context.Context, input *pkg.HookInput) error {
+func cleanUpNodeLabels(_ context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("Start.")
 
-	nodeMetadatas := input.Snapshots.Get(nodesMetadataSnapshot)
-	input.Logger.Info(fmt.Sprintf("Found %d nodes", len(nodeMetadatas)))
-	if len(nodeMetadatas) == 0 {
+	nodes := input.Snapshots.Get(nodesSnapshot)
+	if len(nodes) == 0 {
 		return nil
 	}
 
-	for _, nodeMetadata := range nodeMetadatas {
-		metadata := &metav1.ObjectMeta{}
-		if err := nodeMetadata.UnmarshalTo(metadata); err != nil {
+	for _, node := range nodes {
+		nodeInfo := &NodeInfo{}
+		if err := node.UnmarshalTo(nodeInfo); err != nil {
 			input.Logger.Error(fmt.Sprintf("Failed to unmarshal node metadata %v", err))
 			continue
 		}
 
 		patches := []map[string]interface{}{}
 
-		for key, _ := range metadata.Labels {
-			if strings.Contains(key, "virtualization.deckhouse.io") {
+		for key, _ := range nodeInfo.Labels {
+			if strings.Contains(key, labelPattern) {
 				patches = append(patches, map[string]interface{}{
 					"op":   "remove",
 					"path": fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(key)),
@@ -93,15 +101,13 @@ func handleVirtHandlerNodes(_ context.Context, input *pkg.HookInput) error {
 		}
 
 		if len(patches) == 0 {
-			input.Logger.Info("No labels found, nothing to do.")
 			continue
 		} else {
-			input.Logger.Info(fmt.Sprintf("Removing %d labels from node %s", len(patches), metadata.Name))
+			input.Logger.Info(fmt.Sprintf("Removing %d labels contains %s from node %s", len(patches), labelPattern, nodeInfo.Name))
 		}
 
-		input.PatchCollector.PatchWithJSON(patches, "v1", "Node", "", metadata.Name)
+		input.PatchCollector.PatchWithJSON(patches, "v1", "Node", "", nodeInfo.Name)
 	}
-	input.Logger.Info("Done.")
 	return nil
 }
 
