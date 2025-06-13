@@ -63,9 +63,6 @@ var configDiscoveryService = &pkg.HookConfig{
 
 func handleDiscoveryVirtHandkerNodes(_ context.Context, input *pkg.HookInput) error {
 	nodeCount := len(input.Snapshots.Get(nodesSnapshot))
-	if nodeCount == 0 {
-		nodeCount = 1
-	}
 	input.Values.Set(virtHandlerNodeCountPath, nodeCount)
 	return nil
 }
