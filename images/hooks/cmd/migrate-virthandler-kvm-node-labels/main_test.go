@@ -82,7 +82,7 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 
 	Context("Empty cluster", func() {
 		It("Hook must execute successfully", func() {
-			snapshots.GetMock.When(nodesMetadataSnapshot).Then(
+			snapshots.GetMock.When(nodesSnapshot).Then(
 				[]pkg.Snapshot{},
 			)
 			err := handleDiscoveryVirtHandlerNodes(context.Background(), input)
@@ -97,7 +97,7 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 				"node4": struct{}{},
 			}
 
-			snapshots.GetMock.When(nodesMetadataSnapshot).Then([]pkg.Snapshot{
+			snapshots.GetMock.When(nodesSnapshot).Then([]pkg.Snapshot{
 				// should be patched
 				createSnapshotMock(NodeInfo{
 					Name: "node1",

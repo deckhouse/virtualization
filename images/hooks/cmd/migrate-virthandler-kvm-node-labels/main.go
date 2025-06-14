@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	nodesMetadataSnapshot = "virthandler-nodes"
+	nodesSnapshot         = "virthandler-nodes"
 	virtHandlerLabel      = "kubevirt.internal.virtualization.deckhouse.io/schedulable"
 	virtHandlerLabelValue = "true"
 	kvmEnabledLabel       = "virtualization.deckhouse.io/kvm-enabled"
@@ -58,7 +58,7 @@ var configDiscoveryService = &pkg.HookConfig{
 	OnBeforeHelm: &pkg.OrderedConfig{Order: 1},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
-			Name:       nodesMetadataSnapshot,
+			Name:       nodesSnapshot,
 			APIVersion: "v1",
 			Kind:       "Node",
 			JqFilter:   nodeJQFilter,
@@ -76,7 +76,7 @@ var configDiscoveryService = &pkg.HookConfig{
 }
 
 func handleDiscoveryVirtHandlerNodes(_ context.Context, input *pkg.HookInput) error {
-	nodes := input.Snapshots.Get(nodesMetadataSnapshot)
+	nodes := input.Snapshots.Get(nodesSnapshot)
 	if len(nodes) == 0 {
 		return nil
 	}
