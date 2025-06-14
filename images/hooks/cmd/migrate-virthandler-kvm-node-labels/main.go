@@ -21,11 +21,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 
 	"hooks/pkg/common"
@@ -34,15 +34,24 @@ import (
 )
 
 const (
-	nodesMetadataSnapshot     = "virthandler-nodes"
-	virtHandlerLabel          = "kubevirt.internal.virtualization.deckhouse.io/schedulable"
-	virtHandlerNodeLabelValue = "true"
-	kvmEnabledLabel           = "virtualization.deckhouse.io/kvm-enabled"
-	kvmEnabledLabelValue      = "true"
-	nodeJQFilter              = ".metadata"
+	nodesMetadataSnapshot = "virthandler-nodes"
+	virtHandlerLabel      = "kubevirt.internal.virtualization.deckhouse.io/schedulable"
+	virtHandlerLabelValue = "true"
+	kvmEnabledLabel       = "virtualization.deckhouse.io/kvm-enabled"
+	kvmEnabledLabelValue  = "true"
+	nodeJQFilter          = ".metadata"
 )
 
-var _ = registry.RegisterFunc(configDiscoveryService, handleVirtHandlerNodes)
+type NodeInfo struct {
+	Name   string            `json:"name"`
+	Labels map[string]string `json:"labels"`
+}
+
+var kvmLabelPatch = []map[string]string{
+	{"op": "add", "path": fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(kvmEnabledLabel)), "value": kvmEnabledLabelValue},
+}
+
+var _ = registry.RegisterFunc(configDiscoveryService, handleDiscoveryVirtHandlerNodes)
 
 var configDiscoveryService = &pkg.HookConfig{
 	OnBeforeHelm: &pkg.OrderedConfig{Order: 1},
@@ -54,7 +63,7 @@ var configDiscoveryService = &pkg.HookConfig{
 			JqFilter:   nodeJQFilter,
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					virtHandlerLabel: virtHandlerNodeLabelValue,
+					virtHandlerLabel: virtHandlerLabelValue,
 				},
 			},
 			ExecuteHookOnSynchronization: ptr.To(false),
@@ -65,30 +74,30 @@ var configDiscoveryService = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
 }
 
-func handleVirtHandlerNodes(_ context.Context, input *pkg.HookInput) error {
-	nodeMetadatas := input.Snapshots.Get(nodesMetadataSnapshot)
-	if len(nodeMetadatas) == 0 {
+func handleDiscoveryVirtHandlerNodes(_ context.Context, input *pkg.HookInput) error {
+	nodes := input.Snapshots.Get(nodesMetadataSnapshot)
+	if len(nodes) == 0 {
 		return nil
 	}
 
-	for _, nodeMetadata := range nodeMetadatas {
-		metadata := &metav1.ObjectMeta{}
-		if err := nodeMetadata.UnmarshalTo(metadata); err != nil {
+	for _, node := range nodes {
+		nodeInfo := &NodeInfo{}
+		if err := node.UnmarshalTo(nodeInfo); err != nil {
 			input.Logger.Error(fmt.Sprintf("Failed to unmarshal node metadata %v", err))
 		}
 
-		_, ok := metadata.Labels[kvmEnabledLabel]
-		if ok {
-			continue
-		} else {
-			metadata.Labels[kvmEnabledLabel] = kvmEnabledLabelValue
-			nodePatch := v1.Node{}
-			nodePatch.ObjectMeta = *metadata
-			input.PatchCollector.PatchWithMerge(nodePatch, "v1", "Node", "", metadata.Name)
+		if _, ok := nodeInfo.Labels[kvmEnabledLabel]; !ok {
+			input.PatchCollector.PatchWithJSON(kvmLabelPatch, "v1", "Node", "", nodeInfo.Name)
 		}
 	}
 
 	return nil
+}
+
+func jsonPatchEscape(s string) string {
+	s = strings.ReplaceAll(s, "~", "~0")
+	s = strings.ReplaceAll(s, "/", "~1")
+	return s
 }
 
 func main() {

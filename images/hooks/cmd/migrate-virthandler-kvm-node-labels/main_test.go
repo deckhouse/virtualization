@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"os"
 	"testing"
 	"time"
 
@@ -31,18 +30,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
-func TestMigrateVirthandlerKVMLabels(t *testing.T) {
+func TestMigratevirtHandlerKVMLabels(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Migrate virthandler KVM labels Suite")
+	RunSpecs(t, "Migrate virtHandler KVM labels Suite")
 }
 
-var _ = Describe("Migrate virthandler KVM labels", func() {
-	err := os.Setenv("D8_IS_TESTS_ENVIRONMENT", "true")
-	Expect(err).ShouldNot(HaveOccurred())
+var _ = Describe("Migrate virtHandler KVM labels", func() {
 
 	const (
 		node1YAML = `
@@ -144,7 +140,7 @@ metadata:
 			snapshots.GetMock.When(nodesMetadataSnapshot).Then(
 				[]pkg.Snapshot{},
 			)
-			err := handleVirtHandlerNodes(context.Background(), input)
+			err := handleDiscoveryVirtHandlerNodes(context.Background(), input)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
@@ -152,13 +148,9 @@ metadata:
 	Context("Four nodes but only two should be patched.", func() {
 		It("Hook must execute successfully", func() {
 
-			expectedVMLabels := map[string]map[string]string{
-				"node1": {
-					virtHandlerLabel: virtHandlerNodeLabelValue,
-				},
-				"node6": {
-					virtHandlerLabel: virtHandlerNodeLabelValue,
-				},
+			expectedNodes := map[string]struct{}{
+				"node1": struct{}{},
+				"node6": struct{}{},
 			}
 
 			snapshots.GetMock.When(nodesMetadataSnapshot).Then(
@@ -170,18 +162,17 @@ metadata:
 				},
 			)
 
-			patchCollector.PatchWithMergeMock.Set(func(patch any, apiVersion, kind, namespace, name string, opts ...pkg.PatchCollectorOption) {
-				node, ok := patch.(v1.Node)
+			patchCollector.PatchWithJSONMock.Set(func(patch any, apiVersion, kind, namespace, name string, opts ...pkg.PatchCollectorOption) {
+				p, ok := patch.([]map[string]string)
 				Expect(ok).To(BeTrue())
-				Expect(expectedVMLabels).To(HaveKey(name))
-				for k, v := range expectedVMLabels[name] {
-					Expect(node.Labels).Should(HaveKeyWithValue(k, v))
-				}
-				delete(expectedVMLabels, name)
+				Expect(expectedNodes).To(HaveKey(name))
+				Expect(p).To(BeEquivalentTo(kvmLabelPatch))
+				delete(expectedNodes, name)
 			})
-			err := handleVirtHandlerNodes(context.Background(), input)
+
+			err := handleDiscoveryVirtHandlerNodes(context.Background(), input)
 			Expect(err).ShouldNot(HaveOccurred())
-			Expect(expectedVMLabels).To(HaveLen(0))
+			Expect(expectedNodes).To(HaveLen(0))
 		})
 	})
 
@@ -209,7 +200,7 @@ func nodeYamlToSnapshot(manifest string) (string, error) {
 
 func getNodeSnapshot(nodeManifest string) func(v any) (err error) {
 	return func(v any) (err error) {
-		rt := v.(*metav1.ObjectMeta)
+		rt := v.(*NodeInfo)
 		if err := json.Unmarshal([]byte(nodeManifest), rt); err != nil {
 			return err
 		}
