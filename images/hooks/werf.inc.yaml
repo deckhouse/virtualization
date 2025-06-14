@@ -35,3 +35,4 @@ shell:
   - go build -ldflags="-s -w" -o /hooks/generate-secret-for-dvcr ./cmd/generate-secret-for-dvcr
   - go build -ldflags="-s -w" -o /hooks/discovery-clusterip-service-for-dvcr ./cmd/discovery-clusterip-service-for-dvcr
   - go build -ldflags="-s -w" -o /hooks/discovery-workload-nodes ./cmd/discovery-workload-nodes
+  - go build -ldflags="-s -w" -o /hooks/migrate-virthandler-kvm-node-labels ./cmd/migrate-virthandler-kvm-node-labels
