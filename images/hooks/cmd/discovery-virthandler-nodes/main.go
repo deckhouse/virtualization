@@ -31,26 +31,27 @@ import (
 )
 
 const (
-	discoveryNodesSnapshot = "discovery-nodes"
-	nodeLabel              = "kubevirt.internal.virtualization.deckhouse.io/schedulable"
-	nodeLabelValue         = "true"
+	nodesSnapshot         = "discovery-nodes"
+	virtHandlerLabel      = "kubevirt.internal.virtualization.deckhouse.io/schedulable"
+	virtHandlerLabelValue = "true"
+	nodeJQFilter          = ".metadata.name"
 
 	virtHandlerNodeCountPath = "virtualization.internal.virtHandler.nodeCount"
 )
 
-var _ = registry.RegisterFunc(configDiscoveryService, handleDiscoveryNodes)
+var _ = registry.RegisterFunc(configDiscoveryService, handleDiscoveryVirtHandlerNodes)
 
 var configDiscoveryService = &pkg.HookConfig{
 	OnBeforeHelm: &pkg.OrderedConfig{Order: 5},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
-			Name:       discoveryNodesSnapshot,
+			Name:       nodesSnapshot,
 			APIVersion: "v1",
 			Kind:       "Node",
-			JqFilter:   ".metadata.name",
+			JqFilter:   nodeJQFilter,
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					nodeLabel: nodeLabelValue,
+					virtHandlerLabel: virtHandlerLabelValue,
 				},
 			},
 			ExecuteHookOnSynchronization: ptr.To(false),
@@ -60,8 +61,8 @@ var configDiscoveryService = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
 }
 
-func handleDiscoveryNodes(_ context.Context, input *pkg.HookInput) error {
-	nodeCount := len(input.Snapshots.Get(discoveryNodesSnapshot))
+func handleDiscoveryVirtHandlerNodes(_ context.Context, input *pkg.HookInput) error {
+	nodeCount := len(input.Snapshots.Get(nodesSnapshot))
 	input.Values.Set(virtHandlerNodeCountPath, nodeCount)
 	return nil
 }
