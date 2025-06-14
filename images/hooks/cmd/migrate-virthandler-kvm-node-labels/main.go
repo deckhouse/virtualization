@@ -85,6 +85,7 @@ func handleDiscoveryVirtHandlerNodes(_ context.Context, input *pkg.HookInput) er
 		nodeInfo := &NodeInfo{}
 		if err := node.UnmarshalTo(nodeInfo); err != nil {
 			input.Logger.Error(fmt.Sprintf("Failed to unmarshal node metadata %v", err))
+			continue
 		}
 
 		if _, ok := nodeInfo.Labels[kvmEnabledLabel]; !ok {

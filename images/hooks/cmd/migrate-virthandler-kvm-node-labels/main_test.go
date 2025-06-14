@@ -26,13 +26,18 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/jq"
 	"github.com/deckhouse/module-sdk/testing/mock"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/yaml"
 )
+
+func createSnapshotMock(jsonStr string) pkg.Snapshot {
+	m := mock.NewSnapshotMock(GinkgoT())
+	m.UnmarshalToMock.Set(func(v any) error {
+		return json.Unmarshal([]byte(jsonStr), v)
+	})
+	return m
+}
 
 func TestMigratevirtHandlerKVMLabels(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -41,50 +46,6 @@ func TestMigratevirtHandlerKVMLabels(t *testing.T) {
 
 var _ = Describe("Migrate virtHandler KVM labels", func() {
 
-	const (
-		node1YAML = `
----
-apiVersion: v1
-kind: Node
-metadata:
-  labels:
-    kubevirt.internal.virtualization.deckhouse.io/schedulable: "true"
-  name: node1
-`
-
-		node2YAML = `
----
-apiVersion: v1
-kind: Node
-metadata:
-  labels:
-    kubevirt.internal.virtualization.deckhouse.io/schedulable: "true"
-    virtualization.deckhouse.io/kvm-enabled: "true"
-  name: node2
-`
-
-		node3YAML = `
----
-apiVersion: v1
-kind: Node
-metadata:
-  labels:
-    kubevirt.internal.virtualization.deckhouse.io/schedulable: "true"
-    virtualization.deckhouse.io/kvm-enabled: "false"
-  name: node3
-`
-
-		node4YAML = `
----
-apiVersion: v1
-kind: Node
-metadata:
-  labels:
-    kubevirt.internal.virtualization.deckhouse.io/schedulable: "true"
-  name: node6
-`
-	)
-
 	var (
 		snapshots      *mock.SnapshotsMock
 		values         *mock.PatchableValuesCollectorMock
@@ -92,26 +53,6 @@ metadata:
 		input          *pkg.HookInput
 		buf            *bytes.Buffer
 	)
-
-	filterResultNode1, err := nodeYamlToSnapshot(node1YAML)
-	if err != nil {
-		Expect(err).ShouldNot(HaveOccurred())
-	}
-
-	filterResultNode2, err := nodeYamlToSnapshot(node2YAML)
-	if err != nil {
-		Expect(err).ShouldNot(HaveOccurred())
-	}
-
-	filterResultNode3, err := nodeYamlToSnapshot(node3YAML)
-	if err != nil {
-		Expect(err).ShouldNot(HaveOccurred())
-	}
-
-	filterResultNode4, err := nodeYamlToSnapshot(node4YAML)
-	if err != nil {
-		Expect(err).ShouldNot(HaveOccurred())
-	}
 
 	BeforeEach(func() {
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
@@ -151,17 +92,38 @@ metadata:
 
 			expectedNodes := map[string]struct{}{
 				"node1": struct{}{},
-				"node6": struct{}{},
+				"node4": struct{}{},
 			}
 
-			snapshots.GetMock.When(nodesMetadataSnapshot).Then(
-				[]pkg.Snapshot{
-					mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(getNodeSnapshot(filterResultNode1)),
-					mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(getNodeSnapshot(filterResultNode2)),
-					mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(getNodeSnapshot(filterResultNode3)),
-					mock.NewSnapshotMock(GinkgoT()).UnmarshalToMock.Set(getNodeSnapshot(filterResultNode4)),
-				},
-			)
+			// Set up the mock behavior
+			snapshots.GetMock.When(nodesMetadataSnapshot).Then([]pkg.Snapshot{
+				createSnapshotMock(`
+				{ "name":"node1",
+				  "labels": {
+					  "kubevirt.internal.virtualization.deckhouse.io/schedulable":"true"
+					}
+				}`),
+				createSnapshotMock(`
+				{ "name":"node2",
+				  "labels": {
+					  "kubevirt.internal.virtualization.deckhouse.io/schedulable":"true",
+						"virtualization.deckhouse.io/kvm-enabled":"true"
+					}
+				}`),
+				createSnapshotMock(`
+				{ "name":"node3",
+				  "labels": {
+					  "kubevirt.internal.virtualization.deckhouse.io/schedulable":"true",
+						"virtualization.deckhouse.io/kvm-enabled":"false"
+					}
+				}`),
+				createSnapshotMock(`
+				{ "name":"node4",
+				  "labels": {
+					  "kubevirt.internal.virtualization.deckhouse.io/schedulable":"true"
+					}
+				}`),
+			})
 
 			patchCollector.PatchWithJSONMock.Set(func(patch any, apiVersion, kind, namespace, name string, opts ...pkg.PatchCollectorOption) {
 				p, ok := patch.([]map[string]string)
@@ -175,41 +137,10 @@ metadata:
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Expect(buf.String()).To(ContainSubstring(fmt.Sprintf(logMessageTemplate, kvmEnabledLabel, "node1")))
-			Expect(buf.String()).To(ContainSubstring(fmt.Sprintf(logMessageTemplate, kvmEnabledLabel, "node6")))
+			Expect(buf.String()).To(ContainSubstring(fmt.Sprintf(logMessageTemplate, kvmEnabledLabel, "node4")))
 
 			Expect(expectedNodes).To(HaveLen(0))
 		})
 	})
 
 })
-
-func nodeYamlToSnapshot(manifest string) (string, error) {
-	node := new(v1.Node)
-	err := yaml.Unmarshal([]byte(manifest), node)
-	if err != nil {
-		return "", err
-	}
-
-	query, err := jq.NewQuery(nodeJQFilter)
-	if err != nil {
-		return "", err
-	}
-
-	filterResult, err := query.FilterObject(context.Background(), node)
-	if err != nil {
-		return "", err
-	}
-
-	return filterResult.String(), nil
-}
-
-func getNodeSnapshot(nodeManifest string) func(v any) (err error) {
-	return func(v any) (err error) {
-		rt := v.(*NodeInfo)
-		if err := json.Unmarshal([]byte(nodeManifest), rt); err != nil {
-			return err
-		}
-
-		return nil
-	}
-}
