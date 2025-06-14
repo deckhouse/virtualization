@@ -34,10 +34,11 @@ import (
 )
 
 const (
-	nodesSnapshot    = "virthandler-nodes"
-	virtHandlerLabel = "kubevirt.internal.virtualization.deckhouse.io/schedulable"
-	labelPattern     = "virtualization.deckhouse.io"
-	nodeJQFilter     = `{
+	nodesSnapshot      = "virthandler-nodes"
+	virtHandlerLabel   = "kubevirt.internal.virtualization.deckhouse.io/schedulable"
+	labelPattern       = "virtualization.deckhouse.io/"
+	logMessageTemplate = "Removing %d label(s) contains %s from node %s"
+	nodeJQFilter       = `{
 		"name": .metadata.name,
 		"labels": .metadata.labels,
 	}`
@@ -48,7 +49,7 @@ type NodeInfo struct {
 	Labels map[string]string `json:"labels"`
 }
 
-var _ = registry.RegisterFunc(configDiscoveryService, cleanUpNodeLabels)
+var _ = registry.RegisterFunc(configDiscoveryService, handleCleanUpNodeLabels)
 
 var configDiscoveryService = &pkg.HookConfig{
 	OnAfterDeleteHelm: &pkg.OrderedConfig{Order: 5},
@@ -74,10 +75,10 @@ var configDiscoveryService = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
 }
 
-func cleanUpNodeLabels(_ context.Context, input *pkg.HookInput) error {
-	input.Logger.Info("Start.")
-
+func handleCleanUpNodeLabels(_ context.Context, input *pkg.HookInput) error {
 	nodes := input.Snapshots.Get(nodesSnapshot)
+
+	input.Logger.Info(fmt.Sprintf("Number of nodes with label \"%s\": %d", virtHandlerLabel, len(nodes)))
 	if len(nodes) == 0 {
 		return nil
 	}
@@ -103,7 +104,7 @@ func cleanUpNodeLabels(_ context.Context, input *pkg.HookInput) error {
 		if len(patches) == 0 {
 			continue
 		} else {
-			input.Logger.Info(fmt.Sprintf("Removing %d labels contains %s from node %s", len(patches), labelPattern, nodeInfo.Name))
+			input.Logger.Info(fmt.Sprintf(logMessageTemplate, len(patches), labelPattern, nodeInfo.Name))
 		}
 
 		input.PatchCollector.PatchWithJSON(patches, "v1", "Node", "", nodeInfo.Name)
