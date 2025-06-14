@@ -19,7 +19,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -31,10 +30,15 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func createSnapshotMock(jsonStr string) pkg.Snapshot {
+func createSnapshotMock(nodeInfo NodeInfo) pkg.Snapshot {
 	m := mock.NewSnapshotMock(GinkgoT())
 	m.UnmarshalToMock.Set(func(v any) error {
-		return json.Unmarshal([]byte(jsonStr), v)
+		target, ok := v.(*NodeInfo)
+		if !ok {
+			return fmt.Errorf("expected *NodeInfo, got %T", v)
+		}
+		*target = nodeInfo
+		return nil
 	})
 	return m
 }
@@ -45,7 +49,6 @@ func TestMigratevirtHandlerKVMLabels(t *testing.T) {
 }
 
 var _ = Describe("Migrate virtHandler KVM labels", func() {
-
 	var (
 		snapshots      *mock.SnapshotsMock
 		values         *mock.PatchableValuesCollectorMock
@@ -89,40 +92,42 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 
 	Context("Four nodes but only two should be patched.", func() {
 		It("Hook must execute successfully", func() {
-
 			expectedNodes := map[string]struct{}{
 				"node1": struct{}{},
 				"node4": struct{}{},
 			}
 
-			// Set up the mock behavior
 			snapshots.GetMock.When(nodesMetadataSnapshot).Then([]pkg.Snapshot{
-				createSnapshotMock(`
-				{ "name":"node1",
-				  "labels": {
-					  "kubevirt.internal.virtualization.deckhouse.io/schedulable":"true"
-					}
-				}`),
-				createSnapshotMock(`
-				{ "name":"node2",
-				  "labels": {
-					  "kubevirt.internal.virtualization.deckhouse.io/schedulable":"true",
-						"virtualization.deckhouse.io/kvm-enabled":"true"
-					}
-				}`),
-				createSnapshotMock(`
-				{ "name":"node3",
-				  "labels": {
-					  "kubevirt.internal.virtualization.deckhouse.io/schedulable":"true",
-						"virtualization.deckhouse.io/kvm-enabled":"false"
-					}
-				}`),
-				createSnapshotMock(`
-				{ "name":"node4",
-				  "labels": {
-					  "kubevirt.internal.virtualization.deckhouse.io/schedulable":"true"
-					}
-				}`),
+				// should be patched
+				createSnapshotMock(NodeInfo{
+					Name: "node1",
+					Labels: map[string]string{
+						"kubevirt.internal.virtualization.deckhouse.io/schedulable": "true",
+					},
+				}),
+				// should not be patched
+				createSnapshotMock(NodeInfo{
+					Name: "node2",
+					Labels: map[string]string{
+						"kubevirt.internal.virtualization.deckhouse.io/schedulable": "true",
+						"virtualization.deckhouse.io/kvm-enabled":                   "true",
+					},
+				}),
+				// should not be patched
+				createSnapshotMock(NodeInfo{
+					Name: "node3",
+					Labels: map[string]string{
+						"kubevirt.internal.virtualization.deckhouse.io/schedulable": "true",
+						"virtualization.deckhouse.io/kvm-enabled":                   "false",
+					},
+				}),
+				// should be patched
+				createSnapshotMock(NodeInfo{
+					Name: "node4",
+					Labels: map[string]string{
+						"kubevirt.internal.virtualization.deckhouse.io/schedulable": "true",
+					},
+				}),
 			})
 
 			patchCollector.PatchWithJSONMock.Set(func(patch any, apiVersion, kind, namespace, name string, opts ...pkg.PatchCollectorOption) {
@@ -142,5 +147,4 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 			Expect(expectedNodes).To(HaveLen(0))
 		})
 	})
-
 })
