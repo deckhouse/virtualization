@@ -48,7 +48,7 @@ type NodeInfo struct {
 	Labels map[string]string `json:"labels"`
 }
 
-var _ = registry.RegisterFunc(configDiscoveryService, cleanUpNodeLabels)
+var _ = registry.RegisterFunc(configDiscoveryService, handleCleanUpNodeLabels)
 
 var configDiscoveryService = &pkg.HookConfig{
 	OnAfterDeleteHelm: &pkg.OrderedConfig{Order: 5},
@@ -74,7 +74,7 @@ var configDiscoveryService = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
 }
 
-func cleanUpNodeLabels(_ context.Context, input *pkg.HookInput) error {
+func handleCleanUpNodeLabels(_ context.Context, input *pkg.HookInput) error {
 	input.Logger.Info("Start.")
 
 	nodes := input.Snapshots.Get(nodesSnapshot)
