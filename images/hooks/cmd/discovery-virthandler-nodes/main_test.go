@@ -17,16 +17,12 @@ limitations under the License.
 package main
 
 import (
-	"bytes"
 	"context"
-	"os"
 	"testing"
-	"time"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
@@ -36,37 +32,19 @@ func TestDiscoveryVirthandlerNodes(t *testing.T) {
 }
 
 var _ = Describe("Discovery virt-handler nodes", func() {
-	err := os.Setenv("D8_IS_TESTS_ENVIRONMENT", "true")
-	Expect(err).ShouldNot(HaveOccurred())
-
 	var (
-		snapshots      *mock.SnapshotsMock
-		values         *mock.PatchableValuesCollectorMock
-		patchCollector *mock.PatchCollectorMock
-		input          *pkg.HookInput
-		buf            *bytes.Buffer
+		snapshots *mock.SnapshotsMock
+		values    *mock.PatchableValuesCollectorMock
+		input     *pkg.HookInput
 	)
 
 	BeforeEach(func() {
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
 		values = mock.NewPatchableValuesCollectorMock(GinkgoT())
-		patchCollector = mock.NewPatchCollectorMock(GinkgoT())
-
-		buf = bytes.NewBuffer([]byte{})
 
 		input = &pkg.HookInput{
 			Values:    values,
 			Snapshots: snapshots,
-			Logger: log.NewLogger(log.Options{
-				Level:  log.LevelDebug.Level(),
-				Output: buf,
-				TimeFunc: func(_ time.Time) time.Time {
-					parsedTime, err := time.Parse(time.DateTime, "2006-01-02 15:04:05")
-					Expect(err).ShouldNot(HaveOccurred())
-					return parsedTime
-				},
-			}),
-			PatchCollector: patchCollector,
 		}
 	})
 
@@ -76,7 +54,7 @@ var _ = Describe("Discovery virt-handler nodes", func() {
 				[]pkg.Snapshot{},
 			)
 			values.SetMock.When(virtHandlerNodeCountPath, 0)
-			err := handleDiscoveryVirtHandkerNodes(context.Background(), input)
+			err := handleDiscoveryVirtHandlerNodes(context.Background(), input)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
@@ -92,7 +70,7 @@ var _ = Describe("Discovery virt-handler nodes", func() {
 			)
 
 			values.SetMock.When(virtHandlerNodeCountPath, 2)
-			err := handleDiscoveryVirtHandkerNodes(context.Background(), input)
+			err := handleDiscoveryVirtHandlerNodes(context.Background(), input)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})

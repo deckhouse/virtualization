@@ -39,7 +39,7 @@ const (
 	virtHandlerNodeCountPath = "virtualization.internal.virtHandler.nodeCount"
 )
 
-var _ = registry.RegisterFunc(configDiscoveryService, handleDiscoveryVirtHandkerNodes)
+var _ = registry.RegisterFunc(configDiscoveryService, handleDiscoveryVirtHandlerNodes)
 
 var configDiscoveryService = &pkg.HookConfig{
 	OnBeforeHelm: &pkg.OrderedConfig{Order: 5},
@@ -61,7 +61,7 @@ var configDiscoveryService = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
 }
 
-func handleDiscoveryVirtHandkerNodes(_ context.Context, input *pkg.HookInput) error {
+func handleDiscoveryVirtHandlerNodes(_ context.Context, input *pkg.HookInput) error {
 	nodeCount := len(input.Snapshots.Get(nodesSnapshot))
 	input.Values.Set(virtHandlerNodeCountPath, nodeCount)
 	return nil
