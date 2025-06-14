@@ -40,6 +40,7 @@ const (
 	kvmEnabledLabel       = "virtualization.deckhouse.io/kvm-enabled"
 	kvmEnabledLabelValue  = "true"
 	nodeJQFilter          = ".metadata"
+	logMessageTemplate    = "Active hypervisor node detected, setting %s label on node %s"
 )
 
 type NodeInfo struct {
@@ -88,6 +89,7 @@ func handleDiscoveryVirtHandlerNodes(_ context.Context, input *pkg.HookInput) er
 
 		if _, ok := nodeInfo.Labels[kvmEnabledLabel]; !ok {
 			input.PatchCollector.PatchWithJSON(kvmLabelPatch, "v1", "Node", "", nodeInfo.Name)
+			input.Logger.Error(fmt.Sprintf(logMessageTemplate, kvmEnabledLabel, nodeInfo.Name))
 		}
 	}
 

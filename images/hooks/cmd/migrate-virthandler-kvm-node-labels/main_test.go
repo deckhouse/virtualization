@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -172,6 +173,10 @@ metadata:
 
 			err := handleDiscoveryVirtHandlerNodes(context.Background(), input)
 			Expect(err).ShouldNot(HaveOccurred())
+
+			Expect(buf.String()).To(ContainSubstring(fmt.Sprintf(logMessageTemplate, kvmEnabledLabel, "node1")))
+			Expect(buf.String()).To(ContainSubstring(fmt.Sprintf(logMessageTemplate, kvmEnabledLabel, "node6")))
+
 			Expect(expectedNodes).To(HaveLen(0))
 		})
 	})
