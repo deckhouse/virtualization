@@ -26,11 +26,11 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	"k8s.io/utils/ptr"
 
 	"hooks/pkg/common"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -49,9 +49,9 @@ type NodeInfo struct {
 	Labels map[string]string `json:"labels"`
 }
 
-var _ = registry.RegisterFunc(configDiscoveryService, handleCleanUpNodeLabels)
+var _ = registry.RegisterFunc(configVirtHandlerNodeCleanUp, handleCleanUpNodeLabels)
 
-var configDiscoveryService = &pkg.HookConfig{
+var configVirtHandlerNodeCleanUp = &pkg.HookConfig{
 	OnAfterDeleteHelm: &pkg.OrderedConfig{Order: 5},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
@@ -68,7 +68,7 @@ var configDiscoveryService = &pkg.HookConfig{
 				},
 			},
 			ExecuteHookOnSynchronization: ptr.To(false),
-			ExecuteHookOnEvents:          ptr.To(false),
+			// ExecuteHookOnEvents:          ptr.To(false),
 		},
 	},
 
@@ -83,32 +83,32 @@ func handleCleanUpNodeLabels(_ context.Context, input *pkg.HookInput) error {
 		return nil
 	}
 
-	for _, node := range nodes {
-		nodeInfo := &NodeInfo{}
-		if err := node.UnmarshalTo(nodeInfo); err != nil {
-			input.Logger.Error(fmt.Sprintf("Failed to unmarshal node metadata %v", err))
-			continue
-		}
+	// for _, node := range nodes {
+	// 	nodeInfo := &NodeInfo{}
+	// 	if err := node.UnmarshalTo(nodeInfo); err != nil {
+	// 		input.Logger.Error(fmt.Sprintf("Failed to unmarshal node metadata %v", err))
+	// 		continue
+	// 	}
 
-		patches := make([]map[string]string, 0)
+	// 	patches := make([]map[string]string, 0)
 
-		for key, _ := range nodeInfo.Labels {
-			if strings.Contains(key, labelPattern) {
-				patches = append(patches, map[string]string{
-					"op":   "remove",
-					"path": fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(key)),
-				})
-			}
-		}
+	// 	for key, _ := range nodeInfo.Labels {
+	// 		if strings.Contains(key, labelPattern) {
+	// 			patches = append(patches, map[string]string{
+	// 				"op":   "remove",
+	// 				"path": fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(key)),
+	// 			})
+	// 		}
+	// 	}
 
-		if len(patches) == 0 {
-			continue
-		} else {
-			input.Logger.Info(fmt.Sprintf(logMessageTemplate, len(patches), labelPattern, nodeInfo.Name))
-		}
+	// 	if len(patches) == 0 {
+	// 		continue
+	// 	} else {
+	// 		input.Logger.Info(fmt.Sprintf(logMessageTemplate, len(patches), labelPattern, nodeInfo.Name))
+	// 	}
 
-		input.PatchCollector.PatchWithJSON(patches, "v1", "Node", "", nodeInfo.Name)
-	}
+	// 	input.PatchCollector.PatchWithJSON(patches, "v1", "Node", "", nodeInfo.Name)
+	// }
 	return nil
 }
 
