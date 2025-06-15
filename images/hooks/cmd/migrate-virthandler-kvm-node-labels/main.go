@@ -26,11 +26,11 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	"k8s.io/utils/ptr"
 
 	"hooks/pkg/common"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -55,7 +55,7 @@ var kvmLabelPatch = []map[string]string{
 var _ = registry.RegisterFunc(configDiscoveryService, handleDiscoveryVirtHandlerNodes)
 
 var configDiscoveryService = &pkg.HookConfig{
-	OnBeforeHelm: &pkg.OrderedConfig{Order: 1},
+	OnBeforeHelm: &pkg.OrderedConfig{Order: 5},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
 			Name:       nodesSnapshot,
@@ -90,10 +90,9 @@ func handleDiscoveryVirtHandlerNodes(_ context.Context, input *pkg.HookInput) er
 
 		if _, ok := nodeInfo.Labels[kvmEnabledLabel]; !ok {
 			input.PatchCollector.PatchWithJSON(kvmLabelPatch, "v1", "Node", "", nodeInfo.Name)
-			input.Logger.Error(fmt.Sprintf(logMessageTemplate, kvmEnabledLabel, nodeInfo.Name))
+			input.Logger.Info(fmt.Sprintf(logMessageTemplate, kvmEnabledLabel, nodeInfo.Name))
 		}
 	}
-
 	return nil
 }
 
