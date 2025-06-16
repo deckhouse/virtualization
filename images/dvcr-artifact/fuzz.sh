@@ -27,7 +27,7 @@ do
   do
     echo "Fuzzing $func in $file"
     parentDir=$(dirname $file)
-    go test $parentDir -run=$func -fuzz=$func -fuzztime=${fuzzTime} -cover -v
+    go test $parentDir -fuzz=$func -fuzztime=${fuzzTime} -cover -v
   done
 done
 
