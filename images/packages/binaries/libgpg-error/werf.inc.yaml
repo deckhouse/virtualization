@@ -15,7 +15,8 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libtool gettext-tools texinfo tree
+- gcc git make automake autoconf gettext-tools
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
