@@ -80,6 +80,14 @@ func (v *ProvisionerOverrideValidator) Validate(ctx context.Context) error {
 	return nil
 }
 
+func (v *ProvisionerOverrideValidator) ValidateWithForce(ctx context.Context) error {
+	return v.Validate(ctx)
+}
+
+func (v *ProvisionerOverrideValidator) ProcessWithForce(ctx context.Context) error {
+	return nil
+}
+
 func (v *ProvisionerOverrideValidator) Object() client.Object {
 	return v.secret
 }

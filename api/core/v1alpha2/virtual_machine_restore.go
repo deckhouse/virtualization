@@ -54,6 +54,10 @@ type VirtualMachineRestoreList struct {
 }
 
 type VirtualMachineRestoreSpec struct {
+	// An attempt to immediately restore a virtual machine without deleting it.
+	//
+	// +kubebuilder:default:=false
+	Force bool `json:"force,omitempty"`
 	// Snapshot name to restore a virtual machine from.
 	//
 	// +kubebuilder:validation:MinLength=1

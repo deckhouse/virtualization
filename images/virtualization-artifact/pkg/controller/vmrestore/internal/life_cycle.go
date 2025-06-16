@@ -28,12 +28,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	vmopbuilder "github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore/internal/restorer"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type LifeCycleHandler struct {
@@ -172,30 +175,88 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 	var toCreate []client.Object
 
 	for _, ov := range overrideValidators {
-		ov.Override(vmRestore.Spec.NameReplacements)
+		if vmRestore.Spec.Force {
+			ov.Override(vmRestore.Spec.NameReplacements)
 
-		err = ov.Validate(ctx)
-		switch {
-		case err == nil:
-		case errors.Is(err, restorer.ErrAlreadyExists), errors.Is(err, restorer.ErrAlreadyInUse):
-			vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseFailed
-			cb.
-				Status(metav1.ConditionFalse).
-				Reason(vmrestorecondition.VirtualMachineRestoreConflict).
-				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
-			return reconcile.Result{}, nil
-		default:
-			setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
-			return reconcile.Result{}, err
+			err := ov.ValidateWithForce(ctx)
+			switch {
+			case err == nil:
+			case errors.Is(err, restorer.ErrAlreadyInUse):
+				vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseFailed
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vmrestorecondition.VirtualMachineRestoreConflict).
+					Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+				return reconcile.Result{}, nil
+			default:
+				setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+				return reconcile.Result{}, err
+			}
+
+			vmObj, err := object.FetchObject(ctx, types.NamespacedName{Name: vm.Name, Namespace: vm.Namespace}, h.client, &virtv2.VirtualMachine{})
+			if err != nil {
+				setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+				return reconcile.Result{}, fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
+			}
+
+			if vmObj != nil && vmObj.Status.Phase != virtv2.MachineStopped {
+				err := h.stopVirtualMachine(ctx, vm.Name, vm.Namespace)
+				if err != nil {
+					if errors.Is(err, restorer.ErrIncomplete) {
+						setPhaseConditionToPending(cb, &vmRestore.Status.Phase, "waiting while the virtual machine will be stopped")
+						return reconcile.Result{}, nil
+					}
+					setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+					return reconcile.Result{}, err
+				}
+			}
+
+			err = ov.ProcessWithForce(ctx)
+			switch {
+			case err == nil:
+			case errors.Is(err, restorer.ErrTerminating):
+				setPhaseConditionToPending(cb, &vmRestore.Status.Phase, err.Error())
+				return reconcile.Result{}, nil
+			default:
+				setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+				return reconcile.Result{}, err
+			}
+
+			toCreate = append(toCreate, ov.Object())
+		} else {
+			ov.Override(vmRestore.Spec.NameReplacements)
+
+			err = ov.Validate(ctx)
+			switch {
+			case err == nil:
+			case errors.Is(err, restorer.ErrAlreadyExists), errors.Is(err, restorer.ErrAlreadyInUse):
+				vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseFailed
+				cb.
+					Status(metav1.ConditionFalse).
+					Reason(vmrestorecondition.VirtualMachineRestoreConflict).
+					Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+				return reconcile.Result{}, nil
+			default:
+				setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+				return reconcile.Result{}, err
+			}
+
+			toCreate = append(toCreate, ov.Object())
 		}
-
-		toCreate = append(toCreate, ov.Object())
 	}
 
 	err = h.createBatch(ctx, toCreate...)
 	if err != nil {
 		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
 		return reconcile.Result{}, err
+	}
+
+	if vmRestore.Spec.Force {
+		err := h.startVirtualMachine(ctx, vm.Name, vm.Namespace)
+		if err != nil {
+			setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+			return reconcile.Result{}, fmt.Errorf("failed to start the `VirtualMachine`: %w", err)
+		}
 	}
 
 	vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseInProgress
@@ -210,6 +271,8 @@ type OverrideValidator interface {
 	Object() client.Object
 	Override(rules []virtv2.NameReplacement)
 	Validate(ctx context.Context) error
+	ValidateWithForce(ctx context.Context) error
+	ProcessWithForce(ctx context.Context) error
 }
 
 var ErrVirtualDiskSnapshotNotFound = errors.New("not found")
@@ -234,8 +297,9 @@ func (h LifeCycleHandler) getVirtualDisks(ctx context.Context, vmSnapshot *virtv
 				APIVersion: virtv2.Version,
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      vdSnapshot.Spec.VirtualDiskName,
-				Namespace: vdSnapshot.Namespace,
+				Name:        vdSnapshot.Spec.VirtualDiskName,
+				Namespace:   vdSnapshot.Namespace,
+				Annotations: map[string]string{annotations.AnnVDVMRestore: "true"},
 			},
 			Spec: virtv2.VirtualDiskSpec{
 				DataSource: &virtv2.VirtualDiskDataSource{
@@ -271,4 +335,97 @@ func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.Vi
 		Status(metav1.ConditionFalse).
 		Reason(vmrestorecondition.VirtualMachineRestoreFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
+}
+
+func setPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *virtv2.VirtualMachineRestorePhase, msg string) {
+	*phase = virtv2.VirtualMachineRestorePhasePending
+	cb.
+		Status(metav1.ConditionFalse).
+		Reason(vmrestorecondition.VirtualMachineIsNotStopped).
+		Message(service.CapitalizeFirstLetter(msg) + ".")
+}
+
+func newVMRestoreVMOP(vmName, namespace string, vmopType virtv2.VMOPType) *virtv2.VirtualMachineOperation {
+	return vmopbuilder.New(
+		vmopbuilder.WithGenerateName("vmrestore-"),
+		vmopbuilder.WithNamespace(namespace),
+		vmopbuilder.WithAnnotation(annotations.AnnVMOPVMRestore, "true"),
+		vmopbuilder.WithType(vmopType),
+		vmopbuilder.WithVirtualMachine(vmName),
+	)
+}
+
+func (h LifeCycleHandler) getVMRestoreVMOP(ctx context.Context, vmName, namespace string, vmopType virtv2.VMOPType) (*virtv2.VirtualMachineOperation, error) {
+	vmops := &virtv2.VirtualMachineOperationList{}
+	err := h.client.List(ctx, vmops, &client.ListOptions{Namespace: namespace})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, vmop := range vmops.Items {
+		if vmop.Spec.Type != vmopType && vmop.Spec.VirtualMachine != vmName {
+			continue
+		}
+
+		if byVMRestore, ok := vmop.Annotations[annotations.AnnVMOPVMRestore]; ok {
+			if byVMRestore == "true" {
+				return &vmop, nil
+			}
+		}
+	}
+
+	return nil, nil
+}
+
+func (h LifeCycleHandler) stopVirtualMachine(ctx context.Context, vmName, vmNamespace string) error {
+	vmopStop, err := h.getVMRestoreVMOP(ctx, vmName, vmNamespace, virtv2.VMOPTypeStop)
+	if err != nil {
+		return fmt.Errorf("failed to list the `VirtualMachineOperations`: %w", err)
+	}
+
+	if vmopStop == nil {
+		vmopStop := newVMRestoreVMOP(vmName, vmNamespace, virtv2.VMOPTypeStop)
+		err := h.client.Create(ctx, vmopStop)
+		if err != nil {
+			return fmt.Errorf("failed to stop the `VirtualMachine`: %w", err)
+		}
+		return fmt.Errorf("the status of the virtual machine operation is %w", restorer.ErrIncomplete)
+	}
+
+	if vmopStop.Status.Phase == virtv2.VMOPPhaseFailed {
+		conditionCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmopStop.Status.Conditions)
+		return fmt.Errorf("failed to stop the `VirtualMachine`: %s", conditionCompleted.Message)
+	}
+
+	if vmopStop.Status.Phase != virtv2.VMOPPhaseCompleted {
+		conditionCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmopStop.Status.Conditions)
+		return fmt.Errorf("the status of the virtual machine operation is %w: %s", restorer.ErrIncomplete, conditionCompleted.Message)
+	}
+
+	return nil
+}
+
+func (h LifeCycleHandler) startVirtualMachine(ctx context.Context, vmName, vmNamespace string) error {
+	vmKey := types.NamespacedName{Name: vmName, Namespace: vmNamespace}
+	vmObj, err := object.FetchObject(ctx, vmKey, h.client, &virtv2.VirtualMachine{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
+	}
+
+	if vmObj.Status.Phase == virtv2.MachineStopped {
+		vmopStart, err := h.getVMRestoreVMOP(ctx, vmName, vmNamespace, virtv2.VMOPTypeStart)
+		if err != nil {
+			return fmt.Errorf("failed to list the `VirtualMachineOperations`: %w", err)
+		}
+
+		if vmopStart == nil {
+			vmopStart := newVMRestoreVMOP(vmName, vmNamespace, virtv2.VMOPTypeStart)
+			err := h.client.Create(ctx, vmopStart)
+			if err != nil {
+				return fmt.Errorf("failed to start the `VirtualMachine`: %w", err)
+			}
+		}
+	}
+
+	return nil
 }

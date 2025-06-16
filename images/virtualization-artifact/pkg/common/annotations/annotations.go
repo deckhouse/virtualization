@@ -89,6 +89,12 @@ const (
 	AnnVMOPWorkloadUpdate                 = AnnAPIGroupV + "/workload-update"
 	AnnVMOPWorkloadUpdateImage            = AnnAPIGroupV + "/workload-update-image"
 	AnnVMOPWorkloadUpdateNodePlacementSum = AnnAPIGroupV + "/workload-update-node-placement-sum"
+	// AnnVDVMRestore is an annotation on vd that represents a vd created by vmrestore controller
+	AnnVDVMRestore = AnnAPIGroupV + "/vmrestore"
+	// AnnVMBDAVMRestore is an annotation on vmbda that represents a vmbda created by vmrestore controller
+	AnnVMBDAVMRestore = AnnAPIGroupV + "/vmrestore"
+	// AnnVMOPVMRestore is an annotation on vmop that represents a vmop created by vmrestore controller
+	AnnVMOPVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
 	// LabelsPrefix is a prefix for virtualization-controller labels.

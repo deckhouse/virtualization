@@ -21,4 +21,6 @@ import "errors"
 var (
 	ErrAlreadyExists = errors.New("already exists")
 	ErrAlreadyInUse  = errors.New("already in use")
+	ErrTerminating   = errors.New("in the deleting process")
+	ErrIncomplete    = errors.New("still incomplete")
 )
