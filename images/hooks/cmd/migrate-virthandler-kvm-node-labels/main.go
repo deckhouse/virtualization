@@ -52,9 +52,9 @@ var kvmLabelPatch = []map[string]string{
 	{"op": "add", "path": fmt.Sprintf("/metadata/labels/%s", jsonPatchEscape(kvmEnabledLabel)), "value": kvmEnabledLabelValue},
 }
 
-var _ = registry.RegisterFunc(configDiscoveryService, handleDiscoveryVirtHandlerNodes)
+var _ = registry.RegisterFunc(config, handler)
 
-var configDiscoveryService = &pkg.HookConfig{
+var config = &pkg.HookConfig{
 	OnBeforeHelm: &pkg.OrderedConfig{Order: 5},
 	Kubernetes: []pkg.KubernetesConfig{
 		{
@@ -75,7 +75,7 @@ var configDiscoveryService = &pkg.HookConfig{
 	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
 }
 
-func handleDiscoveryVirtHandlerNodes(_ context.Context, input *pkg.HookInput) error {
+func handler(_ context.Context, input *pkg.HookInput) error {
 	nodes := input.Snapshots.Get(nodesSnapshot)
 	if len(nodes) == 0 {
 		return nil

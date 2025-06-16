@@ -85,7 +85,7 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 			snapshots.GetMock.When(nodesSnapshot).Then(
 				[]pkg.Snapshot{},
 			)
-			err := handleDiscoveryVirtHandlerNodes(context.Background(), input)
+			err := handler(context.Background(), input)
 			Expect(err).ShouldNot(HaveOccurred())
 		})
 	})
@@ -138,7 +138,7 @@ var _ = Describe("Migrate virtHandler KVM labels", func() {
 				delete(expectedNodes, name)
 			})
 
-			err := handleDiscoveryVirtHandlerNodes(context.Background(), input)
+			err := handler(context.Background(), input)
 			Expect(err).ShouldNot(HaveOccurred())
 
 			Expect(buf.String()).To(ContainSubstring(fmt.Sprintf(logMessageTemplate, kvmEnabledLabel, "node1")))
