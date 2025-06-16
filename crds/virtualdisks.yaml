@@ -386,12 +386,12 @@ spec:
                     - Pending
                     - Provisioning
                     - WaitForUserUpload
-                    - Ready
-                    - Failed
-                    - Terminating
-                    - PVCLost
                     - WaitForFirstConsumer
+                    - Ready
                     - Resizing
+                    - Failed
+                    - PVCLost
+                    - Terminating
                   type: string
                 progress:
                   description:

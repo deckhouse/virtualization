@@ -1273,7 +1273,8 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 					},
 					"usedInNamespaces": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "Displays the list of namespaces where the image is currently used.",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
