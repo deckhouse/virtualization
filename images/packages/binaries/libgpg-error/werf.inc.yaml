@@ -15,7 +15,7 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libtool gettext-tools texinfo
+- gcc git make libtool gettext-tools texinfo tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -52,4 +52,5 @@ shell:
       --disable-doc
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
+    tree /out
 
