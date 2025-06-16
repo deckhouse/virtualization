@@ -15,7 +15,7 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libtool libburn-devel libisofs-devel
+- gcc git make libburn-devel libisofs-devel makeinfo libtool
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
