@@ -80,8 +80,8 @@ shell:
       --with-tss-group=root \
       --libdir=/usr/lib64
 
-    {{- $_ := set $ "ProjectName" (list $.ImageName "swtpm" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
+      {{- $_ := set $ "ProjectName" (list $.ImageName "swtpm" | join "/") }}
+      {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
 
     make DESTDIR=$OUTDIR install
     strip $OUTDIR/usr/bin/*
