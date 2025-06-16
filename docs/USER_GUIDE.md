@@ -2190,7 +2190,7 @@ EOF
 A virtual machine snapshot is a saved state of a virtual machine at a specific point in time. The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
 
 {{< alert level="warning" >}}
-It is recommended to disconnect all images (VirtualImage/ClusterVirtualImage) from the virtual machine before creating its snapshot. Disk images are not saved together with the VM snapshot, and their absence in the cluster during recovery may result in the virtual machine being unable to start and remaining in a Pending state, waiting for the image to become available.
+It is recommended to disconnect all images (VirtualImage/ClusterVirtualImage) from the virtual machine before creating its snapshot. Disk images are not saved together with the VM snapshot, and their absence in the cluster during recovery may cause the virtual machine to fail to start and remain in a Pending state while waiting for the images to become available.
 {{< /alert >}}
 
 #### Types of snapshots
@@ -2231,8 +2231,8 @@ If you plan to use the snapshot as a template, perform the following steps in th
 When creating an image, follow these recommendations:
 
 - Disconnect all images if they were connected to the virtual machine.
-- Do not use a static IP address in VirtualMachineIPAddress. If a static address was used, convert it to an automatic one.
-- Create a snapshot with an explicit indication not to save the IP address: `keepIPAddress: Never`
+- Do not use a static IP address for VirtualMachineIPAddress. If a static address has been used, change it to automatic.
+- Create a snapshot with an explicit indication not to save the IP address: `keepIPAddress: Never`.
 
 #### Creating snapshots
 
@@ -2285,7 +2285,7 @@ spec:
 EOF
 ```
 
-After successfully creating a snapshot, its status will reflect the list of resources that were saved in the snapshot.
+After successfully creating a snapshot, its status will show the list of resources saved in the snapshot.
 
 Output example:
 
@@ -2378,9 +2378,9 @@ When restoring a virtual machine from a snapshot, it is important to consider th
 2. For static IP addresses (`type: Static`) the value must be exactly the same as what was captured in the snapshot.
 3. Automation-related secrets (such as cloud-init or sysprep configuration) must exactly match the configuration being restored.
 
-Failure to do so will result in a restore error and VirtualMachineRestore become failed. This is because the system checks the integrity of the configuration and the uniqueness of the resources to prevent conflicts in the cluster.
+Failure to do so will result in a restore error, and the VirtualMachineRestore resource will enter the `Failed` state. This is because the system checks the integrity of the configuration and the uniqueness of the resources to prevent conflicts in the cluster.
 
-When restoring or cloning a virtual machine, the operation may be successful, but the VM will remain in Pending status.
+When restoring or cloning a virtual machine, the operation may be successful, but the VM will remain in `Pending` state.
 This occurs if the VM depends on resources (such as disk images or virtual machine classes) or their configurations that have been changed or deleted at the time of restoration.
 
 Check the VM's conditions block using the command:
