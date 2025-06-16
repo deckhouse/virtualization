@@ -46,9 +46,7 @@ shell:
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --enable-install-gpg-error-config \
       --disable-static \
-      --with-pic \
       --disable-doc
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
