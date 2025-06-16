@@ -14,10 +14,15 @@ secrets:
   value: {{ $.SOURCE_REPO }}
 shell:
   beforeInstall:
+{{- if eq $.SVACE_ENABLED "false" }}
+  {{- include "debian packages proxy" . | nindent 2 }}
+  - apt-get install --yes libnbd-dev
+  {{- include "debian packages clean" . | nindent 2 }}
+{{- else }}
   {{- include "alt packages proxy" . | nindent 2 }}
-  - |
-    apt-get install --yes libnbd-dev
+  - apt-get -qq install -y libnbd-devel
   {{- include "alt packages clean" . | nindent 2 }}
+{{- end }}
 
   install:
   - |
