@@ -48,6 +48,7 @@ shell:
       --libdir=/usr/lib64 \
       --disable-static \
       --disable-nls \
+      --disable-languages \
       --disable-doc
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
