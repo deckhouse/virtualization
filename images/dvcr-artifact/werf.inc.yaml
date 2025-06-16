@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: builder/golang-bookworm-1.23{{ $.SVACE_IMAGE_SUFFIX }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
 - add: /images/{{ $.ImageName }}
   to: /src
@@ -13,9 +13,15 @@ git:
     - "**/*.go"
 shell:
   install:
+{{- if eq $.SVACE_ENABLED "false" }}
   {{- include "debian packages proxy" . | nindent 2 }}
   - apt-get -qq install -y --no-install-recommends libnbd-dev
   {{- include "debian packages clean" . | nindent 2 }}
+{{- else }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - apt-get -qq install -y libnbd-devel
+  {{- include "alt packages clean" . | nindent 2 }}
+{{- end }}
   setup:
   - mkdir /out
   - cd /src
