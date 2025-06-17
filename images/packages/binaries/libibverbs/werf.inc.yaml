@@ -15,7 +15,8 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libtool pkg-config libnl-devel
+- gcc git make libtool libnl-devel
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -46,8 +47,10 @@ shell:
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
+      --disable-doc \
       --disable-static \
       CFLAGS="-Wno-error"
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
+    tree /out
 
