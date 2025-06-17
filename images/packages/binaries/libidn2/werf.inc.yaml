@@ -16,6 +16,7 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool wget patch gperf help2man gengetopt
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
