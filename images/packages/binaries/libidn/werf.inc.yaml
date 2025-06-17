@@ -16,6 +16,7 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool wget patch gperf help2man gengetopt
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -49,7 +50,8 @@ shell:
       --disable-static \
       --disable-rpath \
       --disable-silent-rules \
+      --disable-nls \
       --disable-doc
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
-
+    tree /out
