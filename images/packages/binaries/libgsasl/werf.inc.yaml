@@ -48,7 +48,8 @@ shell:
       --prefix=/usr \
       --libdir=/usr/lib64 \
       --disable-static \
-      --disable-doc
+      --disable-doc \
+      --disable-nls
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
     tree /out
