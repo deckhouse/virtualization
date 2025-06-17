@@ -25,28 +25,7 @@ mount:
 shell:
   install:
   - cd /src/images/virtualization-artifact
-    ls -la ./../../api
-  - ls -la /src/api
   - go mod download
-  - |
-    # Temporary
-    go list -m github.com/deckhouse/virtualization/api
-    go list -f '{{`{{.Path}}`}}' -m github.com/deckhouse/virtualization/api
-    go list -f '{{`{{.Dir}}`}}' -m github.com/deckhouse/virtualization/api
-    ls -la $(go list -f '{{`{{.Dir}}`}}' -m github.com/deckhouse/virtualization/api)
-    ls -la ./../../api
-    ls -la /src/api
-
-  - go mod tidy
-  - |
-    # Temporary
-    go list -m github.com/deckhouse/virtualization/api
-    go list -f '{{`{{.Path}}`}}' -m github.com/deckhouse/virtualization/api
-    go list -f '{{`{{.Dir}}`}}' -m github.com/deckhouse/virtualization/api
-    ls -la $(go list -f '{{`{{.Dir}}`}}' -m github.com/deckhouse/virtualization/api)
-    ls -la ./../../api
-    ls -la /src/api
-
   setup:
   - cd /src/images/virtualization-artifact
   - mkdir /out
@@ -68,4 +47,3 @@ shell:
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-audit" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -v -o /out/virtualization-audit ./cmd/virtualization-audit`) | nindent 6 }}
 {{- end }}
-  - /out/virtualization-controller dump
