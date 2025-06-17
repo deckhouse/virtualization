@@ -25,20 +25,25 @@ mount:
 shell:
   install:
   - cd /usr/local/go/src/virtualization-controller
-  - go mod download
+  - ls -la
+  - ls -la /usr/local/go/api
+  - go mod download -v
   - |
     # Temporary
     go list -m github.com/deckhouse/virtualization/api
     go list -f '{{.Path}}' -m github.com/deckhouse/virtualization/api
     go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api
-    ls -la $(go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api)
+    # ls -la $(go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api)
+    ls -la /usr/local/go/api
   - go mod tidy
   - |
     # Temporary
     go list -m github.com/deckhouse/virtualization/api
     go list -f '{{.Path}}' -m github.com/deckhouse/virtualization/api
     go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api
-    ls -la $(go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api)
+    # ls -la $(go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api)
+    ls -la /usr/local/go/api
+
   setup:
   - cd /usr/local/go/src/virtualization-controller
   - export GOOS=linux
