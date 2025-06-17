@@ -15,7 +15,8 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libtool pkg-config gmp-devel libtool
+- gcc git make autoconf automake gmp-devel
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -47,7 +48,8 @@ shell:
       --prefix=/usr \
       --libdir=/usr/lib64 \
       --enable-shared \
-      --disable-static
+      --disable-static \
+      --disable-doc
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
-
+    tree /out
