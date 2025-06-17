@@ -25,9 +25,9 @@ mount:
 shell:
   install:
   - cd /src/images/virtualization-artifact
-  - ls -la
+    ls -la ./../../api
   - ls -la /src/api
-  - go mod download -v
+  - go mod download
   - |
     # Temporary
     go list -m github.com/deckhouse/virtualization/api
