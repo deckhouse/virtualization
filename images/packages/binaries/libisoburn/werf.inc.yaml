@@ -16,6 +16,7 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libburn-devel libisofs-devel makeinfo libtool
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -46,7 +47,8 @@ shell:
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --disable-static
+      --disable-static \
+      --disable-doc
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
-
+    tree /out
