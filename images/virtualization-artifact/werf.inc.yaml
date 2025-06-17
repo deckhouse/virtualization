@@ -26,20 +26,37 @@ shell:
   install:
   - cd /usr/local/go/src/virtualization-controller
   - go mod download
+  - |
+    # Temporary
+    go list -m github.com/deckhouse/virtualization/api
+    go list -f '{{.Path}}' -m github.com/deckhouse/virtualization/api
+    go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api
+    ls -la $(go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api)
+  - go mod tidy
+  - |
+    # Temporary
+    go list -m github.com/deckhouse/virtualization/api
+    go list -f '{{.Path}}' -m github.com/deckhouse/virtualization/api
+    go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api
+    ls -la $(go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api)
   setup:
   - cd /usr/local/go/src/virtualization-controller
-  - export GO111MODULE=on
   - export GOOS=linux
-  - export CGO_ENABLED=0
   - export GOARCH=amd64
+  - export CGO_ENABLED=0
+
   - |
+    echo "Build virtualization-controller binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-controller" | join "/") }}
     {{- $buildCommand := printf "go build -tags %s -v -a -o virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
     {{- include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 6 }}
+    echo "Build virtualization-api binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-api" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o virtualization-api ./cmd/virtualization-api`) | nindent 6 }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -o virtualization-api ./cmd/virtualization-api`) | nindent 6 }}
 {{- if or (eq .MODULE_EDITION "EE") (eq .SVACE_ENABLED "true") }}
   - |
+    echo "Build virtualization-audit binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-audit" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o virtualization-audit ./cmd/virtualization-audit`) | nindent 6 }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -o virtualization-audit ./cmd/virtualization-audit`) | nindent 6 }}
 {{- end }}
+  - ./virtualization-controller dump

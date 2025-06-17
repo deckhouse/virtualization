@@ -75,7 +75,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 				return reconcile.Result{}, err
 			}
 
-			source.SetPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
+			source.SetPhaseConditionForFinishedDisk(pvc, cb, nil, supgen)
 
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 		}

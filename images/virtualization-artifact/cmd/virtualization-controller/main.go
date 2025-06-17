@@ -82,6 +82,13 @@ const (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "dump" {
+		fmt.Printf(`disk phase consts:
+%s
+%s
+%s
+`, virtv2alpha1.DiskLost, virtv2alpha1.DiskPending, virtv2alpha1.DiskReady)
+	}
 	var logLevel string
 	flag.StringVar(&logLevel, "log-level", os.Getenv(logLevelEnv), "log level")
 
