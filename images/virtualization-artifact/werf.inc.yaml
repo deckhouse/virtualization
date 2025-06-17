@@ -4,7 +4,7 @@ final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
 - add: /api
-  to: /usr/local/go/api
+  to: /src/api
   stageDependencies:
     install:
       - go.mod
@@ -12,7 +12,7 @@ git:
     setup:
       - "**/*.go"
 - add: /images/{{ $.ImageName }}
-  to: /usr/local/go/src/virtualization-controller
+  to: /src/images/virtualization-artifact
   stageDependencies:
     install:
     - go.mod
@@ -24,28 +24,32 @@ mount:
   to: /go/pkg
 shell:
   install:
-  - cd /usr/local/go/src/virtualization-controller
+  - cd /src/images/virtualization-artifact
   - ls -la
-  - ls -la /usr/local/go/api
+  - ls -la /src/api
   - go mod download -v
   - |
     # Temporary
     go list -m github.com/deckhouse/virtualization/api
-    go list -f '{{.Path}}' -m github.com/deckhouse/virtualization/api
-    go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api
-    # ls -la $(go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api)
-    ls -la /usr/local/go/api
+    go list -f '{{`{{.Path}}`}}' -m github.com/deckhouse/virtualization/api
+    go list -f '{{`{{.Dir}}`}}' -m github.com/deckhouse/virtualization/api
+    ls -la $(go list -f '{{`{{.Dir}}`}}' -m github.com/deckhouse/virtualization/api)
+    ls -la ./../../api
+    ls -la /src/api
+
   - go mod tidy
   - |
     # Temporary
     go list -m github.com/deckhouse/virtualization/api
-    go list -f '{{.Path}}' -m github.com/deckhouse/virtualization/api
-    go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api
-    # ls -la $(go list -f '{{.Dir}}' -m github.com/deckhouse/virtualization/api)
-    ls -la /usr/local/go/api
+    go list -f '{{`{{.Path}}`}}' -m github.com/deckhouse/virtualization/api
+    go list -f '{{`{{.Dir}}`}}' -m github.com/deckhouse/virtualization/api
+    ls -la $(go list -f '{{`{{.Dir}}`}}' -m github.com/deckhouse/virtualization/api)
+    ls -la ./../../api
+    ls -la /src/api
 
   setup:
-  - cd /usr/local/go/src/virtualization-controller
+  - cd /src/images/virtualization-artifact
+  - mkdir /out
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
@@ -53,15 +57,15 @@ shell:
   - |
     echo "Build virtualization-controller binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-controller" | join "/") }}
-    {{- $buildCommand := printf "go build -tags %s -v -a -o virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
+    {{- $buildCommand := printf "go build -tags %s -v -a -o /out/virtualization-controller ./cmd/virtualization-controller" .MODULE_EDITION -}}
     {{- include "image-build.build" (set $ "BuildCommand" $buildCommand) | nindent 6 }}
     echo "Build virtualization-api binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-api" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -o virtualization-api ./cmd/virtualization-api`) | nindent 6 }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -o /out/virtualization-api ./cmd/virtualization-api`) | nindent 6 }}
 {{- if or (eq .MODULE_EDITION "EE") (eq .SVACE_ENABLED "true") }}
   - |
     echo "Build virtualization-audit binary"
     {{- $_ := set $ "ProjectName" (list $.ImageName "virtualization-audit" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -o virtualization-audit ./cmd/virtualization-audit`) | nindent 6 }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -o /out/virtualization-audit ./cmd/virtualization-audit`) | nindent 6 }}
 {{- end }}
-  - ./virtualization-controller dump
+  - /out/virtualization-controller dump
