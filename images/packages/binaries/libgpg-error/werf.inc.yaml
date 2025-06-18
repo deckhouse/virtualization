@@ -33,7 +33,6 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make automake autoconf gettext-tools
-- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -70,5 +69,3 @@ shell:
       --disable-doc
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
-    tree /out
-
