@@ -6,6 +6,23 @@ import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
   to: /libgpg-error
+  includePaths:
+    - usr/bin/gpg-error
+    - usr/lib64/libgpg-error.so
+    - usr/lib64/libgpg-error.so.0
+    - usr/lib64/libgpg-error.so.0.39.3
+  before: setup
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libgpg-error-devel
+  includePaths:
+    - usr/bin/gpgrt-config
+    - usr/include/gpg-error.h
+    - usr/include/gpgrt.h
+    - usr/lib64/libgpg-error.la
+    - usr/lib64/pkgconfig/gpg-error.pc
+    - usr/share/aclocal/gpg-error.m4
+    - usr/share/aclocal/gpgrt.m4
   before: setup
 
 ---
