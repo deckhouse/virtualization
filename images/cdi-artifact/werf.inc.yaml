@@ -1,5 +1,5 @@
 ---
-{{- $version := "v1.60.3-v12n.dlopatin-add-check" }}
+{{- $version := "v1.60.3-v12n.dlopatin-add-check2" }}
 {{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
 
 ---
