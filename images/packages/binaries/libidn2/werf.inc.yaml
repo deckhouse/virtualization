@@ -63,7 +63,8 @@ shell:
       --disable-static \
       --disable-silent-rules \
       --disable-nls \
-      --disable-doc
+      --disable-doc \
+
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
     tree /out
