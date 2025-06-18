@@ -118,7 +118,7 @@ func (ds UploadDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (re
 	case IsDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
 
-		SetPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
+		setPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vd, nil, pvc)

@@ -79,9 +79,9 @@ func NewController(
 		mgr.GetClient(),
 		internal.NewStorageClassReadyHandler(recorder, scService),
 		internal.NewDatasourceReadyHandler(sources),
-		internal.NewLifeCycleHandler(recorder, sources, mgr.GetClient(), disk),
-		internal.NewInUseHandler(mgr.GetClient()),
+		internal.NewLifeCycleHandler(recorder, sources, mgr.GetClient()),
 		internal.NewDeletionHandler(sources),
+		internal.NewAttacheeHandler(mgr.GetClient()),
 	)
 
 	viController, err := controller.New(ControllerName, mgr, controller.Options{
