@@ -23,48 +23,6 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func IndexCVIByCVIDataSource() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.ClusterVirtualImage{}, IndexFieldCVIByCVIDataSource, IndexCVIByCVIDataSourceIndexerFunc
-}
-
-func IndexCVIByCVIDataSourceIndexerFunc(object client.Object) []string {
-	cvi, ok := object.(*virtv2.ClusterVirtualImage)
-	if !ok || cvi == nil {
-		return nil
-	}
-
-	if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
-		return nil
-	}
-
-	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != virtv2.ClusterVirtualImageKind {
-		return nil
-	}
-
-	return []string{cvi.Spec.DataSource.ObjectRef.Name}
-}
-
-func IndexCVIByVIDataSource() (obj client.Object, field string, extractValue client.IndexerFunc) {
-	return &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVIDataSource, IndexCVIByVIDataSourceIndexerFunc
-}
-
-func IndexCVIByVIDataSourceIndexerFunc(object client.Object) []string {
-	cvi, ok := object.(*virtv2.ClusterVirtualImage)
-	if !ok || cvi == nil {
-		return nil
-	}
-
-	if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef {
-		return nil
-	}
-
-	if cvi.Spec.DataSource.ObjectRef == nil || cvi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualImageKind {
-		return nil
-	}
-
-	return []string{cvi.Spec.DataSource.ObjectRef.Name}
-}
-
 func IndexCVIByVDSnapshot() (obj client.Object, field string, extractValue client.IndexerFunc) {
 	return &virtv2.ClusterVirtualImage{}, IndexFieldCVIByVDSnapshot, func(object client.Object) []string {
 		cvi, ok := object.(*virtv2.ClusterVirtualImage)

@@ -28,8 +28,6 @@ const (
 	DatasourceReadyType Type = "DatasourceReady"
 	// ReadyType indicates whether the import process succeeded and the `ClusterVirtualImage` is ready for use.
 	ReadyType Type = "Ready"
-	// InUseType indicates that the `ClusterVirtualImage` is used by other resources and cannot be deleted now.
-	InUseType Type = "InUse"
 )
 
 type (
@@ -37,8 +35,6 @@ type (
 	DatasourceReadyReason string
 	// ReadyReason represents the various reasons for the Ready condition type.
 	ReadyReason string
-	// InUseReason represents the various reasons for the InUseType condition type.
-	InUseReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -46,10 +42,6 @@ func (s DatasourceReadyReason) String() string {
 }
 
 func (s ReadyReason) String() string {
-	return string(s)
-}
-
-func (s InUseReason) String() string {
 	return string(s)
 }
 
@@ -81,19 +73,4 @@ const (
 	ProvisioningFailed ReadyReason = "ProvisioningFailed"
 	// Ready indicates that the import process is complete and the `ClusterVirtualImage` is ready for use.
 	Ready ReadyReason = "Ready"
-
-	/*
-	   A ClusterVirtualImage can be considered in use if it meets the following two criteria:
-	   1) Provisioning of the ClusterVirtualImage must be completed. The ReadyCondition must be True.
-	   2) The ClusterVirtualImage must be used in one of the following ways:
-	       - Be attached to one or more VirtualMachines (all VirtualMachine phases except Stopped)
-	       - Be attached via a VirtualMachineBlockDeviceAttachment (any VMBDA phases)
-	       - Be used for provisioning VirtualImage (phases: Pending, Provisioning, Failed)
-	       - Be used for provisioning ClusterVirtualImage (phases: Pending, Provisioning, Failed)
-	       - Be used for provisioning VirtualDisk (phases: Pending, Provisioning, WaitForFirstConsumer, Failed)
-	*/
-	// InUse indicates that the `ClusterVirtualImage` is used by other resources and cannot be deleted now.
-	InUse InUseReason = "InUse"
-	// NotInUse indicates that the `ClusterVirtualImage` is not used by other resources and can be deleted now.
-	NotInUse InUseReason = "NotInUse"
 )

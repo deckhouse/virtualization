@@ -28,9 +28,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmbdacondition"
 )
 
@@ -163,8 +161,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 			return reconcile.Result{}, nil
 		}
 
-		viReady, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
-		if viReady.Status != metav1.ConditionTrue {
+		if vi.Status.Phase != virtv2.ImageReady {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
@@ -194,7 +191,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 				return reconcile.Result{}, nil
 			}
 
-			if pvc.Status.Phase != corev1.ClaimBound {
+			if vi.Status.Phase == virtv2.ImageReady && pvc.Status.Phase != corev1.ClaimBound {
 				cb.
 					Status(metav1.ConditionFalse).
 					Reason(vmbdacondition.BlockDeviceNotReady).
@@ -241,8 +238,7 @@ func (h BlockDeviceReadyHandler) Handle(ctx context.Context, vmbda *virtv2.Virtu
 			return reconcile.Result{}, nil
 		}
 
-		cviReady, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
-		if cviReady.Status != metav1.ConditionTrue {
+		if cvi.Status.Phase != virtv2.ImageReady {
 			cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmbdacondition.BlockDeviceNotReady).
