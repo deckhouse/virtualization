@@ -14,16 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package e2e
+package object
 
 import (
-	. "github.com/onsi/ginkgo/v2"
+	"github.com/deckhouse/virtualization-controller/pkg/builder/cvi"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-func SIGMigration() Labels {
-	return Label("SIG-Migration")
-}
-
-func SIGScheduling() Labels {
-	return Label("SIG-Scheduling")
+func NewHTTPCVIUbuntu(name string) *virtv2.ClusterVirtualImage {
+	return cvi.New(
+		cvi.WithName(name),
+		cvi.WithDataSourceHTTP(
+			ubuntuHTTP,
+			nil,
+			nil,
+		),
+	)
 }
