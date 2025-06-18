@@ -6,6 +6,17 @@ import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
   to: /libhogweed
+  includePaths:
+    - usr/lib64/libhogweed.so
+    - usr/lib64/libhogweed.so.6
+    - usr/lib64/libhogweed.so.6.10
+  before: setup
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libnettle-devel
+  includePaths:
+    - usr/include
+    - usr/lib64/pkgconfig
   before: setup
 
 ---
@@ -51,5 +62,5 @@ shell:
       --disable-static \
       --disable-doc
     make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+    make DESTDIR=$OUTDIR install-shared-hogweed install-headers install-pkgconfig
     tree /out
