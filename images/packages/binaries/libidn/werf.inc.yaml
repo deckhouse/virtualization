@@ -67,5 +67,5 @@ shell:
       --disable-doc
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
-    RUN rm -rf /out/usr/share
+    rm -rf /out/usr/share
     tree /out
