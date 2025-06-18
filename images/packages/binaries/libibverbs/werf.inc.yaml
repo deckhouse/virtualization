@@ -6,6 +6,17 @@ import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
   to: /libibverbs
+  includePaths:
+    - usr/lib64/libibverbs.so
+    - usr/lib64/libibverbs.so.1
+    - usr/lib64/libibverbs.so.1.0.0
+  before: setup
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /rdma-core-devel
+  includePaths:
+    - usr/include
+    - usr/lib64/libibverbs.la
   before: setup
 
 ---
@@ -51,6 +62,6 @@ shell:
       --disable-static \
       CFLAGS="-Wno-error"
     make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+    make DESTDIR=/out install-libLTLIBRARIES install-libibverbsincludeHEADERS
     tree /out
 
