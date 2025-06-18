@@ -33,7 +33,7 @@ packages:
 
 image: {{ $.ImageType }}/{{ $.ImageName }}-builder
 final: false
-fromImage: builder/alt
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -43,7 +43,7 @@ shell:
   - |
     apt-get install -y \
       {{ $builderDependencies.packages | join " " }}
-    
+
   {{ if not $.DistroPackagesProxy }}
       REPO_URL=http://ftp.altlinux.org/pub/distributions
   {{- else }}
@@ -66,10 +66,10 @@ shell:
   - |
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    
+
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
     cd /src
-    
+
     ./autogen.sh \
       --disable-tests \
       --with-openssl \
@@ -79,9 +79,10 @@ shell:
       --with-tss-user=root \
       --with-tss-group=root \
       --libdir=/usr/lib64
-    
-    make -j$(nproc)
-    
+
+      {{- $_ := set $ "ProjectName" (list $.ImageName "swtpm" | join "/") }}
+      {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
+
     make DESTDIR=$OUTDIR install
     strip $OUTDIR/usr/bin/*
 
