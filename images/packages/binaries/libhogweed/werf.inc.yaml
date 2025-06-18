@@ -62,5 +62,5 @@ shell:
       --disable-static \
       --disable-doc
     make -j$(nproc)
-    make DESTDIR=$OUTDIR install-shared-hogweed install-headers install-pkgconfig
+    make DESTDIR=$OUTDIR install-shared-hogweed install-headers install-pkgconfig 
     tree /out
