@@ -6,6 +6,17 @@ import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
   to: /libisoburn
+  includePaths:
+    - usr/lib64/libisoburn.so
+    - usr/lib64/libisoburn.so.1
+    - usr/lib64/libisoburn.so.1.113.0
+  before: setup
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libisoburn-devel
+  includePaths:
+    - usr/include/
+    - usr/lib64/libisoburn.la
   before: setup
 
 ---
@@ -50,5 +61,5 @@ shell:
       --disable-static \
       --disable-doc
     make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+    make DESTDIR=/out install-libLTLIBRARIES install-libincludeHEADERS
     tree /out
