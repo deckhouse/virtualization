@@ -26,12 +26,53 @@ import (
 type Option func(cvi *v1alpha2.ClusterVirtualImage)
 
 var (
-	WithName        = meta.WithName[*v1alpha2.ClusterVirtualImage]
-	WithLabel       = meta.WithLabel[*v1alpha2.ClusterVirtualImage]
-	WithLabels      = meta.WithLabels[*v1alpha2.ClusterVirtualImage]
-	WithAnnotation  = meta.WithAnnotation[*v1alpha2.ClusterVirtualImage]
-	WithAnnotations = meta.WithAnnotations[*v1alpha2.ClusterVirtualImage]
+	WithName         = meta.WithName[*v1alpha2.ClusterVirtualImage]
+	WithGenerateName = meta.WithGenerateName[*v1alpha2.ClusterVirtualImage]
+	WithLabel        = meta.WithLabel[*v1alpha2.ClusterVirtualImage]
+	WithLabels       = meta.WithLabels[*v1alpha2.ClusterVirtualImage]
+	WithAnnotation   = meta.WithAnnotation[*v1alpha2.ClusterVirtualImage]
+	WithAnnotations  = meta.WithAnnotations[*v1alpha2.ClusterVirtualImage]
+	WithFinalizer    = meta.WithFinalizer[*v1alpha2.ClusterVirtualImage]
 )
+
+func WithDataSourceHTTP(url string, checksum *v1alpha2.Checksum, caBundle []byte) Option {
+	return func(cvi *v1alpha2.ClusterVirtualImage) {
+		cvi.Spec.DataSource = v1alpha2.ClusterVirtualImageDataSource{
+			Type: v1alpha2.DataSourceTypeHTTP,
+			HTTP: &v1alpha2.DataSourceHTTP{
+				URL:      url,
+				Checksum: checksum,
+				CABundle: caBundle,
+			},
+		}
+	}
+}
+
+func WithDataSourceContainerImage(image string, imagePullSecret v1alpha2.ImagePullSecret, caBundle []byte) Option {
+	return func(cvi *v1alpha2.ClusterVirtualImage) {
+		cvi.Spec.DataSource = v1alpha2.ClusterVirtualImageDataSource{
+			Type: v1alpha2.DataSourceTypeContainerImage,
+			ContainerImage: &v1alpha2.ClusterVirtualImageContainerImage{
+				Image:           image,
+				ImagePullSecret: imagePullSecret,
+				CABundle:        caBundle,
+			},
+		}
+	}
+}
+
+func WithDataSourceObjectRef(kind v1alpha2.ClusterVirtualImageObjectRefKind, name, namespace string) Option {
+	return func(cvi *v1alpha2.ClusterVirtualImage) {
+		cvi.Spec.DataSource = v1alpha2.ClusterVirtualImageDataSource{
+			Type: v1alpha2.DataSourceTypeObjectRef,
+			ObjectRef: &v1alpha2.ClusterVirtualImageObjectRef{
+				Kind:      kind,
+				Name:      name,
+				Namespace: namespace,
+			},
+		}
+	}
+}
 
 func WithDatasource(datasource v1alpha2.ClusterVirtualImageDataSource) func(cvi *v1alpha2.ClusterVirtualImage) {
 	return func(cvi *v1alpha2.ClusterVirtualImage) {

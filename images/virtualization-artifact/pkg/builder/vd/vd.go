@@ -24,11 +24,11 @@ import (
 
 func New(options ...Option) *v1alpha2.VirtualDisk {
 	vd := NewEmpty("", "")
-	ApplyOptions(vd, options)
+	ApplyOptions(vd, options...)
 	return vd
 }
 
-func ApplyOptions(vd *v1alpha2.VirtualDisk, opts []Option) {
+func ApplyOptions(vd *v1alpha2.VirtualDisk, opts ...Option) {
 	if vd == nil {
 		return
 	}
