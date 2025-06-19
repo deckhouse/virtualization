@@ -30,3 +30,4 @@ package:
   libgcrypt: libgcrypt-1.10.2
   libgpg-error: libgpg-error-1.55
   libhogweed: nettle_3.10.1_release_20241230
+  libibverbs: 1.0.0
