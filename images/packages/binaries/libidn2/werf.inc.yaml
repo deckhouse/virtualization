@@ -28,7 +28,7 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libtool wget patch gperf help2man gengetopt
+- gcc git make libtool patch gperf help2man gengetopt
 - tree
 {{- end -}}
 
@@ -56,7 +56,7 @@ shell:
 
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
-    ./bootstrap
+    ./bootstrap --skip-po
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
