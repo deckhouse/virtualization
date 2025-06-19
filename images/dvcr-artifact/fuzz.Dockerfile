@@ -15,10 +15,8 @@ COPY . .
 COPY fuzz.sh /app/fuzz.sh
 RUN chmod +x /app/fuzz.sh
 
-ENV CGO_ENABLED=1
 ENV GOOS=linux
 ENV GOARCH=amd64
 ENV FUZZ_TIME=2m
-ENV GO111MODULE=on
 
 CMD ["/app/fuzz.sh"]
