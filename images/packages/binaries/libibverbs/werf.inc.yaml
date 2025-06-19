@@ -27,7 +27,6 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool libnl-devel
-- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -63,5 +62,4 @@ shell:
       CFLAGS="-Wno-error"
     make -j$(nproc)
     make DESTDIR=/out install-libLTLIBRARIES install-libibverbsincludeHEADERS
-    tree /out
 
