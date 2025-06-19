@@ -47,3 +47,22 @@ For running locally, you can run the following commands:
 ```bash
 FUZZ_TIME=5m ./fuzz.sh
 ```
+
+
+# Tests
+
+### FuzzUploader
+
+This test is used to fuzz the uploader package's HTTP parsing and validation functions using Go's native fuzzing framework.
+
+
+#### Example
+
+```bash
+$ ./fuzz.sh FuzzUploader
+=== RUN   TestFuzzUploader
+--- PASS: TestFuzzUploader (0.00s)
+    fuzz_test.go:102: Fuzzing ProcessRequests in /virtualization/images/dvcr-artifact/pkg/uploader/uploader_fuzz_test.go
+    fuzz_test.go:102: Fuzzing ProcessRequest in /virtualization/images/dvcr-artifact/pkg/uploader/uploader_fuzz_test.go
+    fuzz_test.go:102: Fuzzing ProcessRequests in /virtualization/images/dvcr-artifact/pkg/uploader/uploader_fuzz_test.go
+    fuzz_test.go:102: Fuzzing ProcessRequest in /virtualization/images/dvcr-artifact/pkg/uploader/uploader_fuzz_test.go
