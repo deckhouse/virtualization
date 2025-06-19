@@ -32,3 +32,4 @@ package:
   libhogweed: nettle_3.10.1_release_20241230
   libibverbs: 1.0.0
   libisoburn: release-1.5.6
+  libgsasl: v2.2.2
