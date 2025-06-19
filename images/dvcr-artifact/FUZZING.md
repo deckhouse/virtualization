@@ -54,6 +54,8 @@ FUZZ_TIME=5m ./fuzz.sh
 ### FuzzUploader
 
 This test is used to fuzz the uploader package's HTTP parsing and validation functions using Go's native fuzzing framework.
+Test start uploader server and DVCR mock server before running the test. The test will send a request to the uploader server with the fuzzed data.
+After the request is sent, the test will check the response status code and the response body to ensure the request was successful. Then data will be sent to the DVCR mock server.
 
 
 #### Example
