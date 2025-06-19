@@ -73,7 +73,7 @@ type uploadServerApp struct {
 	doneChan       chan struct{}
 	errChan        chan error
 	keepAlive      bool
-	keepCuncurrent bool
+	keepConcurrent bool
 	mutex          sync.Mutex
 
 	healthzServer *http.Server
@@ -291,7 +291,7 @@ func (app *uploadServerApp) validateShouldHandleRequest(w http.ResponseWriter, r
 	app.mutex.Lock()
 	defer app.mutex.Unlock()
 
-	if app.uploading && !app.keepCuncurrent {
+	if app.uploading && !app.keepConcurrent {
 		klog.Warning("Got concurrent upload request")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return false

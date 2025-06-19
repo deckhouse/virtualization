@@ -73,7 +73,7 @@ func startUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp 
 
 	srv := uploaderServer.(*uploadServerApp)
 	srv.keepAlive = true
-	srv.keepCuncurrent = true
+	srv.keepConcurrent = true
 	srv.destInsecure = true
 
 	go func() {
