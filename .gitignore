@@ -38,6 +38,7 @@ bin
 tmp/
 tmp/*
 tmp
+*.tmp
 # Kubernetes
 .kube
 local.Dockerfile
