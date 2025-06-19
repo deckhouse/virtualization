@@ -220,7 +220,7 @@ func (ds HTTPDataSource) StoreToPVC(ctx context.Context, vi *virtv2.VirtualImage
 	case IsImageProvisioningFinished(condition):
 		log.Info("Image provisioning finished: clean up")
 
-		SetPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
+		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vi, nil, pvc)

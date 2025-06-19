@@ -36,6 +36,7 @@ type Sources interface {
 }
 
 type DiskService interface {
+	GetStorageClass(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error)
 	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }
 

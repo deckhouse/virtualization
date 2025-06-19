@@ -38,6 +38,15 @@ type ClusterVirtualImageRequestEnqueuer struct {
 	logger          *log.Logger
 }
 
+func NewClusterVirtualImageRequestEnqueuer(client client.Client, enqueueFromObj client.Object, enqueueFromKind virtv2.ClusterVirtualImageObjectRefKind) *ClusterVirtualImageRequestEnqueuer {
+	return &ClusterVirtualImageRequestEnqueuer{
+		enqueueFromObj:  enqueueFromObj,
+		enqueueFromKind: enqueueFromKind,
+		client:          client,
+		logger:          log.Default().With("enqueuer", "cvi"),
+	}
+}
+
 func (w ClusterVirtualImageRequestEnqueuer) GetEnqueueFrom() client.Object {
 	return w.enqueueFromObj
 }

@@ -25,9 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -35,20 +33,18 @@ import (
 )
 
 type LifeCycleHandler struct {
-	client      client.Client
-	blank       source.Handler
-	sources     Sources
-	recorder    eventrecord.EventRecorderLogger
-	diskService DiskService
+	client   client.Client
+	blank    source.Handler
+	sources  Sources
+	recorder eventrecord.EventRecorderLogger
 }
 
-func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, blank source.Handler, sources Sources, client client.Client, diskService DiskService) *LifeCycleHandler {
+func NewLifeCycleHandler(recorder eventrecord.EventRecorderLogger, blank source.Handler, sources Sources, client client.Client) *LifeCycleHandler {
 	return &LifeCycleHandler{
-		client:      client,
-		blank:       blank,
-		sources:     sources,
-		recorder:    recorder,
-		diskService: diskService,
+		client:   client,
+		blank:    blank,
+		sources:  sources,
+		recorder: recorder,
 	}
 }
 
@@ -66,19 +62,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 
 	if vd.DeletionTimestamp != nil {
 		vd.Status.Phase = virtv2.DiskTerminating
-		if readyCondition.Status == metav1.ConditionTrue {
-			cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
-
-			supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
-			pvc, err := h.diskService.GetPersistentVolumeClaim(ctx, supgen)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-
-			source.SetPhaseConditionForFinishedDisk(pvc, cb, nil, supgen)
-
-			conditions.SetCondition(cb, &vd.Status.Conditions)
-		}
 		return reconcile.Result{}, nil
 	}
 

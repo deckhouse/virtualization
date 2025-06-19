@@ -77,7 +77,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				EventFunc: func(_ client.Object, _, _, _ string) {},
 			}
 
-			handler := NewLifeCycleHandler(recorder, &sourcesMock, nil, nil)
+			handler := NewLifeCycleHandler(recorder, &sourcesMock, nil)
 
 			_, _ = handler.Handle(context.TODO(), &vi)
 
@@ -158,7 +158,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				return &handler, false
 			}
 
-			handler := NewLifeCycleHandler(nil, &sourcesMock, nil, nil)
+			handler := NewLifeCycleHandler(nil, &sourcesMock, nil)
 
 			_, _ = handler.Handle(context.TODO(), &vi)
 

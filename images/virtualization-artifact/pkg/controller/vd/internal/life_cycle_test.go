@@ -85,7 +85,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			recorder := &eventrecord.EventRecorderLoggerMock{
 				EventFunc: func(_ client.Object, _, _, _ string) {},
 			}
-			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil, nil)
+			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil)
 
 			ctx := logger.ToContext(context.TODO(), slog.Default())
 
@@ -187,7 +187,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 				EventFunc: func(_ client.Object, _, _, _ string) {},
 			}
 
-			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil, nil)
+			handler := NewLifeCycleHandler(recorder, nil, &sourcesMock, nil)
 
 			ctx := logger.ToContext(context.TODO(), slog.Default())
 

@@ -52,14 +52,6 @@ const (
 	IndexFieldVMIPByAddress = "spec.staticIP|status.address"
 
 	IndexFieldVMBDAByVM = "spec.virtualMachineName"
-
-	IndexFieldVDByCVIDataSource  = "vd,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage"
-	IndexFieldVIByCVIDataSource  = "vi,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage"
-	IndexFieldCVIByCVIDataSource = "cvi,spec.DataSource.ObjectRef.Name,.Kind=ClusterVirtualImage"
-
-	IndexFieldVDByVIDataSource  = "vd,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage"
-	IndexFieldVIByVIDataSource  = "vi,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage"
-	IndexFieldCVIByVIDataSource = "cvi,spec.DataSource.ObjectRef.Name,.Kind=VirtualImage"
 )
 
 var IndexGetters = []IndexGetter{
@@ -79,12 +71,6 @@ var IndexGetters = []IndexGetter{
 	IndexCVIByVDSnapshot,
 	IndexVMIPByAddress,
 	IndexVMBDAByVM,
-	IndexVDByCVIDataSource,
-	IndexVIByCVIDataSource,
-	IndexCVIByCVIDataSource,
-	IndexVDByVIDataSource,
-	IndexVIByVIDataSource,
-	IndexCVIByVIDataSource,
 }
 
 type IndexGetter func() (obj client.Object, field string, extractValue client.IndexerFunc)
