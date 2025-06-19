@@ -62,7 +62,7 @@ func ProcessRequest(t *testing.T, data []byte, addr, method string) {
 		req := newFuzzRequest().Fuzz(t, data, method, addr)
 		defer req.Body.Close()
 
-		resp := fuzzHTTPRequest(t, req, false)
+		resp := fuzzHTTPRequest(t, req)
 		if resp != nil {
 			if resp.StatusCode > 500 {
 				t.Errorf("resp: %v", resp)
@@ -74,7 +74,7 @@ func ProcessRequest(t *testing.T, data []byte, addr, method string) {
 	}
 }
 
-func fuzzHTTPRequest(t *testing.T, fuzzReq *http.Request, disableRedirect bool) *http.Response {
+func fuzzHTTPRequest(t *testing.T, fuzzReq *http.Request) *http.Response {
 	t.Helper()
 
 	if fuzzReq == nil {
@@ -84,12 +84,11 @@ func fuzzHTTPRequest(t *testing.T, fuzzReq *http.Request, disableRedirect bool) 
 	client.Timeout = time.Second
 
 	// From https://github.com/michiwend/gomusicbrainz/pull/4/files
-	defaultRedirectLimit := 30
+	// Redirect limit is set to 30 to avoid loosing userAgent and other headers
+	// 30 is good middle ground between not being too strict and not being too lenient
+	const defaultRedirectLimit = 30
 
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if disableRedirect {
-			return fmt.Errorf("checkRedirect disabled for test")
-		}
 		if len(via) > defaultRedirectLimit {
 			return fmt.Errorf("%d consecutive requests(redirects)", len(via))
 		}

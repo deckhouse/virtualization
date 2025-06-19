@@ -27,14 +27,20 @@ import (
 	cryptowatch "kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch"
 )
 
+const (
+	DEFAULT_PORT = 8000
+	MOCK_PORT    = 8400
+)
+
 func FuzzUploader(f *testing.F) {
 	addr := "127.0.0.1"
-	url := fmt.Sprintf("http://%s:%d/upload", addr, 8000)
+	url := fmt.Sprintf("http://%s:%d/upload", addr, DEFAULT_PORT)
 
-	startUploaderServer(f, addr, 8000)
+	startUploaderServer(f, addr, DEFAULT_PORT)
 
-	startDVCRMockServer(f, addr, 8400)
+	startDVCRMockServer(f, addr, MOCK_PORT)
 
+	// 512 bytes is the minimum size of a qcow2 image
 	minimalQCow2 := [512]byte{
 		0x51, 0x46, 0x49, 0xfb, 0x01, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -43,16 +49,22 @@ func FuzzUploader(f *testing.F) {
 	f.Add(minimalQCow2[:])
 
 	f.Fuzz(func(t *testing.T, data []byte) {
-		fuzz.ProcessRequest(t, data, url, http.MethodPut)
+		fuzz.ProcessRequests(t, data, url, http.MethodPut, http.MethodPost)
 	})
 }
 
 func startUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp {
 	tb.Helper()
 
-	endpoint := fmt.Sprintf("%s:%d/uploader", addr, 8400)
-	os.Setenv(common.UploaderDestinationEndpoint, endpoint)
-	os.Setenv(common.UploaderDestinationAuthConfig, "testdata/auth.json")
+	endpoint := fmt.Sprintf("%s:%d/uploader", addr, MOCK_PORT)
+
+	if err := os.Setenv(common.UploaderDestinationEndpoint, endpoint); err != nil {
+		tb.Fatalf("failed to set env var; %v", err)
+	}
+
+	if err := os.Setenv(common.UploaderDestinationAuthConfig, "testdata/auth.json"); err != nil {
+		tb.Fatalf("failed to set env var; %v", err)
+	}
 
 	uploaderServer, err := NewUploadServer(addr, port, "", "", "", "", cryptowatch.CryptoConfig{})
 	if err != nil {
@@ -66,7 +78,7 @@ func startUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp 
 
 	go func() {
 		if err := uploaderServer.Run(); err != nil {
-			tb.Fatalf("failed to start uploader server; %v", err)
+			tb.Fatalf("failed to run uploader server: %v", err)
 		}
 	}()
 
@@ -91,7 +103,7 @@ func startDVCRMockServer(tb testing.TB, addr string, port int) {
 
 	go func() {
 		if err := http.ListenAndServe(url, mux); err != nil {
-			tb.Fatalf("failed to start dvcr mock server; %v", err)
+			tb.Fatalf("failed to listen and serve mock server: %v", err)
 		}
 	}()
 }

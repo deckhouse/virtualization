@@ -15,7 +15,7 @@
 # limitations under the License.
 
 IMAGE_NAME="uploader-fuzz"
-DOCKERFILE="Dockerfile.fuzz"
+DOCKERFILE="fuzz.Dockerfile"
 DEFAULT_FUZZ_TIME="2m"
 
 show_help() {
@@ -32,7 +32,7 @@ show_help() {
     echo "  $0 -t 5m    # Run all tests for 5m"
     echo ""
     echo "Direct Docker command:"
-    echo "  docker run -it --rm --platform linux/amd64 \$(docker build --platform linux/amd64 -q -f Dockerfile.fuzz .)"
+    echo "  docker run -it --rm --platform linux/amd64 \$(docker build --platform linux/amd64 -q -f fuzz.Dockerfile .)"
 }
 
 FUZZ_TIME="$DEFAULT_FUZZ_TIME"
