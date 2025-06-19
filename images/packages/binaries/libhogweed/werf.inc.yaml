@@ -27,7 +27,6 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make autoconf automake gmp-devel
-- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -63,4 +62,3 @@ shell:
       --disable-doc
     make -j$(nproc)
     make DESTDIR=$OUTDIR install-shared-hogweed install-headers install-pkgconfig
-    tree /out
