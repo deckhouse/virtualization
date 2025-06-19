@@ -27,7 +27,6 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libburn-devel libisofs-devel makeinfo libtool
-- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -62,4 +61,3 @@ shell:
       --disable-doc
     make -j$(nproc)
     make DESTDIR=/out install-libLTLIBRARIES install-libincludeHEADERS
-    tree /out
