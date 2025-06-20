@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package blockdevice
+package validate
 
 // MaxDiskNameLen determines the max len of vd.
 // Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
@@ -30,3 +30,7 @@ const MaxVirtualImageNameLen = 49
 // Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
 // We and kubevirt add prefixes "cvi-", "volume" and suffix "-init", so max len reduced to 48.
 const MaxClusterVirtualImageNameLen = 48
+
+// MaxVirtualMachineNameLen determines the max len of vm.
+// The name of the VirtualMachine can be valid with a length of up to 63 characters, as exceeding this limit may cause a failure in creating internal resources.
+const MaxVirtualMachineNameLen = 63
