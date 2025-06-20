@@ -11,28 +11,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package tls_certificates_api_proxy
 
 import (
 	"fmt"
-	"hooks/pkg/common"
+
+	"hooks/pkg/settings"
+
+	v1 "k8s.io/api/certificates/v1"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/app"
-	v1 "k8s.io/api/certificates/v1"
 )
 
 var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{
-	CN:                   common.API_PROXY_CERT_CN,
+	CN:                   settings.APIProxyCertCN,
 	TLSSecretName:        "virtualization-api-proxy-tls",
-	Namespace:            common.MODULE_NAMESPACE,
+	Namespace:            settings.ModuleNamespace,
 	SANs:                 func(input *pkg.HookInput) []string { return []string{} },
-	FullValuesPathPrefix: fmt.Sprintf("%s.internal.apiserver.proxyCert", common.MODULE_NAME),
-	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", common.MODULE_NAME),
+	FullValuesPathPrefix: fmt.Sprintf("%s.internal.apiserver.proxyCert", settings.ModuleName),
+	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 	Usages:               []v1.KeyUsage{v1.UsageClientAuth},
 })
-
-func main() {
-	app.Run()
-}
