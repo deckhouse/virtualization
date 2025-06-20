@@ -33,12 +33,12 @@ const (
 )
 
 func FuzzUploader(f *testing.F) {
-	uploaderPort, err := fuzz.GetPortFromEnv(UPLOADER_FUZZ_PORT)
+	uploaderPort, err := fuzz.GetPortFromEnv(UPLOADER_FUZZ_PORT, 8000)
 	if err != nil {
 		f.Fatalf("failed to parse uploaderEnv: %v", err)
 	}
 
-	mockPort, err := fuzz.GetPortFromEnv(UPLOADER_MOCK_PORT)
+	mockPort, err := fuzz.GetPortFromEnv(UPLOADER_MOCK_PORT, 8400)
 	if err != nil {
 		f.Fatalf("failed to parse mockEnv: %v", err)
 	}

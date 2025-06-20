@@ -160,10 +160,10 @@ func (s *fuzzRequest) Fuzz(t *testing.T, data []byte, method, addr string) *http
 	return req
 }
 
-func GetPortFromEnv(env string) (port int, err error) {
+func GetPortFromEnv(env string, defaultPort int) (port int, err error) {
 	portEnv := os.Getenv(env)
 	if portEnv == "" {
-		return 0, fmt.Errorf("port env var %s not set", env)
+		return defaultPort, nil
 	}
 
 	port, err = strconv.Atoi(portEnv)
