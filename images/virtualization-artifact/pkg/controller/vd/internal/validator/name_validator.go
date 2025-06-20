@@ -23,7 +23,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/blockdevice"
+	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -38,8 +38,8 @@ func (v *NameValidator) ValidateCreate(_ context.Context, vd *virtv2.VirtualDisk
 		return nil, fmt.Errorf("the VirtualDisk name %q is invalid: '.' is forbidden, allowed name symbols are [0-9a-zA-Z-]", vd.Name)
 	}
 
-	if len(vd.Name) > blockdevice.MaxDiskNameLen {
-		return nil, fmt.Errorf("the VirtualDisk name %q is too long: it must be no more than %d characters", vd.Name, blockdevice.MaxDiskNameLen)
+	if len(vd.Name) > validate.MaxDiskNameLen {
+		return nil, fmt.Errorf("the VirtualDisk name %q is too long: it must be no more than %d characters", vd.Name, validate.MaxDiskNameLen)
 	}
 
 	return nil, nil
@@ -52,8 +52,8 @@ func (v *NameValidator) ValidateUpdate(_ context.Context, _, newVD *virtv2.Virtu
 		warnings = append(warnings, fmt.Sprintf("the VirtualDisk name %q is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another disk with valid name to avoid problems with future updates.", newVD.Name))
 	}
 
-	if len(newVD.Name) > blockdevice.MaxDiskNameLen {
-		warnings = append(warnings, fmt.Sprintf("the VirtualDisk name %q is too long: it must be no more than %d characters", newVD.Name, blockdevice.MaxDiskNameLen))
+	if len(newVD.Name) > validate.MaxDiskNameLen {
+		warnings = append(warnings, fmt.Sprintf("the VirtualDisk name %q is too long: it must be no more than %d characters", newVD.Name, validate.MaxDiskNameLen))
 	}
 
 	return warnings, nil
