@@ -20,3 +20,16 @@ spec:
 {{- define "kubevirt.virthandler_nodeaffinity_strategic_patch_json" -}}
   '{{ include "kubevirt.virthandler_nodeaffinity_strategic_patch" . | fromYaml | toJson }}'
 {{- end }}
+
+{{- define "kubevirt.virthandler_nodeseletor_strategic_patch" -}}
+  {{- $defaultLabels := dict "kubernetes.io/os" "linux" "virtualization.deckhouse.io/kvm-enabled" "true" -}}
+spec:
+  template:
+    spec:
+      nodeSelector:
+{{ $defaultLabels | toYaml | nindent 8 }}
+{{- end -}}
+
+{{- define "kubevirt.virthandler_nodeseletor_strategic_patch_json" -}}
+  '{{ include "kubevirt.virthandler_nodeseletor_strategic_patch" . | fromYaml | toJson }}'
+{{- end }}
