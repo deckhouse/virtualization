@@ -104,12 +104,16 @@ func checkFileCopyright(fName string) Message {
 
 func checkFlantLicense(fName string, buf []byte) Message {
 	if strings.HasPrefix(fName, "/ee/") || strings.HasPrefix(fName, "ee/") {
+		// Expect only EE license for directories with ee prefix.
 		if !EELicenseRe.Match(buf) {
 			return NewError(fName, "EE related file should contain EE license", "")
 		}
 	} else {
+		// Other files may have CE or EE license.
 		if !CELicenseRe.Match(buf) {
-			return NewError(fName, "should contain CE license", "")
+			if !EELicenseRe.Match(buf) {
+				return NewError(fName, "should contain CE or EE license", "")
+			}
 		}
 	}
 
