@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -157,4 +158,17 @@ func (s *fuzzRequest) Fuzz(t *testing.T, data []byte, method, addr string) *http
 	req.PostForm = s.PostForm
 
 	return req
+}
+
+func GetPortFromEnv(env string) (port int, err error) {
+	portEnv := os.Getenv(env)
+	if portEnv == "" {
+		return 0, fmt.Errorf("port env var %s not set", env)
+	}
+
+	port, err = strconv.Atoi(portEnv)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse port env var %s: %w", env, err)
+	}
+	return port, nil
 }

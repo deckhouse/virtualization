@@ -28,17 +28,27 @@ import (
 )
 
 const (
-	DEFAULT_PORT = 8000
-	MOCK_PORT    = 8400
+	UPLOADER_FUZZ_PORT = "UPLOADER_FUZZ_PORT"
+	UPLOADER_MOCK_PORT = "UPLOADER_MOCK_PORT"
 )
 
 func FuzzUploader(f *testing.F) {
+	uploaderPort, err := fuzz.GetPortFromEnv(UPLOADER_FUZZ_PORT)
+	if err != nil {
+		f.Fatalf("failed to parse uploaderEnv: %v", err)
+	}
+
+	mockPort, err := fuzz.GetPortFromEnv(UPLOADER_MOCK_PORT)
+	if err != nil {
+		f.Fatalf("failed to parse mockEnv: %v", err)
+	}
+
 	addr := "127.0.0.1"
-	url := fmt.Sprintf("http://%s:%d/upload", addr, DEFAULT_PORT)
+	url := fmt.Sprintf("http://%s:%d/upload", addr, uploaderPort)
 
-	startUploaderServer(f, addr, DEFAULT_PORT)
+	startUploaderServer(f, addr, uploaderPort, mockPort)
 
-	startDVCRMockServer(f, addr, MOCK_PORT)
+	startDVCRMockServer(f, addr, mockPort)
 
 	// 512 bytes is the minimum size of a qcow2 image
 	minimalQCow2 := [512]byte{
@@ -53,10 +63,10 @@ func FuzzUploader(f *testing.F) {
 	})
 }
 
-func startUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp {
+func startUploaderServer(tb testing.TB, addr string, uploaderPort, mockPort int) *uploadServerApp {
 	tb.Helper()
 
-	endpoint := fmt.Sprintf("%s:%d/uploader", addr, MOCK_PORT)
+	endpoint := fmt.Sprintf("%s:%s/uploader", addr, mockPort)
 
 	if err := os.Setenv(common.UploaderDestinationEndpoint, endpoint); err != nil {
 		tb.Fatalf("failed to set env var; %v", err)
@@ -66,7 +76,7 @@ func startUploaderServer(tb testing.TB, addr string, port int) *uploadServerApp 
 		tb.Fatalf("failed to set env var; %v", err)
 	}
 
-	uploaderServer, err := NewUploadServer(addr, port, "", "", "", "", cryptowatch.CryptoConfig{})
+	uploaderServer, err := NewUploadServer(addr, uploaderPort, "", "", "", "", cryptowatch.CryptoConfig{})
 	if err != nil {
 		tb.Fatalf("failed to initialize uploader server; %v", err)
 	}
