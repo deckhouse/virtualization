@@ -58,8 +58,10 @@ func (v *MetaValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMa
 }
 
 func (v *MetaValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	if len(newVM.Name) > validate.MaxVirtualMachineNameLen {
-		return nil, fmt.Errorf("the VirtualMachine name %q is too long: it must be no more than %d characters", newVM.Name, validate.MaxVirtualMachineNameLen)
+	if newVM.DeletionTimestamp == nil {
+		if len(newVM.Name) > validate.MaxVirtualMachineNameLen {
+			return nil, fmt.Errorf("the VirtualMachine name %q is too long: it must be no more than %d characters", newVM.Name, validate.MaxVirtualMachineNameLen)
+		}
 	}
 
 	for key := range newVM.Annotations {
