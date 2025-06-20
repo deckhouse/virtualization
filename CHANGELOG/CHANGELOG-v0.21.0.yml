@@ -1,0 +1,30 @@
+core:
+  features:
+    - summary: >-
+        Automatic VM rebalancing based on CPU utilization (80% threshold) and affinity rules.
+        Functionality becomes active only when descheduler module is enabled
+      pull_request: https://github.com/deckhouse/virtualization/pull/962
+  fixes:
+    - summary: Remove init container with root privileges.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1148
+images:
+  features:
+    - summary: >-
+        To the statuses of `VirtualImage` and `ClusterVirtualImage` resources, the condition `InUse`
+        has been added, indicating whether the image is currently in use (for example, by a running
+        virtual machine or for creating a virtual disk).
+      pull_request: https://github.com/deckhouse/virtualization/pull/859
+module:
+  features:
+    - summary: >-
+        Detect nodes with enabled /dev/kvm and CPU features VMX/SVM to schedule virt-handlers only
+        on capable nodes.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1076
+  fixes:
+    - summary: Fix spec.strategy patching for Deployment/cdi-deployment in HA mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1173
+vm:
+  features:
+    - summary: support hotplug of PVCs with filesystem volume mode
+      pull_request: https://github.com/deckhouse/virtualization/pull/1060
+
