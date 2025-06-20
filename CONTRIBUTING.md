@@ -121,12 +121,12 @@ Supported scopes are the following:
 
   # Maintaining, improving code quality and development workflow.
   - ci
-  
+
   # Maintaining, improving documentation.
   - docs
 
   # Network related changes important for end-user.
-  - network  
+  - network
   ```
 
 #### Subject
@@ -185,12 +185,13 @@ impact: |
     - `feature`: Adds new functionality.
     - `fix`: Resolves user-facing issues.
     - `chore`: Maintenance tasks without direct user impact.
+    - `docs`: Changes to documentation.
 
   - **summary**: (Required) A concise explanation of the change, ending with a period.
 
   - **impact_level**: (Optional) Indicates the significance of the change.
     - `high`: Requires an **impact** description and will be included in "Know before update" sections.
-    - `low`: Minor changes, typically omitted from user-facing changelogs.
+    - `low`: Minor changes, omitted from user-facing changelogs. If this level is specified, all other fields are not validated by GitHub workflow.
 
   - **impact**: (Required if `impact_level` is high) Describes the change's effects, such as expected restarts or downtime.
     - Examples:
@@ -215,9 +216,6 @@ impact: |
   Node checksum calculation is fixed, as well as a race condition during
   the machines (MCM) rendering which caused outdated nodes to spawn.
 ---
-section: ci
-type: fix
-summary: "Improved comments tracking workflow progress."
 impact_level: low
 ```
 
