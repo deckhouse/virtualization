@@ -29,7 +29,6 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool patch gperf help2man gengetopt
-- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -68,4 +67,3 @@ shell:
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
     rm -rf /out/usr/share
-    tree /out
