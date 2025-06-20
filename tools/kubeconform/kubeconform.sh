@@ -84,6 +84,8 @@ if [[ ! -d schemas ]]; then
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/460-log-shipper/crds/cluster-logging-config.yaml
   echo " ClusterLogDestination"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/460-log-shipper/crds/cluster-log-destination.yaml
+  echo " Descheduler"
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/400-descheduler/crds/deschedulers.yaml
 
   # Transform CRDs to JSON schemas.
   export FILENAME_FORMAT='{kind}-{group}-{version}'
@@ -100,6 +102,11 @@ if [[ ! -d schemas ]]; then
   for crdYaml in $( ls -1 ../../../crds/*.yaml | grep -v doc-ru- ) ; do
     ../kubeconform.git/scripts/openapi2jsonschema.py $crdYaml
   done
+
+  # Transform Descheduler CRD schemas
+  # If the CRD's metadata defines specific properties, kubeconform will enforce validation.
+  # Any field present in the Custom Resource (CR) that isn’t defined in the schema—such as metadata.labels—will cause validation to fail.
+  find -iname "descheduler-deckhouse-*.json" | while read f ; do jq '(.properties.metadata) |= {type: "object"}' "$f" > tmp.json && mv tmp.json "$f" ; done
 
   cd ..
 fi
