@@ -34,3 +34,4 @@ package:
   libisoburn: release-1.5.6
   libgsasl: v2.2.2
   libidn: 12.6.6
+  libidn2: v2.3.8
