@@ -84,8 +84,8 @@ image: python-dependencies
 fromImage: BASE_ALT_P11
 fromCacheVersion: "2025-28-05.1"
 git:
-  - add: /lib/python/requirements.txt
-    to: /requirements.txt
+  - add: /lib/python/requirements-release.txt
+    to: /requirements-release.txt
     stageDependencies:
       setup:
         - '*'
@@ -94,7 +94,7 @@ shell:
     - apt-get update
     - apt-get install -y python3 python3-module-pip-run
   setup:
-    - pip3 install -r /requirements.txt -t /dist
+    - pip3 install -r /requirements-release.txt -t /dist
 ---
 image: bundle
 fromImage: builder/scratch
@@ -131,8 +131,11 @@ git:
       - component_versions/README.md
       - hooks/lib/tests
       - hooks/test*
+      - hooks/Taskfile*
+      - hooks/**/__pycache__
       - docs/images/*.drawio
       - docs/images/*.sh
+      - openapi/openapi-case-tests.yaml
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
     {{- end }}
