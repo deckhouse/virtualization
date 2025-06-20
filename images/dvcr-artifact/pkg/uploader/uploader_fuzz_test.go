@@ -66,7 +66,7 @@ func FuzzUploader(f *testing.F) {
 func startUploaderServer(tb testing.TB, addr string, uploaderPort, mockPort int) *uploadServerApp {
 	tb.Helper()
 
-	endpoint := fmt.Sprintf("%s:%s/uploader", addr, mockPort)
+	endpoint := fmt.Sprintf("%s:%d/uploader", addr, mockPort)
 
 	if err := os.Setenv(common.UploaderDestinationEndpoint, endpoint); err != nil {
 		tb.Fatalf("failed to set env var; %v", err)
