@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -34,6 +35,12 @@ type VirtualMachineBlockDeviceAttachmentsOverrideValidator struct {
 }
 
 func NewVirtualMachineBlockDeviceAttachmentsOverrideValidator(vmbdaTmpl *virtv2.VirtualMachineBlockDeviceAttachment, client client.Client) *VirtualMachineBlockDeviceAttachmentsOverrideValidator {
+	if vmbdaTmpl.Annotations != nil {
+		vmbdaTmpl.Annotations[annotations.AnnVMRestore] = "true"
+	} else {
+		vmbdaTmpl.Annotations = make(map[string]string)
+		vmbdaTmpl.Annotations[annotations.AnnVMRestore] = "true"
+	}
 	return &VirtualMachineBlockDeviceAttachmentsOverrideValidator{
 		vmbda: &virtv2.VirtualMachineBlockDeviceAttachment{
 			TypeMeta: metav1.TypeMeta{
@@ -73,6 +80,44 @@ func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) Validate(ctx con
 	}
 
 	return nil
+}
+
+func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) ValidateWithForce(ctx context.Context) error {
+	return nil
+}
+
+func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) ProcessWithForce(ctx context.Context, vmRestoreUID string) error {
+	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
+	vmbdaObj, err := object.FetchObject(ctx, vmbdaKey, v.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the `VirtualMachineBlockDeviceAttachment`: %w", err)
+	}
+
+	if object.IsTerminating(vmbdaObj) {
+		return fmt.Errorf("waiting for the `VirtualMachineBlockDeviceAttachment` %s %w", vmbdaObj.Name, ErrRestoring)
+	}
+
+	if vmbdaObj != nil {
+		if v, ok := vmbdaObj.Annotations[annotations.AnnVMRestore]; ok && v == vmRestoreUID {
+			return nil
+		}
+		err = v.client.Delete(ctx, vmbdaObj)
+		if err != nil {
+			return fmt.Errorf("failed to delete the `VirtualMachineBlockDeviceAttachment`: %w", err)
+		}
+		return fmt.Errorf("waiting for the `VirtualMachineBlockDeviceAttachment` %s %w", vmbdaObj.Name, ErrRestoring)
+	}
+
+	return nil
+}
+
+func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) AnnotateObject(vmRestoreUID string) {
+	if v.vmbda.Annotations != nil {
+		v.vmbda.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	} else {
+		v.vmbda.Annotations = make(map[string]string)
+		v.vmbda.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	}
 }
 
 func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) Object() client.Object {

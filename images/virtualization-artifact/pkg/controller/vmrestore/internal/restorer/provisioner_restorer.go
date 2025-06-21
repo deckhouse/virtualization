@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -74,10 +75,27 @@ func (v *ProvisionerOverrideValidator) Validate(ctx context.Context) error {
 	}
 
 	if !maps.EqualFunc(existed.Data, v.secret.Data, bytes.Equal) {
-		return fmt.Errorf("the provisioner secret %q %w and has not the same data content", secretKey.Name, ErrAlreadyExists)
+		return fmt.Errorf("the provisioner secret %q %w", secretKey.Name, ErrAlreadyExistsAndHasDiff)
 	}
 
 	return nil
+}
+
+func (v *ProvisionerOverrideValidator) ValidateWithForce(ctx context.Context) error {
+	return v.Validate(ctx)
+}
+
+func (v *ProvisionerOverrideValidator) ProcessWithForce(ctx context.Context, vmRestoreUID string) error {
+	return nil
+}
+
+func (v *ProvisionerOverrideValidator) AnnotateObject(vmRestoreUID string) {
+	if v.secret.Annotations != nil {
+		v.secret.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	} else {
+		v.secret.Annotations = make(map[string]string)
+		v.secret.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	}
 }
 
 func (v *ProvisionerOverrideValidator) Object() client.Object {
