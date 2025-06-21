@@ -195,6 +195,10 @@ func (s DiskService) StartImmediate(
 }
 
 func (s DiskService) CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error {
+	if pvc == nil || pvc.Status.Phase == corev1.ClaimBound {
+		return nil
+	}
+
 	podName, ok := pvc.Annotations[annotations.AnnProvisionerName]
 	if !ok || podName == "" {
 		return nil
@@ -257,57 +261,63 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 }
 
 func (s DiskService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
-	dv, err := s.GetDataVolume(ctx, sup)
+	// 1. Update owner ref of pvc.
+	pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {
 		return false, err
 	}
 
+	if pvc != nil {
+		ownerReferences := slices.DeleteFunc(pvc.OwnerReferences, func(ref metav1.OwnerReference) bool {
+			return ref.Kind == "DataVolume"
+		})
+
+		if len(pvc.OwnerReferences) != len(ownerReferences) {
+			pvc.ObjectMeta.OwnerReferences = ownerReferences
+			err = s.client.Update(ctx, pvc)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return false, fmt.Errorf("update owner ref of pvc: %w", err)
+			}
+		}
+	}
+
+	// 2. Delete network policy.
+	networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.DataVolume())
+	if err != nil {
+		return false, err
+	}
+
+	if networkPolicy != nil {
+		err = s.protection.RemoveProtection(ctx, networkPolicy)
+		if err != nil {
+			return false, fmt.Errorf("remove protection from network policy: %w", err)
+		}
+
+		err = s.client.Delete(ctx, networkPolicy)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return false, fmt.Errorf("delete network policy: %w", err)
+		}
+	}
+
+	// 3. Delete DataVolume.
 	var hasDeleted bool
+	dv, err := s.GetDataVolume(ctx, sup)
+	if err != nil {
+		return false, fmt.Errorf("get dv: %w", err)
+	}
 
 	if dv != nil {
-		hasDeleted = true
 		err = s.protection.RemoveProtection(ctx, dv)
 		if err != nil {
-			return false, err
+			return false, fmt.Errorf("remove protection from dv: %w", err)
 		}
 
 		err = s.client.Delete(ctx, dv)
 		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
+			return false, fmt.Errorf("delete dv: %w", err)
 		}
 
-		networkPolicy, err := networkpolicy.GetNetworkPolicy(ctx, s.client, sup.DataVolume())
-		if err != nil {
-			return false, err
-		}
-
-		if networkPolicy != nil {
-			err = s.protection.RemoveProtection(ctx, networkPolicy)
-			if err != nil {
-				return false, err
-			}
-
-			err = s.client.Delete(ctx, networkPolicy)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return false, err
-			}
-		}
-
-		var pvc *corev1.PersistentVolumeClaim
-		pvc, err = s.GetPersistentVolumeClaim(ctx, sup)
-		if err != nil {
-			return false, err
-		}
-
-		if pvc != nil {
-			pvc.ObjectMeta.OwnerReferences = slices.DeleteFunc(pvc.ObjectMeta.OwnerReferences, func(ref metav1.OwnerReference) bool {
-				return ref.Kind == "DataVolume"
-			})
-			err = s.client.Update(ctx, pvc)
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return false, err
-			}
-		}
+		hasDeleted = true
 	}
 
 	return hasDeleted, supplements.CleanupForDataVolume(ctx, s.client, sup, s.dvcrSettings)

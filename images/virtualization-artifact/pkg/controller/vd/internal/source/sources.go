@@ -25,7 +25,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -36,6 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -324,37 +324,9 @@ func setPhaseConditionFromProvisioningError(
 	}
 }
 
+// Deprecated.
 func getNodePlacement(ctx context.Context, c client.Client, vd *virtv2.VirtualDisk) (*provisioner.NodePlacement, error) {
-	if len(vd.Status.AttachedToVirtualMachines) != 1 {
-		return nil, nil
-	}
-
-	vmKey := types.NamespacedName{Name: vd.Status.AttachedToVirtualMachines[0].Name, Namespace: vd.Namespace}
-	vm, err := object.FetchObject(ctx, vmKey, c, &virtv2.VirtualMachine{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get the virtual machine %s: %w", vmKey, err)
-	}
-
-	if vm == nil {
-		return nil, nil
-	}
-
-	var nodePlacement provisioner.NodePlacement
-	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vm.Spec.Tolerations...)
-
-	vmClassKey := types.NamespacedName{Name: vm.Spec.VirtualMachineClassName}
-	vmClass, err := object.FetchObject(ctx, vmClassKey, c, &virtv2.VirtualMachineClass{})
-	if err != nil {
-		return nil, fmt.Errorf("unable to get the virtual machine class %s: %w", vmClassKey, err)
-	}
-
-	if vmClass == nil {
-		return &nodePlacement, nil
-	}
-
-	nodePlacement.Tolerations = append(nodePlacement.Tolerations, vmClass.Spec.Tolerations...)
-
-	return &nodePlacement, nil
+	return step.GetNodePlacement(ctx, c, vd)
 }
 
 const retryPeriod = 1
