@@ -21,10 +21,14 @@ package validate
 // We add prefix "vd-" for the vd name, so max len reduced to 60.
 const MaxDiskNameLen = 60
 
-// MaxVirtualImageNameLen determines the max len of vi.
+// MaxVirtualImageOnDVCRNameLen determines the max len of vi on dvcr.
+// This limit ensures compatibility with hotplug operations
+const MaxVirtualImageOnDVCRNameLen = 37
+
+// MaxVirtualImageOnPVCNameLen determines the max len of vi on pvc.
 // Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
 // We and kubevirt add prefixes "vi-", "volume" and suffix "-init", so max len reduced to 49.
-const MaxVirtualImageNameLen = 37
+const MaxVirtualImageOnPVCNameLen = 49
 
 // MaxClusterVirtualImageNameLen determines the max len of cvi.
 // Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
