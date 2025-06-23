@@ -121,7 +121,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 			vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
 			cb.Status(metav1.ConditionFalse).Reason(vmscondition.VirtualDiskSnapshotLost)
 			if len(lostVDSnapshots) == 1 {
-				msg := fmt.Sprintf("The underlieng virtual disk snapshot (%s) is lost.", lostVDSnapshots[0])
+				msg := fmt.Sprintf("The underlying virtual disk snapshot (%s) is lost.", lostVDSnapshots[0])
 				h.recorder.Event(
 					vmSnapshot,
 					corev1.EventTypeWarning,
@@ -130,7 +130,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 				)
 				cb.Message(msg)
 			} else {
-				msg := fmt.Sprintf("The underlieng virtual disk snapshots (%s) are lost.", strings.Join(lostVDSnapshots, ", "))
+				msg := fmt.Sprintf("The underlying virtual disk snapshots (%s) are lost.", strings.Join(lostVDSnapshots, ", "))
 				h.recorder.Event(
 					vmSnapshot,
 					corev1.EventTypeWarning,

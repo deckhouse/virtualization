@@ -20,7 +20,6 @@ import (
 	"context"
 	"log/slog"
 
-	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -32,25 +31,25 @@ import (
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-var _ = Describe("Blank", func() {
+var _ = Describe("ObjectRef VirtualImage", func() {
 	var (
-		ctx      context.Context
-		scheme   *runtime.Scheme
-		vd       *virtv2.VirtualDisk
-		sc       *storagev1.StorageClass
-		pvc      *corev1.PersistentVolumeClaim
-		recorder eventrecord.EventRecorderLogger
-		svc      *BlankDataSourceDiskServiceMock
+		ctx    context.Context
+		scheme *runtime.Scheme
+		vi     *virtv2.VirtualImage
+		vd     *virtv2.VirtualDisk
+		sc     *storagev1.StorageClass
+		pvc    *corev1.PersistentVolumeClaim
+		dv     *cdiv1.DataVolume
+		svc    *ObjectRefVirtualImageDiskServiceMock
 	)
 
 	BeforeEach(func() {
@@ -59,19 +58,15 @@ var _ = Describe("Blank", func() {
 		scheme = runtime.NewScheme()
 		Expect(virtv2.AddToScheme(scheme)).To(Succeed())
 		Expect(corev1.AddToScheme(scheme)).To(Succeed())
-		Expect(vsv1.AddToScheme(scheme)).To(Succeed())
+		Expect(cdiv1.AddToScheme(scheme)).To(Succeed())
 		Expect(storagev1.AddToScheme(scheme)).To(Succeed())
 
-		recorder = &eventrecord.EventRecorderLoggerMock{
-			EventFunc: func(_ client.Object, _, _, _ string) {},
-		}
-
-		svc = &BlankDataSourceDiskServiceMock{
-			GetVolumeAndAccessModesFunc: func(_ context.Context, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
-				return *pvc.Spec.VolumeMode, pvc.Spec.AccessModes[0], nil
+		svc = &ObjectRefVirtualImageDiskServiceMock{
+			GetProgressFunc: func(_ *cdiv1.DataVolume, _ string, _ ...service.GetProgressOption) string {
+				return "10%"
 			},
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
-				return vd.Spec.PersistentVolumeClaim.Size.String()
+				return "100Mi"
 			},
 			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
 				return false, nil
@@ -87,15 +82,32 @@ var _ = Describe("Blank", func() {
 			},
 		}
 
+		vi = &virtv2.VirtualImage{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "vi",
+				Generation: 1,
+				UID:        "11111111-1111-1111-1111-111111111111",
+			},
+			Status: virtv2.VirtualImageStatus{
+				Size: virtv2.ImageStatusSize{
+					UnpackedBytes: "100Mi",
+				},
+			},
+		}
+
 		vd = &virtv2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:       "vd",
 				Generation: 1,
-				UID:        "11111111-1111-1111-1111-111111111111",
+				UID:        "22222222-2222-2222-2222-222222222222",
 			},
 			Spec: virtv2.VirtualDiskSpec{
-				PersistentVolumeClaim: virtv2.VirtualDiskPersistentVolumeClaim{
-					Size: ptr.To(resource.MustParse("10Mi")),
+				DataSource: &virtv2.VirtualDiskDataSource{
+					Type: virtv2.DataSourceTypeObjectRef,
+					ObjectRef: &virtv2.VirtualDiskObjectRef{
+						Kind: virtv2.VirtualDiskObjectRefKindVirtualImage,
+						Name: vi.Name,
+					},
 				},
 			},
 			Status: virtv2.VirtualDiskStatus{
@@ -107,79 +119,68 @@ var _ = Describe("Blank", func() {
 
 		pvc = &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: supgen.PersistentVolumeClaim().Name,
+				Name:      supgen.PersistentVolumeClaim().Name,
+				Namespace: vd.Namespace,
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
-				StorageClassName: &sc.Name,
-				VolumeMode:       ptr.To(corev1.PersistentVolumeBlock),
-				AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
-				Resources: corev1.VolumeResourceRequirements{
-					Requests: corev1.ResourceList{
-						corev1.ResourceStorage: *vd.Spec.PersistentVolumeClaim.Size,
-					},
-				},
+				StorageClassName: ptr.To(sc.Name),
 			},
 			Status: corev1.PersistentVolumeClaimStatus{
 				Capacity: corev1.ResourceList{
-					corev1.ResourceStorage: ptr.Deref(vd.Spec.PersistentVolumeClaim.Size, resource.Quantity{}),
+					corev1.ResourceStorage: resource.MustParse(vi.Status.Size.UnpackedBytes),
 				},
+			},
+		}
+
+		dv = &cdiv1.DataVolume{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      supgen.DataVolume().Name,
+				Namespace: vd.Namespace,
+			},
+			Status: cdiv1.DataVolumeStatus{
+				ClaimName: pvc.Name,
 			},
 		}
 	})
 
 	Context("VirtualDisk has just been created", func() {
-		It("must create PVC", func() {
-			var pvcCreated bool
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(sc).
-				WithInterceptorFuncs(interceptor.Funcs{
-					Create: func(_ context.Context, _ client.WithWatch, obj client.Object, _ ...client.CreateOption) error {
-						_, ok := obj.(*corev1.PersistentVolumeClaim)
-						Expect(ok).To(BeTrue())
-						pvcCreated = true
-						return nil
-					},
-				}).Build()
+		It("must create DataVolume", func() {
+			var dvCreated bool
+			vd.Status = virtv2.VirtualDiskStatus{}
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, sc).Build()
+			svc.StartFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ service.ObjectKind, _ *supplements.Generator, _ ...service.Option) error {
+				dvCreated = true
+				return nil
+			}
 
-			syncer := NewBlankDataSource(recorder, svc, client)
+			syncer := NewObjectRefVirtualImage(svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
 
-			Expect(pvcCreated).To(BeTrue())
+			Expect(dvCreated).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
-			Expect(vd.Status.Progress).NotTo(BeEmpty())
-			Expect(vd.Status.Target.PersistentVolumeClaim).NotTo(BeEmpty())
-		})
-
-		It("checks size in spec", func() {
-			client := fake.NewClientBuilder().WithScheme(scheme).Build()
-			syncer := NewBlankDataSource(nil, nil, client)
-
-			res, err := syncer.Sync(ctx, vd)
-			Expect(err).To(HaveOccurred())
-			Expect(res.IsZero()).To(BeTrue())
-		})
-
-		It("checks storage class is set in status", func() {
-			client := fake.NewClientBuilder().WithScheme(scheme).Build()
-			syncer := NewBlankDataSource(nil, nil, client)
-
-			res, err := syncer.Sync(ctx, vd)
-			Expect(err).To(HaveOccurred())
-			Expect(res.IsZero()).To(BeTrue())
+			Expect(vd.Status.Progress).ToNot(BeEmpty())
+			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
 	})
 
 	Context("VirtualDisk waits for the PVC to be Bound", func() {
-		It("waits for the first consumer", func() {
-			pvc.Status.Phase = corev1.ClaimPending
-			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
+		BeforeEach(func() {
+			svc.CheckProvisioningFunc = func(_ context.Context, _ *corev1.PersistentVolumeClaim) error {
+				return nil
+			}
+		})
 
-			syncer := NewBlankDataSource(nil, nil, client)
+		It("waits for the first consumer", func() {
+			dv.Status.Phase = cdiv1.PendingPopulation
+			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingWaitForFirstConsumer)
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, dv, sc).Build()
+
+			syncer := NewObjectRefVirtualImage(svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -187,14 +188,16 @@ var _ = Describe("Blank", func() {
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.WaitingForFirstConsumer, true)
 			Expect(vd.Status.Phase).To(Equal(virtv2.DiskWaitForFirstConsumer))
+			Expect(vd.Status.Progress).ToNot(BeEmpty())
+			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
 
 		It("is in provisioning", func() {
 			pvc.Status.Phase = corev1.ClaimPending
 			sc.VolumeBindingMode = ptr.To(storagev1.VolumeBindingImmediate)
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, sc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc, dv, sc).Build()
 
-			syncer := NewBlankDataSource(nil, nil, client)
+			syncer := NewObjectRefVirtualImage(svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -202,23 +205,26 @@ var _ = Describe("Blank", func() {
 
 			ExpectCondition(vd, metav1.ConditionFalse, vdcondition.Provisioning, true)
 			Expect(vd.Status.Phase).To(Equal(virtv2.DiskProvisioning))
+			Expect(vd.Status.Progress).ToNot(BeEmpty())
+			Expect(vd.Status.Target.PersistentVolumeClaim).ToNot(BeEmpty())
 		})
 	})
 
 	Context("VirtualDisk is ready", func() {
 		It("checks that the VirtualDisk is ready", func() {
+			dv.Status.Phase = cdiv1.Succeeded
 			pvc.Status.Phase = corev1.ClaimBound
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(dv, pvc).Build()
 
-			syncer := NewBlankDataSource(nil, svc, client)
+			syncer := NewObjectRefVirtualImage(svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
 
 			ExpectCondition(vd, metav1.ConditionTrue, vdcondition.Ready, false)
-			ExpectStats(vd)
 			Expect(vd.Status.Phase).To(Equal(virtv2.DiskReady))
+			ExpectStats(vd)
 		})
 	})
 
@@ -238,7 +244,7 @@ var _ = Describe("Blank", func() {
 			}
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects().Build()
 
-			syncer := NewBlankDataSource(nil, svc, client)
+			syncer := NewObjectRefVirtualImage(svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
@@ -254,7 +260,7 @@ var _ = Describe("Blank", func() {
 			vd.Status.Target.PersistentVolumeClaim = pvc.Name
 			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(pvc).Build()
 
-			syncer := NewBlankDataSource(nil, svc, client)
+			syncer := NewObjectRefVirtualImage(svc, client)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())
