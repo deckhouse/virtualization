@@ -101,7 +101,7 @@ func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 	oldRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, oldVM.Status.Conditions)
 	newRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, newVM.Status.Conditions)
 
-	if newRunningCondition.Status != oldRunningCondition.Status {
+	if oldRunningCondition.Status != newRunningCondition.Status || oldVM.Status.Phase != newVM.Status.Phase {
 		return true
 	}
 
