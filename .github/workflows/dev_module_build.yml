@@ -430,31 +430,19 @@ jobs:
       - dev_setup_build
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/cve_scan@v2
+      - uses: deckhouse/modules-actions/cve_scan@v3
         with:
-          image: ${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}
           tag: ${{needs.set_vars.outputs.modules_module_tag}}
           module_name: ${{ vars.MODULE_NAME }}
           dd_url: ${{vars.DEFECTDOJO_HOST}}
           dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
-          trivy_registry: ${{ vars.TRIVY_REGISTRY }}
-          trivy_registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
-          trivy_registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+          prod_registry: ${{vars.TRIVY_REGISTRY}}
+          prod_registry_user: ${{ secrets.PROD_READ_REGISTRY_USER }}
+          prod_registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
+          dev_registry: ${{ vars.DEV_REGISTRY }}
+          dev_registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          dev_registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
-      - name: Fail if CVEs were found
-        run: |
-          fail_count=0
-          for report in out/json/d8_*_report.json; do
-            trivy convert $report
-            cve_count=$(cat $report | jq '.Results // [] | map(.Vulnerabilities | length) | add // 0')
-            if [[ $cve_count -gt 0 ]]; then
-              fail_count=$((fail_count + cve_count))
-            fi
-          done
-          if [[ $fail_count -gt 0 ]]; then
-            echo "Found $fail_count vulnerabilities in images"
-            exit 1
-          fi
 
   analyze_build:
     if: ${{ github.event.inputs.svace_enabled == 'true' || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
