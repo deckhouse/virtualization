@@ -15,7 +15,7 @@
 
 {{- define "cdi_operator_resources" }}
 cpu: 10m
-memory: 150Mi
+memory: 120Mi
 {{- end }}
 
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
