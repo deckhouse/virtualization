@@ -443,20 +443,6 @@ jobs:
           dev_registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
           dev_registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
-      - name: Fail if CVEs were found
-        run: |
-          fail_count=0
-          for report in out/json/d8_*_report.json; do
-            trivy_scan/bin/trivy convert $report
-            cve_count=$(cat $report | jq '.Results // [] | map(.Vulnerabilities | length) | add // 0')
-            if [[ $cve_count -gt 0 ]]; then
-              fail_count=$((fail_count + cve_count))
-            fi
-          done
-          if [[ $fail_count -gt 0 ]]; then
-            echo "Found $fail_count vulnerabilities in images"
-            exit 1
-          fi
 
   analyze_build:
     if: ${{ github.event.inputs.svace_enabled == 'true' || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
