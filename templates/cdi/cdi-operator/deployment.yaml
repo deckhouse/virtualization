@@ -14,7 +14,7 @@
 {{- end }}
 
 {{- define "cdi_operator_resources" }}
-cpu: 10m
+cpu: 15m
 memory: 120Mi
 {{- end }}
 

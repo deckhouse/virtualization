@@ -19,7 +19,7 @@ spec:
     - containerName: cdi-apiserver
       minAllowed:
         cpu: 10m
-        memory: 10Mi
+        memory: 20Mi
       maxAllowed:
         cpu: 100m
         memory: 150Mi

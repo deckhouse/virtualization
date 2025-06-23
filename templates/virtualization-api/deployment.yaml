@@ -2,7 +2,7 @@
 
 {{- define "virtualization_api_resources" }}
 cpu: 10m
-memory: 25Mi
+memory: 30Mi
 {{- end }}
 
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
