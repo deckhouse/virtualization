@@ -13,7 +13,7 @@
 {{- end }}
 {{- define "virt_operator_resources" }}
 cpu: 10m
-memory: 250Mi
+memory: 200Mi
 {{- end }}
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
@@ -39,7 +39,7 @@ spec:
         {{- include "virt_operator_resources" . | nindent 8 }}
       maxAllowed:
         cpu: 20m
-        memory: 200Mi
+        memory: 250Mi
 {{- end }}
 ---
 apiVersion: policy/v1
