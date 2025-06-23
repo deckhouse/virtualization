@@ -1,5 +1,5 @@
 ---
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}) }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
 import:
 - image: {{ .ModuleNamePrefix }}dvcr-artifact-bins
