@@ -247,9 +247,7 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 		resourcesHaveDeleted = true
 
 		err = s.protection.RemoveProtection(ctx, pvc)
-		// When we delete a namespace, there is a race condition with the removal of the Kubernetes finalizer.
-		// If an error causes our code to add the finalizer after Kubernetes has already removed it,
-		// simply retry the operation.
+		// Retry the operation if the "test" step fails while attempting to remove the finalizer.
 		switch {
 		case k8serrors.IsInvalid(err):
 			// retry with actual pvc state

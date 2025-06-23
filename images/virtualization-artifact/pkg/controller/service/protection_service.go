@@ -82,10 +82,8 @@ func (s ProtectionService) AddProtection(ctx context.Context, objs ...client.Obj
 			continue
 		}
 
-		var currentFinalizers []string
-		currentFinalizers = append(currentFinalizers, obj.GetFinalizers()...)
 		if controllerutil.AddFinalizer(obj, s.finalizer) {
-			patch, err := GetPatchFinalizers(currentFinalizers, obj.GetFinalizers())
+			patch, err := GetPatchFinalizers(obj.GetFinalizers())
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			if err != nil {
 				return fmt.Errorf("failed to generate patch for %q, %q: %w", kind, obj.GetName(), err)
@@ -110,7 +108,7 @@ func (s ProtectionService) RemoveProtection(ctx context.Context, objs ...client.
 		var currentFinalizers []string
 		currentFinalizers = append(currentFinalizers, obj.GetFinalizers()...)
 		if controllerutil.RemoveFinalizer(obj, s.finalizer) {
-			patch, err := GetPatchFinalizers(currentFinalizers, obj.GetFinalizers())
+			patch, err := GetPatchForRemoveFinalizer(currentFinalizers, s.finalizer)
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
 			if err != nil {
 				return fmt.Errorf("failed to generate patch for %q, %q: %w", kind, obj.GetName(), err)
@@ -152,11 +150,37 @@ func GetPatchOwnerReferences(ownerReferences []metav1.OwnerReference) (client.Pa
 	return client.RawPatch(types.MergePatchType, data), nil
 }
 
-func GetPatchFinalizers(currentFinalizers, newFinalizers []string) (client.Patch, error) {
+func GetPatchFinalizers(finalizers []string) (client.Patch, error) {
+	data, err := json.Marshal(map[string]interface{}{
+		"metadata": map[string]interface{}{
+			"finalizers": finalizers,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return client.RawPatch(types.MergePatchType, data), nil
+}
+
+func GetPatchForRemoveFinalizer(currentFinalizers []string, removedFinalizer string) (client.Patch, error) {
+	removedFinalizerFound := true
+	var removedFinalizerIndex int
+	for i, finalizer := range currentFinalizers {
+		if finalizer == removedFinalizer {
+			removedFinalizerIndex = i
+			removedFinalizerFound = true
+		}
+	}
+
+	if !removedFinalizerFound {
+		return nil, fmt.Errorf("finalizer not found")
+	}
+
 	metadataPatch := patch.NewJSONPatch()
 
 	metadataPatch.Append(patch.NewJSONPatchOperation(patch.PatchTestOp, "/metadata/finalizers", currentFinalizers))
-	metadataPatch.Append(patch.NewJSONPatchOperation(patch.PatchReplaceOp, "/metadata/finalizers", newFinalizers))
+	metadataPatch.Append(patch.NewJSONPatchOperation(patch.PatchRemoveOp, fmt.Sprintf("/metadata/finalizers/%d", removedFinalizerIndex), nil))
 
 	metadataPatchBytes, err := metadataPatch.Bytes()
 	if err != nil {
