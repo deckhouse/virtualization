@@ -11,8 +11,8 @@
 
 //@ts-check
 
-/* 
- * this file contains only 3 functions from the original ci.js: 
+/*
+ * this file contains only 3 functions from the original ci.js:
  * extractCommandFromComment, reactToComment, startWorkflow.
  * original ci.js file can be found here:
  * https://github.com/deckhouse/deckhouse/blob/main/.github/scripts/js/ci.js
@@ -32,18 +32,18 @@ const extractCommandFromComment = (comment) => {
 	if (lines.length < 1) {
 	  return {'err': 'first line is not a slash command'}
 	}
-  
+
 	// Search for user command in the first line of the comment.
 	// User command is a command and a tag name.
 	const argv = lines[0].split(/\s+/);
-  
+
 	if ( ! /^\/[a-z\d_\-\/.,]+$/.test(argv[0])) {
 	  return {'err': 'not a slash command in the first line'};
 	}
-  
+
 	return {argv, lines}
 };
-  
+
 module.exports.extractCommandFromComment = extractCommandFromComment;
 
 /**
@@ -88,7 +88,7 @@ const getClusterUser = async ({context, core, userClusterLabels}) => {
   return userClusterLabels[userLabelsInPR].id
 };
 module.exports.getClusterUser = getClusterUser;
-  
+
 /**
  * Start workflow using workflow_dispatch event.
  *
@@ -103,7 +103,7 @@ module.exports.getClusterUser = getClusterUser;
  */
 const startWorkflow = async ({ github, context, core, workflow_id, ref, inputs }) => {
 	core.info(`Start workflow '${workflow_id}' using ref '${ref}' and inputs ${JSON.stringify(inputs)}.`);
-  
+
 	let response = null
 	try {
 	  response = await github.rest.actions.createWorkflowDispatch({
@@ -116,13 +116,38 @@ const startWorkflow = async ({ github, context, core, workflow_id, ref, inputs }
 	} catch(error) {
 	  return core.setFailed(`Error triggering workflow_dispatch event: ${dumpError(error)}`)
 	}
-  
+
 	core.debug(`status: ${response.status}`);
 	core.debug(`workflow dispatch response: ${JSON.stringify(response)}`);
-  
+
 	if (response.status !== 204) {
 	  return core.setFailed(`Error triggering workflow_dispatch event for '${workflow_id}'. createWorkflowDispatch response: ${JSON.stringify(response)}`);
 	}
 	return core.info(`Workflow '${workflow_id}' started successfully`);
 };
 module.exports.startWorkflow = startWorkflow;
+
+/**
+ * Removes a specified label from a GitHub issue or pull request.
+ * @param {{ github: any, context: any, labels: any[], labelToRemove: string }} params - The parameters for the function.
+ * @returns {Promise<boolean>} A promise that resolves to true if the label was removed, false if it was not found.
+ */
+const removeLabel = async ({ github, context, labels, labelToRemove }) => {
+	const issueNumber = context.issue.number;
+	const owner = context.repo.owner;
+	const repo = context.repo.repo;
+	if (labels.some(label => label.name === labelToRemove)) {
+		await github.rest.issues.removeLabel({
+		owner,
+		repo,
+		issue_number: issueNumber,
+		name: labelToRemove,
+		});
+		console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
+		return true;
+	} else {
+		console.log(`Label '${labelToRemove}' not found on PR #${issueNumber}`);
+		return false;
+	}
+}
+module.exports.removeLabel = removeLabel;

@@ -1,0 +1,69 @@
+---
+image: {{ $.ImageType }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libidn
+  includePaths:
+    - usr/bin/idn
+    - usr/lib64/libidn.so
+    - usr/lib64/libidn.so.12
+    - usr/lib64/libidn.so.12.6.6
+  before: setup
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libidn-devel
+  includePaths:
+    - usr/include
+    - usr/lib64/libidn.la
+    - usr/lib64/pkgconfig/libidn.pc
+  before: setup
+
+---
+{{- $version := get $.Package $.ImageName }}
+{{- $gitRepoUrl := "libidn/libidn.git" }}
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc git make libtool patch gperf help2man gengetopt
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+final: false
+fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    OUTDIR=/out
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src
+    cd /src
+    ./bootstrap --skip-po
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --disable-static \
+      --disable-rpath \
+      --disable-silent-rules \
+      --disable-nls \
+      --disable-doc
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
+    rm -rf /out/usr/share

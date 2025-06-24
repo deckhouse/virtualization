@@ -73,7 +73,7 @@ if [[ ! -d schemas ]]; then
   echo "  ServiceMonitor"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/200-operator-prometheus/crds/servicemonitors.yaml
   echo "  PrometheusRule"
-  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/200-operator-prometheus/crds/prometheusrules.yaml
+  curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/200-operator-prometheus/crds/internal/prometheusrules.yaml
   echo "  NodeGroupConfiguration"
   curl -LOs https://raw.githubusercontent.com/deckhouse/deckhouse/main/modules/040-node-manager/crds/nodegroupconfiguration.yaml
   echo "  Certificate"

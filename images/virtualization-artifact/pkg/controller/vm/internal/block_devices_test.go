@@ -28,14 +28,12 @@ import (
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
@@ -43,18 +41,10 @@ import (
 )
 
 var _ = Describe("Test BlockDeviceReady condition", func() {
-	var (
-		ctx          context.Context
-		recorderMock *eventrecord.EventRecorderLoggerMock
-	)
+	var ctx context.Context
 
 	BeforeEach(func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
-
-		recorderMock = &eventrecord.EventRecorderLoggerMock{
-			EventFunc:  func(_ client.Object, _, _, _ string) {},
-			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
-		}
 	})
 
 	okBlockDeviceServiceMock := &BlockDeviceServiceMock{
@@ -126,12 +116,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	DescribeTable("One not ready disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 
 		vmState := state.New(fakeClient, vmResource)
-		handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+		handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 		_, err = handler.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -235,12 +225,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	DescribeTable("One wffc disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 
 		vmState := state.New(fakeClient, vmResource)
-		handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+		handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 		_, err = handler.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -330,12 +320,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	DescribeTable("One ready disk", func(vd *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 
 		vmState := state.New(fakeClient, vmResource)
-		handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+		handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 		_, err = handler.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -447,12 +437,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	DescribeTable("two disks: not ready disk & ready disk", func(vd1, vd2 *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2).Build()
 
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 
 		vmState := state.New(fakeClient, vmResource)
-		handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+		handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 		_, err = handler.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -539,12 +529,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	DescribeTable("two disks: two ready disks", func(vd1, vd2 *virtv2.VirtualDisk, vm *virtv2.VirtualMachine, status metav1.ConditionStatus, msg string) {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2).Build()
 
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 
 		vmState := state.New(fakeClient, vmResource)
-		handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+		handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 		_, err = handler.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -674,12 +664,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vd3 := getNotReadyVD("vd3", metav1.ConditionTrue, vdcondition.AttachedToVirtualMachine.String())
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmState := state.New(fakeClient, vmResource)
-			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -756,12 +746,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vd5 := getReadyVD("vd5", metav1.ConditionTrue, vdcondition.UsedForImageCreation.String())
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3, vd4, vd5).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmState := state.New(fakeClient, vmResource)
-			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -868,12 +858,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3, vd4, vd5).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmState := state.New(fakeClient, vmResource)
-			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1010,12 +1000,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd1, vd2, vd3, vd4, vd5).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmState := state.New(fakeClient, vmResource)
-			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1083,12 +1073,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmState := state.New(fakeClient, vmResource)
-			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1156,12 +1146,12 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			}
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, vd).Build()
 
-			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
 
 			vmState := state.New(fakeClient, vmResource)
-			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -1195,9 +1185,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 	}
 
 	BeforeEach(func() {
-		h = NewBlockDeviceHandler(nil, &eventrecord.EventRecorderLoggerMock{
-			EventFunc: func(_ client.Object, _, _, _ string) {},
-		}, blockDeviceHandlerMock)
+		h = NewBlockDeviceHandler(nil, blockDeviceHandlerMock)
 		vi = &virtv2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{Name: "vi-01"},
 			Status:     virtv2.VirtualImageStatus{Phase: virtv2.ImageReady},
@@ -1330,18 +1318,10 @@ var _ = Describe("BlockDeviceHandler", func() {
 })
 
 var _ = Describe("Capacity check", func() {
-	var (
-		ctx          context.Context
-		recorderMock *eventrecord.EventRecorderLoggerMock
-	)
+	var ctx context.Context
 
 	BeforeEach(func() {
 		ctx = logger.ToContext(context.TODO(), slog.Default())
-
-		recorderMock = &eventrecord.EventRecorderLoggerMock{
-			EventFunc:  func(_ client.Object, _, _, _ string) {},
-			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
-		}
 	})
 
 	Context("Handle call result based on the number of connected block devices", func() {
@@ -1389,7 +1369,7 @@ var _ = Describe("Capacity check", func() {
 		}
 
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm).Build()
-		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		_ = vmResource.Fetch(ctx)
 		vmState := state.New(fakeClient, vmResource)
 
@@ -1400,7 +1380,7 @@ var _ = Describe("Capacity check", func() {
 				},
 			}
 
-			handler := NewBlockDeviceHandler(fakeClient, recorderMock, okBlockDeviceServiceMock)
+			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).To(BeNil())
 			Expect(result).To(Equal(reconcile.Result{}))
@@ -1416,7 +1396,7 @@ var _ = Describe("Capacity check", func() {
 				},
 			}
 
-			handler := NewBlockDeviceHandler(fakeClient, recorderMock, erroredBlockDeviceServiceMock)
+			handler := NewBlockDeviceHandler(fakeClient, erroredBlockDeviceServiceMock)
 			result, err := handler.Handle(ctx, vmState)
 			Expect(err).To(BeNil())
 			Expect(result).To(Equal(reconcile.Result{}))
@@ -1572,11 +1552,11 @@ var _ = Describe("Capacity check", func() {
 			}
 
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm, kvvmi, vi, cvi, vmbdaVi, vmbdaCvi).Build()
-			vmResource := reconciler.NewResource(namespacedVirtualMachine, fakeClient, vmFactoryByVm(vm), vmStatusGetter)
+			vmResource := reconciler.NewResource(namespacedVirtualMachine, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			_ = vmResource.Fetch(ctx)
 			vmState := state.New(fakeClient, vmResource)
 
-			handler := NewBlockDeviceHandler(fakeClient, recorderMock, blockDeviceServiceMock)
+			handler := NewBlockDeviceHandler(fakeClient, blockDeviceServiceMock)
 			_, err := handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred(), "failed to handle VirtualMachineState: %s", err)
 			vm = vmState.VirtualMachine().Changed()
@@ -1600,7 +1580,7 @@ var _ = Describe("Capacity check", func() {
 	})
 })
 
-func vmFactoryByVm(vm *virtv2.VirtualMachine) func() *virtv2.VirtualMachine {
+func vmFactoryByVM(vm *virtv2.VirtualMachine) func() *virtv2.VirtualMachine {
 	return func() *virtv2.VirtualMachine {
 		return vm
 	}

@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	virtv1 "kubevirt.io/api/core/v1"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
@@ -33,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmiplcondition"
@@ -42,11 +42,12 @@ var _ = Describe("BoundHandler", func() {
 	const ipAddress = "10.10.10.10"
 
 	var (
-		scheme *runtime.Scheme
-		ctx    context.Context
-		vmip   *virtv2.VirtualMachineIPAddress
-		lease  *virtv2.VirtualMachineIPAddressLease
-		svc    *IPAddressServiceMock
+		scheme       *runtime.Scheme
+		ctx          context.Context
+		vmip         *virtv2.VirtualMachineIPAddress
+		lease        *virtv2.VirtualMachineIPAddressLease
+		svc          *IPAddressServiceMock
+		recorderMock *eventrecord.EventRecorderLoggerMock
 	)
 
 	BeforeEach(func() {
@@ -72,7 +73,7 @@ var _ = Describe("BoundHandler", func() {
 				Labels: map[string]string{
 					annotations.LabelVirtualMachineIPAddressUID: string(vmip.UID),
 				},
-				Name:       ip.IpToLeaseName(ipAddress),
+				Name:       ip.IPToLeaseName(ipAddress),
 				Generation: 1,
 			},
 		}
@@ -91,6 +92,11 @@ var _ = Describe("BoundHandler", func() {
 				return nil
 			},
 		}
+
+		recorderMock = &eventrecord.EventRecorderLoggerMock{
+			EventFunc:  func(_ client.Object, _, _, _ string) {},
+			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
+		}
 	})
 
 	Context("Lease is not created yet", func() {
@@ -106,7 +112,7 @@ var _ = Describe("BoundHandler", func() {
 					},
 				}).Build()
 
-			h := NewBoundHandler(svc, k8sClient)
+			h := NewBoundHandler(svc, k8sClient, recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
@@ -142,7 +148,7 @@ var _ = Describe("BoundHandler", func() {
 					},
 				}).Build()
 
-			h := NewBoundHandler(svc, k8sClient)
+			h := NewBoundHandler(svc, k8sClient, recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
@@ -160,7 +166,7 @@ var _ = Describe("BoundHandler", func() {
 				}
 				return lease, nil
 			}
-			h := NewBoundHandler(svc, nil)
+			h := NewBoundHandler(svc, nil, recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
@@ -176,7 +182,7 @@ var _ = Describe("BoundHandler", func() {
 				}
 				return lease, nil
 			}
-			h := NewBoundHandler(svc, nil)
+			h := NewBoundHandler(svc, nil, recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
@@ -189,7 +195,7 @@ var _ = Describe("BoundHandler", func() {
 			svc.GetLeaseFunc = func(_ context.Context, _ *virtv2.VirtualMachineIPAddress) (*virtv2.VirtualMachineIPAddressLease, error) {
 				return nil, nil
 			}
-			h := NewBoundHandler(svc, nil)
+			h := NewBoundHandler(svc, nil, recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
@@ -209,7 +215,7 @@ var _ = Describe("BoundHandler", func() {
 				return lease, nil
 			}
 
-			h := NewBoundHandler(svc, nil)
+			h := NewBoundHandler(svc, nil, recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())
@@ -233,7 +239,7 @@ var _ = Describe("BoundHandler", func() {
 				return lease, nil
 			}
 
-			h := NewBoundHandler(svc, nil)
+			h := NewBoundHandler(svc, nil, recorderMock)
 			res, err := h.Handle(ctx, vmip)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(res.IsZero()).To(BeTrue())

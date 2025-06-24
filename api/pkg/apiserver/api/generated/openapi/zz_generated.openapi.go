@@ -1271,6 +1271,21 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget"),
 						},
 					},
+					"usedInNamespaces": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Displays the list of namespaces where the image is currently used.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -1777,21 +1792,21 @@ func schema_virtualization_api_core_v1alpha2_ResourceRef(ref common.ReferenceCal
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Kind of resource",
+							Description: "Kind of the resource.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"apiVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Api version of resource",
+							Description: "API version of the resource.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"name": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Resource Name",
+							Description: "Name of the resource.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -4435,7 +4450,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref com
 					},
 					"force": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Force execution of an operation. Applies only to the `Restart` and `Stop` operations. In this case, the operation on a virtual machine is performed immediately.",
+							Description: "Force execution of an operation.\n\n* Effect on `Restart` and `Stop`: operation performs immediately. * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -4915,7 +4930,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotStatus(ref co
 					},
 					"resources": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Snapshotted resource list",
+							Description: "List of snapshot resources.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{

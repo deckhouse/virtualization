@@ -50,8 +50,8 @@ func NewStatsHandler(stat *service.StatService, importer *service.ImporterServic
 func (h StatsHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	sinceCreation := time.Since(vd.CreationTimestamp.Time).Truncate(time.Second)
 
-	isDatasourceReady := false
 	readyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
+	var isDatasourceReady bool
 	if source.IsDiskProvisioningFinished(readyCondition) {
 		isDatasourceReady = true
 	} else {

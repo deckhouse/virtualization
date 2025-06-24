@@ -57,7 +57,11 @@ func (o MigrateOperation) Cancel(ctx context.Context) (bool, error) {
 	if mig == nil {
 		return true, nil
 	}
-	return false, o.client.Delete(ctx, mig)
+	err = o.client.Delete(ctx, mig)
+	if k8serrors.IsNotFound(err) {
+		return true, nil
+	}
+	return false, err
 }
 
 func (o MigrateOperation) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {

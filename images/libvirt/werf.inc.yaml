@@ -5,7 +5,7 @@
 
 image: {{ $.ImageName }}
 final: false
-fromImage: base-alt-p11
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "base-alt-p11" "builder/alt-go-svace" }}
 git:
 - add: /images/{{ $.ImageName }}/
   to: /
@@ -126,7 +126,7 @@ shell:
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    
+
     cp -a /dmidecode/. /
     rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
@@ -196,7 +196,9 @@ shell:
       -Dstorage_iscsi_direct=disabled -Dlibiscsi=disabled \
       -Dlibiscsi=disabled
 
-      ninja -C build -j$(nproc)
+
+      {{- $_ := set $ "ProjectName" (list $.ImageName "libvirt" | join "/") }}
+      {{- include "image-build.build" (set $ "BuildCommand" `ninja -C build -j$(nproc)`) | nindent 6 }}
 
   setup:
   - |

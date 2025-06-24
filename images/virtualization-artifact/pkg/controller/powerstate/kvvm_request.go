@@ -38,12 +38,12 @@ var ErrChangesAlreadyExist = errors.New("changes already exist in the current st
 // restart(stop+start)         replace   error     error
 // empty                       add       add       add
 func BuildPatch(vm *kvv1.VirtualMachine, changes ...kvv1.VirtualMachineStateChangeRequest) ([]byte, error) {
-	jp := patch.NewJsonPatch()
+	jp := patch.NewJSONPatch()
 	// Special case: if there's no status field at all, add one.
 	newStatus := kvv1.VirtualMachineStatus{}
 	if equality.Semantic.DeepEqual(vm.Status, newStatus) {
 		newStatus.StateChangeRequests = changes
-		jp.Append(patch.NewJsonPatchOperation(patch.PatchAddOp, "/status", newStatus))
+		jp.Append(patch.NewJSONPatchOperation(patch.PatchAddOp, "/status", newStatus))
 	} else {
 		verb := patch.PatchAddOp
 		failOnConflict := true
@@ -62,10 +62,10 @@ func BuildPatch(vm *kvv1.VirtualMachine, changes ...kvv1.VirtualMachineStateChan
 				verb = patch.PatchReplaceOp
 			}
 		}
-		jp.Append(patch.NewJsonPatchOperation(verb, "/status/stateChangeRequests", changes))
+		jp.Append(patch.NewJSONPatchOperation(verb, "/status/stateChangeRequests", changes))
 	}
 	if vm.Status.StartFailure != nil {
-		jp.Append(patch.NewJsonPatchOperation(patch.PatchRemoveOp, "/status/startFailure", nil))
+		jp.Append(patch.NewJSONPatchOperation(patch.PatchRemoveOp, "/status/startFailure", nil))
 	}
 	return jp.Bytes()
 }
@@ -81,16 +81,16 @@ func BuildPatchSafeRestart(kvvm *kvv1.VirtualMachine, kvvmi *kvv1.VirtualMachine
 		{Action: kvv1.StopRequest, UID: &kvvmi.UID},
 		{Action: kvv1.StartRequest},
 	}
-	jp := patch.NewJsonPatch()
+	jp := patch.NewJSONPatch()
 
 	newStatus := kvv1.VirtualMachineStatus{}
 	if equality.Semantic.DeepEqual(kvvm.Status, newStatus) {
 		// Add /status if it's not exists.
 		newStatus.StateChangeRequests = restartRequest
-		jp.Append(patch.NewJsonPatchOperation(patch.PatchAddOp, "/status", newStatus))
+		jp.Append(patch.NewJSONPatchOperation(patch.PatchAddOp, "/status", newStatus))
 	} else {
 		// Set stateChangeRequests.
-		jp.Append(patch.NewJsonPatchOperation(patch.PatchAddOp, "/status/stateChangeRequests", restartRequest))
+		jp.Append(patch.NewJSONPatchOperation(patch.PatchAddOp, "/status/stateChangeRequests", restartRequest))
 	}
 	return jp.Bytes()
 }

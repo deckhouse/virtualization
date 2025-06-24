@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal"
@@ -75,7 +74,7 @@ func NewController(
 	sources := source.NewSources()
 	sources.Set(virtv2.DataSourceTypeHTTP, source.NewHTTPDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
 	sources.Set(virtv2.DataSourceTypeContainerImage, source.NewRegistryDataSource(recorder, stat, importer, disk, dvcr, mgr.GetClient()))
-	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, stat, disk, mgr.GetClient()))
+	sources.Set(virtv2.DataSourceTypeObjectRef, source.NewObjectRefDataSource(recorder, disk, mgr.GetClient()))
 	sources.Set(virtv2.DataSourceTypeUpload, source.NewUploadDataSource(recorder, stat, uploader, disk, dvcr, mgr.GetClient()))
 
 	reconciler := NewReconciler(

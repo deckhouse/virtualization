@@ -27,8 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmiplease/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -43,13 +43,14 @@ func NewController(
 	log *log.Logger,
 	retentionDurationStr string,
 ) (controller.Controller, error) {
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	retentionDuration, err := time.ParseDuration(retentionDurationStr)
 	if err != nil {
 		return nil, fmt.Errorf("parse retention duration: %w", err)
 	}
 
 	handlers := []Handler{
-		internal.NewLifecycleHandler(mgr.GetClient()),
+		internal.NewLifecycleHandler(mgr.GetClient(), recorder),
 		internal.NewProtectionHandler(),
 		internal.NewRetentionHandler(retentionDuration, mgr.GetClient()),
 	}

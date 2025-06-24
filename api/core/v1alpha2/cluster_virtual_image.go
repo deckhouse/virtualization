@@ -148,6 +148,8 @@ type ClusterVirtualImageStatus struct {
 	UploadCommand   string                          `json:"uploadCommand,omitempty"`
 	ImageUploadURLs *ImageUploadURLs                `json:"imageUploadURLs,omitempty"`
 	Target          ClusterVirtualImageStatusTarget `json:"target,omitempty"`
+	// Displays the list of namespaces where the image is currently used.
+	UsedInNamespaces []string `json:"usedInNamespaces,omitempty"`
 }
 
 type ClusterVirtualImageStatusTarget struct {

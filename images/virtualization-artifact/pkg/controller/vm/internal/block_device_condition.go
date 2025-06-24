@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -96,7 +95,7 @@ func (h *BlockDeviceHandler) getStatusMessage(diskState virtualDisksState, vds m
 		"Waiting for block devices to be ready to use: %d/%d",
 		diskState.counts.readyToUse, summaryCount))
 
-	addUsageMessage := func(count int, name string, usageType string) {
+	addUsageMessage := func(count int, name, usageType string) {
 		if count == 0 {
 			return
 		}
@@ -245,7 +244,6 @@ func (h *BlockDeviceHandler) handleBlockDevicesReady(ctx context.Context, s stat
 	}
 
 	if readyCount, canStartVM, warnings := h.countReadyBlockDevices(current, bdState, isWFFC); len(current.Spec.BlockDeviceRefs) != readyCount {
-		var reason vmcondition.Reason
 		var msg string
 		if len(current.Spec.BlockDeviceRefs) == 1 {
 			msg = fmt.Sprintf("Waiting for block device %q to be ready", current.Spec.BlockDeviceRefs[0].Name)
@@ -259,7 +257,6 @@ func (h *BlockDeviceHandler) handleBlockDevicesReady(ctx context.Context, s stat
 		msg += "."
 
 		log.Info(msg, "actualReady", readyCount, "expectedReady", len(current.Spec.BlockDeviceRefs))
-		h.recorder.Event(changed, corev1.EventTypeNormal, reason.String(), msg)
 
 		cb := conditions.NewConditionBuilder(vmcondition.TypeBlockDevicesReady).
 			Generation(changed.Generation).

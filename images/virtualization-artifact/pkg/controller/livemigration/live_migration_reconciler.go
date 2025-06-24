@@ -89,7 +89,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return h.Handle(ctx, kvvmi.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
-
 		patchBytes, err := livemigration.GenerateMigrationConfigurationPatch(kvvmi.Current(), kvvmi.Changed())
 		if err != nil {
 			return err

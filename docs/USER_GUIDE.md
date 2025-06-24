@@ -2227,6 +2227,7 @@ If you plan to use the snapshot as a template, perform the following steps in th
 - Removing unique identifiers (e.g. via `sysprep` for Windows).
 - Optimizing disk space.
 - Resetting initialization configurations (`cloud-init clean`).
+- Create a snapshot with a clear indication not to save the IP address: `keepIPAddress: Never`
 
 When creating an image, follow these recommendations:
 

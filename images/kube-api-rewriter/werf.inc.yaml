@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}-builder
 final: false
-fromImage: builder/golang-bookworm-1.23
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
   - add: /images/{{ $.ImageName }}
     to: /src/kube-api-rewriter
@@ -24,7 +24,9 @@ shell:
     - export GOOS=linux
     - export CGO_ENABLED=0
     - export GOARCH=amd64
-    - go build -v -a -o kube-api-rewriter ./cmd/kube-api-rewriter
+    - |
+    {{- $_ := set $ "ProjectName" (list $.ImageName "kube-api-rewriter" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o kube-api-rewriter ./cmd/kube-api-rewriter`) | nindent 6 }}
 
 ---
 image: {{ $.ImageName }}

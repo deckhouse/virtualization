@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -32,6 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
@@ -48,6 +50,7 @@ type CreateLeaseStep struct {
 	allocator Allocator
 	client    client.Client
 	cb        *conditions.ConditionBuilder
+	recorder  eventrecord.EventRecorderLogger
 }
 
 func NewCreateLeaseStep(
@@ -55,12 +58,14 @@ func NewCreateLeaseStep(
 	allocator Allocator,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
+	recorder eventrecord.EventRecorderLogger,
 ) *CreateLeaseStep {
 	return &CreateLeaseStep{
 		lease:     lease,
 		allocator: allocator,
 		client:    client,
 		cb:        cb,
+		recorder:  recorder,
 	}
 }
 
@@ -79,7 +84,8 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseLost).
-			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q doesn't exist.", ip.IpToLeaseName(vmip.Status.Address)))
+			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q doesn't exist.", ip.IPToLeaseName(vmip.Status.Address)))
+		s.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonFailed, fmt.Sprintf("The VirtualMachineIPAddressLease %q is lost.", ip.IPToLeaseName(vmip.Status.Address)))
 		return &reconcile.Result{}, nil
 	}
 
@@ -113,10 +119,12 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 	err = s.allocator.IsInsideOfRange(ipAddress)
 	if err != nil {
 		if errors.Is(err, intsvc.ErrIPAddressOutOfRange) {
+			msg := fmt.Sprintf("The IP address %q is out of the valid range.", vmip.Spec.StaticIP)
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vmipcondition.VirtualMachineIPAddressIsOutOfTheValidRange).
-				Message(fmt.Sprintf("The IP address %q is out of the valid range.", vmip.Spec.StaticIP))
+				Message(msg)
+			s.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonFailed, msg)
 			return &reconcile.Result{}, nil
 		}
 
@@ -130,10 +138,12 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 
 	// 4. Ensure that the allocated IP address is not represented in the cluster by any lease.
 	if _, ok := allocatedIPs[ipAddress]; ok {
+		msg := fmt.Sprintf("The IP address %q belongs to existing VirtualMachineIPAddressLease and cannot be taken.", ipAddress)
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists).
-			Message(fmt.Sprintf("The IP address %q belongs to existing VirtualMachineIPAddressLease and cannot be taken.", ipAddress))
+			Message(msg)
+		s.recorder.Event(vmip, corev1.EventTypeWarning, virtv2.ReasonBound, msg)
 		return &reconcile.Result{}, nil
 	}
 
@@ -143,10 +153,12 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIP
 	err = s.client.Create(ctx, buildVirtualMachineIPAddressLease(vmip, ipAddress))
 	switch {
 	case err == nil:
+		msg := fmt.Sprintf("The VirtualMachineIPAddressLease for the ip address %q has been created.", ipAddress)
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
-			Message(fmt.Sprintf("The VirtualMachineIPAddressLease for the ip address %q has been created.", ipAddress))
+			Message(msg)
+		s.recorder.Event(vmip, corev1.EventTypeNormal, virtv2.ReasonBound, msg)
 		return &reconcile.Result{}, nil
 	case k8serrors.IsAlreadyExists(err):
 		// The cache is outdated and not keeping up with the state in the cluster.
@@ -173,7 +185,7 @@ func buildVirtualMachineIPAddressLease(vmip *virtv2.VirtualMachineIPAddress, ipA
 			Labels: map[string]string{
 				annotations.LabelVirtualMachineIPAddressUID: string(vmip.GetUID()),
 			},
-			Name: ip.IpToLeaseName(ipAddress),
+			Name: ip.IPToLeaseName(ipAddress),
 		},
 		Spec: virtv2.VirtualMachineIPAddressLeaseSpec{
 			VirtualMachineIPAddressRef: &virtv2.VirtualMachineIPAddressLeaseIpAddressRef{

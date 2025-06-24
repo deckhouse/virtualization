@@ -18,6 +18,7 @@ package handler
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"time"
 
@@ -112,7 +113,7 @@ func getVirtLauncherImage(deploy *appsv1.Deployment) string {
 		if container.Name != "virt-controller" {
 			continue
 		}
-		allArgs := append(container.Command, container.Args...)
+		allArgs := slices.Concat(container.Command, container.Args)
 
 		for i, arg := range allArgs {
 			if strings.HasPrefix(arg, "--launcher-image=") {

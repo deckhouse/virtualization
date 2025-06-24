@@ -17,7 +17,7 @@ dockerfile: Dockerfile
 {{ $ImagePackages := .Files.Glob "images/packages/*/*/{Dockerfile,werf.inc.yaml}" }}
 {{- range $path, $content := $ImagePackages }}
   {{- $ctx := dict }}
-  
+
   {{- if regexMatch "/werf.inc.yaml$" $path }}
     {{- $_ := set $ctx "ImageInstructionType" "Stapel" }}
   {{- else }}
@@ -40,20 +40,24 @@ dockerfile: Dockerfile
   {{- $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
   {{- $_ := set $ctx "Version" $Root.Version }}
   {{- $_ := set $ctx "Package" $Root.Packages }}
+  {{- $_ := set $ctx "Commit" $Root.Commit }}
+  {{- $_ := set $ctx "SVACE_ENABLED" $Root.SVACE_ENABLED }}
+  {{- $_ := set $ctx "SVACE_ANALYZE_SSH_USER" $Root.SVACE_ANALYZE_SSH_USER }}
+  {{- $_ := set $ctx "SVACE_ANALYZE_HOST" $Root.SVACE_ANALYZE_HOST }}
 
   {{- include "packages_template" $ctx }}
 
   {{- range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "packages_template" $ctx) -1 }}
     {{- $ImageManifest := $ImageYamlMainfest | fromYaml }}
-    
+
       {{- if $ImageManifest | dig "final" true }}
-        
+
         {{- if $ImageManifest.image }}
           {{- $_ := set $ "ImagesIDList" (append $.ImagesIDList $ImageManifest.image) }}
         {{- end }}
-      
+
       {{- end }}
-    
+
   {{- end }}
 
 {{- end }}

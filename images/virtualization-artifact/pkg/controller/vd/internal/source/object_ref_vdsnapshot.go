@@ -20,7 +20,9 @@ import (
 	"context"
 	"errors"
 
+	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -77,7 +79,10 @@ func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *virtv2.
 		return errors.New("object ref missed for data source")
 	}
 
-	vdSnapshot, err := ds.diskService.GetVirtualDiskSnapshot(ctx, vd.Spec.DataSource.ObjectRef.Name, vd.Namespace)
+	vdSnapshot, err := object.FetchObject(ctx, types.NamespacedName{
+		Name:      vd.Spec.DataSource.ObjectRef.Name,
+		Namespace: vd.Namespace,
+	}, ds.client, &virtv2.VirtualDiskSnapshot{})
 	if err != nil {
 		return err
 	}
@@ -86,7 +91,10 @@ func (ds ObjectRefVirtualDiskSnapshot) Validate(ctx context.Context, vd *virtv2.
 		return NewVirtualDiskSnapshotNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
-	vs, err := ds.diskService.GetVolumeSnapshot(ctx, vdSnapshot.Status.VolumeSnapshotName, vdSnapshot.Namespace)
+	vs, err := object.FetchObject(ctx, types.NamespacedName{
+		Name:      vdSnapshot.Status.VolumeSnapshotName,
+		Namespace: vdSnapshot.Namespace,
+	}, ds.client, &vsv1.VolumeSnapshot{})
 	if err != nil {
 		return err
 	}

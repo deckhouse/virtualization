@@ -50,8 +50,9 @@ type VirtualMachineOperationSpec struct {
 	// Name of the virtual machine the operation is performed for.
 	VirtualMachine string `json:"virtualMachineName"`
 	// Force execution of an operation.
-	// Effect on `Restart` and `Stop`: operation performs immediately.
-	// Effect on `Evict` and `Migrate`: enable AutoConverge feature to force migration via CPU throttling.
+	//
+	// * Effect on `Restart` and `Stop`: operation performs immediately.
+	// * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
 	Force *bool `json:"force,omitempty"`
 }
 

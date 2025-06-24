@@ -33,30 +33,30 @@ type Kubevirt interface {
 }
 
 // Deprecated: use virt client.
-func New(cli client.Client, kv Kubevirt) *KvApi {
-	return &KvApi{
+func New(cli client.Client, kv Kubevirt) *KvAPI {
+	return &KvAPI{
 		Client:   cli,
 		kubevirt: kv,
 	}
 }
 
 // Deprecated: use virt client.
-type KvApi struct {
+type KvAPI struct {
 	client.Client
 	kubevirt Kubevirt
 }
 
 // Deprecated: use virt client.
-func (api *KvApi) AddVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.AddVolumeOptions) error {
+func (api *KvAPI) AddVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.AddVolumeOptions) error {
 	return api.addVolume(ctx, kvvm, opts)
 }
 
 // Deprecated: use virt client.
-func (api *KvApi) RemoveVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.RemoveVolumeOptions) error {
+func (api *KvAPI) RemoveVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.RemoveVolumeOptions) error {
 	return api.removeVolume(ctx, kvvm, opts)
 }
 
-func (api *KvApi) addVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.AddVolumeOptions) error {
+func (api *KvAPI) addVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.AddVolumeOptions) error {
 	if kvvm == nil {
 		return nil
 	}
@@ -89,7 +89,7 @@ func (api *KvApi) addVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, op
 	return api.vmVolumePatchStatus(ctx, kvvm, &volumeRequest)
 }
 
-func (api *KvApi) removeVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.RemoveVolumeOptions) error {
+func (api *KvAPI) removeVolume(ctx context.Context, kvvm *virtv1.VirtualMachine, opts *virtv1.RemoveVolumeOptions) error {
 	if kvvm == nil {
 		return nil
 	}
@@ -108,7 +108,7 @@ func (api *KvApi) removeVolume(ctx context.Context, kvvm *virtv1.VirtualMachine,
 	return api.vmVolumePatchStatus(ctx, kvvm, &volumeRequest)
 }
 
-func (api *KvApi) vmVolumePatchStatus(ctx context.Context, kvvm *virtv1.VirtualMachine, volumeRequest *virtv1.VirtualMachineVolumeRequest) error {
+func (api *KvAPI) vmVolumePatchStatus(ctx context.Context, kvvm *virtv1.VirtualMachine, volumeRequest *virtv1.VirtualMachineVolumeRequest) error {
 	if kvvm == nil {
 		return nil
 	}
@@ -135,7 +135,7 @@ func (api *KvApi) vmVolumePatchStatus(ctx context.Context, kvvm *virtv1.VirtualM
 	return nil
 }
 
-func (api *KvApi) getDryRunOption(volumeRequest *virtv1.VirtualMachineVolumeRequest) []string {
+func (api *KvAPI) getDryRunOption(volumeRequest *virtv1.VirtualMachineVolumeRequest) []string {
 	var dryRunOption []string
 	if options := volumeRequest.AddVolumeOptions; options != nil && options.DryRun != nil && options.DryRun[0] == metav1.DryRunAll {
 		dryRunOption = volumeRequest.AddVolumeOptions.DryRun
@@ -220,8 +220,8 @@ func generateVMVolumeRequestPatch(vm *virtv1.VirtualMachine, volumeRequest *virt
 	if len(vm.Status.VolumeRequests) > 0 {
 		verb = patch.PatchReplaceOp
 	}
-	jop := patch.NewJsonPatchOperation(verb, "/status/volumeRequests", vmCopy.Status.VolumeRequests)
-	jp := patch.NewJsonPatch(jop)
+	jop := patch.NewJSONPatchOperation(verb, "/status/volumeRequests", vmCopy.Status.VolumeRequests)
+	jp := patch.NewJSONPatch(jop)
 
 	return jp.String()
 }

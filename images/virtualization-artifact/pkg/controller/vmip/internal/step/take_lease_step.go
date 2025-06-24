@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -28,27 +29,29 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/ip"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vmip/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmipcondition"
 )
 
 type TakeLeaseStep struct {
-	lease     *virtv2.VirtualMachineIPAddressLease
-	ipService *intsvc.IpAddressService
-	client    client.Client
-	cb        *conditions.ConditionBuilder
+	lease    *virtv2.VirtualMachineIPAddressLease
+	client   client.Client
+	cb       *conditions.ConditionBuilder
+	recorder eventrecord.EventRecorderLogger
 }
 
 func NewTakeLeaseStep(
 	lease *virtv2.VirtualMachineIPAddressLease,
 	client client.Client,
 	cb *conditions.ConditionBuilder,
+	recorder eventrecord.EventRecorderLogger,
 ) *TakeLeaseStep {
 	return &TakeLeaseStep{
-		lease:  lease,
-		client: client,
-		cb:     cb,
+		lease:    lease,
+		client:   client,
+		cb:       cb,
+		recorder: recorder,
 	}
 }
 
@@ -61,10 +64,12 @@ func (s TakeLeaseStep) Take(ctx context.Context, vmip *virtv2.VirtualMachineIPAd
 	// It cannot override the namespace ref of a Lease for itself.
 	vmipRef := s.lease.Spec.VirtualMachineIPAddressRef
 	if vmipRef != nil && vmipRef.Namespace != "" && vmipRef.Namespace != vmip.Namespace {
+		msg := fmt.Sprintf("The VirtualMachineIPAddressLease %q belongs to a different namespace.", s.lease.Name)
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmipcondition.VirtualMachineIPAddressLeaseNotReady).
-			Message(fmt.Sprintf("The VirtualMachineIPAddressLease %q belongs to a different namespace.", s.lease.Name))
+			Message(msg)
+		s.recorder.Event(vmip, corev1.EventTypeWarning, vmipcondition.VirtualMachineIPAddressLeaseAlreadyExists.String(), msg)
 		return &reconcile.Result{}, nil
 	}
 

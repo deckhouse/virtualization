@@ -19,11 +19,13 @@ package source
 import (
 	"errors"
 	"fmt"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source/step"
 )
 
 var (
 	ErrSecretNotFound        = errors.New("container registry secret not found")
-	ErrISOSourceNotSupported = errors.New("creating a virtual disk from an ISO image is not supported: please use a virtual image or a cluster virtual image instead")
+	ErrISOSourceNotSupported = step.ErrISOSourceNotSupported
 )
 
 type ImageNotReadyError struct {

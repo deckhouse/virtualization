@@ -15,9 +15,7 @@ spec:
   infra:
     {{- include "helm_lib_node_selector" (tuple . "system") | nindent 4 }}
     {{- include "helm_lib_tolerations" (tuple . "system") | nindent 4 }}
-  {{- if (.Values.global.enabledModules | has "priority-class") }}
   priorityClass: {{ $priorityClassName }}
-  {{- end }}
   config:
     podResourceRequirements:
       limits:
@@ -61,7 +59,7 @@ spec:
       # HA settings for deploy/cdi-deployment.
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/replicas","value":2},{"op":"replace","path":"/spec/strategy","value":{"type":"RollingUpdate"}}]'
+        patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
         type: json
       - resourceType: Deployment
         resourceName: cdi-deployment
