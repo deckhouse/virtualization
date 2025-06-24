@@ -1,11 +1,11 @@
-# Deckhouse lib dependencies
-deckhouse==0.4.9
-dictdiffer==0.9.0
-dotmap==1.3.30
-# Yaml
-PyYAML==6.0.2
-jsonpatch==1.33
-jsonpointer==3.0.0
+# This file will install all dependencies needed for hooks developing.
+
+# Release dependencies are in a separate file.
+-r requirements-release.txt
+
+
+# Add testing dependencies below:
+
 # Kubernetes-validate
 attrs==25.3.0
 jsonschema==4.24.0
