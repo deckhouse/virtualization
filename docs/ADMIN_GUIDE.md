@@ -733,6 +733,15 @@ spec:
 
 ## Reliability mechanisms
 
+### VM Rebalancing
+
+The platform provides the ability to automate the management of already running virtual machines in the cluster. To activate this feature, you need to enable the `descheduler` module.
+
+After enabling the module, the system begins to independently monitor the optimal operation of virtual machines in the cluster. The main features it provides are:
+
+- Load balancing: The system analyses processor reservation on cluster nodes. If more than 80% of the processor is reserved on a node, the system automatically transfers part of the VMs to less loaded nodes. This prevents overload and ensures stable VM operation.
+- Appropriate placement: The system checks whether the current node meets the requirements of each VM and whether the placement rules are followed in relation to the node or other VMs in the cluster. For example, if a VM should not be on the same node as another VM, the module transfers it to a more suitable node.
+
 ### Migration and maintenance mode
 
 Virtual machine migration is an important feature in virtualized infrastructure management. It allows you to move running virtual machines from one physical node to another without shutting them down. Virtual machine migration is required for a number of tasks and scenarios:
