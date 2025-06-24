@@ -65,7 +65,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	}
 
 	if vd.DeletionTimestamp != nil {
-		vd.Status.Phase = virtv2.DiskTerminating
 		if readyCondition.Status == metav1.ConditionTrue {
 			cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 
@@ -76,9 +75,9 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 			}
 
 			source.SetPhaseConditionForFinishedDisk(pvc, cb, &vd.Status.Phase, supgen)
-
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 		}
+		vd.Status.Phase = virtv2.DiskTerminating
 		return reconcile.Result{}, nil
 	}
 
