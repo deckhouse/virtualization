@@ -62,11 +62,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 		conditions.SetCondition(cb, &vi.Status.Conditions)
 	}
 
+	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
+
 	if vi.DeletionTimestamp != nil {
 		// It is necessary to update this condition in order to use this image as a datasource.
 		if readyCondition.Status == metav1.ConditionTrue {
-			cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
-
 			if vi.Spec.Storage == virtv2.StorageContainerRegistry {
 				cb.
 					Status(metav1.ConditionTrue).
@@ -81,10 +81,14 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 
 				source.SetPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 			}
-
-			conditions.SetCondition(cb, &vi.Status.Conditions)
+		} else {
+			cb.
+				Status(readyCondition.Status).
+				Reason(conditions.ReasonUnknown).
+				Message("")
 		}
 
+		conditions.SetCondition(cb, &vi.Status.Conditions)
 		vi.Status.Phase = virtv2.ImageTerminating
 		return reconcile.Result{}, nil
 	}
@@ -113,8 +117,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (
 
 		return reconcile.Result{Requeue: true}, nil
 	}
-
-	cb := conditions.NewConditionBuilder(vicondition.ReadyType).Generation(vi.Generation)
 
 	// TODO: Reconciliation in source handlers for ready images should not be blocked by a missing datasource.
 	datasourceReadyCondition, _ := conditions.GetCondition(vicondition.DatasourceReadyType, vi.Status.Conditions)
