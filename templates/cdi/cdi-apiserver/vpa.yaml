@@ -22,5 +22,5 @@ spec:
         memory: 20Mi
       maxAllowed:
         cpu: 100m
-        memory: 150Mi
+        memory: 40Mi
 {{- end }}

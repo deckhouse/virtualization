@@ -2,7 +2,7 @@
 
 {{- define "virtualization_api_resources" }}
 cpu: 10m
-memory: 30Mi
+memory: 40Mi
 {{- end }}
 
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
@@ -27,7 +27,7 @@ spec:
           {{- include "virtualization_api_resources" . | nindent 10 }}
         maxAllowed:
           cpu: 20m
-          memory: 250Mi
+          memory: 80Mi
 {{- end }}
 ---
 apiVersion: policy/v1

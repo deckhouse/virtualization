@@ -28,5 +28,5 @@ memory: 30Mi
     memory: 30Mi
   maxAllowed:
     cpu: 20m
-    memory: 150Mi
+    memory: 60Mi
 {{- end -}}
