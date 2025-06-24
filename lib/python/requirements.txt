@@ -1,6 +1,10 @@
+# This file will install all dependencies needed for hooks developing.
+
+# Release dependencies are in a separate file.
 -r requirements-release.txt
 
-# Testing dependencies.
+
+# Add testing dependencies below:
 
 # Kubernetes-validate
 attrs==25.3.0
