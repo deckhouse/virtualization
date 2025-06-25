@@ -207,6 +207,7 @@ global:
       - autoscaling.k8s.io/v1/VerticalPodAutoscalerCheckpoint
       - config.gatekeeper.sh/v1alpha1/Config
       - virtualization.deckhouse.io/v1alpha2/VirtualDiskSnapshot
+      - deckhouse.io/v1alpha2/Descheduler
     clusterControlPlaneIsHighlyAvailable: false
     clusterDNSAddress: 10.222.0.10
     clusterDomain: cluster.local
@@ -277,6 +278,7 @@ global:
     - virtualization
     - sds-replicated-volume-crd
     - sds-replicated-volume
+    - descheduler
   internal:
     modules:
       kubeRBACProxyCA:
