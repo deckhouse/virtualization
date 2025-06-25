@@ -54,14 +54,8 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 		return nil, fmt.Errorf("the VirtualImage name %q is invalid: '.' is forbidden, allowed name symbols are [0-9a-zA-Z-]", vi.Name)
 	}
 
-	if vi.Spec.Storage == virtv2.StorageContainerRegistry {
-		if len(vi.Name) > validate.MaxVirtualImageOnDVCRNameLen {
-			return nil, fmt.Errorf("the VirtualImage name %q is too long: it must be no more than %d characters", vi.Name, validate.MaxVirtualImageOnDVCRNameLen)
-		}
-	} else {
-		if len(vi.Name) > validate.MaxVirtualImageOnPVCNameLen {
-			return nil, fmt.Errorf("the VirtualImage name %q is too long: it must be no more than %d characters", vi.Name, validate.MaxVirtualImageOnPVCNameLen)
-		}
+	if len(vi.Name) > validate.MaxVirtualImageNameLen {
+		return nil, fmt.Errorf("the VirtualImage name %q is too long: it must be no more than %d characters", vi.Name, validate.MaxVirtualImageNameLen)
 	}
 
 	if vi.Spec.Storage == virtv2.StorageKubernetes {
@@ -114,14 +108,8 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		warnings = append(warnings, fmt.Sprintf(" the VirtualImage name %q is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another image with valid name to avoid problems with future updates.", newVI.Name))
 	}
 
-	if newVI.Spec.Storage == virtv2.StorageContainerRegistry {
-		if len(newVI.Name) > validate.MaxVirtualImageOnDVCRNameLen {
-			warnings = append(warnings, fmt.Sprintf("the VirtualImage name %q is too long: it must be no more than %d characters", newVI.Name, validate.MaxVirtualImageOnDVCRNameLen))
-		}
-	} else {
-		if len(newVI.Name) > validate.MaxVirtualImageOnPVCNameLen {
-			warnings = append(warnings, fmt.Sprintf("the VirtualImage name %q is too long: it must be no more than %d characters", newVI.Name, validate.MaxVirtualImageOnPVCNameLen))
-		}
+	if len(newVI.Name) > validate.MaxVirtualImageNameLen {
+		warnings = append(warnings, fmt.Sprintf("the VirtualImage name %q is too long: it must be no more than %d characters", newVI.Name, validate.MaxVirtualImageNameLen))
 	}
 
 	return warnings, nil
