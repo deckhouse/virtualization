@@ -63,6 +63,10 @@ func HasCPUSizePoliciesCrosses(vmclass *v1alpha2.VirtualMachineClassSpec) bool {
 				continue
 			}
 
+			if policy1.Cores == nil || policy2.Cores == nil {
+				continue
+			}
+
 			if policy1.Cores.Min >= policy2.Cores.Min && policy1.Cores.Min <= policy2.Cores.Max {
 				return true
 			}
