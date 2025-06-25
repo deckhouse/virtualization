@@ -15,7 +15,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-pvc-oref-vi-containerimage
+  name: vi-pvc-oref-vi-con-img
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
@@ -54,7 +54,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-pvc-oref-vi-oref-vdsnapshot
+  name: vi-pvc-ref-vi-ref-vdsnp
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
@@ -82,7 +82,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-pvc-oref-vi-containerimage-pvc
+  name: vi-pvc-rf-vi-conimg-pvc
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
@@ -95,7 +95,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-pvc-oref-vi-oref-vd-pvc
+  name: vi-pvc-rf-vi-rf-vd-pvc
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
@@ -108,7 +108,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-pvc-oref-vi-oref-vdsnapshot-pvc
+  name: vi-pvc-rf-vi-rf-vds-pvc
   namespace: test-d8-virtualization
 spec:
   storage: PersistentVolumeClaim
