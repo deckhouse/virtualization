@@ -11,7 +11,13 @@
 ## Fixes
 
 
+ - **[api]** The allowed name lengths for resources have been adjusted and the corresponding validation has been added:
+    - VirtualMachine: 63 characters
+    - ClusterVirtualImage: 36 characters
+    - VirtualImage: 37 characters
+    - VirtualDisk: 60 characters [#1177](https://github.com/deckhouse/virtualization/pull/1177)
  - **[core]** Default parameters for live migration have been set: Migration bandwidth: 5 Gbps (approximately 640 MB/s); Each node will perform no more than one outgoing migration at a time; The total number of simultaneous migrations in the cluster is limited to the number of nodes running virtual machines. [#1082](https://github.com/deckhouse/virtualization/pull/1082)
+ - **[module]** Fixed a hang during virtualization version upgrade in an HA cluster with two system nodes. [#1173](https://github.com/deckhouse/virtualization/pull/1173)
  - **[vdsnapshot]** Fix the unfreezing of the virtual machine's file system in case of an error during snapshot creation. [#1117](https://github.com/deckhouse/virtualization/pull/1117)
  - **[vmop]** Fix the premature transition of a resource to the InProgress state if a migration is scheduled but has not started. Now, it remains in the Pending state until the migration begins. [#1128](https://github.com/deckhouse/virtualization/pull/1128)
 
