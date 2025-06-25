@@ -36,7 +36,7 @@ func NewSizePolicyService() *SizePolicyService {
 
 func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *virtv2.VirtualMachine, vmClass *virtv2.VirtualMachineClass) error {
 	// check if no sizing policy requirements are set
-	if len(vmClass.Spec.SizingPolicies) == 0 {
+	if vmClass == nil || len(vmClass.Spec.SizingPolicies) == 0 {
 		return nil
 	}
 
@@ -63,6 +63,10 @@ func (s *SizePolicyService) CheckVMMatchedSizePolicy(vm *virtv2.VirtualMachine, 
 
 func getVMSizePolicy(vm *virtv2.VirtualMachine, vmClass *virtv2.VirtualMachineClass) *virtv2.SizingPolicy {
 	for _, sp := range vmClass.Spec.SizingPolicies {
+		if sp.Cores == nil {
+			continue
+		}
+
 		if vm.Spec.CPU.Cores >= sp.Cores.Min && vm.Spec.CPU.Cores <= sp.Cores.Max {
 			return sp.DeepCopy()
 		}
