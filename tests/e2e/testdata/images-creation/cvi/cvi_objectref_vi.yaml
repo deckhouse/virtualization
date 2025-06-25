@@ -14,7 +14,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-oref-vi-containerimage
+  name: cvi-oref-vi-conimg
 spec:
   dataSource:
     type: "ObjectRef"
@@ -50,7 +50,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-oref-vi-oref-vdsnapshot
+  name: cvi-oref-vi-oref-vdsnp
 spec:
   dataSource:
     type: "ObjectRef"
@@ -76,7 +76,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-oref-vi-containerimage-pvc
+  name: cvi-oref-vi-conimg-pvc
 spec:
   dataSource:
     type: "ObjectRef"
@@ -88,7 +88,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-oref-vi-oref-cvi-pvc
+  name: cvi-ref-vi-ref-cvi-pvc
 spec:
   dataSource:
     type: "ObjectRef"
@@ -100,7 +100,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-oref-vi-oref-vd-pvc
+  name: cvi-ref-vi-ref-vd-pvc
 spec:
   dataSource:
     type: "ObjectRef"
@@ -112,7 +112,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: ClusterVirtualImage
 metadata:
-  name: cvi-oref-vi-oref-vdsnapshot-pvc
+  name: cvi-rf-vi-rf-vdsnp-pvc
 spec:
   dataSource:
     type: "ObjectRef"
