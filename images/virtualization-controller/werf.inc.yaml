@@ -3,7 +3,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
 import:
   - image: {{ .ModuleNamePrefix }}virtualization-artifact
-    add: /usr/local/go/src/virtualization-controller/virtualization-controller
+    add: /out/virtualization-controller
     to: /app/virtualization-controller
     after: install
 imageSpec:
