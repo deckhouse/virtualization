@@ -15,20 +15,21 @@ secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
 shell:
-  install:
+  beforeInstall:
   {{- include "debian packages proxy" . | nindent 2 }}
   - apt-get -qq install -y --no-install-recommends libnbd-dev
   {{- include "debian packages clean" . | nindent 2 }}
+  install:
+  - cd /src
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
+  - go mod download
   setup:
   - mkdir /out
   - cd /src
   - |
-    export GOPROXY=$(cat /run/secrets/GOPROXY)
-    export GO111MODULE=on
     export GOOS=linux
-    export CGO_ENABLED=1
     export GOARCH=amd64
-  - |
+    export CGO_ENABLED=1
     {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-importer" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer`) | nindent 6 }}
     {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-uploader" | join "/") }}
