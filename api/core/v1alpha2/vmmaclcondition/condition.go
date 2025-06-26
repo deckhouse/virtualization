@@ -37,4 +37,7 @@ func (r BoundReason) String() string {
 const (
 	// Bound is a BoundReason indicating the MAC address lease is successfully bound.
 	Bound BoundReason = "Bound"
+
+	// NotBound is a BoundReason indicating the MAC address lease is not bound.
+	NotBound BoundReason = "NotBound"
 )

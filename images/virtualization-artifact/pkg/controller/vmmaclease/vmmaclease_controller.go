@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -41,10 +42,11 @@ func NewController(
 	mgr manager.Manager,
 	log *log.Logger,
 ) (controller.Controller, error) {
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	handlers := []Handler{
+		internal.NewLifecycleHandler(mgr.GetClient(), recorder),
 		internal.NewProtectionHandler(),
-		internal.NewRetentionHandler(),
-		internal.NewLifecycleHandler(),
+		internal.NewDeletionHandler(mgr.GetClient()),
 	}
 
 	r := NewReconciler(mgr.GetClient(), handlers...)

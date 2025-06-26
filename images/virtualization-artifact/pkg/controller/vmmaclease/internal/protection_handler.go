@@ -19,12 +19,13 @@ package internal
 import (
 	"context"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmaclease/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaclcondition"
 )
 
 const ProtectionHandlerName = "ProtectionHandler"
@@ -35,22 +36,22 @@ func NewProtectionHandler() *ProtectionHandler {
 	return &ProtectionHandler{}
 }
 
-func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMMACLeaseState) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler(ProtectionHandlerName))
-	lease := state.VirtualMachineMACAddressLease()
+func (h *ProtectionHandler) Handle(ctx context.Context, lease *virtv2.VirtualMachineMACAddressLease) (reconcile.Result, error) {
+	controllerutil.AddFinalizer(lease, virtv2.FinalizerMACAddressLeaseCleanup)
 
-	vmmac, err := state.VirtualMachineMACAddress(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
+	// 1. The lease has a finalizer throughout its lifetime to prevent it from being deleted without prior processing by the controller.
+	if lease.GetDeletionTimestamp() == nil {
+		return reconcile.Result{}, nil
 	}
 
-	if vmmac != nil {
-		controllerutil.AddFinalizer(lease, virtv2.FinalizerMACAddressLeaseCleanup)
-	} else if lease.GetDeletionTimestamp() == nil {
-		log.Info("Deletion observed: remove cleanup finalizer from VirtualMachineMACAddressLease")
-		controllerutil.RemoveFinalizer(lease, virtv2.FinalizerMACAddressLeaseCleanup)
+	// 2. It is necessary to protect the resource until we can unequivocally ensure that the resource is in not Bound state.
+	boundCondition, _ := conditions.GetCondition(vmmaclcondition.BoundType, lease.Status.Conditions)
+	if boundCondition.Status != metav1.ConditionFalse || !conditions.IsLastUpdated(boundCondition, lease) {
+		return reconcile.Result{}, nil
 	}
 
+	// 3. All checks have passed, the resource can be deleted.
+	controllerutil.RemoveFinalizer(lease, virtv2.FinalizerMACAddressLeaseCleanup)
 	return reconcile.Result{}, nil
 }
 
