@@ -19,8 +19,8 @@ spec:
     - containerName: cdi-deployment
       minAllowed:
         cpu: 10m
-        memory: 50Mi
+        memory: 30Mi
       maxAllowed:
         cpu: 100m
-        memory: 150Mi
+        memory: 60Mi
 {{- end }}

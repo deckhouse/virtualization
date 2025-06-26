@@ -1,7 +1,7 @@
 {{- $priorityClassName := include "priorityClassName" . }}
 {{- define "dvcr_resources" }}
 cpu: 50m
-memory: 150Mi
+memory: 15Mi
 {{- end }}
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
