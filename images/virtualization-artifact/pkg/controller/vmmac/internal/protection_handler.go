@@ -19,83 +19,36 @@ package internal
 import (
 	"context"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaccondition"
 )
 
-const ProtectionHandlerName = "ProtectionHandler"
+type ProtectionHandler struct{}
 
-type ProtectionHandler struct {
-	client client.Client
+func NewProtectionHandler() *ProtectionHandler {
+	return &ProtectionHandler{}
 }
 
-func NewProtectionHandler(client client.Client) *ProtectionHandler {
-	return &ProtectionHandler{
-		client: client,
-	}
-}
+func (h *ProtectionHandler) Handle(_ context.Context, vmmac *virtv2.VirtualMachineMACAddress) (reconcile.Result, error) {
+	controllerutil.AddFinalizer(vmmac, virtv2.FinalizerMACAddressCleanup)
 
-func (h *ProtectionHandler) Handle(ctx context.Context, state state.VMMACState) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler(ProtectionHandlerName))
-
-	mac := state.VirtualMachineMAC()
-
-	vm, err := state.VirtualMachine(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
+	// 1. The vmmac has a finalizer throughout its lifetime to prevent it from being deleted without prior processing by the controller.
+	if vmmac.GetDeletionTimestamp() == nil {
+		return reconcile.Result{}, nil
 	}
 
-	configuredVms, err := h.getConfiguredVM(ctx, mac)
-	if err != nil {
-		return reconcile.Result{}, err
+	// 2. It is necessary to keep vmmac protected until we can unequivocally ensure that the resource is not in the Attached state.
+	attachedCondition, _ := conditions.GetCondition(vmmaccondition.AttachedType, vmmac.Status.Conditions)
+	if attachedCondition.Status == metav1.ConditionTrue || !conditions.IsLastUpdated(attachedCondition, vmmac) {
+		return reconcile.Result{}, nil
 	}
 
-	switch {
-	case len(configuredVms) == 0:
-		log.Debug("Allow VirtualMachineMACAddress deletion: remove protection finalizer")
-		controllerutil.RemoveFinalizer(mac, virtv2.FinalizerMACAddressCleanup)
-	case mac.DeletionTimestamp == nil:
-		log.Debug("Protect VirtualMachineMACAddress from deletion")
-		controllerutil.AddFinalizer(mac, virtv2.FinalizerMACAddressCleanup)
-	default:
-		log.Debug("VirtualMachineMACAddress deletion is delayed: it's protected by virtual machines")
-	}
-
-	if vm == nil || vm.DeletionTimestamp != nil {
-		log.Info("VirtualMachineMAC is no longer attached to any VM: remove cleanup finalizer", "VirtualMachineMACName", mac.Name)
-		controllerutil.RemoveFinalizer(mac, virtv2.FinalizerMACAddressCleanup)
-	} else if mac.GetDeletionTimestamp() == nil {
-		controllerutil.AddFinalizer(mac, virtv2.FinalizerMACAddressCleanup)
-		log.Info("VirtualMachineMAC is still attached, finalizer added", "VirtualMachineMACName", mac.Name)
-	}
-
+	// 3. All checks have passed, the resource can be deleted.
+	controllerutil.RemoveFinalizer(vmmac, virtv2.FinalizerMACAddressCleanup)
 	return reconcile.Result{}, nil
-}
-
-func (h *ProtectionHandler) Name() string {
-	return ProtectionHandlerName
-}
-
-func (h *ProtectionHandler) getConfiguredVM(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) ([]virtv2.VirtualMachine, error) {
-	var vms virtv2.VirtualMachineList
-	err := h.client.List(ctx, &vms, &client.ListOptions{
-		Namespace: vmmac.Namespace,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var configuredVms []virtv2.VirtualMachine
-	for _, vm := range vms.Items {
-		if vm.Spec.VirtualMachineMACAddress == vmmac.Name && vm.Status.Phase != virtv2.MachineTerminating {
-			configuredVms = append(configuredVms, vm)
-		}
-	}
-
-	return configuredVms, nil
 }

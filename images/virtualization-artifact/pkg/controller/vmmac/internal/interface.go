@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,15 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package service
+package internal
 
 import (
-	"errors"
+	"context"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/step"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var (
-	ErrStorageProfileNotFound             = errors.New("storage profile not found")
-	ErrDefaultStorageClassNotFound        = errors.New("default storage class not found")
-	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
-	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
-)
+//go:generate moq -rm -out mock.go . MACAddressService
+
+type MACAddressService interface {
+	GetLease(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (*virtv2.VirtualMachineMACAddressLease, error)
+
+	step.Allocator
+}

@@ -18,132 +18,43 @@ package internal
 
 import (
 	"context"
-	"fmt"
-	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/mac"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/util"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaccondition"
 )
 
-const LifecycleHandlerName = "LifecycleHandler"
-
-type LifecycleHandler struct{}
-
-func NewLifecycleHandler() *LifecycleHandler {
-	return &LifecycleHandler{}
+type LifecycleHandler struct {
+	recorder eventrecord.EventRecorderLogger
 }
 
-func (h LifecycleHandler) Handle(ctx context.Context, state state.VMMACState) (reconcile.Result, error) {
-	log := logger.FromContext(ctx).With(logger.SlogHandler(LifecycleHandlerName))
-
-	machineMAC := state.VirtualMachineMAC()
-	macStatus := &machineMAC.Status
-
-	vm, err := state.VirtualMachine(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
+func NewLifecycleHandler(recorder eventrecord.EventRecorderLogger) *LifecycleHandler {
+	return &LifecycleHandler{
+		recorder: recorder,
 	}
+}
 
-	conditionBound := conditions.NewConditionBuilder(vmmaccondition.BoundType).
-		Generation(machineMAC.GetGeneration()).
-		Reason(conditions.ReasonUnknown).
-		Status(metav1.ConditionUnknown)
-
-	conditionAttach := conditions.NewConditionBuilder(vmmaccondition.AttachedType).
-		Generation(machineMAC.GetGeneration()).
-		Reason(conditions.ReasonUnknown).
-		Status(metav1.ConditionUnknown)
-
-	defer func() {
-		conditions.SetCondition(conditionBound, &macStatus.Conditions)
-		conditions.SetCondition(conditionAttach, &macStatus.Conditions)
-	}()
-
-	if vm == nil || vm.DeletionTimestamp != nil {
-		macStatus.VirtualMachine = ""
-		conditionAttach.Status(metav1.ConditionFalse).
-			Reason(vmmaccondition.VirtualMachineNotFound).
-			Message("Virtual machine not found")
-	}
-
-	lease, err := state.VirtualMachineMACLease(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	needRequeue := false
-	switch {
-	case lease == nil && macStatus.Address != "":
-		macStatus.Phase = virtv2.VirtualMachineMACAddressPhasePending
-		conditionBound.Status(metav1.ConditionFalse).
-			Reason(vmmaccondition.VirtualMachineMACAddressLeaseLost).
-			Message(fmt.Sprintf("VirtualMachineMACAddressLease %s doesn't exist",
-				mac.AddressToLeaseName(macStatus.Address)))
-
-	case lease == nil:
-		macStatus.Phase = virtv2.VirtualMachineMACAddressPhasePending
-		conditionBound.Status(metav1.ConditionFalse).
-			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotFound).
-			Message("VirtualMachineMACAddressLease is not found")
-
-	case vm != nil && vm.GetDeletionTimestamp().IsZero():
-		macStatus.Phase = virtv2.VirtualMachineMACAddressPhaseAttached
-		macStatus.VirtualMachine = vm.Name
-		conditionAttach.Status(metav1.ConditionTrue).
-			Reason(vmmaccondition.Attached)
-
-	case util.IsBoundLease(lease, machineMAC):
-		macStatus.Phase = virtv2.VirtualMachineMACAddressPhaseBound
-		macStatus.Address = mac.LeaseNameToAddress(lease.Name)
-		conditionBound.Status(metav1.ConditionTrue).
-			Reason(vmmaccondition.Bound)
-
-	case lease.Status.Phase == virtv2.VirtualMachineMACAddressLeasePhaseBound:
-		macStatus.Phase = virtv2.VirtualMachineMACAddressPhasePending
-		log.Warn(fmt.Sprintf("VirtualMachineMACAddressLease %s is bound to another VirtualMachineMACAddress resource: %s/%s",
-			lease.Name, lease.Spec.VirtualMachineMACAddressRef.Name, lease.Spec.VirtualMachineMACAddressRef.Namespace))
-		conditionBound.Status(metav1.ConditionFalse).
-			Reason(vmmaccondition.VirtualMachineMACAddressLeaseAlreadyExists).
-			Message(fmt.Sprintf("VirtualMachineMACAddressLease %s is bound to another VirtualMachineMACAddress resource",
-				lease.Name))
-
-	case lease.Spec.VirtualMachineMACAddressRef.Namespace != machineMAC.Namespace:
-		macStatus.Phase = virtv2.VirtualMachineMACAddressPhasePending
-		conditionBound.Status(metav1.ConditionFalse).
-			Reason(vmmaccondition.VirtualMachineMACAddressLeaseAlreadyExists).
-			Message(fmt.Sprintf("The VirtualMachineIPLease %s belongs to a different namespace", lease.Name))
-
-		needRequeue = true
-
-	default:
-		if macStatus.Phase != virtv2.VirtualMachineMACAddressPhasePending {
-			macStatus.Phase = virtv2.VirtualMachineMACAddressPhasePending
-			conditionBound.Status(metav1.ConditionFalse).
-				Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotReady).
-				Message(fmt.Sprintf("VirtualMachineMACAddressLease %s is not ready",
-					lease.Name))
-		}
-	}
-
-	log.Debug("Set VirtualMachineMAC phase", "phase", macStatus.Phase)
-
-	macStatus.ObservedGeneration = machineMAC.GetGeneration()
-	if !needRequeue {
+func (h *LifecycleHandler) Handle(_ context.Context, vmmac *virtv2.VirtualMachineMACAddress) (reconcile.Result, error) {
+	boundCondition, _ := conditions.GetCondition(vmmaccondition.BoundType, vmmac.Status.Conditions)
+	if boundCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(boundCondition, vmmac) {
+		vmmac.Status.Phase = virtv2.VirtualMachineMACAddressPhasePending
 		return reconcile.Result{}, nil
-	} else {
-		// TODO add requeue with with exponential BackOff time interval using condition Bound -> probeTime
-		return reconcile.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-}
 
-func (h LifecycleHandler) Name() string {
-	return LifecycleHandlerName
+	attachedCondition, _ := conditions.GetCondition(vmmaccondition.AttachedType, vmmac.Status.Conditions)
+	if attachedCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(boundCondition, vmmac) {
+		if vmmac.Status.Phase != virtv2.VirtualMachineMACAddressPhaseBound {
+			h.recorder.Eventf(vmmac, corev1.EventTypeNormal, virtv2.ReasonBound, "VirtualMachineMACAddress is bound.")
+		}
+		vmmac.Status.Phase = virtv2.VirtualMachineMACAddressPhaseBound
+		return reconcile.Result{}, nil
+	}
+
+	vmmac.Status.Phase = virtv2.VirtualMachineMACAddressPhaseAttached
+	return reconcile.Result{}, nil
 }

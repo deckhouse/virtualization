@@ -29,8 +29,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/util"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmmaccondition"
 )
@@ -65,7 +64,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 
 	address := vmmac.Spec.Address
 	if address != "" {
-		allocatedMACs, err := util.GetAllocatedMACs(ctx, v.client)
+		allocatedMACs, err := v.macService.GetAllocatedAddresses(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("error getting allocated mac addresses: %w", err)
 		}

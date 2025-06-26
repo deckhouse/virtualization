@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,12 +17,13 @@ limitations under the License.
 package service
 
 import (
-	"errors"
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-var (
-	ErrStorageProfileNotFound             = errors.New("storage profile not found")
-	ErrDefaultStorageClassNotFound        = errors.New("default storage class not found")
-	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
-	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
-)
+func TestServices(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Services")
+}

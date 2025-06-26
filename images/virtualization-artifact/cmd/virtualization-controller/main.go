@@ -382,7 +382,7 @@ func main() {
 	}
 
 	vmmacLogger := logger.NewControllerLogger(vmmac.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, virtualMachineMACAddressOUI, clusterUUID); err != nil {
+	if _, err = vmmac.NewController(ctx, mgr, vmmacLogger, virtualMachineMACAddressOUI, clusterUUID, virtClient); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

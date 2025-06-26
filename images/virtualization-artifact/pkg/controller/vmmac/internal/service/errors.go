@@ -20,9 +20,4 @@ import (
 	"errors"
 )
 
-var (
-	ErrStorageProfileNotFound             = errors.New("storage profile not found")
-	ErrDefaultStorageClassNotFound        = errors.New("default storage class not found")
-	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
-	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
-)
+var ErrMACAddressAlreadyExist = errors.New("the MAC address is already allocated")

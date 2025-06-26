@@ -34,7 +34,7 @@ var _ = Describe("MACAddressService", func() {
 
 	BeforeEach(func() {
 		allocatedMACs = make(mac.AllocatedMACs)
-		service = NewMACAddressService("f6:e1:74", "")
+		service = NewMACAddressService("f6:e1:74", "", nil, nil)
 	})
 
 	Context("generateOUI", func() {
@@ -104,21 +104,21 @@ var _ = Describe("MACAddressService", func() {
 			})
 
 			It("should allocate a new unique MAC address with format oui xx-xx-xx-xx", func() {
-				service := NewMACAddressService("f6-e1-74", "")
+				service := NewMACAddressService("f6-e1-74", "", nil, nil)
 				address, err := service.AllocateNewAddress(allocatedMACs)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(address).To(HavePrefix("f6:e1:74"))
 			})
 
 			It("should allocate a new unique MAC address with format oui xxxxxxxx", func() {
-				service := NewMACAddressService("f6e174", "")
+				service := NewMACAddressService("f6e174", "", nil, nil)
 				address, err := service.AllocateNewAddress(allocatedMACs)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(address).To(HavePrefix("f6:e1:74"))
 			})
 
 			It("should return an error when MAC addresses oui wrong", func() {
-				service := NewMACAddressService("f6e17", "")
+				service := NewMACAddressService("f6e17", "", nil, nil)
 				Expect(service).To(BeNil())
 			})
 

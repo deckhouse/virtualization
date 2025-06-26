@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,12 +17,15 @@ limitations under the License.
 package service
 
 import (
-	"errors"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-var (
-	ErrStorageProfileNotFound             = errors.New("storage profile not found")
-	ErrDefaultStorageClassNotFound        = errors.New("default storage class not found")
-	ErrDataVolumeNotRunning               = errors.New("pvc importer is not running")
-	ErrDataVolumeProvisionerUnschedulable = errors.New("provisioner unschedulable")
-)
+func HasReference(vmmac *virtv2.VirtualMachineMACAddress, lease *virtv2.VirtualMachineMACAddressLease) bool {
+	if vmmac == nil || lease == nil {
+		return false
+	}
+
+	vmmacRef := lease.Spec.VirtualMachineMACAddressRef
+
+	return vmmacRef != nil && vmmacRef.Name == vmmac.Name && vmmacRef.Namespace == vmmac.Namespace
+}
