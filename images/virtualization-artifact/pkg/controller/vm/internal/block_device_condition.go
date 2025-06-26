@@ -27,7 +27,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -289,15 +291,21 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 	for _, bd := range vm.Spec.BlockDeviceRefs {
 		switch bd.Kind {
 		case virtv2.ImageDevice:
-			if vi, hasKey := s.VIByName[bd.Name]; hasKey && vi.Status.Phase == virtv2.ImageReady {
-				ready++
-				continue
+			if vi, hasKey := s.VIByName[bd.Name]; hasKey {
+				readyCondition, _ := conditions.GetCondition(vicondition.ReadyType, vi.Status.Conditions)
+				if readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, vi) {
+					ready++
+					continue
+				}
 			}
 			canStartKVVM = false
 		case virtv2.ClusterImageDevice:
-			if cvi, hasKey := s.CVIByName[bd.Name]; hasKey && cvi.Status.Phase == virtv2.ImageReady {
-				ready++
-				continue
+			if cvi, hasKey := s.CVIByName[bd.Name]; hasKey {
+				readyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+				if readyCondition.Status == metav1.ConditionTrue && conditions.IsLastUpdated(readyCondition, cvi) {
+					ready++
+					continue
+				}
 			}
 			canStartKVVM = false
 		case virtv2.DiskDevice:
