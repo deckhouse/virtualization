@@ -7,24 +7,24 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
-- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/build.sh
+- add: {{ .ModulePathPrefix }}/images/{{ .ImageName }}/build.sh
   to: /build.sh
   stageDependencies:
     install:
       - build.sh
-- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/logo/Logo.bmp
+- add: {{ .ModulePathPrefix }}/images/{{ .ImageName }}/logo/Logo.bmp
   to: /Logo.bmp
   stageDependencies:
     install:
       - '**/*'
-- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/json
+- add: {{ .ModulePathPrefix }}/images/{{ .ImageName }}/json
   to: /FIRMWARE
   includePaths:
   - '*.json'
   stageDependencies:
     install:
       - '*.json'
-- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/uefi-revocation-list
+- add: {{ .ModulePathPrefix }}/images/{{ .ImageName }}/uefi-revocation-list
   to: /FIRMWARE
   includePaths:
   - '*.bin'
@@ -38,7 +38,7 @@ shell:
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    
+
     echo "Git clone Edk2 repository..."
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoName }}-{{ $version }}
 
@@ -47,19 +47,20 @@ shell:
     cd /{{ $gitRepoName }}-{{ $version }}
 
     if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
-      echo "Change submodule url"
-      git submodule set-url -- CryptoPkg/Library/OpensslLib/openssl $(cat /run/secrets/SOURCE_REPO)/openssl/openssl
-      git submodule set-url -- UnitTestFrameworkPkg/Library/CmockaLib/cmocka $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-cmocka.git
-      git submodule set-url -- MdeModulePkg/Universal/RegularExpressionDxe/oniguruma $(cat /run/secrets/SOURCE_REPO)/kkos/oniguruma.git
-      git submodule set-url -- MdeModulePkg/Library/BrotliCustomDecompressLib/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
+      echo "Rewrite submodule URLs"
+      git submodule set-url -- ArmPkg/Library/ArmSoftFloatLib/berkeley-softfloat-3 $(cat /run/secrets/SOURCE_REPO)/ucb-bar/berkeley-softfloat-3.git
       git submodule set-url -- BaseTools/Source/C/BrotliCompress/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
-      git submodule set-url -- RedfishPkg/Library/JsonLib/jansson $(cat /run/secrets/SOURCE_REPO)/akheron/jansson.git
-      git submodule set-url -- UnitTestFrameworkPkg/Library/GoogleTestLib/googletest $(cat /run/secrets/SOURCE_REPO)/google/googletest.git
-      git submodule set-url -- UnitTestFrameworkPkg/Library/SubhookLib/subhook $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-subhook.git
+      git submodule set-url -- CryptoPkg/Library/MbedTlsLib/mbedtls $(cat /run/secrets/SOURCE_REPO)/Mbed-TLS/mbedtls.git
+      git submodule set-url -- CryptoPkg/Library/OpensslLib/openssl $(cat /run/secrets/SOURCE_REPO)/openssl/openssl
+      git submodule set-url -- MdeModulePkg/Library/BrotliCustomDecompressLib/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
+      git submodule set-url -- MdeModulePkg/Universal/RegularExpressionDxe/oniguruma $(cat /run/secrets/SOURCE_REPO)/kkos/oniguruma.git
       git submodule set-url -- MdePkg/Library/BaseFdtLib/libfdt $(cat /run/secrets/SOURCE_REPO)/devicetree-org/pylibfdt.git
       git submodule set-url -- MdePkg/Library/MipiSysTLib/mipisyst $(cat /run/secrets/SOURCE_REPO)/MIPI-Alliance/public-mipi-sys-t.git
-      git submodule set-url -- CryptoPkg/Library/MbedTlsLib/mbedtls $(cat /run/secrets/SOURCE_REPO)/Mbed-TLS/mbedtls.git
+      git submodule set-url -- RedfishPkg/Library/JsonLib/jansson $(cat /run/secrets/SOURCE_REPO)/akheron/jansson.git
       git submodule set-url -- SecurityPkg/DeviceSecurity/SpdmLib/libspdm $(cat /run/secrets/SOURCE_REPO)/DMTF/libspdm.git
+      git submodule set-url -- UnitTestFrameworkPkg/Library/CmockaLib/cmocka $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-cmocka.git
+      git submodule set-url -- UnitTestFrameworkPkg/Library/GoogleTestLib/googletest $(cat /run/secrets/SOURCE_REPO)/google/googletest.git
+      git submodule set-url -- UnitTestFrameworkPkg/Library/SubhookLib/subhook $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-subhook.git
     fi
 
     git submodule update --init --recursive
@@ -93,7 +94,7 @@ import:
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
-  - | 
+  - |
     apt-get install -y \
     gcc gcc-c++ \
     git curl \
