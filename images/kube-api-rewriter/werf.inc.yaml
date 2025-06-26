@@ -24,7 +24,6 @@ shell:
     - go mod download
   setup:
     - cd /src/kube-api-rewriter
-    - export GO111MODULE=on
     - export GOOS=linux
     - export CGO_ENABLED=0
     - export GOARCH=amd64
