@@ -19,26 +19,25 @@ package vmmac
 import (
 	"context"
 	"fmt"
+	"reflect"
 
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/watcher"
+	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type Handler interface {
-	Handle(ctx context.Context, s state.VMMACState) (reconcile.Result, error)
-	Name() string
+	Handle(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) (reconcile.Result, error)
+}
+
+type Watcher interface {
+	Watch(mgr manager.Manager, ctr controller.Controller) error
 }
 
 type Reconciler struct {
@@ -54,89 +53,18 @@ func NewReconciler(client client.Client, handlers ...Handler) (*Reconciler, erro
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineMACAddressLease{}),
-		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromLeases),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on leases: %w", err)
+	for _, w := range []Watcher{
+		watcher.NewVirtualMachineMACAddressWatcher(),
+		watcher.NewVirtualMachineMACAddressLeaseWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("faield to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+		}
 	}
 
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromVMs),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on vms: %w", err)
-	}
-
-	return ctr.Watch(source.Kind(mgr.GetCache(), &virtv2.VirtualMachineMACAddress{}), &handler.EnqueueRequestForObject{})
-}
-
-func (r *Reconciler) enqueueRequestsFromVMs(ctx context.Context, obj client.Object) []reconcile.Request {
-	vm, ok := obj.(*virtv2.VirtualMachine)
-	if !ok {
-		return nil
-	}
-
-	var requests []reconcile.Request
-	if vm.Spec.VirtualMachineMACAddress == "" {
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-			Name:      vm.Name,
-			Namespace: vm.Namespace,
-		}})
-	} else {
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-			Namespace: vm.Namespace,
-			Name:      vm.Spec.VirtualMachineMACAddress,
-		}})
-	}
-
-	vmmacs := &virtv2.VirtualMachineMACAddressList{}
-	err := r.client.List(ctx, vmmacs, client.InNamespace(vm.Namespace),
-		&client.MatchingFields{
-			indexer.IndexFieldVMMACByVM: vm.Name,
-		})
-	if err != nil {
-		return nil
-	}
-
-	for _, vmmac := range vmmacs.Items {
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-			Namespace: vmmac.Namespace,
-			Name:      vmmac.Name,
-		}})
-	}
-
-	return requests
-}
-
-func (r *Reconciler) enqueueRequestsFromLeases(_ context.Context, obj client.Object) []reconcile.Request {
-	lease, ok := obj.(*virtv2.VirtualMachineMACAddressLease)
-	if !ok {
-		return nil
-	}
-
-	if lease.Spec.VirtualMachineMACAddressRef == nil {
-		return nil
-	}
-
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Namespace: lease.Spec.VirtualMachineMACAddressRef.Namespace,
-				Name:      lease.Spec.VirtualMachineMACAddressRef.Name,
-			},
-		},
-	}
+	return nil
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
@@ -151,11 +79,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	s := state.New(r.client, vmmac.Changed())
+	log := logger.FromContext(ctx).
+		With("macAddress", vmmac.Changed().Status.Address)
+	ctx = logger.ToContext(ctx, log)
 
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
-		return h.Handle(ctx, s)
+		return h.Handle(ctx, vmmac.Changed())
 	})
 	rec.SetResourceUpdater(func(ctx context.Context) error {
 		vmmac.Changed().Status.ObservedGeneration = vmmac.Changed().Generation

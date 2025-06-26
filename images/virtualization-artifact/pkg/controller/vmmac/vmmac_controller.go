@@ -28,9 +28,11 @@ import (
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmmac/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -38,17 +40,25 @@ const (
 	ControllerName = "vmmac-controller"
 )
 
-func NewController(ctx context.Context, mgr manager.Manager, log *log.Logger, macAddressOUI string, clusterUUID string) (controller.Controller, error) {
-	recorder := mgr.GetEventRecorderFor(ControllerName)
-	macService := service.NewMACAddressService(macAddressOUI, clusterUUID)
+func NewController(
+	ctx context.Context,
+	mgr manager.Manager,
+	log *log.Logger,
+	macAddressOUI string,
+	clusterUUID string,
+	virtClient kubeclient.Client,
+) (controller.Controller, error) {
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
+	macService := service.NewMACAddressService(macAddressOUI, clusterUUID, mgr.GetClient(), virtClient)
 	if macService == nil {
 		return nil, fmt.Errorf("failed to create MAC address service")
 	}
 
 	handlers := []Handler{
-		internal.NewProtectionHandler(mgr.GetClient()),
-		internal.NewMACLeaseHandler(mgr.GetClient(), macService, recorder),
-		internal.NewLifecycleHandler(),
+		internal.NewBoundHandler(macService, mgr.GetClient(), recorder),
+		internal.NewAttachedHandler(recorder, mgr.GetClient()),
+		internal.NewLifecycleHandler(recorder),
+		internal.NewProtectionHandler(),
 	}
 
 	r, err := NewReconciler(mgr.GetClient(), handlers...)

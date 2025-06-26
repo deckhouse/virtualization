@@ -263,11 +263,6 @@ func checkVirtualMachineConfiguration(vm *virtv2.VirtualMachine) bool {
 				return false
 			}
 
-		case vmcondition.TypeMACAddressReady:
-			if c.Status != metav1.ConditionTrue && c.Reason != vmcondition.ReasonMACAddressNotAssigned.String() {
-				return true
-			}
-
 		case vmcondition.TypeProvisioningReady,
 			vmcondition.TypeClassReady:
 			if c.Status != metav1.ConditionTrue {

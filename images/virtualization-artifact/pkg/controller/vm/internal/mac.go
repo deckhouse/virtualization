@@ -111,7 +111,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		cb.Message(fmt.Sprintf("VirtualMachineMACAddress %q not found: it may be in the process of being created", current.GetName()))
 		mgr.Update(cb.Condition())
 		changed.Status.Conditions = mgr.Generate()
-		return reconcile.Result{}, h.mac.CreateMACAddress(ctx, changed, h.client)
+		return reconcile.Result{}, nil
 	}
 
 	// 3. Check if possible to bind virtual machine with the found MACManager address.
