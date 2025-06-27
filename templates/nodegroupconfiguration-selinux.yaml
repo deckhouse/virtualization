@@ -1,11 +1,12 @@
 apiVersion: deckhouse.io/v1alpha1
 kind: NodeGroupConfiguration
 metadata:
-  name: virt-redos-selinux-packages
+  name: virtualization-selinux-packages
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
 spec:
   bundles:
   - 'redos'
+  - 'centos'
   weight: 30
   nodeGroups:
    - '*'
@@ -51,11 +52,11 @@ spec:
     if is_selinux_enabled; then
 
       if is_package_installed "selinux-policy"; then
-        
-        if is_package_installed "container-selinux"; then 
+
+        if is_package_installed "container-selinux"; then
           exit 0
         fi
-        
+
         bb-log-info "install container-selinux"
         install_package "container-selinux"
       else
