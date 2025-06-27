@@ -36,7 +36,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
@@ -1188,11 +1190,27 @@ var _ = Describe("BlockDeviceHandler", func() {
 		h = NewBlockDeviceHandler(nil, blockDeviceHandlerMock)
 		vi = &virtv2.VirtualImage{
 			ObjectMeta: metav1.ObjectMeta{Name: "vi-01"},
-			Status:     virtv2.VirtualImageStatus{Phase: virtv2.ImageReady},
+			Status: virtv2.VirtualImageStatus{
+				Phase: virtv2.ImageReady,
+				Conditions: []metav1.Condition{
+					{
+						Type:   vicondition.ReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
+				},
+			},
 		}
 		cvi = &virtv2.ClusterVirtualImage{
 			ObjectMeta: metav1.ObjectMeta{Name: "cvi-01"},
-			Status:     virtv2.ClusterVirtualImageStatus{Phase: virtv2.ImageReady},
+			Status: virtv2.ClusterVirtualImageStatus{
+				Phase: virtv2.ImageReady,
+				Conditions: []metav1.Condition{
+					{
+						Type:   cvicondition.ReadyType.String(),
+						Status: metav1.ConditionTrue,
+					},
+				},
+			},
 		}
 		vdFoo = &virtv2.VirtualDisk{
 			ObjectMeta: metav1.ObjectMeta{Name: "vd1-foo"},
@@ -1266,6 +1284,8 @@ var _ = Describe("BlockDeviceHandler", func() {
 	Context("Image is not ready", func() {
 		It("VirtualImage not ready: cannot start, no warnings", func() {
 			vi.Status.Phase = virtv2.ImagePending
+			readyConditionCB := conditions.NewConditionBuilder(vicondition.ReadyType).Status(metav1.ConditionFalse)
+			conditions.SetCondition(readyConditionCB, &vi.Status.Conditions)
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
 			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, false)
 			Expect(ready).To(Equal(3))
@@ -1275,6 +1295,8 @@ var _ = Describe("BlockDeviceHandler", func() {
 
 		It("ClusterVirtualImage not ready: cannot start, no warnings", func() {
 			cvi.Status.Phase = virtv2.ImagePending
+			readyConditionCB := conditions.NewConditionBuilder(cvicondition.ReadyType).Status(metav1.ConditionFalse)
+			conditions.SetCondition(readyConditionCB, &cvi.Status.Conditions)
 			state := getBlockDevicesState(vi, cvi, vdFoo, vdBar)
 			ready, canStart, warnings := h.countReadyBlockDevices(vm, state, false)
 			Expect(ready).To(Equal(3))
