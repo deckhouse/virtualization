@@ -30,5 +30,6 @@ type Restorer interface {
 	RestoreVirtualMachine(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachine, error)
 	RestoreProvisioner(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
 	RestoreVirtualMachineIPAddress(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error)
+	RestoreVirtualMachineMACAddress(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineMACAddress, error)
 	RestoreVirtualMachineBlockDeviceAttachments(ctx context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error)
 }
