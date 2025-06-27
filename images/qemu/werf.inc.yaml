@@ -50,7 +50,7 @@ shell:
       git submodule set-url -- roms/opensbi $(cat /run/secrets/SOURCE_REPO)/qemu-project/opensbi.git
       git submodule set-url -- roms/qboot $(cat /run/secrets/SOURCE_REPO)/qemu-project/qboot.git
       git submodule set-url -- roms/vbootrom $(cat /run/secrets/SOURCE_REPO)/qemu-project/vbootrom.git
-      git submodule set-url -- tests/lcitool/libvirt-ci $(cat /run/secrets/SOURCE_REPO)/libvirt/libvirt-ci.git  
+      git submodule set-url -- tests/lcitool/libvirt-ci $(cat /run/secrets/SOURCE_REPO)/libvirt/libvirt-ci.git
     fi
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
