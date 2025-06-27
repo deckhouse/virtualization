@@ -48,7 +48,7 @@ shell:
 
     if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
       echo "Rewrite submodule URLs"
-      git submodule set-url -- ArmPkg/Library/ArmSoftFloatLib/berkeley-softfloat-3 $(cat /run/secrets/SOURCE_REPO)/ucb-bar/berkeley-softfloat-3.git
+      git submodule set-url -- SoftFloat/Library/ArmSoftFloatLib/berkeley-softfloat-3 $(cat /run/secrets/SOURCE_REPO)/ucb-bar/berkeley-softfloat-3.git
       git submodule set-url -- BaseTools/Source/C/BrotliCompress/brotli $(cat /run/secrets/SOURCE_REPO)/google/brotli.git
       git submodule set-url -- CryptoPkg/Library/MbedTlsLib/mbedtls $(cat /run/secrets/SOURCE_REPO)/Mbed-TLS/mbedtls.git
       git submodule set-url -- CryptoPkg/Library/OpensslLib/openssl $(cat /run/secrets/SOURCE_REPO)/openssl/openssl
