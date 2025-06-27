@@ -89,6 +89,17 @@ func NewEmptyKVVM(name types.NamespacedName, opts KVVMOptions) *KVVM {
 	}
 }
 
+func (b *KVVM) SetKVVMILabel(labelKey, labelValue string) {
+	labels := b.Resource.Spec.Template.ObjectMeta.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	labels[labelKey] = labelValue
+
+	b.Resource.Spec.Template.ObjectMeta.SetLabels(labels)
+}
+
 func (b *KVVM) SetKVVMIAnnotation(annoKey, annoValue string) {
 	anno := b.Resource.Spec.Template.ObjectMeta.GetAnnotations()
 	if anno == nil {
