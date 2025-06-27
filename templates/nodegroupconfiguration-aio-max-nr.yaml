@@ -1,7 +1,7 @@
 apiVersion: deckhouse.io/v1alpha1
 kind: NodeGroupConfiguration
 metadata:
-  name: virt-increase-aio-max-nr
+  name: virtualization-increase-aio-max-nr
   {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
 spec:
   bundles:
@@ -31,7 +31,7 @@ spec:
         return 1
       fi
     }
-    
+
     if is_virtualization_enabled; then
 
       current_value=$(cat /proc/sys/fs/aio-max-nr)
