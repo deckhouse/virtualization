@@ -31,7 +31,7 @@ shell:
 
     if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
       echo "Change submodule url"
-      git submodule set-url -- subprojects/keycodemapdb $(cat /run/secrets/SOURCE_REPO)/keycodemap/keycodemapdb.git
+      git submodule set-url -- keycodemapdb $(cat /run/secrets/SOURCE_REPO)/keycodemap/keycodemapdb.git
     fi
 
 ---
