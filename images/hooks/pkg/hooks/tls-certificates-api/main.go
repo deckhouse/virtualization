@@ -13,35 +13,31 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package tls_certificates_api
 
 import (
 	"fmt"
-	"hooks/pkg/common"
+
+	"hooks/pkg/settings"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
-	"github.com/deckhouse/module-sdk/pkg/app"
 )
 
 var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{
-	CN:            common.CONTROLLER_CERT_CN,
-	TLSSecretName: "virtualization-controller-tls",
-	Namespace:     common.MODULE_NAMESPACE,
+	CN:            settings.APICertCN,
+	TLSSecretName: "virtualization-api-tls",
+	Namespace:     settings.ModuleNamespace,
 	SANs: tlscertificate.DefaultSANs([]string{
 		"localhost",
 		"127.0.0.1",
-		// virtualization
-		common.CONTROLLER_CERT_CN,
-		// virtualization.d8-virtualization
-		fmt.Sprintf("%s.%s", common.CONTROLLER_CERT_CN, common.MODULE_NAMESPACE),
-		// virtualization.d8-virtualization.svc
-		fmt.Sprintf("%s.%s.svc", common.CONTROLLER_CERT_CN, common.MODULE_NAMESPACE),
+		// virtualization-api
+		settings.APICertCN,
+		// virtualization-api.d8-virtualization
+		fmt.Sprintf("%s.%s", settings.APICertCN, settings.ModuleNamespace),
+		// virtualization-api.d8-virtualization.svc
+		fmt.Sprintf("%s.%s.svc", settings.APICertCN, settings.ModuleNamespace),
 	}),
 
-	FullValuesPathPrefix: fmt.Sprintf("%s.internal.controller.cert", common.MODULE_NAME),
-	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", common.MODULE_NAME),
+	FullValuesPathPrefix: fmt.Sprintf("%s.internal.apiserver.cert", settings.ModuleName),
+	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 })
-
-func main() {
-	app.Run()
-}

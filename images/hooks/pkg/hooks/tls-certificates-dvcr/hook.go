@@ -13,20 +13,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package tls_certificates_dvcr
 
 import (
 	"fmt"
-	"hooks/pkg/common"
+
+	"hooks/pkg/settings"
+
+	"github.com/tidwall/gjson"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
 	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/app"
-	"github.com/tidwall/gjson"
 )
 
 func dvcrGetServiceIP(input *pkg.HookInput) gjson.Result {
-	return input.Values.Get(fmt.Sprintf("%s.internal.dvcr.serviceIP", common.MODULE_NAME))
+	return input.Values.Get(fmt.Sprintf("%s.internal.dvcr.serviceIP", settings.ModuleName))
 }
 
 func dvcrSANs(sans []string) tlscertificate.SANsGenerator {
@@ -36,18 +37,18 @@ func dvcrSANs(sans []string) tlscertificate.SANsGenerator {
 }
 
 var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLSHookConf{
-	CN:            common.DVCR_CERT_CN,
+	CN:            settings.DVCRCertCN,
 	TLSSecretName: "dvcr-tls",
-	Namespace:     common.MODULE_NAMESPACE,
+	Namespace:     settings.ModuleNamespace,
 
 	SANs: dvcrSANs([]string{
-		common.DVCR_CERT_CN,
-		fmt.Sprintf("%s.%s", common.DVCR_CERT_CN, common.MODULE_NAMESPACE),
-		fmt.Sprintf("%s.%s.svc", common.DVCR_CERT_CN, common.MODULE_NAMESPACE),
+		settings.DVCRCertCN,
+		fmt.Sprintf("%s.%s", settings.DVCRCertCN, settings.ModuleNamespace),
+		fmt.Sprintf("%s.%s.svc", settings.DVCRCertCN, settings.ModuleNamespace),
 	}),
 
-	FullValuesPathPrefix: fmt.Sprintf("%s.internal.dvcr.cert", common.MODULE_NAME),
-	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", common.MODULE_NAME),
+	FullValuesPathPrefix: fmt.Sprintf("%s.internal.dvcr.cert", settings.ModuleName),
+	CommonCAValuesPath:   fmt.Sprintf("%s.internal.rootCA", settings.ModuleName),
 
 	BeforeHookCheck: func(input *pkg.HookInput) bool {
 		if dvcrGetServiceIP(input).Type == gjson.Null {
@@ -57,7 +58,3 @@ var _ = tlscertificate.RegisterInternalTLSHookEM(tlscertificate.GenSelfSignedTLS
 		return true
 	},
 })
-
-func main() {
-	app.Run()
-}

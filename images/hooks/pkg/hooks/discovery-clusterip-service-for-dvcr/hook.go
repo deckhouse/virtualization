@@ -14,19 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package discovery_clusterip_service_for_dvcr
 
 import (
 	"context"
 	"fmt"
 	"strings"
 
-	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/app"
-	"github.com/deckhouse/module-sdk/pkg/registry"
+	"hooks/pkg/settings"
+
 	"k8s.io/utils/ptr"
 
-	"hooks/pkg/common"
+	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/registry"
 )
 
 const (
@@ -53,7 +53,7 @@ var configDiscoveryService = &pkg.HookConfig{
 
 			NamespaceSelector: &pkg.NamespaceSelector{
 				NameSelector: &pkg.NameSelector{
-					MatchNames: []string{common.MODULE_NAMESPACE},
+					MatchNames: []string{settings.ModuleNamespace},
 				},
 			},
 
@@ -61,7 +61,7 @@ var configDiscoveryService = &pkg.HookConfig{
 		},
 	},
 
-	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
+	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
 func handleDiscoveryService(_ context.Context, input *pkg.HookInput) error {
@@ -87,8 +87,4 @@ func getClusterIP(input *pkg.HookInput) string {
 		return strings.Trim(snapshots[0].String(), `"`)
 	}
 	return ""
-}
-
-func main() {
-	app.Run()
 }
