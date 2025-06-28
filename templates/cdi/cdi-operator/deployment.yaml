@@ -18,6 +18,7 @@ cpu: 15m
 memory: 15Mi
 {{- end }}
 
+{{- if .Values.virtualization.internal.isReady }}
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
 apiVersion: autoscaling.k8s.io/v1
@@ -123,3 +124,4 @@ spec:
       serviceAccountName: cdi-operator
       volumes:
       {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 6 }}
+{{- end }}
