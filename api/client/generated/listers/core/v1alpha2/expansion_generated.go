@@ -22,6 +22,14 @@ package v1alpha2
 // ClusterVirtualImageLister.
 type ClusterVirtualImageListerExpansion interface{}
 
+// VirtualDataExportListerExpansion allows custom methods to be added to
+// VirtualDataExportLister.
+type VirtualDataExportListerExpansion interface{}
+
+// VirtualDataExportNamespaceListerExpansion allows custom methods to be added to
+// VirtualDataExportNamespaceLister.
+type VirtualDataExportNamespaceListerExpansion interface{}
+
 // VirtualDiskListerExpansion allows custom methods to be added to
 // VirtualDiskLister.
 type VirtualDiskListerExpansion interface{}

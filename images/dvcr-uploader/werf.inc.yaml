@@ -9,6 +9,7 @@ import:
   excludePaths:
   - '**/dvcr-importer'
   - '**/dvcr-cleaner'
+  - '**/dvcr-exporter'
 imageSpec:
   config:
     workingDir: "/"

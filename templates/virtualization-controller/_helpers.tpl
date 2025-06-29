@@ -52,11 +52,11 @@
 {{- end }}
 - name: VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION
   value: "10m"
-- name: UPLOADER_INGRESS_HOST
+- name: INGRESS_HOST
   value: {{ include "helm_lib_module_public_domain" (list . "virtualization") }}
-- name: UPLOADER_INGRESS_TLS_SECRET
+- name: INGRESS_TLS_SECRET
   value: {{ include "helm_lib_module_https_secret_name" (list . "ingress-tls") }}
-- name: UPLOADER_INGRESS_CLASS
+- name: INGRESS_CLASS
   value: {{ include "helm_lib_module_ingress_class" . | quote }}
 - name: PROVISIONING_POD_LIMITS
   value: '{"cpu":"750m","memory":"600M"}'

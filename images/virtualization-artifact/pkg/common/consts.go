@@ -16,33 +16,66 @@ limitations under the License.
 
 package common
 
+// Common
 const (
 	// FilesystemOverheadVar provides a constant to capture our env variable "FILESYSTEM_OVERHEAD"
 	FilesystemOverheadVar = "FILESYSTEM_OVERHEAD"
 	// OwnerUID provides the UID of the owner entity (either PVC or DV)
 	OwnerUID = "OWNER_UID"
+	// DestinationInsecureTLSVar is an environment variable for Importer Pod that defines whether DVCR is insecure.
+	DestinationInsecureTLSVar  = "DESTINATION_INSECURE_TLS"
+	DockerRegistrySchemePrefix = "docker://"
+	VMBlockDeviceAttachedLimit = 16
+)
 
+// Bounder
+const (
 	// BounderContainerName provides a constant to use as a name for bounder Container
 	BounderContainerName = "bounder"
-	// ImporterContainerName provides a constant to use as a name for importer Container
-	ImporterContainerName = "importer"
+	// BounderPodImageNameVar is a name of variable with the image name for the bounder Pod
+	BounderPodImageNameVar = "BOUNDER_IMAGE"
+)
+
+// Import
+const (
+	// InsecureTLSVar provides a constant to capture our env variable "INSECURE_TLS"
+	InsecureTLSVar = "INSECURE_TLS"
+	// ImportProxyHTTP provides a constant to capture our env variable "http_proxy"
+	ImportProxyHTTP = "http_proxy"
+	// ImportProxyHTTPS provides a constant to capture our env variable "https_proxy"
+	ImportProxyHTTPS = "https_proxy"
+	// ImportProxyNoProxy provides a constant to capture our env variable "no_proxy"
+	ImportProxyNoProxy = "no_proxy"
+)
+
+// Uploader
+const (
 	// UploaderContainerName provides a constant to use as a name for uploader Container
 	UploaderContainerName = "uploader"
 	// UploaderPortName provides a constant to use as a port name for uploader Service
 	UploaderPortName = "uploader"
 	// UploaderPort provides a constant to use as a port for uploader Service
 	UploaderPort = 80
-	// ImporterPodImageNameVar is a name of variable with the image name for the importer Pod
-	ImporterPodImageNameVar = "IMPORTER_IMAGE"
 	// UploaderPodImageNameVar is a name of variable with the image name for the uploader Pod
-	UploaderPodImageNameVar = "UPLOADER_IMAGE"
-	// BounderPodImageNameVar is a name of variable with the image name for the bounder Pod
-	BounderPodImageNameVar = "BOUNDER_IMAGE"
+	UploaderPodImageNameVar           = "UPLOADER_IMAGE"
+	UploaderDestinationEndpoint       = "UPLOADER_DESTINATION_ENDPOINT"
+	UploaderDestinationAuthConfigVar  = "UPLOADER_DESTINATION_AUTH_CONFIG"
+	UploaderExtraHeader               = "UPLOADER_EXTRA_HEADER_"
+	UploaderDestinationAuthConfigDir  = "/dvcr-auth"
+	UploaderDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
+	UploaderSecretExtraHeadersDir     = "/extraheaders"
+)
+
+// Importer
+const (
 	// ImporterCertDir is where the configmap containing certs will be mounted
 	ImporterCertDir = "/certs"
 	// ImporterProxyCertDir is where the configmap containing proxy certs will be mounted
 	ImporterProxyCertDir = "/proxycerts/"
-
+	// ImporterContainerName provides a constant to use as a name for importer Container
+	ImporterContainerName = "importer"
+	// ImporterPodImageNameVar is a name of variable with the image name for the importer Pod
+	ImporterPodImageNameVar = "IMPORTER_IMAGE"
 	// ImporterSource provides a constant to capture our env variable "IMPORTER_SOURCE"
 	ImporterSource = "IMPORTER_SOURCE"
 	// ImporterContentType provides a constant to capture our env variable "IMPORTER_CONTENTTYPE"
@@ -55,10 +88,10 @@ const (
 	ImporterSecretKey = "IMPORTER_SECRET_KEY"
 	// ImporterImageSize provides a constant to capture our env variable "IMPORTER_IMAGE_SIZE"
 	ImporterImageSize = "IMPORTER_IMAGE_SIZE"
-	// ImporterCertDirVar provides a constant to capture our env variable "IMPORTER_CERT_DIR"
-	ImporterCertDirVar = "IMPORTER_CERT_DIR"
-	// InsecureTLSVar provides a constant to capture our env variable "INSECURE_TLS"
-	InsecureTLSVar = "INSECURE_TLS"
+	// ImporterProxyCertDirVar provides a constant to capture our env variable "IMPORTER_PROXY_CERT_DIR"
+	ImporterProxyCertDirVar = "IMPORTER_PROXY_CERT_DIR"
+	// ImporterExtraHeader provides a constant to include extra HTTP headers, as the prefix to a format string
+	ImporterExtraHeader = "IMPORTER_EXTRA_HEADER_"
 	// ImporterDiskID provides a constant to capture our env variable "IMPORTER_DISK_ID"
 	ImporterDiskID = "IMPORTER_DISK_ID"
 	// ImporterUUID provides a constant to capture our env variable "IMPORTER_UUID"
@@ -71,45 +104,31 @@ const (
 	ImporterBackingFile = "IMPORTER_BACKING_FILE"
 	// ImporterThumbprint provides a constant to capture our env variable "IMPORTER_THUMBPRINT"
 	ImporterThumbprint = "IMPORTER_THUMBPRINT"
-	// ImportProxyHTTP provides a constant to capture our env variable "http_proxy"
-	ImportProxyHTTP = "http_proxy"
-	// ImportProxyHTTPS provides a constant to capture our env variable "https_proxy"
-	ImportProxyHTTPS = "https_proxy"
-	// ImportProxyNoProxy provides a constant to capture our env variable "no_proxy"
-	ImportProxyNoProxy = "no_proxy"
-	// ImporterProxyCertDirVar provides a constant to capture our env variable "IMPORTER_PROXY_CERT_DIR"
-	ImporterProxyCertDirVar = "IMPORTER_PROXY_CERT_DIR"
-	// ImporterExtraHeader provides a constant to include extra HTTP headers, as the prefix to a format string
-	ImporterExtraHeader = "IMPORTER_EXTRA_HEADER_"
 	// ImporterSecretExtraHeadersDir is where the secrets containing extra HTTP headers will be mounted
 	ImporterSecretExtraHeadersDir = "/extraheaders"
-
 	// ImporterDestinationAuthConfigDir is a mount directory for auth Secret.
 	ImporterDestinationAuthConfigDir = "/dvcr-auth"
 	// ImporterDestinationAuthConfigVar is an environment variable with auth config file for Importer Pod.
 	ImporterDestinationAuthConfigVar = "IMPORTER_DESTINATION_AUTH_CONFIG"
 	// ImporterDestinationAuthConfigFile is a path to auth config file in mount directory.
 	ImporterDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
-	// DestinationInsecureTLSVar is an environment variable for Importer Pod that defines whether DVCR is insecure.
-	DestinationInsecureTLSVar   = "DESTINATION_INSECURE_TLS"
+	// ImporterCertDirVar provides a constant to capture our env variable "IMPORTER_CERT_DIR"
+	ImporterCertDirVar          = "IMPORTER_CERT_DIR"
 	ImporterSHA256Sum           = "IMPORTER_SHA256SUM"
 	ImporterMD5Sum              = "IMPORTER_MD5SUM"
 	ImporterAuthConfigVar       = "IMPORTER_AUTH_CONFIG"
 	ImporterAuthConfigDir       = "/dvcr-src-auth"
 	ImporterAuthConfigFile      = "/dvcr-src-auth/.dockerconfigjson"
 	ImporterDestinationEndpoint = "IMPORTER_DESTINATION_ENDPOINT"
+)
 
-	UploaderDestinationEndpoint       = "UPLOADER_DESTINATION_ENDPOINT"
-	UploaderDestinationAuthConfigVar  = "UPLOADER_DESTINATION_AUTH_CONFIG"
-	UploaderExtraHeader               = "UPLOADER_EXTRA_HEADER_"
-	UploaderDestinationAuthConfigDir  = "/dvcr-auth"
-	UploaderDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
-	UploaderSecretExtraHeadersDir     = "/extraheaders"
+// Exporter
+const (
+	ExporterPodImageNameVar = "EXPORTER_IMAGE"
+)
 
-	DockerRegistrySchemePrefix = "docker://"
-
-	VMBlockDeviceAttachedLimit = 16
-
+// CMP
+const (
 	CmpLesser  = -1
 	CmpEqual   = 0
 	CmpGreater = 1
