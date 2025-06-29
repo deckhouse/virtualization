@@ -25,9 +25,10 @@ import (
 )
 
 const (
-	CVIShortName = "cvi"
-	VDShortName  = "vd"
-	VIShortName  = "vi"
+	CVIShortName      = "cvi"
+	VDShortName       = "vd"
+	VIShortName       = "vi"
+	VDExportShortName = "vdexport"
 
 	// AnnIntegrityGroup is the Integrity for virtualization-contrller.
 	AnnIntegrityGroup = "integrity.virtualization.deckhouse.io/"
@@ -49,6 +50,9 @@ const (
 
 	// AnnUploadURL provides a const for CVMI/VMI/VMD uploadURL annotation.
 	AnnUploadURL = AnnAPIGroup + "/upload.url"
+
+	// AnnExportURL provides a const for CVI/VI exportURL annotation.
+	AnnExportURL = AnnAPIGroup + "/export.url"
 
 	// AnnTolerationsHash provides a const for annotation with hash of applied tolerations.
 	AnnTolerationsHash = AnnAPIGroup + "/tolerations-hash"
@@ -103,6 +107,8 @@ const (
 	// SkipPodSecurityStandardsCheckLabel is a label to skip the check for PodSecurityStandards to avoid irrelevant alerts related to a privileged virtual machine pod.
 	SkipPodSecurityStandardsCheckLabel = "security.deckhouse.io/skip-pss-check"
 
+	LabelVirtualDataExportUID = LabelsPrefix + "/virtual-data-export-uid"
+
 	UploaderServiceLabel = "service"
 
 	// AppKubernetesManagedByLabel is the Kubernetes recommended managed-by label.
@@ -131,6 +137,9 @@ const (
 	CDILabelValue = "containerized-data-importer"
 	// DVCRLabelValue provides a constant  for DVCR Pod label values.
 	DVCRLabelValue = "dvcr-data-importer"
+
+	// DVCRExporterLabelValues provides a constant  for DVCR Pod label values.
+	DVCRExporterLabelValues = "dvcr-data-exporter"
 
 	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
 	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"

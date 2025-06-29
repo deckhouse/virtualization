@@ -115,7 +115,7 @@ func (s UploaderService) Start(
 		return err
 	}
 
-	return supplements.EnsureForIngress(ctx, s.client, sup, ing, s.dvcrSettings)
+	return supplements.EnsureForUploaderIngress(ctx, s.client, sup, ing, s.dvcrSettings)
 }
 
 func (s UploaderService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
@@ -290,18 +290,18 @@ func (s UploaderService) getServiceSettings(ownerRef *metav1.OwnerReference, sup
 func (s UploaderService) getIngressSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *uploader.IngressSettings {
 	uploaderIng := sup.UploaderIngress()
 	uploaderSvc := sup.UploaderService()
-	secretName := s.dvcrSettings.UploaderIngressSettings.TLSSecret
-	if supplements.ShouldCopyUploaderTLSSecret(s.dvcrSettings, sup) {
+	secretName := s.dvcrSettings.IngressSettings.TLSSecret
+	if supplements.ShouldCopyUploaderExporterTLSSecret(s.dvcrSettings, sup) {
 		secretName = sup.UploaderTLSSecretForIngress().Name
 	}
 	var class *string
-	if c := s.dvcrSettings.UploaderIngressSettings.Class; c != "" {
+	if c := s.dvcrSettings.IngressSettings.Class; c != "" {
 		class = &c
 	}
 	return &uploader.IngressSettings{
 		Name:           uploaderIng.Name,
 		Namespace:      uploaderIng.Namespace,
-		Host:           s.dvcrSettings.UploaderIngressSettings.Host,
+		Host:           s.dvcrSettings.IngressSettings.Host,
 		TLSSecretName:  secretName,
 		ServiceName:    uploaderSvc.Name,
 		ClassName:      class,

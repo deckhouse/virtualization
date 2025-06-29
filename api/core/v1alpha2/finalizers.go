@@ -36,4 +36,5 @@ const (
 	FinalizerVMOPCleanup           = "virtualization.deckhouse.io/vmop-cleanup"
 	FinalizerVMClassCleanup        = "virtualization.deckhouse.io/vmclass-cleanup"
 	FinalizerVMBDACleanup          = "virtualization.deckhouse.io/vmbda-cleanup"
+	FinalizerVDExportCleanup       = "virtualization.deckhouse.io/vdexport-cleanup"
 )

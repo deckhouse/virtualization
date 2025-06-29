@@ -188,6 +188,7 @@ rules:
   - virtualdisksnapshots
   - virtualmachinesnapshots
   - virtualmachinerestores
+  - virtualdataexports
   verbs:
   - create
   - delete
@@ -223,6 +224,7 @@ rules:
   - virtualdisksnapshots/status
   - virtualmachinesnapshots/status
   - virtualmachinerestores/status
+  - virtualdataexports/status
   verbs:
   - patch
   - update
@@ -234,6 +236,18 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - "storage.deckhouse.io"
+  resources:
+  - dataexports
+  verbs:
+    - create
+    - delete
+    - get
+    - list
+    - patch
+    - update
+    - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -100,6 +100,40 @@ func EnsureForPod(ctx context.Context, client client.Client, supGen *Generator, 
 	return nil
 }
 
+func EnsureForExporterPod(ctx context.Context, client client.Client, supGen *Generator, pod *corev1.Pod, dvcrSettings *dvcr.Settings) error {
+	if ShouldCopyDVCRAuthSecret(dvcrSettings, supGen) {
+		authSecret := supGen.DVCRAuthSecret()
+		authCopier := copier.AuthSecret{
+			Secret: copier.Secret{
+				Source: types.NamespacedName{
+					Name:      dvcrSettings.AuthSecret,
+					Namespace: dvcrSettings.AuthSecretNamespace,
+				},
+				Destination:    authSecret,
+				OwnerReference: podutil.MakeOwnerReference(pod),
+			},
+		}
+		err := authCopier.Copy(ctx, client)
+		if err != nil {
+			return err
+		}
+	}
+	if dvcrSettings.CertsSecret != "" {
+		caBundleCM := supGen.CABundleConfigMap()
+		caBundleCopier := copier.CABundleConfigMap{
+			SourceSecret: types.NamespacedName{
+				Name:      dvcrSettings.CertsSecret,
+				Namespace: dvcrSettings.CertsSecretNamespace,
+			},
+			Destination:    caBundleCM,
+			OwnerReference: podutil.MakeOwnerReference(pod),
+		}
+
+		return caBundleCopier.Copy(ctx, client)
+	}
+	return nil
+}
+
 func ShouldCopyDVCRAuthSecret(dvcrSettings *dvcr.Settings, supGen *Generator) bool {
 	if dvcrSettings.AuthSecret == "" {
 		return false
@@ -108,12 +142,12 @@ func ShouldCopyDVCRAuthSecret(dvcrSettings *dvcr.Settings, supGen *Generator) bo
 	return dvcrSettings.AuthSecretNamespace != supGen.Namespace
 }
 
-func ShouldCopyUploaderTLSSecret(dvcrSettings *dvcr.Settings, supGen *Generator) bool {
-	if dvcrSettings.UploaderIngressSettings.TLSSecret == "" {
+func ShouldCopyUploaderExporterTLSSecret(dvcrSettings *dvcr.Settings, supGen *Generator) bool {
+	if dvcrSettings.IngressSettings.TLSSecret == "" {
 		return false
 	}
 	// Should copy if namespaces are different.
-	return dvcrSettings.UploaderIngressSettings.TLSSecretNamespace != supGen.Namespace
+	return dvcrSettings.IngressSettings.TLSSecretNamespace != supGen.Namespace
 }
 
 func ShouldCopyImagePullSecret(ctrImg *datasource.ContainerRegistry, targetNS string) bool {
@@ -187,15 +221,22 @@ func CleanupForDataVolume(ctx context.Context, client client.Client, supGen *Gen
 	return nil
 }
 
-func EnsureForIngress(ctx context.Context, client client.Client, supGen *Generator, ing *netv1.Ingress, dvcrSettings *dvcr.Settings) error {
-	if ShouldCopyUploaderTLSSecret(dvcrSettings, supGen) {
-		tlsSecret := supGen.UploaderTLSSecretForIngress()
+func EnsureForUploaderIngress(ctx context.Context, client client.Client, supGen *Generator, ing *netv1.Ingress, dvcrSettings *dvcr.Settings) error {
+	return EnsureForIngress(ctx, client, supGen, supGen.UploaderTLSSecretForIngress(), ing, dvcrSettings)
+}
+
+func EnsureForExporterIngress(ctx context.Context, client client.Client, supGen *Generator, ing *netv1.Ingress, dvcrSettings *dvcr.Settings) error {
+	return EnsureForIngress(ctx, client, supGen, supGen.ExporterTLSSecretForIngress(), ing, dvcrSettings)
+}
+
+func EnsureForIngress(ctx context.Context, client client.Client, supGen *Generator, dest types.NamespacedName, ing *netv1.Ingress, dvcrSettings *dvcr.Settings) error {
+	if ShouldCopyUploaderExporterTLSSecret(dvcrSettings, supGen) {
 		tlsCopier := copier.Secret{
 			Source: types.NamespacedName{
-				Name:      dvcrSettings.UploaderIngressSettings.TLSSecret,
-				Namespace: dvcrSettings.UploaderIngressSettings.TLSSecretNamespace,
+				Name:      dvcrSettings.IngressSettings.TLSSecret,
+				Namespace: dvcrSettings.IngressSettings.TLSSecretNamespace,
 			},
-			Destination:    tlsSecret,
+			Destination:    dest,
 			OwnerReference: ingutil.MakeOwnerReference(ing),
 		}
 		if err := tlsCopier.Copy(ctx, client); err != nil {

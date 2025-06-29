@@ -18,8 +18,6 @@ package uploader
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"io"
 	"net"
@@ -39,11 +37,11 @@ import (
 	"kubevirt.io/containerized-data-importer/pkg/importer"
 	"kubevirt.io/containerized-data-importer/pkg/util"
 	prometheusutil "kubevirt.io/containerized-data-importer/pkg/util/prometheus"
-	cryptowatch "kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/auth"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/monitoring"
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/registry"
+	dtls "github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/tls"
 )
 
 const (
@@ -65,7 +63,6 @@ type uploadServerApp struct {
 	tlsCert        string
 	clientCert     string
 	clientName     string
-	cryptoConfig   cryptowatch.CryptoConfig
 	keyFile        string
 	certFile       string
 	mux            *http.ServeMux
@@ -92,18 +89,17 @@ func bodyReadCloser(r *http.Request) (io.ReadCloser, error) {
 }
 
 // NewUploadServer returns a new instance of uploadServerApp
-func NewUploadServer(bindAddress string, bindPort int, tlsKey, tlsCert, clientCert, clientName string, cryptoConfig cryptowatch.CryptoConfig) (UploadServer, error) {
+func NewUploadServer(bindAddress string, bindPort int, tlsKey, tlsCert, clientCert, clientName string) (UploadServer, error) {
 	server := &uploadServerApp{
-		bindAddress:  bindAddress,
-		bindPort:     bindPort,
-		tlsKey:       tlsKey,
-		tlsCert:      tlsCert,
-		clientCert:   clientCert,
-		clientName:   clientName,
-		cryptoConfig: cryptoConfig,
-		mux:          http.NewServeMux(),
-		doneChan:     make(chan struct{}),
-		errChan:      make(chan error),
+		bindAddress: bindAddress,
+		bindPort:    bindPort,
+		tlsKey:      tlsKey,
+		tlsCert:     tlsCert,
+		clientCert:  clientCert,
+		clientName:  clientName,
+		mux:         http.NewServeMux(),
+		doneChan:    make(chan struct{}),
+		errChan:     make(chan error),
 	}
 
 	err := server.parseOptions()
@@ -233,17 +229,11 @@ func (app *uploadServerApp) createUploadServer() (*http.Server, error) {
 	}
 
 	if app.clientCert != "" {
-		caCertPool := x509.NewCertPool()
-		if ok := caCertPool.AppendCertsFromPEM([]byte(app.clientCert)); !ok {
-			klog.Fatalf("Invalid ca cert file %s", app.clientCert)
+		certPool, err := dtls.NewCertPool(app.clientCert)
+		if err != nil {
+			return nil, err
 		}
-
-		server.TLSConfig = &tls.Config{
-			CipherSuites: app.cryptoConfig.CipherSuites,
-			ClientCAs:    caCertPool,
-			ClientAuth:   tls.RequireAndVerifyClientCert,
-			MinVersion:   app.cryptoConfig.MinVersion,
-		}
+		server.TLSConfig = dtls.NewBuilder().WithClientCAs(certPool).Build()
 	}
 
 	return server, nil

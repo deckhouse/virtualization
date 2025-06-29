@@ -20,6 +20,8 @@ package v1alpha2
 
 type ClusterVirtualImageExpansion interface{}
 
+type VirtualDataExportExpansion interface{}
+
 type VirtualDiskExpansion interface{}
 
 type VirtualDiskSnapshotExpansion interface{}

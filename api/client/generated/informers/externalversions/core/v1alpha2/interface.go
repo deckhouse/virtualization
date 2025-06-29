@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// ClusterVirtualImages returns a ClusterVirtualImageInformer.
 	ClusterVirtualImages() ClusterVirtualImageInformer
+	// VirtualDataExports returns a VirtualDataExportInformer.
+	VirtualDataExports() VirtualDataExportInformer
 	// VirtualDisks returns a VirtualDiskInformer.
 	VirtualDisks() VirtualDiskInformer
 	// VirtualDiskSnapshots returns a VirtualDiskSnapshotInformer.
@@ -64,6 +66,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // ClusterVirtualImages returns a ClusterVirtualImageInformer.
 func (v *version) ClusterVirtualImages() ClusterVirtualImageInformer {
 	return &clusterVirtualImageInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// VirtualDataExports returns a VirtualDataExportInformer.
+func (v *version) VirtualDataExports() VirtualDataExportInformer {
+	return &virtualDataExportInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // VirtualDisks returns a VirtualDiskInformer.

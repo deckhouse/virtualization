@@ -20,12 +20,8 @@ import (
 	"flag"
 	"os"
 	"strconv"
-	"strings"
 
-	ocpcrypto "github.com/openshift/library-go/pkg/crypto"
 	"k8s.io/klog/v2"
-	"kubevirt.io/containerized-data-importer/pkg/common"
-	cryptowatch "kubevirt.io/containerized-data-importer/pkg/util/tls-crypto-watch"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/uploader"
 )
@@ -45,8 +41,6 @@ func main() {
 
 	listenAddress, listenPort := getListenAddressAndPort()
 
-	cryptoConfig := getCryptoConfig()
-
 	server, err := uploader.NewUploadServer(
 		listenAddress,
 		listenPort,
@@ -54,7 +48,6 @@ func main() {
 		os.Getenv("TLS_CERT"),
 		os.Getenv("CLIENT_CERT"),
 		os.Getenv("CLIENT_NAME"),
-		cryptoConfig,
 	)
 	if err != nil {
 		klog.Fatalf("UploadServer failed: %s", err)
@@ -87,15 +80,4 @@ func getListenAddressAndPort() (string, int) {
 	}
 
 	return addr, port
-}
-
-func getCryptoConfig() cryptowatch.CryptoConfig {
-	ciphersNames := strings.Split(os.Getenv(common.CiphersTLSVar), ",")
-	ciphers := cryptowatch.CipherSuitesIDs(ciphersNames)
-	minTLSVersion, _ := ocpcrypto.TLSVersion(os.Getenv(common.MinVersionTLSVar))
-
-	return cryptowatch.CryptoConfig{
-		CipherSuites: ciphers,
-		MinVersion:   minTLSVersion,
-	}
 }

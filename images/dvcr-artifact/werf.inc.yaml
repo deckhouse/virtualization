@@ -39,6 +39,8 @@ shell:
     export CGO_ENABLED=0
     {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-cleaner" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-cleaner ./cmd/dvcr-cleaner`) | nindent 6 }}
+    {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-exporter" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-exporter ./cmd/dvcr-exporter`) | nindent 6 }}
   - chown -R 64535:64535 /out
 
 ---
@@ -55,6 +57,7 @@ binaries:
 - /usr/share/misc/magic.mgc
 - /usr/local/bin/dvcr-uploader
 - /usr/local/bin/dvcr-cleaner
+- /usr/local/bin/dvcr-exporter
 - /usr/bin/qemu-img
 - /usr/bin/qemu-nbd
 - /usr/lib64/libnbd.s*
