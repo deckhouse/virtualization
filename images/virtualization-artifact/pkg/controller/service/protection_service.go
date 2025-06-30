@@ -164,23 +164,22 @@ func GetPatchFinalizers(finalizers []string) (client.Patch, error) {
 }
 
 func GetPatchForRemoveFinalizer(currentFinalizers []string, removedFinalizer string) (client.Patch, error) {
-	removedFinalizerFound := true
-	var removedFinalizerIndex int
+	removedFinalizerIndex := -1
 	for i, finalizer := range currentFinalizers {
 		if finalizer == removedFinalizer {
 			removedFinalizerIndex = i
-			removedFinalizerFound = true
+			break
 		}
 	}
 
-	if !removedFinalizerFound {
+	if removedFinalizerIndex == -1 {
 		return nil, fmt.Errorf("finalizer not found")
 	}
 
-	metadataPatch := patch.NewJSONPatch()
-
-	metadataPatch.Append(patch.NewJSONPatchOperation(patch.PatchTestOp, "/metadata/finalizers", currentFinalizers))
-	metadataPatch.Append(patch.NewJSONPatchOperation(patch.PatchRemoveOp, fmt.Sprintf("/metadata/finalizers/%d", removedFinalizerIndex), nil))
+	metadataPatch := patch.NewJSONPatch(
+		patch.NewJSONPatchOperation(patch.PatchTestOp, "/metadata/finalizers", currentFinalizers),
+		patch.NewJSONPatchOperation(patch.PatchRemoveOp, fmt.Sprintf("/metadata/finalizers/%d", removedFinalizerIndex), nil),
+	)
 
 	metadataPatchBytes, err := metadataPatch.Bytes()
 	if err != nil {
