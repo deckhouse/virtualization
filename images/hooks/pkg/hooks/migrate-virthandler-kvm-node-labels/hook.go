@@ -16,18 +16,17 @@ limitations under the License.
 
 // The purpose of this hook is to prevent already launched virt-handler pods from flapping, since the node group configuration virtualization-detect-kvm.sh will be responsible for installing the label virtualization.deckhouse.io/kvm-enabled.
 
-package main
+package migrate_virthandler_kvm_node_labels
 
 import (
 	"context"
 	"fmt"
 	"strings"
 
-	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/app"
-	"github.com/deckhouse/module-sdk/pkg/registry"
+	"hooks/pkg/settings"
 
-	"hooks/pkg/common"
+	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/registry"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -72,7 +71,7 @@ var config = &pkg.HookConfig{
 		},
 	},
 
-	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
+	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
 func handler(_ context.Context, input *pkg.HookInput) error {
@@ -100,8 +99,4 @@ func jsonPatchEscape(s string) string {
 	s = strings.ReplaceAll(s, "~", "~0")
 	s = strings.ReplaceAll(s, "/", "~1")
 	return s
-}
-
-func main() {
-	app.Run()
 }

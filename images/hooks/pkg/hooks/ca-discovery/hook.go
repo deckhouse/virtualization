@@ -13,18 +13,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package ca_discovery
 
 import (
 	"context"
 	"fmt"
 
-	"hooks/pkg/common"
+	"hooks/pkg/settings"
+
+	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	"k8s.io/utils/ptr"
 )
 
 const (
@@ -68,28 +68,28 @@ var configModuleCommonCA = &pkg.HookConfig{
 
 			NamespaceSelector: &pkg.NamespaceSelector{
 				NameSelector: &pkg.NameSelector{
-					MatchNames: []string{common.MODULE_NAMESPACE},
+					MatchNames: []string{settings.ModuleNamespace},
 				},
 			},
 		},
 	},
 
-	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
+	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
 func handlerModuleCommonCA(_ context.Context, input *pkg.HookInput) error {
-	ca_secret := input.Snapshots.Get(CommonCASecretSnapshotName)
+	caSecret := input.Snapshots.Get(CommonCASecretSnapshotName)
 
 	var rootCA CASecret
 
-	if len(ca_secret) == 0 {
-		input.Logger.Info(fmt.Sprintf("[ModuleCommonCA] No module's common CA certificate (in secret %s) found. Nothing to do here, next hook should generate CA pair.", common.MODULE_NAME))
+	if len(caSecret) == 0 {
+		input.Logger.Info(fmt.Sprintf("[ModuleCommonCA] No module's common CA certificate (in secret %s) found. Nothing to do here, another hook will generate CA pair.", settings.ModuleName))
 
 		return nil
 	}
 
 	// CA secret is found, decode it and save to Values.
-	err := ca_secret[0].UnmarshalTo(&rootCA)
+	err := caSecret[0].UnmarshalTo(&rootCA)
 	if err != nil {
 		return fmt.Errorf("unmarshalTo: %w", err)
 	}
@@ -97,8 +97,4 @@ func handlerModuleCommonCA(_ context.Context, input *pkg.HookInput) error {
 	input.Values.Set(rootCAValuesPath, rootCA)
 
 	return nil
-}
-
-func main() {
-	app.Run()
 }

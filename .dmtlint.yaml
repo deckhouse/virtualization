@@ -139,6 +139,9 @@ linters-settings:
       disable: true
     exclude-rules:
       license:
+        files:
+          - images/hooks/cmd/virtualization-module-hooks/register-ee.go
+          - images/hooks/pkg/hooks/tls-certificates-audit/hook.go
         directories:
           - tests/
   images:

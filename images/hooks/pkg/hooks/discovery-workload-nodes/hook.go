@@ -14,18 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package discovery_workload_nodes
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/app"
-	"github.com/deckhouse/module-sdk/pkg/registry"
+	"hooks/pkg/settings"
+
 	"k8s.io/utils/ptr"
 
-	"hooks/pkg/common"
+	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/registry"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -57,15 +57,11 @@ var configDiscoveryService = &pkg.HookConfig{
 		},
 	},
 
-	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
+	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
 func handleDiscoveryNodes(_ context.Context, input *pkg.HookInput) error {
 	nodeCount := len(input.Snapshots.Get(discoveryNodesSnapshot))
 	input.Values.Set(virtHandlerNodeCountPath, nodeCount)
 	return nil
-}
-
-func main() {
-	app.Run()
 }

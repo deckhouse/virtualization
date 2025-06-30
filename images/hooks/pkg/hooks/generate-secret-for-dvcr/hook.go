@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package generate_secret_for_dvcr
 
 import (
 	"context"
@@ -24,11 +24,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/app"
-	"github.com/deckhouse/module-sdk/pkg/registry"
+	"hooks/pkg/settings"
+
 	"golang.org/x/crypto/bcrypt"
 	"k8s.io/utils/ptr"
+
+	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/pkg/registry"
 
 	"hooks/pkg/common"
 )
@@ -71,7 +73,7 @@ var configDVCRSecrets = &pkg.HookConfig{
 		},
 	},
 
-	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
+	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
 func handlerDVCRSecrets(_ context.Context, input *pkg.HookInput) error {
@@ -183,8 +185,4 @@ func alphaNum(length int) string {
 		b[i] = letterBytes[rnd.IntN(len(letterBytes))]
 	}
 	return string(b)
-}
-
-func main() {
-	app.Run()
 }

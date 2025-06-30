@@ -13,19 +13,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package prevent_default_vmclasses_deletion
 
 import (
 	"context"
 	"fmt"
 
+	"hooks/pkg/settings"
+
 	"github.com/deckhouse/virtualization/api/core"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 
-	"hooks/pkg/common"
-
 	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,13 +52,13 @@ var config = &pkg.HookConfig{
 
 			LabelSelector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"module": common.MODULE_NAME,
+					"module": settings.ModuleName,
 				},
 			},
 		},
 	},
 
-	Queue: fmt.Sprintf("modules/%s", common.MODULE_NAME),
+	Queue: fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
 func Reconcile(_ context.Context, input *pkg.HookInput) error {
@@ -99,8 +98,4 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	}
 
 	return nil
-}
-
-func main() {
-	app.Run()
 }
