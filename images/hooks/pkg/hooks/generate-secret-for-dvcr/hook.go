@@ -31,8 +31,6 @@ import (
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-
-	"hooks/pkg/settings"
 )
 
 const (

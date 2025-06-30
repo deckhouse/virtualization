@@ -24,7 +24,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
@@ -35,10 +34,9 @@ func TestMigrateDeleteRenamedValidationAdmissionPolicy(t *testing.T) {
 	RunSpecs(t, "MigrateDeleteRenamedValidationAdmissionPolicy Suite")
 }
 
-var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding", func() {
+var _ = Describe("MigrateDeleteRenamedValidationAdmissionPolicy", func() {
 	var (
 		pc        *mock.PatchCollectorMock
-		dc        *mock.DependencyContainerMock
 		snapshots *mock.SnapshotsMock
 	)
 
@@ -78,7 +76,6 @@ var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
 	newInput := func() *pkg.HookInput {
 		return &pkg.HookInput{
 			Snapshots:      snapshots,
-			DC:             dc,
 			PatchCollector: pc,
 			Logger:         log.NewNop(),
 		}
@@ -86,21 +83,20 @@ var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
 
 	BeforeEach(func() {
 		pc = mock.NewPatchCollectorMock(GinkgoT())
-		dc = mock.NewDependencyContainerMock(GinkgoT())
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
 	})
 
 	AfterEach(func() {
 		pc = nil
-		dc = nil
 		snapshots = nil
 	})
 
-	DescribeTable("Test",
+	DescribeTable("Check obsolete resources state",
 		func(policyLabels map[string]string, policyShouldDelete bool, bindingLabels map[string]string,
 			bindingShouldDelete bool,
 		) {
 			setSnapshots(newSnapshotPolicy(policyLabels), newSnapshotBinding(bindingLabels))
+
 			if policyShouldDelete || bindingShouldDelete {
 				pc.DeleteMock.Set(
 					func(apiVersion string, kind string, namespace string, name string) {
@@ -115,73 +111,28 @@ var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
 							Fail("unexpected kind")
 						}
 					})
-			} else {
-				pc.DeleteMock.Set(
-					func(apiVersion string, kind string, namespace string, name string) {
-						Fail("unexpected call")
-					})
 			}
 
 			Expect(reconcile(context.Background(), newInput())).To(Succeed())
 		},
-		Entry("not delete, when policy and binding have label test",
+		Entry("should not delete, if VPA VPB have label test",
 			map[string]string{"test": "test"},
 			false,
 			map[string]string{"test": "test"},
 			false),
-	)
-	// -----------
-	DescribeTable("Labels should",
-		func(policyLabels map[string]string, policyShouldDelete bool, bindingLabels map[string]string,
-			bindingShouldDelete bool,
-		) {
-			setSnapshots(newSnapshotPolicy(policyLabels), newSnapshotBinding(bindingLabels))
-			if policyShouldDelete || bindingShouldDelete {
-				dc.GetK8sClientMock.Set(
-					func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
-						return mock.NewKubernetesClientMock(GinkgoT()).DeleteMock.Set(
-							func(ctx context.Context,
-								obj client.Object, opts ...client.DeleteOption,
-							) (err error) {
-								labelExist := obj.GetLabels()[managedByLabel] == managedByLabelValue
-
-								switch obj.GetObjectKind().GroupVersionKind().Kind {
-								case "ValidatingAdmissionPolicy":
-									Expect(labelExist).To(Equal(policyShouldDelete))
-								case "ValidatingAdmissionPolicyBinding":
-									Expect(labelExist).To(Equal(bindingShouldDelete))
-								default:
-									Fail("unexpected kind")
-								}
-								return nil
-							}), nil
-					})
-			} else {
-				dc.GetK8sClientMock.Set(func(options ...pkg.KubernetesOption) (pkg.KubernetesClient, error) {
-					return mock.NewKubernetesClientMock(GinkgoT()), nil
-				})
-			}
-			Expect(reconcile(context.Background(), newInput())).To(Succeed())
-		},
-		Entry("not delete, when policy and binding have label test",
-			map[string]string{"test": "test"},
-			false,
-			map[string]string{"test": "test"},
-			false,
-		),
-		Entry("delete, when policy has label app.kubernetes.io/managed-by",
+		Entry("should delete VPA, if label equal app.kubernetes.io/managed-by",
 			map[string]string{managedByLabel: managedByLabelValue},
 			true,
 			map[string]string{"test": "test"},
 			false,
 		),
-		Entry("delete, when binding has label app.kubernetes.io/managed-by",
+		Entry("should delete VPB, if label equal app.kubernetes.io/managed-by",
 			map[string]string{"test": "test"},
 			false,
 			map[string]string{managedByLabel: managedByLabelValue},
 			true,
 		),
-		Entry("delete policy and binding, when label app.kubernetes.io/managed-by",
+		Entry("should delete, if VPA VPB have label app.kubernetes.io/managed-by",
 			map[string]string{managedByLabel: managedByLabelValue},
 			true,
 			map[string]string{managedByLabel: managedByLabelValue},
