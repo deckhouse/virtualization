@@ -54,8 +54,10 @@
   value: "10m"
 - name: UPLOADER_INGRESS_HOST
   value: {{ include "helm_lib_module_public_domain" (list . "virtualization") }}
+{{- if or (eq (include "helm_lib_module_https_mode" .) "CertManager") (eq (include "helm_lib_module_https_mode" .) "CustomCertificate") }}
 - name: UPLOADER_INGRESS_TLS_SECRET
   value: {{ include "helm_lib_module_https_secret_name" (list . "ingress-tls") }}
+{{- end }}
 - name: UPLOADER_INGRESS_CLASS
   value: {{ include "helm_lib_module_ingress_class" . | quote }}
 - name: PROVISIONING_POD_LIMITS

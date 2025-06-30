@@ -67,7 +67,14 @@ func (i *Ingress) Create(ctx context.Context, client client.Client) (*netv1.Ingr
 func (i *Ingress) makeSpec() *netv1.Ingress {
 	pathTypeExact := netv1.PathTypeExact
 	path := i.generatePath()
-	return &netv1.Ingress{
+	tlsEnabled := i.Settings.TLSSecretName != ""
+	var uploadURL string
+	if tlsEnabled {
+		uploadURL = fmt.Sprintf("https://%s%s", i.Settings.Host, path)
+	} else {
+		uploadURL = fmt.Sprintf("http://%s%s", i.Settings.Host, path)
+	}
+	ingress := &netv1.Ingress{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Ingress",
 			APIVersion: netv1.SchemeGroupVersion.String(),
@@ -76,7 +83,7 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 			Name:      i.Settings.Name,
 			Namespace: i.Settings.Namespace,
 			Annotations: map[string]string{
-				annotations.AnnUploadURL:                              fmt.Sprintf("https://%s%s", i.Settings.Host, path),
+				annotations.AnnUploadURL:                              uploadURL,
 				"nginx.ingress.kubernetes.io/ssl-redirect":            "true",
 				"nginx.ingress.kubernetes.io/proxy-body-size":         "0",
 				"nginx.ingress.kubernetes.io/proxy-request-buffering": "off",
@@ -112,14 +119,19 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 					},
 				},
 			},
-			TLS: []netv1.IngressTLS{
-				{
-					Hosts:      []string{i.Settings.Host},
-					SecretName: i.Settings.TLSSecretName,
-				},
-			},
 		},
 	}
+
+	if tlsEnabled {
+		ingress.Spec.TLS = []netv1.IngressTLS{
+			{
+				Hosts:      []string{i.Settings.Host},
+				SecretName: i.Settings.TLSSecretName,
+			},
+		}
+	}
+
+	return ingress
 }
 
 func (i *Ingress) generatePath() string {
