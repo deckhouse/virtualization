@@ -104,6 +104,10 @@ spec:
       type: strategic
     - resourceType: Deployment
       resourceName: virt-api
+      patch: '[{"op":"replace","path":"/spec/replicas","value":3}]'
+      type: json
+    - resourceType: Deployment
+      resourceName: virt-api
       patch: {{ include "spec_strategy_rolling_update_patch" . }}
       type: strategic
     # HA settings for deploy/virt-controller.

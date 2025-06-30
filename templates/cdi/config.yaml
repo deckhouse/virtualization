@@ -46,7 +46,7 @@ spec:
       # HA settings for deploy/cdi-apiserver.
       - resourceType: Deployment
         resourceName: cdi-apiserver
-        patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
+        patch: '[{"op":"replace","path":"/spec/replicas","value":3}]'
         type: json
       - resourceType: Deployment
         resourceName: cdi-apiserver
@@ -59,7 +59,7 @@ spec:
       # HA settings for deploy/cdi-deployment.
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
+        patch: '[{"op":"replace","path":"/spec/replicas","value":3}]'
         type: json
       - resourceType: Deployment
         resourceName: cdi-deployment
