@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package migrate_delete_renamed_validation_admission_policy
 
 import (
 	"context"
@@ -21,7 +21,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"hooks/pkg/common"
+	"hooks/pkg/settings"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/app"
@@ -64,7 +64,7 @@ var config = &pkg.HookConfig{
 		},
 	},
 	OnAfterHelm: &pkg.OrderedConfig{Order: 5},
-	Queue:       fmt.Sprintf("modules/%s", common.MODULE_NAME),
+	Queue:       fmt.Sprintf("modules/%s", settings.ModuleName),
 }
 
 func reconcile(ctx context.Context, input *pkg.HookInput) error {
