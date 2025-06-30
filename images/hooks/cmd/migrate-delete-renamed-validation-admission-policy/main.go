@@ -92,6 +92,11 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	}
 	uts = append(uts, snapObjs...)
 
+	// TODO:
+	// use input.PatchCollector.Delete instead input.DC.GetK8sClient
+	//
+	// ddd,err := input.PatchCollector.Delete(apiVersion string, kind string, namespace string, name string)
+
 	c, err := input.DC.GetK8sClient()
 	if err != nil {
 		input.Logger.Error("Error get kubernetes client %v", err)
@@ -103,9 +108,11 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 			foundDeprecatedCount++
 			name := obj.GetName()
 			kind := obj.GetObjectKind().GroupVersionKind().Kind
+			apiVer := obj.GetAPIVersion()
 			input.Logger.Info("Delete deprecated %s %s", name, kind)
 
 			err = c.Delete(ctx, obj)
+			// err = input.PatchCollector.Delete(apiVer, kind, "", name)
 			if err != nil {
 				input.Logger.Error("%v, can't delete %s %s", err, name, kind)
 			}

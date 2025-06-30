@@ -26,4 +26,3 @@ shell:
     export CGO_ENABLED=0
     export TAGS="{{ printf "-tags %s" .MODULE_EDITION }}"
     go build -ldflags="-s -w" $TAGS -a -o /hooks/virtualization-module-hooks ./cmd/virtualization-module-hooks
-  - go build -ldflags="-s -w" -o /hooks/migrate-delete-renamed-validation-admission-policy ./cmd/migrate-delete-renamed-validation-admission-policy
