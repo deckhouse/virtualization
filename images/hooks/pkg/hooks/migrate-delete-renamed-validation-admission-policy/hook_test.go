@@ -37,6 +37,7 @@ func TestMigrateDeleteRenamedValidationAdmissionPolicy(t *testing.T) {
 
 var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding", func() {
 	var (
+		pc        *mock.PatchCollectorMock
 		dc        *mock.DependencyContainerMock
 		snapshots *mock.SnapshotsMock
 	)
@@ -76,22 +77,60 @@ var _ = Describe("ValidatingAdmissionPolicy and ValidatingAdmissionPolicyBinding
 
 	newInput := func() *pkg.HookInput {
 		return &pkg.HookInput{
-			Snapshots: snapshots,
-			DC:        dc,
-			Logger:    log.NewNop(),
+			Snapshots:      snapshots,
+			DC:             dc,
+			PatchCollector: pc,
+			Logger:         log.NewNop(),
 		}
 	}
 
 	BeforeEach(func() {
+		pc = mock.NewPatchCollectorMock(GinkgoT())
 		dc = mock.NewDependencyContainerMock(GinkgoT())
 		snapshots = mock.NewSnapshotsMock(GinkgoT())
 	})
 
 	AfterEach(func() {
+		pc = nil
 		dc = nil
 		snapshots = nil
 	})
 
+	DescribeTable("Test",
+		func(policyLabels map[string]string, policyShouldDelete bool, bindingLabels map[string]string,
+			bindingShouldDelete bool,
+		) {
+			setSnapshots(newSnapshotPolicy(policyLabels), newSnapshotBinding(bindingLabels))
+			if policyShouldDelete || bindingShouldDelete {
+				pc.DeleteMock.Set(
+					func(apiVersion string, kind string, namespace string, name string) {
+						labelExist := name == policySnapshotName || name == bindingSnapshotName
+
+						switch kind {
+						case "ValidatingAdmissionPolicy":
+							Expect(labelExist).To(Equal(policyShouldDelete))
+						case "ValidatingAdmissionPolicyBinding":
+							Expect(labelExist).To(Equal(bindingShouldDelete))
+						default:
+							Fail("unexpected kind")
+						}
+					})
+			} else {
+				pc.DeleteMock.Set(
+					func(apiVersion string, kind string, namespace string, name string) {
+						Fail("unexpected call")
+					})
+			}
+
+			Expect(reconcile(context.Background(), newInput())).To(Succeed())
+		},
+		Entry("not delete, when policy and binding have label test",
+			map[string]string{"test": "test"},
+			false,
+			map[string]string{"test": "test"},
+			false),
+	)
+	// -----------
 	DescribeTable("Labels should",
 		func(policyLabels map[string]string, policyShouldDelete bool, bindingLabels map[string]string,
 			bindingShouldDelete bool,

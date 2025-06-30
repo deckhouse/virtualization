@@ -24,7 +24,6 @@ import (
 	"hooks/pkg/settings"
 
 	"github.com/deckhouse/module-sdk/pkg"
-	"github.com/deckhouse/module-sdk/pkg/app"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	"github.com/deckhouse/module-sdk/pkg/utils/ptr"
 )
@@ -97,11 +96,12 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	//
 	// ddd,err := input.PatchCollector.Delete(apiVersion string, kind string, namespace string, name string)
 
-	c, err := input.DC.GetK8sClient()
-	if err != nil {
-		input.Logger.Error("Error get kubernetes client %v", err)
-		return err
-	}
+	// c, err := input.DC.GetK8sClient()
+	// c, err := input.DC.GetK8sClient()
+	// if err != nil {
+	// 	input.Logger.Error("Error get kubernetes client %v", err)
+	// 	return err
+	// }
 
 	for _, obj := range uts {
 		if obj.GetLabels()[managedByLabel] == managedByLabelValue {
@@ -111,11 +111,11 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 			apiVer := obj.GetAPIVersion()
 			input.Logger.Info("Delete deprecated %s %s", name, kind)
 
-			err = c.Delete(ctx, obj)
-			// err = input.PatchCollector.Delete(apiVer, kind, "", name)
-			if err != nil {
-				input.Logger.Error("%v, can't delete %s %s", err, name, kind)
-			}
+			// err = c.Delete(ctx, obj)
+			input.PatchCollector.Delete(apiVer, kind, "", name)
+			// if err != nil {
+			// 	input.Logger.Error("%v, can't delete %s %s", err, name, kind)
+			// }
 		}
 	}
 
@@ -138,8 +138,4 @@ func snapsToUnstructured(snaps []pkg.Snapshot) ([]*unstructured.Unstructured, er
 	}
 
 	return objs, nil
-}
-
-func main() {
-	app.Run()
 }

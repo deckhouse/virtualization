@@ -32,7 +32,7 @@ import (
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 
-	"hooks/pkg/common"
+	"hooks/pkg/settings"
 )
 
 const (
@@ -66,7 +66,7 @@ var configDVCRSecrets = &pkg.HookConfig{
 
 			NamespaceSelector: &pkg.NamespaceSelector{
 				NameSelector: &pkg.NameSelector{
-					MatchNames: []string{common.MODULE_NAMESPACE},
+					MatchNames: []string{settings.ModuleNamespace},
 				},
 			},
 			ExecuteHookOnSynchronization: ptr.To(false),
