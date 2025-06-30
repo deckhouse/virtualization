@@ -34,24 +34,20 @@ shell:
 
     cd /{{ $gitRepoName }}-{{ $version }}
 
-    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
-      echo "Change submodule url"
-      git submodule set-url -- roms/seabios $(cat /run/secrets/SOURCE_REPO)/qemu-project/seabios.git
-      git submodule set-url -- roms/SLOF $(cat /run/secrets/SOURCE_REPO)/qemu-project/SLOF.git
-      git submodule set-url -- roms/ipxe $(cat /run/secrets/SOURCE_REPO)/qemu-project/ipxe.git
-      git submodule set-url -- roms/openbios $(cat /run/secrets/SOURCE_REPO)/qemu-project/openbios.git
-      git submodule set-url -- roms/qemu-palcode $(cat /run/secrets/SOURCE_REPO)/qemu-project/qemu-palcode.git
-      git submodule set-url -- roms/u-boot $(cat /run/secrets/SOURCE_REPO)/qemu-project/u-boot.git
-      git submodule set-url -- roms/skiboot $(cat /run/secrets/SOURCE_REPO)/qemu-project/skiboot.git
-      git submodule set-url -- roms/QemuMacDrivers $(cat /run/secrets/SOURCE_REPO)/qemu-project/QemuMacDrivers.git
-      git submodule set-url -- roms/seabios-hppa $(cat /run/secrets/SOURCE_REPO)/qemu-project/seabios-hppa.git
-      git submodule set-url -- roms/u-boot-sam460ex $(cat /run/secrets/SOURCE_REPO)/qemu-project/u-boot-sam460ex.git
-      git submodule set-url -- roms/edk2 $(cat /run/secrets/SOURCE_REPO)/qemu-project/edk2.git
-      git submodule set-url -- roms/opensbi $(cat /run/secrets/SOURCE_REPO)/qemu-project/opensbi.git
-      git submodule set-url -- roms/qboot $(cat /run/secrets/SOURCE_REPO)/qemu-project/qboot.git
-      git submodule set-url -- roms/vbootrom $(cat /run/secrets/SOURCE_REPO)/qemu-project/vbootrom.git
-      git submodule set-url -- tests/lcitool/libvirt-ci $(cat /run/secrets/SOURCE_REPO)/libvirt/libvirt-ci.git
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive
+    else
+      echo "Checkout submodules with URL rewrite"
+      # mbed-tls rewrite is needed for edk2 submodule.
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/qemu-project/seabios.git".insteadOf=https://gitlab.com/qemu-project/seabios.git/ \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/mbed-tls/".insteadOf=https://github.com/ARMmbed/ \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive
     fi
+
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}

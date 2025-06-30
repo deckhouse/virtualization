@@ -29,9 +29,15 @@ shell:
 
     cd /{{ $gitRepoName }}-{{ $version }}
 
-    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
-      echo "Change submodule url"
-      git submodule set-url -- keycodemapdb $(cat /run/secrets/SOURCE_REPO)/keycodemap/keycodemapdb.git
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive
     fi
 
 ---
