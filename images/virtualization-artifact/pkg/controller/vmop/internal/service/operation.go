@@ -64,7 +64,7 @@ func isFinalState(vmop *virtv2.VirtualMachineOperation) bool {
 func isAfterSignalSentOrCreation(timestamp time.Time, vmop *virtv2.VirtualMachineOperation) bool {
 	// Use vmop creation time or time from SignalSent condition.
 	signalSentTime := vmop.GetCreationTimestamp().Time
-	signalSendCond, found := conditions.GetCondition(vmopcondition.SignalSentType, vmop.Status.Conditions)
+	signalSendCond, found := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
 	if found && signalSendCond.Status == metav1.ConditionTrue && signalSendCond.LastTransitionTime.After(signalSentTime) {
 		signalSentTime = signalSendCond.LastTransitionTime.Time
 	}

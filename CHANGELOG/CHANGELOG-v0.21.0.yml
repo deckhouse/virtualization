@@ -1,0 +1,57 @@
+core:
+  features:
+    - summary: >-
+        Add automatic rebalancing of virtual machines to optimize load distribution among cluster
+        nodes based on CPU usage threshold (80%) and affinity/anti-affinity rules. This
+        functionality is activated only when the `descheduler` module is enabled.
+      pull_request: https://github.com/deckhouse/virtualization/pull/962
+  fixes:
+    - summary: Remove init container with root privileges.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1148
+images:
+  features:
+    - summary: >-
+        To the statuses of `VirtualImage` and `ClusterVirtualImage` resources, the condition `InUse`
+        has been added, indicating whether the image is currently in use (for example, by a running
+        virtual machine or for creating a virtual disk).
+      pull_request: https://github.com/deckhouse/virtualization/pull/859
+module:
+  features:
+    - summary: >-
+        Add detection of virtualization-capable nodes (with /dev/kvm enabled and support for VMX/SVM
+        processor instructions) to schedule virtual machine deployment only on suitable nodes.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1076
+  fixes:
+    - summary: Fix descheduler CRD checking in templates.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1178
+vd:
+  fixes:
+    - summary: Enqueue requests from pvc's owner refs recursively
+      pull_request: https://github.com/deckhouse/virtualization/pull/1188
+    - summary: >-
+        Fix the update of the `.status.observedGeneration` field for a virtual disk in the Ready
+        state if the image from which the disk was created no longer exists in the cluster.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1124
+    - summary: >-
+        Fix the update of observed generation for a disk in the Ready state if the data source image
+        was deleted.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1111
+vm:
+  features:
+    - summary: >-
+        Add the ability for dynamic attachment (hotplug) of a virtual disk in `Filesystem` mode to a
+        virtual machine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1060
+vmbda:
+  fixes:
+    - summary: >-
+        The phase change of vm was filtered out, however, it needs to be addressed during the
+        reconciliation process of vmbda. The Running condition is not sufficient.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1187
+vmip:
+  fixes:
+    - summary: >-
+        Fix a potential hang during the deletion of a VirtualMachineIPAddress resource when deleting
+        a virtual machine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1185
+

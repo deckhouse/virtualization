@@ -15,7 +15,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-oref-vi-containerimage
+  name: vi-oref-vi-conimg
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -54,7 +54,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-oref-vi-oref-vdsnapshot
+  name: vi-oref-vi-oref-vdsnp
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -82,7 +82,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-oref-vi-containerimage-pvc
+  name: vi-oref-vi-con-img-pvc
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry
@@ -121,7 +121,7 @@ spec:
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: vi-oref-vi-oref-vdsnapshot-pvc
+  name: vi-ref-vi-ref-vdsnp-pvc
   namespace: test-d8-virtualization
 spec:
   storage: ContainerRegistry

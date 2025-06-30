@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -37,6 +38,10 @@ func NewMetaValidator(client client.Client) *MetaValidator {
 }
 
 func (v *MetaValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
+	if len(vm.Name) > validate.MaxVirtualMachineNameLen {
+		return nil, fmt.Errorf("the VirtualMachine name %q is too long: it must be no more than %d characters", vm.Name, validate.MaxVirtualMachineNameLen)
+	}
+
 	for key := range vm.Annotations {
 		if strings.Contains(key, core.GroupName) {
 			return nil, fmt.Errorf("using the %s group's name in the annotation is prohibited", core.GroupName)

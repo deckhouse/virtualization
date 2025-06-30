@@ -27,47 +27,26 @@
 
 ## Changelog entries
 <!---
-  Add one or more changelog entries to present your changes to end users.
-
-  Changelog entry fields description:
-  - `section` - a project scope in the kebab-case (See CONTRIBUTING.md#scope for the list).
-  - `type` - one of the following: fix, feature, chore
-  - `summary` - a ONE-LINE description on how change affects users.
-  - `impact_level` - Optional field: set to 'low' to exclude entry from changelog.
-  - `impact` - Optional field: multiline message on what user should know in the first place, i.e. restarts, breaking changes, deprecated fields, etc. Requires `impact_level: high`.
-
   /!\ See CONTRIBUTING.md for more details. /!\
-
-  Example 1. Significant message at the beginning of the changelog:
-
-section: disks
-type: feat
-summary: "Disks serials are based on uid now."
-impact_level: high
-impact: |
-  Disk serial is now uid-based.
-
-  Using /dev/disk/by-serial/ is not supported anymore.
-
-
-  Example 2. Chore change (not in the Changelog):
-
-section: ci
-type: chore
-summary: "Update checkout and github-script action versions."
-impact_level: low
-
-
-  Example 3. Regular entry in the Changelog:
-
-section: vm
-type: feature
-summary: "virtualMachineClassName field is now required."
-
+  Examples:
+  ```changes
+  section: core
+  type: feature
+  summary: "Node restarts can be avoided by pinning a checksum to a node group in config values."
+  ---
+  section: core
+  type: fix
+  summary: "Nodes with outdated manifests are no longer provisioned on *InstanceClass update."
+  impact_level: high
+  impact: |
+    Expect nodes of "Cloud" type to restart.
+  ---
+  impact_level: low
+  ```
 -->
 
 ```changes
-section: 
-type: 
-summary: 
+section:
+type:
+summary:
 ```

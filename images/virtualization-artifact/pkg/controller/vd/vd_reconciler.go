@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -137,41 +136,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	}
 
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &corev1.PersistentVolumeClaim{}),
-		handler.EnqueueRequestForOwner(
-			mgr.GetScheme(),
-			mgr.GetRESTMapper(),
-			&virtv2.VirtualDisk{},
-		), predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldPVC, ok := e.ObjectOld.(*corev1.PersistentVolumeClaim)
-				if !ok {
-					return false
-				}
-				newPVC, ok := e.ObjectNew.(*corev1.PersistentVolumeClaim)
-				if !ok {
-					return false
-				}
-
-				if oldPVC.Status.Capacity[corev1.ResourceStorage] != newPVC.Status.Capacity[corev1.ResourceStorage] {
-					return true
-				}
-
-				if service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, oldPVC.Status.Conditions) != nil ||
-					service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, newPVC.Status.Conditions) != nil {
-					return true
-				}
-
-				return oldPVC.Status.Phase != newPVC.Status.Phase
-			},
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on PVC: %w", err)
-	}
-
-	if err := ctr.Watch(
 		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
 		handler.EnqueueRequestsFromMapFunc(r.enqueueDisksAttachedToVM()),
 		predicate.Funcs{
@@ -202,6 +166,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 	}
 
 	for _, w := range []Watcher{
+		watcher.NewPersistentVolumeClaimWatcher(mgr.GetClient()),
 		watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient()),
 		watcher.NewStorageClassWatcher(mgr.GetClient()),
 	} {

@@ -79,7 +79,7 @@ libraries:
 
 image: {{ $.ImageName }}
 final: false
-fromImage: base-alt-p11{{ $.SVACE_IMAGE_SUFFIX }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "base-alt-p11" "builder/alt-go-svace" }}
 git:
 - add: /images/{{ $.ImageName }}/
   to: /
@@ -306,7 +306,8 @@ shell:
       --enable-xkbcommon \
       --enable-zstd
 
-      make -j$(nproc)
+    {{- $_ := set $ "ProjectName" (list $.ImageName "qemu" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `make -j$(nproc)`) | nindent 6 }}
 
   setup:
   - |

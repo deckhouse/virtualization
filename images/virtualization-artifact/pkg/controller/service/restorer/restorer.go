@@ -119,7 +119,7 @@ func (r SecretRestorer) setVirtualMachineBlockDeviceAttachments(ctx context.Cont
 	var vmbdas []*virtv2.VirtualMachineBlockDeviceAttachment
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
-		if bdr.Kind != virtv2.DiskDevice || !bdr.Hotplugged {
+		if !bdr.Hotplugged {
 			continue
 		}
 

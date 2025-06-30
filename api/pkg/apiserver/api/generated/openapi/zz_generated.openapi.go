@@ -1271,6 +1271,21 @@ func schema_virtualization_api_core_v1alpha2_ClusterVirtualImageStatus(ref commo
 							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ClusterVirtualImageStatusTarget"),
 						},
 					},
+					"usedInNamespaces": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Displays the list of namespaces where the image is currently used.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: "",
+										Type:    []string{"string"},
+										Format:  "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

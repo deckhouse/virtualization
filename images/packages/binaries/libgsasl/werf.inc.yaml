@@ -1,0 +1,72 @@
+---
+image: {{ $.ImageType }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libgsasl
+  includePaths:
+    - usr/bin/gsasl
+    - usr/lib64/libgsasl.so
+    - usr/lib64/libgsasl.so.18
+    - usr/lib64/libgsasl.so.18.0.0
+  before: setup
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libgsasl-devel
+  includePaths:
+    - usr/include/gsasl-mech.h
+    - usr/include/gsasl-version.h
+    - usr/include/gsasl.h
+    - usr/lib64/libgsasl.la
+    - usr/lib64/pkgconfig/libgsasl.pc
+    - usr/share/info/gsasl.info
+  before: setup
+
+---
+{{- $version := get $.Package $.ImageName }}
+{{- $gitRepoUrl := "gsasl/gsasl.git" }}
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc git make libtool gettext-tools
+- patch gperf help2man texinfo gengetopt
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+final: false
+fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    OUTDIR=/out
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    cd /src
+    ./bootstrap --skip-po
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --disable-static \
+      --disable-doc \
+      --disable-nls
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
+    rm -rf /out/usr/share/man
+

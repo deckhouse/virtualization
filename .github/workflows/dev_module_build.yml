@@ -430,31 +430,19 @@ jobs:
       - dev_setup_build
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/cve_scan@v2
+      - uses: deckhouse/modules-actions/cve_scan@v3
         with:
-          image: ${{ vars.DEV_MODULE_SOURCE }}/${{ vars.MODULE_NAME }}
           tag: ${{needs.set_vars.outputs.modules_module_tag}}
           module_name: ${{ vars.MODULE_NAME }}
           dd_url: ${{vars.DEFECTDOJO_HOST}}
           dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
-          trivy_registry: ${{ vars.TRIVY_REGISTRY }}
-          trivy_registry_user: ${{ vars.PROD_MODULES_REGISTRY_LOGIN }}
-          trivy_registry_password: ${{ secrets.PROD_MODULES_REGISTRY_PASSWORD }}
+          prod_registry: ${{vars.TRIVY_REGISTRY}}
+          prod_registry_user: ${{ secrets.PROD_READ_REGISTRY_USER }}
+          prod_registry_password: ${{ secrets.PROD_READ_REGISTRY_PASSWORD }}
+          dev_registry: ${{ vars.DEV_REGISTRY }}
+          dev_registry_user: ${{ vars.DEV_MODULES_REGISTRY_LOGIN }}
+          dev_registry_password: ${{ secrets.DEV_MODULES_REGISTRY_PASSWORD }}
           deckhouse_private_repo: ${{vars.DECKHOUSE_PRIVATE_REPO}}
-      - name: Fail if CVEs were found
-        run: |
-          fail_count=0
-          for report in out/json/d8_*_report.json; do
-            trivy convert $report
-            cve_count=$(cat $report | jq '.Results // [] | map(.Vulnerabilities | length) | add // 0')
-            if [[ $cve_count -gt 0 ]]; then
-              fail_count=$((fail_count + cve_count))
-            fi
-          done
-          if [[ $fail_count -gt 0 ]]; then
-            echo "Found $fail_count vulnerabilities in images"
-            exit 1
-          fi
 
   analyze_build:
     if: ${{ github.event.inputs.svace_enabled == 'true' || contains(github.event.pull_request.labels.*.name, 'analyze/svace') }}
@@ -652,16 +640,22 @@ jobs:
       - set_vars
       - run_e2e
       - update_comment_on_finish
+      - analyze_build
     steps:
-      - name: Remove label and add comment
+      - uses: actions/checkout@v4
+      - name: Remove labels and add comment
         id: remove-label
         uses: actions/github-script@v6
         with:
           github-token: ${{secrets.RELEASE_PLEASE_TOKEN}}
           script: |
-            const issueNumber = context.issue.number; const owner = context.repo.owner;
+            const ci = require('./.github/scripts/js/ci');
+            const issueNumber = context.issue.number;
+            const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const labelToRemove = 'e2e/run';
+
+            const labelToRemoveE2E = 'e2e/run';
+            const labelToRemoveSvace = 'analyze/svace';
 
             const { data: labels } = await github.rest.issues.listLabelsOnIssue({
               owner,
@@ -669,16 +663,9 @@ jobs:
               issue_number: issueNumber,
             });
 
-            if (labels.some(label => label.name === labelToRemove)) {
-              await github.rest.issues.removeLabel({
-                owner,
-                repo,
-                issue_number: issueNumber,
-                name: labelToRemove,
-              });
-              console.log(`Removed label '${labelToRemove}' from PR #${issueNumber}`);
+            if (ci.removeLabel({github, context, labels, labelToRemove: labelToRemoveE2E})) {
               const commentIdStr = '${{ needs.run_e2e.outputs.comment_id }}';
-              const commentId = parseInt(commentIdStr, 10); // Cast to integer
+              const commentId = parseInt(commentIdStr, 10);
               const stepOutcome = '${{ needs.run_e2e.result }}';
               const body = `Workflow has started.
               Follow the progress here: [Workflow Run](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})
@@ -692,15 +679,6 @@ jobs:
                   comment_id: commentId, // Now an integer
                   body: body
                 });
-              } else {
-                // Invalid or missing, create a new comment
-                await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.payload.pull_request.number,
-                  body: body
-                });
               }
-            } else {
-              console.log(`Label '${labelToRemove}' not found on PR #${issueNumber}`);
             }
+            ci.removeLabel({github, context, labels, labelToRemove: labelToRemoveSvace});

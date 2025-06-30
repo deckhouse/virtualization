@@ -38,10 +38,9 @@ const (
 // +kubebuilder:printcolumn:name="Capacity",type=string,JSONPath=`.status.capacity`
 // +kubebuilder:printcolumn:name="InUse",type=string,JSONPath=`.status.conditions[?(@.type=='InUse')].status`,priority=1
 // +kubebuilder:printcolumn:name="Progress",type=string,JSONPath=`.status.progress`,priority=1
-// +kubebuilder:printcolumn:name="StorageClass",type=string,JSONPath=`.spec.persistentVolumeClaim.storageClassName`,priority=1
+// +kubebuilder:printcolumn:name="StorageClass",type=string,JSONPath=`.status.storageClassName`,priority=1
 // +kubebuilder:printcolumn:name="TargetPVC",type=string,JSONPath=`.status.target.persistentVolumeClaimName`,priority=1
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
-// +kubebuilder:validation:XValidation:rule="self.metadata.name.size() <= 128",message="The name must be no longer than 128 characters."
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type VirtualDisk struct {
@@ -198,17 +197,17 @@ type VirtualDiskList struct {
 // * `Failed`: There was an error when creating the resource.
 // * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
 // * `Terminating`: The resource is being deleted.
-// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,Ready,Failed,Terminating,PVCLost,WaitForFirstConsumer,Resizing}
+// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,WaitForFirstConsumer,Ready,Resizing,Failed,PVCLost,Terminating}
 type DiskPhase string
 
 const (
 	DiskPending              DiskPhase = "Pending"
+	DiskProvisioning         DiskPhase = "Provisioning"
 	DiskWaitForUserUpload    DiskPhase = "WaitForUserUpload"
 	DiskWaitForFirstConsumer DiskPhase = "WaitForFirstConsumer"
-	DiskProvisioning         DiskPhase = "Provisioning"
-	DiskFailed               DiskPhase = "Failed"
-	DiskLost                 DiskPhase = "Lost"
 	DiskReady                DiskPhase = "Ready"
 	DiskResizing             DiskPhase = "Resizing"
+	DiskFailed               DiskPhase = "Failed"
+	DiskLost                 DiskPhase = "PVCLost"
 	DiskTerminating          DiskPhase = "Terminating"
 )

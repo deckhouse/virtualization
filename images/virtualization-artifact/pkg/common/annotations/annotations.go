@@ -100,6 +100,9 @@ const (
 	// LabelVirtualMachineIPAddressUID is a label to link VirtualMachineIPAddressLease to VirtualMachineIPAddress.
 	LabelVirtualMachineIPAddressUID = LabelsPrefix + "/virtual-machine-ip-address-uid"
 
+	// SkipPodSecurityStandardsCheckLabel is a label to skip the check for PodSecurityStandards to avoid irrelevant alerts related to a privileged virtual machine pod.
+	SkipPodSecurityStandardsCheckLabel = "security.deckhouse.io/skip-pss-check"
+
 	UploaderServiceLabel = "service"
 
 	// AppKubernetesManagedByLabel is the Kubernetes recommended managed-by label.

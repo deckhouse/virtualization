@@ -1,0 +1,7 @@
+module:
+  fixes:
+    - summary: >-
+        Fix a potential displacement of service components of virtualization under high load on
+        control plane nodes. Set system-cluster-critical priority class for critical components.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1113
+

@@ -59,7 +59,7 @@ spec:
       # HA settings for deploy/cdi-deployment.
       - resourceType: Deployment
         resourceName: cdi-deployment
-        patch: '[{"op":"replace","path":"/spec/replicas","value":2},{"op":"replace","path":"/spec/strategy","value":{"type":"RollingUpdate"}}]'
+        patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
         type: json
       - resourceType: Deployment
         resourceName: cdi-deployment

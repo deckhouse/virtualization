@@ -172,6 +172,9 @@ spec:
                 uploadCommand:
                   description: |
                     Устаревшее поле. Используйте `imageUploadURLs`.
+                usedInNamespaces:
+                  description: |
+                    Список пространств имён в которых используется образ.
                 imageUploadURLs:
                   properties:
                     external:

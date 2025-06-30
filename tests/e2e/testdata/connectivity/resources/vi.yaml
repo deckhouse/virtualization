@@ -1,7 +1,7 @@
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
 metadata:
-  name: noble-server-cloudimg-amd64
+  name: noble-srv-cloud-amd64
 spec:
   storage: ContainerRegistry
   dataSource:

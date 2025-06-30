@@ -49,9 +49,9 @@ func SetupController(
 	svcOpCreator := internal.NewSvcOpCreator(client)
 
 	handlers := []Handler{
+		internal.NewDeletionHandler(svcOpCreator),
 		internal.NewLifecycleHandler(client, svcOpCreator, recorder),
 		internal.NewOperationHandler(client, svcOpCreator, recorder),
-		internal.NewDeletionHandler(svcOpCreator),
 	}
 
 	reconciler := NewReconciler(client, handlers...)

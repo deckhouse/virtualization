@@ -1,0 +1,66 @@
+ci:
+  features:
+    - summary: add svace cronjob
+      pull_request: https://github.com/deckhouse/virtualization/pull/1137
+  fixes:
+    - summary: remove debug message from build workflow
+      pull_request: https://github.com/deckhouse/virtualization/pull/1123
+    - summary: fix golangci-lint
+      pull_request: https://github.com/deckhouse/virtualization/pull/970
+cli:
+  fixes:
+    - summary: >-
+        Fix the disconnection process from the console via `d8 v console`, so now the terminal will
+        be returned to the same state it was in before the connection. Fix reconnection attempts
+        when the VNC client is closed or if the VNC client is not found.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1085
+core:
+  fixes:
+    - summary: >-
+        Default parameters for live migration have been set: Migration bandwidth: 5 Gbps
+        (approximately 640 MB/s); Each node will perform no more than one outgoing migration at a
+        time; The total number of simultaneous migrations in the cluster is limited to the number of
+        nodes running virtual machines.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1082
+module:
+  features:
+    - summary: >-
+        The new minimum required version of Deckhouse 1.69.4 has been set, which is necessary for
+        the operation of the virtualization module. The virtualization module has been moved from
+        the preview stage to general availability.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1109
+    - summary: >-
+        Add the smibios parameter to determine the level of virtualization nesting. This parameter
+        allows automatic detection of whether a node is running on physical hardware or in a DVP
+        virtualized environment.
+      pull_request: https://github.com/deckhouse/virtualization/pull/559
+vdsnapshot:
+  fixes:
+    - summary: fix linter error
+      pull_request: https://github.com/deckhouse/virtualization/pull/1122
+    - summary: >-
+        Fix the unfreezing of the virtual machine's file system in case of an error during snapshot
+        creation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1117
+vm:
+  features:
+    - summary: The `InternalVirtualMachine` will be updated if the `VirtualMachine` is stopped.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1078
+vmip:
+  features:
+    - summary: Add events for the `VirtualMachineIPAddress` resource.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1147
+vmipl:
+  features:
+    - summary: Add events for the `VirtualMachineIPAddressLease` resource.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1146
+vmop:
+  fixes:
+    - summary: >-
+        Fix the premature transition of a resource to the InProgress state if a migration is
+        scheduled but has not started. Now, it remains in the Pending state until the migration
+        begins.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1128
+    - summary: Fix false positive not found error when migration cancel.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1066
+

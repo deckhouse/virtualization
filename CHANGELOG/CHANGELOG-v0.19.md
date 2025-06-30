@@ -3,6 +3,7 @@
 ## Fixes
 
 
+ - **[module]** Fix a potential displacement of service components of virtualization under high load on control plane nodes. Set system-cluster-critical priority class for critical components. [#1113](https://github.com/deckhouse/virtualization/pull/1113)
  - **[module]** Fix the update parameters for control-plane components in HA mode, which caused the update to hang. [#1092](https://github.com/deckhouse/virtualization/pull/1092)
  - **[vm]** Set the maximum size of the embedded cloud-init block to 2048 bytes. [#1083](https://github.com/deckhouse/virtualization/pull/1083)
  - **[vm]** Add a mechanism to clean up zombie processes from the virtual machine container. [#1058](https://github.com/deckhouse/virtualization/pull/1058)

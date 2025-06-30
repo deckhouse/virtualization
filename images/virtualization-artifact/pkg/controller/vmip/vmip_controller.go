@@ -52,7 +52,7 @@ func NewController(
 	}
 
 	handlers := []Handler{
-		internal.NewBoundHandler(ipService, mgr.GetClient()),
+		internal.NewBoundHandler(ipService, mgr.GetClient(), recorder),
 		internal.NewAttachedHandler(recorder, mgr.GetClient()),
 		internal.NewLifecycleHandler(recorder),
 		internal.NewProtectionHandler(),

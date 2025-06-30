@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/common/blockdevice"
+	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/cvicondition"
@@ -52,8 +52,8 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 		return nil, fmt.Errorf("the ClusterVirtualImage name %q is invalid: '.' is forbidden, allowed name symbols are [0-9a-zA-Z-]", cvi.Name)
 	}
 
-	if len(cvi.Name) > blockdevice.MaxClusterVirtualImageNameLen {
-		return nil, fmt.Errorf("the ClusterVirtualImage name %q is too long: it must be no more than %d characters", cvi.Name, blockdevice.MaxClusterVirtualImageNameLen)
+	if len(cvi.Name) > validate.MaxClusterVirtualImageNameLen {
+		return nil, fmt.Errorf("the ClusterVirtualImage name %q is too long: it must be no more than %d characters", cvi.Name, validate.MaxClusterVirtualImageNameLen)
 	}
 
 	return nil, nil
@@ -87,8 +87,8 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 		warnings = append(warnings, fmt.Sprintf("the ClusterVirtualImage name %q is invalid as it contains now forbidden symbol '.', allowed symbols for name are [0-9a-zA-Z-]. Create another image with valid name to avoid problems with future updates.", newCVI.Name))
 	}
 
-	if len(newCVI.Name) > blockdevice.MaxClusterVirtualImageNameLen {
-		warnings = append(warnings, fmt.Sprintf("the ClusterVirtualImage name %q is too long: it must be no more than %d characters", newCVI.Name, blockdevice.MaxClusterVirtualImageNameLen))
+	if len(newCVI.Name) > validate.MaxClusterVirtualImageNameLen {
+		warnings = append(warnings, fmt.Sprintf("the ClusterVirtualImage name %q is too long: it must be no more than %d characters", newCVI.Name, validate.MaxClusterVirtualImageNameLen))
 	}
 
 	return warnings, nil

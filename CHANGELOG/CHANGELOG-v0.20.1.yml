@@ -1,0 +1,23 @@
+api:
+  fixes:
+    - summary: >-
+        The allowed name lengths for resources have been adjusted and the corresponding validation
+        has been added:
+
+        - VirtualMachine: 63 characters
+
+        - ClusterVirtualImage: 36 characters
+
+        - VirtualImage: 37 characters
+
+        - VirtualDisk: 60 characters
+      pull_request: https://github.com/deckhouse/virtualization/pull/1177
+module:
+  fixes:
+    - summary: Fixed a hang during virtualization version upgrade in an HA cluster with two system nodes.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1173
+vm:
+  fixes:
+    - summary: Fix panic if Cores were not specified in the vmclass's SizingPolicy.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1193
+

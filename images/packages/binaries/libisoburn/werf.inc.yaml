@@ -1,0 +1,63 @@
+---
+image: {{ $.ImageType }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libisoburn
+  includePaths:
+    - usr/lib64/libisoburn.so
+    - usr/lib64/libisoburn.so.1
+    - usr/lib64/libisoburn.so.1.113.0
+  before: setup
+- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libisoburn-devel
+  includePaths:
+    - usr/include/
+    - usr/lib64/libisoburn.la
+  before: setup
+
+---
+{{- $version := get $.Package $.ImageName }}
+{{- $gitRepoUrl := "libburnia/libisoburn.git" }}
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc git make libburn-devel libisofs-devel makeinfo libtool
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+final: false
+fromImage: builder/alt
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    OUTDIR=/out
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    cd /src
+    ./bootstrap
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --disable-static \
+      --disable-doc
+    make -j$(nproc)
+    make DESTDIR=/out install-libLTLIBRARIES install-libincludeHEADERS

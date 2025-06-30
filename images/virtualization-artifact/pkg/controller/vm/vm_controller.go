@@ -56,7 +56,7 @@ func SetupController(
 		internal.NewDeletionHandler(client),
 		internal.NewClassHandler(client, recorder),
 		internal.NewIPAMHandler(ipam.New(), client, recorder),
-		internal.NewBlockDeviceHandler(client, recorder, blockDeviceService),
+		internal.NewBlockDeviceHandler(client, blockDeviceService),
 		internal.NewProvisioningHandler(client),
 		internal.NewAgentHandler(),
 		internal.NewFilesystemHandler(),

@@ -407,13 +407,17 @@ spec:
                 uploadCommand:
                   description: Deprecated. Use `imageUploadURLs` instead.
                   type: string
+                usedInNamespaces:
+                  description:
+                    Displays the list of namespaces where the image is currently
+                    used.
+                  items:
+                    type: string
+                  type: array
               type: object
           required:
             - spec
           type: object
-          x-kubernetes-validations:
-            - message: The name must be no longer than 128 characters.
-              rule: self.metadata.name.size() <= 128
       served: true
       storage: true
       subresources:

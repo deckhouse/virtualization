@@ -35,23 +35,20 @@ const objectRefDataSource = "objectref"
 type ObjectRefDataSource struct {
 	diskService      *service.DiskService
 	vdSnapshotSyncer *ObjectRefVirtualDiskSnapshot
-	viDVCRSyncer     *ObjectRefVirtualImageDVCR
-	viPVCSyncer      *ObjectRefVirtualImagePVC
+	viSyncer         *ObjectRefVirtualImage
 	cviSyncer        *ObjectRefClusterVirtualImage
 }
 
 func NewObjectRefDataSource(
 	recorder eventrecord.EventRecorderLogger,
-	statService *service.StatService,
 	diskService *service.DiskService,
 	client client.Client,
 ) *ObjectRefDataSource {
 	return &ObjectRefDataSource{
 		diskService:      diskService,
 		vdSnapshotSyncer: NewObjectRefVirtualDiskSnapshot(recorder, diskService, client),
-		viDVCRSyncer:     NewObjectRefVirtualImageDVCR(recorder, statService, diskService, client),
-		viPVCSyncer:      NewObjectRefVirtualImagePVC(recorder, diskService, client),
-		cviSyncer:        NewObjectRefClusterVirtualImage(recorder, statService, diskService, client),
+		viSyncer:         NewObjectRefVirtualImage(diskService, client),
+		cviSyncer:        NewObjectRefClusterVirtualImage(diskService, client),
 	}
 }
 
@@ -66,22 +63,7 @@ func (ds ObjectRefDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) 
 	case virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
 		return ds.cviSyncer.Sync(ctx, vd)
 	case virtv2.VirtualImageKind:
-		vi, err := ds.diskService.GetVirtualImage(ctx, vd.Spec.DataSource.ObjectRef.Name, vd.Namespace)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("unable to get VI: %w", err)
-		}
-
-		if vi == nil {
-			return reconcile.Result{}, fmt.Errorf("VI object ref source %s is nil", vd.Spec.DataSource.ObjectRef.Name)
-		}
-
-		switch vi.Spec.Storage {
-		case virtv2.StorageKubernetes,
-			virtv2.StoragePersistentVolumeClaim:
-			return ds.viPVCSyncer.Sync(ctx, vd)
-		case virtv2.StorageContainerRegistry:
-			return ds.viDVCRSyncer.Sync(ctx, vd)
-		}
+		return ds.viSyncer.Sync(ctx, vd)
 	}
 
 	return reconcile.Result{}, fmt.Errorf("unexpected object ref kind %s, please report a bug", vd.Spec.DataSource.ObjectRef.Kind)
@@ -109,22 +91,7 @@ func (ds ObjectRefDataSource) Validate(ctx context.Context, vd *virtv2.VirtualDi
 	case virtv2.VirtualDiskObjectRefKindClusterVirtualImage:
 		return ds.cviSyncer.Validate(ctx, vd)
 	case virtv2.VirtualImageKind:
-		vi, err := ds.diskService.GetVirtualImage(ctx, vd.Spec.DataSource.ObjectRef.Name, vd.Namespace)
-		if err != nil {
-			return fmt.Errorf("unable to get VI: %w", err)
-		}
-
-		if vi == nil {
-			return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
-		}
-
-		switch vi.Spec.Storage {
-		case virtv2.StorageKubernetes,
-			virtv2.StoragePersistentVolumeClaim:
-			return ds.viPVCSyncer.Validate(ctx, vd)
-		case virtv2.StorageContainerRegistry:
-			return ds.viDVCRSyncer.Validate(ctx, vd)
-		}
+		return ds.viSyncer.Validate(ctx, vd)
 	}
 
 	return fmt.Errorf("unexpected object ref kind %s, please report a bug", vd.Spec.DataSource.ObjectRef.Kind)

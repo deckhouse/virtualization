@@ -14,8 +14,8 @@
 {{- end }}
 
 {{- define "cdi_operator_resources" }}
-cpu: 10m
-memory: 150Mi
+cpu: 15m
+memory: 15Mi
 {{- end }}
 
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
@@ -42,7 +42,7 @@ spec:
         {{- include "cdi_operator_resources" . | nindent 8 }}
       maxAllowed:
         cpu: 20m
-        memory: 250Mi
+        memory: 30Mi
 {{- end }}
 ---
 apiVersion: policy/v1

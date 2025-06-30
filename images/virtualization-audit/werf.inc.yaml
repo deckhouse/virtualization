@@ -4,7 +4,7 @@ image: {{ $.ImageName }}
 fromImage: distroless
 import:
   - image: virtualization-artifact
-    add: /usr/local/go/src/virtualization-controller/virtualization-audit
+    add: /out/virtualization-audit
     to: /app/virtualization-audit
     after: install
 imageSpec:

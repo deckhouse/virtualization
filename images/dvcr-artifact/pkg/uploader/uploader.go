@@ -59,20 +59,22 @@ type UploadServer interface {
 }
 
 type uploadServerApp struct {
-	bindAddress  string
-	bindPort     int
-	tlsKey       string
-	tlsCert      string
-	clientCert   string
-	clientName   string
-	cryptoConfig cryptowatch.CryptoConfig
-	keyFile      string
-	certFile     string
-	mux          *http.ServeMux
-	uploading    bool
-	doneChan     chan struct{}
-	errChan      chan error
-	mutex        sync.Mutex
+	bindAddress    string
+	bindPort       int
+	tlsKey         string
+	tlsCert        string
+	clientCert     string
+	clientName     string
+	cryptoConfig   cryptowatch.CryptoConfig
+	keyFile        string
+	certFile       string
+	mux            *http.ServeMux
+	uploading      bool
+	doneChan       chan struct{}
+	errChan        chan error
+	keepAlive      bool
+	keepConcurrent bool
+	mutex          sync.Mutex
 
 	healthzServer *http.Server
 	uploadServer  *http.Server
@@ -289,7 +291,7 @@ func (app *uploadServerApp) validateShouldHandleRequest(w http.ResponseWriter, r
 	app.mutex.Lock()
 	defer app.mutex.Unlock()
 
-	if app.uploading {
+	if app.uploading && !app.keepConcurrent {
 		klog.Warning("Got concurrent upload request")
 		w.WriteHeader(http.StatusServiceUnavailable)
 		return false
@@ -342,7 +344,9 @@ func (app *uploadServerApp) processUpload(irc imageReadCloser, w http.ResponseWr
 		return
 	}
 
-	close(app.doneChan)
+	if !app.keepAlive {
+		close(app.doneChan)
+	}
 }
 
 func (app *uploadServerApp) uploadHandler(irc imageReadCloser) http.HandlerFunc {

@@ -30,7 +30,6 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -48,18 +47,16 @@ type IPAM interface {
 
 func NewIPAMHandler(ipam IPAM, cl client.Client, recorder eventrecord.EventRecorderLogger) *IPAMHandler {
 	return &IPAMHandler{
-		ipam:       ipam,
-		client:     cl,
-		recorder:   recorder,
-		protection: service.NewProtectionService(cl, virtv2.FinalizerIPAddressProtection),
+		ipam:     ipam,
+		client:   cl,
+		recorder: recorder,
 	}
 }
 
 type IPAMHandler struct {
-	ipam       IPAM
-	client     client.Client
-	recorder   eventrecord.EventRecorderLogger
-	protection *service.ProtectionService
+	ipam     IPAM
+	client   client.Client
+	recorder eventrecord.EventRecorderLogger
 }
 
 func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -86,11 +83,7 @@ func (h *IPAMHandler) Handle(ctx context.Context, s state.VirtualMachineState) (
 	}
 
 	if isDeletion(current) {
-		return reconcile.Result{}, h.protection.RemoveProtection(ctx, ipAddress)
-	}
-	err = h.protection.AddProtection(ctx, ipAddress)
-	if err != nil {
-		return reconcile.Result{}, err
+		return reconcile.Result{}, nil
 	}
 
 	// 1. OK: already bound.
