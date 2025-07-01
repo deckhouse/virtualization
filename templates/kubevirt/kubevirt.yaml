@@ -106,6 +106,14 @@ spec:
       resourceName: virt-api
       patch: {{ include "spec_strategy_rolling_update_patch" . }}
       type: strategic
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: '[{"op":"replace","path":"/spec/replicas","value":3}]'
+      type: json
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
+      type: json
     # HA settings for deploy/virt-controller.
     - resourceType: Deployment
       resourceName: virt-controller
@@ -286,8 +294,6 @@ env:
   imagePullPolicy: IfNotPresent
   imagePullSecrets:
     - name: virtualization-module-registry
-  infra:
-    replicas: {{ include "helm_lib_is_ha_to_value" (list . 3 1) }}
   workloadUpdateStrategy:
     workloadUpdateMethods:
       - LiveMigrate
