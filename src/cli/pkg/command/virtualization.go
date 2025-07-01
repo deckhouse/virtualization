@@ -20,13 +20,16 @@ Initially copied from https://github.com/kubevirt/kubevirt/blob/main/pkg/virtctl
 package command
 
 import (
+	"context"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/component-base/logs"
 
+	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/console"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/lifecycle"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/portforward"
@@ -39,7 +42,7 @@ import (
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
 
-func NewCommand(programName string) (*cobra.Command, clientcmd.ClientConfig) {
+func NewCommand(programName string) *cobra.Command {
 	// programName used in cobra templates to display either `d8 virtualization` or `d8vctl`
 	cobra.AddTemplateFunc(
 		"ProgramName", func() string {
@@ -69,6 +72,10 @@ func NewCommand(programName string) (*cobra.Command, clientcmd.ClientConfig) {
 
 	virtCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	virtCmd.SetOut(os.Stdout)
+	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	virtCmd.SetContext(clientconfig.NewContext(
+		ctx, kubeclient.DefaultClientConfig(virtCmd.PersistentFlags()),
+	))
 
 	optionsCmd := &cobra.Command{
 		Use:    "options",
@@ -80,18 +87,17 @@ func NewCommand(programName string) (*cobra.Command, clientcmd.ClientConfig) {
 
 	optionsCmd.SetUsageTemplate(templates.OptionsUsageTemplate())
 
-	clientConfig := kubeclient.DefaultClientConfig(virtCmd.PersistentFlags())
 	virtCmd.AddCommand(
-		console.NewCommand(clientConfig),
-		vnc.NewCommand(clientConfig),
-		portforward.NewCommand(clientConfig),
-		ssh.NewCommand(clientConfig),
-		scp.NewCommand(clientConfig),
-		lifecycle.NewStartCommand(clientConfig),
-		lifecycle.NewStopCommand(clientConfig),
-		lifecycle.NewRestartCommand(clientConfig),
-		lifecycle.NewEvictCommand(clientConfig),
+		console.NewCommand(),
+		vnc.NewCommand(),
+		portforward.NewCommand(),
+		ssh.NewCommand(),
+		scp.NewCommand(),
+		lifecycle.NewStartCommand(),
+		lifecycle.NewStopCommand(),
+		lifecycle.NewRestartCommand(),
+		lifecycle.NewEvictCommand(),
 		optionsCmd,
 	)
-	return virtCmd, clientConfig
+	return virtCmd
 }
