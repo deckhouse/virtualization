@@ -110,10 +110,6 @@ spec:
       resourceName: virt-api
       patch: '[{"op":"replace","path":"/spec/replicas","value":3}]'
       type: json
-    - resourceType: Deployment
-      resourceName: virt-controller
-      patch: '[{"op":"replace","path":"/spec/replicas","value":2}]'
-      type: json
     # HA settings for deploy/virt-controller.
     - resourceType: Deployment
       resourceName: virt-controller
