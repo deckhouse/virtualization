@@ -42,6 +42,7 @@ func NewInUseHandler(client client.Client) *InUseHandler {
 func (h InUseHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(cvicondition.InUse).Generation(cvi.Generation)
 	readyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, cvi.Status.Conditions)
+	cvi.Status.UsedInNamespaces = []string{}
 	if readyCondition.Status == metav1.ConditionFalse && conditions.IsLastUpdated(readyCondition, cvi) {
 		cb.
 			Status(metav1.ConditionFalse).
