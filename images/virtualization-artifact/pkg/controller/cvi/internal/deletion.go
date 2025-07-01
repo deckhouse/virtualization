@@ -52,6 +52,9 @@ func (h DeletionHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualI
 			return reconcile.Result{}, nil
 		}
 
+		log.Info("Deletion observed: remove protection finalizer from ClusterVirtualImage")
+		controllerutil.RemoveFinalizer(cvi, virtv2.FinalizerCVIProtection)
+
 		requeue, err := h.sources.CleanUp(ctx, cvi)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -67,5 +70,6 @@ func (h DeletionHandler) Handle(ctx context.Context, cvi *virtv2.ClusterVirtualI
 	}
 
 	controllerutil.AddFinalizer(cvi, virtv2.FinalizerCVICleanup)
+	controllerutil.AddFinalizer(cvi, virtv2.FinalizerCVIProtection)
 	return reconcile.Result{}, nil
 }

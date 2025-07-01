@@ -52,6 +52,9 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (r
 			return reconcile.Result{}, nil
 		}
 
+		log.Info("Deletion observed: remove protection finalizer from VirtualImage")
+		controllerutil.RemoveFinalizer(vi, virtv2.FinalizerVIProtection)
+
 		requeue, err := h.sources.CleanUp(ctx, vi)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -67,6 +70,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vi *virtv2.VirtualImage) (r
 	}
 
 	controllerutil.AddFinalizer(vi, virtv2.FinalizerVICleanup)
+	controllerutil.AddFinalizer(vi, virtv2.FinalizerVIProtection)
 	return reconcile.Result{}, nil
 }
 
