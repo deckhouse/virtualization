@@ -69,6 +69,7 @@ spec:
         app: virtualization-controller
       annotations:
         checksum/secret: {{ include (print $.Template.BasePath "/virtualization-controller/secret-tls.yaml") . | sha256sum }}
+        checksum/config: {{ include (print $.Template.BasePath "/virtualization-controller/config.yaml") . | sha256sum }}
         kubectl.kubernetes.io/default-container: virtualization-controller
     spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-controller")) | nindent 6 }}
@@ -78,9 +79,22 @@ spec:
           {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationController") }}
           imagePullPolicy: IfNotPresent
+          args:
+            - --config=/etc/virtualization-controller/config.yaml
+            - --log-format={{ .Values.virtualization.logFormat | default "json" }}
+            - --log-level={{ .Values.virtualization.logLevel | default "info" }}
+            - --metrics-bind-address=127.0.0.1:8080
+            {{- if eq .Values.virtualization.logLevel "debug" }}
+            - --log-debug-verbosity=10
+            {{- end }}
+            {{- if eq .Values.virtualization.logLevel "debug" }}
+            - --pprof-bind-address=:8081
+            {{- end }}
           volumeMounts:
             - mountPath: /tmp/k8s-webhook-server/serving-certs
               name: admission-webhook-secret
+            - mountPath: /etc/virtualization-controller
+              name: virtualization-controller-config
             {{- include "kube_api_rewriter.kubeconfig_volume_mount" . | nindent 12 }}
           ports:
             - containerPort: 9443
@@ -119,4 +133,7 @@ spec:
           secret:
             secretName: virtualization-controller-tls
         {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 8 }}
+        - name: virtualization-controller-config
+          configMap:
+            name: virtualization-controller-config
 

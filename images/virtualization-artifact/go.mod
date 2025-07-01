@@ -21,13 +21,13 @@ require (
 	go.uber.org/zap v1.26.0
 	k8s.io/api v0.30.2
 	k8s.io/apiextensions-apiserver v0.30.0
-	k8s.io/apimachinery v0.30.2
+	k8s.io/apimachinery v0.31.0
 	k8s.io/apiserver v0.30.0
 	k8s.io/client-go v0.30.0
-	k8s.io/code-generator v0.30.0
+	k8s.io/code-generator v0.31.0
 	k8s.io/component-base v0.30.0
 	k8s.io/component-helpers v0.29.2
-	k8s.io/klog/v2 v2.120.1
+	k8s.io/klog/v2 v2.130.1
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340
 	k8s.io/utils v0.0.0-20240423183400-0849a56e8f22
 	kubevirt.io/api v1.3.1
@@ -52,7 +52,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/docker/docker v25.0.6+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.8.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
@@ -63,7 +63,7 @@ require (
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
-	github.com/go-openapi/swag v0.22.3 // indirect
+	github.com/go-openapi/swag v0.22.4 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
@@ -133,7 +133,6 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
-	k8s.io/gengo v0.0.0-20230829151522-9cce18d56c01 // indirect
 	k8s.io/gengo/v2 v2.0.0-20240228010128-51d4e06bde70 // indirect
 	k8s.io/kms v0.30.0 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
@@ -152,6 +151,6 @@ replace (
 	k8s.io/apimachinery => k8s.io/apimachinery v0.29.2
 	k8s.io/apiserver => k8s.io/apiserver v0.29.2
 	k8s.io/client-go => k8s.io/client-go v0.29.2
-	k8s.io/code-generator => k8s.io/code-generator v0.29.2
+	k8s.io/code-generator => k8s.io/code-generator v0.31.0
 	k8s.io/component-base => k8s.io/component-base v0.29.2
 )

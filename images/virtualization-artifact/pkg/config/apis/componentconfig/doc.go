@@ -14,21 +14,5 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
-
-import (
-	"fmt"
-	"os"
-
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-
-	"github.com/deckhouse/virtualization-controller/cmd/virtualization-controller/app"
-)
-
-func main() {
-	ctx := signals.SetupSignalHandler()
-	if err := app.NewVirtualizationControllerCommand().ExecuteContext(ctx); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-}
+// +k8s:deepcopy-gen=package,register
+package componentconfig

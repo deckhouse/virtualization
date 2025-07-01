@@ -1,0 +1,69 @@
+{{- $registry := include "dvcr.get_registry" (list .) }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: virtualization-controller-config
+  namespace: d8-{{ .Chart.Name }}
+data:
+  config.yaml: |
+    apiVersion: configuration.virtualization.deckhouse.io/v1alpha1
+    kind: VirtualizationControllerConfiguration
+    spec:
+      namespace: d8-{{ .Chart.Name }}
+      virtControllerName: "virt-controller"
+      virtualMachineCIDRs:
+        {{- range .Values.virtualization.virtualMachineCIDRs }}
+        - {{ . | quote }}
+        {{- end }}
+      virtualMachineIPLeasesRetentionDuration: 10m
+      firmwareImage: {{ include "helm_lib_module_image" (list . "virtLauncher") }}
+      garbageCollector:
+        vmop:
+          ttl: 24h
+          schedule: "0 * * * *"
+        vmiMigration:
+          ttl: 24h
+          schedule: "0 * * * *"
+      {{- if (hasKey .Values.virtualization "virtualImages") }}
+      virtualImageStorageClassSettings:
+        storageClassName: {{ .Values.virtualization.virtualImages.storageClassName }}
+        defaultStorageClassName: {{ .Values.virtualization.virtualImages.defaultStorageClassName }}
+        {{- if (hasKey .Values.virtualization.virtualImages "allowedStorageClassSelector") }}
+        allowedStorageClassNames:
+          {{- range .Values.virtualization.virtualImages.allowedStorageClassSelector.matchNames }}
+          - {{ . | quote }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      {{- if (hasKey .Values.virtualization "virtualDisks") }}
+      virtualDiskStorageClassSettings:
+        defaultStorageClassName: {{ .Values.virtualization.virtualDisks.defaultStorageClassName }}
+        {{- if (hasKey .Values.virtualization.virtualDisks "allowedStorageClassSelector") }}
+        allowedStorageClassNames:
+          {{- range .Values.virtualization.virtualDisks.allowedStorageClassSelector.matchNames }}
+          - {{ . | quote }}
+          {{- end }}
+        {{- end }}
+      {{- end }}
+      importSettings:
+        importerImage: {{ include "helm_lib_module_image" (list . "dvcrImporter") }}
+        uploaderImage: {{ include "helm_lib_module_image" (list . "dvcrUploader") }}
+        bounderImage: {{ include "helm_lib_module_image" (list . "bounder") }}
+        requirements:
+          limits:
+            cpu: 750m
+            memory: 600Mi
+          requests:
+            cpu: 100m
+            memory: 60Mi
+      dvcr:
+        authSecret: dvcr-dockercfg-rw
+        certsSecret: dvcr-tls
+        registryURL: {{ $registry | quote }}
+        insecureTLS: true
+      ingress:
+        host: {{ include "helm_lib_module_public_domain" (list . "virtualization") }}
+        tlsSecret: {{ include "helm_lib_module_https_secret_name" (list . "ingress-tls") }}
+        class: {{ include "helm_lib_module_ingress_class" . | quote }}
+
