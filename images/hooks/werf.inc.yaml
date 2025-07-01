@@ -25,4 +25,5 @@ shell:
     export GOARCH=amd64
     export CGO_ENABLED=0
     export TAGS="{{ printf "-tags %s" .MODULE_EDITION }}"
-    go build -ldflags="-s -w" $TAGS -a -o /hooks/virtualization-module-hooks ./cmd/virtualization-module-hooks
+    {{- $_ := set $ "ProjectName" (list $.ImageName "hooks" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /hooks/virtualization-module-hooks ./cmd/virtualization-module-hooks`) | nindent 6 }}
