@@ -47,7 +47,7 @@ kind: Deployment
 metadata:
   name: virtualization-api
   namespace: d8-{{ .Chart.Name }}
-  {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-api")) | nindent 2 }}
+  {{- include "helm_lib_module_labels" (list . (dict "app.kubernetes.io/name" "virtualization-api" "app.kubernetes.io/component" "dvp")) | nindent 2 }}
 spec:
   {{- include "helm_lib_deployment_strategy_and_replicas_for_ha" . | nindent 2 }}
   revisionHistoryLimit: 2
