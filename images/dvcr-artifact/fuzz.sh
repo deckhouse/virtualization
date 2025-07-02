@@ -25,16 +25,12 @@ fuzz_pids=()
 inactivityTimeout=7200  # 2 hours = 7200 seconds
 
 cleanup() {
-  pids=$(ps aux | grep '[g]o test' | grep '-fuzz' | awk '{print $2}')
-  if [[ ! -z "$pids" ]]; then
-    echo "Killing the following processes:"
-    echo "$pids"
-    echo "$pids" | xargs kill 2>/dev/null || true
-    sleep 1
-    echo "$pids" | xargs kill -9 2>/dev/null || true
-  else
-    echo "No running fuzz processes found."
-  fi
+  echo -e "\nReceived interrupt. Stopping all fuzz tests..."
+
+  for pid in "${FUZZ_PIDS[@]}"; do
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  done
 
   echo "All fuzz tests stopped. Exiting."
   exit 0
