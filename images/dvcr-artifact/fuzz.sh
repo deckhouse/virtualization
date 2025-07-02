@@ -18,8 +18,23 @@ set -e
 
 mkdir -p /tmp/fuzz
 
-# Time threshold in seconds to stop if no new paths found
+fuzz_pids=()
+
 inactivityTimeout=7200  # 2 hours = 7200 seconds
+
+cleanup() {
+  echo -e "\nReceived interrupt. Stopping all fuzz tests..."
+
+  for pid in "${FUZZ_PIDS[@]}"; do
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+  done
+
+  echo "All fuzz tests stopped. Exiting."
+  exit 0
+}
+
+trap 'cleanup' SIGINT, SIGTERM
 
 files=$(grep -r --include='**_test.go' --files-with-matches 'func Fuzz' .)
 for file in ${files}; do
@@ -33,6 +48,7 @@ for file in ${files}; do
 
     go test $parentDir -fuzz=$func -cover -parallel=1 -v > "$logfile" 2>&1 &
     fuzz_pid=$!
+    fuzz_pids+=("$fuzz_pid")
 
     last_new_path=$(date +%s)
     last_new_count=-1
@@ -63,5 +79,9 @@ for file in ${files}; do
 
       sleep 60  # check every minute
     done
+
+    echo "Finished fuzzing $func"
   done
 done
+
+echo "All fuzz tests completed."
