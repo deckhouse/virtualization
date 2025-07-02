@@ -20,13 +20,9 @@ git:
     - relocate_binaries.sh
 import:
 - image: libs/libffi
-  add: /
-  to: /libffi8
+  add: /usr
+  to: /libffi8/usr
   before: install
-  includePaths:
-  - usr
-  # excludePaths:
-  # - .werf
 shell:
   install:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -36,5 +32,6 @@ shell:
         {{ $builderDependencies.libraries | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
   - |
+    ls -la /libffi8
     cp -a /libffi8/. /
     rm -rf /libffi8
