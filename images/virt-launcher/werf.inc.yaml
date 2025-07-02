@@ -100,7 +100,7 @@ libs:
   - libblkid-devel
   - libp11-kit-devel
   - libreadline-devel
-  - libattr-devel
+  # - libattr-devel
   - libbsd-devel
   - libsystemd-devel
   - libjson-c-devel
@@ -116,7 +116,7 @@ libs:
   - libisofs
   - libburn
 packages:
-  - attr
+  # - attr
   - ethtool
   - fdisk
   - glibc-gconv-modules
@@ -236,6 +236,10 @@ import:
   add: /swtpm
   to: /swtpm
   before: install
+- image: packages/binaries/libattr
+  add: /swtpm
+  to: /swtpm
+  before: install
 
 - image: packages/binaries/numactl
   add: /numactl
@@ -333,6 +337,7 @@ shell:
     cp -a /dmidecode/. /
     cp -a /acl/. /
     cp -a /libffi8/. /
+    cp -a /libattr/. /
 
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
@@ -355,7 +360,8 @@ shell:
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls,dmidecode,acl,libffi8}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls,dmidecode,acl}
+    rm -rf /{libffi8,libattr}
 
   setup:
   - |

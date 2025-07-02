@@ -14,7 +14,7 @@ packages:
 - clang ccache
 - make cmake
 - meson ninja-build
-- attr
+# - attr
 - iproute iptables iptables-nft iptables-ipv6
 - openvswitch ebtables
 - pkgconfig
@@ -84,6 +84,10 @@ import:
   add: /dmidecode
   to: /dmidecode
   before: install
+- image: packages/binaries/libattr
+  add: /dmidecode
+  to: /dmidecode
+  before: install
 - image: packages/binaries/lvm2
   add: /libdevmapper
   to: /lvm2
@@ -116,7 +120,8 @@ shell:
 
     cp -a /dmidecode/. /
     cp -a /lvm2/. /
-    rm -rf /{dmidecode,lvm2}
+    cp -a /libattr/. /
+    rm -rf /{dmidecode,lvm2,libattr}
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"
