@@ -49,7 +49,14 @@ metadata:
   namespace: d8-{{ .Chart.Name }}
   {{- include "helm_lib_module_labels" (list . (dict "app" "virtualization-api")) | nindent 2 }}
 spec:
-  {{- include "helm_lib_deployment_strategy_and_replicas_for_ha" . | nindent 2 }}
+  replicas: {{ include "helm_lib_is_ha_to_value" (list . 3 1) }}
+  {{- if (include "helm_lib_ha_enabled" .) }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+  {{- end }}
   revisionHistoryLimit: 2
   selector:
     matchLabels:
