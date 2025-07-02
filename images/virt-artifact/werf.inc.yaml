@@ -9,10 +9,10 @@ packages:
 - git
 - curl
 - pkg-config
-- libvirt-libs
 - libtool
-- libvirt-devel
 - libncurses-devel
+- libvirt-libs
+- libvirt-devel
 - libvirt-client
 - libvirt-daemon
 - libvirt

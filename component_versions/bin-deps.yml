@@ -1,26 +1,26 @@
 images:
-- cdi-importer:
-    binaries:
-      - /usr/sbin/nbdkit
-      - /usr/lib64/nbdkit/filters/*.so
-      - /usr/lib64/nbdkit/plugins/*.so
-      - /usr/lib64/libsqlite3.so.0
-      - /usr/bin/cdi-image-size-detection 
-      - /usr/bin/cdi-importer
-      - /usr/bin/cdi-source-update-poller
-    install-deps:
-      libraries:
-        - libsqlite3
-      packages:
-        - libnbd
-    self-build:
-      packages:
-        - glibc
-        - gmp
-        - gnutls
-        - libhogweed
-        - libidn
-        - zlib
-      deckhouse-packages:
-        - libs/libffi
-        - tools/util-linux
+  - cdi-importer:
+      binaries:
+        - /usr/sbin/nbdkit
+        - /usr/lib64/nbdkit/filters/*.so
+        - /usr/lib64/nbdkit/plugins/*.so
+        - /usr/lib64/libsqlite3.so.0
+        - /usr/bin/cdi-image-size-detection
+        - /usr/bin/cdi-importer
+        - /usr/bin/cdi-source-update-poller
+      install-deps:
+        libraries:
+          - libsqlite3
+        packages:
+          - libnbd
+      self-build:
+        packages:
+          - glibc
+          - gmp
+          - gnutls
+          - libhogweed
+          - libidn
+          - zlib
+        deckhouse-packages:
+          - libs/libffi
+          - tools/util-linux

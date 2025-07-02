@@ -3,6 +3,66 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- binutils
+- gcc-c++
+- git gettext
+- bash-completion
+- clang ccache
+- make cmake
+- meson ninja-build
+- attr
+- iproute iptables iptables-nft iptables-ipv6
+- openvswitch ebtables
+- pkgconfig
+- polkit kmod
+# - lvm2
+- parted
+- libnuma
+- qemu-img open-iscsi
+- xml-utils xsltproc
+- systemd-container polkit
+- python3 python3-devel
+- python3-module-pytest python3-module-docutils
+- python3-tools python3-module-pip
+- python3-module-black
+- mdevctl tshark
+- util-linux dmsetup pm-utils
+libraries:
+- libudev-devel
+- libpciaccess-devel
+- libyajl-devel sanlock-devel
+- libpcap-devel libnl-devel
+- libselinux-devel libsasl2-devel
+- libssh-devel
+- libssh2-devel
+- libparted-devel
+# - libdevmapper-devel
+- ceph-devel
+- libiscsi-devel libglusterfs-devel
+- libnuma-devel libcap-ng-devel
+- libcurl-devel libaudit-devel
+- libfuse-devel libnbd-devel
+- libblkid-devel libgcrypt-devel
+- libgnutls-devel libp11-kit-devel
+- libreadline-devel libtasn1-devel
+- libattr-devel libbsd-devel
+- libsystemd-devel libuuid-devel
+- libjson-c-devel systemtap-sdt-devel
+- libacl-devel glib2-devel glibc-utils
+- libgio-devel libxml2-devel
+- libtirpc-devel libsasl2-devel
+- wireshark-devel
+- zlib-devel libclocale
+- libfuse3-devel libslirp-devel
+- libyajl-devel libselinux-devel
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
 image: {{ $.ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "base-alt-p11" "builder/alt-go-svace" }}
@@ -24,6 +84,10 @@ import:
   add: /dmidecode
   to: /dmidecode
   before: install
+- image: packages/binaries/lvm2
+  add: /libdevmapper
+  to: /lvm2
+  before: install
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -31,86 +95,9 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get install --yes \
-    binutils \
-    gcc-c++ \
-    git \
-    gettext \
-    bash-completion \
-    clang \
-    ccache \
-    make cmake \
-    meson \
-    ninja-build \
-    libudev-devel \
-    libpciaccess-devel \
-    libyajl-devel \
-    sanlock-devel \
-    libpcap-devel \
-    libnl-devel \
-    libselinux-devel \
-    iproute \
-    iptables \
-    iptables-nft \
-    iptables-ipv6 \
-    openvswitch \
-    ebtables \
-    libsasl2-devel \
-    pkgconfig \
-    libssh-devel \
-    libssh2-devel \
-    polkit kmod \
-    qemu-img \
-    lvm2 \
-    libparted-devel \
-    parted \
-    libdevmapper-devel \
-    ceph-devel \
-    open-iscsi \
-    libiscsi-devel \
-    libglusterfs-devel \
-    libnuma-devel \
-    libcap-ng-devel \
-    libcurl-devel \
-    libaudit-devel \
-    libfuse-devel \
-    libnbd-devel \
-    libblkid-devel \
-    libgcrypt-devel \
-    libgnutls-devel \
-    libp11-kit-devel \
-    libreadline-devel \
-    libtasn1-devel \
-    libattr-devel \
-    libbsd-devel \
-    libsystemd-devel \
-    libuuid-devel \
-    libjson-c-devel \
-    systemtap-sdt-devel \
-    systemd-container \
-    attr \
-    libacl-devel \
-    glib2-devel \
-    glibc-utils \
-    libgio-devel \
-    libxml2-devel \
-    xml-utils \
-    xsltproc \
-    python3 python3-devel \
-    python3-module-pytest \
-    python3-module-docutils \
-    python3-tools \
-    python3-module-pip \
-    polkit \
-    libtirpc-devel \
-    libsasl2-devel \
-    wireshark-devel \
-    tshark \
-    zlib-devel \
-    mdevctl \
-    util-linux dmsetup pm-utils libclocale \
-    libfuse3-devel libnuma libslirp-devel \
-    libyajl-devel libselinux-devel
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }} \
+      {{ $builderDependencies.libraries | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
   - |
@@ -128,7 +115,8 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     cp -a /dmidecode/. /
-    rm -rf /dmidecode
+    cp -a /lvm2/. /
+    rm -rf /{dmidecode,lvm2}
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"
