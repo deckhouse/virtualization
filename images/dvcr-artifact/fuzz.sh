@@ -20,8 +20,8 @@ go clean -fuzzcache
 
 mkdir -p /tmp/fuzz
 
+fuzzTime=${FUZZ_TIME:-2m}
 fuzz_pids=()
-
 inactivityTimeout=7200  # 2 hours = 7200 seconds
 
 cleanup() {
@@ -48,7 +48,7 @@ for file in ${files}; do
 
     logfile="/tmp/fuzz/fuzz_$(basename "$func")_$(date +%s).log"
 
-    go test $parentDir -fuzz=$func -cover -parallel=1 -v > "$logfile" 2>&1 &
+    go test $parentDir -fuzz=$func -fuzztime=${fuzzTime} -cover -parallel=1 -v > "$logfile" 2>&1 &
     fuzz_pid=$!
     fuzz_pids+=("$fuzz_pid")
 
