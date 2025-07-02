@@ -26,6 +26,10 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2}}
+  - apt-get install -y meson
+  {{- include "alt packages clean" . | nindent 2}}
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
@@ -46,6 +50,17 @@ shell:
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
         submodule update --init --recursive
+
+      echo "Download meson subprojects with URL rewrites."
+      # Configure script options require only 3 subprojects.
+      for subproj in berkeley-softfloat-3 berkeley-testfloat-3 keycodemapdb ; do
+        echo "Rewrite url for ${subproj} subproject."
+        wrapfile="subprojects/${subproj}.wrap"
+        # Rewrite https://HOSTNAME/ to SOURCE_REPO secret in the wrap file.
+        sed -i '/^#/n ; /^url/ s|\(url\ \?=\ \?\)\(.*:\/\/[^\/]*\/\)|\1'$(cat /run/secrets/SOURCE_REPO)'\/|' ${wrapfile}
+        meson subprojects download ${subproj}
+      done
+
     fi
 
 ---

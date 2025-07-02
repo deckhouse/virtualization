@@ -20,12 +20,30 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2}}
+  - apt-get install -y meson
+  {{- include "alt packages clean" . | nindent 2}}
+
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    # rm -rf /src/.git
+
+    if [[ ! "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      # Clone meson wraps with url rewrite.
+      # Configure script options require only 3 subprojects.
+      cd /src
+      for subproj in gvdb libffi sysprof ; do
+        echo "Rewrite url for ${subproj} subproject."
+        wrapfile="subprojects/${subproj}.wrap"
+        # Rewrite https://HOSTNAME/ to SOURCE_REPO secret in the wrap file.
+        sed -i '/^#/n ; /^url/ s|\(url\ \?=\ \?\)\(.*:\/\/[^\/]*\/\)|\1'$(cat /run/secrets/SOURCE_REPO)'\/|' ${wrapfile}
+        meson subprojects download ${subproj}
+      done
+    fi
+
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -52,7 +70,7 @@ shell:
   - |
     apt-get install -y \
       {{ $builderDependencies.packages | join " " }}
-  
+
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:

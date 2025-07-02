@@ -44,7 +44,7 @@ shell:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git gperf glibc-devel-static wget
+- gcc git gperf glibc-devel-static
 - make autoconf automake libtool makeinfo gettext-devel patch
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - gem-gettext-devel gettext po4a
@@ -70,9 +70,7 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get update
-    apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+    apt-get install -y {{ $builderDependencies.packages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
@@ -82,7 +80,7 @@ shell:
 
     cd /src
 
-    ./bootstrap
+    ./bootstrap --skip-po
 
     ./configure \
       --prefix=/usr \

@@ -49,7 +49,6 @@ packages:
 - zlib
 - libblkio
 - libnbd
-- libtorrent-rasterbar-devel
 - libssh
 {{- end -}}
 
@@ -77,14 +76,15 @@ shell:
     OUTDIR=/out
 
     cd /src
-    
+
     autoreconf -i
 
     ./configure \
       --disable-static \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --without-bash-completions
+      --without-bash-completions \
+      --disable-torrent
 
     make -j$(nproc)
 
