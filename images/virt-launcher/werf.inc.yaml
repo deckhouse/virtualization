@@ -463,11 +463,15 @@ git:
       - '**/*'
 shell:
   install:
+{{- if eq $.SVACE_ENABLED "false" }}
   {{- include "debian packages proxy" . | nindent 2 }}
-  - |
-    echo "install deps libvirt-dev"
-    apt-get update && apt-get install -y libvirt-dev
+  - apt-get -qq install -y --no-install-recommends libvirt-dev
   {{- include "debian packages clean" . | nindent 2 }}
+{{- else }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - apt-get -qq install -y libvirt-devel
+  {{- include "alt packages clean" . | nindent 2 }}
+{{- end }}
   - mkdir -p /binaries
   - |
     echo "Build node-labeller binaries"
