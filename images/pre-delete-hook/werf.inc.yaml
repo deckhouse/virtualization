@@ -1,7 +1,7 @@
 ---
 image: pre-delete-hook-builder
 final: false
-fromImage: builder/golang-bookworm-1.23
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
 - add: /images/{{ $.ImageName }}
   to: /pre-delete-hook
@@ -23,7 +23,9 @@ shell:
   - export GOOS=linux
   - export GOARCH=amd64
   - export CGO_ENABLED=0
-  - go build -v -a -o pre-delete-hook main.go
+  - |
+    {{- $_ := set $ "ProjectName" (list $.ImageName "pre-delete-hook" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o pre-delete-hook main.go`) | nindent 6 }}
 ---
 image: {{ $.ImageName }}
 fromImage: builder/scratch
