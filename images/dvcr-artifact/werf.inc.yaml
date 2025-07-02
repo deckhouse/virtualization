@@ -109,7 +109,7 @@ shell:
     cp -a /bzip2/. /
     cp -a /file/. /
     cp -a /nbdkit/. /
-    rm -rf /{file,bzip2,qemu-img}
+    rm -rf /{file,bzip2,nbdkit,qemu-img}
 
   setup:
   - |
