@@ -35,20 +35,27 @@ for file in ${files}; do
     fuzz_pid=$!
 
     last_new_path=$(date +%s)
+    last_new_count=0
 
     while ps -p "$fuzz_pid" > /dev/null 2>&1; do
       # Check if any new path was found in recent log
-      new_path_line=$(tail -n 50 "$logfile" | grep "new interesting" | tail -1)
+      new_path_line=$(tail -n 50 "$logfile" | grep -oE 'new interesting: [0-9]+' | tail -1)
       if [[ -n "$new_path_line" ]]; then
-        last_new_path=$(date +%s)
-        echo "💡 New path found at $(date)"
+        current_new_count=$(echo "$new_path_line" | awk '{print $3}')
+
+        # Only update timestamp if new value is higher than before
+        if (( current_new_count > last_new_count )); then
+          echo "💡 New path count increased to $current_new_count at $(date)"
+          last_new_path=$(date +%s)
+          last_new_count=$current_new_count
+        fi
       fi
 
       current_time=$(date +%s)
       inactive_duration=$((current_time - last_new_path))
 
       if (( inactive_duration > inactivityTimeout )); then
-        echo "🕒 No new paths for $inactivityTimeout seconds. Stopping this fuzz test."
+        echo "No new paths for $inactivityTimeout seconds. Stopping this fuzz test."
         kill "$fuzz_pid" 2>/dev/null || true
         wait "$fuzz_pid" 2>/dev/null || true
         break
@@ -58,4 +65,3 @@ for file in ${files}; do
     done
   done
 done
-
