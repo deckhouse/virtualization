@@ -16,7 +16,7 @@
 
 set -e
 
-mkdir -p /fuzz
+mkdir -p /tmp/fuzz
 
 # Time threshold in seconds to stop if no new paths found
 inactivityTimeout=7200  # 2 hours = 7200 seconds
@@ -29,7 +29,7 @@ for file in ${files}; do
     echo "Fuzzing $func in $file"
     parentDir=$(dirname $file)
 
-    logfile="/fuzz/fuzz_$(basename "$func")_$(date +%s).log"
+    logfile="/tmp/fuzz/fuzz_$(basename "$func")_$(date +%s).log"
 
     go test $parentDir -fuzz=$func -cover -parallel=1 -v > "$logfile" 2>&1 &
     fuzz_pid=$!
