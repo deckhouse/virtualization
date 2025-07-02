@@ -35,7 +35,7 @@ for file in ${files}; do
     fuzz_pid=$!
 
     last_new_path=$(date +%s)
-    last_new_count=0
+    last_new_count=-1
 
     while ps -p "$fuzz_pid" > /dev/null 2>&1; do
       # Check if any new path was found in recent log
@@ -45,7 +45,7 @@ for file in ${files}; do
 
         # Only update timestamp if new value is higher than before
         if (( current_new_count > last_new_count )); then
-          echo "💡 New path count increased to $current_new_count at $(date)"
+          echo "Test: $func. New path count increased to $current_new_count at $(date)"
           last_new_path=$(date +%s)
           last_new_count=$current_new_count
         fi
@@ -55,7 +55,7 @@ for file in ${files}; do
       inactive_duration=$((current_time - last_new_path))
 
       if (( inactive_duration > inactivityTimeout )); then
-        echo "No new paths for $inactivityTimeout seconds. Stopping this fuzz test."
+        echo "Test: $func. No new paths for $inactivityTimeout seconds. Stopping this fuzz test."
         kill "$fuzz_pid" 2>/dev/null || true
         wait "$fuzz_pid" 2>/dev/null || true
         break
