@@ -32,6 +32,5 @@ shell:
         {{ $builderDependencies.libraries | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
   - |
-    ls -la /libffi8
     cp -a /libffi8/. /
     rm -rf /libffi8
