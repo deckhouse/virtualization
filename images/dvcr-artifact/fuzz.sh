@@ -33,10 +33,13 @@ cleanup() {
   done
 
   # kill workers if they are still running
-  worker_pid=$(ps aux | grep 'fuzzworker' | awk '{print $2}' | sort | head -1)
-  if [[ ! -z "$pid" ]]; then
-    kill "$worker_pid" 2>/dev/null || true
-    wait "$worker_pid" 2>/dev/null || true
+  pids=$(ps aux | grep 'fuzzworker' | awk '{print $2}')
+  if [[ ! -z "$pids" ]]; then
+    echo "🧹 Killing the following processes:"
+    echo "$pids"
+    echo "$pids" | xargs kill 2>/dev/null || true
+    sleep 1  # wait a moment for them to terminate
+    echo "$pids" | xargs kill -9 2>/dev/null || true
   fi
 
   echo "All fuzz tests stopped. Exiting."
@@ -85,10 +88,13 @@ for file in ${files}; do
         wait "$fuzz_pid" 2>/dev/null || true
 
         # kill workers if they are still running
-        worker_pid=$(ps aux | grep 'fuzzworker' | awk '{print $2}' | sort | head -1)
-        if [[ ! -z "$pid" ]]; then
-          kill "$worker_pid" 2>/dev/null || true
-          wait "$worker_pid" 2>/dev/null || true
+        pids=$(ps aux | grep 'fuzzworker' | awk '{print $2}')
+        if [[ ! -z "$pids" ]]; then
+          echo "Killing the following processes:"
+          echo "$pids"
+          echo "$pids" | xargs kill 2>/dev/null || true
+          sleep 1  # wait a moment for them to terminate
+          echo "$pids" | xargs kill -9 2>/dev/null || true
         fi
 
         break
