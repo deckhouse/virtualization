@@ -49,7 +49,7 @@ func NewVirtualizationControllerCommand() *cobra.Command {
 		Args:          cobra.NoArgs,
 		SilenceErrors: true,
 		SilenceUsage:  true,
-		RunE:          opts.run,
+		RunE:          opts.Run,
 	}
 
 	opts.AddFlags(cmd.Flags())
@@ -80,7 +80,7 @@ func (o *options) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&o.LeaderElection, "leader-election", true, "enable leader election")
 }
 
-func (o *options) run(cmd *cobra.Command, _ []string) error {
+func (o *options) Run(cmd *cobra.Command, _ []string) error {
 	log := logger.NewLogger(o.LogLevel, o.LogOutput, o.LogDebugVerbosity)
 	logger.SetDefaultLogger(log)
 
