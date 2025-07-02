@@ -32,6 +32,16 @@ cleanup() {
     wait "$pid" 2>/dev/null || true
   done
 
+  # kill workers if they are still running
+  pids=$(ps aux | grep 'fuzzworker' | awk '{print $2}')
+  if [[ ! -z "$pids" ]]; then
+    echo "🧹 Killing the following processes:"
+    echo "$pids"
+    echo "$pids" | xargs kill 2>/dev/null || true
+    sleep 1  # wait a moment for them to terminate
+    echo "$pids" | xargs kill -9 2>/dev/null || true
+  fi
+
   echo "All fuzz tests stopped. Exiting."
   exit 0
 }
@@ -76,6 +86,18 @@ for file in ${files}; do
         echo "Test: $func. No new paths for $inactivityTimeout seconds. Stopping this fuzz test."
         kill "$fuzz_pid" 2>/dev/null || true
         wait "$fuzz_pid" 2>/dev/null || true
+
+        # kill workers if they are still running
+        pids=$(ps aux | grep 'fuzzworker' | awk '{print $2}')
+        if [[ ! -z "$pids" ]]; then
+          echo "Killing the following processes:"
+          echo "$pids"
+
+          echo "$pids" | xargs kill 2>/dev/null || true
+          sleep 1  # wait a moment for them to terminate
+          echo "$pids" | xargs kill -9 2>/dev/null || true
+        fi
+
         break
       fi
 
