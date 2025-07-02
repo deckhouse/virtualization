@@ -36,7 +36,7 @@ cleanup() {
   exit 0
 }
 
-trap 'cleanup' SIGINT, SIGTERM
+trap 'cleanup' SIGINT
 
 files=$(grep -r --include='**_test.go' --files-with-matches 'func Fuzz' .)
 for file in ${files}; do
