@@ -85,8 +85,8 @@ import:
   to: /dmidecode
   before: install
 - image: packages/binaries/libattr
-  add: /dmidecode
-  to: /dmidecode
+  add: /libattr
+  to: /libattr
   before: install
 - image: packages/binaries/lvm2
   add: /libdevmapper
