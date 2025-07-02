@@ -24,14 +24,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config/apis/componentconfig"
 	"github.com/deckhouse/virtualization-controller/pkg/config/apis/componentconfig/install"
 	"github.com/deckhouse/virtualization-controller/pkg/config/apis/componentconfig/v1alpha1"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
-
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 )
 
 func Load(path string) (*componentconfig.VirtualizationControllerConfiguration, error) {
@@ -44,7 +43,6 @@ func Load(path string) (*componentconfig.VirtualizationControllerConfiguration, 
 		return nil, err
 	}
 	return decodedConfig, nil
-
 }
 
 func decodeVirtualizationControllerConfiguration(configBytes []byte) (*componentconfig.VirtualizationControllerConfiguration, error) {
@@ -95,8 +93,6 @@ func setVirtualizationControllerConfigurationSpecDefaults(spec *componentconfig.
 			"memory": resource.MustParse("60Mi"),
 		}
 	}
-
-	return
 }
 
 func validateVirtualizationControllerConfigurationSpec(spec componentconfig.VirtualizationControllerConfigurationSpec) error {

@@ -19,8 +19,9 @@ package app
 import (
 	"context"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/deckhouse/deckhouse/pkg/log"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/config/apis/componentconfig"
@@ -49,7 +50,7 @@ var controllers = map[string]func(
 	configuration *componentconfig.VirtualizationControllerConfiguration,
 	virtualizationClient kubeclient.Client,
 ) error{
-	cvi.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	cvi.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		_, err := cvi.NewController(ctx,
 			mgr,
 			log,
@@ -60,7 +61,7 @@ var controllers = map[string]func(
 			configuration.Spec.Namespace)
 		return err
 	},
-	vd.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vd.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		_, err := vd.NewController(
 			ctx,
 			mgr,
@@ -72,7 +73,7 @@ var controllers = map[string]func(
 			config.ToLegacyVirtualDiskStorageClassSettings(configuration))
 		return err
 	},
-	vi.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vi.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		_, err := vi.NewController(
 			ctx,
 			mgr,
@@ -85,7 +86,7 @@ var controllers = map[string]func(
 			config.ToLegacyVirtualImageStorageClassSettings(configuration))
 		return err
 	},
-	vm.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vm.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		return vm.SetupController(
 			ctx,
 			mgr,
@@ -93,7 +94,7 @@ var controllers = map[string]func(
 			config.ToLegacyDVCR(configuration),
 			configuration.Spec.FirmwareImage)
 	},
-	vm.GCVMMigrationControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vm.GCVMMigrationControllerName: func(_ context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		return vm.SetupGC(mgr, log, configuration.Spec.GarbageCollector.VMIMigration)
 	},
 	vmbda.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
@@ -104,37 +105,37 @@ var controllers = map[string]func(
 		_, err := vmip.NewController(ctx, mgr, virtualizationClient, log, configuration.Spec.VirtualMachineCIDRs)
 		return err
 	},
-	vmiplease.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vmiplease.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		_, err := vmiplease.NewController(ctx, mgr, log, configuration.Spec.VirtualMachineIPLeasesRetentionDuration)
 		return err
 	},
-	vmclass.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vmclass.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		_, err := vmclass.NewController(ctx, mgr, configuration.Spec.Namespace, log)
 		return err
 	},
-	vdsnapshot.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vdsnapshot.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, _ *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
 		_, err := vdsnapshot.NewController(ctx, mgr, log, virtualizationClient)
 		return err
 	},
-	vmsnapshot.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vmsnapshot.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, _ *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
 		return vmsnapshot.NewController(ctx, mgr, log, virtualizationClient)
 	},
-	vmrestore.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vmrestore.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, _ *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		return vmrestore.NewController(ctx, mgr, log)
 	},
-	vmop.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vmop.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, _ *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		return vmop.SetupController(ctx, mgr, log)
 	},
-	vmop.GCControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	vmop.GCControllerName: func(_ context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		return vmop.SetupGC(mgr, log, configuration.Spec.GarbageCollector.VMOP)
 	},
-	livemigration.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	livemigration.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, _ *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		return livemigration.SetupController(ctx, mgr, log)
 	},
-	workloadupdater.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	workloadupdater.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, _ kubeclient.Client) error {
 		return workloadupdater.SetupController(ctx, mgr, log, configuration.Spec.FirmwareImage, configuration.Spec.Namespace, configuration.Spec.VirtControllerName)
 	},
-	evacuation.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, configuration *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
+	evacuation.ControllerName: func(ctx context.Context, mgr manager.Manager, log *log.Logger, _ *componentconfig.VirtualizationControllerConfiguration, virtualizationClient kubeclient.Client) error {
 		return evacuation.SetupController(ctx, mgr, virtualizationClient, log)
 	},
 }

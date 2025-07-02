@@ -20,17 +20,16 @@ import (
 	"fmt"
 	"runtime"
 
-	deckhouselog "github.com/deckhouse/deckhouse/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
+	deckhouselog "github.com/deckhouse/deckhouse/pkg/log"
 	virtualizationconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"

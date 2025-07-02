@@ -29,7 +29,7 @@ func TestConfig(t *testing.T) {
 }
 
 var _ = Describe("Config", func() {
-	var cfgRaw = []byte(`apiVersion: configuration.virtualization.deckhouse.io/v1alpha1
+	cfgRaw := []byte(`apiVersion: configuration.virtualization.deckhouse.io/v1alpha1
 kind: VirtualizationControllerConfiguration
 spec:
   namespace: d8-virtualization

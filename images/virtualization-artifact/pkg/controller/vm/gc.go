@@ -24,7 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-
 	"github.com/deckhouse/virtualization-controller/pkg/config/apis/componentconfig"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 )
