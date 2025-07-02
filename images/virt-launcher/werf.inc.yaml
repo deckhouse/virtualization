@@ -257,7 +257,7 @@ import:
 
 - image: libs/libffi
   add: /usr
-  to: /libffi8
+  to: /libffi8/usr
   before: install
 
 
