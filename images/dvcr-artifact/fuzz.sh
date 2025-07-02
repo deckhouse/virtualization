@@ -63,7 +63,7 @@ for file in ${files}; do
 
         # Only update timestamp if new value is higher than before
         if (( current_new_count > last_new_count )); then
-          echo "Test: $func. New path count increased to $current_new_count at $(date)"
+          echo "Test: $func. New path count increased to $current_new_count at $(date '+%T %Y-%m-%d')"
           last_new_path=$(date +%s)
           last_new_count=$current_new_count
         fi
