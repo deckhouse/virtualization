@@ -55,7 +55,6 @@ for file in ${files}; do
     go test $parentDir -fuzz=$func -cover -parallel=1 -v > "$logfile" 2>&1 &
     fuzz_pid=$!
     fuzz_pids+=("$fuzz_pid")
-    echo $fuzz_pids
 
     last_new_path=$(date +%s)
     last_new_count=-1
