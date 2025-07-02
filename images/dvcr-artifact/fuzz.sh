@@ -16,6 +16,8 @@
 
 set -e
 
+go clean -fuzzcache
+
 mkdir -p /tmp/fuzz
 
 fuzz_pids=()
