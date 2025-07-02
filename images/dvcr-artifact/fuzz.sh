@@ -20,11 +20,10 @@ mkdir -p /fuzz
 
 # Time threshold in seconds to stop if no new paths found
 inactivityTimeout=7200  # 2 hours = 7200 seconds
-fuzzTime=${FUZZ_TIME:-2m}
 
 files=$(grep -r --include='**_test.go' --files-with-matches 'func Fuzz' .)
 for file in ${files}; do
-  funcs=$(grep -o 'func \(Fuzz\w*\)' $file)
+  funcs=$(grep -o 'func \(Fuzz\w*\)' $file | sed -E 's/func (Fuzz[^ ]*).*/\1/' | sort | uniq)
 
   for func in ${funcs}; do
     echo "Fuzzing $func in $file"
