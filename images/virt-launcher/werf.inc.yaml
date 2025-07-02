@@ -94,7 +94,7 @@ libs:
   - libparted-devel
   - libdevmapper-devel
   - libglusterfs-devel
-  - libaudit-devel
+  # - libaudit-devel
   - libfuse-devel
   - libnbd-devel
   - libblkid-devel
@@ -236,9 +236,14 @@ import:
   add: /swtpm
   to: /swtpm
   before: install
+
 - image: packages/binaries/libattr
-  add: /swtpm
-  to: /swtpm
+  add: /libattr
+  to: /libattr
+  before: install
+- image: packages/binaries/libaudit
+  add: /libaudit
+  to: /libaudit
   before: install
 
 - image: packages/binaries/numactl
@@ -338,6 +343,7 @@ shell:
     cp -a /acl/. /
     cp -a /libffi8/. /
     cp -a /libattr/. /
+    cp -a /libaudit/. /
 
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
@@ -361,7 +367,7 @@ shell:
     ls -la /relocate/usr/lib64
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls,dmidecode,acl}
-    rm -rf /{libffi8,libattr}
+    rm -rf /{libffi8,libattr,libaudit}
 
   setup:
   - |
