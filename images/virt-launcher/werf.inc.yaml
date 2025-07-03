@@ -445,7 +445,7 @@ shell:
 ---
 image: {{ $.ImageName }}-gobuilder
 final: false
-fromImage: builder/golang-bookworm-1.23
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
   - add: /images/{{ $.ImageName }}/node-labeller
     to: /node-labeller
@@ -463,17 +463,22 @@ git:
       - '**/*'
 shell:
   install:
+{{- if eq $.SVACE_ENABLED "false" }}
   {{- include "debian packages proxy" . | nindent 2 }}
-  - |
-    echo "install deps libvirt-dev"
-    apt-get update && apt-get install -y libvirt-dev
+  - apt-get -qq install -y --no-install-recommends libvirt-dev
   {{- include "debian packages clean" . | nindent 2 }}
+{{- else }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - apt-get -qq install -y libvirt-devel
+  {{- include "alt packages clean" . | nindent 2 }}
+{{- end }}
   - mkdir -p /binaries
   - |
     echo "Build node-labeller binaries"
     cd /node-labeller
     echo '== go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller =='
-    go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller
+    {{- $_ := set $ "ProjectName" (list $.ImageName "node-labeller" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /binaries/node-labeller ./cmd/node-labeller`) | nindent 6 }}
     echo "Done"
   - |
     cd /src-vlctl
@@ -481,7 +486,8 @@ shell:
     export GOARCH=amd64
     export CGO_ENABLED=0
     echo '== go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go =='
-    go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go
+    {{- $_ := set $ "ProjectName" (list $.ImageName "vlctl" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go`) | nindent 6 }}
     echo "Done"
 ---
 image: {{ $.ImageName }}-cbuilder
