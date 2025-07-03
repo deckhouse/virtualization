@@ -22,7 +22,8 @@ packages:
 # - lvm2
 - parted
 - libnuma
-- qemu-img open-iscsi
+# - qemu-img 
+- open-iscsi
 - xml-utils xsltproc
 - systemd-container polkit
 - python3 python3-devel
@@ -43,6 +44,7 @@ libraries:
 # - libdevmapper-devel
 # - libbsd-devel
 # - libblkid-devel
+- libmd-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
 - libnuma-devel libcap-ng-devel
@@ -102,6 +104,10 @@ import:
   add: /libblkid/usr
   to: /libblkid/usr
   before: install
+- image: qemu
+  add: /qemu-img
+  to: /qemu-img
+  before: install
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -133,8 +139,9 @@ shell:
     cp -a /libattr/. /
     cp -a /libbsd/. /
     cp -a /libblkid/. /
+    cp -a /qemu-img/. /
 
-    rm -rf /{dmidecode,lvm2,libattr,libbsd,libblkid}
+    rm -rf /{dmidecode,lvm2,libattr,libbsd,libblkid,qemu-img}
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
