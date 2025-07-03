@@ -18,6 +18,7 @@ package uploader
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"testing"
@@ -33,22 +34,13 @@ const (
 )
 
 func FuzzUploader(f *testing.F) {
-	uploaderPort, err := fuzz.GetFreePort()
-	if err != nil {
-		f.Fatalf("failed to parse uploaderEnv: %v", err)
-	}
-
-	mockPort, err := fuzz.GetFreePort()
-	if err != nil {
-		f.Fatalf("failed to parse mockEnv: %v", err)
-	}
-
 	addr := "127.0.0.1"
-	url := fmt.Sprintf("http://%s:%d/upload", addr, uploaderPort)
 
-	startUploaderServer(f, addr, uploaderPort, mockPort)
+	mockPort := startDVCRMockServer(f, addr)
+	uploaderPort := startUploaderServer(f, addr, mockPort)
 
-	startDVCRMockServer(f, addr, mockPort)
+	f.Logf("fuzzing uploader server on port %d", uploaderPort)
+	f.Logf("mock server on port %d", mockPort)
 
 	// 512 bytes is the minimum size of a qcow2 image
 	minimalQCow2 := [512]byte{
@@ -58,12 +50,13 @@ func FuzzUploader(f *testing.F) {
 	}
 	f.Add(minimalQCow2[:])
 
+	url := fmt.Sprintf("http://%s:%d/upload", addr, uploaderPort)
 	f.Fuzz(func(t *testing.T, data []byte) {
 		fuzz.ProcessRequests(t, data, url, http.MethodPut, http.MethodPost)
 	})
 }
 
-func startUploaderServer(tb testing.TB, addr string, uploaderPort, mockPort int) *uploadServerApp {
+func startUploaderServer(tb testing.TB, addr string, mockPort int) (uploaderPort int) {
 	tb.Helper()
 
 	endpoint := fmt.Sprintf("%s:%d/uploader", addr, mockPort)
@@ -92,28 +85,71 @@ func startUploaderServer(tb testing.TB, addr string, uploaderPort, mockPort int)
 		}
 	}()
 
-	return srv
+	<-srv.listenChan
+
+	return srv.bindPort
 }
 
-func startDVCRMockServer(tb testing.TB, addr string, port int) {
+func startDVCRMockServer(tb testing.TB, addr string) (port int) {
 	tb.Helper()
-
-	url := fmt.Sprintf("%s:%d", addr, port)
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /v2/uploader/blobs/uploads/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Location", fmt.Sprintf("/v2/uploader/blobs/uploads/test_data"))
+		w.Header().Add("Location", "/v2/uploader/blobs/uploads/test_data")
 		w.WriteHeader(http.StatusAccepted)
+	})
+
+	mux.HandleFunc("PATCH /v2/uploader/blobs/uploads/test_data/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Location", "/v2/uploader/blobs/uploads/test_data")
+		w.WriteHeader(http.StatusAccepted)
+	})
+
+	mux.HandleFunc("PUT /v2/uploader/blobs/uploads/test_data/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Location", "/v2/uploader/blobs/uploads/test_data")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux.HandleFunc("GET /v2/uploader/blobs/uploads/test_data/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Location", "/v2/uploader/blobs/uploads/test_data")
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	mux.HandleFunc("HEAD /v2/uploader/manifests/latest/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/octet-stream")
+		w.Header().Add("Content-Length", "10")
+		w.Header().Add("Docker-Content-Digest", "sha256:af3ca10a606165f3cad5226c504cea77b9f5169df6a536b26aeffd2e651c0ada")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux.HandleFunc("PUT /v2/uploader/manifests/latest/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/octet-stream")
+		w.Header().Add("Content-Length", "10")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux.HandleFunc("GET /v2/uploader/manifests/latest/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/octet-stream")
+		w.Header().Add("Content-Length", "10")
+		w.WriteHeader(http.StatusOK)
 	})
 
 	mux.HandleFunc("GET /v2/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:0", addr))
+	if err != nil {
+		tb.Fatalf("failed to listen: %v", err)
+	}
+
+	port = listener.Addr().(*net.TCPAddr).Port
+
 	go func() {
-		if err := http.ListenAndServe(url, mux); err != nil {
-			tb.Fatalf("failed to listen and serve mock server: %v", err)
+		if err := http.Serve(listener, mux); err != nil {
+			tb.Fatalf("failed to serve mock server: %v", err)
 		}
 	}()
+
+	return port
 }
