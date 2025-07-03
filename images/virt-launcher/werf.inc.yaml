@@ -101,7 +101,7 @@ libs:
   - libp11-kit-devel
   - libreadline-devel
   # - libattr-devel
-  - libbsd-devel
+  # - libbsd-devel
   - libsystemd-devel
   - libjson-c-devel
   - systemtap-sdt-devel
@@ -267,6 +267,10 @@ import:
   add: /acl
   to: /acl
   before: install
+- image: packages/binaries/libbsd
+  add: /libbsd
+  to: /libbsd
+  before: install
 
 - image: libs/libffi
   add: /usr
@@ -341,6 +345,7 @@ shell:
     # install binaries from images
     cp -a /libisoburn/. /
     cp -a /libburn/. /
+    cp -a /libbsd/. /
     cp -a /swtpm/. /
     cp -a /numactl/. /
     cp -a /gnutls/. /
@@ -372,7 +377,7 @@ shell:
     ls -la /relocate/usr/lib64
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins,libisoburn,libburn,swtpm,numactl,gnutls,dmidecode,acl}
-    rm -rf /{libffi8,libattr,libaudit}
+    rm -rf /{libffi8,libattr,libaudit,libbsd}
 
   setup:
   - |
