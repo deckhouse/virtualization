@@ -20,10 +20,11 @@ packages:
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - gem-gettext-devel gettext po4a
 - libnettle-devel libp11-kit-devel libunistring-devel
-- libtpm2-tss-devel libtrousers-devel libbrotli-devel
+- libtpm2-tss-devel libtrousers-devel
 - libtasn1-devel libtasn1-utils libidn2-devel zlib-devel
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libgcrypt-devel libopencdk-devel
+- libbrotli-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -34,6 +35,11 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
+import:
+# - image: packages/binaries/libbrotli
+#   add: /libbrotli
+#   to: /libbrotli
+#   before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -45,6 +51,9 @@ shell:
 
   install:
   - |
+    # cp -a /libbrotli/. /
+    # rm -rf /libbrotli
+
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 

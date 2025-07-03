@@ -3,35 +3,34 @@ firmware:
   libvirt: 10.9.0
   edk2: stable202411
 package:
-  swtpm: 0.10.0
-  xorriso: release-1.5.6
-  numactl: 2.0.19
-  nftables: 1.1.3
-  openssl: openssl-3.4.1
-  nbdkit: 1.39.5
-  gnutls: 3.8.6
-  dmidecode: 3-6
-  glibc: glibc-2.38
-  glib2: 2.82.5
   acl: 2.3.1
   bzip2: bzip2-1.0.8
-  libbrotli: v1.1.0
-  libburn: release-1.5.6
-  libblkid: v2.41
-  libattr: v2.5.2
-  libbsd: 0.12.2
-  libaudit: v4.0.3
-  file: FILE5_45
-  gcc: releases/gcc-14.2.0
-  gmp: 6.3.0
-  lvm2: v2_03_32
+  dmidecode: 3-6
   dtc: v1.7.2
+  file: FILE5_45
   fuse3: fuse-3.16.2
+  gcc: releases/gcc-14.2.0
+  glib2: 2.82.5
+  glibc: glibc-2.38
+  gmp: 6.3.0
+  gnutls: 3.8.6
+  libattr: v2.5.2
+  libaudit: v4.0.3
+  libblkid: v2.41
+  libbrotli: v1.1.0
+  libbsd: 0.12.2
+  libburn: release-1.5.6
   libgcrypt: libgcrypt-1.10.2
   libgpg-error: libgpg-error-1.55
+  libgsasl: v2.2.2
   libhogweed: nettle_3.10.1_release_20241230
   libibverbs: 1.0.0
-  libisoburn: release-1.5.6
-  libgsasl: v2.2.2
   libidn: 12.6.6
   libidn2: v2.3.8
+  libisoburn: release-1.5.6
+  lvm2: v2_03_32
+  nbdkit: 1.39.5
+  nftables: 1.1.3
+  numactl: 2.0.19
+  openssl: openssl-3.4.1
+  swtpm: 0.10.0
