@@ -74,6 +74,3 @@ shell:
     make DESTDIR=/out install
 
     strip $OUTDIR/usr/bin/xorriso
-    
-
-    # make DESTDIR=/out install-libLTLIBRARIES install-libincludeHEADERS
