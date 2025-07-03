@@ -18,7 +18,6 @@ package uploader
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"testing"
@@ -34,12 +33,12 @@ const (
 )
 
 func FuzzUploader(f *testing.F) {
-	uploaderPort, err := GetFreePort()
+	uploaderPort, err := fuzz.GetFreePort()
 	if err != nil {
 		f.Fatalf("failed to parse uploaderEnv: %v", err)
 	}
 
-	mockPort, err := GetFreePort()
+	mockPort, err := fuzz.GetFreePort()
 	if err != nil {
 		f.Fatalf("failed to parse mockEnv: %v", err)
 	}
@@ -117,16 +116,4 @@ func startDVCRMockServer(tb testing.TB, addr string, port int) {
 			tb.Fatalf("failed to listen and serve mock server: %v", err)
 		}
 	}()
-}
-
-func GetFreePort() (port int, err error) {
-	var a *net.TCPAddr
-	if a, err = net.ResolveTCPAddr("tcp", "localhost:0"); err == nil {
-		var l *net.TCPListener
-		if l, err = net.ListenTCP("tcp", a); err == nil {
-			defer l.Close()
-			return l.Addr().(*net.TCPAddr).Port, nil
-		}
-	}
-	return
 }
