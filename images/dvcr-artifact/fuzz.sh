@@ -56,7 +56,7 @@ for file in ${files}; do
 
     logfile="/tmp/fuzz/fuzz_$(basename "$func")_$(date +%s).log"
 
-    go test $parentDir -fuzz=$func -fuzztime=${fuzzTime} -cover -v > "$logfile" 2>&1 &
+    go test $parentDir -fuzz=$func -cover -v > "$logfile" 2>&1 &
     fuzz_pid=$!
     fuzz_pids+=("$fuzz_pid")
 
