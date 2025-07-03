@@ -41,6 +41,7 @@ libraries:
 - libssh2-devel
 - libparted-devel
 # - libdevmapper-devel
+# - libbsd-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
 - libnuma-devel libcap-ng-devel
@@ -49,7 +50,7 @@ libraries:
 - libblkid-devel libgcrypt-devel
 - libgnutls-devel libp11-kit-devel
 - libreadline-devel libtasn1-devel
-- libattr-devel libbsd-devel
+- libattr-devel
 - libsystemd-devel libuuid-devel
 - libjson-c-devel systemtap-sdt-devel
 - libacl-devel glib2-devel glibc-utils
@@ -92,6 +93,10 @@ import:
   add: /libdevmapper
   to: /lvm2
   before: install
+- image: packages/binaries/libbsd
+  add: /libbsd
+  to: /libbsd
+  before: install
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -121,7 +126,8 @@ shell:
     cp -a /dmidecode/. /
     cp -a /lvm2/. /
     cp -a /libattr/. /
-    rm -rf /{dmidecode,lvm2,libattr}
+    cp -a /libbsd/. /
+    rm -rf /{dmidecode,lvm2,libattr,libbsd}
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"
