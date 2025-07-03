@@ -25,7 +25,7 @@ packages:
 - libgnutls30 libfuse-devel libgnutls-devel gnutls-utils
 - libtasn1 libtasn1-devel libjson-glib-devel
 - libseccomp-devel libseccomp
-- libgmp-devel
+# - libgmp-devel
 - perl-podlators
 {{- end -}}
 
@@ -37,6 +37,11 @@ fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: packages/binaries/gmp
+  add: /libgmp
+  to: /libgmp
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -64,6 +69,9 @@ shell:
 
   install:
   - |
+    cp -a /libgmp/. /
+    rm -rf /libgmp
+    
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 

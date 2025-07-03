@@ -30,6 +30,11 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: packages/binaries/gmp
+  add: /libgmp
+  to: /libgmp
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -48,13 +53,17 @@ shell:
     rpm [alt] $REPO_URL/ALTLinux/Sisyphus noarch classic
     EOF
     apt-get update
-    apt-get install -y libmnl-devel libnftnl-devel libgmp-devel libreadline-devel libjansson-devel libedit-devel
+    # apt-get install -y libmnl-devel libnftnl-devel libgmp-devel libreadline-devel libjansson-devel libedit-devel
+    apt-get install -y libmnl-devel libnftnl-devel libreadline-devel libjansson-devel libedit-devel
     rm -f /etc/apt/sources.list.d/alt-sisyphus.list
 
   {{- include "alt packages clean" . | nindent 2 }}
 
   install:
   - |
+    cp -a /libgmp/. /
+    rm -rf /libgmp
+    
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
