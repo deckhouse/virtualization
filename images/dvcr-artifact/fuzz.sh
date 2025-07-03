@@ -35,8 +35,6 @@ cleanup() {
   # kill workers if they are still running
   pids=$(ps aux | grep 'fuzzworker' | awk '{print $2}')
   if [[ ! -z "$pids" ]]; then
-    echo "Killing the following processes:"
-    echo "$pids"
     echo "$pids" | xargs kill 2>/dev/null || true
     sleep 1  # wait a moment for them to terminate
     echo "$pids" | xargs kill -9 2>/dev/null || true
@@ -90,8 +88,6 @@ for file in ${files}; do
         # kill workers if they are still running
         pids=$(ps aux | grep 'fuzzworker' | awk '{print $2}')
         if [[ ! -z "$pids" ]]; then
-          echo "Killing the following processes:"
-          echo "$pids"
           echo "$pids" | xargs kill 2>/dev/null || true
           sleep 1  # wait a moment for them to terminate
           echo "$pids" | xargs kill -9 2>/dev/null || true
