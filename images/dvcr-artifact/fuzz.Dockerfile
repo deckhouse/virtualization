@@ -17,6 +17,5 @@ RUN chmod +x /app/fuzz.sh
 
 ENV GOOS=linux
 ENV GOARCH=amd64
-ENV FUZZ_TIME=2m
 
 CMD ["/app/fuzz.sh"]

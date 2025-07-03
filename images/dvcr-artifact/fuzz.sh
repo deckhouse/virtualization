@@ -16,11 +16,10 @@
 
 set -e
 
-go clean -fuzzcache
+go clean -testcache -fuzzcache
 
 mkdir -p /tmp/fuzz
 
-fuzzTime=${FUZZ_TIME:-2m}
 fuzz_pids=()
 inactivityTimeout=7200  # 2 hours = 7200 seconds
 

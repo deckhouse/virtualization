@@ -16,7 +16,6 @@
 
 IMAGE_NAME="uploader-fuzz"
 DOCKERFILE="fuzz.Dockerfile"
-DEFAULT_FUZZ_TIME="2m"
 
 show_help() {
     echo "Usage: $0 [OPTIONS]"
@@ -35,11 +34,8 @@ show_help() {
     echo "  docker run -it --rm --platform linux/amd64 \$(docker build --platform linux/amd64 -q -f fuzz.Dockerfile .)"
 }
 
-FUZZ_TIME="$DEFAULT_FUZZ_TIME"
-
 while getopts "t:h" opt; do
     case $opt in
-        t) FUZZ_TIME="$OPTARG" ;;
         h) show_help; exit 0 ;;
         *) echo "Invalid option. Use -h for help."; exit 1 ;;
     esac
@@ -62,12 +58,10 @@ if [ ! -f "fuzz.sh" ]; then
 fi
 
 echo "Building and running fuzzing tests..."
-echo "Duration: $FUZZ_TIME"
 echo
 
 docker run --rm \
     --platform linux/amd64 \
-    -e FUZZ_TIME="$FUZZ_TIME" \
     $(docker build --platform linux/amd64 -q -f "$DOCKERFILE" .)
 
 echo

@@ -18,7 +18,6 @@ package uploader
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"testing"
@@ -29,18 +28,11 @@ import (
 )
 
 const (
-	UPLOADER_FUZZ_PORT = "UPLOADER_FUZZ_PORT"
-	UPLOADER_MOCK_PORT = "UPLOADER_MOCK_PORT"
+	addr = "127.0.0.1"
 )
 
 func FuzzUploader(f *testing.F) {
-	addr := "127.0.0.1"
-
-	mockPort := startDVCRMockServer(f, addr)
-	uploaderPort := startUploaderServer(f, addr, mockPort)
-
-	f.Logf("fuzzing uploader server on port %d", uploaderPort)
-	f.Logf("mock server on port %d", mockPort)
+	uploaderPort := startUploaderServer(f, addr, 5000)
 
 	// 512 bytes is the minimum size of a qcow2 image
 	minimalQCow2 := [512]byte{
@@ -52,7 +44,7 @@ func FuzzUploader(f *testing.F) {
 
 	url := fmt.Sprintf("http://%s:%d/upload", addr, uploaderPort)
 	f.Fuzz(func(t *testing.T, data []byte) {
-		fuzz.ProcessRequests(t, data, url, http.MethodPut, http.MethodPost)
+		fuzz.ProcessRequests(t, data, url, http.MethodPost, http.MethodPut)
 	})
 }
 
@@ -78,6 +70,8 @@ func startUploaderServer(tb testing.TB, addr string, mockPort int) (uploaderPort
 	srv.keepAlive = true
 	srv.keepConcurrent = true
 	srv.destInsecure = true
+	srv.bindPort = 0
+	srv.bindHealthzPort = 0
 
 	go func() {
 		if err := uploaderServer.Run(); err != nil {
