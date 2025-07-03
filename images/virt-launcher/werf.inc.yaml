@@ -114,7 +114,7 @@ libs:
   - libclocale
   - libLLVMSPIRVLib-devel
   - libisofs
-  - libburn
+  # - libburn
 packages:
   # - attr
   - ethtool
@@ -251,9 +251,13 @@ import:
   to: /numactl
   before: install
 
-- image: packages/binaries/xorriso
-  add: /xorriso
-  to: /xorriso
+- image: packages/binaries/libisoburn
+  add: /libisoburn
+  to: /libisoburn
+  before: install
+- image: packages/binaries/libburn
+  add: /libburn
+  to: /libburn
   before: install
 - image: packages/binaries/gnutls
   add: /gnutls
@@ -335,7 +339,8 @@ shell:
     cp -a /qemu-bins/. /VBINS/
 
     # install binaries from images
-    cp -a /xorriso/. /
+    cp -a /libisoburn/. /
+    cp -a /libburn/. /
     cp -a /swtpm/. /
     cp -a /numactl/. /
     cp -a /gnutls/. /
@@ -366,7 +371,7 @@ shell:
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls,dmidecode,acl}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins,libisoburn,libburn,swtpm,numactl,gnutls,dmidecode,acl}
     rm -rf /{libffi8,libattr,libaudit}
 
   setup:

@@ -6,18 +6,18 @@ import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
   to: /libisoburn
-  includePaths:
-    - usr/lib64/libisoburn.so
-    - usr/lib64/libisoburn.so.1
-    - usr/lib64/libisoburn.so.1.113.0
+  # includePaths:
+  #   - usr/lib64/libisoburn.so
+  #   - usr/lib64/libisoburn.so.1
+  #   - usr/lib64/libisoburn.so.1.113.0
   before: setup
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /libisoburn-devel
-  includePaths:
-    - usr/include/
-    - usr/lib64/libisoburn.la
-  before: setup
+# - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+#   add: /out
+#   to: /libisoburn-devel
+#   includePaths:
+#     - usr/include/
+#     - usr/lib64/libisoburn.la
+#   before: setup
 
 ---
 {{- $version := get $.Package $.ImageName }}
@@ -26,7 +26,10 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libburn-devel libisofs-devel makeinfo libtool
+- gcc
+- git pkg-config trousers
+- automake autoconf make makeinfo libtool
+- libisofs-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -37,6 +40,11 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: packages/binaries/libburn
+  add: /libburn
+  to: /libburn
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -48,6 +56,9 @@ shell:
 
   install:
   - |
+    cp -a /libburn/. /
+    rm -rf /libburn
+
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
@@ -60,4 +71,9 @@ shell:
       --disable-static \
       --disable-doc
     make -j$(nproc)
-    make DESTDIR=/out install-libLTLIBRARIES install-libincludeHEADERS
+    make DESTDIR=/out install
+
+    strip $OUTDIR/usr/bin/xorriso
+    
+
+    # make DESTDIR=/out install-libLTLIBRARIES install-libincludeHEADERS
