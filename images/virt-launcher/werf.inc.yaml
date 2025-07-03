@@ -271,6 +271,10 @@ import:
   add: /libbsd
   to: /libbsd
   before: install
+- image: packages/binaries/libmd
+  add: /libmd
+  to: /libmd
+  before: install
 - image: packages/binaries/libblkid
   add: /libblkid/usr
   to: /libblkid/usr
@@ -338,7 +342,7 @@ shell:
   - |
     # Install packages
     PKGS="libisoburn libburn libbsd swtpm numactl gnutls"
-    PKGS+=" dmidecode acl libffi8 libattr libaudit libblkid"
+    PKGS+=" dmidecode acl libffi8 libattr libaudit libblkid libmd"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
