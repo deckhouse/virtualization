@@ -97,7 +97,7 @@ libs:
   # - libaudit-devel
   - libfuse-devel
   - libnbd-devel
-  - libblkid-devel
+  # - libblkid-devel
   - libp11-kit-devel
   - libreadline-devel
   # - libattr-devel
@@ -271,6 +271,10 @@ import:
   add: /libbsd
   to: /libbsd
   before: install
+- image: packages/binaries/libblkid
+  add: /libblkid
+  to: /libblkid
+  before: install
 
 - image: libs/libffi
   add: /usr
@@ -354,6 +358,7 @@ shell:
     cp -a /libffi8/. /
     cp -a /libattr/. /
     cp -a /libaudit/. /
+    cp -a /libblkid/. /
 
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
@@ -377,7 +382,7 @@ shell:
     ls -la /relocate/usr/lib64
     # Cleanup
     rm -rf /{VBINS,qemu-bins,libvirt-bins,libisoburn,libburn,swtpm,numactl,gnutls,dmidecode,acl}
-    rm -rf /{libffi8,libattr,libaudit,libbsd}
+    rm -rf /{libffi8,libattr,libaudit,libbsd,libblkid}
 
   setup:
   - |
