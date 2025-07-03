@@ -6,19 +6,6 @@ import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
   to: /libidn2
-#   includePaths:
-#     - usr/bin/idn2
-#     - usr/lib64/libidn2.so
-#     - usr/lib64/libidn2.so.0
-#     - usr/lib64/libidn2.so.0.4.0
-#   before: setup
-# - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-#   add: /out
-#   to: /libidn2-devel
-#   includePaths:
-#     - usr/include
-#     - usr/lib64/libidn2.la
-#     - usr/lib64/pkgconfig/libidn2.pc
   before: setup
 
 ---
