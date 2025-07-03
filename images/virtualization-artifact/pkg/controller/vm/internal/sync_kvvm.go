@@ -25,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -301,7 +302,13 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("failed to make the internal virtual machine: %w", err)
 	}
 
-	if err = h.client.Create(ctx, kvvm); err != nil {
+	err = h.client.Create(ctx, kvvm)
+	if err != nil {
+		if k8serrors.IsAlreadyExists(err) {
+			log.Warn("The KubeVirt VM already exists", "name", kvvm.Name)
+			return nil
+		}
+
 		return fmt.Errorf("failed to create the internal virtual machine: %w", err)
 	}
 
