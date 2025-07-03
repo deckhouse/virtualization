@@ -19,7 +19,7 @@ runs:
 
     - name: Collect Changelog
       id: changelog
-      uses: deckhouse/changelog-action@v2.5.0
+      uses: deckhouse/changelog-action@v2
       with:
         token: ${{ inputs.token }}
         repo: ${{ github.repository }}
