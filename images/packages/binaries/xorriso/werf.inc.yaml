@@ -18,7 +18,8 @@ packages:
 - gcc
 - git pkg-config trousers
 - automake autoconf make makeinfo libtool
-- libburn-devel libisofs-devel
+- libisofs-devel
+# - libburn-devel 
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -29,6 +30,11 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: packages/binaries/libburn
+  add: /libburn
+  to: /libburn
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -40,10 +46,13 @@ shell:
 
   install:
   - |
+    cp -a /libburn/. /
+    rm -rf /libburn
+
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch release-{{ $version }} /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
 
     ./bootstrap

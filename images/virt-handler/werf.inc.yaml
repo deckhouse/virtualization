@@ -77,9 +77,9 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-- image: packages/binaries/xorriso
-  add: /xorriso
-  to: /xorriso
+- image: packages/binaries/libisoburn
+  add: /libisoburn
+  to: /libisoburn
   before: install
 - image: packages/binaries/nftables
   add: /nftables
@@ -102,11 +102,11 @@ shell:
   
   {{- include "alt packages clean" . | nindent 2 }}
   - |
-    cp -a /xorriso/. /
+    cp -a /libisoburn/. /
     cp -a /nftables/. /
     cp -a /acl/. /
   
-  - rm -rf /{xorriso,nftables,acl}
+  - rm -rf /{libisoburn,nftables,acl}
   setup:
   - |
     /relocate_binaries.sh -i "{{ $virtHandlerDependencies.binaries | join " " }}" -o /relocate
