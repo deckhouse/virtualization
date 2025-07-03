@@ -120,6 +120,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
 		watcher.NewClusterVirtualImageWatcher(mgr.GetClient()),
 		watcher.NewVirtualImageWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineBlockDeviceAttachmentWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
