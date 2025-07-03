@@ -23,10 +23,11 @@ packages:
 - libtpm2-tss-devel libtrousers-devel
 - libtasn1-devel libtasn1-utils zlib-devel
 - libunbound-devel bison gtk-doc texinfo texlive
-- libev4 libev-devel libgcrypt-devel libopencdk-devel
+- libev4 libev-devel libopencdk-devel
 - libzstd-devel openssl libssl-devel iproute2-devel liboqs-devel libreadline-devel
 # - libidn2-devel
 # - libbrotli-devel
+# - libgcrypt-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -46,6 +47,10 @@ import:
   add: /libidn2
   to: /libidn2
   before: install
+- image: packages/binaries/libgcrypt
+  add: /libgcrypt
+  to: /libgcrypt
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -57,9 +62,13 @@ shell:
 
   install:
   - |
-    cp -a /libbrotli/. /
-    cp -a /libidn2/. /
-    rm -rf /{libbrotli,libidn2}
+
+    # Install packages
+    PKGS="libbrotli libidn2 libgcrypt"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
 
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config

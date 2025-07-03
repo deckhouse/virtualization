@@ -50,7 +50,7 @@ libraries:
 - libnuma-devel libcap-ng-devel
 - libcurl-devel libaudit-devel
 - libfuse-devel libnbd-devel
-- libgcrypt-devel
+# - libgcrypt-devel
 - libgnutls-devel libp11-kit-devel
 - libreadline-devel libtasn1-devel
 - libattr-devel
@@ -108,6 +108,10 @@ import:
   add: /libblkid/usr
   to: /libblkid/usr
   before: install
+- image: packages/binaries/libgcrypt
+  add: /libgcrypt
+  to: /libgcrypt
+  before: install
 - image: qemu
   add: /qemu-img
   to: /qemu-img
@@ -139,7 +143,7 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     # Install packages
-    PKGS="dmidecode lvm2 libattr libbsd libmd libblkid qemu-img"
+    PKGS="dmidecode lvm2 libattr libbsd libmd libblkid qemu-img libgcrypt"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
