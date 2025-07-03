@@ -21,10 +21,11 @@ packages:
 - gem-gettext-devel gettext po4a
 - libnettle-devel libp11-kit-devel libunistring-devel
 - libtpm2-tss-devel libtrousers-devel
-- libtasn1-devel libtasn1-utils libidn2-devel zlib-devel
+- libtasn1-devel libtasn1-utils zlib-devel
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libgcrypt-devel libopencdk-devel
 - libzstd-devel openssl libssl-devel iproute2-devel liboqs-devel libreadline-devel
+# - libidn2-devel
 # - libbrotli-devel
 {{- end -}}
 
@@ -41,6 +42,10 @@ import:
   add: /libbrotli
   to: /libbrotli
   before: install
+- image: packages/binaries/libidn2
+  add: /libidn2
+  to: /libidn2
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -53,7 +58,8 @@ shell:
   install:
   - |
     cp -a /libbrotli/. /
-    rm -rf /libbrotli
+    cp -a /libidn2/. /
+    rm -rf /{libbrotli,libidn2}
 
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
