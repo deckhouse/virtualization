@@ -22,8 +22,6 @@ package console
 import (
 	"errors"
 	"io"
-	"os"
-	"os/signal"
 	"strings"
 	"time"
 
@@ -80,13 +78,6 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		namespace = defaultNamespace
 	}
 
-	interrupt := make(chan os.Signal, 1)
-	go func() {
-		<-interrupt
-		close(interrupt)
-	}()
-	signal.Notify(interrupt, os.Interrupt)
-
 	for {
 		err := connect(name, namespace, client, c.timeout)
 		if err == nil {
@@ -113,12 +104,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 			cmd.Printf("%s\n", err)
 		}
 
-		select {
-		case <-interrupt:
-			return nil
-		default:
-			time.Sleep(time.Second)
-		}
+		time.Sleep(time.Second)
 	}
 }
 
