@@ -272,8 +272,8 @@ import:
   to: /libbsd
   before: install
 - image: packages/binaries/libblkid
-  add: /libblkid
-  to: /libblkid
+  add: /libblkid/usr
+  to: /libblkid/usr
   before: install
 
 - image: libs/libffi

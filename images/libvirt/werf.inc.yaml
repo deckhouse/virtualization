@@ -8,7 +8,7 @@
 {{- define "$name" -}}
 packages:
 - binutils
-- gcc-c++
+- gcc-c++ gcc
 - git gettext
 - bash-completion
 - clang ccache
