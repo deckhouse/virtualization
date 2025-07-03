@@ -336,6 +336,14 @@ shell:
     {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
+    # Install packages
+    PKGS="libisoburn libburn libbsd swtpm numactl gnutls"
+    PKGS+=" dmidecode acl libffi8 libattr libaudit libblkid"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
     mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
@@ -346,19 +354,6 @@ shell:
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
-    # install binaries from images
-    cp -a /libisoburn/. /
-    cp -a /libburn/. /
-    cp -a /libbsd/. /
-    cp -a /swtpm/. /
-    cp -a /numactl/. /
-    cp -a /gnutls/. /
-    cp -a /dmidecode/. /
-    cp -a /acl/. /
-    cp -a /libffi8/. /
-    cp -a /libattr/. /
-    cp -a /libaudit/. /
-    cp -a /libblkid/. /
 
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
@@ -381,8 +376,7 @@ shell:
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins,libisoburn,libburn,swtpm,numactl,gnutls,dmidecode,acl}
-    rm -rf /{libffi8,libattr,libaudit,libbsd,libblkid}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins}
 
   setup:
   - |

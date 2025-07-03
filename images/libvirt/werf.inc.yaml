@@ -44,7 +44,7 @@ libraries:
 # - libdevmapper-devel
 # - libbsd-devel
 # - libblkid-devel
-- libmd-devel
+# - libmd-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
 - libnuma-devel libcap-ng-devel
@@ -100,6 +100,10 @@ import:
   add: /libbsd
   to: /libbsd
   before: install
+- image: packages/binaries/libmd
+  add: /libmd
+  to: /libmd
+  before: install
 - image: packages/binaries/libblkid
   add: /libblkid/usr
   to: /libblkid/usr
@@ -134,14 +138,12 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    cp -a /dmidecode/. /
-    cp -a /lvm2/. /
-    cp -a /libattr/. /
-    cp -a /libbsd/. /
-    cp -a /libblkid/. /
-    cp -a /qemu-img/. /
-
-    rm -rf /{dmidecode,lvm2,libattr,libbsd,libblkid,qemu-img}
+    # Install packages
+    PKGS="dmidecode lvm2 libattr libbsd libmd libblkid qemu-img"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
