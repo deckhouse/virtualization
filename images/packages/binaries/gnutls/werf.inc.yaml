@@ -61,9 +61,6 @@ shell:
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
 
-    # ./bootstrap
-    # ./configure --prefix=/usr --libdir=/usr/lib64 --disable-tests
-
     ./bootstrap --skip-po
     ./configure \
       --prefix=/usr \
