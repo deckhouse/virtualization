@@ -64,7 +64,7 @@ libraries:
 - libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel
 - libspice-server-devel spice-protocol ceph-devel
 - libnfs-devel libzstd-devel libseccomp-devel
-- libgcrypt-devel libgnutls-devel libnettle-devel
+- libgnutls-devel libnettle-devel
 - libudev-devel libmultipath-devel libblkio-devel libpmem-devel
 - libdaxctl-devel libfuse3-devel rdma-core-devel libnuma-devel
 - bzlib-devel liblzo2-devel libsnappy-devel
@@ -73,6 +73,7 @@ libraries:
 - libaio-devel libselinux-devel libqpl-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
+# - libgcrypt-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -104,6 +105,10 @@ import:
   add: /dmidecode
   to: /dmidecode
   before: install
+- image: packages/binaries/libgcrypt
+  add: /libgcrypt
+  to: /libgcrypt
+  before: install
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -131,8 +136,13 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    cp -a /dmidecode/. /
-    rm -rf /dmidecode
+    # Install packages
+    PKGS="dmidecode libgcrypt"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"
