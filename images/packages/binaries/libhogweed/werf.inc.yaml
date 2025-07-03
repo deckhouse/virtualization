@@ -26,7 +26,8 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make autoconf automake gmp-devel
+- gcc git make autoconf automake 
+# - gmp-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -37,6 +38,11 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: packages/binaries/gmp
+  add: /libgmp
+  to: /libgmp
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -48,6 +54,9 @@ shell:
 
   install:
   - |
+    cp -a /libgmp/. /
+    rm -rf /libgmp
+    
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
