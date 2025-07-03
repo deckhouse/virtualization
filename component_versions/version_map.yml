@@ -28,6 +28,7 @@ package:
   libidn: 12.6.6
   libidn2: v2.3.8
   libisoburn: release-1.5.6
+  libmd: 1.1.0
   lvm2: v2_03_32
   nbdkit: 1.39.5
   nftables: 1.1.3
