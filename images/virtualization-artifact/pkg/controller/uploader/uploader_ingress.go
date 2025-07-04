@@ -84,7 +84,6 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 			Namespace: i.Settings.Namespace,
 			Annotations: map[string]string{
 				annotations.AnnUploadURL:                              uploadURL,
-				"nginx.ingress.kubernetes.io/ssl-redirect":            "true",
 				"nginx.ingress.kubernetes.io/proxy-body-size":         "0",
 				"nginx.ingress.kubernetes.io/proxy-request-buffering": "off",
 				"nginx.ingress.kubernetes.io/proxy-buffering":         "off",
@@ -129,6 +128,7 @@ func (i *Ingress) makeSpec() *netv1.Ingress {
 				SecretName: i.Settings.TLSSecretName,
 			},
 		}
+		ingress.Annotations["nginx.ingress.kubernetes.io/ssl-redirect"] = "true"
 	}
 
 	return ingress
