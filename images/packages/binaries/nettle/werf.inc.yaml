@@ -5,18 +5,19 @@ fromImage: builder/scratch
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
-  to: /libhogweed
-  includePaths:
-    - usr/lib64/libhogweed.so
-    - usr/lib64/libhogweed.so.6
-    - usr/lib64/libhogweed.so.6.10
-  before: setup
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /libnettle-devel
-  includePaths:
-    - usr/include
-    - usr/lib64/pkgconfig
+  to: /nettle
+  # to: /libhogweed
+#   includePaths:
+#     - usr/lib64/libhogweed.so
+#     - usr/lib64/libhogweed.so.6
+#     - usr/lib64/libhogweed.so.6.10
+#   before: setup
+# - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+#   add: /out
+#   to: /libnettle-devel
+#   includePaths:
+#     - usr/include
+#     - usr/lib64/pkgconfig
   before: setup
 
 ---
