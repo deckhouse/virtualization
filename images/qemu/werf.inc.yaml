@@ -8,7 +8,7 @@
 {{- define "$name" -}}
 packages:
 - binutils
-- dmidecode
+# - dmidecode
 - pkgconfig pkg-config
 - gcc-c++ clang git
 - gettext bash-completion

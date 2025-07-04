@@ -47,7 +47,7 @@ shell:
     make -j$(nproc) prefix=/usr
 
     make strip
-    make DESTDIR=$OUTDIR install
+    make DESTDIR=$OUTDIR prefix=/usr install
 
     # We don't need man, test and samples files
     rm -rf $OUTDIR/usr/share
