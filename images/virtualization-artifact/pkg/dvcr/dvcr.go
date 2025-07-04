@@ -36,11 +36,11 @@ type Settings struct {
 	RegistryURL string
 	// InsecureTLS specifies if registry is insecure (trust all certificates). Works for destination only.
 	InsecureTLS string
-	// UploaderIngressSettings are settings for uploading images to the DVCR using ingress.
-	UploaderIngressSettings UploaderIngressSettings
+	// IngressSettings are settings for uploading images to the DVCR using ingress.
+	IngressSettings IngressSettings
 }
 
-type UploaderIngressSettings struct {
+type IngressSettings struct {
 	Host               string
 	TLSSecret          string
 	TLSSecretNamespace string

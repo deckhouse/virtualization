@@ -1,0 +1,17 @@
+---
+image: {{ $.ImageName }}
+fromImage: distroless
+import:
+- image: dvcr-artifact-bins
+  add: /relocate
+  to: /
+  after: install
+  excludePaths:
+  - '**/dvcr-importer'
+  - '**/dvcr-uploader'
+  - '**/dvcr-cleaner'
+imageSpec:
+  config:
+    workingDir: "/"
+    cmd: ["/usr/local/bin/dvcr-exporter"]
+    user: 64535

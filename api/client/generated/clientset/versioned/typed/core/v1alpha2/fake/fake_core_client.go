@@ -32,6 +32,10 @@ func (c *FakeVirtualizationV1alpha2) ClusterVirtualImages() v1alpha2.ClusterVirt
 	return &FakeClusterVirtualImages{c}
 }
 
+func (c *FakeVirtualizationV1alpha2) VirtualDataExports(namespace string) v1alpha2.VirtualDataExportInterface {
+	return &FakeVirtualDataExports{c, namespace}
+}
+
 func (c *FakeVirtualizationV1alpha2) VirtualDisks(namespace string) v1alpha2.VirtualDiskInterface {
 	return &FakeVirtualDisks{c, namespace}
 }

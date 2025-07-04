@@ -39,7 +39,8 @@ function source::settings {
                             "VirtualMachineOperation"
                             "VirtualDisk"
                             "VirtualImage"
-                            "ClusterVirtualImage")
+                            "ClusterVirtualImage"
+                            "VirtualDataExport")
   source "${CODEGEN_PKG}/kube_codegen.sh"
 }
 

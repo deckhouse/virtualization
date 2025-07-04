@@ -35,6 +35,7 @@ type ImportSettings struct {
 	ImporterImage string
 	UploaderImage string
 	BounderImage  string
+	ExporterImage string
 	Requirements  corev1.ResourceRequirements
 }
 
@@ -52,6 +53,11 @@ func LoadImportSettingsFromEnv() (ImportSettings, error) {
 	}
 
 	settings.BounderImage, err = GetRequiredEnvVar(common.BounderPodImageNameVar)
+	if err != nil {
+		return ImportSettings{}, err
+	}
+
+	settings.ExporterImage, err = GetRequiredEnvVar(common.ExporterPodImageNameVar)
 	if err != nil {
 		return ImportSettings{}, err
 	}

@@ -37,14 +37,14 @@ const (
 	// DVCRInsecureTLSVar is an env variable holds the flag whether DVCR is insecure.
 	DVCRInsecureTLSVar = "DVCR_INSECURE_TLS"
 
-	// UploaderIngressHostVar is a env variable
-	UploaderIngressHostVar = "UPLOADER_INGRESS_HOST"
-	// UploaderIngressTLSSecretVar is a env variable
-	UploaderIngressTLSSecretVar = "UPLOADER_INGRESS_TLS_SECRET"
-	// UploaderIngressClassVar is a env variable
-	UploaderIngressClassVar = "UPLOADER_INGRESS_CLASS"
-	// UploaderIngressTLSSecretNS is a env variable
-	UploaderIngressTLSSecretNS = "UPLOADER_INGRESS_TLS_SECRET_NAMESPACE"
+	// IngressHostVar is a env variable
+	IngressHostVar = "INGRESS_HOST"
+	// IngressTLSSecretVar is a env variable
+	IngressTLSSecretVar = "INGRESS_TLS_SECRET"
+	// IngressClassVar is a env variable
+	IngressClassVar = "INGRESS_CLASS"
+	// IngressTLSSecretNS is a env variable
+	IngressTLSSecretNS = "INGRESS_TLS_SECRET_NAMESPACE"
 )
 
 func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error) {
@@ -55,25 +55,25 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 		CertsSecretNamespace: os.Getenv(DVCRCertsSecretNSVar),
 		RegistryURL:          os.Getenv(DVCRRegistryURLVar),
 		InsecureTLS:          os.Getenv(DVCRInsecureTLSVar),
-		UploaderIngressSettings: dvcr.UploaderIngressSettings{
-			Host:               os.Getenv(UploaderIngressHostVar),
-			TLSSecret:          os.Getenv(UploaderIngressTLSSecretVar),
-			TLSSecretNamespace: os.Getenv(UploaderIngressTLSSecretNS),
-			Class:              os.Getenv(UploaderIngressClassVar),
+		IngressSettings: dvcr.IngressSettings{
+			Host:               os.Getenv(IngressHostVar),
+			TLSSecret:          os.Getenv(IngressTLSSecretVar),
+			TLSSecretNamespace: os.Getenv(IngressTLSSecretNS),
+			Class:              os.Getenv(IngressClassVar),
 		},
 	}
 
 	if dvcrSettings.RegistryURL == "" {
 		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", DVCRRegistryURLVar)
 	}
-	if dvcrSettings.UploaderIngressSettings.Host == "" {
-		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", UploaderIngressHostVar)
+	if dvcrSettings.IngressSettings.Host == "" {
+		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", IngressHostVar)
 	}
-	if dvcrSettings.UploaderIngressSettings.TLSSecret == "" {
-		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", UploaderIngressTLSSecretVar)
+	if dvcrSettings.IngressSettings.TLSSecret == "" {
+		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", IngressTLSSecretVar)
 	}
-	if dvcrSettings.UploaderIngressSettings.Class == "" {
-		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", UploaderIngressClassVar)
+	if dvcrSettings.IngressSettings.Class == "" {
+		return nil, fmt.Errorf("environment variable %q undefined, specify DVCR settings", IngressClassVar)
 	}
 
 	if dvcrSettings.AuthSecret != "" && dvcrSettings.AuthSecretNamespace == "" {
@@ -84,8 +84,8 @@ func LoadDVCRSettingsFromEnvs(controllerNamespace string) (*dvcr.Settings, error
 		dvcrSettings.CertsSecretNamespace = controllerNamespace
 	}
 
-	if dvcrSettings.UploaderIngressSettings.TLSSecret != "" && dvcrSettings.UploaderIngressSettings.TLSSecretNamespace == "" {
-		dvcrSettings.UploaderIngressSettings.TLSSecretNamespace = controllerNamespace
+	if dvcrSettings.IngressSettings.TLSSecret != "" && dvcrSettings.IngressSettings.TLSSecretNamespace == "" {
+		dvcrSettings.IngressSettings.TLSSecretNamespace = controllerNamespace
 	}
 
 	return dvcrSettings, nil

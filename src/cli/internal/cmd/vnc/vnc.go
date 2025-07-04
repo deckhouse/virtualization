@@ -34,14 +34,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+
+	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
+	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
 
 const (
@@ -74,16 +76,14 @@ var (
 	customPort    = 0
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
+	vnc := &VNC{}
 	cmd := &cobra.Command{
 		Use:     "vnc VirtualMachine",
 		Short:   "Open a vnc connection to a virtual machine.",
 		Example: usage(),
 		Args:    templates.ExactArgs("vnc", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := VNC{clientConfig: clientConfig}
-			return c.Run(cmd, args)
-		},
+		RunE:    vnc.Run,
 	}
 	cmd.Flags().StringVar(&listenAddress, "address", listenAddress, "--address=127.0.0.1: Setting this will change the listening address of the VNC server. Example: --address=0.0.0.0 will make the server listen on all interfaces.")
 	cmd.Flags().BoolVar(&proxyOnly, "proxy-only", proxyOnly, "--proxy-only=false: Setting this true will run only the vnc proxy and show the port where VNC viewers can connect")
@@ -93,25 +93,22 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 	return cmd
 }
 
-type VNC struct {
-	clientConfig clientcmd.ClientConfig
-}
+type VNC struct{}
 
 func (o *VNC) Run(cmd *cobra.Command, args []string) error {
+	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
 	namespace, vmName, err := templates.ParseTarget(args[0])
 	if err != nil {
 		return err
 	}
 	if namespace == "" {
-		namespace, _, err = o.clientConfig.Namespace()
+		namespace = defaultNamespace
 		if err != nil {
 			return err
 		}
-	}
-
-	virtCli, err := kubeclient.GetClientFromClientConfig(o.clientConfig)
-	if err != nil {
-		return err
 	}
 
 	// Format the listening address to account for the port (ex: 127.0.0.0:5900)
@@ -135,7 +132,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	// the goroutines and let the data flow
 
 	for {
-		err := connect(ln, virtCli, cmd, namespace, vmName)
+		err := connect(ln, client, cmd, namespace, vmName)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "could not find") {
 				return err
@@ -145,12 +142,12 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 			if errors.As(err, &e) {
 				switch e.Code {
 				case websocket.CloseGoingAway:
-					fmt.Fprint(os.Stderr, "\nYou were disconnected from the console. This has one of the following reasons:"+
+					cmd.PrintErrf("\nYou were disconnected from the console. This has one of the following reasons:" +
 						"\n - another user connected to the console of the target vm\n")
 					return nil
 				case websocket.CloseAbnormalClosure:
-					fmt.Fprint(os.Stderr, "\nYou were disconnected from the console. This has one of the following reasons:"+
-						"\n - network issues"+
+					cmd.PrintErrf("\nYou were disconnected from the console. This has one of the following reasons:" +
+						"\n - network issues" +
 						"\n - machine restart\n")
 				}
 			} else {

@@ -38,6 +38,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/evacuation"
@@ -46,6 +47,7 @@ import (
 	mc "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vdexport"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vdsnapshot"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vi"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm"
@@ -79,6 +81,8 @@ const (
 
 	FirmwareImageEnv      = "FIRMWARE_IMAGE"
 	VirtControllerNameEnv = "VIRT_CONTROLLER_NAME"
+
+	DataExportEnabledEnv = "DATA_EXPORT_ENABLED"
 )
 
 func main() {
@@ -121,6 +125,9 @@ func main() {
 
 	var virtControllerName string
 	flag.StringVar(&virtControllerName, "virt-controller-name", getEnv(VirtControllerNameEnv, "virt-controller"), "Virt controller name")
+
+	var dataExportEnabled bool
+	flag.BoolVar(&dataExportEnabled, "data-export-enabled", strings.ToLower(os.Getenv(DataExportEnabledEnv)) == "true", "DataExport enabled")
 
 	flag.Parse()
 
@@ -278,6 +285,12 @@ func main() {
 
 	viLogger := logger.NewControllerLogger(vi.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
 	if _, err = vi.NewController(ctx, mgr, viLogger, importSettings.ImporterImage, importSettings.UploaderImage, importSettings.BounderImage, importSettings.Requirements, dvcrSettings, viStorageClassSettings); err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
+	vdexportLogger := logger.NewControllerLogger(vdexport.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
+	if err = vdexport.SetupController(ctx, mgr, vdexportLogger, dataExportEnabled, importSettings.ExporterImage, importSettings.Requirements, dvcrSettings, controllerNamespace); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

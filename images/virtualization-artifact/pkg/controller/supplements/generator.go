@@ -90,9 +90,21 @@ func (g *Generator) UploaderPod() types.NamespacedName {
 	return g.shortenNamespaced(name)
 }
 
+// ExporterPod generates name for exporter Pod.
+func (g *Generator) ExporterPod() types.NamespacedName {
+	name := fmt.Sprintf("%s-exporter-%s", g.Prefix, g.Name)
+	return g.shortenNamespaced(name)
+}
+
 // UploaderService generates name for uploader Service.
 func (g *Generator) UploaderService() types.NamespacedName {
 	name := fmt.Sprintf("%s-uploader-svc-%s", g.Prefix, g.UID)
+	return g.shortenNamespaced(name)
+}
+
+// ExporterService generates name for exporter Service.
+func (g *Generator) ExporterService() types.NamespacedName {
+	name := fmt.Sprintf("%s-exporter-svc-%s", g.Prefix, g.UID)
 	return g.shortenNamespaced(name)
 }
 
@@ -102,9 +114,21 @@ func (g *Generator) UploaderIngress() types.NamespacedName {
 	return g.shortenNamespaced(name)
 }
 
+// ExporterIngress generates name for exporter Ingress.
+func (g *Generator) ExporterIngress() types.NamespacedName {
+	name := fmt.Sprintf("%s-exporter-ingress-%s", g.Prefix, g.UID)
+	return g.shortenNamespaced(name)
+}
+
 // UploaderTLSSecretForIngress generates name for uploader tls secret.
 func (g *Generator) UploaderTLSSecretForIngress() types.NamespacedName {
 	name := fmt.Sprintf("%s-uploader-tls-ing-%s", g.Prefix, g.Name)
+	return g.shortenNamespaced(name)
+}
+
+// ExporterTLSSecretForIngress generates name for exporter tls secret.
+func (g *Generator) ExporterTLSSecretForIngress() types.NamespacedName {
+	name := fmt.Sprintf("%s-exporter-tls-ing-%s", g.Prefix, g.Name)
 	return g.shortenNamespaced(name)
 }
 
