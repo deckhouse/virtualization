@@ -44,7 +44,7 @@ type exportServer struct {
 	bindAddress   string
 	bindPort      int
 	authenticator auth.Authenticator
-	authorizer    auth.KubeAuthorizer
+	authorizer    auth.Authorizer
 
 	tlsKeyPath   string
 	tlsCertPath  string
@@ -58,7 +58,7 @@ type exportServer struct {
 	destTlSConfig *tls.Config
 }
 
-func NewExportServer(image string, bindAddress string, bindPort int, authenticator auth.Authenticator, authorizer auth.KubeAuthorizer, options ...Option) Exporter {
+func NewExportServer(image string, bindAddress string, bindPort int, authenticator auth.Authenticator, authorizer auth.Authorizer, options ...Option) Exporter {
 	s := &exportServer{
 		image:         image,
 		bindAddress:   bindAddress,

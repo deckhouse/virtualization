@@ -99,14 +99,14 @@ func (c *Config) Complete() (Exporter, error) {
 	}
 
 	authenticator := auth.NewTokenAuthenticator(client.AuthenticationV1().TokenReviews())
-
-	gvr := metav1.GroupVersionResource{
-		Group:    "virtualization.deckhouse.io",
-		Version:  "v1alpha1",
-		Resource: "viirtualdataexport",
-	}
-	authorizer, err := auth.NewKubeAuthorizer(gvr,
-		"get", client.AuthorizationV1().SubjectAccessReviews(),
+	authorizer, err := auth.NewSubjectAccessReviewAuthorizer(
+		metav1.GroupVersionResource{
+			Group:    "virtualization.deckhouse.io",
+			Version:  "v1alpha1",
+			Resource: "viirtualdataexport",
+		},
+		"get",
+		client.AuthorizationV1().SubjectAccessReviews(),
 		auth.WithNamespace(c.ResourceNamespace),
 		auth.WithSubresource("download"),
 	)

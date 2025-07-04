@@ -8,7 +8,7 @@ import (
 	authclientv1 "k8s.io/client-go/kubernetes/typed/authorization/v1"
 )
 
-type KubeAuthorizer interface {
+type Authorizer interface {
 	Authorize(ctx context.Context, username string, groups []string) (AuthorizeResult, error)
 }
 
@@ -17,8 +17,8 @@ type AuthorizeResult struct {
 	Reason  string
 }
 
-func NewKubeAuthorizer(gvr v1.GroupVersionResource, verb string, client authclientv1.SubjectAccessReviewInterface, options ...Option) (KubeAuthorizer, error) {
-	a := &kubeAuthorizer{
+func NewSubjectAccessReviewAuthorizer(gvr v1.GroupVersionResource, verb string, client authclientv1.SubjectAccessReviewInterface, options ...Option) (Authorizer, error) {
+	a := &subjectAccessReviewAuthorizer{
 		gvr:    gvr,
 		verb:   verb,
 		client: client,
@@ -30,21 +30,21 @@ func NewKubeAuthorizer(gvr v1.GroupVersionResource, verb string, client authclie
 	return a, nil
 }
 
-type Option func(*kubeAuthorizer)
+type Option func(*subjectAccessReviewAuthorizer)
 
 func WithSubresource(subresource string) Option {
-	return func(a *kubeAuthorizer) {
+	return func(a *subjectAccessReviewAuthorizer) {
 		a.subresource = subresource
 	}
 }
 
 func WithNamespace(namespace string) Option {
-	return func(a *kubeAuthorizer) {
+	return func(a *subjectAccessReviewAuthorizer) {
 		a.namespace = namespace
 	}
 }
 
-type kubeAuthorizer struct {
+type subjectAccessReviewAuthorizer struct {
 	gvr  v1.GroupVersionResource
 	verb string
 
@@ -54,7 +54,7 @@ type kubeAuthorizer struct {
 	client authclientv1.SubjectAccessReviewInterface
 }
 
-func (a *kubeAuthorizer) Authorize(ctx context.Context, username string, groups []string) (AuthorizeResult, error) {
+func (a *subjectAccessReviewAuthorizer) Authorize(ctx context.Context, username string, groups []string) (AuthorizeResult, error) {
 	review := &authv1.SubjectAccessReview{
 		Spec: authv1.SubjectAccessReviewSpec{
 			User:   username,
