@@ -50,5 +50,9 @@ func (h *ProtectionHandler) Handle(_ context.Context, vmip *virtv2.VirtualMachin
 
 	// 3. All checks have passed, the resource can be deleted.
 	controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressCleanup)
+
+	// 4. Remove legacy finalizer as well. It no longer attaches to new resources, but must be removed from old ones.
+	controllerutil.RemoveFinalizer(vmip, virtv2.FinalizerIPAddressProtection)
+
 	return reconcile.Result{}, nil
 }
