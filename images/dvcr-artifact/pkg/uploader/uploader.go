@@ -75,12 +75,9 @@ type uploadServerApp struct {
 	keepConcurrent  bool
 	mutex           sync.Mutex
 
-	// channel for waiting server for start listening
-	listenChan chan struct{}
-	// channel for waiting server for stop listening
-	doneChan chan struct{}
-	// channel for receiving errors
-	errChan chan error
+	startListeningChan chan struct{}
+	stopListeningChan  chan struct{}
+	errChan            chan error
 
 	healthzServer *http.Server
 	uploadServer  *http.Server
@@ -100,18 +97,18 @@ func bodyReadCloser(r *http.Request) (io.ReadCloser, error) {
 // NewUploadServer returns a new instance of uploadServerApp
 func NewUploadServer(bindAddress string, bindPort int, tlsKey, tlsCert, clientCert, clientName string, cryptoConfig cryptowatch.CryptoConfig) (UploadServer, error) {
 	server := &uploadServerApp{
-		bindAddress:     bindAddress,
-		bindPort:        bindPort,
-		bindHealthzPort: healthzPort,
-		tlsKey:          tlsKey,
-		tlsCert:         tlsCert,
-		clientCert:      clientCert,
-		clientName:      clientName,
-		cryptoConfig:    cryptoConfig,
-		mux:             http.NewServeMux(),
-		doneChan:        make(chan struct{}),
-		errChan:         make(chan error),
-		listenChan:      make(chan struct{}),
+		bindAddress:        bindAddress,
+		bindPort:           bindPort,
+		bindHealthzPort:    healthzPort,
+		tlsKey:             tlsKey,
+		tlsCert:            tlsCert,
+		clientCert:         clientCert,
+		clientName:         clientName,
+		cryptoConfig:       cryptoConfig,
+		mux:                http.NewServeMux(),
+		stopListeningChan:  make(chan struct{}),
+		errChan:            make(chan error),
+		startListeningChan: make(chan struct{}),
 	}
 
 	err := server.parseOptions()
@@ -154,7 +151,7 @@ func (app *uploadServerApp) Run() error {
 		return errors.Wrap(err, "Error creating upload listerner")
 	}
 
-	// maybe bind port was 0 (unit tests) assign port here
+	// if binded port was 0 (unit tests) assign port here
 	if app.bindPort == 0 {
 		app.bindPort = uploadListener.Addr().(*net.TCPAddr).Port
 	}
@@ -164,12 +161,12 @@ func (app *uploadServerApp) Run() error {
 		return errors.Wrap(err, "Error creating healthz listerner")
 	}
 
-	// maybe bind port was 0 (unit tests) assign port here
+	// if binded port was 0 (unit tests) assign port here
 	if app.bindHealthzPort == 0 {
 		app.bindHealthzPort = healthzListener.Addr().(*net.TCPAddr).Port
 	}
 
-	close(app.listenChan)
+	close(app.startListeningChan)
 
 	app.uploadServer, err = app.createUploadServer()
 	if err != nil {
@@ -204,7 +201,7 @@ func (app *uploadServerApp) Run() error {
 
 	select {
 	case err = <-app.errChan:
-	case <-app.doneChan:
+	case <-app.stopListeningChan:
 		klog.Info("Shutting down http server after successful upload")
 	case <-exit:
 		klog.Errorf("Shutting down http server")
@@ -362,7 +359,7 @@ func (app *uploadServerApp) processUpload(irc imageReadCloser, w http.ResponseWr
 	}
 
 	if !app.keepAlive {
-		close(app.doneChan)
+		close(app.stopListeningChan)
 	}
 }
 

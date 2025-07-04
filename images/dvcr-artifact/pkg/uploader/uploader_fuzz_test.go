@@ -84,7 +84,7 @@ func startUploaderServer(tb testing.TB, addr string, mockPort int) (uploaderPort
 	}()
 
 	// wait server for start listening
-	<-srv.listenChan
+	<-srv.startListeningChan
 
 	return srv.bindPort
 }
