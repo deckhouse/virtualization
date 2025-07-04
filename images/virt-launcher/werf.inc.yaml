@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: true
-fromImage: distroless
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-  - image: {{ $.ImageName }}-binaries
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
     add: /relocate
     to: /
     after: install
@@ -153,12 +153,12 @@ binaries:
 {{- $gitRepoName := "libvirt" }}
 {{- $version := get $.Version $gitRepoName }}
 
-image: {{ $.ImageName }}-binaries
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 git:
   # Add qemu and virtqemud configs
-  - add: /images/{{ $.ImageName }}/configs
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/configs
     to: /relocate/etc/libvirt
     stageDependencies:
       setup:
@@ -167,7 +167,7 @@ git:
     includePaths:
     - qemu.conf
     - virtqemud.conf
-  - add: /images/{{ $.ImageName }}/configs
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/configs
     to: /relocate/etc
     stageDependencies:
       setup:
@@ -176,21 +176,21 @@ git:
     - nsswitch.conf
 import:
 # Libvirt and QEMU libraries and binaries
-- image: libvirt
+- image: {{ .ModuleNamePrefix }}libvirt
   add: /BINS
   to: /libvirt-bins
   before: install
-- image: qemu
+- image: {{ .ModuleNamePrefix }}qemu
   add: /BINS
   to: /qemu-bins
   before: install
-- image: packages/binaries/dmidecode
+- image: {{ .ModuleNamePrefix }}packages/binaries/dmidecode
   add: /dmidecode
   to: /dmidecode
   before: install
 
 # EDK2 (uefi firmware)
-- image: edk2
+- image: {{ .ModuleNamePrefix }}edk2
   add: /FIRMWARE/
   to: /relocate/usr/share/edk2/ovmf
   before: install
@@ -199,7 +199,7 @@ import:
   - '*.bin'
   - '*.efi'
   - '*.iso'
-- image: edk2
+- image: {{ .ModuleNamePrefix }}edk2
   add: /FIRMWARE/
   to: /relocate/usr/share/qemu/firmware
   before: install
@@ -207,14 +207,12 @@ import:
   - '*.json'
 
 # Import from virt artifact
-- image: virt-artifact
-  add: /kubevirt-config-files/
-  to: /
+- image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt-config-files/.version
+  to: /.version
   after: install
-  includePaths:
-  - .version
 
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/
   to: /relocate/usr/bin
   before: setup
@@ -225,7 +223,7 @@ import:
   - virt-launcher-monitor
   - virt-probe
   - virt-tail
-- image: {{ $.ImageName }}-gobuilder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
   add: /binaries
   to: /relocate/usr/bin
   before: setup
@@ -233,31 +231,38 @@ import:
   - node-labeller
   - vlctl
 
-- image: packages/binaries/swtpm
+- image: {{ .ModuleNamePrefix }}packages/binaries/swtpm
   add: /swtpm
   to: /swtpm
   before: install
 
-- image: packages/binaries/numactl
+- image: {{ .ModuleNamePrefix }}packages/binaries/numactl
   add: /numactl
   to: /numactl
   before: install
 
-- image: packages/binaries/xorriso
+- image: {{ .ModuleNamePrefix }}packages/binaries/xorriso
   add: /xorriso
   to: /xorriso
   before: install
-- image: packages/binaries/gnutls
+- image: {{ .ModuleNamePrefix }}packages/binaries/gnutls
   add: /gnutls
   to: /gnutls
   before: install
-- image: packages/binaries/acl
+- image: {{ .ModuleNamePrefix }}packages/binaries/acl
   add: /acl
   to: /acl
   before: install
+- image: {{ .ModuleNamePrefix }}packages/binaries/libtpms
+  add: /libtpms
+  to: /libtpms
+  before: install
+  includePaths:
+  - usr/lib64/*.so
+  - usr/lib64/*.so.*
 
 # Statically builded
-- image: packages/binaries/openssl
+- image: {{ .ModuleNamePrefix }}packages/binaries/openssl
   add: /openssl
   to: /relocate
   after: setup
@@ -281,7 +286,7 @@ import:
   - usr/bin/coreutils
 
 
-- image: {{ $.ImageName }}-cbuilder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin
   before: setup
@@ -293,19 +298,6 @@ shell:
   - |
     apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
 
-  {{ if not $.DistroPackagesProxy }}
-      REPO_URL=http://ftp.altlinux.org/pub/distributions
-  {{- else }}
-      REPO_URL=http://{{ $.DistroPackagesProxy }}/repository/archive-ALT-Linux-APT-Repository
-  {{- end }}
-    # libtpms libtpms-devel require version 0.10 that in sisyphus repo
-    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF
-    rpm [alt] $REPO_URL/ALTLinux/Sisyphus x86_64 classic
-    rpm [alt] $REPO_URL/ALTLinux/Sisyphus noarch classic
-    EOF
-
-    apt-get update
-    apt-get install -y libtpms
     rm -f /etc/apt/sources.list.d/alt-sisyphus.list
 
     {{- include "alt packages clean" . | nindent 2 }}
@@ -328,6 +320,7 @@ shell:
     cp -a /gnutls/. /
     cp -a /dmidecode/. /
     cp -a /acl/. /
+    cp -a /libtpms/. /
 
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
@@ -350,7 +343,7 @@ shell:
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls,dmidecode,acl}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls,dmidecode,acl,libtpms}
 
   setup:
   - |
@@ -443,32 +436,36 @@ shell:
     cp -a etc/libvirt etc/libvirt-init
 
 ---
-image: {{ $.ImageName }}-gobuilder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}/node-labeller
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/node-labeller
     to: /node-labeller
     includePaths:
       - '**/*'
     stageDependencies:
       install:
       - '**/*'
-  - add: /images/{{ $.ImageName }}/vlctl
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/vlctl
     to: /src-vlctl
     includePaths:
       - '**/*'
     stageDependencies:
       install:
       - '**/*'
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
   install:
   {{- include "debian packages proxy" . | nindent 2 }}
   - |
     echo "install deps libvirt-dev"
-    apt-get update && apt-get install -y libvirt-dev
+    apt-get install -y libvirt-dev
   {{- include "debian packages clean" . | nindent 2 }}
   - mkdir -p /binaries
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - |
     echo "Build node-labeller binaries"
     cd /node-labeller
@@ -484,12 +481,12 @@ shell:
     go build -ldflags="-s -w" -o /binaries/vlctl ./cmd/vlctl/main.go
     echo "Done"
 ---
-image: {{ $.ImageName }}-cbuilder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder 
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}/static_binaries
-    to: /
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/static_binaries
+    to: /static_binaries
     stageDependencies:
       install:
         - '*.c'
@@ -500,6 +497,7 @@ shell:
   {{- include "debian packages clean" . | nindent 2 }}
   install:
   - |
+    cd /static_binaries
     echo "Building simple app that prints I'am temp pod"
     mkdir -p /bins
     musl-gcc -static -Os -o /bins/temp_pod temp_pod.c

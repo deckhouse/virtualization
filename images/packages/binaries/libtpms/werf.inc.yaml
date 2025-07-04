@@ -5,11 +5,12 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /{{ $.ImageName }}
+  to: /libtpms
   before: setup
+
 ---
 {{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "file/file.git" }}
+{{- $gitRepoUrl := "stefanberger/libtpms.git" }}
 {{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
 
 image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
@@ -23,19 +24,16 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git libtool
-- make automake autoconf libtool makeinfo
-- pkg-config
-- bison
-- bzlib-devel libcap-devel liblzma-devel libseccomp-devel libzstd-devel zlib-devel lzip ncompress strace
+- gcc gcc-c++
+- make autoconf automake libtool
+- libssl-devel perl-podlators
 {{- end -}}
-
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
@@ -62,9 +60,13 @@ shell:
 
     cd /src
     
-    autoreconf -f -i
-    ./configure --prefix=/usr --libdir=/usr/lib64 --datadir=/usr/share
-    
-    make install -j $(nproc) DESTDIR=$OUTDIR
+    ./autogen.sh
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --with-tpm2 \
+      --with-openssl
 
-    rm -rf $OUTDIR/share/man
+    make -j$(nproc)
+
+    make DESTDIR=$OUTDIR install
