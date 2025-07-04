@@ -64,7 +64,7 @@ libs:
   - libzstd-devel
   - libseccomp-devel
   # - libgcrypt-devel
-  - libnettle-devel
+  # - libnettle-devel
   - libudev-devel
   - libmultipath-devel
   - libblkio-devel
@@ -287,6 +287,10 @@ import:
   add: /libfuse3
   to: /libfuse3
   before: install
+- image: packages/binaries/nettle
+  add: /nettle
+  to: /nettle
+  before: install
 
 - image: libs/libffi
   add: /usr
@@ -351,7 +355,7 @@ shell:
     # Install packages
     PKGS="libisoburn libburn libbsd swtpm numactl gnutls"
     PKGS+=" dmidecode acl libffi8 libattr libaudit libblkid libmd"
-    PKGS+=" libgcrypt libfuse3"
+    PKGS+=" libgcrypt libfuse3 nettle"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
