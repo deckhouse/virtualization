@@ -1,3 +1,17 @@
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc
+- git make libtool gettext-devel
+- bison flex
+{{- end -}}
+
+{{- $builderDependencies := include "$name" . | fromYaml }}
+
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "util-linux/util-linux.git" }}
+{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
+
 {{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
 {{- if eq .ModuleNamePrefix "" }}
 ---
@@ -11,10 +25,6 @@ import:
   before: setup
 
 ---
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "util-linux/util-linux.git" }}
-{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
-
 image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -30,20 +40,6 @@ shell:
     # rm -rf /src/.git
 
 ---
-{{- end }}
-
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-packages:
-- gcc
-- git make libtool gettext-devel
-- bison flex
-{{- end -}}
-
-{{- if eq .ModuleNamePrefix "" }}
-
-{{ $builderDependencies := include "$name" . | fromYaml }}
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt

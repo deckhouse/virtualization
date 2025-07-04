@@ -1,3 +1,17 @@
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc
+- git make rpm-macros-meson
+- flex bison meson
+{{- end -}}
+
+{{- $builderDependencies := include "$name" . | fromYaml }}
+
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "dtc/dtc.git" }}
+{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
+
 {{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
 {{- if eq .ModuleNamePrefix "" }}
 ---
@@ -11,10 +25,6 @@ import:
   before: setup
 
 ---
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "dtc/dtc.git" }}
-{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
-
 image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -28,22 +38,8 @@ shell:
 
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     # rm -rf /src/.git
+
 ---
-
-{{- end }}
-
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-packages:
-- gcc
-- git make rpm-macros-meson
-- flex bison meson
-{{- end -}}
-
-{{- if eq .ModuleNamePrefix "" }}
-
-{{ $builderDependencies := include "$name" . | fromYaml }}
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt

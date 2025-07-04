@@ -1,3 +1,18 @@
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- git gcc gcc-c++ make autoconf automake
+- pkgconfig makeinfo rpm-build-python3
+- libreadline-devel
+- libtinfo-devel libudev-devel libaio-devel
+{{- end -}}
+
+{{- $builderDependencies := include "$name" . | fromYaml }}
+
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "lvmteam/lvm2.git" }}
+{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
+
 {{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
 {{- if eq .ModuleNamePrefix "" }}
 ---
@@ -11,10 +26,6 @@ import:
   before: setup
 
 ---
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "lvmteam/lvm2.git" }}
-{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
-
 image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -30,20 +41,6 @@ shell:
     # rm -rf /src/.git
 
 ---
-{{- end }}
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-packages:
-- git gcc gcc-c++ make autoconf automake
-- pkgconfig makeinfo rpm-build-python3
-- libreadline-devel
-- libtinfo-devel libudev-devel libaio-devel
-{{- end -}}
-
-{{- if eq .ModuleNamePrefix "" }}
-
-{{ $builderDependencies := include "$name" . | fromYaml }}
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
