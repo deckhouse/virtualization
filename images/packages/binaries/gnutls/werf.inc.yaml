@@ -56,6 +56,10 @@ import:
   add: /nettle
   to: /nettle
   before: install
+- image: packages/binaries/gmp
+  add: /libgmp
+  to: /libgmp
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -67,9 +71,8 @@ shell:
 
   install:
   - |
-
     # Install packages
-    PKGS="libbrotli libidn2 libgcrypt nettle"
+    PKGS="libbrotli libidn2 libgcrypt nettle libgmp"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg

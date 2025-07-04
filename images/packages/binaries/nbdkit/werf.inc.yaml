@@ -20,7 +20,7 @@ packages:
 - bash-completion
 - curl
 - qemu
-- libisoburn
+# - libisoburn
 - e2fsprogs
 - expect
 - libgnutls30
@@ -46,6 +46,11 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+- image: packages/binaries/libisoburn
+  add: /libisoburn
+  to: /libisoburn
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -58,6 +63,13 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="libisoburn"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
