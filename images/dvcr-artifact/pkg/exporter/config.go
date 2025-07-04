@@ -23,6 +23,9 @@ import (
 	"strings"
 
 	"github.com/spf13/pflag"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 
 	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/auth"
 )
@@ -30,6 +33,7 @@ import (
 type Config struct {
 	ListenAddress      string
 	ListenPort         int
+	ResourceNamespace  string
 	CertPath           string
 	KeyPath            string
 	Image              string
@@ -41,6 +45,7 @@ type Config struct {
 func (c *Config) Load(fs *pflag.FlagSet) {
 	fs.StringVar(&c.ListenAddress, "listen-address", "0.0.0.0", "Listen address")
 	fs.IntVar(&c.ListenPort, "listen-port", 8444, "Listen port")
+	fs.StringVar(&c.ResourceNamespace, "resource-namespace", "", "Resource namespace")
 	fs.StringVar(&c.CertPath, "cert-path", os.Getenv("EXPORTER_CERT_PATH"), "Path to TLS certificate")
 	fs.StringVar(&c.KeyPath, "key-path", os.Getenv("EXPORTER_KEY_PATH"), "Path to TLS key")
 	fs.StringVar(&c.Image, "image", os.Getenv("EXPORTER_IMAGE"), "Image")
@@ -58,6 +63,9 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("ListenPort is required")
 	}
 
+	if c.ResourceNamespace == "" {
+		return fmt.Errorf("ResourceNamespace is required")
+	}
 	if c.Image == "" {
 		return fmt.Errorf("Image is required")
 	}
@@ -81,7 +89,32 @@ func (c *Config) Complete() (Exporter, error) {
 		}
 	}
 
-	return NewExportServer(c.Image, c.ListenAddress, c.ListenPort,
+	restConfig, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error creating rest config: %w", err)
+	}
+	client, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error creating kubernetes client: %w", err)
+	}
+
+	authenticator := auth.NewTokenAuthenticator(client.AuthenticationV1().TokenReviews())
+
+	gvr := metav1.GroupVersionResource{
+		Group:    "virtualization.deckhouse.io",
+		Version:  "v1alpha1",
+		Resource: "viirtualdataexport",
+	}
+	authorizer, err := auth.NewKubeAuthorizer(gvr,
+		"get", client.AuthorizationV1().SubjectAccessReviews(),
+		auth.WithNamespace(c.ResourceNamespace),
+		auth.WithSubresource("download"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error creating authorizer: %w", err)
+	}
+
+	return NewExportServer(c.Image, c.ListenAddress, c.ListenPort, authenticator, authorizer,
 		WithTLS(c.CertPath, c.KeyPath),
 		WithAuth(username, password),
 		WithDestInsecure(c.DestInsecure),

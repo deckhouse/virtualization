@@ -35,17 +35,21 @@ import (
 	"github.com/google/uuid"
 	"k8s.io/klog/v2"
 
+	"github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/auth"
 	dtls "github.com/deckhouse/virtualization-controller/dvcr-importers/pkg/tls"
 )
 
 type exportServer struct {
+	image         string
+	bindAddress   string
+	bindPort      int
+	authenticator auth.Authenticator
+	authorizer    auth.KubeAuthorizer
+
 	tlsKeyPath   string
 	tlsCertPath  string
 	username     string
 	password     string
-	image        string
-	bindAddress  string
-	bindPort     int
 	destInsecure bool
 	destCertPath string
 
@@ -54,11 +58,13 @@ type exportServer struct {
 	destTlSConfig *tls.Config
 }
 
-func NewExportServer(image string, bindAddress string, bindPort int, options ...Option) Exporter {
+func NewExportServer(image string, bindAddress string, bindPort int, authenticator auth.Authenticator, authorizer auth.KubeAuthorizer, options ...Option) Exporter {
 	s := &exportServer{
-		image:       image,
-		bindAddress: bindAddress,
-		bindPort:    bindPort,
+		image:         image,
+		bindAddress:   bindAddress,
+		bindPort:      bindPort,
+		authenticator: authenticator,
+		authorizer:    authorizer,
 
 		done: make(chan struct{}, 1),
 	}
@@ -144,7 +150,7 @@ func (s *exportServer) getHandler() http.Handler {
 	var count atomic.Int64
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/download", func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/download", s.withMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := uuid.New().String()
 		log := klog.LoggerWithValues(klog.Background(), "requestID", requestID, "remoteAddr", r.RemoteAddr, "image", s.image)
 		log.Info("Starting download request")
@@ -191,7 +197,7 @@ func (s *exportServer) getHandler() http.Handler {
 		}
 
 		log.Info("Successfully exported image")
-	})
+	})))
 
 	mux.HandleFunc("/inprogress-count", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -202,6 +208,38 @@ func (s *exportServer) getHandler() http.Handler {
 	})
 
 	return mux
+}
+
+func (s *exportServer) withMiddleware(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authenticateRequest, err := s.authenticator.AuthenticateRequest(r)
+		if err != nil {
+			klog.Error(err, "Failed to authenticate request")
+			http.Error(w, fmt.Sprintf("Failed to authenticate request: %v", err), http.StatusUnauthorized)
+			return
+		}
+
+		if !authenticateRequest.Authenticated {
+			klog.Error(err, "Request is not authenticated")
+			http.Error(w, fmt.Sprintf("Request is not authenticated"), http.StatusUnauthorized)
+			return
+		}
+
+		authorizeResult, err := s.authorizer.Authorize(r.Context(), authenticateRequest.UserName, authenticateRequest.Groups)
+		if err != nil {
+			klog.Error(err, "Failed to authorize request")
+			http.Error(w, fmt.Sprintf("Failed to authorize request: %v", err), http.StatusForbidden)
+			return
+		}
+
+		if !authorizeResult.Allowed {
+			klog.Error(err, "Request is not authorized")
+			http.Error(w, fmt.Sprintf("Request is not authorized"), http.StatusForbidden)
+			return
+		}
+
+		handler.ServeHTTP(w, r)
+	})
 }
 
 func (s *exportServer) dvcrRemoteOptions(ctx context.Context) []remote.Option {
