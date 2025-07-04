@@ -27,7 +27,10 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make autoconf automake 
+- gcc-c++ git 
+- make autoconf automake libtool
+- libssl-devel makeinfo
+# - texinfo texlive texi2dvi
 # - gmp-devel
 {{- end -}}
 
@@ -69,6 +72,6 @@ shell:
       --libdir=/usr/lib64 \
       --enable-shared \
       --disable-static \
-      --disable-doc
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install-shared-hogweed install-headers install-pkgconfig
+      --disable-documentation
+    
+    make -j$(nproc) DESTDIR=$OUTDIR install-shared-hogweed install-headers install-pkgconfig
