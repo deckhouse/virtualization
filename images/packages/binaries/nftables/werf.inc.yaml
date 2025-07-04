@@ -53,7 +53,6 @@ shell:
     rpm [alt] $REPO_URL/ALTLinux/Sisyphus noarch classic
     EOF
     apt-get update
-    # apt-get install -y libmnl-devel libnftnl-devel libgmp-devel libreadline-devel libjansson-devel libedit-devel
     apt-get install -y libmnl-devel libnftnl-devel libreadline-devel libjansson-devel libedit-devel
     rm -f /etc/apt/sources.list.d/alt-sisyphus.list
 

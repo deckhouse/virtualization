@@ -20,7 +20,6 @@ packages:
 - bash-completion
 - curl
 - qemu
-# - libisoburn
 - e2fsprogs
 - expect
 - libgnutls30

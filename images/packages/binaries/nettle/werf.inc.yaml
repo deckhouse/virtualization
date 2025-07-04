@@ -6,18 +6,6 @@ import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
   to: /nettle
-  # to: /libhogweed
-#   includePaths:
-#     - usr/lib64/libhogweed.so
-#     - usr/lib64/libhogweed.so.6
-#     - usr/lib64/libhogweed.so.6.10
-#   before: setup
-# - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-#   add: /out
-#   to: /libnettle-devel
-#   includePaths:
-#     - usr/include
-#     - usr/lib64/pkgconfig
   before: setup
 
 ---
@@ -27,11 +15,9 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc-c++ git 
+- gcc-c++ gcc git 
 - make autoconf automake libtool
 - libssl-devel makeinfo
-# - texinfo texlive texi2dvi
-# - gmp-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
