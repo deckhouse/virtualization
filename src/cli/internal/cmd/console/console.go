@@ -21,42 +21,37 @@ package console
 
 import (
 	"errors"
-	"fmt"
 	"io"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
+
+	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 	"github.com/deckhouse/virtualization/src/cli/internal/util"
 )
 
-var timeout int
-
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
+	console := &Console{}
 	cmd := &cobra.Command{
 		Use:     "console (VirtualMachine)",
 		Short:   "Connect to a console of a virtual machine.",
 		Example: usage(),
 		Args:    templates.ExactArgs("console", 1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := Console{clientConfig: clientConfig}
-			return c.Run(args)
-		},
+		RunE:    console.Run,
 	}
 
-	cmd.Flags().IntVar(&timeout, "timeout", 5, "The number of minutes to wait for the virtual machine to be ready.")
+	cmd.Flags().IntVar(&console.timeout, "timeout", 5, "The number of minutes to wait for the virtual machine to be ready.")
 	cmd.SetUsageTemplate(templates.UsageTemplate())
 	return cmd
 }
 
 type Console struct {
-	clientConfig clientcmd.ClientConfig
+	timeout int
 }
 
 func usage() string {
@@ -70,52 +65,50 @@ func usage() string {
 	return usage
 }
 
-func (c *Console) Run(args []string) error {
+func (c *Console) Run(cmd *cobra.Command, args []string) error {
+	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
 	namespace, name, err := templates.ParseTarget(args[0])
 	if err != nil {
 		return err
 	}
 	if namespace == "" {
-		namespace, _, err = c.clientConfig.Namespace()
-		if err != nil {
-			return err
-		}
-	}
-
-	virtCli, err := kubeclient.GetClientFromClientConfig(c.clientConfig)
-	if err != nil {
-		return err
+		namespace = defaultNamespace
 	}
 
 	for {
-		err := connect(name, namespace, virtCli)
-		if err != nil {
-			if errors.Is(err, util.ErrorInterrupt) || strings.Contains(err.Error(), "not found") {
-				return err
-			}
-
-			var e *websocket.CloseError
-			if errors.As(err, &e) {
-				switch e.Code {
-				case websocket.CloseGoingAway:
-					fmt.Fprint(os.Stderr, "\nYou were disconnected from the console. This has one of the following reasons:"+
-						"\n - another user connected to the console of the target vm\n")
-					return nil
-				case websocket.CloseAbnormalClosure:
-					fmt.Fprint(os.Stderr, "\nYou were disconnected from the console. This has one of the following reasons:"+
-						"\n - network issues"+
-						"\n - machine restart\n")
-				}
-			} else {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-			}
-
-			time.Sleep(time.Second)
+		err := connect(name, namespace, client, c.timeout)
+		if err == nil {
+			continue
 		}
+
+		if errors.Is(err, util.ErrorInterrupt) || strings.Contains(err.Error(), "not found") {
+			return err
+		}
+
+		var e *websocket.CloseError
+		if errors.As(err, &e) {
+			switch e.Code {
+			case websocket.CloseGoingAway:
+				cmd.Printf("\nYou were disconnected from the console. This has one of the following reasons:" +
+					"\n - another user connected to the console of the target vm\n")
+				return nil
+			case websocket.CloseAbnormalClosure:
+				cmd.Printf("\nYou were disconnected from the console. This has one of the following reasons:" +
+					"\n - network issues" +
+					"\n - machine restart\n")
+			}
+		} else {
+			cmd.Printf("%s\n", err)
+		}
+
+		time.Sleep(time.Second)
 	}
 }
 
-func connect(name string, namespace string, virtCli kubeclient.Client) error {
+func connect(name string, namespace string, virtCli kubeclient.Client, timeout int) error {
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
 

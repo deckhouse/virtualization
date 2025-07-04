@@ -19,12 +19,16 @@ package main
 import (
 	"os"
 
+	"github.com/fatih/color"
+
 	"github.com/deckhouse/virtualization/src/cli/pkg/command"
 )
 
 func main() {
-	virtCmd, _ := command.NewCommand(os.Args[0])
+	virtCmd := command.NewCommand(os.Args[0])
 	if err := virtCmd.Execute(); err != nil {
+		red := color.New(color.FgRed)
+		_, _ = red.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }

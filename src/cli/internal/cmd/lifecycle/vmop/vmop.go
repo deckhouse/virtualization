@@ -21,12 +21,14 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
+
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type VirtualMachineOperation struct {
@@ -233,7 +235,7 @@ func (v VirtualMachineOperation) newVMOP(vmName, vmNamespace string, t v1alpha2.
 		Spec: v1alpha2.VirtualMachineOperationSpec{
 			Type:           t,
 			VirtualMachine: vmName,
-			Force:          force,
+			Force:          ptr.To(force),
 		},
 	}
 }
