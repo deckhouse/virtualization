@@ -24,16 +24,24 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type VirtualDiskOverrideValidator struct {
-	vd     *virtv2.VirtualDisk
-	client client.Client
+	vd           *virtv2.VirtualDisk
+	client       client.Client
+	vmRestoreUID string
 }
 
-func NewVirtualDiskOverrideValidator(vdTmpl *virtv2.VirtualDisk, client client.Client) *VirtualDiskOverrideValidator {
+func NewVirtualDiskOverrideValidator(vdTmpl *virtv2.VirtualDisk, client client.Client, vmRestoreUID string) *VirtualDiskOverrideValidator {
+	if vdTmpl.Annotations != nil {
+		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	} else {
+		vdTmpl.Annotations = make(map[string]string)
+		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	}
 	return &VirtualDiskOverrideValidator{
 		vd: &virtv2.VirtualDisk{
 			TypeMeta: metav1.TypeMeta{
@@ -46,17 +54,19 @@ func NewVirtualDiskOverrideValidator(vdTmpl *virtv2.VirtualDisk, client client.C
 				Annotations: vdTmpl.Annotations,
 				Labels:      vdTmpl.Labels,
 			},
-			Spec: vdTmpl.Spec,
+			Spec:   vdTmpl.Spec,
+			Status: vdTmpl.Status,
 		},
-		client: client,
+		client:       client,
+		vmRestoreUID: vmRestoreUID,
 	}
 }
 
-func (v VirtualDiskOverrideValidator) Override(rules []virtv2.NameReplacement) {
+func (v *VirtualDiskOverrideValidator) Override(rules []virtv2.NameReplacement) {
 	v.vd.Name = overrideName(v.vd.Kind, v.vd.Name, rules)
 }
 
-func (v VirtualDiskOverrideValidator) Validate(ctx context.Context) error {
+func (v *VirtualDiskOverrideValidator) Validate(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
 	existed, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
 	if err != nil {
@@ -70,6 +80,72 @@ func (v VirtualDiskOverrideValidator) Validate(ctx context.Context) error {
 	return nil
 }
 
-func (v VirtualDiskOverrideValidator) Object() client.Object {
-	return v.vd
+func (v *VirtualDiskOverrideValidator) ValidateWithForce(ctx context.Context) error {
+	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+	existed, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
+	if err != nil {
+		return err
+	}
+
+	vmName := v.getVirtualMachineName()
+
+	if existed != nil {
+		for _, a := range existed.Status.AttachedToVirtualMachines {
+			if a.Mounted && a.Name != vmName {
+				return fmt.Errorf("the virtual disk %q %w", existed.Name, ErrAlreadyInUse)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (v *VirtualDiskOverrideValidator) ProcessWithForce(ctx context.Context) error {
+	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
+	vdObj, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the `VirtualDisk`: %w", err)
+	}
+
+	if object.IsTerminating(vdObj) {
+		return fmt.Errorf("waiting for the `VirtualDisk` %s %w", vdObj.Name, ErrRestoring)
+	}
+
+	if vdObj != nil {
+		if value, ok := vdObj.Annotations[annotations.AnnVMRestore]; ok && value == v.vmRestoreUID {
+			return nil
+		}
+		err := v.client.Delete(ctx, vdObj)
+		if err != nil {
+			return fmt.Errorf("failed to delete the `VirtualDisk`: %w", err)
+		}
+		return fmt.Errorf("waiting for the `VirtualDisk` %s %w", vdObj.Name, ErrRestoring)
+	}
+
+	return nil
+}
+
+func (v *VirtualDiskOverrideValidator) Object() client.Object {
+	return &virtv2.VirtualDisk{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       v.vd.Kind,
+			APIVersion: v.vd.APIVersion,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        v.vd.Name,
+			Namespace:   v.vd.Namespace,
+			Annotations: v.vd.Annotations,
+			Labels:      v.vd.Labels,
+		},
+		Spec: v.vd.Spec,
+	}
+}
+
+func (v *VirtualDiskOverrideValidator) getVirtualMachineName() string {
+	for _, a := range v.vd.Status.AttachedToVirtualMachines {
+		if a.Mounted {
+			return a.Name
+		}
+	}
+	return ""
 }
