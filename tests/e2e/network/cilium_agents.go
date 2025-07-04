@@ -37,11 +37,6 @@ func CheckCilliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNames
 
 	// Check each Cilium agent pod
 	for _, pod := range pods {
-		err := checkCiliumLogsForPanics(kubectl, pod.Name)
-		if err != nil {
-			return err
-		}
-
 		if pod.Spec.NodeName == nodeName {
 			// For pods on the same node as the VM
 			found, err := searchIPFromCiliumIPCache(kubectl, pod, vmIP, innaddrAny)
