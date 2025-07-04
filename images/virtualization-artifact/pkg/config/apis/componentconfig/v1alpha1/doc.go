@@ -14,14 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package config
+// +k8s:deepcopy-gen=package,register
+// +k8s:openapi-gen=true
+// +k8s:conversion-gen=github.com/deckhouse/virtualization-controller/pkg/config/apis/componentconfig
 
-import (
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-)
+// Package v1alpha1 is the v1alpha1 version of the virtualization's componentconfig API
+// +groupName=virtualizationcomponentconfig
 
-// TODO(future) live migration settings will be here. Now just a place for the default policy.
-
-const (
-	DefaultLiveMigrationPolicy = v1alpha2.PreferSafeMigrationPolicy
-)
+package v1alpha1

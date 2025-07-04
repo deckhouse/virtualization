@@ -24,22 +24,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/config"
+	"github.com/deckhouse/virtualization-controller/pkg/config/apis/componentconfig"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 )
 
-const gcVMMigrationControllerName = "vmi-migration-gc-controller"
+const GCVMMigrationControllerName = "vmi-migration-gc-controller"
 
 func SetupGC(
 	mgr manager.Manager,
 	log *log.Logger,
-	gcSettings config.BaseGcSettings,
+	gcSettings componentconfig.BaseGCSettings,
 ) error {
 	ttl := 24 * time.Hour
 	if gcSettings.TTL.Duration > 0 {
 		ttl = gcSettings.TTL.Duration
 	}
-	return gc.SetupGcController(gcVMMigrationControllerName,
+	return gc.SetupGcController(GCVMMigrationControllerName,
 		mgr,
 		log,
 		gc.NewCronSource(mgr.GetClient(),

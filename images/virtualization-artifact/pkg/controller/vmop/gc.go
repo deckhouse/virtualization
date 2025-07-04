@@ -23,23 +23,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
-	"github.com/deckhouse/virtualization-controller/pkg/config"
+	"github.com/deckhouse/virtualization-controller/pkg/config/apis/componentconfig"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-const gcControllerName = "vmop-gc-controller"
+const GCControllerName = "vmop-gc-controller"
 
 func SetupGC(
 	mgr manager.Manager,
 	log *log.Logger,
-	gcSettings config.BaseGcSettings,
+	gcSettings componentconfig.BaseGCSettings,
 ) error {
 	ttl := 24 * time.Hour
 	if gcSettings.TTL.Duration > 0 {
 		ttl = gcSettings.TTL.Duration
 	}
-	return gc.SetupGcController(gcControllerName,
+	return gc.SetupGcController(GCControllerName,
 		mgr,
 		log,
 		gc.NewCronSource(mgr.GetClient(),

@@ -7,6 +7,9 @@ includes:
   api:
     taskfile: ../../api/Taskfile.dist.yaml
     dir: ../../api
+  config:
+    taskfile: pkg/config/apis/Taskfile.yaml
+    dir: pkg/config/apis
 
 vars:
   BaseNamespace: d8-virtualization

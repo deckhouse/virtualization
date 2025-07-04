@@ -214,6 +214,7 @@ properties:
             items:
               type: string
             x-examples: ["sc-1", "sc-2"]
+            x-dmt-default: ["sc-1", "sc-2"]
   virtualDisks:
     type: object
     description: |
@@ -233,6 +234,7 @@ properties:
             items:
               type: string
             x-examples: ["sc-1", "sc-2"]
+            x-dmt-default: ["sc-1", "sc-2"]
   logLevel:
     type: string
     description: |

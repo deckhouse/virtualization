@@ -33,11 +33,6 @@ const (
 	// UploaderPort provides a constant to use as a port for uploader Service
 	UploaderPort = 80
 	// ImporterPodImageNameVar is a name of variable with the image name for the importer Pod
-	ImporterPodImageNameVar = "IMPORTER_IMAGE"
-	// UploaderPodImageNameVar is a name of variable with the image name for the uploader Pod
-	UploaderPodImageNameVar = "UPLOADER_IMAGE"
-	// BounderPodImageNameVar is a name of variable with the image name for the bounder Pod
-	BounderPodImageNameVar = "BOUNDER_IMAGE"
 	// ImporterCertDir is where the configmap containing certs will be mounted
 	ImporterCertDir = "/certs"
 	// ImporterProxyCertDir is where the configmap containing proxy certs will be mounted

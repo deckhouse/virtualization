@@ -1,0 +1,7 @@
+version: "3"
+
+tasks:
+  generate:
+    desc: "Generate component config"
+    cmds:
+      - hack/update-codegen.sh

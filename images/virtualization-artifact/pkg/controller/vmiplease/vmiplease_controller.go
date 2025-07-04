@@ -18,9 +18,9 @@ package vmiplease
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -41,18 +41,14 @@ func NewController(
 	ctx context.Context,
 	mgr manager.Manager,
 	log *log.Logger,
-	retentionDurationStr string,
+	retentionDuration metav1.Duration,
 ) (controller.Controller, error) {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
-	retentionDuration, err := time.ParseDuration(retentionDurationStr)
-	if err != nil {
-		return nil, fmt.Errorf("parse retention duration: %w", err)
-	}
 
 	handlers := []Handler{
 		internal.NewLifecycleHandler(mgr.GetClient(), recorder),
 		internal.NewProtectionHandler(),
-		internal.NewRetentionHandler(retentionDuration, mgr.GetClient()),
+		internal.NewRetentionHandler(retentionDuration.Duration, mgr.GetClient()),
 	}
 
 	r := NewReconciler(mgr.GetClient(), handlers...)
