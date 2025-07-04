@@ -18,11 +18,8 @@ package fuzz
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -45,7 +42,7 @@ func ProcessRequests(t *testing.T, data []byte, addr string, methods ...string) 
 	}
 }
 
-func ProcessRequest(t *testing.T, data []byte, addr, method string) {
+func ProcessRequest(t testing.TB, data []byte, addr, method string) {
 	t.Helper()
 
 	switch method {
@@ -75,7 +72,7 @@ func ProcessRequest(t *testing.T, data []byte, addr, method string) {
 	}
 }
 
-func fuzzHTTPRequest(t *testing.T, fuzzReq *http.Request) *http.Response {
+func fuzzHTTPRequest(t testing.TB, fuzzReq *http.Request) *http.Response {
 	t.Helper()
 
 	if fuzzReq == nil {
@@ -111,30 +108,16 @@ func fuzzHTTPRequest(t *testing.T, fuzzReq *http.Request) *http.Response {
 	return resp
 }
 
-type fuzzRequest struct {
-	Form     url.Values
-	PostForm url.Values
-	Body     string
-	Headers  map[string][]string
-}
+type fuzzRequest struct{}
 
 func newFuzzRequest() *fuzzRequest {
 	return &fuzzRequest{}
 }
 
-func (s *fuzzRequest) Fuzz(t *testing.T, data []byte, method, addr string) *http.Request {
+func (s *fuzzRequest) Fuzz(t testing.TB, data []byte, method, addr string) *http.Request {
 	t.Helper()
 
-	fuzzConsumer := fuzz.NewConsumer(data)
-	if err := fuzzConsumer.GenerateStruct(s); err != nil {
-		t.Skip(err) // not enough data for fuzzing
-	}
-	bodyReader := new(bytes.Buffer)
-
-	enc := json.NewEncoder(bodyReader)
-	if err := enc.Encode(io.NopCloser(strings.NewReader(s.Body))); err != nil {
-		t.Fatalf("err:%s", err)
-	}
+	bodyReader := bytes.NewBuffer(data)
 
 	req, err := http.NewRequest(method, addr, bodyReader)
 	if err != nil {
@@ -145,17 +128,19 @@ func (s *fuzzRequest) Fuzz(t *testing.T, data []byte, method, addr string) *http
 	// This will allow for the testing of requests that require CORS, without using a browser.
 	hostURLRegexp := regexp.MustCompile("http[s]?://.+:[0-9]+")
 
-	for k, v := range s.Headers {
-		for i := range v {
-			req.Header.Add(k, v[i])
+	fuzzConsumer := fuzz.NewConsumer(data)
+	var headersMap map[string]string
+	fuzzConsumer.FuzzMap(&headersMap)
+
+	for k, v := range headersMap {
+		for i := 0; i < len(v); i++ {
+			req.Header.Add(k, v)
 		}
 	}
-	req.Header.Set("Origin", hostURLRegexp.FindString(addr))
-	req.Header.Set("Content-Length", strconv.Itoa(len(s.Body)))
-	req.Header.Set("Content-Type", "application/octet-stream")
 
-	req.Form = s.Form
-	req.PostForm = s.PostForm
+	req.Header.Set("Origin", hostURLRegexp.FindString(addr))
+	req.Header.Set("Content-Length", strconv.Itoa(len(data)))
+	req.Header.Set("Content-Type", "application/octet-stream")
 
 	return req
 }

@@ -18,6 +18,7 @@ package uploader
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"testing"
@@ -28,27 +29,12 @@ import (
 )
 
 const (
-	UPLOADER_FUZZ_PORT = "UPLOADER_FUZZ_PORT"
-	UPLOADER_MOCK_PORT = "UPLOADER_MOCK_PORT"
+	addr = "127.0.0.1"
 )
 
 func FuzzUploader(f *testing.F) {
-	uploaderPort, err := fuzz.GetPortFromEnv(UPLOADER_FUZZ_PORT, 8000)
-	if err != nil {
-		f.Fatalf("failed to parse uploaderEnv: %v", err)
-	}
-
-	mockPort, err := fuzz.GetPortFromEnv(UPLOADER_MOCK_PORT, 8400)
-	if err != nil {
-		f.Fatalf("failed to parse mockEnv: %v", err)
-	}
-
-	addr := "127.0.0.1"
-	url := fmt.Sprintf("http://%s:%d/upload", addr, uploaderPort)
-
-	startUploaderServer(f, addr, uploaderPort, mockPort)
-
-	startDVCRMockServer(f, addr, mockPort)
+	mockPort := startDVCRMockServer(f, addr)
+	uploaderPort := startUploaderServer(f, addr, mockPort)
 
 	// 512 bytes is the minimum size of a qcow2 image
 	minimalQCow2 := [512]byte{
@@ -58,12 +44,13 @@ func FuzzUploader(f *testing.F) {
 	}
 	f.Add(minimalQCow2[:])
 
+	url := fmt.Sprintf("http://%s:%d/upload", addr, uploaderPort)
 	f.Fuzz(func(t *testing.T, data []byte) {
-		fuzz.ProcessRequests(t, data, url, http.MethodPut, http.MethodPost)
+		fuzz.ProcessRequests(t, data, url, http.MethodPost, http.MethodPut)
 	})
 }
 
-func startUploaderServer(tb testing.TB, addr string, uploaderPort, mockPort int) *uploadServerApp {
+func startUploaderServer(tb testing.TB, addr string, mockPort int) (uploaderPort int) {
 	tb.Helper()
 
 	endpoint := fmt.Sprintf("%s:%d/uploader", addr, mockPort)
@@ -85,6 +72,10 @@ func startUploaderServer(tb testing.TB, addr string, uploaderPort, mockPort int)
 	srv.keepAlive = true
 	srv.keepConcurrent = true
 	srv.destInsecure = true
+	// take free port for uploader server
+	srv.bindPort = 0
+	// take free port for healthz endpoint
+	srv.bindHealthzPort = 0
 
 	go func() {
 		if err := uploaderServer.Run(); err != nil {
@@ -92,28 +83,73 @@ func startUploaderServer(tb testing.TB, addr string, uploaderPort, mockPort int)
 		}
 	}()
 
-	return srv
+	// wait server for start listening
+	<-srv.startListeningChan
+
+	return srv.bindPort
 }
 
-func startDVCRMockServer(tb testing.TB, addr string, port int) {
+func startDVCRMockServer(tb testing.TB, addr string) (port int) {
 	tb.Helper()
-
-	url := fmt.Sprintf("%s:%d", addr, port)
 
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /v2/uploader/blobs/uploads/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Location", fmt.Sprintf("/v2/uploader/blobs/uploads/test_data"))
+		w.Header().Add("Location", "/v2/uploader/blobs/uploads/test_data")
 		w.WriteHeader(http.StatusAccepted)
+	})
+
+	mux.HandleFunc("PATCH /v2/uploader/blobs/uploads/{id}/", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		w.Header().Add("Location", fmt.Sprintf("/v2/uploader/blobs/uploads/%s", id))
+		w.WriteHeader(http.StatusAccepted)
+	})
+
+	mux.HandleFunc("PUT /v2/uploader/blobs/uploads/{id}/", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		w.Header().Add("Location", fmt.Sprintf("/v2/uploader/blobs/uploads/%s", id))
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux.HandleFunc("GET /v2/uploader/blobs/uploads/{id}/", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		w.Header().Add("Location", fmt.Sprintf("/v2/uploader/blobs/uploads/%s", id))
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	mux.HandleFunc("HEAD /v2/uploader/manifests/latest/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Content-Type", "application/octet-stream")
+		// 10 is random value
+		w.Header().Add("Content-Length", "10")
+		// random digest
+		w.Header().Add("Docker-Content-Digest", "sha256:af3ca10a606165f3cad5226c504cea77b9f5169df6a536b26aeffd2e651c0ada")
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux.HandleFunc("PUT /v2/uploader/manifests/latest/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	mux.HandleFunc("GET /v2/uploader/manifests/latest/", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
 	})
 
 	mux.HandleFunc("GET /v2/", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:0", addr))
+	if err != nil {
+		tb.Fatalf("failed to listen: %v", err)
+	}
+
+	port = listener.Addr().(*net.TCPAddr).Port
+
 	go func() {
-		if err := http.ListenAndServe(url, mux); err != nil {
-			tb.Fatalf("failed to listen and serve mock server: %v", err)
+		if err := http.Serve(listener, mux); err != nil {
+			tb.Fatalf("failed to serve mock server: %v", err)
 		}
 	}()
+
+	return port
 }

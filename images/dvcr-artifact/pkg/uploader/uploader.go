@@ -59,22 +59,25 @@ type UploadServer interface {
 }
 
 type uploadServerApp struct {
-	bindAddress    string
-	bindPort       int
-	tlsKey         string
-	tlsCert        string
-	clientCert     string
-	clientName     string
-	cryptoConfig   cryptowatch.CryptoConfig
-	keyFile        string
-	certFile       string
-	mux            *http.ServeMux
-	uploading      bool
-	doneChan       chan struct{}
-	errChan        chan error
-	keepAlive      bool
-	keepConcurrent bool
-	mutex          sync.Mutex
+	bindAddress     string
+	bindPort        int
+	bindHealthzPort int
+	tlsKey          string
+	tlsCert         string
+	clientCert      string
+	clientName      string
+	cryptoConfig    cryptowatch.CryptoConfig
+	keyFile         string
+	certFile        string
+	mux             *http.ServeMux
+	uploading       bool
+	keepAlive       bool
+	keepConcurrent  bool
+	mutex           sync.Mutex
+
+	startListeningChan chan struct{}
+	stopListeningChan  chan struct{}
+	errChan            chan error
 
 	healthzServer *http.Server
 	uploadServer  *http.Server
@@ -94,16 +97,18 @@ func bodyReadCloser(r *http.Request) (io.ReadCloser, error) {
 // NewUploadServer returns a new instance of uploadServerApp
 func NewUploadServer(bindAddress string, bindPort int, tlsKey, tlsCert, clientCert, clientName string, cryptoConfig cryptowatch.CryptoConfig) (UploadServer, error) {
 	server := &uploadServerApp{
-		bindAddress:  bindAddress,
-		bindPort:     bindPort,
-		tlsKey:       tlsKey,
-		tlsCert:      tlsCert,
-		clientCert:   clientCert,
-		clientName:   clientName,
-		cryptoConfig: cryptoConfig,
-		mux:          http.NewServeMux(),
-		doneChan:     make(chan struct{}),
-		errChan:      make(chan error),
+		bindAddress:        bindAddress,
+		bindPort:           bindPort,
+		bindHealthzPort:    healthzPort,
+		tlsKey:             tlsKey,
+		tlsCert:            tlsCert,
+		clientCert:         clientCert,
+		clientName:         clientName,
+		cryptoConfig:       cryptoConfig,
+		mux:                http.NewServeMux(),
+		stopListeningChan:  make(chan struct{}),
+		errChan:            make(chan error),
+		startListeningChan: make(chan struct{}),
 	}
 
 	err := server.parseOptions()
@@ -146,10 +151,22 @@ func (app *uploadServerApp) Run() error {
 		return errors.Wrap(err, "Error creating upload listerner")
 	}
 
-	healthzListener, err := net.Listen("tcp", fmt.Sprintf(":%d", healthzPort))
+	// if binded port was 0 (unit tests) assign port here
+	if app.bindPort == 0 {
+		app.bindPort = uploadListener.Addr().(*net.TCPAddr).Port
+	}
+
+	healthzListener, err := net.Listen("tcp", fmt.Sprintf(":%d", app.bindHealthzPort))
 	if err != nil {
 		return errors.Wrap(err, "Error creating healthz listerner")
 	}
+
+	// if binded port was 0 (unit tests) assign port here
+	if app.bindHealthzPort == 0 {
+		app.bindHealthzPort = healthzListener.Addr().(*net.TCPAddr).Port
+	}
+
+	close(app.startListeningChan)
 
 	app.uploadServer, err = app.createUploadServer()
 	if err != nil {
@@ -159,9 +176,6 @@ func (app *uploadServerApp) Run() error {
 	app.healthzServer = app.createHealthzServer()
 
 	go func() {
-		// maybe bind port was 0 (unit tests) assign port here
-		app.bindPort = uploadListener.Addr().(*net.TCPAddr).Port
-
 		if app.keyFile != "" && app.certFile != "" {
 			app.errChan <- app.uploadServer.ServeTLS(uploadListener, app.certFile, app.keyFile)
 			return
@@ -187,7 +201,7 @@ func (app *uploadServerApp) Run() error {
 
 	select {
 	case err = <-app.errChan:
-	case <-app.doneChan:
+	case <-app.stopListeningChan:
 		klog.Info("Shutting down http server after successful upload")
 	case <-exit:
 		klog.Errorf("Shutting down http server")
@@ -345,7 +359,7 @@ func (app *uploadServerApp) processUpload(irc imageReadCloser, w http.ResponseWr
 	}
 
 	if !app.keepAlive {
-		close(app.doneChan)
+		close(app.stopListeningChan)
 	}
 }
 
