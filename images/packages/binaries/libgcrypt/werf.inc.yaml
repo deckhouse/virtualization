@@ -30,7 +30,7 @@ shell:
     # rm -rf /src/.git
 
 ---
-
+{{- end }}
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -38,6 +38,8 @@ packages:
 - make pkgconfig makeinfo autoconf
 - libtool libgpg-error-devel
 {{- end -}}
+
+{{- if eq .ModuleNamePrefix "" }}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 

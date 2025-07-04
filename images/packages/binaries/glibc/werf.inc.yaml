@@ -29,6 +29,7 @@ shell:
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     # rm -rf /src/.git
 ---
+{{- end }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -38,6 +39,8 @@ packages:
 - hardlink binutils glibc-kernheaders
 - make bison python3
 {{- end -}}
+
+{{- if eq .ModuleNamePrefix "" }}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 

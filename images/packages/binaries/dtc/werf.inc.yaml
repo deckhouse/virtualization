@@ -30,6 +30,8 @@ shell:
     # rm -rf /src/.git
 ---
 
+{{- end }}
+
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -37,6 +39,8 @@ packages:
 - git make rpm-macros-meson
 - flex bison meson
 {{- end -}}
+
+{{- if eq .ModuleNamePrefix "" }}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 

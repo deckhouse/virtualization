@@ -30,12 +30,15 @@ shell:
     # rm -rf /src/.git
 
 ---
+{{- end }}
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
 - gcc
 - git cmake make
 {{- end -}}
+
+{{- if eq .ModuleNamePrefix "" }}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 

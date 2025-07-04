@@ -30,11 +30,14 @@ shell:
     # rm -rf /src/.git
 
 ---
+{{- end }}
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
 - gcc git make libtool gettext-tools
 {{- end -}}
+
+{{- if eq .ModuleNamePrefix "" }}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 

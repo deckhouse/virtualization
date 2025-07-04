@@ -29,6 +29,8 @@ shell:
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     # rm -rf /src/.git
 ---
+{{- end}}
+
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -36,6 +38,8 @@ packages:
 - make rpm-macros-alternatives meson
 - ninja-build libudev-devel
 {{- end -}}
+
+{{- if eq .ModuleNamePrefix "" }}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 

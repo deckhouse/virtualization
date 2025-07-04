@@ -30,7 +30,7 @@ shell:
     # rm -rf /src/.git
 
 ---
-
+{{- end }}
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -39,6 +39,8 @@ packages:
 - libreadline-devel
 - libtinfo-devel libudev-devel libaio-devel
 {{- end -}}
+
+{{- if eq .ModuleNamePrefix "" }}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
