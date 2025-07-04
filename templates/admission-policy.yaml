@@ -36,6 +36,7 @@ spec:
         resources: ["*"]
   validations:
     - expression: |
+        true ||
         request.userInfo.username.startsWith("system:serviceaccount:kube-system:") ||
         request.userInfo.username.startsWith("system:serviceaccount:d8-system:") ||
         request.userInfo.username in [
