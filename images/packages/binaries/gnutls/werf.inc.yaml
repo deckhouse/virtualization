@@ -19,7 +19,7 @@ packages:
 - make autoconf automake libtool makeinfo gettext-devel patch
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - gem-gettext-devel gettext po4a
-- libnettle-devel libp11-kit-devel libunistring-devel
+- libp11-kit-devel libunistring-devel
 - libtpm2-tss-devel libtrousers-devel
 - libtasn1-devel libtasn1-utils zlib-devel
 - libunbound-devel bison gtk-doc texinfo texlive
@@ -28,6 +28,7 @@ packages:
 # - libidn2-devel
 # - libbrotli-devel
 # - libgcrypt-devel
+# - libnettle-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -51,6 +52,10 @@ import:
   add: /libgcrypt
   to: /libgcrypt
   before: install
+- image: packages/binaries/nettle
+  add: /nettle
+  to: /nettle
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -64,7 +69,7 @@ shell:
   - |
 
     # Install packages
-    PKGS="libbrotli libidn2 libgcrypt"
+    PKGS="libbrotli libidn2 libgcrypt nettle"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
