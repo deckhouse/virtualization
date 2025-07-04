@@ -1,0 +1,7 @@
+vmip:
+  fixes:
+    - summary: >-
+        Fix the deletion of old VirtualMachineIPAddress resources that may have had a legacy
+        finalizer blocking deletion.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1220
+
