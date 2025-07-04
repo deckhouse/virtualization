@@ -3,4 +3,4 @@ kind: VirtualMachine
 metadata:
   name: vm
 spec:
-  virtualMachineClassName: affinity-discovery
+  virtualMachineClassName: complex-discovery
