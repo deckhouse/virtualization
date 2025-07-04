@@ -5,20 +5,19 @@ fromImage: builder/scratch
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
-  to: /xorriso
+  to: /libmd
   before: setup
 
 ---
 {{- $version := get $.Package $.ImageName }}
-{{- $gitRepoUrl := "libburnia/libisoburn.git" }}
+{{- $gitRepoUrl := "libbsd/libmd.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc
-- git pkg-config trousers
-- automake autoconf make makeinfo libtool
-- libburn-devel libisofs-devel
+- gcc git libtool
+- make automake autoconf libtool makeinfo
+- pkg-config
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -34,7 +33,7 @@ shell:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
-    {{ $builderDependencies.packages | join " " }}
+      {{ $builderDependencies.packages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
@@ -43,20 +42,14 @@ shell:
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch release-{{ $version }} /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
-
-    ./bootstrap
-
-    ./configure --prefix=/usr --libdir=/usr/lib64
-
+    ./autogen
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --enable-shared \
+      --disable-static
     make -j$(nproc)
-
     make DESTDIR=$OUTDIR install
 
-    strip $OUTDIR/usr/bin/xorriso
-
-    # We don't need man, test and samples files
-    rm -rf $OUTDIR/usr/include
-    rm -rf $OUTDIR/usr/share
-    rm -rf $OUTDIR/usr/lib64/pkgconfig

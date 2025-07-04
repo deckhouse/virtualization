@@ -18,7 +18,6 @@ imageSpec:
 ---
 {{- define "virt-launcher-dependencies" -}}
 libs:
-  - libffi8
   - libssh-devel
   - libssh2-devel
   - libcap-ng-devel
@@ -64,14 +63,11 @@ libs:
   - libnfs-devel
   - libzstd-devel
   - libseccomp-devel
-  - libgcrypt-devel
-  - libnettle-devel
   - libudev-devel
   - libmultipath-devel
   - libblkio-devel
   - libpmem-devel
   - libdaxctl-devel
-  - libfuse3-devel
   - rdma-core-devel
   - bzlib-devel
   - liblzo2-devel
@@ -95,14 +91,10 @@ libs:
   - libparted-devel
   - libdevmapper-devel
   - libglusterfs-devel
-  - libaudit-devel
   - libfuse-devel
   - libnbd-devel
-  - libblkid-devel
   - libp11-kit-devel
   - libreadline-devel
-  - libattr-devel
-  - libbsd-devel
   - libsystemd-devel
   - libjson-c-devel
   - systemtap-sdt-devel
@@ -115,16 +107,13 @@ libs:
   - libclocale
   - libLLVMSPIRVLib-devel
   - libisofs
-  - libburn
 packages:
-  - attr
   - ethtool
   - fdisk
   - glibc-gconv-modules
   - gnutls-utils
   - hwclock
   - iptables
-  - libffi8
   - passt
   - pcre
   - procps
@@ -238,14 +227,27 @@ import:
   to: /swtpm
   before: install
 
+- image: packages/binaries/libattr
+  add: /libattr
+  to: /libattr
+  before: install
+- image: packages/binaries/libaudit
+  add: /libaudit
+  to: /libaudit
+  before: install
+
 - image: packages/binaries/numactl
   add: /numactl
   to: /numactl
   before: install
 
-- image: packages/binaries/xorriso
-  add: /xorriso
-  to: /xorriso
+- image: packages/binaries/libisoburn
+  add: /libisoburn
+  to: /libisoburn
+  before: install
+- image: packages/binaries/libburn
+  add: /libburn
+  to: /libburn
   before: install
 - image: packages/binaries/gnutls
   add: /gnutls
@@ -255,6 +257,36 @@ import:
   add: /acl
   to: /acl
   before: install
+- image: packages/binaries/libbsd
+  add: /libbsd
+  to: /libbsd
+  before: install
+- image: packages/binaries/libgcrypt
+  add: /libgcrypt
+  to: /libgcrypt
+  before: install
+- image: packages/binaries/libmd
+  add: /libmd
+  to: /libmd
+  before: install
+- image: packages/binaries/libblkid
+  add: /libblkid/usr
+  to: /libblkid/usr
+  before: install
+- image: packages/binaries/libfuse3
+  add: /libfuse3
+  to: /libfuse3
+  before: install
+- image: packages/binaries/nettle
+  add: /nettle
+  to: /nettle
+  before: install
+
+- image: libs/libffi
+  add: /usr
+  to: /libffi8/usr
+  before: install
+
 
 # Statically builded
 - image: packages/binaries/openssl
@@ -279,7 +311,6 @@ import:
   - usr/bin/cp
   - usr/bin/sleep
   - usr/bin/coreutils
-
 
 - image: {{ $.ImageName }}-cbuilder
   add: /bins
@@ -311,6 +342,15 @@ shell:
     {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
+    # Install packages
+    PKGS="libisoburn libburn libbsd swtpm numactl gnutls"
+    PKGS+=" dmidecode acl libffi8 libattr libaudit libblkid libmd"
+    PKGS+=" libgcrypt libfuse3 nettle"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     echo "Create folder hierarchy in VBINS"
     mkdir -p /VBINS/{etc,root}
     mkdir -p /VBINS/var/{log/libvirt/qemu,log/swtpm/libvirt/qemu,lib/libvirt/qemu,run/libvirt/qemu}
@@ -321,13 +361,6 @@ shell:
     echo "=====Copy qemu binaries to temp folder======"
     cp -a /qemu-bins/. /VBINS/
 
-    # install binaries from images
-    cp -a /xorriso/. /
-    cp -a /swtpm/. /
-    cp -a /numactl/. /
-    cp -a /gnutls/. /
-    cp -a /dmidecode/. /
-    cp -a /acl/. /
 
     echo "find and copy additional libs"
     FILES=$(find /VBINS/usr/bin/ -type f)
@@ -350,7 +383,7 @@ shell:
     echo "Show libs after relocation in /relocate/usr/lib64"
     ls -la /relocate/usr/lib64
     # Cleanup
-    rm -rf /{VBINS,qemu-bins,libvirt-bins,xorriso,swtpm,numactl,gnutls,dmidecode,acl}
+    rm -rf /{VBINS,qemu-bins,libvirt-bins}
 
   setup:
   - |

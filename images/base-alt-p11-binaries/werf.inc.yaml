@@ -5,7 +5,7 @@ packages:
 - glibc-utils
 - mount xfsprogs xfstests util-linux e2fsprogs
 libraries:
-- libffi8 libssh-devel libssh2-devel
+- libssh-devel libssh2-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -18,6 +18,11 @@ git:
     to: /
     includePaths:
     - relocate_binaries.sh
+import:
+- image: libs/libffi
+  add: /usr
+  to: /libffi8/usr
+  before: install
 shell:
   install:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -26,3 +31,6 @@ shell:
         {{ $builderDependencies.packages | join " " }} \
         {{ $builderDependencies.libraries | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
+  - |
+    cp -a /libffi8/. /
+    rm -rf /libffi8
