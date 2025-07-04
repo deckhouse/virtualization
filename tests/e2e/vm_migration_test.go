@@ -126,6 +126,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
+			CheckCiliumAgents(kubectl, vms...)
 			CheckExternalConnection(externalHost, httpStatusOk, vms...)
 		})
 	})

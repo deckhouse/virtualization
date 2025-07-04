@@ -212,6 +212,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
+				CheckCiliumAgents(kubectl, vms...)
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
@@ -492,6 +493,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				vms := strings.Split(res.StdOut(), " ")
 
+				CheckCiliumAgents(kubectl, vms...)
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
@@ -540,6 +542,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				vms := strings.Split(res.StdOut(), " ")
 
+				CheckCiliumAgents(kubectl, vms...)
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
