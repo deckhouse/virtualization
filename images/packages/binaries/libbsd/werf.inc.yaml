@@ -12,7 +12,7 @@ packages:
 {{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
 
 {{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
-{- if eq .ModuleNamePrefix "" }}
+{{- if eq .ModuleNamePrefix "" }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false

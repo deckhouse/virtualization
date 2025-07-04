@@ -1,3 +1,17 @@
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc gcc-c++
+- git pkg-config meson cmake
+- libunwind-devel libelf-devel libffi-devel zlib-devel libpcre2-devel sysprof-devel libgvdb-devel
+{{- end -}}
+
+{{- $builderDependencies := include "$name" . | fromYaml }}
+
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "GNOME/glib.git" }}
+{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
+
 {{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
 {{- if eq .ModuleNamePrefix "" }}
 ---
@@ -11,10 +25,6 @@ import:
   before: setup
 
 ---
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "GNOME/glib.git" }}
-{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
-
 image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -47,17 +57,6 @@ shell:
     fi
 
 ---
-
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-packages:
-- gcc gcc-c++
-- git pkg-config meson cmake
-- libunwind-devel libelf-devel libffi-devel zlib-devel libpcre2-devel sysprof-devel libgvdb-devel
-{{- end -}}
-
-{{ $builderDependencies := include "$name" . | fromYaml }}
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
