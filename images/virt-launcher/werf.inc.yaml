@@ -70,7 +70,7 @@ libs:
   - libblkio-devel
   - libpmem-devel
   - libdaxctl-devel
-  - libfuse3-devel
+  # - libfuse3-devel
   - rdma-core-devel
   - bzlib-devel
   - liblzo2-devel
@@ -283,6 +283,10 @@ import:
   add: /libblkid/usr
   to: /libblkid/usr
   before: install
+- image: packages/binaries/libfuse3
+  add: /libfuse3
+  to: /libfuse3
+  before: install
 
 - image: libs/libffi
   add: /usr
@@ -346,7 +350,8 @@ shell:
   - |
     # Install packages
     PKGS="libisoburn libburn libbsd swtpm numactl gnutls"
-    PKGS+=" dmidecode acl libffi8 libattr libaudit libblkid libmd libgcrypt"
+    PKGS+=" dmidecode acl libffi8 libattr libaudit libblkid libmd"
+    PKGS+=" libgcrypt libfuse3"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
