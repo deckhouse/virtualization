@@ -15,7 +15,7 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc-c++ gcc git gperf glibc-devel-static wget
+- gcc-c++ gcc git gperf glibc-devel-static wget pkgconfig
 - make autoconf automake libtool makeinfo gettext-devel patch
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - gem-gettext-devel gettext po4a
