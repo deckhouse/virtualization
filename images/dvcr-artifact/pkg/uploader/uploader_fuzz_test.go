@@ -119,7 +119,9 @@ func startDVCRMockServer(tb testing.TB, addr string) (port int) {
 
 	mux.HandleFunc("HEAD /v2/uploader/manifests/latest/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/octet-stream")
+		// 10 is random value
 		w.Header().Add("Content-Length", "10")
+		// random digest
 		w.Header().Add("Docker-Content-Digest", "sha256:af3ca10a606165f3cad5226c504cea77b9f5169df6a536b26aeffd2e651c0ada")
 		w.WriteHeader(http.StatusOK)
 	})
