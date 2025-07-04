@@ -18,6 +18,7 @@ package uploader
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"testing"
@@ -32,7 +33,8 @@ const (
 )
 
 func FuzzUploader(f *testing.F) {
-	uploaderPort := startUploaderServer(f, addr, 5000)
+	mockPort := startDVCRMockServer(f, addr)
+	uploaderPort := startUploaderServer(f, addr, mockPort)
 
 	// 512 bytes is the minimum size of a qcow2 image
 	minimalQCow2 := [512]byte{
@@ -94,18 +96,21 @@ func startDVCRMockServer(tb testing.TB, addr string) (port int) {
 		w.WriteHeader(http.StatusAccepted)
 	})
 
-	mux.HandleFunc("PATCH /v2/uploader/blobs/uploads/test_data/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Location", "/v2/uploader/blobs/uploads/test_data")
+	mux.HandleFunc("PATCH /v2/uploader/blobs/uploads/{id}/", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		w.Header().Add("Location", fmt.Sprintf("/v2/uploader/blobs/uploads/%s", id))
 		w.WriteHeader(http.StatusAccepted)
 	})
 
-	mux.HandleFunc("PUT /v2/uploader/blobs/uploads/test_data/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Location", "/v2/uploader/blobs/uploads/test_data")
+	mux.HandleFunc("PUT /v2/uploader/blobs/uploads/{id}/", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		w.Header().Add("Location", fmt.Sprintf("/v2/uploader/blobs/uploads/%s", id))
 		w.WriteHeader(http.StatusOK)
 	})
 
-	mux.HandleFunc("GET /v2/uploader/blobs/uploads/test_data/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Location", "/v2/uploader/blobs/uploads/test_data")
+	mux.HandleFunc("GET /v2/uploader/blobs/uploads/{id}/", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		w.Header().Add("Location", fmt.Sprintf("/v2/uploader/blobs/uploads/%s", id))
 		w.WriteHeader(http.StatusCreated)
 	})
 
@@ -117,14 +122,10 @@ func startDVCRMockServer(tb testing.TB, addr string) (port int) {
 	})
 
 	mux.HandleFunc("PUT /v2/uploader/manifests/latest/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "application/octet-stream")
-		w.Header().Add("Content-Length", "10")
 		w.WriteHeader(http.StatusOK)
 	})
 
 	mux.HandleFunc("GET /v2/uploader/manifests/latest/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Add("Content-Type", "application/octet-stream")
-		w.Header().Add("Content-Length", "10")
 		w.WriteHeader(http.StatusOK)
 	})
 
