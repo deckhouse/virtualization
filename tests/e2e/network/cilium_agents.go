@@ -135,7 +135,6 @@ func searchIPFromCiliumIPCache(kubectl kc.Kubectl, pod corev1.Pod, vmIP, nodeIP 
 	found := false
 	for _, line := range lines {
 		if strings.Contains(line, vmIP) && strings.Contains(line, nodeIP) {
-			fmt.Println(line)
 			found = true
 			break
 		}
