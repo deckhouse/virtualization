@@ -61,8 +61,9 @@ libraries:
 - libtirpc-devel libsasl2-devel
 - wireshark-devel
 - zlib-devel libclocale
-- libfuse3-devel libslirp-devel
+- libslirp-devel
 - libyajl-devel libselinux-devel
+# - libfuse3-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -112,6 +113,10 @@ import:
   add: /libgcrypt
   to: /libgcrypt
   before: install
+- image: packages/binaries/libfuse3
+  add: /libfuse3
+  to: /libfuse3
+  before: install
 - image: qemu
   add: /qemu-img
   to: /qemu-img
@@ -143,7 +148,7 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     # Install packages
-    PKGS="dmidecode lvm2 libattr libbsd libmd libblkid qemu-img libgcrypt"
+    PKGS="dmidecode lvm2 libattr libbsd libmd libblkid qemu-img libgcrypt libfuse3"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg

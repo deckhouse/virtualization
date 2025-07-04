@@ -8,7 +8,6 @@ package:
   dmidecode: 3-6
   dtc: v1.7.2
   file: FILE5_45
-  fuse3: fuse-3.16.2
   gcc: releases/gcc-14.2.0
   glib2: 2.82.5
   glibc: glibc-2.38
@@ -20,6 +19,7 @@ package:
   libbrotli: v1.1.0
   libbsd: 0.12.2
   libburn: release-1.5.6
+  libfuse3: fuse-3.16.2
   libgcrypt: libgcrypt-1.10.2
   libgpg-error: libgpg-error-1.55
   libgsasl: v2.2.2
