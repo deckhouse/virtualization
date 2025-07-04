@@ -1,3 +1,5 @@
+{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
+{{- if eq .ModuleNamePrefix "" }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
@@ -65,4 +67,4 @@ shell:
     meson setup build -Duseroot=false -Dprefix=$OUTDIR/usr
     meson compile -C build
     meson install -C build
-
+{{- end }}
