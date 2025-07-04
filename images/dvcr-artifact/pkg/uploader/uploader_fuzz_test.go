@@ -72,7 +72,9 @@ func startUploaderServer(tb testing.TB, addr string, mockPort int) (uploaderPort
 	srv.keepAlive = true
 	srv.keepConcurrent = true
 	srv.destInsecure = true
+	// take free port for uploader server
 	srv.bindPort = 0
+	// take free port for healthz endpoint
 	srv.bindHealthzPort = 0
 
 	go func() {
@@ -81,6 +83,7 @@ func startUploaderServer(tb testing.TB, addr string, mockPort int) (uploaderPort
 		}
 	}()
 
+	// wait server for start listening
 	<-srv.listenChan
 
 	return srv.bindPort

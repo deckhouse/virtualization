@@ -71,12 +71,16 @@ type uploadServerApp struct {
 	certFile        string
 	mux             *http.ServeMux
 	uploading       bool
-	listenChan      chan struct{}
-	doneChan        chan struct{}
-	errChan         chan error
 	keepAlive       bool
 	keepConcurrent  bool
 	mutex           sync.Mutex
+
+	// channel for waiting server for start listening
+	listenChan chan struct{}
+	// channel for waiting server for stop listening
+	doneChan chan struct{}
+	// channel for receiving errors
+	errChan chan error
 
 	healthzServer *http.Server
 	uploadServer  *http.Server
