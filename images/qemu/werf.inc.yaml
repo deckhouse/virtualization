@@ -8,7 +8,6 @@
 {{- define "$name" -}}
 packages:
 - binutils
-# - dmidecode
 - pkgconfig pkg-config
 - gcc-c++ clang git
 - gettext bash-completion
@@ -73,8 +72,6 @@ libraries:
 - libaio-devel libselinux-devel libqpl-devel
 - libglusterfs11-api-devel
 - libvdeplug-devel
-# - libnettle-devel
-# - libgcrypt-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

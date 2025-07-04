@@ -25,9 +25,6 @@ packages:
 - libunbound-devel bison gtk-doc texinfo texlive
 - libev4 libev-devel libopencdk-devel
 - libzstd-devel openssl libssl-devel iproute2-devel liboqs-devel libreadline-devel
-# - libidn2-devel
-# - libbrotli-devel
-# - libgcrypt-devel
 - libnettle-devel
 {{- end -}}
 
@@ -52,10 +49,6 @@ import:
   add: /libgcrypt
   to: /libgcrypt
   before: install
-# - image: packages/binaries/nettle
-#   add: /nettle
-#   to: /nettle
-#   before: install
 - image: packages/binaries/gmp
   add: /libgmp
   to: /libgmp
@@ -72,7 +65,6 @@ shell:
   install:
   - |
     # Install packages
-    # PKGS="libbrotli libidn2 libgcrypt nettle libgmp"
     PKGS="libbrotli libidn2 libgcrypt libgmp"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
