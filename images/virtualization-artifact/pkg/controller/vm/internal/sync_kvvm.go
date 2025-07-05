@@ -302,6 +302,13 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("failed to make the internal virtual machine: %w", err)
 	}
 
+	kvvm.Spec.Template.Spec.Domain.Devices.HostDevices = []virtv1.HostDevice{
+		{
+			DeviceName: "kubevirt.io/usbstore",
+			Name:       "masstorage",
+		},
+	}
+
 	err = h.client.Create(ctx, kvvm)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
