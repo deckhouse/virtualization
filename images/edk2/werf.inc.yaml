@@ -48,7 +48,7 @@ shell:
 
     if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
       echo "Checkout submodules"
-      git submodule update --init --recursive
+      git submodule update --init --recursive --depth=1
     else
       echo "Checkout submodules with URL rewrite"
       # mbed-tls rewrite is needed for submodules from ARMmbed renamed organization.
@@ -56,7 +56,7 @@ shell:
         -c url."$(cat /run/secrets/SOURCE_REPO)/mbed-tls/".insteadOf=https://github.com/ARMmbed/ \
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
         -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
-        submodule update --init --recursive
+        submodule update --init --recursive  --depth=1
     fi
 
 ---
