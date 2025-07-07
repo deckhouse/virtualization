@@ -11,5 +11,6 @@
 
 
  - **[vd]** Fix the update of the `.status.observedGeneration` field for a virtual disk in the Ready state if the image from which the disk was created no longer exists in the cluster. [#1124](https://github.com/deckhouse/virtualization/pull/1124)
+ - **[vmip]** Fix the deletion of old VirtualMachineIPAddress resources that may have had a legacy finalizer blocking deletion. [#1220](https://github.com/deckhouse/virtualization/pull/1220)
  - **[vmip]** Fix a potential hang during the deletion of a VirtualMachineIPAddress resource when deleting a virtual machine. [#1185](https://github.com/deckhouse/virtualization/pull/1185)
 
