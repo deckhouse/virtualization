@@ -7,7 +7,7 @@
 
 {{-   $Root := . }}
 
-{{-   $packageImagePathGlob := (printf "%simages/packages/*/*/{Dockerfile,werf.inc.yaml}" .ModuleDir ) }}
+{{-   $packageImagePathGlob := (printf "%s/images/packages/*/*/{Dockerfile,werf.inc.yaml}" (trimPrefix "/" .ModuleDir )) }}
 {{-   $packageImagePathRegex := (printf "%simages/(packages)/([0-9a-z-_]+)/([0-9a-z-_]+)/(werf.inc.yaml)$" (trimPrefix "/" .ModuleDir )) }}
 
 {{    $ImagePackages := $Root.Files.Glob $packageImagePathGlob }}
