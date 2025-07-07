@@ -6,9 +6,8 @@
 {{- $_ := set . "Package" dict -}}
 {{- $versions_path := "component_versions/version_map.yml" -}}
 
-{{- if .ModuleName -}}
-{{-   $module_versions_ctx := (printf "%smodules/%s-%s/" .ModulePath .ModulePriority .ModuleName )}}
-{{-   $versions_path = (printf "%s%s" $module_versions_ctx $versions_path) -}}
+{{- if .ModuleDir -}}
+{{-   $versions_path = (printf "%s%s" (trimPrefix "/" .ModuleDir ) $versions_path) -}}
 {{- end -}}
 
 {{- $versions_ctx := (.Files.Get $versions_path | fromYaml) -}}
