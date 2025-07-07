@@ -2,7 +2,7 @@
 {{- $gitRepoName := $.ImageName }}
 # {{ .Version }}
 # { {- $version := .Version $gitRepoName } }
-{{- $version := "" }}
+{{- $version := "stable202411" }}
 {{- $gitRepoUrl := "tianocore/edk2.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
