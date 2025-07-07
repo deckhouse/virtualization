@@ -18,9 +18,10 @@
 
 {{-      $ImageData := regexReplaceAll $packageImagePathRegex $path "${1}#${2}#${3}#${4}" | split "#" }}
 
+{{-      $_ := set $ctx "PackagePath" (printf "%s/%s" $ImageData._0 $ImageData._1) }}
 {{-      $_ := set $ctx "ImageName" $ImageData._2 }}
 {{-      $_ := set $ctx "ImagePath" (printf "/images/packages/%s/%s"  $ctx.ImageName) }}
-{{-      $_ := set $ctx "ModuleNamePrefix" (printf "%s%s/%s" $Root.ModuleNamePrefix $ImageData._0 $ImageData._1) }}
+{{-      $_ := set $ctx "ModuleNamePrefix" $Root.ModuleNamePrefix }}
 {{-      $_ := set $ctx "ImageBuildData" $content }}
 {{-      $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
 {{-      $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
