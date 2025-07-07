@@ -165,7 +165,7 @@ weight: 50
 | --------------------------------------------------------------------------------- | ------------------------- |
 | [AlmaLinux](https://almalinux.org/get-almalinux/#Cloud_Images)                    | `almalinux`               |
 | [AlpineLinux](https://alpinelinux.org/cloud/)                                     | `alpine`                  |
-| [AltLinux](https://ftp.altlinux.ru/pub/distributions/ALTLinux/)                   | `???`                     |
+| [AltLinux](https://ftp.altlinux.ru/pub/distributions/ALTLinux/)                   | `altlinux`                     |
 | [AstraLinux](https://download.astralinux.ru/ui/native/mg-generic/alse/cloudinit/) | `astra`                   |
 | [CentOS](https://cloud.centos.org/centos/)                                        | `cloud-user`              |
 | [Debian](https://cdimage.debian.org/images/cloud/)                                | `debian`                  |
