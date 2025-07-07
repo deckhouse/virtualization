@@ -1,7 +1,8 @@
 ---
 {{- $gitRepoName := $.ImageName }}
 # {{ .Version }}
-{{- $version := get .Version $gitRepoName }}
+# { {- $version := .Version $gitRepoName } }
+{{- $version := "" }}
 {{- $gitRepoUrl := "tianocore/edk2.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
