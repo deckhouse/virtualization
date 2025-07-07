@@ -1,0 +1,41 @@
+{{/*
+Template for ease of use of multiple image imports
+Stage "before" hardcoded.
+
+Usage:
+{{- $images := list "swtpm" "numactl" "libfuse3" -}}
+{{- include "importPackageImages" (list $images "install") -}}  # install stage (default)
+Result:
+...
+ - image: packages/binaries/libfuse3
+   add: /libfuse3
+   to: /libfuse3
+   before: install
+...
+
+{{- include "importPackageImages" (list $images "setup") -}}    # setup stage
+Result:
+...
+ - image: packages/binaries/libfuse3
+   add: /libfuse3
+   to: /libfuse3
+   before: setup
+...
+*/}}
+
+{{ define "importPackageImages" }}
+{{- if not (eq (kindOf .) "slice") }}
+{{    fail "importPackageImages: invalid type of argument, slice is expected" -}}
+{{- end }}
+{{- $ImageNameList := index . 0 }}
+{{- $stage := "install" }}
+{{- if gt (len .) 1 }}
+{{-   $stage = index . 1 }}
+{{- end }}
+{{-   range $imageName := $ImageNameList }}
+- image: packages/binaries/{{ $imageName }}
+  add: /{{ $imageName }}
+  to: /{{ $imageName }}
+  before: {{ $stage }}
+{{-   end }}
+{{ end }}

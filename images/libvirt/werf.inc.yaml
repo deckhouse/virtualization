@@ -3,6 +3,62 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- binutils
+- gcc
+- git gettext
+- bash-completion
+- clang ccache
+- make cmake
+- meson ninja-build
+- iproute iptables iptables-nft iptables-ipv6
+- openvswitch ebtables
+- pkgconfig
+- polkit kmod
+- parted
+- libnuma
+- open-iscsi
+- xml-utils xsltproc
+- systemd-container polkit
+- python3 python3-devel
+- python3-module-pytest python3-module-docutils
+- python3-tools python3-module-pip
+- python3-module-black
+- mdevctl tshark
+- util-linux dmsetup pm-utils
+libraries:
+- libudev-devel
+- libpciaccess-devel
+- libyajl-devel sanlock-devel
+- libpcap-devel libnl-devel
+- libselinux-devel libsasl2-devel
+- libssh-devel
+- libssh2-devel
+- libparted-devel
+- ceph-devel
+- libiscsi-devel libglusterfs-devel
+- libnuma-devel libcap-ng-devel
+- libcurl-devel libaudit-devel
+- libfuse-devel libnbd-devel
+- libgnutls-devel libp11-kit-devel
+- libreadline-devel libtasn1-devel
+- libattr-devel
+- libsystemd-devel libuuid-devel
+- libjson-c-devel systemtap-sdt-devel
+- libacl-devel glib2-devel glibc-utils
+- libgio-devel libxml2-devel
+- libtirpc-devel libsasl2-devel
+- wireshark-devel
+- zlib-devel libclocale
+- libslirp-devel
+- libyajl-devel libselinux-devel
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
 image: {{ $.ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "base-alt-p11" "builder/alt-go-svace" }}
@@ -20,9 +76,11 @@ git:
     setup:
       - install-libvirt.sh
 import:
-- image: packages/binaries/dmidecode
-  add: /dmidecode
-  to: /dmidecode
+{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" -}} 
+{{- include "importPackageImages" (list $images "install") -}}
+- image: qemu
+  add: /qemu-img
+  to: /qemu-img
   before: install
 secrets:
 - id: SOURCE_REPO
@@ -31,86 +89,9 @@ shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get install --yes \
-    binutils \
-    gcc-c++ \
-    git \
-    gettext \
-    bash-completion \
-    clang \
-    ccache \
-    make cmake \
-    meson \
-    ninja-build \
-    libudev-devel \
-    libpciaccess-devel \
-    libyajl-devel \
-    sanlock-devel \
-    libpcap-devel \
-    libnl-devel \
-    libselinux-devel \
-    iproute \
-    iptables \
-    iptables-nft \
-    iptables-ipv6 \
-    openvswitch \
-    ebtables \
-    libsasl2-devel \
-    pkgconfig \
-    libssh-devel \
-    libssh2-devel \
-    polkit kmod \
-    qemu-img \
-    lvm2 \
-    libparted-devel \
-    parted \
-    libdevmapper-devel \
-    ceph-devel \
-    open-iscsi \
-    libiscsi-devel \
-    libglusterfs-devel \
-    libnuma-devel \
-    libcap-ng-devel \
-    libcurl-devel \
-    libaudit-devel \
-    libfuse-devel \
-    libnbd-devel \
-    libblkid-devel \
-    libgcrypt-devel \
-    libgnutls-devel \
-    libp11-kit-devel \
-    libreadline-devel \
-    libtasn1-devel \
-    libattr-devel \
-    libbsd-devel \
-    libsystemd-devel \
-    libuuid-devel \
-    libjson-c-devel \
-    systemtap-sdt-devel \
-    systemd-container \
-    attr \
-    libacl-devel \
-    glib2-devel \
-    glibc-utils \
-    libgio-devel \
-    libxml2-devel \
-    xml-utils \
-    xsltproc \
-    python3 python3-devel \
-    python3-module-pytest \
-    python3-module-docutils \
-    python3-tools \
-    python3-module-pip \
-    polkit \
-    libtirpc-devel \
-    libsasl2-devel \
-    wireshark-devel \
-    tshark \
-    zlib-devel \
-    mdevctl \
-    util-linux dmsetup pm-utils libclocale \
-    libfuse3-devel libnuma libslirp-devel \
-    libyajl-devel libselinux-devel
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }} \
+      {{ $builderDependencies.libraries | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
   - |
@@ -125,10 +106,16 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    PKGS+=" qemu-img"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    cp -a /dmidecode/. /
-    rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"

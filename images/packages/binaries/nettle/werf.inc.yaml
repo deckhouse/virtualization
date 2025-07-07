@@ -5,18 +5,7 @@ fromImage: builder/scratch
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
-  to: /libhogweed
-  includePaths:
-    - usr/lib64/libhogweed.so
-    - usr/lib64/libhogweed.so.6
-    - usr/lib64/libhogweed.so.6.10
-  before: setup
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /libnettle-devel
-  includePaths:
-    - usr/include
-    - usr/lib64/pkgconfig
+  to: /nettle
   before: setup
 
 ---
@@ -26,7 +15,9 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make autoconf automake gmp-devel
+- gcc-c++ gcc git 
+- make autoconf automake libtool
+- libssl-devel makeinfo
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -37,6 +28,9 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+{{- $images := list "libgmp" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -48,6 +42,13 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+    
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
@@ -59,6 +60,6 @@ shell:
       --libdir=/usr/lib64 \
       --enable-shared \
       --disable-static \
-      --disable-doc
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install-shared-hogweed install-headers install-pkgconfig
+      --disable-documentation
+    
+    make -j$(nproc) DESTDIR=$OUTDIR install-shared-hogweed install-headers install-pkgconfig

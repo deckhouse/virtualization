@@ -25,7 +25,6 @@ packages:
 - libgnutls30 libfuse-devel libgnutls-devel gnutls-utils
 - libtasn1 libtasn1-devel libjson-glib-devel
 - libseccomp-devel libseccomp
-- libgmp-devel
 - perl-podlators
 {{- end -}}
 
@@ -37,6 +36,9 @@ fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+{{- $images := list "libgmp" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -64,6 +66,13 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+    
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 

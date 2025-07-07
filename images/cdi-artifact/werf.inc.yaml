@@ -1,5 +1,5 @@
 ---
-{{- $version := "v1.60.3-v12n.2" }}
+{{- $version := "v1.60.3-v12n.3" }}
 {{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
 
 ---
@@ -109,7 +109,7 @@ shell:
 ---
 image: {{ $.ImageName }}-cbuilder
 final: false
-fromImage: builder/golang-bookworm-1.23
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
   - add: /images/{{ $.ImageName }}/static_binaries
     to: /
@@ -118,14 +118,21 @@ git:
         - '*.c'
 shell:
   install:
+{{- if eq $.SVACE_ENABLED "false" }}
   {{- include "debian packages proxy" . | nindent 2 }}
-  - |
-    apt-get install --yes musl-dev musl-tools
+  - apt-get install --yes musl-dev musl-tools
   {{- include "debian packages clean" . | nindent 2 }}
+{{- else }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - apt-get -qq install -y musl-devel musl-devel-static
+  {{- include "alt packages clean" . | nindent 2 }}
+{{- end }}
   - |
     echo "Building simple app that prints hello cdi"
     mkdir -p /bins
-    musl-gcc -static -Os -o /bins/hello hello.c
-    musl-gcc -static -Os -o /bins/printFile print_file_context.c
+    {{- $_ := set $ "ProjectName" (list $.ImageName "hello" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `musl-gcc -static -Os -o /bins/hello hello.c`) | nindent 6 }}
+    {{- $_ := set $ "ProjectName" (list $.ImageName "printFile" | join "/") }}
+    {{- include "image-build.build" (set $ "BuildCommand" `musl-gcc -static -Os -o /bins/printFile print_file_context.c`) | nindent 6 }}
     strip /bins/hello
     strip /bins/printFile
