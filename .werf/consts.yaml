@@ -4,7 +4,7 @@
 # Component versions
 {{- $_ := set . "Version" dict -}}
 {{- $_ := set . "Package" dict -}}
-{{- $versions_path := "component_versions/version_map.yml" -}}
+{{- $versions_path := "/component_versions/version_map.yml" -}}
 
 {{- if .ModuleDir -}}
 {{-   $versions_path = (printf "%s%s" (trimPrefix "/" .ModuleDir ) $versions_path) -}}
