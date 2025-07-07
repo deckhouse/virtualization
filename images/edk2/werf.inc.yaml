@@ -1,6 +1,6 @@
 ---
 {{- $gitRepoName := $.ImageName }}
-# {{ .Version }}
+### {{ .Version }}
 # { {- $version := .Version $gitRepoName } }
 {{- $version := "stable202411" }}
 {{- $gitRepoUrl := "tianocore/edk2.git" }}
