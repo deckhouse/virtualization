@@ -142,17 +142,3 @@ func searchIPFromCiliumIPCache(kubectl kc.Kubectl, pod corev1.Pod, vmIP, nodeIP 
 
 	return found, nil
 }
-
-func checkCiliumLogsForPanics(kubectl kc.Kubectl, podName string) error {
-	cmd := fmt.Sprintf("-n %s logs %s -c cilium-agent --since=30m", ciliumNamespace, podName)
-	result := kubectl.RawCommand(cmd, kc.MediumTimeout)
-	if result.Error() != nil {
-		return fmt.Errorf("failed to execute command: %v", result.Error())
-	}
-
-	if strings.Contains(result.StdOut(), "panic:") {
-		return fmt.Errorf("Cilium logs contain panic")
-	}
-
-	return nil
-}
