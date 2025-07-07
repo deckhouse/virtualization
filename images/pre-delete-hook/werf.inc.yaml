@@ -3,7 +3,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}
+- add: {{ .ImagePath }}
   to: /pre-delete-hook
   stageDependencies:
     install:

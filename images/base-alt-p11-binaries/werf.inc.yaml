@@ -18,7 +18,7 @@ fromImage: BASE_ALT_P11
 fromImage: builder/alt
 {{- end }}
 git:
-  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}/relocate_binaries.sh
+  - add: {{ .ImagePath }}/relocate_binaries.sh
     to: /relocate_binaries.sh
 shell:
   install:

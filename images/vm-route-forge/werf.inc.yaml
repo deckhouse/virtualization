@@ -3,7 +3,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-- add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}
+- add: {{ .ImagePath }}
   to: /app/images/vm-route-forge
   stageDependencies:
     install:
@@ -11,7 +11,7 @@ git:
     - go.sum
     setup:
     - "**/*.go"
-- add: {{ .ModulePathPrefix }}/api
+- add: {{ .ModuleDir }}/api
   to: /app/api
   stageDependencies:
     setup:

@@ -14,12 +14,12 @@ build:
 ---
 
 # Source repo settings
-{{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
+{{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" "https://github.com") }}
 
-{{- $_ := set . "SOURCE_REPO_GIT" (env "SOURCE_REPO_GIT" | default "https://github.com") }}
+{{- $_ := set . "SOURCE_REPO_GIT" (env "SOURCE_REPO_GIT" "https://github.com") }}
 
 # Edition module settings
-{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
+{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "EE") }}
 
 # Define packages proxy settings
 {{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
@@ -147,4 +147,4 @@ image: release-channel-version
 fromImage: builder/scratch
 shell:
   install:
-    - echo  '{"version":"{{ env "MODULES_MODULE_TAG" }}"}' > version.json
+    - echo  '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > version.json

@@ -7,24 +7,24 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
-- add: {{ .ModulePathPrefix }}/images/{{ .ImageName }}/build.sh
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/build.sh
   to: /build.sh
   stageDependencies:
     install:
       - build.sh
-- add: {{ .ModulePathPrefix }}/images/{{ .ImageName }}/logo/Logo.bmp
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/logo/Logo.bmp
   to: /Logo.bmp
   stageDependencies:
     install:
       - '**/*'
-- add: {{ .ModulePathPrefix }}/images/{{ .ImageName }}/json
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/json
   to: /FIRMWARE
   includePaths:
   - '*.json'
   stageDependencies:
     install:
       - '*.json'
-- add: {{ .ModulePathPrefix }}/images/{{ .ImageName }}/uefi-revocation-list
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}/uefi-revocation-list
   to: /FIRMWARE
   includePaths:
   - '*.bin'
