@@ -32,21 +32,6 @@ build:
 # Component versions
 {{ include "Versions" . }}
 
-{{/*
-{{ $_ := set . "Version" dict }}
-{{ $_ := set . "Package" dict }}
-{{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
-
-
-{{- range $k, $v := $versions_ctx.firmware }}
-  {{- $_ := set $.Version $k $v}}
-{{- end }}
-
-{{- range $k, $v := $versions_ctx.package }}
-  {{- $_ := set $.Package $k $v}}
-{{- end }}
-*/}}
-
 {{- $_ := set $ "ImagesIDList" list }}
 
 {{- range $path, $content := .Files.Glob ".werf/*.yaml" }}

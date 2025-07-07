@@ -1,1 +1,43 @@
-{{ include "process_packages_images" . }}
+{{/*
+# Parse variables for images from their path.
+# for example: `packages/binaries/swtpm/werf.inc.yaml` turns into
+# ImageType: packages/binaries
+# ImageName: swtpm
+*/}}
+
+{{-   $Root := . }}
+
+{{-   $packageImagePathGlob := (printf "%simages/packages/*/*/{Dockerfile,werf.inc.yaml}" .ModuleDir ) }}
+{{-   $packageImagePathRegex := (printf "%simages/(packages)/([0-9a-z-_]+)/([0-9a-z-_]+)/(werf.inc.yaml)$" "" ) }}
+
+{{    $ImagePackages := $Root.Files.Glob $packageImagePathGlob }}
+
+{{-    range $path, $content := $ImagePackages }}
+{{-      $ctx := dict }}
+{{-      $_ := set $ctx "ImageInstructionType" "Stapel" }}
+
+{{-      $ImageData := regexReplaceAll $packageImagePathRegex $path "${1}#${2}#${3}#${4}" | split "#" }}
+
+{{-      $_ := set $ctx "PackagePath" (printf "%s/%s" $ImageData._0 $ImageData._1) }}
+{{-      $_ := set $ctx "ImageName" $ImageData._2 }}
+{{-      $_ := set $ctx "ImagePath" (printf "/images/packages/%s/%s"  $ctx.ImageName) }}
+{{-      $_ := set $ctx "ModuleNamePrefix" "" }}
+{{-      $_ := set $ctx "ImageBuildData" $content }}
+{{-      $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
+{{-      $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
+{{-      $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
+{{-      $_ := set $ctx "PackageVersion" $Root.Package }}
+{{-      $_ := set $ctx "GOPROXY" (env "GOPROXY" "https://proxy.golang.org,direct") }}
+
+{{-      include "module_image_template" $ctx }}
+
+{{-      range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
+{{-        $ImageManifest := $ImageYamlMainfest | fromYaml }}
+{{-        if $ImageManifest | dig "final" true }}
+{{-          if $ImageManifest.image }}
+{{-            $_ := set $ "ImagesIDList" (append $.ImagesIDList $ImageManifest.image) }}
+{{-          end }}
+{{-        end }}
+{{-      end }}
+
+{{-    end }}
