@@ -28,7 +28,8 @@
 {{-      $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
 {{-      $_ := set $ctx "PackageVersion" $Root.Package }}
 {{-      $_ := set $ctx "GOPROXY" (env "GOPROXY" "https://proxy.golang.org,direct") }}
-
+####2 {{ $ImageData }}
+####3 {{ $ctx }}
 {{-      include "module_image_template" $ctx }}
 
 {{-      range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
