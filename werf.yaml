@@ -18,9 +18,6 @@ build:
 
 {{- $_ := set . "SOURCE_REPO_GIT" (env "SOURCE_REPO_GIT" "https://github.com") }}
 
-# Edition module settings
-{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "EE") }}
-
 # Define packages proxy settings
 {{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
 
@@ -28,9 +25,6 @@ build:
 {{- $_ := set . "SVACE_ENABLED" (env "SVACE_ENABLED" "false") }}
 {{- $_ := set . "SVACE_ANALYZE_HOST" (env "SVACE_ANALYZE_HOST" "example.host") }}
 {{- $_ := set . "SVACE_ANALYZE_SSH_USER" (env "SVACE_ANALYZE_SSH_USER" "user") }}
-
-# Component versions
-{{ include "Versions" . }}
 
 {{- $_ := set $ "ImagesIDList" list }}
 

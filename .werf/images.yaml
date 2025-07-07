@@ -1,1 +1,45 @@
-{{ include "process_images" . }}
+
+{{/* # Context inside folder images */}}
+{{-  $Root := . }}
+
+{{   $ImagesBuildFiles := .Files.Glob "images/*/{Dockerfile,werf.inc.yaml}" }}
+
+{{-  range $path, $content := $ImagesBuildFiles }}
+
+{{-    $ctx := dict }}
+{{-    $_ := set $ctx "ImageInstructionType" "Stapel" }}
+
+{{-    $ImageData := regexReplaceAll "^images/([0-9a-z-_]+)/(Dockerfile|werf.inc.yaml)$" $path "${1}#${2}" | split "#" }}
+
+{{-    $_ := set $ctx "ImageName" $ImageData._0 }}
+{{-    $_ := set $ctx "ImagePath" (printf "/images/%s" $ctx.ImageName) }}
+{{-    $_ := set $ctx "ModuleDir" "/" }}
+{{-    $_ := set $ctx "ModuleNamePrefix" "" }}
+{{-    $_ := set $ctx "ImageBuildData" $content }}
+{{-    $_ := set $ctx "Files" $Root.Files }}
+{{-    $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
+{{-    $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
+{{-    $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
+{{-    $_ := set $ctx "Version" $Root.Version }}
+{{-    $_ := set $ctx "Package" $Root.Package }}
+{{-    $_ := set $ctx "GOPROXY" (env "GOPROXY" "https://proxy.golang.org,direct") }}
+{{-    $_ := set $ctx "ProjectName" $ctx.ImageName }}
+{{-    $_ := set $ctx "Commit" $Root.Commit }}
+{{-    $_ := set $ctx "SVACE_ENABLED" $Root.SVACE_ENABLED }}
+{{-    $_ := set $ctx "SVACE_ANALYZE_SSH_USER" $Root.SVACE_ANALYZE_SSH_USER }}
+{{-    $_ := set $ctx "SVACE_ANALYZE_HOST" $Root.SVACE_ANALYZE_HOST }}
+{{-    $_ := set $ctx "SVACE_IMAGE_SUFFIX" $Root.SVACE_IMAGE_SUFFIX }}
+
+
+{{-    include "module_image_template" $ctx }}
+
+{{-    range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
+{{-      $ImageManifest := $ImageYamlMainfest | fromYaml }}
+{{-      if $ImageManifest | dig "final" true }}
+{{-        if $ImageManifest.image }}
+{{-          $_ := set $ "ImagesIDList" (append $.ImagesIDList $ImageManifest.image) }}
+{{-        end }}
+{{-      end }}
+{{-    end }}
+
+{{-  end }}
