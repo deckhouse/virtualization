@@ -20,7 +20,6 @@
 
 {{-      $_ := set $ctx "PackagePath" (printf "%s/%s" $ImageData._0 $ImageData._1) }}
 {{-      $_ := set $ctx "ImageName" $ImageData._2 }}
-{{-      $_ := set $ctx "ImagePath" (printf "/images/packages/%s/%s"  $ctx.ImageName) }}
 {{-      $_ := set $ctx "ModuleNamePrefix" $Root.ModuleNamePrefix }}
 {{-      $_ := set $ctx "ImageBuildData" $content }}
 {{-      $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
@@ -29,7 +28,8 @@
 {{-      $_ := set $ctx "PackageVersion" $Root.Package }}
 {{-      $_ := set $ctx "GOPROXY" (env "GOPROXY" "https://proxy.golang.org,direct") }}
 ####2 {{ $ImageData }}
-{{-      include "module_image_template" $ctx }}
+####3 {{ $ctx.ImageName }}
+{{       include "module_image_template" $ctx }}
 
 {{-      range $ImageYamlMainfest := regexSplit "\n?---[ \t]*\n" (include "module_image_template" $ctx) -1 }}
 {{-        $ImageManifest := $ImageYamlMainfest | fromYaml }}
