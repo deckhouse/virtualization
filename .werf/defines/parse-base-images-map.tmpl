@@ -14,7 +14,7 @@
   
   # deckhouse_images has a format
   # <prefix>/<name>: "sha256:abcde12345
-  {{- range $k, $v := $deckhouseImages -}}
+  {{- range $k, $v := $deckhouseImages }}
     {{ $baseImagePath := (printf "%s@%s" $deckhouseImages.REGISTRY_PATH (trimSuffix "/" $v)) }}
     {{- if ne $k "REGISTRY_PATH" }}
       {{- $_ := set $deckhouseImages $k $baseImagePath }}
