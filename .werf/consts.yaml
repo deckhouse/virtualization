@@ -19,6 +19,3 @@
 {{- range $k, $v := $versions_ctx.package -}}
 {{-   $_ := set $.Package $k $v -}}
 {{- end -}}
-
-# {{ .Version }}
-## {{ .Package }}
