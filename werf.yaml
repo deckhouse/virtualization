@@ -88,8 +88,8 @@ import:
     add: /dist
     to: /lib/python/dist
     after: setup
-  - image: hooks
-    add: /hooks
+  - image: go-hooks-artifact
+    add: /go-hooks
     to: /hooks/go
     after: setup
 git:
