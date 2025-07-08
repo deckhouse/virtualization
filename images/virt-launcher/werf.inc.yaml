@@ -144,7 +144,6 @@ binaries:
 
 image: {{ $.ImageName }}-binaries
 final: false
-# fromCacheVersion: "2025-07-08.1"
 fromImage: base-alt-p11-binaries
 git:
   # Add qemu and virtqemud configs
@@ -217,67 +216,6 @@ import:
   - node-labeller
   - vlctl
 
-# - image: packages/binaries/dmidecode
-#   add: /dmidecode
-#   to: /dmidecode
-#   before: install
-# - image: packages/binaries/swtpm
-#   add: /swtpm
-#   to: /swtpm
-#   before: install
-# - image: packages/binaries/libattr
-#   add: /libattr
-#   to: /libattr
-#   before: install
-# - image: packages/binaries/libaudit
-#   add: /libaudit
-#   to: /libaudit
-#   before: install
-# - image: packages/binaries/numactl
-#   add: /numactl
-#   to: /numactl
-#   before: install
-# - image: packages/binaries/libisoburn
-#   add: /libisoburn
-#   to: /libisoburn
-#   before: install
-# - image: packages/binaries/libburn
-#   add: /libburn
-#   to: /libburn
-#   before: install
-# - image: packages/binaries/gnutls
-#   add: /gnutls
-#   to: /gnutls
-#   before: install
-# - image: packages/binaries/acl
-#   add: /acl
-#   to: /acl
-#   before: install
-# - image: packages/binaries/libbsd
-#   add: /libbsd
-#   to: /libbsd
-#   before: install
-# - image: packages/binaries/libgcrypt
-#   add: /libgcrypt
-#   to: /libgcrypt
-#   before: install
-# - image: packages/binaries/libmd
-#   add: /libmd
-#   to: /libmd
-#   before: install
-# - image: packages/binaries/libblkid
-#   add: /libblkid/usr
-#   to: /libblkid/usr
-#   before: install
-# - image: packages/binaries/libfuse3
-#   add: /libfuse3
-#   to: /libfuse3
-#   before: install
-# - image: packages/binaries/nettle
-#   add: /nettle
-#   to: /nettle
-#   before: install
-
 {{- $images := list "swtpm" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" -}}
 {{- include "importPackageImages" (list $images "install") -}}
 
@@ -342,7 +280,9 @@ shell:
   install:
   - |
     # Install packages
-    for pkg in {{ $images | join " " }}; do
+    PKGS="{{ $images | join " " }}"
+    PKGS+=" libffi8"
+    for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
