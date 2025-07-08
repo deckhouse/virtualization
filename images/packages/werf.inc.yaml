@@ -26,7 +26,8 @@
 {{-      $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
 {{-      $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
 {{-      $_ := set $ctx "PackageVersion" $Root.Package }}
-{{-      $_ := set $ctx "GOPROXY" (env "GOPROXY" "https://proxy.golang.org,direct") }}
+{{-      $_ := set $ctx "GOPROXY" $Root.GOPROXY }}
+{{-      $_ := set $ctx "DistroPackagesProxy" $Root.DistroPackagesProxy }}
 
 {{       include "module_image_template" $ctx }}
 
