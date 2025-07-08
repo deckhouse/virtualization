@@ -142,6 +142,11 @@ git:
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
     {{- end }}
+    {{- if eq .DELVE_DEBUG "true" }}
+      - templates/kubevirt.yaml
+    {{- else }}
+      - templates/dlv-*.yaml
+    {{- end }}
 ---
 image: release-channel-version
 fromImage: builder/scratch
