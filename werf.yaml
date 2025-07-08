@@ -29,6 +29,9 @@ build:
 {{ $_ := set . "Packages" dict }}
 {{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
 
+# Delve debag
+{{- $_ := set . "DELVE_DEBUG" (env "DELVE_DEBUG" "false") }}
+
 # svace analyze toggler
 {{- $_ := set . "SVACE_ENABLED" (env "SVACE_ENABLED" "false") }}
 
