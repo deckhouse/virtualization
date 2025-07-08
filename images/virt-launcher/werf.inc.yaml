@@ -144,6 +144,7 @@ binaries:
 
 image: {{ $.ImageName }}-binaries
 final: false
+fromCacheVersion: "2025-07-08.1"
 fromImage: base-alt-p11-binaries
 git:
   # Add qemu and virtqemud configs
