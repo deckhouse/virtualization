@@ -144,7 +144,7 @@ tasks:
   dlv:virt-controller:build:
     desc: "Build image virt-controller with dlv"
     cmds:
-      - docker build --build-arg BRANCH=$BRANCH -f ./images/virt-controller/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}" . --platform linux/amd64 .
+      - docker build --build-arg BRANCH=$BRANCH -f ./images/virt-controller/debug/dlv.Dockerfile -t "{{ .DLV_IMAGE }}"  --platform linux/amd64 .
 
   dlv:virt-controller:build-push:
     desc: "Build and Push image virt-controller with dlv"
