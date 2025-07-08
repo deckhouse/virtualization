@@ -1,0 +1,9 @@
+{{ define "importPackageImages" }}
+{{-   $ImageNameList := . -}}
+{{-   range $imageName := $ImageNameList }}
+- image: packages/binaries/{{ $imageName }}
+  add: /{{ $imageName }}
+  to: /{{ $imageName }}
+  before: install
+{{-   end }}
+{{ end }}
