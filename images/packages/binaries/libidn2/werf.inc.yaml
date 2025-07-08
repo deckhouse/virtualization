@@ -16,6 +16,8 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool patch gperf help2man gengetopt
+- gtk-doc libgnutls-devel libkrb5-devel libntlm-devel libreadline-devel
+- gnulib
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
