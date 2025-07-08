@@ -1,5 +1,5 @@
 ---
-{{- $version := "v1.60.3-v12n.1" }}
+{{- $version := "v1.60.3-v12n.3" }}
 {{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
 
 ---
