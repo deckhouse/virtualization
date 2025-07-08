@@ -16,7 +16,7 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool patch gperf help2man gengetopt
-- gtk-doc libgnutls-devel libkrb5-devel libntlm-devel libreadline-devel
+- gtk-doc libgnutls-devel libntlm-devel libreadline-devel
 - gnulib
 {{- end -}}
 
