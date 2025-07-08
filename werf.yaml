@@ -21,6 +21,10 @@ build:
 # Define packages proxy settings
 {{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
 
+# Delve debag
+{{- $_ := set . "DELVE_DEBUG" (env "DELVE_DEBUG" "false") }}
+{{- $_ := set . "COMPONENT_DEBUG" (env "COMPONENT_DEBUG" "") }}
+
 # svace analyze toggler
 {{- $_ := set . "SVACE_ENABLED" (env "SVACE_ENABLED" "false") }}
 {{- $_ := set . "SVACE_ANALYZE_HOST" (env "SVACE_ANALYZE_HOST" "example.host") }}
@@ -93,6 +97,11 @@ git:
       - openapi/openapi-case-tests.yaml
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
+    {{- end }}
+    {{- if eq .DELVE_DEBUG "true" }}
+      - templates/kubevirt/kubevirt.yaml
+    {{- else }}
+      - templates/*/dlv-*.yaml
     {{- end }}
 ---
 image: release-channel-version

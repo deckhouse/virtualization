@@ -42,3 +42,22 @@ spec:
   {{- else -}}4
   {{- end -}}
 {{- end -}}
+
+{{- define "kubevirt.virthandler_dlv_strategic_patch" -}}
+spec:
+  template:
+    spec:
+      containers:
+      - name: virt-handler
+        command: null
+        livenessProbe: null
+        readinessProbe: null
+        ports:
+        - containerPort: 2345
+          name: tcp-dlv-2345
+          protocol: TCP
+{{- end -}}
+
+{{- define "kubevirt.virthandler_dlv_strategic_patch_json" -}}
+  '{{ include "kubevirt.virthandler_dlv_strategic_patch" . | fromYaml | toJson }}'
+{{- end }}
