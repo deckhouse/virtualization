@@ -39,7 +39,7 @@ const (
 	nginxActiveStatus = "active"
 )
 
-var _ = Describe(fmt.Sprintf("VirtualMachineConnectivity %d", GinkgoParallelProcess()), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineConnectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
 		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)

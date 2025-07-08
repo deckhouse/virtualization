@@ -58,7 +58,7 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 	var (
 		immediateStorageClassName      string // require for unattached virtual disk snapshots
 		defaultVolumeSnapshotClassName string
-		testCaseLabel                  = map[string]string{"testcase": "vd-snapshots"}
+		testCaseLabel                  = map[string]string{"testcase": "vd-snapshots", "id": namePrefix}
 		attachedVirtualDiskLabel       = map[string]string{"attachedVirtualDisk": ""}
 		hasNoConsumerLabel             = map[string]string{"hasNoConsumer": "vd-snapshots"}
 		vmAutomaticWithHotplug         = map[string]string{"vm": "automatic-with-hotplug"}

@@ -165,20 +165,15 @@ func TestTests(t *testing.T) {
 	RegisterFailHandler(Fail)
 	fmt.Fprintf(GinkgoWriter, "Starting test suite\n")
 	RunSpecs(t, "Tests")
-
-	if (ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() || !config.IsCleanUpNeeded() {
-		return
-	}
 }
 
 var _ = SynchronizedBeforeSuite(func() {
-	// TODO: get kustomization files from testdata directory when all tests will be refactored
 	var kustomizationFiles []string
 	v := reflect.ValueOf(conf.TestData)
 	t := reflect.TypeOf(conf.TestData)
 
 	if v.Kind() == reflect.Struct {
-		for i := 0; i < v.NumField(); i++ {
+		for i := range v.NumField() {
 			field := v.Field(i)
 			fieldType := t.Field(i)
 
@@ -210,11 +205,11 @@ var _ = SynchronizedBeforeSuite(func() {
 	} else {
 		log.Println("Run test in REUSABLE mode")
 	}
-}, func() {
-	// StartV12nControllerLogStream(logStreamByV12nControllerPod)
-})
 
-var _ = SynchronizedAfterSuite(func() {
+	StartV12nControllerLogStream(logStreamByV12nControllerPod)
+}, func() {})
+
+var _ = SynchronizedAfterSuite(func() {}, func() {
 	errs := make([]error, 0)
 	checkErrs := CheckV12nControllerRestarts(logStreamByV12nControllerPod)
 	if len(checkErrs) != 0 {
@@ -225,7 +220,11 @@ var _ = SynchronizedAfterSuite(func() {
 		errs = append(errs, stopErrs...)
 	}
 	Expect(errs).Should(BeEmpty())
-}, func() {
+
+	if (ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() || !config.IsCleanUpNeeded() {
+		return
+	}
+
 	err := Cleanup()
 	if err != nil {
 		log.Fatal(err)
@@ -235,7 +234,11 @@ var _ = SynchronizedAfterSuite(func() {
 func Cleanup() error {
 	var eg errgroup.Group
 
-	eg.Go(deleteProject)
+	err := deleteProject()
+	if err != nil {
+		return err
+	}
+
 	eg.Go(deleteNamespaces)
 	eg.Go(deleteResources)
 
