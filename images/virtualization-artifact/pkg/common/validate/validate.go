@@ -21,15 +21,15 @@ package validate
 // We add prefix "vd-" for the vd name, so max len reduced to 60.
 const MaxDiskNameLen = 60
 
-// MaxVirtualImageNameLen determines the max len of vi on dvcr.
+// MaxVirtualImageNameLen determines the max len of vi.
 // Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
-// We add prefixes "vi-", so max len reduced to 60.
-const MaxVirtualImageNameLen = 60
+// We and kubevirt add prefixes "vi-", "volume" and suffix "-init", so max len reduced to 49.
+const MaxVirtualImageNameLen = 49
 
 // MaxClusterVirtualImageNameLen determines the max len of cvi.
 // Disk and volume name in kubevirt can be a valid container name (len 63) since disk name can become a container name which will fail to schedule if invalid.
-// We add prefixes "cvi-", so max len reduced to 59.
-const MaxClusterVirtualImageNameLen = 59
+// We and kubevirt add prefixes "cvi-", "volume" and suffix "-init", so max len reduced to 48.
+const MaxClusterVirtualImageNameLen = 48
 
 // MaxVirtualMachineNameLen determines the max len of vm.
 // The limitation is reportedly associated with the PodDisruptionBudget resource, which has a label containing the virtual machine's name, and the label's value cannot exceed 63 characters.
