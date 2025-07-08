@@ -30,7 +30,6 @@ package:
   libmd: 1.1.0
   lvm2: v2_03_32
   nbdkit: 1.39.5
-  # nettle: nettle_3.10.1_release_20241230
   nettle: nettle_3.10.1_release_20241230
   nftables: 1.1.3
   numactl: 2.0.19

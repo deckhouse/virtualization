@@ -1,9 +1,16 @@
 {{ define "importPackageImages" }}
-{{-   $ImageNameList := . -}}
+{{- if not (eq (kindOf .) "slice") }}
+{{    fail "importPackageImages: invalid type of argument, slice is expected" -}}
+{{- end }}
+{{- $ImageNameList := index . 0 }}
+{{- $stage := "install" }}
+{{- if gt (len .) 1 }}
+{{-   $stage = index . 1 }}
+{{- end }}
 {{-   range $imageName := $ImageNameList }}
 - image: packages/binaries/{{ $imageName }}
   add: /{{ $imageName }}
   to: /{{ $imageName }}
-  before: install
+  before: {{ $stage }}
 {{-   end }}
 {{ end }}

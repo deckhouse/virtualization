@@ -2,8 +2,6 @@
 /libblkid
 ```
 .
-|-- bin
-|-- sbin
 `-- usr
     |-- bin
     |-- include

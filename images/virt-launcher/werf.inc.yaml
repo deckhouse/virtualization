@@ -282,7 +282,10 @@ import:
 #   add: /nettle
 #   to: /nettle
 #   before: install
-{{- include "importPackageImages" (list "swtpm" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle") -}}
+
+{{- $images := list "swtpm" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" -}}
+{{- include "importPackageImages" (list $images "install") -}}
+
 - image: libs/libffi
   add: /usr
   to: /libffi8/usr
