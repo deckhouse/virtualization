@@ -1,7 +1,7 @@
 ---
 # Source https://github.com/kubevirt/kubevirt/blob/v1.3.1/hack/dockerized#L15
 {{- $version := "v1.3.1" }}
-{{- $tag := print $version "-v12n.4"}}
+{{- $tag := print $version "-v12n.5"}}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
