@@ -144,7 +144,7 @@ binaries:
 
 image: {{ $.ImageName }}-binaries
 final: false
-fromCacheVersion: "2025-07-08.1"
+# fromCacheVersion: "2025-07-08.1"
 fromImage: base-alt-p11-binaries
 git:
   # Add qemu and virtqemud configs
@@ -174,12 +174,6 @@ import:
   add: /BINS
   to: /qemu-bins
   before: install
-
-# - image: packages/binaries/dmidecode
-#   add: /dmidecode
-#   to: /dmidecode
-#   before: install
-
 # EDK2 (uefi firmware)
 - image: edk2
   add: /FIRMWARE/
@@ -196,7 +190,6 @@ import:
   before: install
   includePaths:
   - '*.json'
-
 # Import from virt artifact
 - image: virt-artifact
   add: /kubevirt-config-files/
@@ -224,11 +217,14 @@ import:
   - node-labeller
   - vlctl
 
+# - image: packages/binaries/dmidecode
+#   add: /dmidecode
+#   to: /dmidecode
+#   before: install
 # - image: packages/binaries/swtpm
 #   add: /swtpm
 #   to: /swtpm
 #   before: install
-
 # - image: packages/binaries/libattr
 #   add: /libattr
 #   to: /libattr
@@ -237,12 +233,10 @@ import:
 #   add: /libaudit
 #   to: /libaudit
 #   before: install
-
 # - image: packages/binaries/numactl
 #   add: /numactl
 #   to: /numactl
 #   before: install
-
 # - image: packages/binaries/libisoburn
 #   add: /libisoburn
 #   to: /libisoburn
@@ -348,10 +342,7 @@ shell:
   install:
   - |
     # Install packages
-    PKGS="libisoburn libburn libbsd swtpm numactl gnutls"
-    PKGS+=" dmidecode acl libffi8 libattr libaudit libblkid libmd"
-    PKGS+=" libgcrypt libfuse3 nettle"
-    for pkg in $PKGS; do
+    for pkg in {{ $images | join " " }}; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
