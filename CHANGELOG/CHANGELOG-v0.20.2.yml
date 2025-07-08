@@ -1,0 +1,10 @@
+vd:
+  fixes:
+    - summary: >-
+        The creation of virtual disks using the storage class of the `local-path-provisioner` module
+        has been fixed.
+
+        Support for storage classes managed by the local-path-provisioner module will be
+        discontinued starting from version 0.22.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1228
+
