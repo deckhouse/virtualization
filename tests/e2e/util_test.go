@@ -551,6 +551,7 @@ func DeleteTestCaseResources(ns string, resources ResourcesToDelete) {
 			res := kubectl.Delete(kc.DeleteOptions{
 				Filename:       []string{resources.KustomizationDir},
 				FilenameOption: kc.Kustomize,
+				IgnoreNotFound: true,
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\ncmd: %s\nstderr: %s", errMessage, resources.KustomizationDir, res.GetCmd(), res.StdErr()))
 		}

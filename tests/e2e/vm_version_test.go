@@ -94,13 +94,13 @@ var _ = Describe("VirtualMachineVersions", ginkgoutil.CommonE2ETestDecorators(),
 			})
 			Expect(err).NotTo(HaveOccurred())
 
-			It("has qemu version is status", func() {
+			It("has qemu version in the status", func() {
 				for _, vm := range vms.Items {
 					Expect(vm.Status.Versions.Qemu).NotTo(BeEmpty())
 				}
 			})
 
-			It("has libvirt version is status", func() {
+			It("has libvirt version in the status", func() {
 				for _, vm := range vms.Items {
 					Expect(vm.Status.Versions.Libvirt).NotTo(BeEmpty())
 				}

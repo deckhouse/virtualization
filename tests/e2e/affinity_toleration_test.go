@@ -463,7 +463,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{KustomizationDir: conf.TestData.AffinityToleration})
+			DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.AffinityToleration})
 		})
 	})
 })

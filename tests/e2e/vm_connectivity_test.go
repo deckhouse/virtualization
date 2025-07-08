@@ -41,7 +41,7 @@ const (
 	nginxActiveStatus = "active"
 )
 
-var _ = Describe(fmt.Sprintf("VirtualMachineConnectivity %d", GinkgoParallelProcess()), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineConnectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
 		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)
@@ -314,7 +314,7 @@ func CheckCiliumAgents(kubectl kc.Kubectl, namespace string, vms ...string) {
 	}
 }
 
-func CheckExternalConnection(host, httpCode string, vmNamespace string, vmNames ...string) {
+func CheckExternalConnection(host, httpCode, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
 	for _, vmName := range vmNames {
 		By(fmt.Sprintf("Response code from %q should be %q for %q", host, httpCode, vmName))

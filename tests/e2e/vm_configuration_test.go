@@ -315,7 +315,7 @@ func CheckCPUCoresNumber(approvalMode, stage string, requiredValue int, vmNamesp
 	}
 }
 
-func CheckCPUCoresNumberFromVirtualMachine(requiredValue string, vmNamespace string, vmNames ...string) {
+func CheckCPUCoresNumberFromVirtualMachine(requiredValue, vmNamespace string, vmNames ...string) {
 	By("Checking the number of processor cores after changing from virtual machine")
 	for _, vmName := range vmNames {
 		cmd := "nproc --all"
