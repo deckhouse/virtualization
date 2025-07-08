@@ -28,6 +28,9 @@ mount:
 shell:
   install:
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
+{{- if eq $.DELVE_DEBUG "true" }}
+  - go install github.com/go-delve/delve/cmd/dlv@latest
+{{- end }}
   - cd /src/images/virtualization-artifact
   - go mod download
   setup:

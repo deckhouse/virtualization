@@ -1,0 +1,314 @@
+{{- $nodeSelectorSystem := index (include "helm_lib_node_selector" (tuple . "system") | fromYaml) "nodeSelector" | default (dict) | toJson }}
+{{- $nodeSelectorMaster := index (include "helm_lib_node_selector" (tuple . "master") | fromYaml) "nodeSelector" | default (dict) | toJson }}
+{{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
+{{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
+{{- $priorityClassName := include "priorityClassName" . | quote }}
+{{ $_ := set . "Firmware" dict }}
+{{- $versions_ctx := (.Files.Get "build/components/versions.yml" | fromYaml) }}
+{{- range $k, $v := $versions_ctx.firmware }}
+  {{- $_ := set $.Firmware $k $v}}
+{{- end }}
+{{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
+{{- $logVerbosity := include "kubevirt.logVerbosity" (include "moduleLogLevel" .) | int }}
+---
+apiVersion: internal.virtualization.deckhouse.io/v1
+kind: InternalVirtualizationKubeVirt
+metadata:
+  name: config
+  namespace: d8-{{ .Chart.Name }}
+  {{- include "helm_lib_module_labels" (list .) | nindent 2 }}
+spec:
+  certificateRotateStrategy: {}
+  configuration:
+    apiConfiguration:
+      restClient:
+        rateLimiter:
+          tokenBucketRateLimiter:
+            qps: 5000
+            burst: 6000
+    migrations:
+      bandwidthPerMigration: 640Mi
+      completionTimeoutPerGiB: 800
+      parallelMigrationsPerCluster: {{ .Values.virtualization.internal | dig "virtHandler" "nodeCount" 1 }}
+      parallelOutboundMigrationsPerNode: 1
+      progressTimeout: 150
+    smbios:
+      manufacturer: Flant
+      family: Deckhouse
+      product: DeckhouseVirtualizationPlatform
+      {{- if ge $dvpNestingLevel 0 }}
+      sku: "{{ add1 $dvpNestingLevel }}"
+      {{- end }}
+    evictionStrategy: LiveMigrate
+    vmRolloutStrategy: LiveUpdate
+    developerConfiguration:
+      logVerbosity:
+        virtLauncher: {{ $logVerbosity }}
+        virtHandler: {{ $logVerbosity }}
+        virtController: {{ $logVerbosity }}
+        virtAPI: {{ $logVerbosity }}
+        virtOperator: {{ $logVerbosity }}
+      featureGates:
+      - HotplugVolumes
+      - GPU
+      - Snapshot
+      - ExpandDisks
+      - Root
+      - VMLiveUpdateFeatures
+      - CPUManager
+      - Sidecar
+      - VolumeSnapshotDataSource
+    virtualMachineOptions:
+      disableSerialConsoleLog: {}
+  customizeComponents:
+    flags:
+      api:
+        metrics-listen: 127.0.0.1
+        metrics-port: "8080"
+      controller:
+        metrics-listen: 127.0.0.1
+        metrics-port: "8080"
+      # handler:
+      #   metrics-listen: 127.0.0.1
+      #   metrics-port: "8080"
+    patches:
+    # Add node placement settings for virt-api, virt-controller, virt-operator, virt-handler.
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: '[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{{ $nodeSelectorMaster }}}]'
+      type: json
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
+      type: json
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: '[{"op":"replace","path":"/spec/template/spec/nodeSelector","value":{{ $nodeSelectorSystem }}}]'
+      type: json
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsSystem }}}]'
+      type: json
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: '[{"op":"replace","path":"/spec/template/spec/tolerations","value":{{ $tolerationsAnyNode }}}]'
+      type: json
+    # if debug on
+    # {{ .Values.debug }}
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "kubevirt.virthandler_dlv_strategic_patch_json" . }}
+      type: strategic
+    # Add node affinity for the lowest virtualization level for virt-handler pods
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "kubevirt.virthandler_nodeaffinity_strategic_patch_json" $dvpNestingLevel }}
+      type: strategic
+    # Run virt-handler pods on required nodes
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "kubevirt.virthandler_nodeseletor_strategic_patch_json" . }}
+      type: strategic
+
+    # Set replicas based on HA settings
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: '[{"op":"replace","path":"/spec/replicas","value": {{ include "helm_lib_is_ha_to_value" (list . 3 1) }}}]'
+      type: json
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: '[{"op":"replace","path":"/spec/replicas","value": {{ include "helm_lib_is_ha_to_value" (list . 2 1) }}}]'
+      type: json
+    {{- if (include "helm_lib_ha_enabled" .) }}
+    # HA settings for deploy/virt-api.
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: {{ include "spec_template_spec_antiaffinity_patch" (list "kubevirt.io" "virt-api") }}
+      type: strategic
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: {{ include "spec_strategy_rolling_update_patch" . }}
+      type: strategic
+    # HA settings for deploy/virt-controller.
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: {{ include "spec_template_spec_antiaffinity_patch" (list "kubevirt.io" "virt-controller") }}
+      type: strategic
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: {{ include "spec_strategy_rolling_update_patch" . }}
+      type: strategic
+    {{- end }}
+
+    # Add kube-api-rewriter sidecar containers to virt-controller, virt-api, virt-handler and virt-exportproxy.
+    - resourceName: virt-controller
+      resourceType: Deployment
+      patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (list . "virt-controller") }}
+      type: strategic
+
+    {{- $virtApiRewriterSettings := dict }}
+    {{- $_ := set $virtApiRewriterSettings "WEBHOOK_ADDRESS" "https://127.0.0.1:8443" }}
+    {{- $_ := set $virtApiRewriterSettings "WEBHOOK_CERT_FILE" "/etc/virt-api/certificates/tls.crt" }}
+    {{- $_ := set $virtApiRewriterSettings "WEBHOOK_KEY_FILE" "/etc/virt-api/certificates/tls.key" }}
+    {{- $_ := set $virtApiRewriterSettings "webhookCertsVolumeName" "kubevirt-virt-api-certs" }}
+    {{- $_ := set $virtApiRewriterSettings "webhookCertsMountPath" "/etc/virt-api/certificates" }}
+    - resourceName: virt-api
+      resourceType: Deployment
+      patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (tuple . "virt-api" $virtApiRewriterSettings) }}
+      type: strategic
+
+    - resourceName: virt-handler
+      resourceType: DaemonSet
+      patch: {{ include "kube_api_rewriter.pod_spec_strategic_patch_json" (list . "virt-handler") }}
+      type: strategic
+
+    # Add kube-api-rewriter sidecar containers to virt-controller, virt-api, virt-handler.
+    {{- $kubeRbacProxySettings := dict }}
+    {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
+    {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-controller")
+    ) }}
+    - resourceName: virt-controller
+      resourceType: Deployment
+      patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
+      type: strategic
+
+    {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virt-api")
+    ) }}
+    - resourceName: virt-api
+      resourceType: Deployment
+      patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
+      type: strategic
+
+    {{- $_ := set $kubeRbacProxySettings "upstreams" (list
+        (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "resource" "daemonsets" "name" "kube-api-rewriter")
+        (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "resource" "daemonsets" "name" "virt-handler")
+    ) }}
+    - resourceName: virt-handler
+      resourceType: DaemonSet
+      patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
+      type: strategic
+
+    # Add rewriter proxy container port to Services used by webhook configurations.
+    # First need to set name for existing port to make strategic patch works later.
+    - resourceName: virt-api
+      resourceType: Service
+      patch: |
+        [{"op":"replace", "path":"/spec/ports/0/name", "value":"https"}]
+      type: json
+    - resourceName: virt-api
+      resourceType: Service
+      patch: {{ include "kube_api_rewriter.service_spec_port_patch_json" . }}
+      type: strategic
+    - resourceName: kubevirt-operator-webhook
+      resourceType: Service
+      patch: {{ include "kube_api_rewriter.service_spec_port_patch_json" . }}
+      type: strategic
+
+    # Change service port in virt-api webhook configuration to point to the rewriter proxy container.
+    # Run this command to extract names when update Kubevirt:
+    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-api-validator -o json | jq '.webhooks[]|.name' -r | sort
+    # NOTE virt-api-validator is renamed to virt-internal-virtualization-api-validator.
+    {{- define "virt-api-validating-webhook-names" -}}
+    kubevirt-crd-status-validator.kubevirt.io
+    migration-create-validator.kubevirt.io
+    migration-policy-validator.kubevirt.io
+    migration-update-validator.kubevirt.io
+    virt-launcher-eviction-interceptor.kubevirt.io
+    virtualmachineclusterinstancetype-validator.instancetype.kubevirt.io
+    virtualmachineclusterpreference-validator.instancetype.kubevirt.io
+    virtualmachineexport-validator.export.kubevirt.io
+    virtualmachineinstances-create-validator.kubevirt.io
+    virtualmachineinstances-update-validator.kubevirt.io
+    virtualmachineinstancetype-validator.instancetype.kubevirt.io
+    virtualmachinepool-validator.kubevirt.io
+    virtualmachinepreference-validator.instancetype.kubevirt.io
+    virtualmachinepreset-validator.kubevirt.io
+    virtualmachinereplicaset-validator.kubevirt.io
+    virtualmachinerestore-validator.snapshot.kubevirt.io
+    virtualmachinesnapshot-validator.snapshot.kubevirt.io
+    virtualmachine-validator.kubevirt.io
+    vm-clone-validator.kubevirt.io
+    {{- end -}}
+    {{- $virtApiValidatingWebhooks := include "virt-api-validating-webhook-names" . | splitList "\n" }}
+    - resourceName: virt-internal-virtualization-api-validator
+      resourceType: ValidatingWebhookConfiguration
+      patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" $virtApiValidatingWebhooks }}
+      type: strategic
+
+    # Change service port in virt-api webhook configuration to point to the rewriter proxy container.
+    # Run this command to extract names when update Kubevirt:
+    # kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io virt-api-mutator -o json | jq '.webhooks[]|.name' -r
+    # NOTE virt-api-mutator is renamed to virt-internal-virtualization-api-mutator.
+    {{- define "virt-api-mutating-webhook-names" -}}
+    migrations-mutator.kubevirt.io
+    virtualmachineclones-mutator.kubevirt.io
+    virtualmachineinstances-mutator.kubevirt.io
+    virtualmachines-mutator.kubevirt.io
+    {{- end -}}
+    {{- $virtApiMutatingWebhooks := include "virt-api-mutating-webhook-names" . | splitList "\n" }}
+    - resourceName: virt-internal-virtualization-api-mutator
+      resourceType: MutatingWebhookConfiguration
+      patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" $virtApiMutatingWebhooks }}
+      type: strategic
+
+    # Change service port in virt-operator webhook configuration to point to the rewriter proxy container.
+    # Run this command to extract names when update Kubevirt:
+    # kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io virt-internal-virtualization-operator-validator -o json | jq ' .webhooks[]|.name' -r
+    # NOTE: original virt-operator-validator is renamed to virt-internal-virtualization-operator-validator.
+    {{- define "virt-operator-webhook-names" -}}
+    kubevirt-validator.kubevirt.io
+    kubevirt-update-validator.kubevirt.io
+    kubevirt-create-validator.kubevirt.io
+    {{- end -}}
+    {{- $virtOperatorWebhooks := include "virt-operator-webhook-names" . | splitList "\n" }}
+    - resourceName: virt-internal-virtualization-operator-validator
+      resourceType: ValidatingWebhookConfiguration
+      patch: {{ include "kube_api_rewriter.webhook_spec_port_patch_json" $virtOperatorWebhooks }}
+      type: strategic
+
+    # Set priority class name for components.
+    {{- define "pod_spec_priority_class_name_patch" -}}
+    '{"spec":{"template":{"spec":{"priorityClassName": {{ . }} }}}}'
+    {{- end }}
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
+      type: strategic
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
+      type: strategic
+    - resourceType: DaemonSet
+      resourceName: virt-handler
+      patch: {{ include "pod_spec_priority_class_name_patch" $priorityClassName }}
+      type: strategic
+    # Patch service for https-metrics
+    - resourceType: Service
+      resourceName: kubevirt-prometheus-metrics
+      patch: '[{"op": "replace", "path": "/spec/ports/0/targetPort", "value": "https-metrics"}]'
+      type: json
+
+# Additional environment variables for virt-controller.
+{{ define "virt-controller-additional-envs" }}
+env:
+# Firmware component versions.
+- name: QEMU_VERSION
+  value: {{$.Firmware.qemu}}
+- name: LIBVIRT_VERSION
+  value: {{$.Firmware.libvirt}}
+{{ end }}
+    - resourceType: Deployment
+      resourceName: virt-controller
+      type: strategic
+      patch: '{"spec":{"template":{"spec":{"containers":[ {"name":"virt-controller","env":{{ include "virt-controller-additional-envs" . | fromYaml | pluck "env" | first | toJson }} } ]}}}}'
+
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets:
+    - name: virtualization-module-registry
+  workloadUpdateStrategy:
+    workloadUpdateMethods:
+      - LiveMigrate

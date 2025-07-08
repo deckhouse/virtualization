@@ -42,6 +42,9 @@ on:
         required: false
   pull_request:
     types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - fix/core/hotplug-nfs
   push:
     branches:
       - main
@@ -58,27 +61,57 @@ concurrency:
 jobs:
   set_vars:
     runs-on: ubuntu-latest
-    name: Set MODULES_MODULE_TAG
+    name: Get PR info and Set MODULES_MODULE_TAG
     outputs:
       modules_module_tag: ${{ steps.modules_module_tag.outputs.MODULES_MODULE_TAG }}
       module_edition: ${{ steps.modules_module_tag.outputs.MODULE_EDITION }}
       runner_type: ${{ steps.modules_module_tag.outputs.RUNNER_TYPE }}
+      delve_debug: ${{ steps.modules_module_tag.outputs.DELVE_DEBUG }}
+      component_debug: ${{ steps.get-labels.outputs.delveLabel }}
     steps:
       - name: Get Pull Request Labels
         id: get-labels
         uses: actions/github-script@v7
         with:
           script: |
+            function processDelveLabels(labelList) {
+              const delveLabels = labelList.filter(label => label.includes('delve'));
+              
+              if (delveLabels.length === 0) {
+                  console.log("No delve labels found");
+                  return null;
+              } else if (delveLabels.length === 1) {
+                  return delveLabels[0];
+              } else {
+                  console.error("Error: Multiple delve labels found - " + delveLabels.join(', '));
+                  return null;
+              }
+            }
+
+            let allLabels = [];
+            let debugLabel = '';
+
             if (context.eventName === "pull_request" || context.eventName === "pull_request_target" ) {
-              const prNumber = context.payload.pull_request.number;
-              const { data: labels } = await github.rest.issues.listLabelsOnIssue({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: prNumber,
-              });
-              return labels.map(label => label.name);
+              let prNumber = context.payload.pull_request.number;
+              try {
+                let { data: labels } = await github.rest.issues.listLabelsOnIssue({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                });
+                allLabels = labels.map(label => label.name);
+                debugLabel = processDelveLabels(allLabels);
+                
+                // Set the outputs
+                core.setOutput('delveLabel', debugLabel);
+                core.setOutput('prLabels', allLabels);
+              
+              } catch (error) {
+                core.setFailed(`Script failed: ${error.message}`);
+              }
             } else {
-              return [];
+              core.setOutput('delveLabel', debugLabel);
+              core.setOutput('prLabels', allLabels);
             }
           result-encoding: string
 
@@ -101,19 +134,26 @@ jobs:
           echo "MODULES_MODULE_TAG=$MODULES_MODULE_TAG" >> "$GITHUB_OUTPUT"
 
           # Slect edition for build, default EE
-          if echo "${{ steps.get-labels.outputs.result }}" | grep -q "edition/ce"; then
+          if echo "${{ steps.get-labels.outputs.prLabels }}" | grep -q "edition/ce"; then
             echo "MODULE_EDITION=CE" >> $GITHUB_OUTPUT
           else
             echo "MODULE_EDITION=EE" >> "$GITHUB_OUTPUT"
           fi
 
           # Select runner
-          if echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/github/ubuntu"; then
+          if echo "${{ steps.get-labels.outputs.prLabels }}" | grep -q "build/github/ubuntu"; then
             echo "RUNNER_TYPE=[\"ubuntu-22.04\"]" >> "$GITHUB_OUTPUT"
-          elif echo "${{ steps.get-labels.outputs.result }}" | grep -q "build/self-hosted/regular"; then
+          elif echo "${{ steps.get-labels.outputs.prLabels }}" | grep -q "build/self-hosted/regular"; then
             echo "RUNNER_TYPE=[\"self-hosted\", \"regular\"]" >> "$GITHUB_OUTPUT"
           else
             echo "RUNNER_TYPE=[\"self-hosted\", \"large\"]" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Delve debug
+          if echo "${{ steps.get-labels.outputs.delveLabel }}" | grep -q "delve/"; then
+            echo "DELVE_DEBUG=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "DELVE_DEBUG=false" >> "$GITHUB_OUTPUT"
           fi
 
   show_dev_manifest:
@@ -298,6 +338,8 @@ jobs:
       MODULES_MODULE_TAG: ${{needs.set_vars.outputs.modules_module_tag}}
       MODULE_EDITION: ${{needs.set_vars.outputs.module_edition}}
       WERF_VIRTUAL_MERGE: 0
+      DELVE_DEBUG: ${{needs.set_vars.outputs.delve_debug}}
+      COMPONENT_DEBUG: ${{needs.set_vars.outputs.component_debug}}
     steps:
       - name: Print vars
         run: |
@@ -307,6 +349,8 @@ jobs:
           echo MODULES_MODULE_SOURCE=$MODULES_MODULE_SOURCE
           echo MODULES_MODULE_TAG=$MODULES_MODULE_TAG
           echo MODULE_EDITION=$MODULE_EDITION
+          echo DELVE_DEBUG=$DELVE_DEBUG
+          echo COMPONENT_DEBUG=$COMPONENT_DEBUG
 
       - uses: actions/checkout@v4
         with:
