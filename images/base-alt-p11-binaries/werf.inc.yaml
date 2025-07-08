@@ -12,11 +12,7 @@ libraries:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-{{- if not .ModuleName }}
-fromImage: BASE_ALT_P11
-{{- else }}
 fromImage: builder/alt
-{{- end }}
 git:
   - add: {{ .ImagePath }}/relocate_binaries.sh
     to: /relocate_binaries.sh

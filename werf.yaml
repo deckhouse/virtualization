@@ -62,12 +62,7 @@ shell:
       cat images_digests.json
 ---
 image: python-dependencies
-{{- if not .ModuleName }}
-fromImage: BASE_ALT_P11
-{{- else }}
 fromImage: builder/alt
-{{- end }}
-fromCacheVersion: "2025-28-05.1"
 git:
   - add: /lib/python/requirements.txt
     to: /requirements.txt
