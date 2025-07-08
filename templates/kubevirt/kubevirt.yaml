@@ -96,6 +96,16 @@ spec:
       resourceName: virt-handler
       patch: {{ include "kubevirt.virthandler_nodeseletor_strategic_patch_json" . }}
       type: strategic
+
+    # Set replicas based on HA settings
+    - resourceType: Deployment
+      resourceName: virt-api
+      patch: '[{"op":"replace","path":"/spec/replicas","value": {{ include "helm_lib_is_ha_to_value" (list . 3 1) }}}]'
+      type: json
+    - resourceType: Deployment
+      resourceName: virt-controller
+      patch: '[{"op":"replace","path":"/spec/replicas","value": {{ include "helm_lib_is_ha_to_value" (list . 2 1) }}}]'
+      type: json
     {{- if (include "helm_lib_ha_enabled" .) }}
     # HA settings for deploy/virt-api.
     - resourceType: Deployment
@@ -106,10 +116,6 @@ spec:
       resourceName: virt-api
       patch: {{ include "spec_strategy_rolling_update_patch" . }}
       type: strategic
-    - resourceType: Deployment
-      resourceName: virt-api
-      patch: '[{"op":"replace","path":"/spec/replicas","value":3}]'
-      type: json
     # HA settings for deploy/virt-controller.
     - resourceType: Deployment
       resourceName: virt-controller
