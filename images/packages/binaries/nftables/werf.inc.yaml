@@ -11,9 +11,8 @@ import:
 ---
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "nftables.git" }}
-{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
 
-image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
@@ -49,7 +48,7 @@ image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
-- image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install

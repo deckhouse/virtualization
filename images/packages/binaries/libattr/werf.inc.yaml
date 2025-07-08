@@ -8,7 +8,6 @@ packages:
 
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "attr.git" }}
-{{- $PkgImageName := (printf "%s/%s" .PackagePath .ImageName) }}
 
 {{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
 {{- if eq .ModuleNamePrefix "" }}
@@ -23,7 +22,7 @@ import:
   before: setup
 
 ---
-image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 secrets:
@@ -42,7 +41,7 @@ image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
-- image: {{ .ModuleNamePrefix }}{{ $PkgImageName }}-src-artifact
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
   before: install
