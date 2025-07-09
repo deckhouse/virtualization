@@ -19,14 +19,19 @@ import (
 	"context"
 	"fmt"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-
 	"hooks/pkg/settings"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	"github.com/deckhouse/module-sdk/pkg/utils/ptr"
 )
+
+type vap struct {
+	Kind       string            `json:"kind"`
+	Name       string            `json:"name"`
+	ApiVersion string            `json:"apiVersion"`
+	Labels     map[string]string `json:"labels"`
+}
 
 var _ = registry.RegisterFunc(config, reconcile)
 
@@ -71,7 +76,10 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 
 	var (
 		foundDeprecatedCount int
-		uts                  []*unstructured.Unstructured
+		uts                  []*vap
+		// uts                  []*unstructured.Unstructured
+		// vapbs []*ar.ValidatingAdmissionPolicyBinding
+		// vaps  []*ar.ValidatingAdmissionPolicy
 	)
 
 	policySnapshots := input.Snapshots.Get(policySnapshotName)
@@ -92,11 +100,11 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	uts = append(uts, snapObjs...)
 
 	for _, obj := range uts {
-		if obj.GetLabels()[managedByLabel] == managedByLabelValue {
+		if obj.Labels[managedByLabel] == managedByLabelValue {
 			foundDeprecatedCount++
-			name := obj.GetName()
-			kind := obj.GetObjectKind().GroupVersionKind().Kind
-			apiVersion := obj.GetAPIVersion()
+			name := obj.Name
+			kind := obj.Kind
+			apiVersion := obj.ApiVersion
 			input.Logger.Info("Delete deprecated %s %s", name, kind)
 
 			input.PatchCollector.Delete(apiVersion, kind, "", name)
@@ -110,11 +118,11 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	return nil
 }
 
-func snapsToUnstructured(snaps []pkg.Snapshot) ([]*unstructured.Unstructured, error) {
-	objs := make([]*unstructured.Unstructured, len(snaps))
+func snapsToUnstructured(snaps []pkg.Snapshot) ([]*vap, error) {
+	objs := make([]*vap, len(snaps))
 
 	for i, snap := range snaps {
-		ut := &unstructured.Unstructured{}
+		ut := &vap{}
 		if err := snap.UnmarshalTo(ut); err != nil {
 			return nil, err
 		}
