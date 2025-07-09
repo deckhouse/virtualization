@@ -99,18 +99,8 @@ git:
     setup:
     - '**/*'
 import:
-- image: packages/binaries/dmidecode
-  add: /dmidecode
-  to: /dmidecode
-  before: install
-- image: packages/binaries/libgcrypt
-  add: /libgcrypt
-  to: /libgcrypt
-  before: install
-- image: packages/binaries/nettle
-  add: /nettle
-  to: /nettle
-  before: install
+{{- $images := list "dmidecode" "libgcrypt" "nettle" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -139,7 +129,7 @@ shell:
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     # Install packages
-    PKGS="dmidecode libgcrypt nettle"
+    PKGS="{{ $images | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
