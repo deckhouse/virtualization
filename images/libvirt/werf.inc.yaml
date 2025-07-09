@@ -76,38 +76,8 @@ git:
     setup:
       - install-libvirt.sh
 import:
-- image: packages/binaries/dmidecode
-  add: /dmidecode
-  to: /dmidecode
-  before: install
-- image: packages/binaries/libattr
-  add: /libattr
-  to: /libattr
-  before: install
-- image: packages/binaries/lvm2
-  add: /libdevmapper
-  to: /lvm2
-  before: install
-- image: packages/binaries/libbsd
-  add: /libbsd
-  to: /libbsd
-  before: install
-- image: packages/binaries/libmd
-  add: /libmd
-  to: /libmd
-  before: install
-- image: packages/binaries/libblkid
-  add: /libblkid/usr
-  to: /libblkid/usr
-  before: install
-- image: packages/binaries/libgcrypt
-  add: /libgcrypt
-  to: /libgcrypt
-  before: install
-- image: packages/binaries/libfuse3
-  add: /libfuse3
-  to: /libfuse3
-  before: install
+{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" -}} 
+{{- include "importPackageImages" (list $images "install") -}}
 - image: qemu
   add: /qemu-img
   to: /qemu-img
@@ -136,14 +106,15 @@ shell:
 
   install:
   - |
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
     # Install packages
-    PKGS="dmidecode lvm2 libattr libbsd libmd libblkid qemu-img libgcrypt libfuse3"
+    PKGS="{{ $images | join " " }}"
+    PKGS+=" qemu-img"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
+
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"

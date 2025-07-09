@@ -77,18 +77,8 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-- image: packages/binaries/libisoburn
-  add: /libisoburn
-  to: /libisoburn
-  before: install
-- image: packages/binaries/nftables
-  add: /nftables
-  to: /nftables
-  before: install
-- image: packages/binaries/acl
-  add: /acl
-  to: /acl
-  before: install
+{{- $images := list "libisoburn" "nftables" "acl" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 - image: qemu
   add: /qemu-img
   to: /relocate
@@ -102,11 +92,13 @@ shell:
   
   {{- include "alt packages clean" . | nindent 2 }}
   - |
-    cp -a /libisoburn/. /
-    cp -a /nftables/. /
-    cp -a /acl/. /
-  
-  - rm -rf /{libisoburn,nftables,acl}
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
   setup:
   - |
     /relocate_binaries.sh -i "{{ $virtHandlerDependencies.binaries | join " " }}" -o /relocate
