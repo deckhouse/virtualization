@@ -45,6 +45,8 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 import:
+{{- $images := list "libgcrypt" "libidn" -}}
+{{- include "importPackageImages" (list $images "install") -}}
   - image: packages/binaries/libgcrypt
     add: /libgcrypt
     to: /libgcrypt
@@ -64,9 +66,12 @@ shell:
 
   install:
   - |
-    cp -a /libgcrypt/. /
-    cp -a /libidn/. /
-    rm -rf /{libgcrypt,libidn}
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
 
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config

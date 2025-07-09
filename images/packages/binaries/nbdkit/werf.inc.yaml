@@ -46,6 +46,8 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 import:
+{{- $images := list "libisoburn" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 - image: packages/binaries/libisoburn
   add: /libisoburn
   to: /libisoburn
@@ -63,7 +65,7 @@ shell:
   install:
   - |
     # Install packages
-    PKGS="libisoburn"
+    PKGS="{{ $images | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg

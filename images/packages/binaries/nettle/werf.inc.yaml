@@ -29,7 +29,7 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 import:
-- image: packages/binaries/gmp
+- image: packages/binaries/libgmp
   add: /libgmp
   to: /libgmp
   before: install

@@ -37,22 +37,8 @@ secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
 import:
-- image: packages/binaries/libbrotli
-  add: /libbrotli
-  to: /libbrotli
-  before: install
-- image: packages/binaries/libidn2
-  add: /libidn2
-  to: /libidn2
-  before: install
-- image: packages/binaries/libgcrypt
-  add: /libgcrypt
-  to: /libgcrypt
-  before: install
-- image: packages/binaries/gmp
-  add: /libgmp
-  to: /libgmp
-  before: install
+{{- $images := list "libbrotli" "libidn2" "libgcrypt" "libgmp" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -65,7 +51,7 @@ shell:
   install:
   - |
     # Install packages
-    PKGS="libbrotli libidn2 libgcrypt libgmp"
+    PKGS="{{ $images | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
