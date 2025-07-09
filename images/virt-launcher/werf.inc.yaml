@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: true
-fromImage: BASE_ALT_P11
+fromImage: builder/alpine
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
