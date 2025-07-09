@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: true
-fromImage: ubuntu-latest
+fromImage: BASE_ALT_P11
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
