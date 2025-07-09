@@ -77,9 +77,6 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	var (
 		foundDeprecatedCount int
 		uts                  []*vap
-		// uts                  []*unstructured.Unstructured
-		// vapbs []*ar.ValidatingAdmissionPolicyBinding
-		// vaps  []*ar.ValidatingAdmissionPolicy
 	)
 
 	policySnapshots := input.Snapshots.Get(policySnapshotName)
