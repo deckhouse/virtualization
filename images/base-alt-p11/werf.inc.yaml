@@ -1,7 +1,7 @@
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: BASE_ALT_P11
+fromImage: builder/alt
 shell:
   setup:
   # Create nonroot-user group and user.

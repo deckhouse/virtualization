@@ -3,7 +3,67 @@
 {{- $version := get $.Version $gitRepoName }}
 {{- $gitRepoUrl := "qemu/qemu.git" }}
 
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+git:
+- add: {{ .ImagePath }}
+  to: /
+  includePaths:
+  - install-qemu.sh
+  - patches
+  excludePaths:
+    - patches/README.md
+  stageDependencies:
+    install:
+      - '**/*'
+- add: {{ .ModuleDir }}/images/base-alt-p11-binaries/relocate_binaries.sh
+  to: /relocate_binaries.sh
+  stageDependencies:
+    install:
+    - '**/*'
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2}}
+  - apt-get install -y meson
+  {{- include "alt packages clean" . | nindent 2}}
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /{{ $gitRepoName }}-{{ $version }}
+
+    cd /{{ $gitRepoName }}-{{ $version }}
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      # mbed-tls rewrite is needed for edk2 submodule.
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/qemu-project/seabios.git".insteadOf=https://gitlab.com/qemu-project/seabios.git/ \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/mbed-tls/".insteadOf=https://github.com/ARMmbed/ \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+
+      echo "Download meson subprojects with URL rewrites."
+      # Configure script options require only 3 subprojects.
+      for subproj in berkeley-softfloat-3 berkeley-testfloat-3 keycodemapdb ; do
+        echo "Rewrite url for ${subproj} subproject."
+        wrapfile="subprojects/${subproj}.wrap"
+        # Rewrite https://HOSTNAME/ to SOURCE_REPO secret in the wrap file.
+        sed -i '/^#/n ; /^url/ s|\(url\ \?=\ \?\)\(.*:\/\/[^\/]*\/\)|\1'$(cat /run/secrets/SOURCE_REPO)'\/|' ${wrapfile}
+        meson subprojects download ${subproj}
+      done
+
+    fi
+
+---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -27,6 +87,7 @@ packages:
 - python3-module-pip
 - python3-module-sphinx
 - python3-module-sphinx_rtd_theme
+- python3-module-black
 libraries:
 - glibc-devel-static
 - zlib-devel-static
@@ -38,22 +99,18 @@ libraries:
 - glib2-devel
 - libdw-devel
 - perl-devel
-- libssh-devel
-- libssh2-devel
+- libssh-devel libssh2-devel
 - libcap-ng-devel
 - libxfs-devel
 - zlib-devel
-- libcurl-devel
-- libpci-devel
+- libcurl-devel libpci-devel
 - libgvnc-devel
 - glibc-kernheaders
 - libfdt-devel
 - libpixman-devel
 - libkeyutils-devel
-- libuuid-devel
-- libpam0-devel
-- libtasn1-devel
-- libslirp-devel
+- libuuid-devel libpam0-devel
+- libtasn1-devel libslirp-devel
 - libdrm-devel
 - libxdp-devel libSDL2-devel libSDL2_image-devel
 - libncursesw-devel libalsa-devel libpulseaudio-devel
@@ -77,33 +134,30 @@ libraries:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: base-alt-p11{{ $.SVACE_IMAGE_SUFFIX }}
-git:
-- add: /images/{{ $.ImageName }}/
-  to: /
-  includePaths:
-  - install-qemu.sh
-  - patches
-  excludePaths:
-    - patches/README.md
-  stageDependencies:
-    setup:
-      - install-qemu.sh
-
-- add: /images/base-alt-p11-binaries
-  to: /
-  includePaths:
-  - relocate_binaries.sh
-  stageDependencies:
-    setup:
-    - '**/*'
+{{- $baseAltP11 := printf "%sbase-alt-p11" .ModuleNamePrefix }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary $baseAltP11 "builder/alt-go-svace" }}
 import:
-- image: packages/binaries/dmidecode
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /{{ $gitRepoName }}-{{ $version }}
+  to: /{{ $gitRepoName }}-{{ $version }}
+  before: install
+- image: {{ .ModuleNamePrefix }}packages/binaries/dmidecode
   add: /dmidecode
   to: /dmidecode
   before: install
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /patches
+  to: /patches
+  before: install
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /
+  to: /
+  before: install
+  includePaths:
+  - install-qemu.sh
+  - relocate_binaries.sh
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -125,8 +179,6 @@ shell:
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/clang
     ln -s /usr/bin/ccache /usr/libexec/ccache-wrappers/gcc
 
-    pip3 install black
-
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
@@ -141,27 +193,7 @@ shell:
     export NINJA="/usr/bin/ninja"
     export PYTHON="/usr/bin/python3"
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} {{ $gitRepoName }}-{{ $version }}
-
-    cd {{ $gitRepoName }}-{{ $version }}
-    if ! [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]];then
-      echo "Change submodule url"
-      git submodule set-url -- roms/seabios $(cat /run/secrets/SOURCE_REPO)/qemu-project/seabios.git
-      git submodule set-url -- roms/SLOF $(cat /run/secrets/SOURCE_REPO)/qemu-project/SLOF.git
-      git submodule set-url -- roms/ipxe $(cat /run/secrets/SOURCE_REPO)/qemu-project/ipxe.git
-      git submodule set-url -- roms/openbios $(cat /run/secrets/SOURCE_REPO)/qemu-project/openbios.git
-      git submodule set-url -- roms/qemu-palcode $(cat /run/secrets/SOURCE_REPO)/qemu-project/qemu-palcode.git
-      git submodule set-url -- roms/u-boot $(cat /run/secrets/SOURCE_REPO)/qemu-project/u-boot.git
-      git submodule set-url -- roms/skiboot $(cat /run/secrets/SOURCE_REPO)/qemu-project/skiboot.git
-      git submodule set-url -- roms/QemuMacDrivers $(cat /run/secrets/SOURCE_REPO)/qemu-project/QemuMacDrivers.git
-      git submodule set-url -- roms/seabios-hppa $(cat /run/secrets/SOURCE_REPO)/qemu-project/seabios-hppa.git
-      git submodule set-url -- roms/u-boot-sam460ex $(cat /run/secrets/SOURCE_REPO)/qemu-project/u-boot-sam460ex.git
-      git submodule set-url -- roms/edk2 $(cat /run/secrets/SOURCE_REPO)/qemu-project/edk2.git
-      git submodule set-url -- roms/opensbi $(cat /run/secrets/SOURCE_REPO)/qemu-project/opensbi.git
-      git submodule set-url -- roms/qboot $(cat /run/secrets/SOURCE_REPO)/qemu-project/qboot.git
-      git submodule set-url -- roms/vbootrom $(cat /run/secrets/SOURCE_REPO)/qemu-project/vbootrom.git
-      git submodule set-url -- tests/lcitool/libvirt-ci $(cat /run/secrets/SOURCE_REPO)/libvirt/libvirt-ci.git
-    fi
+    cd /{{ $gitRepoName }}-{{ $version }}
 
     for p in /patches/*.patch ; do
       echo -n "Apply ${p} ... "

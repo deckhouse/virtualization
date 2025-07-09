@@ -1,17 +1,3 @@
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-packages:
-- gcc
-- git make libtool libmd-devel
-{{- end -}}
-
-{{- $builderDependencies := include "$name" . | fromYaml }}
-
-{{- $version := get .PackageVersion .ImageName }}
-{{- $gitRepoUrl := "libbsd/libbsd.git" }}
-
-{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
-{{- if eq .ModuleNamePrefix "" }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
@@ -19,10 +5,13 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /libbsd
+  to: /libtpms
   before: setup
 
 ---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "stefanberger/libtpms.git" }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -34,10 +23,19 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    # rm -rf /src/.git
-
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
 ---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc gcc-c++
+- make autoconf automake libtool
+- libssl-devel perl-podlators
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
@@ -46,9 +44,6 @@ import:
   add: /src
   to: /src
   before: install
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -63,13 +58,14 @@ shell:
     OUTDIR=/out
 
     cd /src
-    ./autogen
+    
+    ./autogen.sh
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --enable-shared \
-      --disable-static
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+      --with-tpm2 \
+      --with-openssl
 
-{{- end }}
+    make -j$(nproc)
+
+    make DESTDIR=$OUTDIR install

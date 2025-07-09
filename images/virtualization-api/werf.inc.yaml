@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-  - image: virtualization-artifact
-    add: /usr/local/go/src/virtualization-controller/virtualization-api
+  - image: {{ .ModuleNamePrefix }}virtualization-artifact
+    add: /out/virtualization-api
     to: /app/virtualization-api
     after: install
 imageSpec:
