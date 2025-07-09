@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: true
-fromImage: distroless
+fromImage: ubuntu
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
