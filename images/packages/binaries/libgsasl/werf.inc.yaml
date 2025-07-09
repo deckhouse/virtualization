@@ -47,14 +47,6 @@ secrets:
 import:
 {{- $images := list "libgcrypt" "libidn" -}}
 {{- include "importPackageImages" (list $images "install") -}}
-  - image: packages/binaries/libgcrypt
-    add: /libgcrypt
-    to: /libgcrypt
-    before: install
-  - image: packages/binaries/libidn
-    add: /libidn
-    to: /libidn
-    before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}

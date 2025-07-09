@@ -77,19 +77,8 @@ import:
   add: /out
   to: /usr/local/bin
   before: setup
-- image: packages/binaries/file
-  add: /file
-  to: /file
-  before: install
-# deps for file
-- image: packages/binaries/bzip2
-  add: /bzip2
-  to: /bzip2
-  before: install
-- image: packages/binaries/nbdkit
-  add: /nbdkit
-  to: /nbdkit
-  before: install
+{{- $images := list "bzip2" "file" "nbdkit" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 - image: qemu
   add: /qemu-img
   to: /qemu-img
@@ -105,11 +94,13 @@ shell:
 
   install:
   - |
-    cp -a /qemu-img/. /
-    cp -a /bzip2/. /
-    cp -a /file/. /
-    cp -a /nbdkit/. /
-    rm -rf /{file,bzip2,nbdkit,qemu-img}
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    PKGS+=" qemu-img"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
 
   setup:
   - |

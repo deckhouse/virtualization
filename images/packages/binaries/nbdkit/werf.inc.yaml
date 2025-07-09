@@ -48,10 +48,6 @@ secrets:
 import:
 {{- $images := list "libisoburn" -}}
 {{- include "importPackageImages" (list $images "install") -}}
-- image: packages/binaries/libisoburn
-  add: /libisoburn
-  to: /libisoburn
-  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -60,7 +56,6 @@ shell:
       {{ $builderDependencies.packages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
-
 
   install:
   - |
