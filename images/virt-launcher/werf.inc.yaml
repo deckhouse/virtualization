@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: true
-fromImage: builder/alpine
+fromImage: distroless
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
@@ -128,6 +128,7 @@ binaries:
   - /usr/bin/ocsptool
   - /usr/bin/p11tool
   - /usr/bin/psktool
+  - /usr/bin/ls
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
