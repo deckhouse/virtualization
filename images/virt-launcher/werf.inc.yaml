@@ -1,7 +1,7 @@
 ---
 image: {{ $.ImageName }}
 final: true
-fromImage: ubuntu
+fromImage: ubuntu-latest
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
