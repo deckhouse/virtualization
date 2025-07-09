@@ -69,6 +69,7 @@ spec:
       {{ include "helm_lib_pod_anti_affinity_for_ha" (list . (dict "app" "virtualization-audit")) | nindent 6 }}
       containers:
         - name: virtualization-audit
+          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 10 }}
           args:
             - --secure-port=8443
             {{- if eq .Values.virtualization.logLevel "debug" }}
