@@ -38,7 +38,7 @@ var _ = Describe("DiscoveryClusterIPServiceForDVCR", func() {
 	var (
 		dc        *mock.DependencyContainerMock
 		snapshots *mock.SnapshotsMock
-		values    *mock.PatchableValuesCollectorMock
+		values    *mock.OutputPatchableValuesCollectorMock
 	)
 
 	BeforeEach(func() {

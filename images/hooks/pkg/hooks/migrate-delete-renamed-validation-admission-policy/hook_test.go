@@ -20,18 +20,111 @@ import (
 	"context"
 	"testing"
 
+	"github.com/alecthomas/assert/v2"
 	"github.com/deckhouse/deckhouse/pkg/log"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/deckhouse/module-sdk/pkg"
+	"github.com/deckhouse/module-sdk/testing/helpers"
 	"github.com/deckhouse/module-sdk/testing/mock"
 )
 
 func TestMigrateDeleteRenamedValidationAdmissionPolicy(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "MigrateDeleteRenamedValidationAdmissionPolicy Suite")
+}
+
+const case1YAML = `
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: stup-policy-1
+  labels:
+    app.kubernetes.io/managed-by: virt-operator
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: stub-binding-1
+  labels:
+    app.kubernetes.io/managed-by: virt-operator
+`
+const case2YAML = `
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: stup-policy-2
+  labels:
+    app.kubernetes.io/managed-by: virt-operator-internal-virtualization
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: stub-binding-2
+  labels:
+    app.kubernetes.io/managed-by: virt-operator
+`
+const case3YAML = `
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: stup-policy-3
+  labels:
+    app.kubernetes.io/managed-by: virt-operator
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: stub-binding-3
+  labels:
+    app.kubernetes.io/managed-by: virt-operator-internal-virtualization
+`
+const case4YAML = `
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: stup-policy-4
+  labels:
+    app.kubernetes.io/managed-by: virt-operator-internal-virtualization
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: stub-binding-4
+  labels:
+    app.kubernetes.io/managed-by: virt-operator-internal-virtualization
+`
+
+func Test_Hook(t *testing.T) {
+	cases := []string{
+		case1YAML,
+		case2YAML,
+		case3YAML,
+		case4YAML,
+	}
+
+	for _, c := range cases {
+		snaps := helpers.PrepareHookSnapshots(t, config, map[string][]string{
+			policySnapshotName: {
+				c,
+			},
+			bindingSnapshotName: {
+				c,
+			},
+		})
+
+		newInput := helpers.NewHookInput(t)
+		newInput.Snapshots = snaps
+
+		err := reconcile(context.Background(), newInput)
+		assert.NoError(t, err)
+	}
 }
 
 var _ = Describe("MigrateDeleteRenamedValidationAdmissionPolicy", func() {
