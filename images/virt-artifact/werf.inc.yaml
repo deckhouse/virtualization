@@ -43,9 +43,10 @@ shell:
       {{ $virtArtifactDependencies.packages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
-
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
+     echo "$date"  - |
      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
      git config --global --add advice.detachedHead false
      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch feat/core/readonly-containers /kubevirt
