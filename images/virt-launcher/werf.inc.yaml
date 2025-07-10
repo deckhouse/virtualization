@@ -132,7 +132,7 @@ binaries:
   # Debug
   # - /usr/bin/ls
   # - /usr/bin/whoami
-  - /usr/bin/lsusb
+  # - /usr/bin/lsusb
   - /usr/bin/usb-devices
   - /usr/bin/usbhid-dump
   - /usr/bin/usbreset
