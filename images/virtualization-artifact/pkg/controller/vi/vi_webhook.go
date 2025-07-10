@@ -25,26 +25,32 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vi/internal/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vicondition"
 )
 
 type Validator struct {
-	logger *log.Logger
+	logger    *log.Logger
+	client    client.Client
+	scService *intsvc.VirtualImageStorageClassService
 }
 
-func NewValidator(logger *log.Logger) *Validator {
+func NewValidator(logger *log.Logger, client client.Client, scService *intsvc.VirtualImageStorageClassService) *Validator {
 	return &Validator{
-		logger: logger.With("webhook", "validator"),
+		logger:    logger.With("webhook", "validator"),
+		client:    client,
+		scService: scService,
 	}
 }
 
-func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	vi, ok := obj.(*virtv2.VirtualImage)
 	if !ok {
 		return nil, fmt.Errorf("expected a new VirtualMachine but got a %T", obj)
@@ -66,10 +72,23 @@ func (v *Validator) ValidateCreate(_ context.Context, obj runtime.Object) (admis
 		return warnings, nil
 	}
 
+	if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
+		deprecated, err := v.scService.IsStorageClassDeprecated(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
+		if err != nil {
+			return nil, err
+		}
+		if deprecated {
+			return nil, fmt.Errorf(
+				"the provisioner of the %q storage class is deprecated; please use a different one",
+				*vi.Spec.PersistentVolumeClaim.StorageClass,
+			)
+		}
+	}
+
 	return nil, nil
 }
 
-func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
 	oldVI, ok := oldObj.(*virtv2.VirtualImage)
 	if !ok {
 		return nil, fmt.Errorf("expected an old VirtualImage but got a %T", newObj)
@@ -101,6 +120,19 @@ func (v *Validator) ValidateUpdate(_ context.Context, oldObj, newObj runtime.Obj
 	case newVI.Status.Phase == virtv2.ImageTerminating:
 		if !reflect.DeepEqual(oldVI.Spec, newVI.Spec) {
 			return nil, errors.New("spec cannot be changed if the VirtualImage is the process of termination")
+		}
+	case newVI.Status.Phase == virtv2.ImagePending:
+		if newVI.Spec.PersistentVolumeClaim.StorageClass != nil && *newVI.Spec.PersistentVolumeClaim.StorageClass != "" {
+			deprecated, err := v.scService.IsStorageClassDeprecated(ctx, *newVI.Spec.PersistentVolumeClaim.StorageClass)
+			if err != nil {
+				return nil, err
+			}
+			if deprecated {
+				return nil, fmt.Errorf(
+					"the provisioner of the %q storage class is deprecated; please use a different one",
+					*newVI.Spec.PersistentVolumeClaim.StorageClass,
+				)
+			}
 		}
 	}
 
