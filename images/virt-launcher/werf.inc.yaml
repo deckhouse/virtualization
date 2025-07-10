@@ -131,7 +131,7 @@ binaries:
   - /usr/bin/psktool
   # Debug
   - /usr/bin/ls
-  - /usr/bin/whoami
+  # - /usr/bin/whoami
   - /usr/bin/lsusb
   - /usr/bin/usb-devices
   - /usr/bin/usbhid-dump
