@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: builder/golang-bookworm-1.23
 git:
-  - add: /images/{{ $.ImageName }}
+  - add: {{ .ModulePathPrefix }}/images/{{ $.ImageName }}
     to: /src/kube-api-rewriter
     stageDependencies:
       install:
@@ -11,26 +11,30 @@ git:
         - go.sum
       setup:
         - "**/*.go"
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
 shell:
   install:
+    - export GOPROXY=$(cat /run/secrets/GOPROXY)
     - cd /src/kube-api-rewriter
     - go mod download
   setup:
     - cd /src/kube-api-rewriter
-    - export GO111MODULE=on
     - export GOOS=linux
     - export CGO_ENABLED=0
     - export GOARCH=amd64
     - go build -v -a -o kube-api-rewriter ./cmd/kube-api-rewriter
 
 ---
-image: {{ $.ImageName }}
+
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: builder/scratch
 import:
-  - image: {{ $.ImageName }}-builder
+  - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
     add: /src/kube-api-rewriter/kube-api-rewriter
     to: /app/kube-api-rewriter
     after: install
