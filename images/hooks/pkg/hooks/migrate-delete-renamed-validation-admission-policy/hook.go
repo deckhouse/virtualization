@@ -19,19 +19,14 @@ import (
 	"context"
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+
 	"hooks/pkg/settings"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
 	"github.com/deckhouse/module-sdk/pkg/utils/ptr"
 )
-
-type vap struct {
-	Kind       string            `json:"kind"`
-	Name       string            `json:"name"`
-	ApiVersion string            `json:"apiVersion"`
-	Labels     map[string]string `json:"labels"`
-}
 
 var _ = registry.RegisterFunc(config, reconcile)
 
@@ -40,6 +35,11 @@ const (
 	bindingSnapshotName = "validating_admission_policy_binding"
 	managedByLabel      = "app.kubernetes.io/managed-by"
 	managedByLabelValue = "virt-operator-internal-virtualization"
+	jqFilter            = `{
+		"apiVersion": .apiVersion,
+		"kind": .kind,
+		"metadata": .metadata,
+	}`
 )
 
 var config = &pkg.HookConfig{
@@ -51,7 +51,7 @@ var config = &pkg.HookConfig{
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{"kubevirt-node-restriction-policy"},
 			},
-			JqFilter:                     ".metadata",
+			JqFilter:                     jqFilter,
 			ExecuteHookOnSynchronization: ptr.Bool(false),
 			ExecuteHookOnEvents:          ptr.Bool(false),
 		},
@@ -62,7 +62,7 @@ var config = &pkg.HookConfig{
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{"kubevirt-node-restriction-binding"},
 			},
-			JqFilter:                     ".metadata",
+			JqFilter:                     jqFilter,
 			ExecuteHookOnSynchronization: ptr.Bool(false),
 			ExecuteHookOnEvents:          ptr.Bool(false),
 		},
@@ -76,7 +76,7 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 
 	var (
 		foundDeprecatedCount int
-		uts                  []*vap
+		uts                  []*unstructured.Unstructured
 	)
 
 	policySnapshots := input.Snapshots.Get(policySnapshotName)
@@ -97,11 +97,11 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	uts = append(uts, snapObjs...)
 
 	for _, obj := range uts {
-		if obj.Labels[managedByLabel] == managedByLabelValue {
+		if obj.GetLabels()[managedByLabel] == managedByLabelValue {
 			foundDeprecatedCount++
-			name := obj.Name
-			kind := obj.Kind
-			apiVersion := obj.ApiVersion
+			name := obj.GetName()
+			kind := obj.GetObjectKind().GroupVersionKind().Kind
+			apiVersion := obj.GetAPIVersion()
 			input.Logger.Info("Delete deprecated %s %s", name, kind)
 
 			input.PatchCollector.Delete(apiVersion, kind, "", name)
@@ -115,11 +115,11 @@ func reconcile(ctx context.Context, input *pkg.HookInput) error {
 	return nil
 }
 
-func snapsToUnstructured(snaps []pkg.Snapshot) ([]*vap, error) {
-	objs := make([]*vap, len(snaps))
+func snapsToUnstructured(snaps []pkg.Snapshot) ([]*unstructured.Unstructured, error) {
+	objs := make([]*unstructured.Unstructured, len(snaps))
 
 	for i, snap := range snaps {
-		ut := &vap{}
+		ut := &unstructured.Unstructured{}
 		if err := snap.UnmarshalTo(ut); err != nil {
 			return nil, err
 		}

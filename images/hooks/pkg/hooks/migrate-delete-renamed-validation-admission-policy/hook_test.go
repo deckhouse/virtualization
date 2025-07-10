@@ -23,6 +23,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/testing/mock"
@@ -47,17 +48,12 @@ var _ = Describe("MigrateDeleteRenamedValidationAdmissionPolicy", func() {
 	newSnapshotPolicy := func(labels map[string]string) pkg.Snapshot {
 		snap := mock.NewSnapshotMock(GinkgoT())
 		snap.UnmarshalToMock.Set(func(v any) (err error) {
-			data, ok := v.(*vap)
-			// data, ok := v.(*unstructured.Unstructured)
+			data, ok := v.(*unstructured.Unstructured)
 			Expect(ok).To(BeTrue())
-			data.Name = policySnapshotName
-			data.Kind = "ValidatingAdmissionPolicy"
-			data.ApiVersion = "admissionregistration.k8s.io/v1"
-			data.Labels = labels
-			// data.SetName(policySnapshotName)
-			// data.SetKind("ValidatingAdmissionPolicy")
-			// data.SetAPIVersion("admissionregistration.k8s.io/v1")
-			// data.SetLabels(labels)
+			data.SetName(policySnapshotName)
+			data.SetKind("ValidatingAdmissionPolicy")
+			data.SetAPIVersion("admissionregistration.k8s.io/v1")
+			data.SetLabels(labels)
 			return nil
 		})
 		return snap
@@ -66,17 +62,12 @@ var _ = Describe("MigrateDeleteRenamedValidationAdmissionPolicy", func() {
 	newSnapshotBinding := func(labels map[string]string) pkg.Snapshot {
 		snap := mock.NewSnapshotMock(GinkgoT())
 		snap.UnmarshalToMock.Set(func(v any) (err error) {
-			data, ok := v.(*vap)
-			// data, ok := v.(*unstructured.Unstructured)
+			data, ok := v.(*unstructured.Unstructured)
 			Expect(ok).To(BeTrue())
-			data.Name = bindingSnapshotName
-			data.Kind = "ValidatingAdmissionPolicyBinding"
-			data.ApiVersion = "admissionregistration.k8s.io/v1"
-			data.Labels = labels
-			// data.SetName(bindingSnapshotName)
-			// data.SetKind("ValidatingAdmissionPolicyBinding")
-			// data.SetAPIVersion("admissionregistration.k8s.io/v1")
-			// data.SetLabels(labels)
+			data.SetName(bindingSnapshotName)
+			data.SetKind("ValidatingAdmissionPolicyBinding")
+			data.SetAPIVersion("admissionregistration.k8s.io/v1")
+			data.SetLabels(labels)
 			return nil
 		})
 		return snap
