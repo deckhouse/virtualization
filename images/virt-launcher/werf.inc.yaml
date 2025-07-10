@@ -134,7 +134,7 @@ binaries:
   # - /usr/bin/whoami
   # - /usr/bin/lsusb
   # - /usr/bin/usb-devices
-  - /usr/bin/usbhid-dump
+  # - /usr/bin/usbhid-dump
   - /usr/bin/usbreset
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
