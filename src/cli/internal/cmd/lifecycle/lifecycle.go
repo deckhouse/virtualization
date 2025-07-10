@@ -19,18 +19,18 @@ package lifecycle
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 
+	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/lifecycle/vmop"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
@@ -51,18 +51,16 @@ type Manager interface {
 	Evict(ctx context.Context, name, namespace string) (msg string, err error)
 }
 
-func NewLifecycle(cmd Command, clientConfig clientcmd.ClientConfig) *Lifecycle {
+func NewLifecycle(cmd Command) *Lifecycle {
 	return &Lifecycle{
-		cmd:          cmd,
-		clientConfig: clientConfig,
-		opts:         DefaultOptions(),
+		cmd:  cmd,
+		opts: DefaultOptions(),
 	}
 }
 
 type Lifecycle struct {
-	cmd          Command
-	clientConfig clientcmd.ClientConfig
-	opts         Options
+	cmd  Command
+	opts Options
 }
 
 func DefaultOptions() Options {
@@ -81,38 +79,39 @@ type Options struct {
 	Timeout      time.Duration
 }
 
-func (l *Lifecycle) Run(args []string) error {
-	name, namespace, err := l.getNameNamespace(args)
+func (l *Lifecycle) Run(cmd *cobra.Command, args []string) error {
+	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
+	if err != nil {
+		return err
+	}
+	name, namespace, err := l.getNameNamespace(defaultNamespace, args)
 	key := types.NamespacedName{Namespace: namespace, Name: name}
 	if err != nil {
 		return err
 	}
-	mgr, err := l.getManager()
-	if err != nil {
-		return err
-	}
+	mgr := l.getManager(client)
+
 	ctx, cancel := context.WithTimeout(context.Background(), l.opts.Timeout)
 	defer cancel()
-	writer := os.Stdout
 	var msg string
 	switch l.cmd {
 	case Stop:
-		fmt.Fprintf(writer, "Stopping virtual machine %q\n", key.String())
+		cmd.Printf("Stopping virtual machine %q\n", key.String())
 		msg, err = mgr.Stop(ctx, name, namespace)
 	case Start:
-		fmt.Fprintf(writer, "Starting virtual machine %q\n", key.String())
+		cmd.Printf("Starting virtual machine %q\n", key.String())
 		msg, err = mgr.Start(ctx, name, namespace)
 	case Restart:
-		fmt.Fprintf(writer, "Restarting virtual machine %q\n", key.String())
+		cmd.Printf("Restarting virtual machine %q\n", key.String())
 		msg, err = mgr.Restart(ctx, name, namespace)
 	case Evict:
-		fmt.Fprintf(writer, "Evicting virtual machine %q\n", key.String())
+		cmd.Printf("Evicting virtual machine %q\n", key.String())
 		msg, err = mgr.Evict(ctx, name, namespace)
 	default:
 		return fmt.Errorf("invalid command %q", l.cmd)
 	}
 	if msg != "" {
-		fmt.Fprint(os.Stdout, msg)
+		cmd.Printf(msg)
 	}
 	return err
 }
@@ -136,32 +135,24 @@ func (l *Lifecycle) Usage() string {
 	return usage
 }
 
-func (l *Lifecycle) getNameNamespace(args []string) (string, string, error) {
+func (l *Lifecycle) getNameNamespace(defaultNamespace string, args []string) (string, string, error) {
 	namespace, name, err := templates.ParseTarget(args[0])
 	if err != nil {
 		return "", "", err
 	}
 	if namespace == "" {
-		namespace, _, err = l.clientConfig.Namespace()
-		if err != nil {
-			return "", "", err
-		}
+		namespace = defaultNamespace
 	}
 	return name, namespace, nil
 }
 
-func (l *Lifecycle) getManager() (Manager, error) {
-	virtCli, err := kubeclient.GetClientFromClientConfig(l.clientConfig)
-	if err != nil {
-		return nil, err
-	}
-
+func (l *Lifecycle) getManager(client kubeclient.Client) Manager {
 	return vmop.New(
-		virtCli,
+		client,
 		vmop.WithCreateOnly(l.opts.CreateOnly),
 		vmop.WithWaitComplete(l.opts.WaitComplete),
 		vmop.WithForce(l.opts.Force),
-	), nil
+	)
 }
 
 const (

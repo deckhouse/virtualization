@@ -27,15 +27,13 @@ import (
 
 	"github.com/povsister/scp"
 
+	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/src/cli/internal/cmd/ssh"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
 
-func (o *SCP) nativeSCP(local templates.LocalSCPArgument, remote templates.RemoteSCPArgument, toRemote bool) error {
-	sshClient := ssh.NativeSSHConnection{
-		ClientConfig: o.clientConfig,
-		Options:      o.options,
-	}
+func (o *SCP) nativeSCP(virtClient kubeclient.Client, local templates.LocalSCPArgument, remote templates.RemoteSCPArgument, toRemote bool) error {
+	sshClient := ssh.NewNativeSSHConnection(virtClient, o.options)
 	client, err := sshClient.PrepareSSHClient(remote.Namespace, remote.Name)
 	if err != nil {
 		return err
