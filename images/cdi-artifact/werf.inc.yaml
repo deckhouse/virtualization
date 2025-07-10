@@ -124,7 +124,7 @@ shell:
   {{- include "debian packages clean" . | nindent 2 }}
 {{- else }}
   {{- include "alt packages proxy" . | nindent 2 }}
-  - apt-get -qq install -y musl-devel
+  - apt-get -qq install -y musl-devel musl-devel-static
   {{- include "alt packages clean" . | nindent 2 }}
 {{- end }}
   - |
