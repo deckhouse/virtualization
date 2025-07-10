@@ -28,6 +28,16 @@ spec:
           jsonPath: .status.phase
           name: PHASE
           type: string
+        - description: Attached blockdevice kind.
+          jsonPath: .spec.blockDeviceRef.kind
+          name: BLOCKDEVICE KIND
+          priority: 1
+          type: string
+        - description: Attached blockdevice name.
+          jsonPath: .spec.blockDeviceRef.name
+          name: BLOCKDEVICE NAME
+          priority: 1
+          type: string
         - description: Name of the virtual machine the disk is attached to.
           jsonPath: .status.virtualMachineName
           name: VIRTUAL MACHINE NAME
