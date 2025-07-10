@@ -8,7 +8,6 @@
 {{- define "$name" -}}
 packages:
 - binutils
-- dmidecode
 - pkgconfig pkg-config
 - gcc-c++ clang git
 - gettext bash-completion
@@ -64,7 +63,7 @@ libraries:
 - libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel
 - libspice-server-devel spice-protocol ceph-devel
 - libnfs-devel libzstd-devel libseccomp-devel
-- libgcrypt-devel libgnutls-devel libnettle-devel
+- libgnutls-devel
 - libudev-devel libmultipath-devel libblkio-devel libpmem-devel
 - libdaxctl-devel libfuse3-devel rdma-core-devel libnuma-devel
 - bzlib-devel liblzo2-devel libsnappy-devel
@@ -100,10 +99,8 @@ git:
     setup:
     - '**/*'
 import:
-- image: packages/binaries/dmidecode
-  add: /dmidecode
-  to: /dmidecode
-  before: install
+{{- $images := list "dmidecode" "libgcrypt" "nettle" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
@@ -129,10 +126,15 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    cp -a /dmidecode/. /
-    rm -rf /dmidecode
     export CCACHE_WRAPPERSDIR="/usr/libexec/ccache-wrappers"
     export CCACHE_DIR="$CCACHE_BASEDIR/ccache"
     export CCACHE_BASEDIR="$(pwd)"

@@ -47,6 +47,7 @@ shell:
     ./autogen.sh
     ./configure \
       --prefix=/usr \
+      --exec-prefix=/usr \
       --libdir=/usr/lib64 \
       --enable-libblkid \
       --disable-all-programs \
@@ -55,3 +56,5 @@ shell:
       --disable-examples
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
+
+    rm -rf $OUTDIR/{bin,sbin}

@@ -6,17 +6,6 @@ import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
   to: /libisoburn
-  includePaths:
-    - usr/lib64/libisoburn.so
-    - usr/lib64/libisoburn.so.1
-    - usr/lib64/libisoburn.so.1.113.0
-  before: setup
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /libisoburn-devel
-  includePaths:
-    - usr/include/
-    - usr/lib64/libisoburn.la
   before: setup
 
 ---
@@ -26,7 +15,10 @@ import:
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc git make libburn-devel libisofs-devel makeinfo libtool
+- gcc
+- git pkg-config trousers
+- automake autoconf make makeinfo libtool
+- libisofs-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -37,6 +29,9 @@ fromImage: builder/alt
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
+import:
+{{- $images := list "libburn" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -48,6 +43,13 @@ shell:
 
   install:
   - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
@@ -60,4 +62,6 @@ shell:
       --disable-static \
       --disable-doc
     make -j$(nproc)
-    make DESTDIR=/out install-libLTLIBRARIES install-libincludeHEADERS
+    make DESTDIR=/out install
+
+    strip $OUTDIR/usr/bin/xorriso
