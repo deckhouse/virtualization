@@ -140,12 +140,22 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *vi
 func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) error {
 	vd.Status.StorageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
 
-	deprecated, err := h.isStorageClassDeprecated(ctx, vd, *vd.Spec.PersistentVolumeClaim.StorageClass, cb)
+	deprecated, err := h.svc.IsStorageClassDeprecated(ctx, *vd.Spec.PersistentVolumeClaim.StorageClass)
 	if err != nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return err
 	}
 
 	if deprecated {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(fmt.Sprintf("The provisioner of the %q storage class is deprecated; please use a different one.", *vd.Spec.PersistentVolumeClaim.StorageClass))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
 
@@ -192,12 +202,22 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.Vi
 func (h StorageClassReadyHandler) setFromModuleSettings(ctx context.Context, vd *virtv2.VirtualDisk, moduleStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) error {
 	vd.Status.StorageClassName = moduleStorageClass.Name
 
-	deprecated, err := h.isStorageClassDeprecated(ctx, vd, moduleStorageClass.Name, cb)
+	deprecated, err := h.svc.IsStorageClassDeprecated(ctx, moduleStorageClass.Name)
 	if err != nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return err
 	}
 
 	if deprecated {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(fmt.Sprintf("The provisioner of the %q storage class is deprecated; please use a different one.", moduleStorageClass.Name))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
 
@@ -221,12 +241,22 @@ func (h StorageClassReadyHandler) setFromModuleSettings(ctx context.Context, vd 
 func (h StorageClassReadyHandler) setFromDefault(ctx context.Context, vd *virtv2.VirtualDisk, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) error {
 	vd.Status.StorageClassName = defaultStorageClass.Name
 
-	deprecated, err := h.isStorageClassDeprecated(ctx, vd, defaultStorageClass.Name, cb)
+	deprecated, err := h.svc.IsStorageClassDeprecated(ctx, defaultStorageClass.Name)
 	if err != nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return err
 	}
 
 	if deprecated {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vdcondition.StorageClassNotReady).
+			Message(fmt.Sprintf("The provisioner of the %q storage class is deprecated; please use a different one.", defaultStorageClass.Name))
+		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
 
@@ -245,27 +275,4 @@ func (h StorageClassReadyHandler) setFromDefault(ctx context.Context, vd *virtv2
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
 	}
-}
-
-func (h StorageClassReadyHandler) isStorageClassDeprecated(ctx context.Context, vd *virtv2.VirtualDisk, scName string, cb *conditions.ConditionBuilder) (bool, error) {
-	deprecated, err := h.svc.IsStorageClassDeprecated(ctx, scName)
-	if err != nil {
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.StorageClassNotReady).
-			Message(service.CapitalizeFirstLetter(err.Error() + "."))
-		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return false, err
-	}
-
-	if deprecated {
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.StorageClassNotReady).
-			Message(fmt.Sprintf("The provisioner of the %q storage class is deprecated; please use a different one.", scName))
-		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return true, nil
-	}
-
-	return false, nil
 }
