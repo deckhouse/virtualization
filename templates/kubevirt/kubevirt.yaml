@@ -9,6 +9,7 @@
   {{- $_ := set $.Version $k $v}}
 {{- end }}
 {{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
+{{- $logVerbosity := include "kubevirt.logVerbosity" .Values.virtualization.logLevel | int }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt
@@ -41,6 +42,12 @@ spec:
     evictionStrategy: LiveMigrate
     vmRolloutStrategy: LiveUpdate
     developerConfiguration:
+      logVerbosity:
+        virtLauncher: {{ $logVerbosity }}
+        virtHandler: {{ $logVerbosity }}
+        virtController: {{ $logVerbosity }}
+        virtAPI: {{ $logVerbosity }}
+        virtOperator: {{ $logVerbosity }}
       featureGates:
       - HotplugVolumes
       - GPU
