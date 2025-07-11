@@ -161,25 +161,14 @@ There are different types of images:
 
 Examples of resources for obtaining virtual machine images:
 
-- Ubuntu
-  - [24.04 LTS (Noble Numbat)](https://cloud-images.ubuntu.com/noble/current/)
-  - [22.04 LTS (Jammy Jellyfish)](https://cloud-images.ubuntu.com/jammy/current/)
-  - [20.04 LTS (Focal Fossa)](https://cloud-images.ubuntu.com/focal/current/)
-  - [Minimal images](https://cloud-images.ubuntu.com/minimal/releases/)
-- Debian
-  - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
-  - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
-- AlmaLinux
-  - [9](https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/)
-  - [8](https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/)
-- RockyLinux
-  - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
-  - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
-- CentOS
-  - [10 Stream](https://cloud.centos.org/centos/10-stream/x86_64/images/)
-  - [9 Stream](https://cloud.centos.org/centos/9-stream/x86_64/images/)
-  - [8 Stream](https://cloud.centos.org/centos/8-stream/x86_64/)
-  - [8](https://cloud.centos.org/centos/8/x86_64/images/)
+| Distributive                                                                      | Default user              |
+| --------------------------------------------------------------------------------- | ------------------------- |
+| [AlmaLinux](https://almalinux.org/get-almalinux/#Cloud_Images)                    | `almalinux`               |
+| [AlpineLinux](https://alpinelinux.org/cloud/)                                     | `alpine`                  |
+| [CentOS](https://cloud.centos.org/centos/)                                        | `cloud-user`              |
+| [Debian](https://cdimage.debian.org/images/cloud/)                                | `debian`                  |
+| [Rocky](https://rockylinux.org/download/)                                         | `rocky`                   |
+| [Ubuntu](https://cloud-images.ubuntu.com/)                                        | `ubuntu`                  |
 
 The following preinstalled image formats are supported:
 
@@ -698,7 +687,7 @@ The `VirtualMachine` resource is used to create a virtual machine, its parameter
 
 The full description of virtual machine configuration parameters can be found at [link](cr.html#virtualmachine)
 
-### Creating a virtual machine
+### Creating a VM
 
 Below is an example of a simple virtual machine configuration running Ubuntu OS 22.04. The example uses the initial virtual machine initialization script (cloud-init), which installs the `qemu-guest-agent` guest agent and the `nginx` service, and creates the `cloud` user with the `cloud` password:
 
@@ -769,7 +758,7 @@ linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
 
 After creation, the virtual machine will automatically get an IP address from the range specified in the module settings (`virtualMachineCIDRs` block).
 
-### Virtual Machine Life Cycle
+### VM Life Cycle
 
 A virtual machine (VM) goes through several phases in its existence, from creation to deletion. These stages are called phases and reflect the current state of the VM. To understand what is happening with the VM, you should check its status (`.status.phase` field), and for more detailed information - `.status.conditions` block. All the main phases of the VM life cycle, their meaning and peculiarities are described below.
 
@@ -906,7 +895,7 @@ spec:
 
 ![vm-corefraction](./images/vm-corefraction.png)
 
-### Virtual machine resource configuration and sizing policy
+### VM resource configuration and sizing policy
 
 The sizing policy in VirtualMachineClass, defined in the `.spec.sizingPolicies` section, defines the rules for configuring virtual machine resources, including the number of cores, memory size, and core utilization fraction (`coreFraction`). This policy is not mandatory. If it is not present for a VM, you can specify arbitrary values for resources without strict requirements. However, if a sizing policy is present, the VM configuration must strictly comply with it. Otherwise, it will not be possible to save the configuration.
 
@@ -1060,7 +1049,7 @@ Starting the agent service:
 sudo systemctl enable --now qemu-guest-agent
 ```
 
-### Connecting to a virtual machine
+### Connecting to a VM
 
 The following methods are available for connecting to the virtual machine:
 
@@ -1097,7 +1086,7 @@ Example command for connecting via SSH.
 d8 v ssh cloud@linux-vm --local-ssh
 ```
 
-### Virtual machine startup policy and virtual machine state management
+### VM startup policy and state management
 
 The virtual machine startup policy is intended for automated virtual machine state management. It is defined as the `.spec.runPolicy` parameter in the virtual machine specification. The following policies are supported:
 
@@ -1150,7 +1139,7 @@ A list of possible operations is given in the table below:
 | `d8 v restart` | `Restart` | Restart the VM                 |         |
 | `d8 v evict`   | `Evict`   | Migrate the VM to another host |
 
-### Change virtual machine configuration
+### Change VM configuration
 
 You can change the configuration of a virtual machine at any time after the `VirtualMachine` resource has been created. However, how these changes are applied depends on the current phase of the virtual machine and the nature of the changes made.
 
@@ -1585,7 +1574,7 @@ spec:
 EOF
 ```
 
-### Organizing interaction with virtual machines
+### Organizing interaction with VM
 
 Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
 
@@ -1662,7 +1651,7 @@ spec:
 EOF
 ```
 
-#### Publish virtual machine services using a service with the NodePort type
+#### Publish VM services using a service with the NodePort type
 
 `NodePort` is an extension of the `ClusterIP` service that provides access to the service through a specified port on all nodes in the cluster. This makes the service accessible from outside the cluster through a combination of the node's IP address and port.
 
@@ -1695,7 +1684,7 @@ In this example, a service with the type `NodePort` will be created that opens e
 
 If you do not explicitly specify the `nodePort` value, an arbitrary port will be assigned to the service, which can be viewed in the service status immediately after its creation.
 
-#### Publishing virtual machine services using a service with the LoadBalancer service type
+#### Publishing VM services using a service with the LoadBalancer service type
 
 `LoadBalancer` is a type of service that automatically creates an external load balancer with a static IP address. This balancer distributes incoming traffic among virtual machines, ensuring the service's availability from the Internet.
 
@@ -1719,7 +1708,7 @@ EOF
 
 ![](images/lb-loadbalancer.png)
 
-#### Publish virtual machine services using Ingress
+#### Publish VM services using Ingress
 
 `Ingress` allows you to manage incoming HTTP/HTTPS requests and route them to different servers within your cluster. This is the most appropriate method if you want to use domain names and SSL termination to access your virtual machines.
 
@@ -1769,7 +1758,7 @@ EOF
 
 ![](images/lb-ingress.png)
 
-### Live virtual machine migration
+### Live VM migration
 
 Live virtual machine (VM) migration is the process of moving a running VM from one physical host to another without shutting it down. This feature plays a key role in the management of virtualized infrastructure, ensuring application continuity during maintenance, load balancing, or upgrades.
 
@@ -1881,7 +1870,7 @@ firmware-update-fnbk2   Completed   Evict   static-vm-node-00   148m
 
 You can interrupt any live migration while it is in the `Pending`, `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
 
-#### How to perform a live migration of a virtual machine using `VirtualMachineOperations`.
+#### How to perform a live migration of a VM using `VirtualMachineOperations`.
 
 Let's look at an example. Before starting the migration, view the current status of the virtual machine:
 
@@ -1939,7 +1928,7 @@ linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   7
 linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
 
-#### Live migration of virtual machine when changing placement parameters (not available in CE edition)
+#### Live migration of VM when changing placement parameters (not available in CE edition)
 
 Let's consider the migration mechanism on the example of a cluster with two node groups (`NodeGroups`): green and blue. Suppose a virtual machine (VM) is initially running on a node in the green group and its configuration contains no placement restrictions.
 
@@ -1965,7 +1954,7 @@ spec:
 
 Now the current node (groups green) does not match the new conditions. The system will automatically create a `VirtualMachineOperations` object of type Evict, which will initiate a live migration of the VM to an available node in group blue .
 
-## IP addresses of virtual machines
+## IP addresses of VM
 
 The `.spec.settings.virtualMachineCIDRs` block in the virtualization module configuration specifies a list of subnets to assign ip addresses to virtual machines (a shared pool of ip addresses). All addresses in these subnets are available for use except the first (network address) and the last (broadcast address).
 
@@ -2038,7 +2027,7 @@ spec:
   virtualMachineIPAddressName: linux-vm-custom-ip
 ```
 
-### How to save the ip address assigned to the virtual machine?
+### How to save the ip address assigned to the VM?
 
 Objective: to save the ip address issued to a virtual machine for reuse after the virtual machine is deleted.
 
@@ -2185,7 +2174,7 @@ spec:
 EOF
 ```
 
-### Creating snapshots of virtual machines
+### Creating snapshots of VM
 
 A virtual machine snapshot is a saved state of a virtual machine at a specific point in time. The `VirtualMachineSnapshot` resource is used to create virtual machine snapshots.
 
@@ -2312,17 +2301,31 @@ The `VirtualMachineRestore` resource is used to restore a virtual machine from a
 - VirtualMachine - the main VM resource with the configuration from the snapshot.
 - VirtualDisk - disks connected to the VM at the moment of snapshot creation.
 - VirtualBlockDeviceAttachment - disk connections to the VM (if they existed in the original configuration).
+- VirtualMachineIPAddress — the IP address of the virtual machine (if the `keepIPAddress: Always` parameter was specified at the time of snapshot creation).
 - Secret - secrets with cloud-init or sysprep settings (if they were involved in the original VM).
 
 Important: resources are created only if they were present in the VM configuration at the time the snapshot was created. This ensures that an exact copy of the environment is restored, including all dependencies and settings.
 
-#### Restore a virtual machine
+#### Restore a VM
+
+There are two modes used for restoring a virtual machine. They are defined by the restoreMode parameter of the VirtualMachineRestore resource:
+```yaml
+spec:
+  restoreMode: safe | forced
+```
+`Safe` is used by default.
 
 {{< alert level="warning">}}
-To restore a virtual machine, you must delete its current configuration and all associated disks. This is because the restore process returns the virtual machine and its disks to the state that was fixed at the time the backup snapshot was created.
+To restore a virtual machine in `Safe` mode, you must delete its current configuration and all associated disks. This is because the restoration process returns the virtual machine and its disks to the state recorded at the snapshot's creation time.
 {{< /alert >}}
 
-Example manifest for restoring a virtual machine from a snapshot:
+The `Forced` mode is used to bring an already existing virtual machine to the state at the time of the snapshot.
+
+{{< alert level="warning" >}}
+`Forced` may disrupt the operation of the existing virtual machine because it will be stopped during restoration, and `VirtualDisks` and `VirtualMachineBlockDeviceAttachments` resources will be deleted for subsequent restoration.
+{{< /alert >}}
+
+Example manifest for restoring a virtual machine from a snapshot in `Safe` mode:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -2331,6 +2334,7 @@ kind: VirtualMachineRestore
 metadata:
   name: <restore name>
 spec:
+  restoreMode: safe
   virtualMachineSnapshotName: <virtual machine snapshot name>
 EOF
 ```
