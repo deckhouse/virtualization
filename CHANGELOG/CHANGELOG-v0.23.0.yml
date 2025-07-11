@@ -1,0 +1,5 @@
+core:
+  fixes:
+    - summary: Fixed jqfilter to get correct JSON and in subsequent processing (PR
+      pull_request: https://github.com/deckhouse/virtualization/pull/1245
+
