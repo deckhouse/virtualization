@@ -11,6 +11,7 @@ config:
     - SVACE_ENABLED
     - SVACE_ANALYZE_HOST
     - SVACE_ANALYZE_SSH_USER
+    - DELVE_DEBUG
   stapel:
     mount:
       allowBuildDir: true

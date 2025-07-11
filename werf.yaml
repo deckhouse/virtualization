@@ -29,6 +29,9 @@ build:
 {{ $_ := set . "Packages" dict }}
 {{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
 
+# Delve debag
+{{- $_ := set . "DELVE_DEBUG" (env "DELVE_DEBUG" "false") }}
+
 # svace analyze toggler
 {{- $_ := set . "SVACE_ENABLED" (env "SVACE_ENABLED" "false") }}
 
@@ -138,6 +141,11 @@ git:
       - openapi/openapi-case-tests.yaml
     {{- if eq .MODULE_EDITION "CE" }}
       - templates/virtualization-audit
+    {{- end }}
+    {{- if eq .DELVE_DEBUG "true" }}
+      - templates/kubevirt.yaml
+    {{- else }}
+      - templates/dlv-*.yaml
     {{- end }}
 ---
 image: release-channel-version
