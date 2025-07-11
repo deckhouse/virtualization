@@ -35,6 +35,11 @@ const (
 	bindingSnapshotName = "validating_admission_policy_binding"
 	managedByLabel      = "app.kubernetes.io/managed-by"
 	managedByLabelValue = "virt-operator-internal-virtualization"
+	jqFilter            = `{
+		"apiVersion": .apiVersion,
+		"kind": .kind,
+		"metadata": .metadata,
+	}`
 )
 
 var config = &pkg.HookConfig{
@@ -46,7 +51,7 @@ var config = &pkg.HookConfig{
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{"kubevirt-node-restriction-policy"},
 			},
-			JqFilter:                     ".metadata",
+			JqFilter:                     jqFilter,
 			ExecuteHookOnSynchronization: ptr.Bool(false),
 			ExecuteHookOnEvents:          ptr.Bool(false),
 		},
@@ -57,7 +62,7 @@ var config = &pkg.HookConfig{
 			NameSelector: &pkg.NameSelector{
 				MatchNames: []string{"kubevirt-node-restriction-binding"},
 			},
-			JqFilter:                     ".metadata",
+			JqFilter:                     jqFilter,
 			ExecuteHookOnSynchronization: ptr.Bool(false),
 			ExecuteHookOnEvents:          ptr.Bool(false),
 		},
