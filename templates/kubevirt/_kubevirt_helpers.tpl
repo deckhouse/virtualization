@@ -33,3 +33,12 @@ spec:
 {{- define "kubevirt.virthandler_nodeseletor_strategic_patch_json" -}}
   '{{ include "kubevirt.virthandler_nodeseletor_strategic_patch" . | fromYaml | toJson }}'
 {{- end }}
+
+{{- define "kubevirt.logVerbosity" -}}
+  {{- if eq . "error" -}}2
+  {{- else if eq . "warning" -}}3
+  {{- else if eq . "info" -}}4
+  {{- else if eq . "debug" -}}7
+  {{- else -}}4
+  {{- end -}}
+{{- end -}}
