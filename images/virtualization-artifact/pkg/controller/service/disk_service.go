@@ -247,7 +247,20 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 		resourcesHaveDeleted = true
 
 		err = s.protection.RemoveProtection(ctx, pvc)
-		if err != nil {
+		// Retry the operation if the "test" step fails while attempting to remove the finalizer.
+		switch {
+		case k8serrors.IsInvalid(err):
+			// retry with actual pvc state
+			pvc, err = s.GetPersistentVolumeClaim(ctx, sup)
+			if err != nil {
+				return false, err
+			}
+
+			err = s.protection.RemoveProtection(ctx, pvc)
+			if err != nil {
+				return false, err
+			}
+		case err != nil:
 			return false, err
 		}
 
