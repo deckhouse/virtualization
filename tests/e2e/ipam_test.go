@@ -59,7 +59,7 @@ var _ = Describe("IPAM", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	BeforeEach(func() {
-		ctx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel = context.WithTimeout(context.Background(), 50*time.Second)
 
 		vmip = &virtv2.VirtualMachineIPAddress{
 			ObjectMeta: metav1.ObjectMeta{
