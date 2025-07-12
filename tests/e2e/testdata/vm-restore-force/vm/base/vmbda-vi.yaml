@@ -1,0 +1,9 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualMachineBlockDeviceAttachment
+metadata:
+  name: vi-attachment
+spec:
+  virtualMachineName: vm
+  blockDeviceRef:
+    kind: VirtualImage
+    name: vi-ubuntu-http

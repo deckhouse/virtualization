@@ -27,16 +27,24 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type ProvisionerOverrideValidator struct {
-	secret *corev1.Secret
-	client client.Client
+	secret       *corev1.Secret
+	client       client.Client
+	vmRestoreUID string
 }
 
-func NewProvisionerOverrideValidator(secretTmpl *corev1.Secret, client client.Client) *ProvisionerOverrideValidator {
+func NewProvisionerOverrideValidator(secretTmpl *corev1.Secret, client client.Client, vmRestoreUID string) *ProvisionerOverrideValidator {
+	if secretTmpl.Annotations != nil {
+		secretTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	} else {
+		secretTmpl.Annotations = make(map[string]string)
+		secretTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+	}
 	return &ProvisionerOverrideValidator{
 		secret: &corev1.Secret{
 			TypeMeta: metav1.TypeMeta{
@@ -54,7 +62,8 @@ func NewProvisionerOverrideValidator(secretTmpl *corev1.Secret, client client.Cl
 			StringData: secretTmpl.StringData,
 			Type:       secretTmpl.Type,
 		},
-		client: client,
+		client:       client,
+		vmRestoreUID: vmRestoreUID,
 	}
 }
 
@@ -74,9 +83,17 @@ func (v *ProvisionerOverrideValidator) Validate(ctx context.Context) error {
 	}
 
 	if !maps.EqualFunc(existed.Data, v.secret.Data, bytes.Equal) {
-		return fmt.Errorf("the provisioner secret %q %w and has not the same data content", secretKey.Name, ErrAlreadyExists)
+		return fmt.Errorf("the provisioner secret %q %w", secretKey.Name, ErrAlreadyExistsAndHasDiff)
 	}
 
+	return nil
+}
+
+func (v *ProvisionerOverrideValidator) ValidateWithForce(ctx context.Context) error {
+	return v.Validate(ctx)
+}
+
+func (v *ProvisionerOverrideValidator) ProcessWithForce(ctx context.Context) error {
 	return nil
 }
 

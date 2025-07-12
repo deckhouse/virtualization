@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore/internal/watcher"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -77,9 +78,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
+	restorer := restorer.NewSecretRestorer(r.client)
 	for _, w := range []Watcher{
 		watcher.NewVirtualMachineRestoreWatcher(mgr.GetClient()),
 		watcher.NewVirtualMachineSnapshotWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
+		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
+		watcher.NewVirtualMachineBlockDeviceAttachmentWatcher(mgr.GetClient(), restorer),
+		watcher.NewVirtualImageWatcher(mgr.GetClient(), restorer),
+		watcher.NewClusterVirtualImageWatcher(mgr.GetClient(), restorer),
+		watcher.NewInternalVirtualMachineWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)
 		if err != nil {
