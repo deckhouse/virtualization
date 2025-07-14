@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	"github.com/deckhouse/virtualization/tests/e2e/network"
 )
 
 const (
@@ -67,6 +69,15 @@ func GenerateServiceUrl(svc *corev1.Service, namespace string) string {
 func GetResponseViaPodWithCurl(podName, namespace, host string) *executor.CMDResult {
 	cmd := fmt.Sprintf("exec --namespace %s %s -- curl -o - %s", namespace, podName, host)
 	return kubectl.RawCommand(cmd, ShortWaitDuration)
+}
+
+func CheckCiliumAgents(kubectl kc.Kubectl, vms ...string) {
+	GinkgoHelper()
+	for _, vm := range vms {
+		By(fmt.Sprintf("Cilium agent should be OK's for VM: %s", vm))
+		err := network.CheckCilliumAgents(context.Background(), kubectl, vm, conf.Namespace)
+		Expect(err).NotTo(HaveOccurred())
+	}
 }
 
 func CheckExternalConnection(host, httpCode string, vms ...string) {
@@ -224,6 +235,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It("checks VMs connection to external network", func() {
+			CheckCiliumAgents(kubectl, vmA.Name, vmB.Name)
 			CheckExternalConnection(externalHost, httpStatusOk, vmA.Name, vmB.Name)
 		})
 
