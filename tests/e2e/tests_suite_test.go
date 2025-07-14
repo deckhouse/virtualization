@@ -27,7 +27,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
@@ -77,13 +76,16 @@ var (
 	d8Virtualization             d8.D8Virtualization
 	git                          gt.Git
 	namePrefix                   string
-	defaultStorageClass          *storagev1.StorageClass
 	phaseByVolumeBindingMode     string
 	logStreamByV12nControllerPod = make(map[string]*el.LogStream, 0)
 )
 
 func init() {
 	err := config.CheckReusableOption()
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = config.CheckStorageClassOption()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -128,16 +130,20 @@ func init() {
 	if git, err = gt.NewGit(); err != nil {
 		log.Fatal(err)
 	}
-	if defaultStorageClass, err = GetDefaultStorageClass(); err != nil {
+	if conf.StorageClass.DefaultStorageClass, err = GetDefaultStorageClass(); err != nil {
 		log.Fatal(err)
+	}
+	if !config.SkipImmediateStorageClassCheck() {
+		if conf.StorageClass.ImmediateStorageClass, err = GetImmediateStorageClass(conf.StorageClass.DefaultStorageClass.Provisioner); err != nil {
+			log.Fatal(err)
+		}
 	}
 	if namePrefix, err = config.GetNamePrefix(); err != nil {
 		log.Fatal(err)
 	}
 	ChmodFile(conf.TestData.Sshkey, 0o600)
 	conf.Namespace = fmt.Sprintf("%s-%s", namePrefix, conf.Namespace)
-	conf.StorageClass.VolumeBindingMode = *defaultStorageClass.VolumeBindingMode
-	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(conf)
+	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(conf.StorageClass.DefaultStorageClass)
 	// TODO: get kustomization files from testdata directory when all tests will be refactored
 	var kustomizationFiles []string
 	v := reflect.ValueOf(conf.TestData)
@@ -149,7 +155,7 @@ func init() {
 			fieldType := t.Field(i)
 
 			// Ignore
-			if fieldType.Name == "Sshkey" || fieldType.Name == "SshUser" {
+			if fieldType.Name == "Sshkey" || fieldType.Name == "SSHUser" {
 				continue
 			}
 
@@ -183,8 +189,8 @@ func newRestConfig(transport config.ClusterTransport) (*rest.Config, error) {
 	if transport.Token != "" {
 		configFlags.BearerToken = &transport.Token
 	}
-	if transport.InsecureTls {
-		configFlags.Insecure = &transport.InsecureTls
+	if transport.InsecureTLS {
+		configFlags.Insecure = &transport.InsecureTLS
 	}
 	if transport.CertificateAuthority != "" {
 		configFlags.CAFile = &transport.CertificateAuthority

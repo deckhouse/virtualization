@@ -23,7 +23,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	virtv1 "kubevirt.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -37,13 +36,13 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 	testCaseLabel := map[string]string{"testcase": "vm-migration-cancel"}
 
 	BeforeEach(func() {
-		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmMigrationCancel, "kustomization.yaml")
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigrationCancel, "kustomization.yaml")
 		ns, err := kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 		conf.SetNamespace(ns)
 
 		res := kubectl.Apply(kc.ApplyOptions{
-			Filename:       []string{conf.TestData.VmMigrationCancel},
+			Filename:       []string{conf.TestData.VMMigrationCancel},
 			FilenameOption: kc.Kustomize,
 		})
 		Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -63,14 +62,14 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 		}
 
 		if config.IsCleanUpNeeded() {
-			resourcesToDelete.KustomizationDir = conf.TestData.VmMigrationCancel
+			resourcesToDelete.KustomizationDir = conf.TestData.VMMigrationCancel
 		}
 		DeleteTestCaseResources(resourcesToDelete)
 	})
 
 	It("Cancel migrate", func() {
 		By("Virtual machine agents should be ready")
-		WaitVmAgentReady(kc.WaitOptions{
+		WaitVMAgentReady(kc.WaitOptions{
 			Labels:    testCaseLabel,
 			Namespace: conf.Namespace,
 			Timeout:   MaxWaitTimeout,
@@ -87,9 +86,9 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 
 		for _, name := range vmNames {
 			By(fmt.Sprintf("Exec SSHCommand for virtualmachine %s/%s", conf.Namespace, name))
-			res := d8Virtualization.SshCommand(name, "sudo nohup stress-ng --vm 1 --vm-bytes 100% --timeout 300s &>/dev/null &", d8.SshOptions{
+			res := d8Virtualization.SSHCommand(name, "sudo nohup stress-ng --vm 1 --vm-bytes 100% --timeout 300s &>/dev/null &", d8.SSHOptions{
 				Namespace:   conf.Namespace,
-				Username:    conf.TestData.SshUser,
+				Username:    conf.TestData.SSHUser,
 				IdenityFile: conf.TestData.Sshkey,
 				Timeout:     ShortTimeout,
 			})
@@ -156,7 +155,6 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 				}
 			}
 			return fmt.Errorf("retry because not all vmops canceled")
-
 		}).WithTimeout(MaxWaitTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
 
 		Expect(someCompleted).Should(BeFalse())

@@ -7,4 +7,4 @@ spec:
   dataSource:
     type: ContainerImage
     containerImage:
-      image: docker.io/fl64/alpine-3.20:latest
+      image: cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-3-20:latest

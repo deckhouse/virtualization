@@ -19,27 +19,49 @@ package validator
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
-type SpecChangesValidator struct{}
-
-func NewSpecChangesValidator() *SpecChangesValidator {
-	return &SpecChangesValidator{}
+type SpecChangesValidator struct {
+	client    client.Client
+	scService *intsvc.VirtualDiskStorageClassService
 }
 
-func (v *SpecChangesValidator) ValidateCreate(_ context.Context, _ *virtv2.VirtualDisk) (admission.Warnings, error) {
+func NewSpecChangesValidator(client client.Client, scService *intsvc.VirtualDiskStorageClassService) *SpecChangesValidator {
+	return &SpecChangesValidator{
+		client:    client,
+		scService: scService,
+	}
+}
+
+func (v *SpecChangesValidator) ValidateCreate(ctx context.Context, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
+	if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
+		deprecated, err := v.scService.IsStorageClassDeprecated(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
+		if err != nil {
+			return nil, err
+		}
+		if deprecated {
+			return nil, fmt.Errorf(
+				"the provisioner of the %q storage class is deprecated; please use a different one",
+				*newVD.Spec.PersistentVolumeClaim.StorageClass,
+			)
+		}
+	}
+
 	return nil, nil
 }
 
-func (v *SpecChangesValidator) ValidateUpdate(_ context.Context, oldVD, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
+func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
 	if oldVD.Generation == newVD.Generation {
 		return nil, nil
 	}
@@ -57,6 +79,19 @@ func (v *SpecChangesValidator) ValidateUpdate(_ context.Context, oldVD, newVD *v
 	case newVD.Status.Phase == virtv2.DiskTerminating:
 		if !reflect.DeepEqual(oldVD.Spec, newVD.Spec) {
 			return nil, errors.New("spec cannot be changed if the VirtualDisk is the process of termination")
+		}
+	case newVD.Status.Phase == virtv2.DiskPending:
+		if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
+			deprecated, err := v.scService.IsStorageClassDeprecated(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
+			if err != nil {
+				return nil, err
+			}
+			if deprecated {
+				return nil, fmt.Errorf(
+					"the provisioner of the %q storage class is deprecated; please use a different one",
+					*newVD.Spec.PersistentVolumeClaim.StorageClass,
+				)
+			}
 		}
 	}
 

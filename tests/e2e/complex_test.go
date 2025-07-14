@@ -34,19 +34,19 @@ func AssignIPToVMIP(name string) error {
 	assignErr := fmt.Sprintf("cannot patch VMIP %q with unnassigned IP address", name)
 	unassignedIP, err := FindUnassignedIP(mc.Spec.Settings.VirtualMachineCIDRs)
 	if err != nil {
-		return fmt.Errorf("%s\n%s", assignErr, err)
+		return fmt.Errorf("%s\n%w", assignErr, err)
 	}
 	patch := fmt.Sprintf("{\"spec\":{\"staticIP\":%q}}", unassignedIP)
 	err = MergePatchResource(kc.ResourceVMIP, name, patch)
 	if err != nil {
-		return fmt.Errorf("%s\n%s", assignErr, err)
+		return fmt.Errorf("%s\n%w", assignErr, err)
 	}
 	vmip := virtv2.VirtualMachineIPAddress{}
 	err = GetObject(kc.ResourceVMIP, name, &vmip, kc.GetOptions{
 		Namespace: conf.Namespace,
 	})
 	if err != nil {
-		return fmt.Errorf("%s\n%s", assignErr, err)
+		return fmt.Errorf("%s\n%w", assignErr, err)
 	}
 	jsonPath := fmt.Sprintf("'jsonpath={.status.phase}=%s'", PhaseAttached)
 	waitOpts := kc.WaitOptions{
@@ -182,7 +182,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -212,6 +212,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
 
 				vms := strings.Split(res.StdOut(), " ")
+				CheckCiliumAgents(kubectl, vms...)
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
@@ -311,7 +312,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machine agents should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -369,7 +370,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machine agents should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -399,7 +400,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machine agents should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -436,7 +437,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				RebootVirtualMachinesBySSH(vms...)
 
 				By("Virtual machines agent should be ready", func() {
-					WaitVmAgentReady(kc.WaitOptions{
+					WaitVMAgentReady(kc.WaitOptions{
 						Labels:    testCaseLabel,
 						Namespace: conf.Namespace,
 						Timeout:   MaxWaitTimeout,
@@ -472,7 +473,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				Expect(res.Error()).NotTo(HaveOccurred())
 
 				By("Virtual machines agent should be ready", func() {
-					WaitVmAgentReady(kc.WaitOptions{
+					WaitVMAgentReady(kc.WaitOptions{
 						Labels:    testCaseLabel,
 						Namespace: conf.Namespace,
 						Timeout:   MaxWaitTimeout,
@@ -492,6 +493,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				vms := strings.Split(res.StdOut(), " ")
 
+				CheckCiliumAgents(kubectl, vms...)
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})
@@ -540,6 +542,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 				vms := strings.Split(res.StdOut(), " ")
 
+				CheckCiliumAgents(kubectl, vms...)
 				CheckExternalConnection(externalHost, httpStatusOk, vms...)
 			})
 		})

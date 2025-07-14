@@ -75,7 +75,7 @@ func GetConfig() (*Config, error) {
 }
 
 type ModuleConfig struct {
-	ApiVersion string   `yaml:"apiVersion"`
+	APIVersion string   `yaml:"apiVersion"`
 	Kind       string   `yaml:"kind"`
 	Metadata   Metadata `yaml:"metadata"`
 	Spec       Spec     `yaml:"spec"`
@@ -108,7 +108,7 @@ type Storage struct {
 }
 
 type Kustomize struct {
-	ApiVersion     string           `yaml:"apiVersion"`
+	APIVersion     string           `yaml:"apiVersion"`
 	Labels         []KustomizeLabel `yaml:"labels"`
 	Configurations []string         `yaml:"configurations"`
 	Kind           string           `yaml:"kind"`
@@ -125,7 +125,7 @@ type KustomizeLabel struct {
 type Config struct {
 	ClusterTransport ClusterTransport `yaml:"clusterTransport"`
 	Disks            DisksConf        `yaml:"disks"`
-	VM               VmConf           `yaml:"vm"`
+	VM               VMConf           `yaml:"vm"`
 	Ipam             IpamConf         `yaml:"ipam"`
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	Namespace        string           `yaml:"namespaceSuffix"`
@@ -145,21 +145,22 @@ type TestData struct {
 	ImporterNetworkPolicy string `yaml:"importerNetworkPolicy"`
 	ImageHotplug          string `yaml:"imageHotplug"`
 	ImagesCreation        string `yaml:"imagesCreation"`
-	VmConfiguration       string `yaml:"vmConfiguration"`
-	VmLabelAnnotation     string `yaml:"vmLabelAnnotation"`
-	VmMigration           string `yaml:"vmMigration"`
-	VmMigrationCancel     string `yaml:"vmMigrationCancel"`
-	VmEvacuation          string `yaml:"vmEvacuation"`
-	VmDiskAttachment      string `yaml:"vmDiskAttachment"`
-	VmVersions            string `yaml:"vmVersions"`
+	VMConfiguration       string `yaml:"vmConfiguration"`
+	VMLabelAnnotation     string `yaml:"vmLabelAnnotation"`
+	VMMigration           string `yaml:"vmMigration"`
+	VMMigrationCancel     string `yaml:"vmMigrationCancel"`
+	VMEvacuation          string `yaml:"vmEvacuation"`
+	VMDiskAttachment      string `yaml:"vmDiskAttachment"`
+	VMVersions            string `yaml:"vmVersions"`
 	VdSnapshots           string `yaml:"vdSnapshots"`
 	Sshkey                string `yaml:"sshKey"`
-	SshUser               string `yaml:"sshUser"`
+	SSHUser               string `yaml:"sshUser"`
 	IPAM                  string `yaml:"ipam"`
 }
 
 type StorageClass struct {
-	VolumeBindingMode storagev1.VolumeBindingMode
+	DefaultStorageClass   *storagev1.StorageClass
+	ImmediateStorageClass *storagev1.StorageClass
 }
 
 type ClusterTransport struct {
@@ -167,7 +168,7 @@ type ClusterTransport struct {
 	Token                string `yaml:"token"`
 	Endpoint             string `yaml:"endpoint"`
 	CertificateAuthority string `yaml:"certificateAuthority"`
-	InsecureTls          bool   `yaml:"insecureTls"`
+	InsecureTLS          bool   `yaml:"insecureTls"`
 }
 
 type DisksConf struct {
@@ -177,7 +178,7 @@ type DisksConf struct {
 	VdTestDataDir     string `yaml:"vdTestDataDir"`
 }
 
-type VmConf struct {
+type VMConf struct {
 	TestDataDir string `yaml:"testDataDir"`
 }
 
@@ -211,7 +212,7 @@ func (c *Config) setEnvs() error {
 		if err != nil {
 			return err
 		}
-		c.ClusterTransport.InsecureTls = v
+		c.ClusterTransport.InsecureTLS = v
 	}
 	// DisksConf
 	if e, ok := os.LookupEnv("E2E_DISKS_UPLOADHELPERIMAGE"); ok {
@@ -240,7 +241,7 @@ func (c *Config) setEnvs() error {
 func (c *Config) GetTestCases() ([]string, error) {
 	testDataValue := reflect.ValueOf(c.TestData)
 	testDataType := reflect.TypeOf(c.TestData)
-	excludedData := []string{"Sshkey", "SshUser"}
+	excludedData := []string{"Sshkey", "SSHUser"}
 	testCases := make([]string, 0, testDataType.NumField()-len(excludedData))
 
 	if testDataType.Kind() == reflect.Struct {

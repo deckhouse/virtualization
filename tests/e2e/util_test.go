@@ -44,7 +44,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	. "github.com/deckhouse/virtualization/tests/e2e/config"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -117,7 +117,7 @@ func ItCheckStatusFromFile(filepath, output, compareField string) {
 
 	for _, u := range unstructs {
 		It("Get recourse status "+u.GetName(), func() {
-			fullName := helper.GetFullApiResourceName(u)
+			fullName := helper.GetFullAPIResourceName(u)
 			var res *executor.CMDResult
 			if u.GetNamespace() == "" {
 				res = kubectl.GetResource(fullName, u.GetName(), kc.GetOptions{Output: output})
@@ -150,11 +150,11 @@ func WaitResource(resource kc.Resource, name, waitFor string, timeout time.Durat
 	Expect(res.Error()).NotTo(HaveOccurred(), "wait failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
 }
 
-func PatchResource(resource kc.Resource, name string, patch []*kc.JsonPatch) {
+func PatchResource(resource kc.Resource, name string, patch []*kc.JSONPatch) {
 	GinkgoHelper()
 	res := kubectl.PatchResource(resource, name, kc.PatchOptions{
 		Namespace: conf.Namespace,
-		JsonPatch: patch,
+		JSONPatch: patch,
 	})
 	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name,
 		res.StdErr())
@@ -189,7 +189,7 @@ func GetVMFromManifest(manifest string) (*virtv2.VirtualMachine, error) {
 	}
 	var unstruct *unstructured.Unstructured
 	for _, u := range unstructs {
-		if helper.GetFullApiResourceName(u) == kc.ResourceVM {
+		if helper.GetFullAPIResourceName(u) == kc.ResourceVM {
 			unstruct = u
 			break
 		}
@@ -267,7 +267,7 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
-func WaitVmAgentReady(opts kc.WaitOptions) {
+func WaitVMAgentReady(opts kc.WaitOptions) {
 	GinkgoHelper()
 	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
 	WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)
@@ -383,6 +383,25 @@ func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 	return defaultClasses[0], nil
 }
 
+func GetImmediateStorageClass(provisioner string) (*storagev1.StorageClass, error) {
+	scl := &storagev1.StorageClassList{}
+	err := GetObjects(kc.ResourceStorageClass, scl, kc.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sc := range scl.Items {
+		if sc.Provisioner == provisioner && *sc.VolumeBindingMode == storagev1.VolumeBindingImmediate {
+			return &sc, nil
+		}
+	}
+
+	return nil, fmt.Errorf("immediate storage class does not found; please set up immediate storage class with the %q provisioner; to skip the immediate storage class check, set %s=yes",
+		provisioner,
+		config.SkipImmediateStorageClassCheckEnv,
+	)
+}
+
 func toIPNet(prefix netip.Prefix) *net.IPNet {
 	return &net.IPNet{
 		IP:   prefix.Masked().Addr().AsSlice(),
@@ -491,14 +510,14 @@ func GetCondition(conditionType string, obj client.Object) (metav1.Condition, er
 	return metav1.Condition{}, fmt.Errorf("condition %s not found", conditionType)
 }
 
-func GetPhaseByVolumeBindingMode(c *Config) string {
-	switch c.StorageClass.VolumeBindingMode {
-	case "Immediate":
-		return PhaseReady
-	case "WaitForFirstConsumer":
-		return PhaseWaitForFirstConsumer
+func GetPhaseByVolumeBindingMode(sc *storagev1.StorageClass) string {
+	switch *sc.VolumeBindingMode {
+	case storagev1.VolumeBindingImmediate:
+		return string(virtv2.DiskReady)
+	case storagev1.VolumeBindingWaitForFirstConsumer:
+		return string(virtv2.DiskWaitForFirstConsumer)
 	default:
-		return PhaseReady
+		return string(virtv2.DiskReady)
 	}
 }
 
@@ -617,7 +636,7 @@ func StopVirtualMachinesBySSH(virtualMachines ...string) {
 	cmd := "sudo nohup poweroff -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
-		ExecSshCommand(vm, cmd)
+		ExecSSHCommand(vm, cmd)
 	}
 }
 
@@ -627,7 +646,7 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	cmd := "sudo nohup reboot -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
-		ExecSshCommand(vm, cmd)
+		ExecSSHCommand(vm, cmd)
 	}
 }
 
@@ -688,7 +707,7 @@ func SaveTestResources(labels map[string]string, additional string) {
 	cmdr := kubectl.Get("virtualization -A", kc.GetOptions{Output: "yaml", Labels: labels})
 	Expect(cmdr.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
 
-	err := os.WriteFile(str, cmdr.StdOutBytes(), 0644)
+	err := os.WriteFile(str, cmdr.StdOutBytes(), 0o644)
 	Expect(err).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
 }
 

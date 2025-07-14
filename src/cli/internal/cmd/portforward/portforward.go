@@ -30,9 +30,10 @@ import (
 	"k8s.io/klog/v2"
 
 	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/deckhouse/virtualization/api/subresources/v1alpha2"
+
+	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 )
 
@@ -46,7 +47,8 @@ var (
 	address        = "127.0.0.1"
 )
 
-func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
+func NewCommand() *cobra.Command {
+	portforward := &PortForward{}
 	cmd := &cobra.Command{
 		Use:     "port-forward name[.namespace] [protocol/]localPort[:targetPort]...",
 		Short:   "Forward local ports to a virtual machine",
@@ -65,10 +67,7 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 			}
 			return nil
 		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := PortForward{clientConfig: clientConfig}
-			return c.Run(cmd, args)
-		},
+		RunE: portforward.Run,
 	}
 	cmd.Flags().BoolVar(&forwardToStdio, forwardToStdioFlag, forwardToStdio,
 		fmt.Sprintf("--%s=true: Set this to true to forward the tunnel to stdout/stdin; Only works with a single port", forwardToStdioFlag))
@@ -79,21 +78,24 @@ func NewCommand(clientConfig clientcmd.ClientConfig) *cobra.Command {
 }
 
 type PortForward struct {
-	address      *net.IPAddr
-	clientConfig clientcmd.ClientConfig
-	resource     portforwardableResource
+	address  *net.IPAddr
+	resource portforwardableResource
 }
 
 func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 	setOutput(cmd)
-	namespace, name, ports, err := o.prepareCommand(args)
+
+	client, defaultNamespace, _, err := clientconfig.ClientAndNamespaceFromContext(cmd.Context())
 	if err != nil {
 		return err
 	}
 
-	if err := o.setResource(namespace); err != nil {
+	namespace, name, ports, err := o.prepareCommand(defaultNamespace, args)
+	if err != nil {
 		return err
 	}
+
+	o.resource = client.VirtualMachines(namespace)
 
 	if forwardToStdio {
 		if len(ports) != 1 {
@@ -118,7 +120,7 @@ func (o *PortForward) Run(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func (o *PortForward) prepareCommand(args []string) (namespace, name string, ports []forwardedPort, err error) {
+func (o *PortForward) prepareCommand(defaultNamespace string, args []string) (namespace, name string, ports []forwardedPort, err error) {
 	namespace, name, err = templates.ParseTarget(args[0])
 	if err != nil {
 		return
@@ -129,23 +131,11 @@ func (o *PortForward) prepareCommand(args []string) (namespace, name string, por
 		return
 	}
 
-	if len(namespace) < 1 {
-		namespace, _, err = o.clientConfig.Namespace()
-		if err != nil {
-			return
-		}
+	if namespace == "" {
+		namespace = defaultNamespace
 	}
 
 	return
-}
-
-func (o *PortForward) setResource(namespace string) error {
-	client, err := kubeclient.GetClientFromClientConfig(o.clientConfig)
-	if err != nil {
-		return err
-	}
-	o.resource = client.VirtualMachines(namespace)
-	return nil
 }
 
 func (o *PortForward) startStdoutStream(namespace, name string, port forwardedPort) error {

@@ -24,6 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/validator"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -38,11 +39,11 @@ type Validator struct {
 	validators []VirtualDiskValidator
 }
 
-func NewValidator(client client.Client) *Validator {
+func NewValidator(client client.Client, scService *intsvc.VirtualDiskStorageClassService) *Validator {
 	return &Validator{
 		validators: []VirtualDiskValidator{
 			validator.NewPVCSizeValidator(client),
-			validator.NewSpecChangesValidator(),
+			validator.NewSpecChangesValidator(client, scService),
 			validator.NewISOSourceValidator(client),
 			validator.NewNameValidator(),
 		},

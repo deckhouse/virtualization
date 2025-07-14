@@ -120,16 +120,16 @@ type PatchOptions struct {
 	Type       string
 	PatchFile  string
 	MergePatch string
-	JsonPatch  []*JsonPatch
+	JSONPatch  []*JSONPatch
 }
 
-type JsonPatch struct {
+type JSONPatch struct {
 	Op    string
 	Path  string
 	Value string
 }
 
-func (p JsonPatch) String() string {
+func (p JSONPatch) String() string {
 	var value string
 	if _, err := strconv.Atoi(p.Value); err == nil ||
 		strings.HasPrefix(p.Value, "[") ||
@@ -146,7 +146,7 @@ type KubectlConf struct {
 	Token                string
 	Endpoint             string
 	CertificateAuthority string
-	InsecureTls          bool
+	InsecureTLS          bool
 }
 
 func NewKubectl(conf KubectlConf) (*KubectlCMD, error) {
@@ -413,9 +413,9 @@ func (k KubectlCMD) patchOptions(cmd string, opts PatchOptions) string {
 	if opts.PatchFile != "" {
 		cmd = fmt.Sprintf("%s --patch-file=%s", cmd, opts.PatchFile)
 	}
-	if opts.JsonPatch != nil {
-		patches := make([]string, len(opts.JsonPatch))
-		for i, p := range opts.JsonPatch {
+	if opts.JSONPatch != nil {
+		patches := make([]string, len(opts.JSONPatch))
+		for i, p := range opts.JSONPatch {
 			patches[i] = p.String()
 		}
 		rawPatches := strings.Join(patches, ",")

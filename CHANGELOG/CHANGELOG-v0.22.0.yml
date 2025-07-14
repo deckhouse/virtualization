@@ -1,0 +1,57 @@
+api:
+  features:
+    - summary: >-
+        The storage classes managed by the `local-path-provisioner` module are now deprecated for
+        VirtualImage and VirtualDisk creation.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1243
+  fixes:
+    - summary: >-
+        The allowed name lengths for resources have been adjusted and the corresponding validation
+        has been added:
+
+        - ClusterVirtualImage: 48 characters (instead of 36)
+
+        - VirtualImage: 49 characters (instead of 37)
+      pull_request: https://github.com/deckhouse/virtualization/pull/1229
+core:
+  fixes:
+    - summary: fix number of replicas for virt-api and virt-controller in disabled `highAvailability` mode
+      pull_request: https://github.com/deckhouse/virtualization/pull/1232
+    - summary: >-
+        Increase max length for hotplug containerDisk volumes. Drop openshift labels from controller
+        namespace
+      pull_request: https://github.com/deckhouse/virtualization/pull/1231
+    - summary: >-
+        Increase max length for hotplug containerDisk volumes. Drop openshift labels from controller
+        namespace
+      pull_request: https://github.com/deckhouse/virtualization/pull/1222
+module:
+  fixes:
+    - summary: >-
+        Now in clusters with High Availability mode, the virtualization components on the master
+        nodes use 3 replicas.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1208
+    - summary: >-
+        Fixed the deployment of the virtualization module in HTTP mode (when using `Disabled` or
+        `OnlyInURI` options for the https.mode setting), which could lead to blocking the execution
+        of the deckhouse queue.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1207
+    - summary: >-
+        Fixed the deployment of the module on nodes with CentOS, Rocky Linux, and Alma Linux with
+        SELinux enabled (Enforced). Now the installation completes without errors.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1203
+    - summary: Reduced the module size to 50MB (previously 445MB).
+      pull_request: https://github.com/deckhouse/virtualization/pull/1181
+vm:
+  fixes:
+    - summary: Add handling of the error when trying to create a duplicate internal virtual machine.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1216
+    - summary: >-
+        Removed unnecessary warnings about virtual machines running in privileged mode — such
+        messages are no longer displayed, as this is standard and expected behavior of the system.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1202
+vmsnapshot:
+  fixes:
+    - summary: Fixed the hotplugging of existing images when restoring a virtual machine from a snapshot.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1198
+

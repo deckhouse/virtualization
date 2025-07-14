@@ -17,6 +17,7 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	"github.com/deckhouse/virtualization/tests/e2e/network"
 )
 
 const (
@@ -59,7 +61,7 @@ func RunPod(podName, namespace, image string, entrypoint PodEntrypoint) *executo
 	return kubectl.RawCommand(cmd, ShortWaitDuration)
 }
 
-func GenerateServiceUrl(svc *corev1.Service, namespace string) string {
+func GenerateServiceURL(svc *corev1.Service, namespace string) string {
 	service := fmt.Sprintf("%s.%s.svc:%d", svc.Name, namespace, svc.Spec.Ports[0].Port)
 	return service
 }
@@ -69,21 +71,30 @@ func GetResponseViaPodWithCurl(podName, namespace, host string) *executor.CMDRes
 	return kubectl.RawCommand(cmd, ShortWaitDuration)
 }
 
+func CheckCiliumAgents(kubectl kc.Kubectl, vms ...string) {
+	GinkgoHelper()
+	for _, vm := range vms {
+		By(fmt.Sprintf("Cilium agent should be OK's for VM: %s", vm))
+		err := network.CheckCilliumAgents(context.Background(), kubectl, vm, conf.Namespace)
+		Expect(err).NotTo(HaveOccurred())
+	}
+}
+
 func CheckExternalConnection(host, httpCode string, vms ...string) {
 	GinkgoHelper()
 	for _, vm := range vms {
 		By(fmt.Sprintf("Response code from %q should be %q for %q", host, httpCode, vm))
 		cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
-		CheckResultSshCommand(vm, cmd, httpCode)
+		CheckResultSSHCommand(vm, cmd, httpCode)
 	}
 }
 
-func CheckResultSshCommand(vmName, cmd, equal string) {
+func CheckResultSSHCommand(vmName, cmd, equal string) {
 	GinkgoHelper()
 	Eventually(func() (string, error) {
-		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+		res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
 			Namespace:   conf.Namespace,
-			Username:    conf.TestData.SshUser,
+			Username:    conf.TestData.SSHUser,
 			IdenityFile: conf.TestData.Sshkey,
 		})
 		if res.Error() != nil {
@@ -169,7 +180,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -219,11 +230,12 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			cmd := "hostname"
 			for _, vmName := range []string{vmA.Name, vmB.Name} {
 				By(fmt.Sprintf("VirtualMachine %q", vmName))
-				CheckResultSshCommand(vmName, cmd, vmName)
+				CheckResultSSHCommand(vmName, cmd, vmName)
 			}
 		})
 
 		It("checks VMs connection to external network", func() {
+			CheckCiliumAgents(kubectl, vmA.Name, vmB.Name)
 			CheckExternalConnection(externalHost, httpStatusOk, vmA.Name, vmB.Name)
 		})
 
@@ -231,12 +243,12 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			cmd := "systemctl is-active nginx.service"
 			for _, vmName := range []string{vmA.Name, vmB.Name} {
 				By(fmt.Sprintf("VirtualMachine %q", vmName))
-				CheckResultSshCommand(vmName, cmd, nginxActiveStatus)
+				CheckResultSSHCommand(vmName, cmd, nginxActiveStatus)
 			}
 		})
 
 		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
-			service := GenerateServiceUrl(&svcA, conf.Namespace)
+			service := GenerateServiceURL(&svcA, conf.Namespace)
 			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
 				if res.Error() != nil {
@@ -247,7 +259,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It(fmt.Sprintf("gets page from service %s", bObjName), func() {
-			service := GenerateServiceUrl(&svcB, conf.Namespace)
+			service := GenerateServiceURL(&svcB, conf.Namespace)
 			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
 				if res.Error() != nil {
@@ -261,7 +273,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			selectorA = svcA.Spec.Selector["service"]
 			selectorB = svcB.Spec.Selector["service"]
 
-			PatchResource(kc.ResourceService, svcA.Name, []*kc.JsonPatch{
+			PatchResource(kc.ResourceService, svcA.Name, []*kc.JSONPatch{
 				{
 					Op:    "replace",
 					Path:  "/spec/selector/service",
@@ -278,7 +290,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 
 		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
 			By(fmt.Sprintf("Response should be from virtual machine %q", vmB.Name))
-			service := GenerateServiceUrl(&svcA, conf.Namespace)
+			service := GenerateServiceURL(&svcA, conf.Namespace)
 			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
 				if res.Error() != nil {
@@ -289,7 +301,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It(fmt.Sprintf("changes back selector in service %s", aObjName), func() {
-			PatchResource(kc.ResourceService, svcA.Name, []*kc.JsonPatch{
+			PatchResource(kc.ResourceService, svcA.Name, []*kc.JSONPatch{
 				{
 					Op:    "replace",
 					Path:  "/spec/selector/service",

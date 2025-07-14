@@ -326,6 +326,9 @@ var _ StorageClassService = &StorageClassServiceMock{}
 //			IsStorageClassAllowedFunc: func(sc string) bool {
 //				panic("mock out the IsStorageClassAllowed method")
 //			},
+//			IsStorageClassDeprecatedFunc: func(ctx context.Context, scName string) (bool, error) {
+//				panic("mock out the IsStorageClassDeprecated method")
+//			},
 //		}
 //
 //		// use mockedStorageClassService in code that requires StorageClassService
@@ -347,6 +350,9 @@ type StorageClassServiceMock struct {
 
 	// IsStorageClassAllowedFunc mocks the IsStorageClassAllowed method.
 	IsStorageClassAllowedFunc func(sc string) bool
+
+	// IsStorageClassDeprecatedFunc mocks the IsStorageClassDeprecated method.
+	IsStorageClassDeprecatedFunc func(ctx context.Context, scName string) (bool, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -379,12 +385,20 @@ type StorageClassServiceMock struct {
 			// Sc is the sc argument value.
 			Sc string
 		}
+		// IsStorageClassDeprecated holds details about calls to the IsStorageClassDeprecated method.
+		IsStorageClassDeprecated []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// ScName is the scName argument value.
+			ScName string
+		}
 	}
 	lockGetDefaultStorageClass   sync.RWMutex
 	lockGetModuleStorageClass    sync.RWMutex
 	lockGetPersistentVolumeClaim sync.RWMutex
 	lockGetStorageClass          sync.RWMutex
 	lockIsStorageClassAllowed    sync.RWMutex
+	lockIsStorageClassDeprecated sync.RWMutex
 }
 
 // GetDefaultStorageClass calls GetDefaultStorageClassFunc.
@@ -552,5 +566,41 @@ func (mock *StorageClassServiceMock) IsStorageClassAllowedCalls() []struct {
 	mock.lockIsStorageClassAllowed.RLock()
 	calls = mock.calls.IsStorageClassAllowed
 	mock.lockIsStorageClassAllowed.RUnlock()
+	return calls
+}
+
+// IsStorageClassDeprecated calls IsStorageClassDeprecatedFunc.
+func (mock *StorageClassServiceMock) IsStorageClassDeprecated(ctx context.Context, scName string) (bool, error) {
+	if mock.IsStorageClassDeprecatedFunc == nil {
+		panic("StorageClassServiceMock.IsStorageClassDeprecatedFunc: method is nil but StorageClassService.IsStorageClassDeprecated was just called")
+	}
+	callInfo := struct {
+		Ctx    context.Context
+		ScName string
+	}{
+		Ctx:    ctx,
+		ScName: scName,
+	}
+	mock.lockIsStorageClassDeprecated.Lock()
+	mock.calls.IsStorageClassDeprecated = append(mock.calls.IsStorageClassDeprecated, callInfo)
+	mock.lockIsStorageClassDeprecated.Unlock()
+	return mock.IsStorageClassDeprecatedFunc(ctx, scName)
+}
+
+// IsStorageClassDeprecatedCalls gets all the calls that were made to IsStorageClassDeprecated.
+// Check the length with:
+//
+//	len(mockedStorageClassService.IsStorageClassDeprecatedCalls())
+func (mock *StorageClassServiceMock) IsStorageClassDeprecatedCalls() []struct {
+	Ctx    context.Context
+	ScName string
+} {
+	var calls []struct {
+		Ctx    context.Context
+		ScName string
+	}
+	mock.lockIsStorageClassDeprecated.RLock()
+	calls = mock.calls.IsStorageClassDeprecated
+	mock.lockIsStorageClassDeprecated.RUnlock()
 	return calls
 }

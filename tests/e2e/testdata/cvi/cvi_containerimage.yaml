@@ -6,7 +6,7 @@ spec:
   dataSource:
     type: ContainerImage
     containerImage:
-      image: "registry.hub.docker.com/yaroslavborbat/alpine-image:latest"
+      image: "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
 
       # imagePullSecret:
       #   namespace: some-ns

@@ -121,7 +121,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmLabelAnnotation, "kustomization.yaml")
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMLabelAnnotation, "kustomization.yaml")
 			ns, err := kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
 			conf.SetNamespace(ns)
@@ -131,7 +131,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.VmLabelAnnotation},
+				Filename:       []string{conf.TestData.VMLabelAnnotation},
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
@@ -163,7 +163,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -358,7 +358,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
 			DeleteTestCaseResources(ResourcesToDelete{
-				KustomizationDir: conf.TestData.VmLabelAnnotation,
+				KustomizationDir: conf.TestData.VMLabelAnnotation,
 			})
 		})
 	})

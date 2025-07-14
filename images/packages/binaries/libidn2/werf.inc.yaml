@@ -5,20 +5,7 @@ fromImage: builder/scratch
 import:
 - image: {{ $.ImageType }}/{{ $.ImageName }}-builder
   add: /out
-  to: /libidn
-  includePaths:
-    - usr/bin/idn2
-    - usr/lib64/libidn2.so
-    - usr/lib64/libidn2.so.0
-    - usr/lib64/libidn2.so.0.4.0
-  before: setup
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /libidn-devel
-  includePaths:
-    - usr/include
-    - usr/lib64/libidn2.la
-    - usr/lib64/pkgconfig/libidn2.pc
+  to: /libidn2
   before: setup
 
 ---
@@ -29,6 +16,8 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool patch gperf help2man gengetopt
+- gtk-doc libgnutls-devel libntlm-devel libreadline-devel
+- gnulib
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}

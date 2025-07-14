@@ -45,7 +45,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml")
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigration, "kustomization.yaml")
 			ns, err := kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
 			conf.SetNamespace(ns)
@@ -68,7 +68,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 			}
 
 			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.VmMigration},
+				Filename:       []string{conf.TestData.VMMigration},
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -78,7 +78,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -126,6 +126,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
+			CheckCiliumAgents(kubectl, vms...)
 			CheckExternalConnection(externalHost, httpStatusOk, vms...)
 		})
 	})
@@ -142,7 +143,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 			}
 
 			if config.IsCleanUpNeeded() {
-				resourcesToDelete.KustomizationDir = conf.TestData.VmMigration
+				resourcesToDelete.KustomizationDir = conf.TestData.VMMigration
 			}
 
 			DeleteTestCaseResources(resourcesToDelete)

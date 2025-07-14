@@ -94,9 +94,9 @@ func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceTy
 func GetDisksMetadata(vmName string, disks *Disks) error {
 	GinkgoHelper()
 	cmd := "lsblk --nodeps --json"
-	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
 		Namespace:   conf.Namespace,
-		Username:    conf.TestData.SshUser,
+		Username:    conf.TestData.SSHUser,
 		IdenityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
@@ -137,7 +137,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 		vmName = fmt.Sprintf("%s-vm-%s", namePrefix, nameSuffix)
 
 		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmDiskAttachment, "kustomization.yaml")
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMDiskAttachment, "kustomization.yaml")
 			ns, err := kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
 			conf.SetNamespace(ns)
@@ -147,7 +147,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 	Context("When resources are applied", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.VmDiskAttachment},
+				Filename:       []string{conf.TestData.VMDiskAttachment},
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -186,7 +186,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -202,7 +202,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 				}).WithTimeout(Timeout).WithPolling(Interval).ShouldNot(HaveOccurred(), "virtualMachine: %s", vmName)
 			})
 			It("attaches virtual disk", func() {
-				AttachBlockDevice(vmName, vdAttach, virtv2.VMBDAObjectRefKindVirtualDisk, testCaseLabel, conf.TestData.VmDiskAttachment)
+				AttachBlockDevice(vmName, vdAttach, virtv2.VMBDAObjectRefKindVirtualDisk, testCaseLabel, conf.TestData.VMDiskAttachment)
 			})
 			It("checks VM and VMBDA phases", func() {
 				By(fmt.Sprintf("VMBDA should be in %s phases", PhaseAttached))
@@ -212,7 +212,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machines should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -241,7 +241,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 			})
 			It("detaches virtual disk", func() {
 				res := kubectl.Delete(kc.DeleteOptions{
-					Filename:       []string{fmt.Sprintf("%s/vmbda", conf.TestData.VmDiskAttachment)},
+					Filename:       []string{fmt.Sprintf("%s/vmbda", conf.TestData.VMDiskAttachment)},
 					FilenameOption: kc.Filename,
 					Namespace:      conf.Namespace,
 				})
@@ -249,7 +249,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 			})
 			It("checks VM phase", func() {
 				By("Virtual machines should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -271,7 +271,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
 			DeleteTestCaseResources(ResourcesToDelete{
-				KustomizationDir: conf.TestData.VmDiskAttachment,
+				KustomizationDir: conf.TestData.VMDiskAttachment,
 				AdditionalResources: []AdditionalResource{
 					{
 						Resource: kc.ResourceVMBDA,
