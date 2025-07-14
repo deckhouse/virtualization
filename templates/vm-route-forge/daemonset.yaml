@@ -56,6 +56,7 @@ spec:
         kubernetes.io/os: linux
       containers:
         - name: vm-route-forge
+          {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 10 }}
           args:
           {{- range .Values.virtualization.virtualMachineCIDRs }}
           - --cidr={{ . }}
