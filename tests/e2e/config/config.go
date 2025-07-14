@@ -75,7 +75,7 @@ func GetConfig() (*Config, error) {
 }
 
 type ModuleConfig struct {
-	ApiVersion string   `yaml:"apiVersion"`
+	APIVersion string   `yaml:"apiVersion"`
 	Kind       string   `yaml:"kind"`
 	Metadata   Metadata `yaml:"metadata"`
 	Spec       Spec     `yaml:"spec"`
@@ -108,7 +108,7 @@ type Storage struct {
 }
 
 type Kustomize struct {
-	ApiVersion     string           `yaml:"apiVersion"`
+	APIVersion     string           `yaml:"apiVersion"`
 	Labels         []KustomizeLabel `yaml:"labels"`
 	Configurations []string         `yaml:"configurations"`
 	Kind           string           `yaml:"kind"`
