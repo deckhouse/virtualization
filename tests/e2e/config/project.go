@@ -30,14 +30,16 @@ var kustomize *Kustomize
 
 func PrepareProject(testData string) {
 	kustomization := fmt.Sprintf("%s/%s", testData, "kustomization.yaml")
-	ns, _ := kustomize.GetNamespace(kustomization)
+	ns, err := kustomize.GetNamespace(kustomization)
+	Expect(err).NotTo(HaveOccurred(), err)
 	project := Project{}
 	projectFilePath := fmt.Sprintf("%s/project/project.yaml", testData)
 
-	err := UnmarshalResource(projectFilePath, &project)
+	err = UnmarshalResource(projectFilePath, &project)
 	Expect(err).NotTo(HaveOccurred(), "cannot get project from file: %s\nstderr: %s", projectFilePath, err)
 
-	namePrefix, _ := GetNamePrefix()
+	namePrefix, err := GetNamePrefix()
+	Expect(err).NotTo(HaveOccurred(), "cannot get name prefix\nstderr: %s", err)
 
 	project.Name = ns
 
