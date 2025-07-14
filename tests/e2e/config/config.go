@@ -145,7 +145,7 @@ type TestData struct {
 	ImporterNetworkPolicy string `yaml:"importerNetworkPolicy"`
 	ImageHotplug          string `yaml:"imageHotplug"`
 	ImagesCreation        string `yaml:"imagesCreation"`
-	VmConfiguration       string `yaml:"vmConfiguration"`
+	VMConfiguration       string `yaml:"vmConfiguration"`
 	VmLabelAnnotation     string `yaml:"vmLabelAnnotation"`
 	VmMigration           string `yaml:"vmMigration"`
 	VmMigrationCancel     string `yaml:"vmMigrationCancel"`

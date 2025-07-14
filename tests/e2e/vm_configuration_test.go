@@ -134,7 +134,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmConfiguration, "kustomization.yaml")
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMConfiguration, "kustomization.yaml")
 			ns, err := kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
 			conf.SetNamespace(ns)
@@ -157,7 +157,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			}
 
 			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.VmConfiguration},
+				Filename:       []string{conf.TestData.VMConfiguration},
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -346,7 +346,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 			var resourcesToDelete ResourcesToDelete
 
 			if config.IsCleanUpNeeded() {
-				resourcesToDelete.KustomizationDir = conf.TestData.VmConfiguration
+				resourcesToDelete.KustomizationDir = conf.TestData.VMConfiguration
 			}
 
 			DeleteTestCaseResources(resourcesToDelete)
