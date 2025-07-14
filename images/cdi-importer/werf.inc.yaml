@@ -23,6 +23,7 @@ binaries:
   - /usr/bin/id
   - /usr/bin/cat
   - /usr/bin/sleep
+  - /usr/bin/mkdir
   - /usr/bin/chown
   - /usr/bin/chmod
   - /usr/bin/grep
