@@ -42,7 +42,7 @@ func IsBlockDeviceCdRom(vmName, blockDeviceName string) (bool, error) {
 	var blockDevices *BlockDevices
 	bdIdPath := fmt.Sprintf("/dev/disk/by-id/%s-%s", CdRomIdPrefix, blockDeviceName)
 	cmd := fmt.Sprintf("lsblk --json --nodeps --output name,type %s", bdIdPath)
-	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+	res := d8Virtualization.SshCommand(vmName, cmd, d8.SSHOptions{
 		Namespace:   conf.Namespace,
 		Username:    conf.TestData.SSHUser,
 		IdenityFile: conf.TestData.Sshkey,
@@ -64,7 +64,7 @@ func IsBlockDeviceCdRom(vmName, blockDeviceName string) (bool, error) {
 func MountBlockDevice(vmName, blockDeviceId string) error {
 	bdIdPath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceId)
 	cmd := fmt.Sprintf("sudo mount --read-only %s /mnt", bdIdPath)
-	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+	res := d8Virtualization.SshCommand(vmName, cmd, d8.SSHOptions{
 		Namespace:   conf.Namespace,
 		Username:    conf.TestData.SSHUser,
 		IdenityFile: conf.TestData.Sshkey,
@@ -78,7 +78,7 @@ func MountBlockDevice(vmName, blockDeviceId string) error {
 func IsBlockDeviceReadOnly(vmName, blockDeviceId string) (bool, error) {
 	bdIdPath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceId)
 	cmd := fmt.Sprintf("findmnt --noheadings --output options %s", bdIdPath)
-	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+	res := d8Virtualization.SshCommand(vmName, cmd, d8.SSHOptions{
 		Namespace:   conf.Namespace,
 		Username:    conf.TestData.SSHUser,
 		IdenityFile: conf.TestData.Sshkey,

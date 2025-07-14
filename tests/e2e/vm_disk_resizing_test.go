@@ -104,7 +104,7 @@ func GetSizeByLsblk(vmName, diskIdPath string) (*resource.Quantity, error) {
 		quantity     resource.Quantity
 	)
 	cmd := fmt.Sprintf("lsblk --json --nodeps --output size %s", diskIdPath)
-	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+	res := d8Virtualization.SshCommand(vmName, cmd, d8.SSHOptions{
 		Namespace:   conf.Namespace,
 		Username:    conf.TestData.SSHUser,
 		IdenityFile: conf.TestData.Sshkey,

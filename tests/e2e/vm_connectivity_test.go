@@ -92,7 +92,7 @@ func CheckExternalConnection(host, httpCode string, vms ...string) {
 func CheckResultSshCommand(vmName, cmd, equal string) {
 	GinkgoHelper()
 	Eventually(func() (string, error) {
-		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+		res := d8Virtualization.SshCommand(vmName, cmd, d8.SSHOptions{
 			Namespace:   conf.Namespace,
 			Username:    conf.TestData.SSHUser,
 			IdenityFile: conf.TestData.Sshkey,

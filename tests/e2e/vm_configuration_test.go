@@ -42,7 +42,7 @@ func ExecSshCommand(vmName, cmd string) {
 	GinkgoHelper()
 
 	Eventually(func() error {
-		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+		res := d8Virtualization.SshCommand(vmName, cmd, d8.SSHOptions{
 			Namespace:   conf.Namespace,
 			Username:    conf.TestData.SSHUser,
 			IdenityFile: conf.TestData.Sshkey,
@@ -57,7 +57,7 @@ func ExecSshCommand(vmName, cmd string) {
 func ExecStartCommand(vmName string) {
 	GinkgoHelper()
 	Eventually(func() error {
-		res := d8Virtualization.StartVM(vmName, d8.SshOptions{Namespace: conf.Namespace})
+		res := d8Virtualization.StartVM(vmName, d8.SSHOptions{Namespace: conf.Namespace})
 		if res.Error() != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		}
@@ -68,7 +68,7 @@ func ExecStartCommand(vmName string) {
 func ExecStopCommand(vmName string) {
 	GinkgoHelper()
 	Eventually(func() error {
-		res := d8Virtualization.StopVM(vmName, d8.SshOptions{Namespace: conf.Namespace})
+		res := d8Virtualization.StopVM(vmName, d8.SSHOptions{Namespace: conf.Namespace})
 		if res.Error() != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		}
@@ -79,7 +79,7 @@ func ExecStopCommand(vmName string) {
 func ExecRestartCommand(vmName string) {
 	GinkgoHelper()
 	Eventually(func() error {
-		res := d8Virtualization.RestartVM(vmName, d8.SshOptions{Namespace: conf.Namespace})
+		res := d8Virtualization.RestartVM(vmName, d8.SSHOptions{Namespace: conf.Namespace})
 		if res.Error() != nil {
 			return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 		}
