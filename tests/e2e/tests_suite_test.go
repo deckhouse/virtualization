@@ -183,8 +183,8 @@ func newRestConfig(transport config.ClusterTransport) (*rest.Config, error) {
 	if transport.Token != "" {
 		configFlags.BearerToken = &transport.Token
 	}
-	if transport.InsecureTls {
-		configFlags.Insecure = &transport.InsecureTls
+	if transport.InsecureTLS {
+		configFlags.Insecure = &transport.InsecureTLS
 	}
 	if transport.CertificateAuthority != "" {
 		configFlags.CAFile = &transport.CertificateAuthority

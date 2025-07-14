@@ -167,7 +167,7 @@ type ClusterTransport struct {
 	Token                string `yaml:"token"`
 	Endpoint             string `yaml:"endpoint"`
 	CertificateAuthority string `yaml:"certificateAuthority"`
-	InsecureTls          bool   `yaml:"insecureTls"`
+	InsecureTLS          bool   `yaml:"insecureTls"`
 }
 
 type DisksConf struct {
@@ -211,7 +211,7 @@ func (c *Config) setEnvs() error {
 		if err != nil {
 			return err
 		}
-		c.ClusterTransport.InsecureTls = v
+		c.ClusterTransport.InsecureTLS = v
 	}
 	// DisksConf
 	if e, ok := os.LookupEnv("E2E_DISKS_UPLOADHELPERIMAGE"); ok {

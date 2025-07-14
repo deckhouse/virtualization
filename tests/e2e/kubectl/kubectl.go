@@ -146,7 +146,7 @@ type KubectlConf struct {
 	Token                string
 	Endpoint             string
 	CertificateAuthority string
-	InsecureTls          bool
+	InsecureTLS          bool
 }
 
 func NewKubectl(conf KubectlConf) (*KubectlCMD, error) {

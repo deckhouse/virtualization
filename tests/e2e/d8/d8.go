@@ -52,7 +52,7 @@ type D8VirtualizationConf struct {
 	Token                string
 	Endpoint             string
 	CertificateAuthority string
-	InsecureTls          bool
+	InsecureTLS          bool
 }
 
 type D8Virtualization interface {

@@ -25,7 +25,7 @@ type ClusterTransport struct {
 	Token                string `yaml:"token"`
 	Endpoint             string `yaml:"endpoint"`
 	CertificateAuthority string `yaml:"certificateAuthority"`
-	InsecureTls          bool   `yaml:"insecureTls"`
+	InsecureTLS          bool   `yaml:"insecureTls"`
 }
 
 // KubeConnectionCmdSettings returns environment variables and arguments for kubectl command
@@ -52,7 +52,7 @@ func KubeConnectionCmdSettings(conf ClusterTransport) (env, args []string, err e
 		if conf.CertificateAuthority != "" {
 			args = append(args, fmt.Sprintf("--certificate-authority=%s", conf.CertificateAuthority))
 		}
-		if conf.InsecureTls {
+		if conf.InsecureTLS {
 			args = append(args, "--insecure-skip-tls-verify=true")
 		}
 
