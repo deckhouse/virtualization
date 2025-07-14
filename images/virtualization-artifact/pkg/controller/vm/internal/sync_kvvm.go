@@ -307,6 +307,11 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 		Name:       "usb322",
 	})
 
+	kvvm.Spec.Template.Spec.Domain.Devices.HostDevices = append(kvvm.Spec.Template.Spec.Domain.Devices.HostDevices, virtv1.HostDevice{
+		DeviceName: "devices.kubevirt.io/samsung-pm9a",
+		Name:       "nvme-passthrough",
+	})
+
 	err = h.client.Create(ctx, kvvm)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
