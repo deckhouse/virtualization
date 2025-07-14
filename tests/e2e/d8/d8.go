@@ -56,7 +56,7 @@ type D8VirtualizationConf struct {
 }
 
 type D8Virtualization interface {
-	SshCommand(vmName, command string, opts SSHOptions) *executor.CMDResult
+	SSHCommand(vmName, command string, opts SSHOptions) *executor.CMDResult
 	StopVM(vmName string, opts SSHOptions) *executor.CMDResult
 	StartVM(vmName string, opts SSHOptions) *executor.CMDResult
 	RestartVM(vmName string, opts SSHOptions) *executor.CMDResult
@@ -82,7 +82,7 @@ func NewD8Virtualization(conf D8VirtualizationConf) (*d8VirtualizationCMD, error
 	}, nil
 }
 
-func (v d8VirtualizationCMD) SshCommand(vmName, command string, opts SSHOptions) *executor.CMDResult {
+func (v d8VirtualizationCMD) SSHCommand(vmName, command string, opts SSHOptions) *executor.CMDResult {
 	timeout := ShortTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout

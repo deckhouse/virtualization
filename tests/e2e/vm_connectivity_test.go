@@ -85,14 +85,14 @@ func CheckExternalConnection(host, httpCode string, vms ...string) {
 	for _, vm := range vms {
 		By(fmt.Sprintf("Response code from %q should be %q for %q", host, httpCode, vm))
 		cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
-		CheckResultSshCommand(vm, cmd, httpCode)
+		CheckResultSSHCommand(vm, cmd, httpCode)
 	}
 }
 
-func CheckResultSshCommand(vmName, cmd, equal string) {
+func CheckResultSSHCommand(vmName, cmd, equal string) {
 	GinkgoHelper()
 	Eventually(func() (string, error) {
-		res := d8Virtualization.SshCommand(vmName, cmd, d8.SSHOptions{
+		res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
 			Namespace:   conf.Namespace,
 			Username:    conf.TestData.SSHUser,
 			IdenityFile: conf.TestData.Sshkey,
@@ -230,7 +230,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			cmd := "hostname"
 			for _, vmName := range []string{vmA.Name, vmB.Name} {
 				By(fmt.Sprintf("VirtualMachine %q", vmName))
-				CheckResultSshCommand(vmName, cmd, vmName)
+				CheckResultSSHCommand(vmName, cmd, vmName)
 			}
 		})
 
@@ -243,7 +243,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			cmd := "systemctl is-active nginx.service"
 			for _, vmName := range []string{vmA.Name, vmB.Name} {
 				By(fmt.Sprintf("VirtualMachine %q", vmName))
-				CheckResultSshCommand(vmName, cmd, nginxActiveStatus)
+				CheckResultSSHCommand(vmName, cmd, nginxActiveStatus)
 			}
 		})
 

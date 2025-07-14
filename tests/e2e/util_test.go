@@ -617,7 +617,7 @@ func StopVirtualMachinesBySSH(virtualMachines ...string) {
 	cmd := "sudo nohup poweroff -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
-		ExecSshCommand(vm, cmd)
+		ExecSSHCommand(vm, cmd)
 	}
 }
 
@@ -627,7 +627,7 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	cmd := "sudo nohup reboot -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
-		ExecSshCommand(vm, cmd)
+		ExecSSHCommand(vm, cmd)
 	}
 }
 

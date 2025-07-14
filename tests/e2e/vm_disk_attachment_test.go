@@ -94,7 +94,7 @@ func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceTy
 func GetDisksMetadata(vmName string, disks *Disks) error {
 	GinkgoHelper()
 	cmd := "lsblk --nodeps --json"
-	res := d8Virtualization.SshCommand(vmName, cmd, d8.SSHOptions{
+	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
 		Namespace:   conf.Namespace,
 		Username:    conf.TestData.SSHUser,
 		IdenityFile: conf.TestData.Sshkey,
