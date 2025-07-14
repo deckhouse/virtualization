@@ -336,8 +336,6 @@ shell:
   setupCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   setup:
   - |
-    echo "fdasdasdasdasdasdasoobar bbb"
-
     ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
 
     echo "Copy additional config swtpm"
