@@ -10,7 +10,7 @@ spec:
   dataSource:
     type: ContainerImage
     containerImage:
-      image: "registry.hub.docker.com/yaroslavborbat/alpine-image:latest"
+      image: "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
 ---
 apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualImage
@@ -24,4 +24,4 @@ spec:
   dataSource:
     type: ContainerImage
     containerImage:
-      image: "registry.hub.docker.com/yaroslavborbat/alpine-image:latest"
+      image: "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/alpine-image:latest"
