@@ -211,7 +211,6 @@ jobs:
               -path ./images/cdi-cloner/cloner-startup -prune -o \
               -path ./images/dvcr-artifact -prune -o \
               -path ./tests/performance/shatal -prune -o \
-              -path ./tests/e2e -prune -o \
               -type f -name '.golangci.yaml' -printf '%h\0' | \
             xargs -0 -n1 | sort -u
           )
