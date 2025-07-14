@@ -88,10 +88,10 @@ func (v d8VirtualizationCMD) SSHCommand(vmName, command string, opts SSHOptions)
 		timeout = opts.Timeout
 	}
 
-	localSshOpts := "--local-ssh-opts='-o StrictHostKeyChecking=no' --local-ssh-opts='-o UserKnownHostsFile=/dev/null' --local-ssh-opts='-o LogLevel=ERROR'"
-	localSshOpts = fmt.Sprintf("%s --local-ssh-opts='-o ConnectTimeout=%s'", localSshOpts, timeout.String())
+	localSSHOpts := "--local-ssh-opts='-o StrictHostKeyChecking=no' --local-ssh-opts='-o UserKnownHostsFile=/dev/null' --local-ssh-opts='-o LogLevel=ERROR'"
+	localSSHOpts = fmt.Sprintf("%s --local-ssh-opts='-o ConnectTimeout=%s'", localSSHOpts, timeout.String())
 
-	cmd := fmt.Sprintf("%s ssh %s -c '%s' --local-ssh=true %s", v.cmd, vmName, command, localSshOpts)
+	cmd := fmt.Sprintf("%s ssh %s -c '%s' --local-ssh=true %s", v.cmd, vmName, command, localSSHOpts)
 	cmd = v.addNamespace(cmd, opts.Namespace)
 
 	if opts.Username != "" {
