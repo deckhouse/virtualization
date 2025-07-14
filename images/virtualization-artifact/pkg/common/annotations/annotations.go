@@ -136,6 +136,11 @@ const (
 
 	// InhibitNodeShutdownLabel is a label to prevent node shutdown is Pod with label is present.
 	InhibitNodeShutdownLabel = "pod.deckhouse.io/inhibit-node-shutdown"
+
+	// AnnNetworksSpec is the annotation for request network configuration into Pod.
+	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
+	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
+	AnnNetworksStatus = "network.deckhouse.io/networks-status"
 )
 
 // AddAnnotation adds an annotation to an object
