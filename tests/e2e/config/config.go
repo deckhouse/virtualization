@@ -147,11 +147,11 @@ type TestData struct {
 	ImagesCreation        string `yaml:"imagesCreation"`
 	VMConfiguration       string `yaml:"vmConfiguration"`
 	VmLabelAnnotation     string `yaml:"vmLabelAnnotation"`
-	VmMigration           string `yaml:"vmMigration"`
-	VmMigrationCancel     string `yaml:"vmMigrationCancel"`
-	VmEvacuation          string `yaml:"vmEvacuation"`
-	VmDiskAttachment      string `yaml:"vmDiskAttachment"`
-	VmVersions            string `yaml:"vmVersions"`
+	VMMigration           string `yaml:"vmMigration"`
+	VMMigrationCancel     string `yaml:"vmMigrationCancel"`
+	VMEvacuation          string `yaml:"vmEvacuation"`
+	VMDiskAttachment      string `yaml:"vmDiskAttachment"`
+	VMVersions            string `yaml:"vmVersions"`
 	VdSnapshots           string `yaml:"vdSnapshots"`
 	Sshkey                string `yaml:"sshKey"`
 	SshUser               string `yaml:"sshUser"`

@@ -45,7 +45,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmMigration, "kustomization.yaml")
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigration, "kustomization.yaml")
 			ns, err := kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
 			conf.SetNamespace(ns)
@@ -68,7 +68,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 			}
 
 			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.VmMigration},
+				Filename:       []string{conf.TestData.VMMigration},
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -143,7 +143,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 			}
 
 			if config.IsCleanUpNeeded() {
-				resourcesToDelete.KustomizationDir = conf.TestData.VmMigration
+				resourcesToDelete.KustomizationDir = conf.TestData.VMMigration
 			}
 
 			DeleteTestCaseResources(resourcesToDelete)

@@ -37,13 +37,13 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 	testCaseLabel := map[string]string{"testcase": "vm-migration-cancel"}
 
 	BeforeEach(func() {
-		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmMigrationCancel, "kustomization.yaml")
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigrationCancel, "kustomization.yaml")
 		ns, err := kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 		conf.SetNamespace(ns)
 
 		res := kubectl.Apply(kc.ApplyOptions{
-			Filename:       []string{conf.TestData.VmMigrationCancel},
+			Filename:       []string{conf.TestData.VMMigrationCancel},
 			FilenameOption: kc.Kustomize,
 		})
 		Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -63,7 +63,7 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 		}
 
 		if config.IsCleanUpNeeded() {
-			resourcesToDelete.KustomizationDir = conf.TestData.VmMigrationCancel
+			resourcesToDelete.KustomizationDir = conf.TestData.VMMigrationCancel
 		}
 		DeleteTestCaseResources(resourcesToDelete)
 	})

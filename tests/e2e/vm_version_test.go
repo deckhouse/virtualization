@@ -46,7 +46,7 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmVersions, "kustomization.yaml")
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMVersions, "kustomization.yaml")
 			ns, err := kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
 			conf.SetNamespace(ns)
@@ -56,7 +56,7 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 	Context("When virtualization resources are applied:", func() {
 		It("result should be succeeded", func() {
 			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.VmVersions},
+				Filename:       []string{conf.TestData.VMVersions},
 				FilenameOption: kc.Kustomize,
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
@@ -113,7 +113,7 @@ var _ = Describe("Virtual machine versions", ginkgoutil.CommonE2ETestDecorators(
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
 			DeleteTestCaseResources(ResourcesToDelete{
-				KustomizationDir: conf.TestData.VmVersions,
+				KustomizationDir: conf.TestData.VMVersions,
 			})
 		})
 	})
