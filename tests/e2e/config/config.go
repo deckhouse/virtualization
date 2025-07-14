@@ -125,7 +125,7 @@ type KustomizeLabel struct {
 type Config struct {
 	ClusterTransport ClusterTransport `yaml:"clusterTransport"`
 	Disks            DisksConf        `yaml:"disks"`
-	VM               VmConf           `yaml:"vm"`
+	VM               VMConf           `yaml:"vm"`
 	Ipam             IpamConf         `yaml:"ipam"`
 	HelperImages     HelperImages     `yaml:"helperImages"`
 	Namespace        string           `yaml:"namespaceSuffix"`
@@ -177,7 +177,7 @@ type DisksConf struct {
 	VdTestDataDir     string `yaml:"vdTestDataDir"`
 }
 
-type VmConf struct {
+type VMConf struct {
 	TestDataDir string `yaml:"testDataDir"`
 }
 
