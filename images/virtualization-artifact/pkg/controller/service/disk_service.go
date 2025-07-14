@@ -24,6 +24,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +33,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -236,38 +239,47 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 		return false, err
 	}
 
-	pvc, err := s.GetPersistentVolumeClaim(ctx, sup)
-	if err != nil {
-		return false, err
-	}
-
+	var pvc *corev1.PersistentVolumeClaim
 	var resourcesHaveDeleted bool
 
-	if pvc != nil {
-		resourcesHaveDeleted = true
-
-		err = s.protection.RemoveProtection(ctx, pvc)
-		// Retry the operation if the "test" step fails while attempting to remove the finalizer.
-		switch {
-		case k8serrors.IsInvalid(err):
-			// retry with actual pvc state
+	retryErr := retry.OnError(
+		wait.Backoff{
+			Steps:    2,
+			Duration: 50 * time.Millisecond,
+		},
+		func(err error) bool {
+			return k8serrors.IsInvalid(err)
+		},
+		func() error {
 			pvc, err = s.GetPersistentVolumeClaim(ctx, sup)
 			if err != nil {
-				return false, err
+
+				return err
 			}
+
+			if pvc == nil {
+				resourcesHaveDeleted = false
+				return nil
+			}
+
+			resourcesHaveDeleted = true
 
 			err = s.protection.RemoveProtection(ctx, pvc)
 			if err != nil {
-				return false, err
+				return err
 			}
-		case err != nil:
-			return false, err
-		}
 
-		err = s.client.Delete(ctx, pvc)
-		if err != nil && !k8serrors.IsNotFound(err) {
-			return false, err
-		}
+			err = s.client.Delete(ctx, pvc)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return err
+			}
+
+			return nil
+		},
+	)
+
+	if retryErr != nil {
+		return false, retryErr
 	}
 
 	return resourcesHaveDeleted || subResourcesHaveDeleted, nil
