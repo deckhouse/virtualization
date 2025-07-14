@@ -23,11 +23,10 @@ shell:
   - apt-get -qq install -y libnbd-devel
   {{- include "alt packages clean" . | nindent 2 }}
 {{- end }}
-installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
-     echo "$date"  - |
-  - |
+    echo "$date"
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     echo "Git clone CDI repository..."
