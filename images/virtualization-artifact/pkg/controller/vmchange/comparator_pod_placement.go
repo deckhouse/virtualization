@@ -83,3 +83,16 @@ func compareTolerations(current, desired *v1alpha2.VirtualMachineSpec) []FieldCh
 		ActionRestart,
 	)
 }
+
+func compareNetworks(current, desired *v1alpha2.VirtualMachineSpec) []FieldChange {
+	currentValue := NewValue(current.Networks, current.Networks == nil, false)
+	desiredValue := NewValue(desired.Networks, desired.Networks == nil, false)
+
+	return compareValues(
+		"networks",
+		currentValue,
+		desiredValue,
+		reflect.DeepEqual(current.Networks, desired.Networks),
+		ActionRestart,
+	)
+}

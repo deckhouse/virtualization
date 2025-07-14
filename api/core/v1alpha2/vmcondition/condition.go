@@ -43,6 +43,8 @@ const (
 	TypeFirmwareUpToDate Type = "FirmwareUpToDate"
 	// TypeNeedsEvict indicates that the VirtualMachine should be evicting from node.
 	TypeNeedsEvict Type = "NeedsEvict"
+
+	TypeNetworkReady Type = "NetworkReady"
 )
 
 type Reason string
@@ -116,4 +118,8 @@ const (
 
 	// ReasonNeedsEvict indicates that the VirtualMachine should be evicting from node.
 	ReasonNeedsEvict Reason = "NeedsEvict"
+
+	ReasonNetworkReady     Reason = "NetworkReady"
+	ReasonNetworkNotReady  Reason = "NetworkNotReady"
+	ReasonSDNModuleDisable Reason = "SDNModuleDisable"
 )

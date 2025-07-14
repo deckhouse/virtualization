@@ -79,6 +79,9 @@ const (
 
 	FirmwareImageEnv      = "FIRMWARE_IMAGE"
 	VirtControllerNameEnv = "VIRT_CONTROLLER_NAME"
+
+	SdnEnabledEnv  = "SDN_ENABLED"
+	clusterUUIDEnv = "CLUSTER_UUID"
 )
 
 func main() {
@@ -121,6 +124,12 @@ func main() {
 
 	var virtControllerName string
 	flag.StringVar(&virtControllerName, "virt-controller-name", getEnv(VirtControllerNameEnv, "virt-controller"), "Virt controller name")
+
+	var isSdnEnabled bool
+	flag.BoolVar(&isSdnEnabled, "sdn-enabled", os.Getenv(SdnEnabledEnv) == "true", "SDN enabled")
+
+	var clusterUUID string
+	flag.StringVar(&clusterUUID, "cluster-uuid", getEnv(clusterUUIDEnv, ""), "Cluster UUID")
 
 	flag.Parse()
 
@@ -283,7 +292,7 @@ func main() {
 	}
 
 	vmLogger := logger.NewControllerLogger(vm.ControllerName, logLevel, logOutput, logDebugVerbosity, logDebugControllerList)
-	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage); err != nil {
+	if err = vm.SetupController(ctx, mgr, vmLogger, dvcrSettings, firmwareImage, isSdnEnabled, clusterUUID); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

@@ -97,7 +97,7 @@ func init() {
 	if conf, err = config.GetConfig(); err != nil {
 		log.Fatal(err)
 	}
-	if mc, err = config.GetModuleConfig(); err != nil {
+	if mc, err = config.GetModuleConfig("virtualization"); err != nil {
 		log.Fatal(err)
 	}
 	if kubectl, err = kc.NewKubectl(kc.KubectlConf(conf.ClusterTransport)); err != nil {

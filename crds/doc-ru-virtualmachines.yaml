@@ -542,6 +542,17 @@ spec:
                     * `PreferSafe` — использовать безопасный вариант для автоматических миграций. Замедление CPU можно включить вручную с помощью поля `force=true` в VMOP.
                     * `AlwaysForced` — включать замедление CPU для автоматических миграций и для ручного запуска. Нельзя отключить замедление CPU.
                     * `PreferForced` — включать замедление CPU для автоматических миграций. Замедление CPU можно выключить вручную с помощью поля `force=false` в VMOP.
+                networks:
+                  description: |
+                    Список конфигураций сетевых интерфейсов.
+                  items:
+                    properties:
+                      type:
+                        description: |
+                          Тип сетевого интерфейса.
+                      name:
+                        description: |
+                          Имя сетевого интерфейса.
             status:
               properties:
                 blockDeviceRefs:
@@ -715,3 +726,17 @@ spec:
                           description: Накладные расходы на память во время выполнения.
                         size:
                           description: Текущий размер памяти виртуальной машины.
+                networks:
+                  description: |
+                    Список сетевых интерфейсов, подключенных к ВМ.
+                  items:
+                    properties:
+                      type:
+                        description: |
+                          Тип сетевого интерфейса.
+                      name:
+                        description: |
+                          Тип сетевого интерфейса.
+                      macAddress:
+                        type: string
+                          MAC-адрес сетевого интерфейса.

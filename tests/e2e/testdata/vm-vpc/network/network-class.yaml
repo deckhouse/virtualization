@@ -1,0 +1,13 @@
+apiVersion: network.deckhouse.io/v1alpha1
+kind: NetworkClass
+metadata:
+  name: network-class
+spec:
+  vlan:
+    idPool:
+      - "302"
+    parentNodeNetworkInterfaces:
+      labelSelector:
+        matchLabels:
+          network.deckhouse.io/interface-type: NIC
+          network.deckhouse.io/node-role: worker
