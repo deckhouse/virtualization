@@ -94,7 +94,7 @@ func CheckResultSshCommand(vmName, cmd, equal string) {
 	Eventually(func() (string, error) {
 		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 			Namespace:   conf.Namespace,
-			Username:    conf.TestData.SshUser,
+			Username:    conf.TestData.SSHUser,
 			IdenityFile: conf.TestData.Sshkey,
 		})
 		if res.Error() != nil {

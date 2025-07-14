@@ -154,7 +154,7 @@ type TestData struct {
 	VMVersions            string `yaml:"vmVersions"`
 	VdSnapshots           string `yaml:"vdSnapshots"`
 	Sshkey                string `yaml:"sshKey"`
-	SshUser               string `yaml:"sshUser"`
+	SSHUser               string `yaml:"sshUser"`
 	IPAM                  string `yaml:"ipam"`
 }
 
@@ -240,7 +240,7 @@ func (c *Config) setEnvs() error {
 func (c *Config) GetTestCases() ([]string, error) {
 	testDataValue := reflect.ValueOf(c.TestData)
 	testDataType := reflect.TypeOf(c.TestData)
-	excludedData := []string{"Sshkey", "SshUser"}
+	excludedData := []string{"Sshkey", "SSHUser"}
 	testCases := make([]string, 0, testDataType.NumField()-len(excludedData))
 
 	if testDataType.Kind() == reflect.Struct {

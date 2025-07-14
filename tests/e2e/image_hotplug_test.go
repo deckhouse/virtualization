@@ -44,7 +44,7 @@ func IsBlockDeviceCdRom(vmName, blockDeviceName string) (bool, error) {
 	cmd := fmt.Sprintf("lsblk --json --nodeps --output name,type %s", bdIdPath)
 	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 		Namespace:   conf.Namespace,
-		Username:    conf.TestData.SshUser,
+		Username:    conf.TestData.SSHUser,
 		IdenityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
@@ -66,7 +66,7 @@ func MountBlockDevice(vmName, blockDeviceId string) error {
 	cmd := fmt.Sprintf("sudo mount --read-only %s /mnt", bdIdPath)
 	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 		Namespace:   conf.Namespace,
-		Username:    conf.TestData.SshUser,
+		Username:    conf.TestData.SSHUser,
 		IdenityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {
@@ -80,7 +80,7 @@ func IsBlockDeviceReadOnly(vmName, blockDeviceId string) (bool, error) {
 	cmd := fmt.Sprintf("findmnt --noheadings --output options %s", bdIdPath)
 	res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
 		Namespace:   conf.Namespace,
-		Username:    conf.TestData.SshUser,
+		Username:    conf.TestData.SSHUser,
 		IdenityFile: conf.TestData.Sshkey,
 	})
 	if res.Error() != nil {

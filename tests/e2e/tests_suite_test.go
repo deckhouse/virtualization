@@ -149,7 +149,7 @@ func init() {
 			fieldType := t.Field(i)
 
 			// Ignore
-			if fieldType.Name == "Sshkey" || fieldType.Name == "SshUser" {
+			if fieldType.Name == "Sshkey" || fieldType.Name == "SSHUser" {
 				continue
 			}
 
