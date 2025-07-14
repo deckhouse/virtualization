@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"strings"
 
-	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -85,7 +85,7 @@ func getVMInfo(kubectl kc.Kubectl, vmName, vmNamespace string) (string, string, 
 		return "", "", fmt.Errorf("failed to get VM: %v", result.Error())
 	}
 
-	var vm virtualizationv1alpha2.VirtualMachine
+	var vm virtv2.VirtualMachine
 	if err := json.Unmarshal([]byte(result.StdOut()), &vm); err != nil {
 		return "", "", fmt.Errorf("failed to parse VM JSON: %v", err)
 	}
