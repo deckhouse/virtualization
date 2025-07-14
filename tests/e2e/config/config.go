@@ -156,6 +156,7 @@ type TestData struct {
 	Sshkey                string `yaml:"sshKey"`
 	SshUser               string `yaml:"sshUser"`
 	IPAM                  string `yaml:"ipam"`
+	VmVpc                 string `yaml:"vmVpc"`
 }
 
 type StorageClass struct {

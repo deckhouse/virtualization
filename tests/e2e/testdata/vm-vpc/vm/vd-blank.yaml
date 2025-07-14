@@ -1,0 +1,7 @@
+apiVersion: virtualization.deckhouse.io/v1alpha2
+kind: VirtualDisk
+metadata:
+  name: vd-blank
+spec:
+  persistentVolumeClaim:
+    size: 100Mi
