@@ -55,7 +55,7 @@ func WaitBlockDeviceRefsAttached(namespace string, vms ...string) {
 			vm := virtv2.VirtualMachine{}
 			err := GetObject(virtv2.VirtualMachineResource, vmName, &vm, kc.GetOptions{Namespace: namespace})
 			if err != nil {
-				return fmt.Errorf("virtualMachine: %s\nstderr: ws", vmName, err)
+				return fmt.Errorf("virtualMachine: %s\nstderr: %w", vmName, err)
 			}
 			for _, bd := range vm.Status.BlockDeviceRefs {
 				if !bd.Attached {
@@ -132,7 +132,7 @@ func GetDiskSize(vmName, vdName, diskIdPath string, config *cfg.Config, disk *Di
 	Eventually(func() error {
 		sizeByLsblk, err = GetSizeByLsblk(vmName, diskIdPath)
 		if err != nil {
-			return fmt.Errorf("virtualMachine: %s\nstderr: ws", vmName, err)
+			return fmt.Errorf("virtualMachine: %s\nstderr: %w", vmName, err)
 		}
 		return nil
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
