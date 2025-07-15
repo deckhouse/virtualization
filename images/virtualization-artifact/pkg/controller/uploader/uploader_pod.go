@@ -184,6 +184,8 @@ func (p *Pod) makeUploaderContainerEnv() []corev1.EnvVar {
 
 // addVolumes fills Volumes in Pod spec and VolumeMounts and envs in container spec.
 func (p *Pod) addVolumes(pod *corev1.Pod, container *corev1.Container) {
+	podutil.AddEmptyDirVolume(pod, container, "tmp", "/tmp")
+
 	if p.Settings.DestinationAuthSecret != "" {
 		// Mount DVCR auth Secret and pass directory with mounted DVCR login config.
 		podutil.AddVolume(pod, container,
