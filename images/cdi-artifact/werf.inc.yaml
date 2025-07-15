@@ -30,7 +30,7 @@ shell:
 
     echo "Git clone CDI repository..."
     git config --global --add advice.detachedHead false
-    git clone --depth 1 --branch v1.60.3-virtualization-chown-test $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
+    git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
 
   - |
     echo Download Go modules.

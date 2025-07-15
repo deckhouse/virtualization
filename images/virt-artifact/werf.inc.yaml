@@ -48,7 +48,6 @@ shell:
   - |
      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
      git config --global --add advice.detachedHead false
-     echo "foodsaasasddsadsaar"
      git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/deckhouse/3p-kubevirt --branch v1.3.1-virtualization-chown-test /kubevirt
      cd /kubevirt
      go mod download
