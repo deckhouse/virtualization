@@ -117,7 +117,7 @@ func ItCheckStatusFromFile(filepath, output, compareField string) {
 
 	for _, u := range unstructs {
 		It("Get recourse status "+u.GetName(), func() {
-			fullName := helper.GetFullApiResourceName(u)
+			fullName := helper.GetFullAPIResourceName(u)
 			var res *executor.CMDResult
 			if u.GetNamespace() == "" {
 				res = kubectl.GetResource(fullName, u.GetName(), kc.GetOptions{Output: output})
@@ -189,7 +189,7 @@ func GetVMFromManifest(manifest string) (*virtv2.VirtualMachine, error) {
 	}
 	var unstruct *unstructured.Unstructured
 	for _, u := range unstructs {
-		if helper.GetFullApiResourceName(u) == kc.ResourceVM {
+		if helper.GetFullAPIResourceName(u) == kc.ResourceVM {
 			unstruct = u
 			break
 		}

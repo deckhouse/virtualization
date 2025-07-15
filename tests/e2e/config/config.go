@@ -146,7 +146,7 @@ type TestData struct {
 	ImageHotplug          string `yaml:"imageHotplug"`
 	ImagesCreation        string `yaml:"imagesCreation"`
 	VMConfiguration       string `yaml:"vmConfiguration"`
-	VmLabelAnnotation     string `yaml:"vmLabelAnnotation"`
+	VMLabelAnnotation     string `yaml:"vmLabelAnnotation"`
 	VMMigration           string `yaml:"vmMigration"`
 	VMMigrationCancel     string `yaml:"vmMigrationCancel"`
 	VMEvacuation          string `yaml:"vmEvacuation"`
