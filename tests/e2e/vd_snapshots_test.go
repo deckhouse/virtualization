@@ -29,8 +29,6 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	sdsrepvolv1 "github.com/deckhouse/sds-replicated-volume/api/v1alpha1"
-
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
@@ -40,10 +38,6 @@ import (
 )
 
 const (
-	ReplicatedStorageClassKind     = "ReplicatedStorageClass"
-	LinstorProviderName            = "replicated.csi.storage.deckhouse.io"
-	LVMThinName                    = "LVMThin"
-	CephProviderName               = "rbd.csi.ceph.com"
 	filesystemReadyTimeout         = 60 * time.Second
 	filesystemReadyPollingInterval = 5 * time.Second
 	frozenReasonPollingInterval    = 1 * time.Second
@@ -85,111 +79,6 @@ func CreateVirtualDiskSnapshot(vdName, snapshotName, volumeSnapshotClassName str
 	return nil
 }
 
-func CreateImmediateStorageClass(provisioner string, labels map[string]string) (string, error) {
-	GinkgoHelper()
-	filePath := fmt.Sprintf("%s/immediate-storage-class.yaml", conf.TestData.VdSnapshots)
-	switch provisioner {
-	case LinstorProviderName:
-		replicatedStorageClassName := fmt.Sprintf("%s-linstor-immediate", namePrefix)
-		replicatedStoragePoolName, err := GetLVMThinReplicatedStoragePool()
-		if err != nil {
-			return "", err
-		}
-		err = createLinstorImmediateStorageClass(filePath, replicatedStorageClassName, replicatedStoragePoolName, labels)
-		if err != nil {
-			return "", err
-		}
-		return replicatedStorageClassName, nil
-	case CephProviderName:
-		storageClassName := fmt.Sprintf("%s-ceph-immediate", namePrefix)
-		err := createCephImmediateStorageClass(filePath, storageClassName, labels)
-		if err != nil {
-			return "", err
-		}
-		return storageClassName, nil
-	default:
-		return "", errors.New("cannot create storage class with `Immediate` volume binding mode")
-	}
-}
-
-// Get first replicated storage pool with type `LVMThin` and phase `Completed`
-func GetLVMThinReplicatedStoragePool() (string, error) {
-	GinkgoHelper()
-	rspObjects := sdsrepvolv1.ReplicatedStoragePoolList{}
-	err := GetObjects(kc.ResourceReplicatedStoragePool, &rspObjects, kc.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-	for _, rsp := range rspObjects.Items {
-		if rsp.Spec.Type == LVMThinName && rsp.Status.Phase == PhaseCompleted {
-			return rsp.Name, nil
-		}
-	}
-	return "", fmt.Errorf("cannot get completed replicated storage pool with type `LVMThin`")
-}
-
-func createLinstorImmediateStorageClass(filePath, storageClassName, replicatedStoragePoolName string, labels map[string]string) error {
-	GinkgoHelper()
-	replicatedStorageClass := sdsrepvolv1.ReplicatedStorageClass{
-		TypeMeta: v1.TypeMeta{
-			APIVersion: sdsrepvolv1.SchemeGroupVersion.String(),
-			Kind:       ReplicatedStorageClassKind,
-		},
-		ObjectMeta: v1.ObjectMeta{
-			Name:   storageClassName,
-			Labels: labels,
-		},
-		Spec: sdsrepvolv1.ReplicatedStorageClassSpec{
-			ReclaimPolicy: "Delete",
-			Replication:   "None",
-			StoragePool:   replicatedStoragePoolName,
-			Topology:      "Ignored",
-			VolumeAccess:  "Any",
-		},
-	}
-
-	err := WriteYamlObject(filePath, &replicatedStorageClass)
-	if err != nil {
-		return nil
-	}
-
-	res := kubectl.Apply(kc.ApplyOptions{
-		Filename:       []string{filePath},
-		FilenameOption: kc.Filename,
-	})
-	if res.Error() != nil {
-		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-	}
-
-	return nil
-}
-
-func createCephImmediateStorageClass(filePath, storageClassName string, labels map[string]string) error {
-	GinkgoHelper()
-	sc, err := GetDefaultStorageClass()
-	if err != nil {
-		return err
-	}
-	sc.ObjectMeta.Name = storageClassName
-	sc.ObjectMeta.Labels = labels
-	*sc.VolumeBindingMode = storagev1.VolumeBindingImmediate
-
-	err = WriteYamlObject(filePath, sc)
-	if err != nil {
-		return err
-	}
-
-	res := kubectl.Apply(kc.ApplyOptions{
-		Filename:       []string{filePath},
-		FilenameOption: kc.Filename,
-	})
-	if res.Error() != nil {
-		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-	}
-
-	return nil
-}
-
 func GetVolumeSnapshotClassName(storageClass *storagev1.StorageClass) (string, error) {
 	vscObjects := snapshotvolv1.VolumeSnapshotClassList{}
 	err := GetObjects(kc.ResourceVolumeSnapshotClass, &vscObjects, kc.GetOptions{})
@@ -222,15 +111,8 @@ func CheckFileSystemFrozen(vmName string) (bool, error) {
 	return false, nil
 }
 
-var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(), func() {
-	BeforeEach(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-	})
-
+var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
-		immediateStorageClassName      string // require for unattached virtual disk snapshots
 		defaultVolumeSnapshotClassName string
 		testCaseLabel                  = map[string]string{"testcase": "vd-snapshots"}
 		attachedVirtualDiskLabel       = map[string]string{"attachedVirtualDisk": ""}
@@ -238,49 +120,26 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 		vmAutomaticWithHotplug         = map[string]string{"vm": "automatic-with-hotplug"}
 	)
 
+	BeforeAll(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml")
+		ns, err := kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+		conf.SetNamespace(ns)
+
+		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
+
+		defaultVolumeSnapshotClassName, err = GetVolumeSnapshotClassName(conf.StorageClass.DefaultStorageClass)
+		Expect(err).NotTo(HaveOccurred(), "cannot define default `VolumeSnapshotClass`\nstderr: %s", err)
+	})
+
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
-	})
-
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VdSnapshots, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
-		})
-
-		It("prepares `Immediate` storage class and virtual disk that use it", func() {
-			sc, err := GetDefaultStorageClass()
-			Expect(err).NotTo(HaveOccurred(), "cannot get default storage class\nstderr: %s", err)
-			defaultVolumeSnapshotClassName, err = GetVolumeSnapshotClassName(sc)
-			Expect(err).NotTo(HaveOccurred(), "cannot define default `VolumeSnapshotClass`\nstderr: %s", err)
-			if sc.Provisioner == LinstorProviderName {
-				storagePoolName := sc.Parameters["replicated.csi.storage.deckhouse.io/storagePool"]
-				storagePoolObj := sdsrepvolv1.ReplicatedStoragePool{}
-				err := GetObject(kc.ResourceReplicatedStoragePool, storagePoolName, &storagePoolObj, kc.GetOptions{})
-				Expect(err).NotTo(HaveOccurred(), "cannot get `storagePoolObj`: %s\nstderr: %s", storagePoolName, err)
-				Expect(storagePoolObj.Spec.Type).To(Equal(LVMThinName), "type of replicated storage pool should be `LVMThin`")
-			}
-
-			if *sc.VolumeBindingMode != storagev1.VolumeBindingImmediate {
-				immediateStorageClassName, err = CreateImmediateStorageClass(sc.Provisioner, testCaseLabel)
-				Expect(err).NotTo(HaveOccurred(), "%s", err)
-
-				virtualDiskWithoutConsumer := virtv2.VirtualDisk{}
-				vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-alpine-http.yaml", conf.TestData.VdSnapshots)
-				err = UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
-				Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
-
-				virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &immediateStorageClassName
-				err = WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
-				Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
-			} else {
-				immediateStorageClassName = sc.Name
-			}
-		})
 	})
 
 	Context("When virtualization resources are applied:", func() {
@@ -348,11 +207,7 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 
 			vds := strings.Split(res.StdOut(), " ")
 
-			sc := storagev1.StorageClass{}
-			err := GetObject(kc.ResourceStorageClass, immediateStorageClassName, &sc, kc.GetOptions{})
-			Expect(err).NotTo(HaveOccurred(), "cannot get storage class: %s\nstderr: %s", immediateStorageClassName, err)
-
-			volumeSnapshotClassName, getErr := GetVolumeSnapshotClassName(&sc)
+			volumeSnapshotClassName, getErr := GetVolumeSnapshotClassName(conf.StorageClass.ImmediateStorageClass)
 			Expect(getErr).NotTo(HaveOccurred(), "%s", getErr)
 
 			for _, vdName := range vds {
@@ -551,14 +406,6 @@ var _ = Describe("Virtual disk snapshots", ginkgoutil.CommonE2ETestDecorators(),
 					{
 						Resource: kc.ResourceVDSnapshot,
 						Labels:   attachedVirtualDiskLabel,
-					},
-					{
-						Resource: kc.ResourceReplicatedStorageClass,
-						Labels:   testCaseLabel,
-					},
-					{
-						Resource: kc.ResourceStorageClass,
-						Labels:   testCaseLabel,
 					},
 				},
 			})

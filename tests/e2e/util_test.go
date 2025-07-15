@@ -44,7 +44,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
-	. "github.com/deckhouse/virtualization/tests/e2e/config"
+	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -383,6 +383,25 @@ func GetDefaultStorageClass() (*storagev1.StorageClass, error) {
 	return defaultClasses[0], nil
 }
 
+func GetImmediateStorageClass(provisioner string) (*storagev1.StorageClass, error) {
+	scl := &storagev1.StorageClassList{}
+	err := GetObjects(kc.ResourceStorageClass, scl, kc.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sc := range scl.Items {
+		if sc.Provisioner == provisioner && *sc.VolumeBindingMode == storagev1.VolumeBindingImmediate {
+			return &sc, nil
+		}
+	}
+
+	return nil, fmt.Errorf("immediate storage class does not found; please set up immediate storage class with the %q provisioner; to skip the immediate storage class check, set %s=yes",
+		provisioner,
+		config.SkipImmediateStorageClassCheckEnv,
+	)
+}
+
 func toIPNet(prefix netip.Prefix) *net.IPNet {
 	return &net.IPNet{
 		IP:   prefix.Masked().Addr().AsSlice(),
@@ -491,14 +510,14 @@ func GetCondition(conditionType string, obj client.Object) (metav1.Condition, er
 	return metav1.Condition{}, fmt.Errorf("condition %s not found", conditionType)
 }
 
-func GetPhaseByVolumeBindingMode(c *Config) string {
-	switch c.StorageClass.VolumeBindingMode {
-	case "Immediate":
-		return PhaseReady
-	case "WaitForFirstConsumer":
-		return PhaseWaitForFirstConsumer
+func GetPhaseByVolumeBindingMode(sc *storagev1.StorageClass) string {
+	switch *sc.VolumeBindingMode {
+	case storagev1.VolumeBindingImmediate:
+		return string(virtv2.DiskReady)
+	case storagev1.VolumeBindingWaitForFirstConsumer:
+		return string(virtv2.DiskWaitForFirstConsumer)
 	default:
-		return PhaseReady
+		return string(virtv2.DiskReady)
 	}
 }
 

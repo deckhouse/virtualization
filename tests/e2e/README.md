@@ -34,21 +34,23 @@ You can check the permissions for the corresponding service account using `kubec
 kubectl auth can-i --as=virt-e2e-sa ...
 ```
 
-### Default StorageClass
+### Default Storage Class
 
-Default storage class should be set in the cluster. Annotate a StorageClass with
-storageclass.kubernetes.io/is-default-class to mark it as the default:
+Default storage class should be set in the cluster. You can set a default storage class in the `global` module config:
 
 ```bash
+$ kubectl get moduleconfigs.deckhouse.io global --output yaml | yq .spec
+```
+```yaml
+settings:
+  defaultClusterStorageClass: linstor-thin-r1
+```
 
-$ kubectl annotate storageclass linstor-thin-r1 storageclass.kubernetes.io/is-default-class=true
+### Immediate Storage Class
+Some test cases depend on an immediate storage class. You can skip the immediate storage class check if a test case does not require it.
 
-$ kubectl get storageclass linstor-thin-r1 -o yaml | less
-...
-metadata:
-  annotations:
-    storageclass.kubernetes.io/is-default-class: "true"
-...
+```bash
+FOCUS="VirtualMachineVersions" SKIP_IMMEDIATE_SC_CHECK="yes" task e2e:run
 ```
 
 ### E2E configuration

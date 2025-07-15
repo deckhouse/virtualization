@@ -5,7 +5,6 @@ go 1.23.0
 toolchain go1.23.7
 
 require (
-	github.com/deckhouse/sds-replicated-volume/api v0.0.0-20241109122839-a1ae840eb5db
 	github.com/deckhouse/virtualization/api v0.0.0-20240923080356-bb5809dba578
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.0.0
 	github.com/onsi/ginkgo/v2 v2.21.0
