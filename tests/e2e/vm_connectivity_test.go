@@ -180,7 +180,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,

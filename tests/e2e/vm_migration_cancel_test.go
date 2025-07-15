@@ -69,7 +69,7 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 
 	It("Cancel migrate", func() {
 		By("Virtual machine agents should be ready")
-		WaitVmAgentReady(kc.WaitOptions{
+		WaitVMAgentReady(kc.WaitOptions{
 			Labels:    testCaseLabel,
 			Namespace: conf.Namespace,
 			Timeout:   MaxWaitTimeout,

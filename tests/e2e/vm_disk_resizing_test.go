@@ -246,7 +246,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 	Context("When the virtual machine are applied", func() {
 		It("checks `VirtualMachine` phase", func() {
 			By("`VirtualMachine` agent should be ready", func() {
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -336,7 +336,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 					})
 				})
 				By("`VirtualMachine` should be ready", func() {
-					WaitVmAgentReady(kc.WaitOptions{
+					WaitVMAgentReady(kc.WaitOptions{
 						Labels:    testCaseLabel,
 						Namespace: conf.Namespace,
 						Timeout:   MaxWaitTimeout,

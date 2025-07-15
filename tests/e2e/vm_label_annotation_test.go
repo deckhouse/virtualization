@@ -163,7 +163,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,

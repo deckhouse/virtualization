@@ -182,7 +182,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -312,7 +312,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machine agents should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -370,7 +370,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machine agents should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -400,7 +400,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machine agents should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -437,7 +437,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				RebootVirtualMachinesBySSH(vms...)
 
 				By("Virtual machines agent should be ready", func() {
-					WaitVmAgentReady(kc.WaitOptions{
+					WaitVMAgentReady(kc.WaitOptions{
 						Labels:    testCaseLabel,
 						Namespace: conf.Namespace,
 						Timeout:   MaxWaitTimeout,
@@ -473,7 +473,7 @@ var _ = Describe("Complex test", ginkgoutil.CommonE2ETestDecorators(), func() {
 				Expect(res.Error()).NotTo(HaveOccurred())
 
 				By("Virtual machines agent should be ready", func() {
-					WaitVmAgentReady(kc.WaitOptions{
+					WaitVMAgentReady(kc.WaitOptions{
 						Labels:    testCaseLabel,
 						Namespace: conf.Namespace,
 						Timeout:   MaxWaitTimeout,

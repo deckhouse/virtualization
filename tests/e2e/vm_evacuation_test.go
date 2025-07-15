@@ -89,7 +89,7 @@ var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.Common
 
 	It("Evacuation", func() {
 		By("Virtual machine agents should be ready")
-		WaitVmAgentReady(kc.WaitOptions{
+		WaitVMAgentReady(kc.WaitOptions{
 			Labels:    testCaseLabel,
 			Namespace: conf.Namespace,
 			Timeout:   MaxWaitTimeout,

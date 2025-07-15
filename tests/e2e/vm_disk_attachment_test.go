@@ -186,7 +186,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -212,7 +212,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 					Timeout:   MaxWaitTimeout,
 				})
 				By("Virtual machines should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -249,7 +249,7 @@ var _ = Describe("Virtual disk attachment", ginkgoutil.CommonE2ETestDecorators()
 			})
 			It("checks VM phase", func() {
 				By("Virtual machines should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,

@@ -228,7 +228,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 				})
 			})
 			By("`VirtualMachines` agents should be ready", func() {
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    testCaseLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -311,7 +311,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 				Expect(res.Error()).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmC)
 				wg.Wait()
 
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    vmC,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -391,7 +391,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 
 				wg.Wait()
 
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    vmC,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -472,7 +472,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 				wg.Wait()
 			})
 			By("The `VirtualMachine` should be migrated", func() {
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    vmNodeSelector,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -567,7 +567,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 				wg.Wait()
 			})
 			By("The `VirtualMachine` should be migrated", func() {
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    vmNodeAffinity,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,

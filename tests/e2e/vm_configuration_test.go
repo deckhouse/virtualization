@@ -187,7 +187,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 	Context("When virtual machines are applied", func() {
 		It("should be ready", func() {
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -251,7 +251,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 					cmd := "sudo nohup reboot -f > /dev/null 2>&1 &"
 					ExecSSHCommand(vm, cmd)
 				}
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    manualLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
@@ -318,7 +318,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 
 		Context("When virtual machine is restarted", func() {
 			It("should be ready", func() {
-				WaitVmAgentReady(kc.WaitOptions{
+				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    automaticLabel,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,

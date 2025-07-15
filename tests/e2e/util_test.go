@@ -267,7 +267,7 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
-func WaitVmAgentReady(opts kc.WaitOptions) {
+func WaitVMAgentReady(opts kc.WaitOptions) {
 	GinkgoHelper()
 	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
 	WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)
