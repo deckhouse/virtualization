@@ -25,6 +25,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -152,6 +153,9 @@ func (p *Pod) makeUploaderContainerSpec() *corev1.Container {
 			},
 		},
 		Env: p.makeUploaderContainerEnv(),
+		SecurityContext: &corev1.SecurityContext{
+			ReadOnlyRootFilesystem: ptr.To(true),
+		},
 	}
 
 	if p.PodSettings.ResourceRequirements != nil {

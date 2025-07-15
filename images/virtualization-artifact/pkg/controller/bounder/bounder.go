@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -128,6 +129,9 @@ func (imp *Bounder) makeBounderContainerSpec() *corev1.Container {
 		Name:            common.BounderContainerName,
 		Image:           imp.PodSettings.Image,
 		ImagePullPolicy: corev1.PullPolicy(imp.PodSettings.PullPolicy),
+		SecurityContext: &corev1.SecurityContext{
+			ReadOnlyRootFilesystem: ptr.To(true),
+		},
 	}
 
 	if imp.PodSettings.ResourceRequirements != nil {
