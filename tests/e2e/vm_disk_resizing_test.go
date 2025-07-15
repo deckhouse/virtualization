@@ -38,14 +38,14 @@ import (
 type VirtualMachineDisks map[string]DiskMetaData
 
 type DiskMetaData struct {
-	Id             string
+	ID             string
 	SizeByLsblk    *resource.Quantity
 	SizeFromObject *resource.Quantity
 }
 
 const (
-	DiskIdPrefix  = "scsi-0QEMU_QEMU_HARDDISK"
-	CdRomIdPrefix = "scsi-0QEMU_QEMU_CD-ROM_drive-ua"
+	DiskIDPrefix  = "scsi-0QEMU_QEMU_HARDDISK"
+	CdRomIDPrefix = "scsi-0QEMU_QEMU_CD-ROM_drive-ua"
 )
 
 func WaitBlockDeviceRefsAttached(namespace string, vms ...string) {
@@ -97,13 +97,13 @@ func GetSizeFromObject(vdName, namespace string) (*resource.Quantity, error) {
 	return vd.Spec.PersistentVolumeClaim.Size, nil
 }
 
-func GetSizeByLsblk(vmName, diskIdPath string) (*resource.Quantity, error) {
+func GetSizeByLsblk(vmName, diskIDPath string) (*resource.Quantity, error) {
 	GinkgoHelper()
 	var (
 		blockDevices *BlockDevices
 		quantity     resource.Quantity
 	)
-	cmd := fmt.Sprintf("lsblk --json --nodeps --output size %s", diskIdPath)
+	cmd := fmt.Sprintf("lsblk --json --nodeps --output size %s", diskIDPath)
 	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
 		Namespace:   conf.Namespace,
 		Username:    conf.TestData.SSHUser,
@@ -124,13 +124,13 @@ func GetSizeByLsblk(vmName, diskIdPath string) (*resource.Quantity, error) {
 	return &quantity, nil
 }
 
-func GetDiskSize(vmName, vdName, diskIdPath string, config *cfg.Config, disk *DiskMetaData) {
+func GetDiskSize(vmName, vdName, diskIDPath string, config *cfg.Config, disk *DiskMetaData) {
 	GinkgoHelper()
 	sizeFromObject, err := GetSizeFromObject(vdName, config.Namespace)
 	Expect(err).NotTo(HaveOccurred(), "%v", err)
 	var sizeByLsblk *resource.Quantity
 	Eventually(func() error {
-		sizeByLsblk, err = GetSizeByLsblk(vmName, diskIdPath)
+		sizeByLsblk, err = GetSizeByLsblk(vmName, diskIDPath)
 		if err != nil {
 			return fmt.Errorf("virtualMachine: %s\nstderr: %w", vmName, err)
 		}
@@ -142,11 +142,11 @@ func GetDiskSize(vmName, vdName, diskIdPath string, config *cfg.Config, disk *Di
 	disk.SizeByLsblk = sizeByLsblk
 }
 
-func GetDiskIdPath(vdName string, vmi *virtv1.VirtualMachineInstance) string {
+func GetDiskIDPath(vdName string, vmi *virtv1.VirtualMachineInstance) string {
 	diskName := fmt.Sprintf("vd-%s", vdName)
 	for _, disk := range vmi.Spec.Domain.Devices.Disks {
 		if disk.Name == diskName {
-			return fmt.Sprintf("/dev/disk/by-id/%s_%s", DiskIdPrefix, disk.Serial)
+			return fmt.Sprintf("/dev/disk/by-id/%s_%s", DiskIDPrefix, disk.Serial)
 		}
 	}
 	return ""
@@ -177,8 +177,8 @@ func GetVirtualMachineDisks(vmName string, config *cfg.Config) (VirtualMachineDi
 		if device.Kind != virtv2.DiskDevice {
 			continue
 		}
-		diskIdPath := GetDiskIdPath(device.Name, intVirtVmi)
-		GetDiskSize(vmName, device.Name, diskIdPath, config, &disk)
+		diskIDPath := GetDiskIDPath(device.Name, intVirtVmi)
+		GetDiskSize(vmName, device.Name, diskIDPath, config, &disk)
 		disks[device.Name] = disk
 	}
 	return disks, nil

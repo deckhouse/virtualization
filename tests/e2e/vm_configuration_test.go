@@ -196,7 +196,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 	})
 
 	Describe("Manual restart approval mode", func() {
-		var oldCpuCores int
+		var oldCPUCores int
 		var newCPUCores int
 
 		Context("When virtual machine agents are ready", func() {
@@ -215,10 +215,10 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				err := GetObject(kc.ResourceVM, vms[0], &vmResource, kc.GetOptions{Namespace: conf.Namespace})
 				Expect(err).NotTo(HaveOccurred())
 
-				oldCpuCores = vmResource.Spec.CPU.Cores
+				oldCPUCores = vmResource.Spec.CPU.Cores
 				newCPUCores = 1 + (vmResource.Spec.CPU.Cores & 1)
 
-				CheckCPUCoresNumber(ManualMode, StageBefore, oldCpuCores, vms...)
+				CheckCPUCoresNumber(ManualMode, StageBefore, oldCPUCores, vms...)
 				ChangeCPUCoresNumber(newCPUCores, vms...)
 			})
 		})
@@ -275,7 +275,7 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 	})
 
 	Describe("Automatic restart approval mode", func() {
-		var oldCpuCores int
+		var oldCPUCores int
 		var newCPUCores int
 
 		Context(fmt.Sprintf("When virtual machine is in %s phase", PhaseRunning), func() {
@@ -294,10 +294,10 @@ var _ = Describe("Virtual machine configuration", ginkgoutil.CommonE2ETestDecora
 				err := GetObject(kc.ResourceVM, vms[0], &vmResource, kc.GetOptions{Namespace: conf.Namespace})
 				Expect(err).NotTo(HaveOccurred(), "%v", err)
 
-				oldCpuCores = vmResource.Spec.CPU.Cores
+				oldCPUCores = vmResource.Spec.CPU.Cores
 				newCPUCores = 1 + (vmResource.Spec.CPU.Cores & 1)
 
-				CheckCPUCoresNumber(AutomaticMode, StageBefore, oldCpuCores, vms...)
+				CheckCPUCoresNumber(AutomaticMode, StageBefore, oldCPUCores, vms...)
 				ChangeCPUCoresNumber(newCPUCores, vms...)
 			})
 		})

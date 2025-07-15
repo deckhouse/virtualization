@@ -150,11 +150,11 @@ func WaitResource(resource kc.Resource, name, waitFor string, timeout time.Durat
 	Expect(res.Error()).NotTo(HaveOccurred(), "wait failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
 }
 
-func PatchResource(resource kc.Resource, name string, patch []*kc.JsonPatch) {
+func PatchResource(resource kc.Resource, name string, patch []*kc.JSONPatch) {
 	GinkgoHelper()
 	res := kubectl.PatchResource(resource, name, kc.PatchOptions{
 		Namespace: conf.Namespace,
-		JsonPatch: patch,
+		JSONPatch: patch,
 	})
 	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name,
 		res.StdErr())

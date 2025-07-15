@@ -34,7 +34,6 @@ linters-settings:
       - github.com/onsi/gomega
       - github.com/onsi/ginkgo/v2
       - github.com/deckhouse/virtualization/tests/e2e/helper
-    initialisms: ["VM", "SSH"]
   nolintlint:
     # Exclude following linters from requiring an explanation.
     # Default: []

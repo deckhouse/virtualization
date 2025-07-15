@@ -61,7 +61,7 @@ func RunPod(podName, namespace, image string, entrypoint PodEntrypoint) *executo
 	return kubectl.RawCommand(cmd, ShortWaitDuration)
 }
 
-func GenerateServiceUrl(svc *corev1.Service, namespace string) string {
+func GenerateServiceURL(svc *corev1.Service, namespace string) string {
 	service := fmt.Sprintf("%s.%s.svc:%d", svc.Name, namespace, svc.Spec.Ports[0].Port)
 	return service
 }
@@ -248,7 +248,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
-			service := GenerateServiceUrl(&svcA, conf.Namespace)
+			service := GenerateServiceURL(&svcA, conf.Namespace)
 			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
 				if res.Error() != nil {
@@ -259,7 +259,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It(fmt.Sprintf("gets page from service %s", bObjName), func() {
-			service := GenerateServiceUrl(&svcB, conf.Namespace)
+			service := GenerateServiceURL(&svcB, conf.Namespace)
 			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
 				if res.Error() != nil {
@@ -273,7 +273,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			selectorA = svcA.Spec.Selector["service"]
 			selectorB = svcB.Spec.Selector["service"]
 
-			PatchResource(kc.ResourceService, svcA.Name, []*kc.JsonPatch{
+			PatchResource(kc.ResourceService, svcA.Name, []*kc.JSONPatch{
 				{
 					Op:    "replace",
 					Path:  "/spec/selector/service",
@@ -290,7 +290,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 
 		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
 			By(fmt.Sprintf("Response should be from virtual machine %q", vmB.Name))
-			service := GenerateServiceUrl(&svcA, conf.Namespace)
+			service := GenerateServiceURL(&svcA, conf.Namespace)
 			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
 				if res.Error() != nil {
@@ -301,7 +301,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It(fmt.Sprintf("changes back selector in service %s", aObjName), func() {
-			PatchResource(kc.ResourceService, svcA.Name, []*kc.JsonPatch{
+			PatchResource(kc.ResourceService, svcA.Name, []*kc.JSONPatch{
 				{
 					Op:    "replace",
 					Path:  "/spec/selector/service",

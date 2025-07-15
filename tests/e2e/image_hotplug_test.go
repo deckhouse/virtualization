@@ -40,8 +40,8 @@ type Image struct {
 
 func IsBlockDeviceCdRom(vmName, blockDeviceName string) (bool, error) {
 	var blockDevices *BlockDevices
-	bdIdPath := fmt.Sprintf("/dev/disk/by-id/%s-%s", CdRomIdPrefix, blockDeviceName)
-	cmd := fmt.Sprintf("lsblk --json --nodeps --output name,type %s", bdIdPath)
+	bdIDPath := fmt.Sprintf("/dev/disk/by-id/%s-%s", CdRomIDPrefix, blockDeviceName)
+	cmd := fmt.Sprintf("lsblk --json --nodeps --output name,type %s", bdIDPath)
 	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
 		Namespace:   conf.Namespace,
 		Username:    conf.TestData.SSHUser,
@@ -61,9 +61,9 @@ func IsBlockDeviceCdRom(vmName, blockDeviceName string) (bool, error) {
 	return blockDevice.Type == "rom", nil
 }
 
-func MountBlockDevice(vmName, blockDeviceId string) error {
-	bdIdPath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceId)
-	cmd := fmt.Sprintf("sudo mount --read-only %s /mnt", bdIdPath)
+func MountBlockDevice(vmName, blockDeviceID string) error {
+	bdIDPath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceID)
+	cmd := fmt.Sprintf("sudo mount --read-only %s /mnt", bdIDPath)
 	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
 		Namespace:   conf.Namespace,
 		Username:    conf.TestData.SSHUser,
@@ -75,9 +75,9 @@ func MountBlockDevice(vmName, blockDeviceId string) error {
 	return nil
 }
 
-func IsBlockDeviceReadOnly(vmName, blockDeviceId string) (bool, error) {
-	bdIdPath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceId)
-	cmd := fmt.Sprintf("findmnt --noheadings --output options %s", bdIdPath)
+func IsBlockDeviceReadOnly(vmName, blockDeviceID string) (bool, error) {
+	bdIDPath := fmt.Sprintf("/dev/disk/by-id/%s", blockDeviceID)
+	cmd := fmt.Sprintf("findmnt --noheadings --output options %s", bdIDPath)
 	res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
 		Namespace:   conf.Namespace,
 		Username:    conf.TestData.SSHUser,
@@ -352,17 +352,17 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 			for _, disk := range intVirtVmi.Spec.Domain.Devices.Disks {
 				switch {
 				case strings.HasSuffix(disk.Name, "iso"):
-					imgs[disk.Name] = fmt.Sprintf("%s-%s", CdRomIdPrefix, disk.Name)
+					imgs[disk.Name] = fmt.Sprintf("%s-%s", CdRomIDPrefix, disk.Name)
 				case strings.HasPrefix(disk.Name, "cvi-") || strings.HasPrefix(disk.Name, "vi-"):
-					imgs[disk.Name] = fmt.Sprintf("%s_%s", DiskIdPrefix, disk.Serial)
+					imgs[disk.Name] = fmt.Sprintf("%s_%s", DiskIDPrefix, disk.Serial)
 				}
 			}
 
 			Expect(len(imgs)).To(Equal(imgCount), "there are only %d `blockDevices` in this case", imgCount)
-			for img, diskId := range imgs {
-				err := MountBlockDevice(vmObj.Name, diskId)
+			for img, diskID := range imgs {
+				err := MountBlockDevice(vmObj.Name, diskID)
 				Expect(err).NotTo(HaveOccurred(), "failed to mount %q into the `VirtualMachine`: %s", img, err)
-				isReadOnly, err := IsBlockDeviceReadOnly(vmObj.Name, diskId)
+				isReadOnly, err := IsBlockDeviceReadOnly(vmObj.Name, diskID)
 				Expect(err).NotTo(HaveOccurred(), "failed to check the `ReadOnly` status: %s", img)
 				Expect(isReadOnly).Should(BeTrue(), "the mounted disk should be `ReadOnly`")
 			}

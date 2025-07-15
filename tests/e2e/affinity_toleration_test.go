@@ -274,12 +274,12 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 				ExpectVirtualMachineIsMigratable(vmObjC)
 				p, err := GenerateVirtualMachineAndPodAntiAffinityPatch(vmKey, nodeLabelKey, metav1.LabelSelectorOpIn, []string{vmA[vmKey]})
 				Expect(err).NotTo(HaveOccurred(), "failed to generate the `VirtualMachineAndPodAntiAffinity` patch")
-				jsonPatchAdd := &kc.JsonPatch{
+				jsonPatchAdd := &kc.JSONPatch{
 					Op:    "add",
 					Path:  "/spec/affinity/virtualMachineAndPodAntiAffinity",
 					Value: string(p),
 				}
-				jsonPatchRemove := &kc.JsonPatch{
+				jsonPatchRemove := &kc.JSONPatch{
 					Op:   "remove",
 					Path: "/spec/affinity/virtualMachineAndPodAffinity",
 				}
@@ -302,7 +302,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
 				}()
 				res := kubectl.PatchResource(kc.ResourceVM, vmObjC.Name, kc.PatchOptions{
-					JsonPatch: []*kc.JsonPatch{
+					JSONPatch: []*kc.JSONPatch{
 						jsonPatchAdd,
 						jsonPatchRemove,
 					},
@@ -336,19 +336,19 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 				ExpectVirtualMachineIsMigratable(updatedVMObjC)
 				p, err := GenerateVirtualMachineAndPodAffinityPatch(vmKey, nodeLabelKey, metav1.LabelSelectorOpIn, []string{vmA[vmKey]})
 				Expect(err).NotTo(HaveOccurred(), "failed to generate the `VirtualMachineAndPodAffinity` patch")
-				jsonPatchAdd := &kc.JsonPatch{
+				jsonPatchAdd := &kc.JSONPatch{
 					Op:    "add",
 					Path:  "/spec/affinity/virtualMachineAndPodAffinity",
 					Value: string(p),
 				}
-				jsonPatchRemove := &kc.JsonPatch{
+				jsonPatchRemove := &kc.JSONPatch{
 					Op:   "remove",
 					Path: "/spec/affinity/virtualMachineAndPodAntiAffinity",
 				}
 
 				migrationInitiatedAt := time.Now().UTC()
 				res := kubectl.PatchResource(kc.ResourceVM, vmObjC.Name, kc.PatchOptions{
-					JsonPatch: []*kc.JsonPatch{
+					JSONPatch: []*kc.JSONPatch{
 						jsonPatchAdd,
 						jsonPatchRemove,
 					},
