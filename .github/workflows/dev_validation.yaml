@@ -169,10 +169,31 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
       
-      - name: Run gen files
+      - name: Run check gen files virtualization-artifact
         run: |
           cd ./images/virtualization-artifact
           task dev:gogenerate
+          
+          if ! git diff --exit-code; then
+            echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
+            git diff
+            exit 1
+          fi
+      
+      - name: Run check gen files vm-route-forge
+        run: |
+          cd ./images/vm-route-forge
+          task gen
+          
+          if ! git diff --exit-code; then
+            echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
+            git diff
+            exit 1
+          fi
+      - name: Run check gen api
+        run: |
+          cd ./api
+          task generate
           
           if ! git diff --exit-code; then
             echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
