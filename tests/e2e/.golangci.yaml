@@ -29,6 +29,11 @@ linters-settings:
     rules:
       - name: dot-imports
         disabled: true
+  stylecheck:
+    dot-import-whitelist:
+      - github.com/onsi/gomega
+      - github.com/onsi/ginkgo/v2
+      - github.com/deckhouse/virtualization/tests/e2e/helper
   nolintlint:
     # Exclude following linters from requiring an explanation.
     # Default: []
