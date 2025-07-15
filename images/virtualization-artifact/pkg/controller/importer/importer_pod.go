@@ -322,6 +322,8 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 
 // addVolumes fills Volumes in Pod spec and VolumeMounts and envs in container spec.
 func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
+	podutil.AddEmptyDirVolume(pod, container, "tmp", "/tmp")
+
 	if imp.EnvSettings.AuthSecret != "" {
 		// Mount source registry auth Secret and pass directory with mounted source registry login config.
 		podutil.AddVolume(pod, container,
