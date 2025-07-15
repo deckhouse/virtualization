@@ -134,7 +134,6 @@ var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.Common
 				return fmt.Errorf("expected %d finished VMOPs, got %d", len(vmNames), finishedVMOPs)
 			}
 			return nil
-
 		}).WithTimeout(MaxWaitTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
 	})
 })

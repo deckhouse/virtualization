@@ -688,7 +688,7 @@ func SaveTestResources(labels map[string]string, additional string) {
 	cmdr := kubectl.Get("virtualization -A", kc.GetOptions{Output: "yaml", Labels: labels})
 	Expect(cmdr.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
 
-	err := os.WriteFile(str, cmdr.StdOutBytes(), 0644)
+	err := os.WriteFile(str, cmdr.StdOutBytes(), 0o644)
 	Expect(err).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
 }
 

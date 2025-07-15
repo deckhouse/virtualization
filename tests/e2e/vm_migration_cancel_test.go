@@ -23,7 +23,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
 	virtv1 "kubevirt.io/api/core/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -156,7 +155,6 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 				}
 			}
 			return fmt.Errorf("retry because not all vmops canceled")
-
 		}).WithTimeout(MaxWaitTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
 
 		Expect(someCompleted).Should(BeFalse())

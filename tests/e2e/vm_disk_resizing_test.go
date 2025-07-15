@@ -55,7 +55,7 @@ func WaitBlockDeviceRefsAttached(namespace string, vms ...string) {
 			vm := virtv2.VirtualMachine{}
 			err := GetObject(virtv2.VirtualMachineResource, vmName, &vm, kc.GetOptions{Namespace: namespace})
 			if err != nil {
-				return fmt.Errorf("virtualMachine: %s\nstderr: %s", vmName, err)
+				return fmt.Errorf("virtualMachine: %s\nstderr: ws", vmName, err)
 			}
 			for _, bd := range vm.Status.BlockDeviceRefs {
 				if !bd.Attached {
@@ -132,7 +132,7 @@ func GetDiskSize(vmName, vdName, diskIdPath string, config *cfg.Config, disk *Di
 	Eventually(func() error {
 		sizeByLsblk, err = GetSizeByLsblk(vmName, diskIdPath)
 		if err != nil {
-			return fmt.Errorf("virtualMachine: %s\nstderr: %s", vmName, err)
+			return fmt.Errorf("virtualMachine: %s\nstderr: ws", vmName, err)
 		}
 		return nil
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Succeed())
@@ -358,7 +358,7 @@ var _ = Describe("Virtual disk resizing", ginkgoutil.CommonE2ETestDecorators(), 
 				Eventually(func() error {
 					vmDisksAfter, err = GetVirtualMachineDisks(vmObj.Name, conf)
 					if err != nil {
-						return fmt.Errorf("failed to obtain disks metadata after resizing: %s", err)
+						return fmt.Errorf("failed to obtain disks metadata after resizing: %w", err)
 					}
 					if len(vmDisksAfter) != diskCount {
 						return fmt.Errorf("quantity of the disk should be %d", diskCount)
