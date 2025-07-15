@@ -20,6 +20,10 @@ env:
 on:
   pull_request:
     types: [opened, synchronize, labeled, unlabeled]
+    branches:
+      - main
+      - chore/ci/check-autogens-files
+
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
@@ -147,3 +151,34 @@ jobs:
       - name: Run validation "Helm templates"
         run: |
           task validation:helm-templates
+  
+  check_gens_files:
+    name: Check auto-generated files are up to date
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go ${{ env.GO_VERSION }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: "${{ env.GO_VERSION }}"
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.37.2
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      
+      - name: Run gen files
+        run: |
+          cd ./images/virtualization-artifact
+          task dev:gogenerate
+          
+          if ! git diff --exit-code; then
+            echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
+            git diff
+            exit 1
+          fi
+
+
+
