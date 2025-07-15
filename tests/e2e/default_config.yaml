@@ -8,7 +8,7 @@ clusterTransport:
   certificateAuthority: ""
 
 disks:
-  uploadHelperImage: "yaroslavborbat/curl-alpine-image"
+  uploadHelperImage: "cr.yandex/crpvs5j3nh1mi2tpithr/e2e/alpine/curl-alpine-image"
   cviTestDataDir: "./testdata/cvi"
   viTestDataDir: "./testdata/vi"
   vdTestDataDir: "./testdata/vd"
