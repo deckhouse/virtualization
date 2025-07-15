@@ -43,6 +43,7 @@ shell:
 
   {{- include "alt packages clean" . | nindent 2 }}
 
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
      mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
