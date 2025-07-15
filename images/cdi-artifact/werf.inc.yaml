@@ -30,7 +30,7 @@ shell:
 
     echo "Git clone CDI repository..."
     git config --global --add advice.detachedHead false
-    echo dsadasda
+    echo dsadasddasdasdasa
     git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
 
   - |
