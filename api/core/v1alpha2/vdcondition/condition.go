@@ -103,6 +103,8 @@ const (
 	Ready ReadyReason = "Ready"
 	// Lost indicates that the underlying PersistentVolumeClaim has been lost and the `VirtualDisk` can no longer be used.
 	Lost ReadyReason = "PVCLost"
+	// Exporting indicates that the VirtualDisk is being exported.
+	Exporting ReadyReason = "Exporting"
 	// QuotaExceeded indicates that the VirtualDisk is reached project quotas and can not be provisioned.
 	QuotaExceeded ReadyReason = "QuotaExceeded"
 	// ImagePullFailed indicates that there was an issue with importing from DVCR.
