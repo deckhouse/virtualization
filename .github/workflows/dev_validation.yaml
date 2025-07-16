@@ -162,8 +162,8 @@ jobs:
       matrix:
         # Define two groups of components with their respective Go versions
         components:
-          - { go-version: "1.23.9", component: virtualization-artifact, continue-on-error: true }
-          - { go-version: "1.23.9", component: vm-route-forge, continue-on-error: true }
+          - { go-version: "1.23.9", component: virtualization-artifact, continue-on-error: false }
+          - { go-version: "1.23.9", component: vm-route-forge, continue-on-error: false }
           - { go-version: "1.22.7", component: api, continue-on-error: false }
 
     steps:
@@ -199,6 +199,23 @@ jobs:
           CONTINUE_ON_ERROR: ${{ matrix.components.continue-on-error }}
         run: |
           set +e  # allow script to continue on error if needed
+          
+          function check_diffs() {
+            echo "::group::📂 Checking diffs for ${{ matrix.components.component }}"
+            local folder=$1
+            if ! git diff --exit-code; then
+              echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
+              echo "=== git diff ==="
+              git diff origin/main... $foldr
+              echo "=== end git diff ==="
+              if [[ "$CONTINUE_ON_ERROR" != "true" ]]; then
+                exit 1
+              fi
+            else
+              echo "No differences found. All files are up to date."
+            fi
+          }
+
 
           case "${{ matrix.components.component }}" in
             virtualization-artifact)
@@ -208,9 +225,11 @@ jobs:
               go install github.com/onsi/ginkgo/v2/ginkgo@v2.21.0
               cd ..
               task controller:dev:gogenerate
+              check_diffs ./images/virtualization-artifact
               ;;
             vm-route-forge)
               task vm-route-forge:gen
+              check_diffs ./images/vm-route-forge
               ;;
             api)
               cd ./api
@@ -220,6 +239,7 @@ jobs:
               go get k8s.io/code-generator@v0.29.2
               cd ..
               task controller:api:generate
+              check_diffs ./api
               ;;
             *)
               echo "Unknown component: ${{ matrix.components.component }}"
@@ -227,19 +247,21 @@ jobs:
               ;;
           esac
 
-          echo "::group::📂 Checking diffs for ${{ matrix.components.component }}"
-          if ! git diff --exit-code; then
-            echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
-            echo "=== git diff ==="
-            git diff origin/main...
-            echo "=== end git diff ==="
-            if [[ "$CONTINUE_ON_ERROR" != "true" ]]; then
-              exit 1
-            fi
-          else
-            echo "No differences found. All files are up to date."
-          fi
-          echo "::endgroup::"
+          
+          
+
+          # if ! git diff --exit-code; then
+          #   echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
+          #   echo "=== git diff ==="
+          #   git diff origin/main...
+          #   echo "=== end git diff ==="
+          #   if [[ "$CONTINUE_ON_ERROR" != "true" ]]; then
+          #     exit 1
+          #   fi
+          # else
+          #   echo "No differences found. All files are up to date."
+          # fi
+          # echo "::endgroup::"
 
   # check_gens_files:
   #   name: Check auto-generated files are up to date
