@@ -61,7 +61,7 @@ func RunPod(podName, namespace, image string, entrypoint PodEntrypoint) *executo
 	return kubectl.RawCommand(cmd, ShortWaitDuration)
 }
 
-func GenerateServiceUrl(svc *corev1.Service, namespace string) string {
+func GenerateServiceURL(svc *corev1.Service, namespace string) string {
 	service := fmt.Sprintf("%s.%s.svc:%d", svc.Name, namespace, svc.Spec.Ports[0].Port)
 	return service
 }
@@ -85,16 +85,16 @@ func CheckExternalConnection(host, httpCode string, vms ...string) {
 	for _, vm := range vms {
 		By(fmt.Sprintf("Response code from %q should be %q for %q", host, httpCode, vm))
 		cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
-		CheckResultSshCommand(vm, cmd, httpCode)
+		CheckResultSSHCommand(vm, cmd, httpCode)
 	}
 }
 
-func CheckResultSshCommand(vmName, cmd, equal string) {
+func CheckResultSSHCommand(vmName, cmd, equal string) {
 	GinkgoHelper()
 	Eventually(func() (string, error) {
-		res := d8Virtualization.SshCommand(vmName, cmd, d8.SshOptions{
+		res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
 			Namespace:   conf.Namespace,
-			Username:    conf.TestData.SshUser,
+			Username:    conf.TestData.SSHUser,
 			IdenityFile: conf.TestData.Sshkey,
 		})
 		if res.Error() != nil {
@@ -180,7 +180,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 	Context("When virtual machines are applied", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
@@ -230,7 +230,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			cmd := "hostname"
 			for _, vmName := range []string{vmA.Name, vmB.Name} {
 				By(fmt.Sprintf("VirtualMachine %q", vmName))
-				CheckResultSshCommand(vmName, cmd, vmName)
+				CheckResultSSHCommand(vmName, cmd, vmName)
 			}
 		})
 
@@ -243,12 +243,12 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			cmd := "systemctl is-active nginx.service"
 			for _, vmName := range []string{vmA.Name, vmB.Name} {
 				By(fmt.Sprintf("VirtualMachine %q", vmName))
-				CheckResultSshCommand(vmName, cmd, nginxActiveStatus)
+				CheckResultSSHCommand(vmName, cmd, nginxActiveStatus)
 			}
 		})
 
 		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
-			service := GenerateServiceUrl(&svcA, conf.Namespace)
+			service := GenerateServiceURL(&svcA, conf.Namespace)
 			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
 				if res.Error() != nil {
@@ -259,7 +259,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It(fmt.Sprintf("gets page from service %s", bObjName), func() {
-			service := GenerateServiceUrl(&svcB, conf.Namespace)
+			service := GenerateServiceURL(&svcB, conf.Namespace)
 			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
 				if res.Error() != nil {
@@ -273,7 +273,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 			selectorA = svcA.Spec.Selector["service"]
 			selectorB = svcB.Spec.Selector["service"]
 
-			PatchResource(kc.ResourceService, svcA.Name, []*kc.JsonPatch{
+			PatchResource(kc.ResourceService, svcA.Name, []*kc.JSONPatch{
 				{
 					Op:    "replace",
 					Path:  "/spec/selector/service",
@@ -290,7 +290,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 
 		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
 			By(fmt.Sprintf("Response should be from virtual machine %q", vmB.Name))
-			service := GenerateServiceUrl(&svcA, conf.Namespace)
+			service := GenerateServiceURL(&svcA, conf.Namespace)
 			Eventually(func() (string, error) {
 				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
 				if res.Error() != nil {
@@ -301,7 +301,7 @@ var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func()
 		})
 
 		It(fmt.Sprintf("changes back selector in service %s", aObjName), func() {
-			PatchResource(kc.ResourceService, svcA.Name, []*kc.JsonPatch{
+			PatchResource(kc.ResourceService, svcA.Name, []*kc.JSONPatch{
 				{
 					Op:    "replace",
 					Path:  "/spec/selector/service",

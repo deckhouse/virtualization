@@ -66,7 +66,7 @@ func CreateVirtualDiskSnapshot(vdName, snapshotName, volumeSnapshotClassName str
 	filePath := fmt.Sprintf("%s/snapshots/%s-%s.yaml", conf.TestData.VdSnapshots, vdSnapshotName, volumeSnapshotClassName)
 	err := WriteYamlObject(filePath, &vdSnapshot)
 	if err != nil {
-		return fmt.Errorf("cannot write file with virtual disk snapshot: %s\nstderr: %s", vdSnapshotName, err)
+		return fmt.Errorf("cannot write file with virtual disk snapshot: %s\nstderr: %w", vdSnapshotName, err)
 	}
 
 	res := kubectl.Apply(kc.ApplyOptions{
@@ -83,7 +83,7 @@ func GetVolumeSnapshotClassName(storageClass *storagev1.StorageClass) (string, e
 	vscObjects := snapshotvolv1.VolumeSnapshotClassList{}
 	err := GetObjects(kc.ResourceVolumeSnapshotClass, &vscObjects, kc.GetOptions{})
 	if err != nil {
-		return "", fmt.Errorf("cannot get `VolumeSnapshotClasses` by provisioner %q\nstderr: %s", storageClass.Provisioner, err)
+		return "", fmt.Errorf("cannot get `VolumeSnapshotClasses` by provisioner %q\nstderr: %w", storageClass.Provisioner, err)
 	}
 
 	for _, vsc := range vscObjects.Items {
@@ -99,7 +99,7 @@ func CheckFileSystemFrozen(vmName string) (bool, error) {
 	vmObj := virtv2.VirtualMachine{}
 	err := GetObject(kc.ResourceVM, vmName, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
 	if err != nil {
-		return false, fmt.Errorf("cannot get `VirtualMachine`: %q\nstderr: %s", vmName, err)
+		return false, fmt.Errorf("cannot get `VirtualMachine`: %q\nstderr: %w", vmName, err)
 	}
 
 	for _, condition := range vmObj.Status.Conditions {
@@ -177,7 +177,7 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 	Context("When virtual machines are applied:", func() {
 		It("checks VMs phases", func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
+			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,

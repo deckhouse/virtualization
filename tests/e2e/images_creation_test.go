@@ -30,9 +30,7 @@ import (
 )
 
 var _ = Describe("VirtualImagesCreation", ginkgoutil.CommonE2ETestDecorators(), func() {
-	var (
-		testCaseLabel = map[string]string{"testcase": "images-creation"}
-	)
+	testCaseLabel := map[string]string{"testcase": "images-creation"}
 
 	BeforeAll(func() {
 		if config.IsReusable() {

@@ -39,7 +39,7 @@ type d8VirtualizationCMD struct {
 	cmd string
 }
 
-type SshOptions struct {
+type SSHOptions struct {
 	Namespace   string
 	Username    string
 	IdenityFile string
@@ -52,14 +52,14 @@ type D8VirtualizationConf struct {
 	Token                string
 	Endpoint             string
 	CertificateAuthority string
-	InsecureTls          bool
+	InsecureTLS          bool
 }
 
 type D8Virtualization interface {
-	SshCommand(vmName, command string, opts SshOptions) *executor.CMDResult
-	StopVM(vmName string, opts SshOptions) *executor.CMDResult
-	StartVM(vmName string, opts SshOptions) *executor.CMDResult
-	RestartVM(vmName string, opts SshOptions) *executor.CMDResult
+	SSHCommand(vmName, command string, opts SSHOptions) *executor.CMDResult
+	StopVM(vmName string, opts SSHOptions) *executor.CMDResult
+	StartVM(vmName string, opts SSHOptions) *executor.CMDResult
+	RestartVM(vmName string, opts SSHOptions) *executor.CMDResult
 }
 
 func NewD8Virtualization(conf D8VirtualizationConf) (*d8VirtualizationCMD, error) {
@@ -82,16 +82,16 @@ func NewD8Virtualization(conf D8VirtualizationConf) (*d8VirtualizationCMD, error
 	}, nil
 }
 
-func (v d8VirtualizationCMD) SshCommand(vmName, command string, opts SshOptions) *executor.CMDResult {
+func (v d8VirtualizationCMD) SSHCommand(vmName, command string, opts SSHOptions) *executor.CMDResult {
 	timeout := ShortTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout
 	}
 
-	localSshOpts := "--local-ssh-opts='-o StrictHostKeyChecking=no' --local-ssh-opts='-o UserKnownHostsFile=/dev/null' --local-ssh-opts='-o LogLevel=ERROR'"
-	localSshOpts = fmt.Sprintf("%s --local-ssh-opts='-o ConnectTimeout=%s'", localSshOpts, timeout.String())
+	localSSHOpts := "--local-ssh-opts='-o StrictHostKeyChecking=no' --local-ssh-opts='-o UserKnownHostsFile=/dev/null' --local-ssh-opts='-o LogLevel=ERROR'"
+	localSSHOpts = fmt.Sprintf("%s --local-ssh-opts='-o ConnectTimeout=%s'", localSSHOpts, timeout.String())
 
-	cmd := fmt.Sprintf("%s ssh %s -c '%s' --local-ssh=true %s", v.cmd, vmName, command, localSshOpts)
+	cmd := fmt.Sprintf("%s ssh %s -c '%s' --local-ssh=true %s", v.cmd, vmName, command, localSSHOpts)
 	cmd = v.addNamespace(cmd, opts.Namespace)
 
 	if opts.Username != "" {
@@ -112,7 +112,7 @@ func (v d8VirtualizationCMD) SshCommand(vmName, command string, opts SshOptions)
 	return v.ExecContext(ctx, cmd)
 }
 
-func (v d8VirtualizationCMD) StartVM(vmName string, opts SshOptions) *executor.CMDResult {
+func (v d8VirtualizationCMD) StartVM(vmName string, opts SSHOptions) *executor.CMDResult {
 	timeout := ShortTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout
@@ -127,7 +127,7 @@ func (v d8VirtualizationCMD) StartVM(vmName string, opts SshOptions) *executor.C
 	return v.ExecContext(ctx, cmd)
 }
 
-func (v d8VirtualizationCMD) StopVM(vmName string, opts SshOptions) *executor.CMDResult {
+func (v d8VirtualizationCMD) StopVM(vmName string, opts SSHOptions) *executor.CMDResult {
 	timeout := ShortTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout
@@ -142,7 +142,7 @@ func (v d8VirtualizationCMD) StopVM(vmName string, opts SshOptions) *executor.CM
 	return v.ExecContext(ctx, cmd)
 }
 
-func (v d8VirtualizationCMD) RestartVM(vmName string, opts SshOptions) *executor.CMDResult {
+func (v d8VirtualizationCMD) RestartVM(vmName string, opts SSHOptions) *executor.CMDResult {
 	timeout := ShortTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout

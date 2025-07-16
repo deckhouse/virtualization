@@ -145,7 +145,7 @@ func (l *LogStream) WaitCmd() (warning, error) {
 				return warning(msg), nil
 			}
 		}
-		return "", fmt.Errorf("the command %q has been finished with the error: %v", l.LogStreamCmd.String(), err)
+		return "", fmt.Errorf("the command %q has been finished with the error: %w", l.LogStreamCmd.String(), err)
 	}
 	return "", nil
 }

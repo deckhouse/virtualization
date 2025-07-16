@@ -61,7 +61,7 @@ func ParseYaml(filepath string) ([]*unstructured.Unstructured, error) {
 	return out, nil
 }
 
-func GetFullApiResourceName(u *unstructured.Unstructured) kubectl.Resource {
+func GetFullAPIResourceName(u *unstructured.Unstructured) kubectl.Resource {
 	return kubectl.Resource(strings.ToLower(u.GetKind() + "." + strings.Split(u.GetAPIVersion(), "/")[0]))
 }
 

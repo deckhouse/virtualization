@@ -76,10 +76,10 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		vmNotValidSizingPolicyCreating string
 		vmClassDiscovery               string
 		vmClassDiscoveryCopy           string
-		newVmClassFilePath             string
-		notExistingVmClassChanging     = map[string]string{"vm": "not-existing-vmclass-with-changing"}
-		notExistingVmClassCreating     = map[string]string{"vm": "not-existing-vmclass-with-creating"}
-		existingVmClass                = map[string]string{"vm": "existing-vmclass"}
+		newVMClassFilePath             string
+		notExistingVMClassChanging     = map[string]string{"vm": "not-existing-vmclass-with-changing"}
+		notExistingVMClassCreating     = map[string]string{"vm": "not-existing-vmclass-with-creating"}
+		existingVMClass                = map[string]string{"vm": "existing-vmclass"}
 		testCaseLabel                  = map[string]string{"testcase": "sizing-policy"}
 	)
 
@@ -90,11 +90,11 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Context("Preparing the environment", func() {
-		vmNotValidSizingPolicyChanging = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVmClassChanging["vm"])
-		vmNotValidSizingPolicyCreating = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVmClassCreating["vm"])
+		vmNotValidSizingPolicyChanging = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVMClassChanging["vm"])
+		vmNotValidSizingPolicyCreating = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVMClassCreating["vm"])
 		vmClassDiscovery = fmt.Sprintf("%s-discovery", namePrefix)
 		vmClassDiscoveryCopy = fmt.Sprintf("%s-discovery-copy", namePrefix)
-		newVmClassFilePath = fmt.Sprintf("%s/vmc-copy.yaml", conf.TestData.SizingPolicy)
+		newVMClassFilePath = fmt.Sprintf("%s/vmc-copy.yaml", conf.TestData.SizingPolicy)
 
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml")
@@ -126,24 +126,24 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Context("When virtual disks are applied", func() {
-		It(fmt.Sprintf("checks VDs phases with %s and %s label", notExistingVmClassChanging, notExistingVmClassCreating), func() {
+		It(fmt.Sprintf("checks VDs phases with %s and %s label", notExistingVMClassChanging, notExistingVMClassCreating), func() {
 			By(fmt.Sprintf("VDs should be in %s phases", phaseByVolumeBindingMode))
 			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
-				Labels:    notExistingVmClassChanging,
+				Labels:    notExistingVMClassChanging,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
-				Labels:    notExistingVmClassCreating,
+				Labels:    notExistingVMClassCreating,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
 
-		It(fmt.Sprintf("checks VDs phases with %s label", existingVmClass), func() {
+		It(fmt.Sprintf("checks VDs phases with %s label", existingVMClass), func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
-				Labels:    existingVmClass,
+				Labels:    existingVMClass,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
@@ -151,24 +151,24 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Context("When virtual machines are applied", func() {
-		It(fmt.Sprintf("checks VMs phases with %s and %s label", notExistingVmClassChanging, notExistingVmClassCreating), func() {
+		It(fmt.Sprintf("checks VMs phases with %s and %s label", notExistingVMClassChanging, notExistingVMClassCreating), func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhasePending))
 			WaitPhaseByLabel(kc.ResourceVM, PhasePending, kc.WaitOptions{
-				Labels:    notExistingVmClassChanging,
+				Labels:    notExistingVMClassChanging,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 			WaitPhaseByLabel(kc.ResourceVM, PhasePending, kc.WaitOptions{
-				Labels:    notExistingVmClassCreating,
+				Labels:    notExistingVMClassCreating,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
 
-		It(fmt.Sprintf("checks VMs phases with %s label", existingVmClass), func() {
+		It(fmt.Sprintf("checks VMs phases with %s label", existingVMClass), func() {
 			By("Virtual machine agents should be ready")
-			WaitVmAgentReady(kc.WaitOptions{
-				Labels:    existingVmClass,
+			WaitVMAgentReady(kc.WaitOptions{
+				Labels:    existingVMClass,
 				Namespace: conf.Namespace,
 				Timeout:   MaxWaitTimeout,
 			})
@@ -176,7 +176,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	})
 
 	Describe("Not existing virtual machine class", func() {
-		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVmClassChanging, PhasePending), func() {
+		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVMClassChanging, PhasePending), func() {
 			It("checks condition status before changing 'virtulaMachineCLass` field with existing class", func() {
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before changing", metav1.ConditionFalse))
 				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, metav1.ConditionFalse)
@@ -190,8 +190,8 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 			It("checks VM phase and condition status after changing", func() {
 				By("VM should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
-					Labels:    notExistingVmClassChanging,
+				WaitVMAgentReady(kc.WaitOptions{
+					Labels:    notExistingVMClassChanging,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
@@ -200,7 +200,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			})
 		})
 
-		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVmClassCreating, PhasePending), func() {
+		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVMClassCreating, PhasePending), func() {
 			It("checks condition status before creating `VirtualMachineClass`", func() {
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before creating", metav1.ConditionFalse))
 				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, metav1.ConditionFalse)
@@ -218,10 +218,10 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 				Expect(err).NotTo(HaveOccurred())
 				vmClass.Name = vmClassDiscoveryCopy
 				vmClass.Labels = map[string]string{"id": namePrefix}
-				writeErr := WriteYamlObject(newVmClassFilePath, &vmClass)
+				writeErr := WriteYamlObject(newVMClassFilePath, &vmClass)
 				Expect(writeErr).NotTo(HaveOccurred(), writeErr)
 				res := kubectl.Apply(kc.ApplyOptions{
-					Filename:       []string{newVmClassFilePath},
+					Filename:       []string{newVMClassFilePath},
 					FilenameOption: kc.Filename,
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
@@ -229,8 +229,8 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 			It("checks VM phase and condition after creating", func() {
 				By("VM should be ready")
-				WaitVmAgentReady(kc.WaitOptions{
-					Labels:    notExistingVmClassCreating,
+				WaitVMAgentReady(kc.WaitOptions{
+					Labels:    notExistingVMClassCreating,
 					Namespace: conf.Namespace,
 					Timeout:   MaxWaitTimeout,
 				})
@@ -268,7 +268,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		It("deletes test case resources", func() {
 			DeleteTestCaseResources(ResourcesToDelete{
 				KustomizationDir: conf.TestData.SizingPolicy,
-				Files:            []string{newVmClassFilePath},
+				Files:            []string{newVMClassFilePath},
 			})
 		})
 	})

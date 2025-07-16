@@ -159,12 +159,12 @@ tasks:
           echo "Error: Deckhouse is not ready."
           exit 1
         fi
-        d8 k patch mpo virtualization --type merge -p "{\"spec\":{\"imageTag\":\"$v12n_tag\"}}" 
+        d8 k patch mpo virtualization --type merge -p "{\"spec\":{\"imageTag\":\"$v12n_tag\"}}"
         images_hash=$(crane export "dev-registry.deckhouse.io/sys/deckhouse-oss/modules/virtualization:$v12n_tag" - | tar -Oxf - images_digests.json)
         v12n_pods=$(kubectl -n d8-virtualization get pods -o json | jq -c)
         retry_count=0
         max_retries=120
-        sleep_interval=5 
+        sleep_interval=5
 
         while true; do
           all_hashes_found=true
@@ -193,7 +193,7 @@ tasks:
           if [ "$all_hashes_found" = true ]; then
             echo "All image hashes found in pods."
             break
-          fi 
+          fi
 
           retry_count=$((retry_count + 1))
           echo "Some hashes are missing, rechecking... Attempt: $retry_count"
@@ -206,3 +206,22 @@ tasks:
           # Wait for the specified interval before retrying
           sleep "$sleep_interval"
         done
+
+  _ensure:golangci-lint:
+    desc: "Ensure golangci-lint is available"
+    internal: true
+    cmds:
+      - |
+        echo -e >&2 "Please install golangci-lint https://golangci-lint.run/usage/install/"
+        exit 1
+    status:
+      - |
+        [ -f ./golangci-lint ] || which golangci-lint
+
+  lint:go:
+    desc: "Run golangci-lint"
+    deps:
+      - _ensure:golangci-lint
+    cmds:
+      - |
+        golangci-lint run --sort-results

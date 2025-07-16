@@ -38,13 +38,13 @@ var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.Common
 	testCaseLabel := map[string]string{"testcase": "vm-evacuation"}
 
 	BeforeEach(func() {
-		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VmEvacuation, "kustomization.yaml")
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMEvacuation, "kustomization.yaml")
 		ns, err := kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
 		conf.SetNamespace(ns)
 
 		res := kubectl.Apply(kc.ApplyOptions{
-			Filename:       []string{conf.TestData.VmEvacuation},
+			Filename:       []string{conf.TestData.VMEvacuation},
 			FilenameOption: kc.Kustomize,
 		})
 		Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
@@ -64,7 +64,7 @@ var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.Common
 		}
 
 		if config.IsCleanUpNeeded() {
-			resourcesToDelete.KustomizationDir = conf.TestData.VmEvacuation
+			resourcesToDelete.KustomizationDir = conf.TestData.VMEvacuation
 		}
 		DeleteTestCaseResources(resourcesToDelete)
 	})
@@ -89,7 +89,7 @@ var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.Common
 
 	It("Evacuation", func() {
 		By("Virtual machine agents should be ready")
-		WaitVmAgentReady(kc.WaitOptions{
+		WaitVMAgentReady(kc.WaitOptions{
 			Labels:    testCaseLabel,
 			Namespace: conf.Namespace,
 			Timeout:   MaxWaitTimeout,
@@ -134,7 +134,6 @@ var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.Common
 				return fmt.Errorf("expected %d finished VMOPs, got %d", len(vmNames), finishedVMOPs)
 			}
 			return nil
-
 		}).WithTimeout(MaxWaitTimeout).WithPolling(time.Second).ShouldNot(HaveOccurred())
 	})
 })

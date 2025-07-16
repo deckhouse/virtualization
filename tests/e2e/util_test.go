@@ -117,7 +117,7 @@ func ItCheckStatusFromFile(filepath, output, compareField string) {
 
 	for _, u := range unstructs {
 		It("Get recourse status "+u.GetName(), func() {
-			fullName := helper.GetFullApiResourceName(u)
+			fullName := helper.GetFullAPIResourceName(u)
 			var res *executor.CMDResult
 			if u.GetNamespace() == "" {
 				res = kubectl.GetResource(fullName, u.GetName(), kc.GetOptions{Output: output})
@@ -150,11 +150,11 @@ func WaitResource(resource kc.Resource, name, waitFor string, timeout time.Durat
 	Expect(res.Error()).NotTo(HaveOccurred(), "wait failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
 }
 
-func PatchResource(resource kc.Resource, name string, patch []*kc.JsonPatch) {
+func PatchResource(resource kc.Resource, name string, patch []*kc.JSONPatch) {
 	GinkgoHelper()
 	res := kubectl.PatchResource(resource, name, kc.PatchOptions{
 		Namespace: conf.Namespace,
-		JsonPatch: patch,
+		JSONPatch: patch,
 	})
 	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name,
 		res.StdErr())
@@ -189,7 +189,7 @@ func GetVMFromManifest(manifest string) (*virtv2.VirtualMachine, error) {
 	}
 	var unstruct *unstructured.Unstructured
 	for _, u := range unstructs {
-		if helper.GetFullApiResourceName(u) == kc.ResourceVM {
+		if helper.GetFullAPIResourceName(u) == kc.ResourceVM {
 			unstruct = u
 			break
 		}
@@ -267,7 +267,7 @@ func ChmodFile(pathFile string, permission os.FileMode) {
 	}
 }
 
-func WaitVmAgentReady(opts kc.WaitOptions) {
+func WaitVMAgentReady(opts kc.WaitOptions) {
 	GinkgoHelper()
 	WaitPhaseByLabel(kc.ResourceVM, PhaseRunning, opts)
 	WaitConditionIsTrueByLabel(kc.ResourceVM, vmcondition.TypeAgentReady.String(), opts)
@@ -636,7 +636,7 @@ func StopVirtualMachinesBySSH(virtualMachines ...string) {
 	cmd := "sudo nohup poweroff -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
-		ExecSshCommand(vm, cmd)
+		ExecSSHCommand(vm, cmd)
 	}
 }
 
@@ -646,7 +646,7 @@ func RebootVirtualMachinesBySSH(virtualMachines ...string) {
 	cmd := "sudo nohup reboot -f > /dev/null 2>&1 &"
 
 	for _, vm := range virtualMachines {
-		ExecSshCommand(vm, cmd)
+		ExecSSHCommand(vm, cmd)
 	}
 }
 
@@ -707,7 +707,7 @@ func SaveTestResources(labels map[string]string, additional string) {
 	cmdr := kubectl.Get("virtualization -A", kc.GetOptions{Output: "yaml", Labels: labels})
 	Expect(cmdr.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
 
-	err := os.WriteFile(str, cmdr.StdOutBytes(), 0644)
+	err := os.WriteFile(str, cmdr.StdOutBytes(), 0o644)
 	Expect(err).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", cmdr.GetCmd(), cmdr.StdErr())
 }
 

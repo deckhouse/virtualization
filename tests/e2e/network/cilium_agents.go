@@ -22,9 +22,10 @@ import (
 	"fmt"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -36,19 +37,19 @@ func CheckCilliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNames
 	// Get VM information using kubectl
 	vmIP, nodeName, err := getVMInfo(kubectl, vmName, vmNamespace)
 	if err != nil {
-		return fmt.Errorf("failed to get VM info: %v", err)
+		return fmt.Errorf("failed to get VM info: %w", err)
 	}
 
 	// Get node internal IP using kubectl
 	nodeInternalIP, err := getNodeInternalIP(kubectl, nodeName)
 	if err != nil {
-		return fmt.Errorf("failed to get node internal IP: %v", err)
+		return fmt.Errorf("failed to get node internal IP: %w", err)
 	}
 
 	// Get Cilium agent pods using kubectl
 	pods, err := getCiliumAgentPods(kubectl)
 	if err != nil {
-		return fmt.Errorf("failed to get Cilium agent pods: %v", err)
+		return fmt.Errorf("failed to get Cilium agent pods: %w", err)
 	}
 
 	// Check each Cilium agent pod
@@ -82,12 +83,12 @@ func CheckCilliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNames
 func getVMInfo(kubectl kc.Kubectl, vmName, vmNamespace string) (string, string, error) {
 	result := kubectl.GetResource(kc.ResourceVM, vmName, kc.GetOptions{Namespace: vmNamespace, Output: "json"})
 	if result.Error() != nil {
-		return "", "", fmt.Errorf("failed to get VM: %v", result.Error())
+		return "", "", fmt.Errorf("failed to get VM: %w", result.Error())
 	}
 
 	var vm virtv2.VirtualMachine
 	if err := json.Unmarshal([]byte(result.StdOut()), &vm); err != nil {
-		return "", "", fmt.Errorf("failed to parse VM JSON: %v", err)
+		return "", "", fmt.Errorf("failed to parse VM JSON: %w", err)
 	}
 
 	if vm.Status.IPAddress == "" {
@@ -104,12 +105,12 @@ func getVMInfo(kubectl kc.Kubectl, vmName, vmNamespace string) (string, string, 
 func getNodeInternalIP(kubectl kc.Kubectl, nodeName string) (string, error) {
 	result := kubectl.GetResource(kc.ResourceNode, nodeName, kc.GetOptions{Output: "json"})
 	if result.Error() != nil {
-		return "", fmt.Errorf("failed to get node: %v", result.Error())
+		return "", fmt.Errorf("failed to get node: %w", result.Error())
 	}
 
 	var node corev1.Node
 	if err := json.Unmarshal([]byte(result.StdOut()), &node); err != nil {
-		return "", fmt.Errorf("failed to parse node JSON: %v", err)
+		return "", fmt.Errorf("failed to parse node JSON: %w", err)
 	}
 
 	for _, addr := range node.Status.Addresses {
@@ -128,12 +129,12 @@ func getCiliumAgentPods(kubectl kc.Kubectl) ([]corev1.Pod, error) {
 		Output:    "json",
 	})
 	if result.Error() != nil {
-		return nil, fmt.Errorf("failed to get Cilium agent pods: %v", result.Error())
+		return nil, fmt.Errorf("failed to get Cilium agent pods: %w", result.Error())
 	}
 
 	var podList corev1.PodList
 	if err := json.Unmarshal([]byte(result.StdOut()), &podList); err != nil {
-		return nil, fmt.Errorf("failed to parse pod list JSON: %v", err)
+		return nil, fmt.Errorf("failed to parse pod list JSON: %w", err)
 	}
 
 	return podList.Items, nil
@@ -143,7 +144,7 @@ func searchIPFromCiliumIPCache(kubectl kc.Kubectl, pod corev1.Pod, vmIP, nodeIP 
 	cmd := fmt.Sprintf("-n %s exec %s -c cilium-agent -- cilium map get cilium_ipcache", pod.Namespace, pod.Name)
 	result := kubectl.RawCommand(cmd, kc.MediumTimeout)
 	if result.Error() != nil {
-		return false, fmt.Errorf("failed to execute command: %v", result.Error())
+		return false, fmt.Errorf("failed to execute command: %w", result.Error())
 	}
 
 	output := result.StdOut()
