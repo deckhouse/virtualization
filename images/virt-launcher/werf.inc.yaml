@@ -120,6 +120,7 @@ packages:
   - policycoreutils
   - psmisc
   - msulogin
+  - iproute2
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
@@ -135,6 +136,8 @@ binaries:
   - /usr/sbin/biosdecode /usr/sbin/dmidecode
   # Numactl
   - /usr/bin/memhog /usr/bin/migratepages /usr/bin/migspeed /usr/bin/numactl /usr/bin/numastat
+  # Iproute2
+  - /usr/sbin/tc
 {{- end -}}
 
 {{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
