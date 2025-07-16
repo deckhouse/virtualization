@@ -39,7 +39,7 @@ jobs:
     name: Filter changed paths
     outputs:
       helm_templates: ${{ steps.paths_filter.outputs.helm_templates }}
-      route_forge: ${{ steps.paths_filter.outputs.route_forge }}
+      vm_route_forge: ${{ steps.paths_filter.outputs.vm_route_forge }}
     steps:
       # For pull requests it's not necessary to checkout the code, this action uses Github API.
       - uses: dorny/paths-filter@v3
@@ -154,17 +154,17 @@ jobs:
         run: |
           task validation:helm-templates
 
-
   check_gens_files:
     name: Check auto-generated files are up-to-date
+    needs: paths_filter
     runs-on: ubuntu-latest
     strategy:
       matrix:
         # Define two groups of components with their respective Go versions
         components:
-          - { go-version: "1.23.9", component: virtualization-artifact, continue-on-error: false }
-          - { go-version: "1.23.9", component: vm-route-forge, continue-on-error: false }
-          - { go-version: "1.22.7", component: api, continue-on-error: false }
+          - { component: virtualization-artifact, go-version: "1.23.9" }
+          - { component: vm-route-forge, go-version: "1.23.9" }
+          - { component: api, go-version: "1.22.7" }
 
     steps:
       - name: Set up Go ${{ matrix.components.go-version }}
@@ -188,31 +188,42 @@ jobs:
             gcc-multilib yq
           sudo apt-get clean
 
+      - name: Set skip flag for vm-route-forge
+        run: |
+          # Only run vm-route-forge if relevant files were changed
+          if [[ "${{ needs.paths_filter.outputs.vm_route_forge }}" == "true" ]]; then
+            echo "route_forge_skip=false" >> $GITHUB_ENV
+          else
+            echo "route_forge_skip=true" >> $GITHUB_ENV
+          fi
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Run check gen files - ${{ matrix.components.component }}
-        continue-on-error: ${{ matrix.components.continue-on-error }} 
-        env:
-          CONTINUE_ON_ERROR: ${{ matrix.components.continue-on-error }}
         run: |
           set +e  # allow script to continue on error if needed
-          
+
+          # Skip vm-route-forge if no relevant changes
+          if [[ "${{ matrix.components.component }}" == "vm-route-forge" && "$route_forge_skip" == "true" ]]; then
+            echo "✅ Skipping vm-route-forge (no relevant file changes)"
+            exit 0
+          fi
+
           function check_diffs() {
             echo "::group::📂 Checking diffs for ${{ matrix.components.component }}"
             local folder=$1
             if ! git diff --exit-code; then
               echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
               echo "=== git diff ==="
-              git diff origin/main... $folder
+              git diff origin/main -- "$folder"
+              # git diff origin/main... $folder
               echo "=== end git diff ==="
-              if [[ "$CONTINUE_ON_ERROR" != "true" ]]; then
-                exit 1
-              fi
+              exit 1
             else
-              echo "No differences found. All files are up to date."
+              echo "✅ No differences found in '$folder'. All files are up to date."
             fi
           }
 
@@ -246,120 +257,7 @@ jobs:
               check_diffs ./api
               ;;
             *)
-              echo "Unknown component: ${{ matrix.components.component }}"
+              echo "❌ Unknown component: ${{ matrix.components.component }}"
               exit 1
               ;;
           esac
-
-
-
-          # if ! git diff --exit-code; then
-          #   echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
-          #   echo "=== git diff ==="
-          #   git diff origin/main...
-          #   echo "=== end git diff ==="
-          #   if [[ "$CONTINUE_ON_ERROR" != "true" ]]; then
-          #     exit 1
-          #   fi
-          # else
-          #   echo "No differences found. All files are up to date."
-          # fi
-          # echo "::endgroup::"
-
-  # check_gens_files:
-  #   name: Check auto-generated files are up to date
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Set up Go ${{ env.GO_VERSION }}
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version: "${{ env.GO_VERSION }}"
-
-  #     - name: Install Task
-  #       uses: arduino/setup-task@v2
-  #       with:
-  #         version: 3.37.2
-
-  #     - name: Install dependencies
-  #       run: |
-  #         echo "Install packages"
-  #         export DEBIAN_FRONTEND=noninteractive
-  #         sudo apt-get update
-  #         sudo apt-get install -y -qq \
-  #           llvm linux-headers-generic clang \
-  #           libbpf-dev uuid-runtime \
-  #           gcc-multilib yq
-  #         sudo apt-get clean
-      
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-  #         ref: ${{ github.event.pull_request.head.sha }}
-
-
-  #     - name: Run check gen files virtualization-artifact
-  #       continue-on-error: true
-  #       run: |
-  #         cd ./images/virtualization-artifact
-  #         echo "Install go dependencies"
-  #         # go install github.com/matryer/moq@v0.5.3
-  #         go install github.com/matryer/moq@v0.4.0
-  #         go install github.com/onsi/ginkgo/v2/ginkgo@v2.21.0
-  #         cd ..
-
-  #         echo "::group::📂 ./images/virtualization-artifact"
-  #         task controller:dev:gogenerate
-  #         echo "::endgroup::"
-
-  #         if ! git diff --exit-code; then
-  #           echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
-  #           echo "=== git diff ==="
-  #           # git diff
-  #           git diff origin/main...
-  #           echo "=== end git diff ==="
-  #           exit 1
-  #         fi
-
-  #     - name: Run check gen files vm-route-forge
-  #       # if: ${{ needs.paths_filter.outputs.route_forge == 'true' }}
-  #       continue-on-error: true
-  #       run: |
-  #         # cd ./images/vm-route-forge
-  #         echo "::group::📂 ./images/vm-route-forge"
-  #         task vm-route-forge:gen
-  #         echo "::endgroup::"
-
-  #         if ! git diff --exit-code; then
-  #           echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
-  #           echo "=== git diff ==="
-  #           # git diff
-  #           git diff origin/main...
-  #           echo "=== end git diff ==="
-  #           exit 1
-  #         fi
-  #     - name: Set up Go ${{ env.GO_VERSION }}
-  #       uses: actions/setup-go@v5
-  #       with:
-  #         go-version: "1.22.7"
-
-  #     - name: Run check gen api
-  #       # continue-on-error: true
-  #       run: |
-  #         echo "::group::📂 ./api"
-  #         cd ./api
-  #         go install -mod=readonly sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4
-  #         go install -mod=readonly k8s.io/kube-openapi/cmd/openapi-gen@latest
-  #         go get k8s.io/code-generator@v0.29.2
-  #         cd ..
-
-  #         task controller:api:generate
-  #         echo "::endgroup::"
-
-  #         if ! git diff --exit-code; then
-  #           echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
-  #           echo "=== git diff ==="
-  #           # git diff
-  #           git diff origin/main...
-  #           echo "=== end git diff ==="
-  #           exit 1
-  #         fi
