@@ -46,7 +46,7 @@ The following minimum resources are recommended for infrastructure nodes, depend
    - [SDS-Replicated-volume](https:/deckhouse.io/modules/sds-replicated-volume/stable/)
    - [SDS-Local-volume](https://deckhouse.io/modules/sds-local-volume/stable/)
    - [CSI-nfs](https://deckhouse.io/modules/csi-nfs/stable/)
-   - [CEPH-CSI](https://deckhouse.io/documentation/v1/modules/031-ceph-csi/)
+   - [CSI-CEPH](https://deckhouse.io/modules/csi-ceph/stable/)
 
 3. [Set](https://kubernetes.io/docs/tasks/administer-cluster/change-default-storage-class/) default `StorageClass`.
 4. Turn on the [console](https://deckhouse.ru/modules/console/stable/) module, which will allow you to manage virtualization components through via UI (This feature is available only to users of the EE edition).

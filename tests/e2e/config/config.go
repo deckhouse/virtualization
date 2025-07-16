@@ -159,7 +159,8 @@ type TestData struct {
 }
 
 type StorageClass struct {
-	VolumeBindingMode storagev1.VolumeBindingMode
+	DefaultStorageClass   *storagev1.StorageClass
+	ImmediateStorageClass *storagev1.StorageClass
 }
 
 type ClusterTransport struct {
