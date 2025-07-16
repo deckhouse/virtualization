@@ -220,7 +220,7 @@ jobs:
             virtualization-artifact)
               cd ./images/virtualization-artifact
               echo "Installing go dependencies..."
-              go install github.com/matryer/moq@v0.4.0
+              go install github.com/matryer/moq@v0.5.3
               go install github.com/onsi/ginkgo/v2/ginkgo@v2.21.0
               cd ..
               task controller:dev:gogenerate
@@ -233,11 +233,16 @@ jobs:
             api)
               cd ./api
               echo "Installing k8s tools..."
-              go install -mod=readonly sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4
-              go install -mod=readonly k8s.io/kube-openapi/cmd/openapi-gen@latest
               go get k8s.io/code-generator@v0.29.2
+              go install github.com/matryer/moq@v0.4.0
+              
+              go install -mod=readonly sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4
+              go install -mod=readonly k8s.io/kube-openapi/cmd/openapi-gen
+              
+              echo "Run generate"
+              task generate
+              # task controller:api:generate
               cd ..
-              task controller:api:generate
               check_diffs ./api
               ;;
             *)
