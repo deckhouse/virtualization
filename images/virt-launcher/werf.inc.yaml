@@ -2,7 +2,7 @@
 image: {{ $.ImageName }}
 final: true
 fromImage: distroless
-fromCacheVersion: "02"
+fromCacheVersion: "03"
 import:
   - image: {{ $.ImageName }}-binaries
     add: /relocate
