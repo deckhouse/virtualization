@@ -251,7 +251,6 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 		func() error {
 			pvc, err = s.GetPersistentVolumeClaim(ctx, sup)
 			if err != nil {
-
 				return err
 			}
 
