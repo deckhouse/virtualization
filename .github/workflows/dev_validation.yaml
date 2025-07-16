@@ -204,7 +204,7 @@ jobs:
 
       - name: Run check gen files - ${{ matrix.components.component }}
         run: |
-          set +e  # allow script to continue on error if needed
+          # set +e  # allow script to continue on error if needed
 
           # Skip vm-route-forge if no relevant changes
           if [[ "${{ matrix.components.component }}" == "vm-route-forge" && "$route_forge_skip" == "true" ]]; then
@@ -243,6 +243,8 @@ jobs:
               ;;
             api)
               cd ./api
+              export GOPATH=$(go env GOPATH)
+              echo "GOPATH=$GOPATH" >> $GITHUB_ENV
               echo "Installing k8s tools..."
               go get k8s.io/code-generator@v0.29.2
               go install github.com/matryer/moq@v0.4.0
