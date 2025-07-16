@@ -24,7 +24,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -244,8 +243,7 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 
 	retryErr := retry.OnError(
 		wait.Backoff{
-			Steps:    2,
-			Duration: 50 * time.Millisecond,
+			Steps: 2,
 		},
 		func(err error) bool {
 			return k8serrors.IsInvalid(err)
