@@ -245,9 +245,7 @@ func (s DiskService) CleanUp(ctx context.Context, sup *supplements.Generator) (b
 		wait.Backoff{
 			Steps: 2,
 		},
-		func(err error) bool {
-			return k8serrors.IsInvalid(err)
-		},
+		func(err error) bool { return k8serrors.IsInvalid(err) },
 		func() error {
 			pvc, err = s.GetPersistentVolumeClaim(ctx, sup)
 			if err != nil {
