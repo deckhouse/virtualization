@@ -29,7 +29,7 @@ packages:
 image: {{ $.ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "base-alt-p11" "builder/alt-go-svace" }}
-fromCacheVersion: "00"
+fromCacheVersion: "01"
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
