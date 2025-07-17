@@ -132,6 +132,7 @@ binaries:
   # Debug
   - /usr/bin/usbhid-dump
   # Debug2
+  - /usr/bin/pgrep
   - /usr/bin/bash
   - /usr/bin/ls
   - /usr/bin/lsusb
