@@ -20,7 +20,7 @@ env:
 on:
   pull_request:
     types: [opened, synchronize, labeled, unlabeled]
-    branches:
+    branches: # TODO: remove before merge
       - main
       - chore/ci/check-autogens-files
 
@@ -167,17 +167,29 @@ jobs:
           - { component: api, go-version: "1.22.7" }
 
     steps:
-      - name: Set up Go ${{ matrix.components.go-version }}
+      - name: Set skip flag
+        run: |
+          # Only run vm-route-forge if relevant files were changed
+          if [[ "${{ needs.paths_filter.outputs.vm_route_forge }}" == "true" ]]; then
+            echo "route_forge_skip=false" >> $GITHUB_ENV
+          else
+            echo "route_forge_skip=true" >> $GITHUB_ENV
+          fi
+
+      - name: Setup Go ${{ matrix.components.go-version }}
+        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.components.go-version }}
 
       - name: Install Task
+        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
         uses: arduino/setup-task@v2
         with:
           version: 3.37.2
 
       - name: Install dependencies
+        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
         run: |
           echo "Install packages"
           export DEBIAN_FRONTEND=noninteractive
@@ -188,28 +200,15 @@ jobs:
             gcc-multilib yq
           sudo apt-get clean
 
-      - name: Set skip flag for vm-route-forge
-        run: |
-          # Only run vm-route-forge if relevant files were changed
-          if [[ "${{ needs.paths_filter.outputs.vm_route_forge }}" == "true" ]]; then
-            echo "route_forge_skip=false" >> $GITHUB_ENV
-          else
-            echo "route_forge_skip=true" >> $GITHUB_ENV
-          fi
-
       - uses: actions/checkout@v4
+        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Run check gen files - ${{ matrix.components.component }}
+        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
         run: |
-          # Skip vm-route-forge if no relevant changes
-          if [[ "${{ matrix.components.component }}" == "vm-route-forge" && "$route_forge_skip" == "true" ]]; then
-            echo "✅ Skipping vm-route-forge (no relevant file changes)"
-            exit 0
-          fi
-
           function check_diffs() {
             local folder=$1
             if ! git diff --exit-code; then
@@ -217,7 +216,6 @@ jobs:
               echo "::group::📂 Diffs for ${{ matrix.components.component }}"
               echo "=== git diff ==="
               git diff origin/main -- "$folder"
-              # git diff origin/main... $folder
               echo "=== end git diff ==="
               echo "::endgroup::"
               exit 1
