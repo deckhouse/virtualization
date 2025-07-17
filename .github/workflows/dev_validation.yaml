@@ -204,8 +204,6 @@ jobs:
 
       - name: Run check gen files - ${{ matrix.components.component }}
         run: |
-          # set +e  # allow script to continue on error if needed
-
           # Skip vm-route-forge if no relevant changes
           if [[ "${{ matrix.components.component }}" == "vm-route-forge" && "$route_forge_skip" == "true" ]]; then
             echo "✅ Skipping vm-route-forge (no relevant file changes)"
@@ -213,14 +211,15 @@ jobs:
           fi
 
           function check_diffs() {
-            echo "::group::📂 Checking diffs for ${{ matrix.components.component }}"
             local folder=$1
             if ! git diff --exit-code; then
               echo "Error: Some generated files are out of date. Run 'go generate' and commit the changes."
+              echo "::group::📂 Diffs for ${{ matrix.components.component }}"
               echo "=== git diff ==="
               git diff origin/main -- "$folder"
               # git diff origin/main... $folder
               echo "=== end git diff ==="
+              echo "::endgroup::"
               exit 1
             else
               echo "✅ No differences found in '$folder'. All files are up to date."
