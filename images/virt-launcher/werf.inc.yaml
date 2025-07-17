@@ -121,6 +121,7 @@ packages:
   - psmisc
   - msulogin
   - usbutils
+  - htop
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
@@ -135,6 +136,7 @@ binaries:
   - /usr/bin/bash
   - /usr/bin/ls
   - /usr/bin/lsusb
+  - /usr/bin/htop
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
