@@ -131,6 +131,10 @@ binaries:
   - /usr/bin/psktool
   # Debug
   - /usr/bin/usbhid-dump
+  # Debug2
+  - /usr/bin/bash
+  - /usr/bin/ls
+  - /usr/bin/lsusb
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
