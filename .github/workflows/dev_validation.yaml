@@ -172,26 +172,24 @@ jobs:
           # Only run vm-route-forge if relevant files were changed
           if [[ "${{ needs.paths_filter.outputs.vm_route_forge }}" == "true" ]]; then
             echo "route_forge_skip=false" >> $GITHUB_ENV
-            else
-            # echo "route_forge_skip=true" >> $GITHUB_ENV
-            # debug only
-            echo "route_forge_skip=false" >> $GITHUB_ENV
+          else
+            echo "route_forge_skip=true" >> $GITHUB_ENV
           fi
 
       - name: Setup Go ${{ matrix.components.go-version }}
-        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
+        # if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.components.go-version }}
 
       - name: Install Task
-        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
+        # if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
         uses: arduino/setup-task@v2
         with:
           version: 3.37.2
 
       - name: Install dependencies
-        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
+        # if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
         run: |
           echo "Install packages"
           export DEBIAN_FRONTEND=noninteractive
@@ -203,13 +201,13 @@ jobs:
           sudo apt-get clean
 
       - uses: actions/checkout@v4
-        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
+        # if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
         with:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Run check gen files - ${{ matrix.components.component }}
-        if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
+        # if: matrix.components.component != 'vm-route-forge' || env.route_forge_skip != 'true'
         run: |
           function check_diffs() {
             local folder=$1
