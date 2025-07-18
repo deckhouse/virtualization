@@ -83,10 +83,14 @@ func (s ReadyStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*reconcile
 	switch s.pvc.Status.Phase {
 	case corev1.ClaimLost:
 		vd.Status.Phase = virtv2.DiskLost
-		s.cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Lost).
-			Message(fmt.Sprintf("The PersistentVolume %q not found.", s.pvc.Spec.VolumeName))
+		s.cb.Status(metav1.ConditionFalse)
+		if s.pvc.GetAnnotations()[annotations.AnnExportInProgress] == "true" {
+			s.cb.Reason(vdcondition.Exporting).Message("PV is being exported")
+		} else {
+			s.cb.
+				Reason(vdcondition.Lost).
+				Message(fmt.Sprintf("The PersistentVolume %q not found.", s.pvc.Spec.VolumeName))
+		}
 
 		log.Debug("PVC is Lost")
 

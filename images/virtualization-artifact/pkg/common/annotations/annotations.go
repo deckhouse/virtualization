@@ -125,6 +125,9 @@ const (
 	// AnnNodeCpuFeature is the Kubevirt annotation for CPU feature.
 	AnnNodeCPUFeature = "cpu-feature.node.virtualization.deckhouse.io/"
 
+	// AnnExportInProgress is the annotation for indicating that export is in progress.
+	AnnExportInProgress = "storage.deckhouse.io/export-in-progress"
+
 	// AppLabel is the app name label.
 	AppLabel = "app"
 	// CDILabelValue provides a constant  for CDI Pod label values.

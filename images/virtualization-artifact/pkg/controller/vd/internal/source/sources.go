@@ -114,10 +114,12 @@ func setPhaseConditionForFinishedDisk(
 			Message(fmt.Sprintf("PVC %s not found.", supgen.PersistentVolumeClaim().String()))
 	case pvc.Status.Phase == corev1.ClaimLost:
 		newPhase = virtv2.DiskLost
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.Lost).
-			Message(fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName))
+		cb.Status(metav1.ConditionFalse)
+		if pvc.GetAnnotations()[annotations.AnnExportInProgress] == "true" {
+			cb.Reason(vdcondition.Exporting).Message("PV is being exported")
+		} else {
+			cb.Reason(vdcondition.Lost).Message(fmt.Sprintf("PV %s not found.", pvc.Spec.VolumeName))
+		}
 	default:
 		newPhase = virtv2.DiskReady
 		cb.
