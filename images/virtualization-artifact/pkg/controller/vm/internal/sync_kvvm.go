@@ -302,15 +302,15 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("failed to make the internal virtual machine: %w", err)
 	}
 
-	kvvm.Spec.Template.Spec.Domain.Devices.HostDevices = append(kvvm.Spec.Template.Spec.Domain.Devices.HostDevices, virtv1.HostDevice{
-		DeviceName: "kubevirt.io/usbstore",
-		Name:       "usb322",
-	})
+	// kvvm.Spec.Template.Spec.Domain.Devices.HostDevices = append(kvvm.Spec.Template.Spec.Domain.Devices.HostDevices, virtv1.HostDevice{
+	// 	DeviceName: "kubevirt.io/usbstore",
+	// 	Name:       "usb322",
+	// })
 
-	kvvm.Spec.Template.Spec.Domain.Devices.HostDevices = append(kvvm.Spec.Template.Spec.Domain.Devices.HostDevices, virtv1.HostDevice{
-		DeviceName: "devices.kubevirt.io/samsung-pm9a",
-		Name:       "nvme-passthrough",
-	})
+	// kvvm.Spec.Template.Spec.Domain.Devices.HostDevices = append(kvvm.Spec.Template.Spec.Domain.Devices.HostDevices, virtv1.HostDevice{
+	// 	DeviceName: "devices.kubevirt.io/samsung-pm9a",
+	// 	Name:       "nvme-passthrough",
+	// })
 
 	err = h.client.Create(ctx, kvvm)
 	if err != nil {
