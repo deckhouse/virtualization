@@ -172,8 +172,10 @@ jobs:
           # Only run vm-route-forge if relevant files were changed
           if [[ "${{ needs.paths_filter.outputs.vm_route_forge }}" == "true" ]]; then
             echo "route_forge_skip=false" >> $GITHUB_ENV
-          else
-            echo "route_forge_skip=true" >> $GITHUB_ENV
+            else
+            # echo "route_forge_skip=true" >> $GITHUB_ENV
+            # debug only
+            echo "route_forge_skip=false" >> $GITHUB_ENV
           fi
 
       - name: Setup Go ${{ matrix.components.go-version }}
