@@ -25,6 +25,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -152,6 +153,9 @@ func (p *Pod) makeUploaderContainerSpec() *corev1.Container {
 			},
 		},
 		Env: p.makeUploaderContainerEnv(),
+		SecurityContext: &corev1.SecurityContext{
+			ReadOnlyRootFilesystem: ptr.To(true),
+		},
 	}
 
 	if p.PodSettings.ResourceRequirements != nil {
@@ -180,6 +184,8 @@ func (p *Pod) makeUploaderContainerEnv() []corev1.EnvVar {
 
 // addVolumes fills Volumes in Pod spec and VolumeMounts and envs in container spec.
 func (p *Pod) addVolumes(pod *corev1.Pod, container *corev1.Container) {
+	podutil.AddEmptyDirVolume(pod, container, "tmp", "/tmp")
+
 	if p.Settings.DestinationAuthSecret != "" {
 		// Mount DVCR auth Secret and pass directory with mounted DVCR login config.
 		podutil.AddVolume(pod, container,

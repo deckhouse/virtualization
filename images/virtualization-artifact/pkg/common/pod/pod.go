@@ -73,6 +73,11 @@ func AddVolume(pod *corev1.Pod, container *corev1.Container, volume corev1.Volum
 	container.Env = append(container.Env, envVar)
 }
 
+func AddEmptyDirVolume(pod *corev1.Pod, container *corev1.Container, volumeName, mountPath string) {
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{Name: volumeName, VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
+	container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{Name: volumeName, MountPath: mountPath})
+}
+
 func AddVolumeDevice(pod *corev1.Pod, container *corev1.Container, volume corev1.Volume, volumeDevice corev1.VolumeDevice) {
 	pod.Spec.Volumes = append(pod.Spec.Volumes, volume)
 	container.VolumeDevices = append(container.VolumeDevices, volumeDevice)
