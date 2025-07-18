@@ -1,0 +1,10 @@
+apiVersion: network.deckhouse.io/v1alpha1
+kind: Network
+metadata:
+  name: network
+  namespace: default
+spec:
+  networkClass: network-class
+  type: Vlan
+  vlan:
+    id: 301

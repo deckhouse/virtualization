@@ -29,16 +29,16 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
+	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const (
-	VMDDiskPrefix        = "vd-"
-	VMIDiskPrefix        = "vi-"
-	CVMIDiskPrefix       = "cvi-"
-	NetworkInterfaceName = "default"
+	VMDDiskPrefix  = "vd-"
+	VMIDiskPrefix  = "vi-"
+	CVMIDiskPrefix = "cvi-"
 )
 
 func GenerateVMDDiskName(name string) string {
@@ -105,7 +105,7 @@ func ApplyVirtualMachineSpec(
 	}
 
 	kvvm.SetMetadata(vm.ObjectMeta)
-	kvvm.SetNetworkInterface(NetworkInterfaceName)
+	setNetwork(kvvm, vm.Spec)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
 	kvvm.SetTolerations(vm.Spec.Tolerations, class.Spec.Tolerations)
@@ -242,5 +242,31 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetKVVMIAnnotation(virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, "true")
 	// Set label to skip the check for PodSecurityStandards to avoid irrelevant alerts related to a privileged virtual machine pod.
 	kvvm.SetKVVMILabel(annotations.SkipPodSecurityStandardsCheckLabel, "true")
+
+	// Set annotation for request network configuration.
+	err := setNetworksAnnotation(kvvm, vm.Spec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func setNetwork(kvvm *KVVM, vmSpec virtv2.VirtualMachineSpec) {
+	kvvm.SetNetworkInterface(network.NameDefaultInterface)
+
+	for _, n := range network.CreateNetworkSpec(vmSpec) {
+		kvvm.SetNetworkInterface(n.InterfaceName)
+	}
+}
+
+func setNetworksAnnotation(kvvm *KVVM, vmSpec virtv2.VirtualMachineSpec) error {
+	if len(vmSpec.Networks) > 1 {
+		networkConfig := network.CreateNetworkSpec(vmSpec)
+		networkConfigStr, err := networkConfig.ToString()
+		if err != nil {
+			return err
+		}
+		kvvm.SetKVVMIAnnotation(annotations.AnnNetworksSpec, networkConfigStr)
+	}
 	return nil
 }

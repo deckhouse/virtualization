@@ -30,6 +30,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 )
 
 func NewPodWatcher() *PodWatcher {
@@ -64,7 +66,8 @@ func (w *PodWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldPod := e.ObjectOld.(*corev1.Pod)
 				newPod := e.ObjectNew.(*corev1.Pod)
-				return oldPod.Status.Phase != newPod.Status.Phase
+				return oldPod.Status.Phase != newPod.Status.Phase ||
+					oldPod.Annotations[annotations.AnnNetworksStatus] != newPod.Annotations[annotations.AnnNetworksStatus]
 			},
 		},
 	); err != nil {
