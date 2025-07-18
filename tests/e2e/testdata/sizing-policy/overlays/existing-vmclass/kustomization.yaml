@@ -7,7 +7,7 @@ patches:
   - patch: |-
       - op: replace
         path: /spec/virtualMachineClassName
-        value: discovery
+        value: sizing-policy-discovery
     target:
       kind: VirtualMachine
       name: vm

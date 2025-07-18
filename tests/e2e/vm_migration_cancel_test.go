@@ -32,14 +32,15 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineCancelMigration", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration-cancel"}
+	var ns string
 
 	BeforeEach(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigrationCancel, "kustomization.yaml")
-		ns, err := kustomize.GetNamespace(kustomization)
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
-		conf.SetNamespace(ns)
 
 		res := kubectl.Apply(kc.ApplyOptions{
 			Filename:       []string{conf.TestData.VMMigrationCancel},
@@ -64,19 +65,19 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 		if config.IsCleanUpNeeded() {
 			resourcesToDelete.KustomizationDir = conf.TestData.VMMigrationCancel
 		}
-		DeleteTestCaseResources(resourcesToDelete)
+		DeleteTestCaseResources(ns, resourcesToDelete)
 	})
 
 	It("Cancel migrate", func() {
 		By("Virtual machine agents should be ready")
 		WaitVMAgentReady(kc.WaitOptions{
 			Labels:    testCaseLabel,
-			Namespace: conf.Namespace,
+			Namespace: ns,
 			Timeout:   MaxWaitTimeout,
 		})
 
 		vms := &virtv2.VirtualMachineList{}
-		err := GetObjects(kc.ResourceVM, vms, kc.GetOptions{Labels: testCaseLabel, Namespace: conf.Namespace})
+		err := GetObjects(kc.ResourceVM, vms, kc.GetOptions{Labels: testCaseLabel, Namespace: ns})
 		Expect(err).NotTo(HaveOccurred())
 
 		vmNames := make([]string, len(vms.Items))
@@ -85,9 +86,9 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 		}
 
 		for _, name := range vmNames {
-			By(fmt.Sprintf("Exec SSHCommand for virtualmachine %s/%s", conf.Namespace, name))
+			By(fmt.Sprintf("Exec SSHCommand for virtualmachine %s/%s", ns, name))
 			res := d8Virtualization.SSHCommand(name, "sudo nohup stress-ng --vm 1 --vm-bytes 100% --timeout 300s &>/dev/null &", d8.SSHOptions{
-				Namespace:   conf.Namespace,
+				Namespace:   ns,
 				Username:    conf.TestData.SSHUser,
 				IdenityFile: conf.TestData.Sshkey,
 				Timeout:     ShortTimeout,
@@ -99,13 +100,13 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 		time.Sleep(20 * time.Second)
 
 		By("Starting migrations for virtual machines")
-		MigrateVirtualMachines(testCaseLabel, vmNames...)
+		MigrateVirtualMachines(testCaseLabel, ns, vmNames...)
 
 		someCompleted := false
 
 		Eventually(func() error {
 			vmops := &virtv2.VirtualMachineOperationList{}
-			err := GetObjects(kc.ResourceVMOP, vmops, kc.GetOptions{Labels: testCaseLabel, Namespace: conf.Namespace})
+			err := GetObjects(kc.ResourceVMOP, vmops, kc.GetOptions{Labels: testCaseLabel, Namespace: ns})
 			if err != nil {
 				return err
 			}
@@ -115,7 +116,7 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 			}
 
 			kvvmis := &virtv1.VirtualMachineInstanceList{}
-			err = GetObjects(kc.ResourceKubevirtVMI, kvvmis, kc.GetOptions{Labels: testCaseLabel, Namespace: conf.Namespace})
+			err = GetObjects(kc.ResourceKubevirtVMI, kvvmis, kc.GetOptions{Labels: testCaseLabel, Namespace: ns})
 			if err != nil {
 				return err
 			}
@@ -169,7 +170,7 @@ var _ = Describe("Virtual machine cancel migration", SIGMigration(), ginkgoutil.
 
 		Eventually(func() error {
 			kvvmis := &virtv1.VirtualMachineInstanceList{}
-			err = GetObjects(kc.ResourceKubevirtVMI, kvvmis, kc.GetOptions{Labels: testCaseLabel, Namespace: conf.Namespace})
+			err = GetObjects(kc.ResourceKubevirtVMI, kvvmis, kc.GetOptions{Labels: testCaseLabel, Namespace: ns})
 			if err != nil {
 				return err
 			}

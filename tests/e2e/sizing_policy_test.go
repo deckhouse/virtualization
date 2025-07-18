@@ -34,37 +34,7 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-func ValidateVirtualMachineByClass(virtualMachineClass *virtv2.VirtualMachineClass, virtualMachine *virtv2.VirtualMachine) {
-	var sizingPolicy virtv2.SizingPolicy
-	for _, p := range virtualMachineClass.Spec.SizingPolicies {
-		if virtualMachine.Spec.CPU.Cores >= p.Cores.Min && virtualMachine.Spec.CPU.Cores <= p.Cores.Max {
-			sizingPolicy = *p.DeepCopy()
-			break
-		}
-	}
-
-	checkMinMemory := virtualMachine.Spec.Memory.Size.Value() >= sizingPolicy.Memory.Min.Value()
-	checkMaxMemory := virtualMachine.Spec.Memory.Size.Value() <= sizingPolicy.Memory.Max.Value()
-	checkMemory := checkMinMemory && checkMaxMemory
-	Expect(checkMemory).To(BeTrue(), fmt.Errorf("memory size outside of possible interval '%v - %v': %v", sizingPolicy.Memory.Min, sizingPolicy.Memory.Max, virtualMachine.Spec.Memory.Size))
-
-	coreFraction, err := strconv.Atoi(strings.ReplaceAll(virtualMachine.Spec.CPU.CoreFraction, "%", ""))
-	Expect(err).NotTo(HaveOccurred(), "cannot convert CoreFraction value to integer: %s", err)
-	checkCoreFraction := slices.Contains(sizingPolicy.CoreFractions, virtv2.CoreFractionValue(coreFraction))
-	Expect(checkCoreFraction).To(BeTrue(), fmt.Errorf("sizing policy core fraction list does not contain value from spec: %s\n%v", virtualMachine.Spec.CPU.CoreFraction, sizingPolicy.CoreFractions))
-}
-
-func CompareVirtualMachineClassReadyStatus(vmName string, expectedStatus metav1.ConditionStatus) {
-	GinkgoHelper()
-	vm := virtv2.VirtualMachine{}
-	err := GetObject(kc.ResourceVM, vmName, &vm, kc.GetOptions{Namespace: conf.Namespace})
-	Expect(err).NotTo(HaveOccurred(), "%v", err)
-	status, err := GetConditionStatus(&vm, vmcondition.TypeClassReady.String())
-	Expect(err).NotTo(HaveOccurred(), "%v", err)
-	Expect(status).To(Equal(expectedStatus), fmt.Sprintf("VirtualMachineClassReady status should be '%s'", expectedStatus))
-}
-
-var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	BeforeEach(func() {
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
@@ -81,6 +51,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		notExistingVMClassCreating     = map[string]string{"vm": "not-existing-vmclass-with-creating"}
 		existingVMClass                = map[string]string{"vm": "existing-vmclass"}
 		testCaseLabel                  = map[string]string{"testcase": "sizing-policy"}
+		ns                             string
 	)
 
 	AfterEach(func() {
@@ -92,15 +63,15 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Context("Preparing the environment", func() {
 		vmNotValidSizingPolicyChanging = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVMClassChanging["vm"])
 		vmNotValidSizingPolicyCreating = fmt.Sprintf("%s-vm-%s", namePrefix, notExistingVMClassCreating["vm"])
-		vmClassDiscovery = fmt.Sprintf("%s-discovery", namePrefix)
-		vmClassDiscoveryCopy = fmt.Sprintf("%s-discovery-copy", namePrefix)
+		vmClassDiscovery = fmt.Sprintf("%s-sizing-policy-discovery", namePrefix)
+		vmClassDiscoveryCopy = fmt.Sprintf("%s-sizing-policy-discovery-copy", namePrefix)
 		newVMClassFilePath = fmt.Sprintf("%s/vmc-copy.yaml", conf.TestData.SizingPolicy)
 
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.SizingPolicy, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
+			var err error
+			ns, err = kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
 		})
 	})
 
@@ -119,7 +90,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -130,12 +101,12 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By(fmt.Sprintf("VDs should be in %s phases", phaseByVolumeBindingMode))
 			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
 				Labels:    notExistingVMClassChanging,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 			WaitPhaseByLabel(kc.ResourceVD, phaseByVolumeBindingMode, kc.WaitOptions{
 				Labels:    notExistingVMClassCreating,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -144,7 +115,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    existingVMClass,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -155,12 +126,12 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By(fmt.Sprintf("VMs should be in %s phases", PhasePending))
 			WaitPhaseByLabel(kc.ResourceVM, PhasePending, kc.WaitOptions{
 				Labels:    notExistingVMClassChanging,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 			WaitPhaseByLabel(kc.ResourceVM, PhasePending, kc.WaitOptions{
 				Labels:    notExistingVMClassCreating,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -169,7 +140,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			By("Virtual machine agents should be ready")
 			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    existingVMClass,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -179,12 +150,12 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVMClassChanging, PhasePending), func() {
 			It("checks condition status before changing 'virtulaMachineCLass` field with existing class", func() {
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before changing", metav1.ConditionFalse))
-				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, metav1.ConditionFalse)
+				CompareVirtualMachineClassReadyStatus(ns, vmNotValidSizingPolicyChanging, metav1.ConditionFalse)
 			})
 
 			It("changes VMClassName in VM specification with existing VMClass", func() {
 				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":%q}}", vmClassDiscovery)
-				err := MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyChanging, mergePatch)
+				err := MergePatchResource(kc.ResourceVM, ns, vmNotValidSizingPolicyChanging, mergePatch)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -192,23 +163,23 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 				By("VM should be ready")
 				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    notExistingVMClassChanging,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' after changing", metav1.ConditionTrue))
-				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyChanging, metav1.ConditionTrue)
+				CompareVirtualMachineClassReadyStatus(ns, vmNotValidSizingPolicyChanging, metav1.ConditionTrue)
 			})
 		})
 
 		Context(fmt.Sprintf("When virtual machine with label %s in phase %s", notExistingVMClassCreating, PhasePending), func() {
 			It("checks condition status before creating `VirtualMachineClass`", func() {
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' before creating", metav1.ConditionFalse))
-				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, metav1.ConditionFalse)
+				CompareVirtualMachineClassReadyStatus(ns, vmNotValidSizingPolicyCreating, metav1.ConditionFalse)
 			})
 
 			It("changes VMClassName in VM specification with not existing VMClass which have correct prefix for creating", func() {
 				mergePatch := fmt.Sprintf("{\"spec\":{\"virtualMachineClassName\":%q}}", vmClassDiscoveryCopy)
-				err := MergePatchResource(kc.ResourceVM, vmNotValidSizingPolicyCreating, mergePatch)
+				err := MergePatchResource(kc.ResourceVM, ns, vmNotValidSizingPolicyCreating, mergePatch)
 				Expect(err).NotTo(HaveOccurred())
 			})
 
@@ -231,11 +202,11 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 				By("VM should be ready")
 				WaitVMAgentReady(kc.WaitOptions{
 					Labels:    notExistingVMClassCreating,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Timeout:   MaxWaitTimeout,
 				})
 				By(fmt.Sprintf("VirtualMachineClassReady status should be '%s' after creating", metav1.ConditionTrue))
-				CompareVirtualMachineClassReadyStatus(vmNotValidSizingPolicyCreating, metav1.ConditionTrue)
+				CompareVirtualMachineClassReadyStatus(ns, vmNotValidSizingPolicyCreating, metav1.ConditionTrue)
 			})
 		})
 	})
@@ -244,7 +215,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 		It("checks sizing policy match", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
@@ -257,7 +228,7 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 			for _, vm := range vms {
 				By(fmt.Sprintf("Check virtual machine: %s", vm))
 				vmObj := virtv2.VirtualMachine{}
-				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: conf.Namespace})
+				err := GetObject(kc.ResourceVM, vm, &vmObj, kc.GetOptions{Namespace: ns})
 				Expect(err).NotTo(HaveOccurred())
 				ValidateVirtualMachineByClass(&vmClass, &vmObj)
 			}
@@ -266,10 +237,40 @@ var _ = Describe("Sizing policy", ginkgoutil.CommonE2ETestDecorators(), func() {
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
+			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.SizingPolicy,
 				Files:            []string{newVMClassFilePath},
 			})
 		})
 	})
 })
+
+func ValidateVirtualMachineByClass(virtualMachineClass *virtv2.VirtualMachineClass, virtualMachine *virtv2.VirtualMachine) {
+	var sizingPolicy virtv2.SizingPolicy
+	for _, p := range virtualMachineClass.Spec.SizingPolicies {
+		if virtualMachine.Spec.CPU.Cores >= p.Cores.Min && virtualMachine.Spec.CPU.Cores <= p.Cores.Max {
+			sizingPolicy = *p.DeepCopy()
+			break
+		}
+	}
+
+	checkMinMemory := virtualMachine.Spec.Memory.Size.Value() >= sizingPolicy.Memory.Min.Value()
+	checkMaxMemory := virtualMachine.Spec.Memory.Size.Value() <= sizingPolicy.Memory.Max.Value()
+	checkMemory := checkMinMemory && checkMaxMemory
+	Expect(checkMemory).To(BeTrue(), fmt.Errorf("memory size outside of possible interval '%v - %v': %v", sizingPolicy.Memory.Min, sizingPolicy.Memory.Max, virtualMachine.Spec.Memory.Size))
+
+	coreFraction, err := strconv.Atoi(strings.ReplaceAll(virtualMachine.Spec.CPU.CoreFraction, "%", ""))
+	Expect(err).NotTo(HaveOccurred(), "cannot convert CoreFraction value to integer: %s", err)
+	checkCoreFraction := slices.Contains(sizingPolicy.CoreFractions, virtv2.CoreFractionValue(coreFraction))
+	Expect(checkCoreFraction).To(BeTrue(), fmt.Errorf("sizing policy core fraction list does not contain value from spec: %s\n%v", virtualMachine.Spec.CPU.CoreFraction, sizingPolicy.CoreFractions))
+}
+
+func CompareVirtualMachineClassReadyStatus(vmNamespace, vmName string, expectedStatus metav1.ConditionStatus) {
+	GinkgoHelper()
+	vm := virtv2.VirtualMachine{}
+	err := GetObject(kc.ResourceVM, vmName, &vm, kc.GetOptions{Namespace: vmNamespace})
+	Expect(err).NotTo(HaveOccurred(), "%v", err)
+	status, err := GetConditionStatus(&vm, vmcondition.TypeClassReady.String())
+	Expect(err).NotTo(HaveOccurred(), "%v", err)
+	Expect(status).To(Equal(expectedStatus), fmt.Sprintf("VirtualMachineClassReady status should be '%s'", expectedStatus))
+}

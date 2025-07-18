@@ -81,7 +81,7 @@ func CheckCilliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNames
 }
 
 func getVMInfo(kubectl kc.Kubectl, vmName, vmNamespace string) (string, string, error) {
-	result := kubectl.GetResource(kc.ResourceVM, vmName, kc.GetOptions{Namespace: vmNamespace, Output: "json"})
+	result := kubectl.GetResource(virtv2.VirtualMachineResource, vmName, kc.GetOptions{Namespace: vmNamespace, Output: "json"})
 	if result.Error() != nil {
 		return "", "", fmt.Errorf("failed to get VM: %w", result.Error())
 	}
