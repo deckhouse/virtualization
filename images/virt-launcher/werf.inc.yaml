@@ -120,6 +120,8 @@ packages:
   - policycoreutils
   - psmisc
   - msulogin
+  - usbutils
+  - htop
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
@@ -127,6 +129,16 @@ binaries:
   - /usr/bin/ocsptool
   - /usr/bin/p11tool
   - /usr/bin/psktool
+  # Debug
+  - /usr/bin/usbhid-dump
+  # Debug2
+  - /usr/bin/pgrep
+  - /usr/bin/bash
+  - /usr/bin/ls
+  - /usr/bin/lsusb
+  - /usr/bin/htop
+  - /usr/bin/ps
+  - /usr/bin/cat
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
