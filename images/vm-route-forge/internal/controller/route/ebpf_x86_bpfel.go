@@ -8,11 +8,13 @@ import (
 	_ "embed"
 	"fmt"
 	"io"
+	"structs"
 
 	"github.com/cilium/ebpf"
 )
 
 type ebpfRouteEvent struct {
+	_      structs.HostLayout
 	Action uint32
 	Table  uint32
 	Dst    uint32
@@ -54,9 +56,10 @@ func loadEbpfObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
 type ebpfSpecs struct {
 	ebpfProgramSpecs
 	ebpfMapSpecs
+	ebpfVariableSpecs
 }
 
-// ebpfSpecs contains programs before they are loaded into the kernel.
+// ebpfProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type ebpfProgramSpecs struct {
@@ -71,12 +74,20 @@ type ebpfMapSpecs struct {
 	RouteEventsMap *ebpf.MapSpec `ebpf:"route_events_map"`
 }
 
+// ebpfVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type ebpfVariableSpecs struct {
+	Unused *ebpf.VariableSpec `ebpf:"unused"`
+}
+
 // ebpfObjects contains all objects after they have been loaded into the kernel.
 //
 // It can be passed to loadEbpfObjects or ebpf.CollectionSpec.LoadAndAssign.
 type ebpfObjects struct {
 	ebpfPrograms
 	ebpfMaps
+	ebpfVariables
 }
 
 func (o *ebpfObjects) Close() error {
@@ -97,6 +108,13 @@ func (m *ebpfMaps) Close() error {
 	return _EbpfClose(
 		m.RouteEventsMap,
 	)
+}
+
+// ebpfVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to loadEbpfObjects or ebpf.CollectionSpec.LoadAndAssign.
+type ebpfVariables struct {
+	Unused *ebpf.Variable `ebpf:"unused"`
 }
 
 // ebpfPrograms contains all programs after they have been loaded into the kernel.
