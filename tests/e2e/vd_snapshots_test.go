@@ -65,6 +65,15 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
 
+		virtualDiskWithoutConsumer := virtv2.VirtualDisk{}
+		vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-alpine-http.yaml", conf.TestData.VdSnapshots)
+		err = UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
+
+		virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
+		err = WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+		Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
+
 		defaultVolumeSnapshotClassName, err = GetVolumeSnapshotClassName(conf.StorageClass.DefaultStorageClass)
 		Expect(err).NotTo(HaveOccurred(), "cannot define default `VolumeSnapshotClass`\nstderr: %s", err)
 	})

@@ -173,7 +173,7 @@ var _ = Describe("VirtualMachineConnectivity", ginkgoutil.CommonE2ETestDecorator
 		})
 
 		It("checks VMs connection to external network", func() {
-			CheckCiliumAgents(kubectl, vmA.Name, vmB.Name)
+			CheckCiliumAgents(kubectl, ns, vmA.Name, vmB.Name)
 			CheckExternalConnection(externalHost, httpStatusOk, ns, vmA.Name, vmB.Name)
 		})
 

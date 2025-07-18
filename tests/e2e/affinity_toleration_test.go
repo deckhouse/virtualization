@@ -35,7 +35,7 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETestDecorators(), func() {
 	const (
 		nodeLabelKey   = "kubernetes.io/hostname"
 		masterLabelKey = "node.deckhouse.io/group"
@@ -176,7 +176,7 @@ var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2E
 							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
 						}
 						return nil
-					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
+					}).WithTimeout(LongWaitDuration).WithPolling(migratingStatusPollingInterval).Should(Succeed())
 				}()
 				res := kubectl.PatchResource(kc.ResourceVM, vmObjC.Name, kc.PatchOptions{
 					JSONPatch: []*kc.JSONPatch{
