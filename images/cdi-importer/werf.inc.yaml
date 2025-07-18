@@ -19,6 +19,20 @@ libraries:
 packages:
   - libnbd
 binaries:
+  - /usr/bin/ls
+  - /usr/bin/id
+  - /usr/bin/cat
+  - /usr/bin/sleep
+  - /usr/bin/mkdir
+  - /usr/bin/chown
+  - /usr/bin/chmod
+  - /usr/bin/grep
+  - /usr/bin/tr
+  - /usr/bin/stat
+  - /usr/bin/ps
+  - /usr/bin/namei
+  - /usr/bin/whoami
+  - /usr/bin/bash
   # nbd bins and libs
   - /usr/sbin/nbdkit
   - /usr/lib64/nbdkit/filters/*.so
@@ -70,6 +84,7 @@ shell:
   - |
     cp -a /nbdkit/. /
     rm -rf /nbdkit
+  setupCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   setup:
   - |
     /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate

@@ -24,13 +24,14 @@ shell:
   {{- include "alt packages clean" . | nindent 2 }}
 {{- end }}
 
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}"
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     echo "Git clone CDI repository..."
     git config --global --add advice.detachedHead false
-    git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
+    git clone --depth 1 --branch v1.60.3-virtualization-chown-test $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
 
   - |
     echo Download Go modules.
