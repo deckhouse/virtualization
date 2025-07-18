@@ -20,9 +20,6 @@ env:
 on:
   pull_request:
     types: [opened, synchronize, labeled, unlabeled]
-    branches: # TODO: remove before merge
-      - main
-      - chore/ci/check-autogens-files
 
 concurrency:
   group: "${{ github.workflow }}-${{ github.event.number || github.ref }}"
