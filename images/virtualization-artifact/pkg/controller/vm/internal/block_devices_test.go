@@ -48,7 +48,7 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 	})
 
 	okBlockDeviceServiceMock := &BlockDeviceServiceMock{
-		CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+		CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
 			return 1, nil
 		},
 	}
@@ -1172,7 +1172,7 @@ var _ = Describe("BlockDeviceHandler", func() {
 	var vdBar *virtv2.VirtualDisk
 
 	blockDeviceHandlerMock := &BlockDeviceServiceMock{}
-	blockDeviceHandlerMock.CountBlockDevicesAttachedToVmFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
+	blockDeviceHandlerMock.CountBlockDevicesAttachedToVMFunc = func(_ context.Context, vm *virtv2.VirtualMachine) (int, error) {
 		return 1, nil
 	}
 
@@ -1375,7 +1375,7 @@ var _ = Describe("Capacity check", func() {
 
 		It("Should be ok because fewer than 16 devices are connected", func() {
 			okBlockDeviceServiceMock := &BlockDeviceServiceMock{
-				CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+				CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
 					return 1, nil
 				},
 			}
@@ -1391,7 +1391,7 @@ var _ = Describe("Capacity check", func() {
 		})
 		It("There might be an issue since 16 or more devices are connected.", func() {
 			erroredBlockDeviceServiceMock := &BlockDeviceServiceMock{
-				CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+				CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
 					return 17, nil
 				},
 			}
@@ -1410,7 +1410,7 @@ var _ = Describe("Capacity check", func() {
 	Context("When images are hotplugged into a VirtualMachine", func() {
 		It("checks that `VirtualMachine.Status.BlockDeviceRefs` contains the hotplugged images", func() {
 			blockDeviceServiceMock := &BlockDeviceServiceMock{
-				CountBlockDevicesAttachedToVmFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
+				CountBlockDevicesAttachedToVMFunc: func(_ context.Context, _ *virtv2.VirtualMachine) (int, error) {
 					return 2, nil
 				},
 			}

@@ -17,4 +17,4 @@ limitations under the License.
 package route
 
 // We save the generated code in this directory because bpf2go generates non-exported functions and structures.
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -target amd64 -type route_event ebpf ../../../bpf/route_watcher.c
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go@v0.16.0 -target amd64 -type route_event ebpf ../../../bpf/route_watcher.c

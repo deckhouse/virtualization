@@ -246,8 +246,8 @@ var _ BlockDeviceService = &BlockDeviceServiceMock{}
 //
 //		// make and configure a mocked BlockDeviceService
 //		mockedBlockDeviceService := &BlockDeviceServiceMock{
-//			CountBlockDevicesAttachedToVmFunc: func(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
-//				panic("mock out the CountBlockDevicesAttachedToVm method")
+//			CountBlockDevicesAttachedToVMFunc: func(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
+//				panic("mock out the CountBlockDevicesAttachedToVM method")
 //			},
 //		}
 //
@@ -256,26 +256,26 @@ var _ BlockDeviceService = &BlockDeviceServiceMock{}
 //
 //	}
 type BlockDeviceServiceMock struct {
-	// CountBlockDevicesAttachedToVmFunc mocks the CountBlockDevicesAttachedToVm method.
-	CountBlockDevicesAttachedToVmFunc func(ctx context.Context, vm *virtv2.VirtualMachine) (int, error)
+	// CountBlockDevicesAttachedToVMFunc mocks the CountBlockDevicesAttachedToVM method.
+	CountBlockDevicesAttachedToVMFunc func(ctx context.Context, vm *virtv2.VirtualMachine) (int, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
-		// CountBlockDevicesAttachedToVm holds details about calls to the CountBlockDevicesAttachedToVm method.
-		CountBlockDevicesAttachedToVm []struct {
+		// CountBlockDevicesAttachedToVM holds details about calls to the CountBlockDevicesAttachedToVM method.
+		CountBlockDevicesAttachedToVM []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// VM is the vm argument value.
 			VM *virtv2.VirtualMachine
 		}
 	}
-	lockCountBlockDevicesAttachedToVm sync.RWMutex
+	lockCountBlockDevicesAttachedToVM sync.RWMutex
 }
 
-// CountBlockDevicesAttachedToVm calls CountBlockDevicesAttachedToVmFunc.
+// CountBlockDevicesAttachedToVM calls CountBlockDevicesAttachedToVMFunc.
 func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVM(ctx context.Context, vm *virtv2.VirtualMachine) (int, error) {
-	if mock.CountBlockDevicesAttachedToVmFunc == nil {
-		panic("BlockDeviceServiceMock.CountBlockDevicesAttachedToVmFunc: method is nil but BlockDeviceService.CountBlockDevicesAttachedToVm was just called")
+	if mock.CountBlockDevicesAttachedToVMFunc == nil {
+		panic("BlockDeviceServiceMock.CountBlockDevicesAttachedToVMFunc: method is nil but BlockDeviceService.CountBlockDevicesAttachedToVM was just called")
 	}
 	callInfo := struct {
 		Ctx context.Context
@@ -284,17 +284,17 @@ func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVM(ctx context.Co
 		Ctx: ctx,
 		VM:  vm,
 	}
-	mock.lockCountBlockDevicesAttachedToVm.Lock()
-	mock.calls.CountBlockDevicesAttachedToVm = append(mock.calls.CountBlockDevicesAttachedToVm, callInfo)
-	mock.lockCountBlockDevicesAttachedToVm.Unlock()
-	return mock.CountBlockDevicesAttachedToVmFunc(ctx, vm)
+	mock.lockCountBlockDevicesAttachedToVM.Lock()
+	mock.calls.CountBlockDevicesAttachedToVM = append(mock.calls.CountBlockDevicesAttachedToVM, callInfo)
+	mock.lockCountBlockDevicesAttachedToVM.Unlock()
+	return mock.CountBlockDevicesAttachedToVMFunc(ctx, vm)
 }
 
-// CountBlockDevicesAttachedToVmCalls gets all the calls that were made to CountBlockDevicesAttachedToVm.
+// CountBlockDevicesAttachedToVMCalls gets all the calls that were made to CountBlockDevicesAttachedToVM.
 // Check the length with:
 //
-//	len(mockedBlockDeviceService.CountBlockDevicesAttachedToVmCalls())
-func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVmCalls() []struct {
+//	len(mockedBlockDeviceService.CountBlockDevicesAttachedToVMCalls())
+func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVMCalls() []struct {
 	Ctx context.Context
 	VM  *virtv2.VirtualMachine
 } {
@@ -302,8 +302,8 @@ func (mock *BlockDeviceServiceMock) CountBlockDevicesAttachedToVmCalls() []struc
 		Ctx context.Context
 		VM  *virtv2.VirtualMachine
 	}
-	mock.lockCountBlockDevicesAttachedToVm.RLock()
-	calls = mock.calls.CountBlockDevicesAttachedToVm
-	mock.lockCountBlockDevicesAttachedToVm.RUnlock()
+	mock.lockCountBlockDevicesAttachedToVM.RLock()
+	calls = mock.calls.CountBlockDevicesAttachedToVM
+	mock.lockCountBlockDevicesAttachedToVM.RUnlock()
 	return calls
 }
