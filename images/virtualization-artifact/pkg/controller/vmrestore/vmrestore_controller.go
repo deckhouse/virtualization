@@ -28,6 +28,7 @@ import (
 	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -39,10 +40,11 @@ func NewController(
 	mgr manager.Manager,
 	log *log.Logger,
 ) error {
+	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	reconciler := NewReconciler(
 		mgr.GetClient(),
 		internal.NewVirtualMachineSnapshotReadyToUseHandler(mgr.GetClient()),
-		internal.NewLifeCycleHandler(mgr.GetClient(), restorer.NewSecretRestorer(mgr.GetClient())),
+		internal.NewLifeCycleHandler(mgr.GetClient(), restorer.NewSecretRestorer(mgr.GetClient()), recorder),
 	)
 
 	vmRestoreController, err := controller.New(ControllerName, mgr, controller.Options{
