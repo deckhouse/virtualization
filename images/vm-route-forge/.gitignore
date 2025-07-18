@@ -23,5 +23,3 @@ testbin/*
 *.swp
 *.swo
 *~
-
-ebpf_x86_bpfel.o
