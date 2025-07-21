@@ -2322,7 +2322,7 @@ Important: resources are created only if they were present in the VM configurati
 There are two modes used for restoring a virtual machine. They are defined by the restoreMode parameter of the VirtualMachineRestore resource:
 ```yaml
 spec:
-  restoreMode: safe | forced
+  restoreMode: Safe | Forced
 ```
 `Safe` is used by default.
 
@@ -2345,7 +2345,7 @@ kind: VirtualMachineRestore
 metadata:
   name: <restore name>
 spec:
-  restoreMode: safe
+  restoreMode: Safe
   virtualMachineSnapshotName: <virtual machine snapshot name>
 EOF
 ```

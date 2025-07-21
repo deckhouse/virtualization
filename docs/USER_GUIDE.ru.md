@@ -2347,7 +2347,7 @@ status:
 Для восстановления виртуальной машины используются два режима. Они определяются параметром `restoreMode` ресурса `VirtualMachineRestore`:
 ```yaml
 spec:
-  restoreMode: safe | forced
+  restoreMode: Safe | Forced
 ```
 `Safe` используется по умолчанию.
 
@@ -2370,7 +2370,7 @@ kind: VirtualMachineRestore
 metadata:
   name: <restore name>
 spec:
-  restoreMode: safe
+  restoreMode: Safe
   virtualMachineSnapshotName: <virtual machine snapshot name>
 EOF
 ```
