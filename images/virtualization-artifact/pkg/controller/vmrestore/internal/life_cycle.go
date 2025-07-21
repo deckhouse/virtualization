@@ -482,6 +482,8 @@ func (h LifeCycleHandler) stopVirtualMachine(ctx context.Context, vmName, vmName
 	switch vmopStop.Status.Phase {
 	case virtv2.VMOPPhaseFailed:
 		return fmt.Errorf("failed to stop the `VirtualMachine`: %s", conditionCompleted.Message)
+	case virtv2.VMOPPhaseCompleted:
+		return nil
 	default:
 		return fmt.Errorf("the status of the `VirtualMachineOperation` is %w: %s", restorer.ErrIncomplete, conditionCompleted.Message)
 	}
