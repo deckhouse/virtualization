@@ -78,7 +78,8 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 	}
 
 	if moduleStorageClass != nil {
-		return reconcile.Result{}, h.setFromModuleSettings(ctx, vd, moduleStorageClass, cb)
+		h.setFromModuleSettings(vd, moduleStorageClass, cb)
+		return reconcile.Result{}, nil
 	}
 
 	// 4. Try to use default storage class from the cluster.
@@ -88,7 +89,8 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 	}
 
 	if defaultStorageClass != nil {
-		return reconcile.Result{}, h.setFromDefault(ctx, vd, defaultStorageClass, cb)
+		h.setFromDefault(vd, defaultStorageClass, cb)
+		return reconcile.Result{}, nil
 	}
 
 	cb.
@@ -140,17 +142,12 @@ func (h StorageClassReadyHandler) setFromExistingPVC(ctx context.Context, vd *vi
 func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.VirtualDisk, cb *conditions.ConditionBuilder) error {
 	vd.Status.StorageClassName = *vd.Spec.PersistentVolumeClaim.StorageClass
 
-	deprecated, err := h.svc.IsStorageClassDeprecated(ctx, *vd.Spec.PersistentVolumeClaim.StorageClass)
+	sc, err := h.svc.GetStorageClass(ctx, *vd.Spec.PersistentVolumeClaim.StorageClass)
 	if err != nil {
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.StorageClassNotReady).
-			Message(service.CapitalizeFirstLetter(err.Error() + "."))
-		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return err
+		return fmt.Errorf("get storage class specified in spec: %w", err)
 	}
 
-	if deprecated {
+	if h.svc.IsStorageClassDeprecated(sc) {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotReady).
@@ -166,11 +163,6 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.Vi
 			Message(fmt.Sprintf("The specified StorageClass %q is not allowed. Please check the module settings.", vd.Status.StorageClassName))
 		conditions.SetCondition(cb, &vd.Status.Conditions)
 		return nil
-	}
-
-	sc, err := h.svc.GetStorageClass(ctx, *vd.Spec.PersistentVolumeClaim.StorageClass)
-	if err != nil {
-		return fmt.Errorf("get storage class specified in spec: %w", err)
 	}
 
 	if sc == nil {
@@ -199,26 +191,16 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vd *virtv2.Vi
 	return nil
 }
 
-func (h StorageClassReadyHandler) setFromModuleSettings(ctx context.Context, vd *virtv2.VirtualDisk, moduleStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) error {
+func (h StorageClassReadyHandler) setFromModuleSettings(vd *virtv2.VirtualDisk, moduleStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
 	vd.Status.StorageClassName = moduleStorageClass.Name
 
-	deprecated, err := h.svc.IsStorageClassDeprecated(ctx, moduleStorageClass.Name)
-	if err != nil {
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.StorageClassNotReady).
-			Message(service.CapitalizeFirstLetter(err.Error() + "."))
-		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return err
-	}
-
-	if deprecated {
+	if h.svc.IsStorageClassDeprecated(moduleStorageClass) {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The provisioner of the %q storage class is deprecated; please use a different one.", moduleStorageClass.Name))
 		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return nil
+		return
 	}
 
 	if moduleStorageClass.DeletionTimestamp.IsZero() {
@@ -227,37 +209,27 @@ func (h StorageClassReadyHandler) setFromModuleSettings(ctx context.Context, vd 
 			Reason(vdcondition.StorageClassReady).
 			Message("")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return nil
+		return
 	} else {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The default StorageClass %q, defined in the module settings, is terminating and cannot be used.", vd.Status.StorageClassName))
 		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return nil
+		return
 	}
 }
 
-func (h StorageClassReadyHandler) setFromDefault(ctx context.Context, vd *virtv2.VirtualDisk, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) error {
+func (h StorageClassReadyHandler) setFromDefault(vd *virtv2.VirtualDisk, defaultStorageClass *storagev1.StorageClass, cb *conditions.ConditionBuilder) {
 	vd.Status.StorageClassName = defaultStorageClass.Name
 
-	deprecated, err := h.svc.IsStorageClassDeprecated(ctx, defaultStorageClass.Name)
-	if err != nil {
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vdcondition.StorageClassNotReady).
-			Message(service.CapitalizeFirstLetter(err.Error() + "."))
-		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return err
-	}
-
-	if deprecated {
+	if h.svc.IsStorageClassDeprecated(defaultStorageClass) {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The provisioner of the %q storage class is deprecated; please use a different one.", defaultStorageClass.Name))
 		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return nil
+		return
 	}
 
 	if defaultStorageClass.DeletionTimestamp.IsZero() {
@@ -266,13 +238,13 @@ func (h StorageClassReadyHandler) setFromDefault(ctx context.Context, vd *virtv2
 			Reason(vdcondition.StorageClassReady).
 			Message("")
 		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return nil
+		return
 	} else {
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The default StorageClass %q is terminating and cannot be used.", vd.Status.StorageClassName))
 		conditions.SetCondition(cb, &vd.Status.Conditions)
-		return nil
+		return
 	}
 }
