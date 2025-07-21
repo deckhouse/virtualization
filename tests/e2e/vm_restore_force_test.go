@@ -35,11 +35,10 @@ import (
 
 var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.CommonE2ETestDecorators(), func() {
 	const (
-		viCount                = 2
-		vmCount                = 1
-		vdCount                = 3
-		vmbdaCount             = 2
-		hasNoConsumerDiskCount = 1
+		viCount    = 2
+		vmCount    = 1
+		vdCount    = 2
+		vmbdaCount = 2
 	)
 
 	var (
@@ -49,7 +48,7 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 		volumeSnapshotClass string
 		namespace           string
 		testCaseLabel       = map[string]string{"testcase": "vm-restore-force"}
-		hasNoConsumerLabel  = map[string]string{"hasNoConsumer": "vm-restore-force"}
+		additionalDiskLabel = map[string]string{"additionalDisk": "vm-restore-force"}
 	)
 	BeforeEach(func() {
 		ctx, cancel = context.WithCancel(context.Background())
@@ -68,7 +67,6 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 		var err error
 		namespace, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
-		conf.SetNamespace(namespace)
 
 		storageClass, err = GetDefaultStorageClass()
 		Expect(err).NotTo(HaveOccurred(), "failed to get the `DefaultStorageClass`")
@@ -162,9 +160,9 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 			By("Attaching `VirtualDisk` after `VirtualMachine` snapshotting", func() {
 				for i, vm := range vms.Items {
 					vdName := fmt.Sprintf("%s-%d", "vd-attached-after-vm-snapshotting", i)
-					newDisk := NewVirtualDisk(vdName, vm.Namespace, hasNoConsumerLabel, resource.NewQuantity(1*1024*1024, resource.BinarySI))
+					newDisk := NewVirtualDisk(vdName, vm.Namespace, additionalDiskLabel, resource.NewQuantity(1*1024*1024, resource.BinarySI))
 					CreateResource(ctx, newDisk)
-					newVmbda := NewVirtualMachineBlockDeviceAttachment(vm.Name, vm.Namespace, newDisk.Name, virtv2.VMBDAObjectRefKindVirtualDisk, testCaseLabel)
+					newVmbda := NewVirtualMachineBlockDeviceAttachment(vm.Name, vm.Namespace, newDisk.Name, virtv2.VMBDAObjectRefKindVirtualDisk, additionalDiskLabel)
 					CreateResource(ctx, newVmbda)
 
 					WaitPhaseByLabel(
@@ -255,6 +253,14 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 						Resource: virtv2.VirtualMachineRestoreResource,
 						Labels:   testCaseLabel,
 					},
+					{
+						Resource: virtv2.VirtualDiskResource,
+						Labels:   additionalDiskLabel,
+					},
+					{
+						Resource: virtv2.VirtualMachineBlockDeviceAttachmentResource,
+						Labels:   additionalDiskLabel,
+					},
 				},
 			}
 
@@ -262,7 +268,7 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 				resourcesToDelete.KustomizationDir = conf.TestData.VMRestoreForce
 			}
 
-			DeleteTestCaseResources(resourcesToDelete)
+			DeleteTestCaseResources(namespace, resourcesToDelete)
 		})
 	})
 })
