@@ -30,76 +30,7 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-func AddLabel(resource kc.Resource, labels map[string]string, names ...string) error {
-	formattedLabels := make([]string, 0, len(labels))
-	for k, v := range labels {
-		formattedLabels = append(formattedLabels, fmt.Sprintf("%s=%s", k, v))
-	}
-	rawResources := strings.Join(names, " ")
-	rawLabels := strings.Join(formattedLabels, "")
-	subCmd := fmt.Sprintf("label %s %s --namespace %s %s", resource, rawResources, conf.Namespace, rawLabels)
-	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
-	if res.Error() != nil {
-		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-	}
-	return nil
-}
-
-func RemoveLabel(resource kc.Resource, labels map[string]string, names ...string) error {
-	formattedLabels := make([]string, 0, len(labels))
-	for k := range labels {
-		formattedLabels = append(formattedLabels, fmt.Sprintf("%s-", k))
-	}
-	rawResources := strings.Join(names, " ")
-	rawLabels := strings.Join(formattedLabels, "")
-	subCmd := fmt.Sprintf("label %s %s --namespace %s %s", resource, rawResources, conf.Namespace, rawLabels)
-	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
-	if res.Error() != nil {
-		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-	}
-	return nil
-}
-
-func AddAnnotation(resource kc.Resource, annotations map[string]string, names ...string) error {
-	formattedAnnotations := make([]string, 0, len(annotations))
-	for k, v := range annotations {
-		formattedAnnotations = append(formattedAnnotations, fmt.Sprintf("%s=%s", k, v))
-	}
-	rawResources := strings.Join(names, " ")
-	rawAnnotations := strings.Join(formattedAnnotations, "")
-	subCmd := fmt.Sprintf("annotate %s %s --namespace %s %s", resource, rawResources, conf.Namespace, rawAnnotations)
-	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
-	if res.Error() != nil {
-		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-	}
-	return nil
-}
-
-func RemoveAnnotation(resource kc.Resource, annotations map[string]string, names ...string) error {
-	formattedAnnotations := make([]string, 0, len(annotations))
-	for k := range annotations {
-		formattedAnnotations = append(formattedAnnotations, fmt.Sprintf("%s-", k))
-	}
-	rawResources := strings.Join(names, " ")
-	rawAnnotations := strings.Join(formattedAnnotations, "")
-	subCmd := fmt.Sprintf("annotate %s %s --namespace %s %s", resource, rawResources, conf.Namespace, rawAnnotations)
-	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
-	if res.Error() != nil {
-		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-	}
-	return nil
-}
-
-func GetActiveVirtualMachinePod(vmObj *virtv2.VirtualMachine) string {
-	for _, pod := range vmObj.Status.VirtualMachinePods {
-		if pod.Active {
-			return pod.Name
-		}
-	}
-	return ""
-}
-
-var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineLabelAndAnnotation", ginkgoutil.CommonE2ETestDecorators(), func() {
 	BeforeEach(func() {
 		if config.IsReusable() {
 			Skip("Test not available in REUSABLE mode: not supported yet.")
@@ -112,6 +43,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 	)
 	testCaseLabel := map[string]string{"testcase": "vm-label-annotation"}
 	specialKeyValue := map[string]string{specialKey: specialValue}
+	var ns string
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
@@ -122,9 +54,9 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMLabelAnnotation, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
+			var err error
+			ns, err = kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
 		})
 	})
 
@@ -143,7 +75,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -154,7 +86,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 			By(fmt.Sprintf("VDs should be in %s phases", PhaseReady))
 			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -165,7 +97,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 			By("Virtual machine agents should be ready")
 			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -175,13 +107,13 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		It(fmt.Sprintf("marks VMs with label %q", specialKeyValue), func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			err := AddLabel(kc.ResourceVM, specialKeyValue, vms...)
+			err := AddLabel(kc.ResourceVM, specialKeyValue, ns, vms...)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -190,7 +122,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 				var vms virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 				})
 				if err != nil {
 					return err
@@ -203,7 +135,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
 					vmPod := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: conf.Namespace})
+					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
 					}
@@ -220,13 +152,13 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		It(fmt.Sprintf("removes label %s from VMs", specialKeyValue), func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			err := RemoveLabel(kc.ResourceVM, specialKeyValue, vms...)
+			err := RemoveLabel(kc.ResourceVM, specialKeyValue, ns, vms...)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -235,7 +167,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 				var vms virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 				})
 				if err != nil {
 					return err
@@ -248,7 +180,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
 					vmPod := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: conf.Namespace})
+					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
 					}
@@ -267,13 +199,13 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		It(fmt.Sprintf("marks VMs with annotation %q", specialKeyValue), func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			err := AddAnnotation(kc.ResourceVM, specialKeyValue, vms...)
+			err := AddAnnotation(kc.ResourceVM, specialKeyValue, ns, vms...)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -282,7 +214,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 				var vms virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 				})
 				if err != nil {
 					return err
@@ -295,7 +227,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
 					vmPod := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: conf.Namespace})
+					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
 					}
@@ -312,13 +244,13 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 		It(fmt.Sprintf("removes annotation %s from VMs", specialKeyValue), func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), "cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			err := RemoveAnnotation(kc.ResourceVM, specialKeyValue, vms...)
+			err := RemoveAnnotation(kc.ResourceVM, specialKeyValue, ns, vms...)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -327,7 +259,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 				var vms virtv2.VirtualMachineList
 				err := GetObjects(kc.ResourceVM, &vms, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 				})
 				if err != nil {
 					return err
@@ -340,7 +272,7 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 					activePodName := GetActiveVirtualMachinePod(&vm)
 					vmPod := v1.Pod{}
-					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: conf.Namespace})
+					err = GetObject(kc.ResourcePod, activePodName, &vmPod, kc.GetOptions{Namespace: ns})
 					if err != nil {
 						return err
 					}
@@ -357,9 +289,78 @@ var _ = Describe("Virtual machine label and annotation", ginkgoutil.CommonE2ETes
 
 	Context("When test is completed", func() {
 		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{
+			DeleteTestCaseResources(ns, ResourcesToDelete{
 				KustomizationDir: conf.TestData.VMLabelAnnotation,
 			})
 		})
 	})
 })
+
+func AddLabel(resource kc.Resource, labels map[string]string, ns string, names ...string) error {
+	formattedLabels := make([]string, 0, len(labels))
+	for k, v := range labels {
+		formattedLabels = append(formattedLabels, fmt.Sprintf("%s=%s", k, v))
+	}
+	rawResources := strings.Join(names, " ")
+	rawLabels := strings.Join(formattedLabels, "")
+	subCmd := fmt.Sprintf("label %s %s --namespace %s %s", resource, rawResources, ns, rawLabels)
+	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	return nil
+}
+
+func RemoveLabel(resource kc.Resource, labels map[string]string, ns string, names ...string) error {
+	formattedLabels := make([]string, 0, len(labels))
+	for k := range labels {
+		formattedLabels = append(formattedLabels, fmt.Sprintf("%s-", k))
+	}
+	rawResources := strings.Join(names, " ")
+	rawLabels := strings.Join(formattedLabels, "")
+	subCmd := fmt.Sprintf("label %s %s --namespace %s %s", resource, rawResources, ns, rawLabels)
+	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	return nil
+}
+
+func AddAnnotation(resource kc.Resource, annotations map[string]string, ns string, names ...string) error {
+	formattedAnnotations := make([]string, 0, len(annotations))
+	for k, v := range annotations {
+		formattedAnnotations = append(formattedAnnotations, fmt.Sprintf("%s=%s", k, v))
+	}
+	rawResources := strings.Join(names, " ")
+	rawAnnotations := strings.Join(formattedAnnotations, "")
+	subCmd := fmt.Sprintf("annotate %s %s --namespace %s %s", resource, rawResources, ns, rawAnnotations)
+	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	return nil
+}
+
+func RemoveAnnotation(resource kc.Resource, annotations map[string]string, ns string, names ...string) error {
+	formattedAnnotations := make([]string, 0, len(annotations))
+	for k := range annotations {
+		formattedAnnotations = append(formattedAnnotations, fmt.Sprintf("%s-", k))
+	}
+	rawResources := strings.Join(names, " ")
+	rawAnnotations := strings.Join(formattedAnnotations, "")
+	subCmd := fmt.Sprintf("annotate %s %s --namespace %s %s", resource, rawResources, ns, rawAnnotations)
+	res := kubectl.RawCommand(subCmd, kc.MediumTimeout)
+	if res.Error() != nil {
+		return fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+	}
+	return nil
+}
+
+func GetActiveVirtualMachinePod(vmObj *virtv2.VirtualMachine) string {
+	for _, pod := range vmObj.Status.VirtualMachinePods {
+		if pod.Active {
+			return pod.Name
+		}
+	}
+	return ""
+}
