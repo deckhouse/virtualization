@@ -236,6 +236,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 				err := errors.New("a virtual machine cannot be restored from the pending phase with `Forced` mode; you can delete the virtual machine and restore it with `Safe` mode")
 				setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
 				return reconcile.Result{}, err
+			case virtv2.MachineStopped:
 			default:
 				err := h.stopVirtualMachine(ctx, vm.Name, vm.Namespace, string(vmRestore.UID))
 				if err != nil {
