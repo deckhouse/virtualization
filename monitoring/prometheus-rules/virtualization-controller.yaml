@@ -19,7 +19,7 @@
           2. Or check the Pod logs: `kubectl -n d8-virtualization logs deploy/virtualization-controller`
 
     - alert: D8VirtualizationControllerTargetAbsent
-      expr: absent(up{job="scrapeconfig/d8-monitoring/virtualization-controller") == 1
+      expr: absent(up{job="scrapeconfig/d8-monitoring/virtualization-controller"}) == 1
       labels:
         severity_level: "6"
         tier: cluster
