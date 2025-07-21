@@ -84,7 +84,7 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 	Context("When the virtualization resources are applied", func() {
 		It("result should be succeeded", func() {
 			if config.IsReusable() {
-				CheckReusableResources(ReusableResources{
+				err := CheckReusableResources(ReusableResources{
 					virtv2.VirtualMachineResource: &Counter{
 						Expected: vmCount,
 					},
@@ -98,10 +98,12 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 						Expected: vmbdaCount,
 					},
 				}, kc.GetOptions{
-					Labels:         testCaseLabel,
 					Namespace:      namespace,
 					IgnoreNotFound: true,
 				})
+				if err == nil {
+					return
+				}
 			}
 
 			res := kubectl.Apply(kc.ApplyOptions{
