@@ -3,7 +3,6 @@
 {{- $version := "v1.3.1" }}
 {{- $tag := print $version "-v12n.7"}}
 
-
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
