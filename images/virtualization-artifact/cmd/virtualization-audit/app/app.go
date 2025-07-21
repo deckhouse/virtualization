@@ -110,6 +110,5 @@ func run(c *cobra.Command, opts Options) error {
 		log.Fatal("failed to create server", log.Err(err))
 	}
 
-	// return srv.Run(c.Context(), server.WithTLS(opts.Cafile, opts.Certfile, opts.Keyfile))
-	return srv.Run(c.Context())
+	return srv.Run(c.Context(), server.WithTLS(opts.Cafile, opts.Certfile, opts.Keyfile))
 }
