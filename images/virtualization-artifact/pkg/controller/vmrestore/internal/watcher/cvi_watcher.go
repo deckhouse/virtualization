@@ -19,7 +19,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	vmrestore "github.com/deckhouse/virtualization-controller/pkg/controller/vmrestore/internal"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -64,7 +64,7 @@ func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Co
 func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	cvi, ok := obj.(*virtv2.ClusterVirtualImage)
 	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a ClusterVirtualImage but got a %T", obj))
+		log.Error(fmt.Sprintf("expected a ClusterVirtualImage but got a %T", obj))
 		return
 	}
 
@@ -73,7 +73,7 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj cli
 		Namespace: obj.GetNamespace(),
 	})
 	if err != nil {
-		slog.Default().Error(fmt.Sprintf("failed to list vmRestores: %s", err))
+		log.Error(fmt.Sprintf("failed to list vmRestores: %s", err))
 		return
 	}
 
@@ -82,25 +82,25 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj cli
 		var vmSnapshot virtv2.VirtualMachineSnapshot
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: obj.GetNamespace()}, &vmSnapshot)
 		if err != nil {
-			slog.Default().Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
+			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
 			return
 		}
 
 		restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
 		restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, w.client, &corev1.Secret{})
 		if err != nil {
-			slog.Default().Error(fmt.Sprintf("failed to get virtualMachineSnapshotSecret: %s", err))
+			log.Error(fmt.Sprintf("failed to get virtualMachineSnapshotSecret: %s", err))
 			return
 		}
 
 		if restorerSecret == nil {
-			slog.Default().Error(fmt.Sprintf("virtualMachineSnapshotSecret %q not found", vmSnapshot.Status.VirtualMachineSnapshotSecretName))
+			log.Error(fmt.Sprintf("virtualMachineSnapshotSecret %q not found", vmSnapshot.Status.VirtualMachineSnapshotSecretName))
 			return
 		}
 
 		vmbdas, err := w.restorer.RestoreVirtualMachineBlockDeviceAttachments(ctx, restorerSecret)
 		if err != nil {
-			slog.Default().Error(fmt.Sprintf("failed to extract vmbda resources from the virtualMachineSnapshotSecret: %s", err))
+			log.Error(fmt.Sprintf("failed to extract vmbda resources from the virtualMachineSnapshotSecret: %s", err))
 			return
 		}
 

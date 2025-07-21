@@ -226,15 +226,26 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 			return reconcile.Result{}, fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
 		}
 
-		if vmObj != nil && vmObj.Status.Phase != virtv2.MachineStopped {
-			err := h.stopVirtualMachine(ctx, vm.Name, vm.Namespace, string(vmRestore.UID))
-			if err != nil {
-				if errors.Is(err, restorer.ErrIncomplete) {
-					setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineIsNotStopped, "waiting for the virtual machine will be stopped")
-					return reconcile.Result{}, nil
-				}
+		if vmObj == nil {
+			err := errors.New("restoration with `Forced` mode can be applied only to an existing virtual machine; you can restore the virtual machine with `Safe` mode")
+			setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+			return reconcile.Result{}, err
+		} else {
+			switch vmObj.Status.Phase {
+			case virtv2.MachinePending:
+				err := errors.New("a virtual machine cannot be restored from the pending phase with `Forced` mode; you can delete the virtual machine and restore it with `Safe` mode")
 				setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
 				return reconcile.Result{}, err
+			default:
+				err := h.stopVirtualMachine(ctx, vm.Name, vm.Namespace, string(vmRestore.UID))
+				if err != nil {
+					if errors.Is(err, restorer.ErrIncomplete) {
+						setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineIsNotStopped, "waiting for the virtual machine will be stopped")
+						return reconcile.Result{}, nil
+					}
+					setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+					return reconcile.Result{}, err
+				}
 			}
 		}
 
@@ -471,8 +482,6 @@ func (h LifeCycleHandler) stopVirtualMachine(ctx context.Context, vmName, vmName
 	switch vmopStop.Status.Phase {
 	case virtv2.VMOPPhaseFailed:
 		return fmt.Errorf("failed to stop the `VirtualMachine`: %s", conditionCompleted.Message)
-	case virtv2.VMOPPhaseCompleted:
-		return fmt.Errorf("failed to stop the `VirtualMachine`; ensure that no other `VirtualMachineOperation` with a completed status exists: %s", vmopStop.Name)
 	default:
 		return fmt.Errorf("the status of the `VirtualMachineOperation` is %w: %s", restorer.ErrIncomplete, conditionCompleted.Message)
 	}

@@ -19,7 +19,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -59,7 +59,7 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	vd, ok := obj.(*virtv2.VirtualDisk)
 	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a VirtualDisk but got a %T", obj))
+		log.Error(fmt.Sprintf("expected a VirtualDisk but got a %T", obj))
 		return
 	}
 
@@ -68,7 +68,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 		Namespace: obj.GetNamespace(),
 	})
 	if err != nil {
-		slog.Default().Error(fmt.Sprintf("failed to list vmRestores: %s", err))
+		log.Error(fmt.Sprintf("failed to list vmRestores: %s", err))
 		return
 	}
 
@@ -77,14 +77,14 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 		var vmSnapshot virtv2.VirtualMachineSnapshot
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: obj.GetNamespace()}, &vmSnapshot)
 		if err != nil {
-			slog.Default().Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
+			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
 			return
 		}
 		for _, vdsnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
 			var vdSnapshot virtv2.VirtualDiskSnapshot
 			err := w.client.Get(ctx, types.NamespacedName{Name: vdsnapshotName, Namespace: obj.GetNamespace()}, &vdSnapshot)
 			if err != nil {
-				slog.Default().Error(fmt.Sprintf("failed to get vdSnapshot: %s", err))
+				log.Error(fmt.Sprintf("failed to get vdSnapshot: %s", err))
 				return
 			}
 

@@ -19,7 +19,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -32,12 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 // This watcher is required for monitoring the statuses of InternalVirtualMachine disks, which must update their PVC during the restoration process.
 // However, the VirtualMachineRestore controller should work only with VirtualMachine.
-
 type InternalVirtualMachineWatcher struct {
 	client client.Client
 }
@@ -63,7 +62,7 @@ func (w InternalVirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller
 func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	kvvm, ok := obj.(*virtv1.VirtualMachine)
 	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a VirtualMachine but got a %T", obj))
+		log.Error(fmt.Sprintf("expected a VirtualMachine but got a %T", obj))
 		return
 	}
 
@@ -72,7 +71,7 @@ func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, obj 
 		Namespace: obj.GetNamespace(),
 	})
 	if err != nil {
-		slog.Default().Error(fmt.Sprintf("failed to list vmRestores: %s", err))
+		log.Error(fmt.Sprintf("failed to list vmRestores: %s", err))
 		return
 	}
 
@@ -81,7 +80,7 @@ func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, obj 
 		var vmSnapshot virtv2.VirtualMachineSnapshot
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: obj.GetNamespace()}, &vmSnapshot)
 		if err != nil {
-			slog.Default().Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
+			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
 			return
 		}
 

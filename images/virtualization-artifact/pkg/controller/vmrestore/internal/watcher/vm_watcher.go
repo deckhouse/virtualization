@@ -19,7 +19,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -59,7 +59,7 @@ func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Control
 func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
 	vm, ok := obj.(*virtv2.VirtualMachine)
 	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a VirtualMachine but got a %T", obj))
+		log.Error(fmt.Sprintf("expected a VirtualMachine but got a %T", obj))
 		return
 	}
 
@@ -68,7 +68,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 		Namespace: obj.GetNamespace(),
 	})
 	if err != nil {
-		slog.Default().Error(fmt.Sprintf("failed to list vmRestores: %s", err))
+		log.Error(fmt.Sprintf("failed to list vmRestores: %s", err))
 		return
 	}
 
@@ -77,7 +77,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 		var vmSnapshot virtv2.VirtualMachineSnapshot
 		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: obj.GetNamespace()}, &vmSnapshot)
 		if err != nil {
-			slog.Default().Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
+			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
 			return
 		}
 
