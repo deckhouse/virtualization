@@ -9,10 +9,10 @@ packages:
 - git
 - curl
 - pkg-config
-- libvirt-libs
 - libtool
-- libvirt-devel
 - libncurses-devel
+- libvirt-libs
+- libvirt-devel
 - libvirt-client
 - libvirt-daemon
 - libvirt
@@ -28,7 +28,6 @@ packages:
 image: {{ $.ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "base-alt-p11" "builder/alt-go-svace" }}
-fromCacheVersion: "19.06.2025.1"
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
