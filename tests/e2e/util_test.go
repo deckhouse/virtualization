@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"log/slog"
 	"net"
 	"net/netip"
 	"os"
@@ -393,7 +392,6 @@ func GetImmediateStorageClass(provisioner string) (*storagev1.StorageClass, erro
 
 	for _, sc := range scl.Items {
 		if sc.Provisioner == provisioner && *sc.VolumeBindingMode == storagev1.VolumeBindingImmediate {
-			slog.Error("immediate storage class found", slog.String("provisioner", provisioner), slog.String("name", sc.Name))
 			return &sc, nil
 		}
 	}
