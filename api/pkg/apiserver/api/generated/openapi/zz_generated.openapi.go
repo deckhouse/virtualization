@@ -4666,7 +4666,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreSpec(ref commo
 				Properties: map[string]spec.Schema{
 					"restoreMode": {
 						SchemaProps: spec.SchemaProps{
-							Description: "An attempt to restore a virtual machine with two modes:\n\n* Safe: Used when there are no conflicts with existing resources. * Forced: The operation can be destructive; a virtual machine will be updated, and all existing resources will be replaced. Use it carefully.",
+							Description: "An attempt to restore a virtual machine with two modes:\n\n* Safe — used when there are no conflicts with existing resources. * Forced — the operation may affect the virtual machine’s functionality: its configuration will be updated, and all associated resources will be recreated. Use with caution.",
 							Type:        []string{"string"},
 							Format:      "",
 						},

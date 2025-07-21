@@ -56,8 +56,8 @@ type VirtualMachineRestoreList struct {
 type VirtualMachineRestoreSpec struct {
 	// An attempt to restore a virtual machine with two modes:
 	//
-	// * Safe: Used when there are no conflicts with existing resources.
-	// * Forced: The operation can be destructive; a virtual machine will be updated, and all existing resources will be replaced. Use it carefully.
+	// * Safe — used when there are no conflicts with existing resources.
+	// * Forced — the operation may affect the virtual machine’s functionality: its configuration will be updated, and all associated resources will be recreated. Use with caution.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:validation:Enum=Safe;Forced
 	// +kubebuilder:default:=Safe
