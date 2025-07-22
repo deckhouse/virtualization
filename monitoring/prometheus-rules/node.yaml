@@ -1,4 +1,4 @@
-- alert: KubeNodeAwaitingWorkloadEvacuationBeforeShutdown
+- alert: KubeNodeAwaitingVirtualMachinesEvictionBeforeShutdown
   expr: |
     (
       kube_node_status_condition{condition="GracefulShutdownPostpone", status="true"} == 1
@@ -16,13 +16,13 @@
     plk_grouped_by__node_maintenance: "NodeMaintenance,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
     summary: Node is awaiting workload evacuation before safe shutdown.
     description: |
-      The node `{{ $labels.node }}` has activated graceful shutdown protection and **cannot be safely powered off** until workloads (e.g., VirtualMachines) are evacuated.
+      The node `{{ $labels.node }}` has activated graceful shutdown protection and **cannot be safely powered off** until workloads (e.g., VirtualMachines) are eviction.
 
       ### What Is Happening?
       A shutdown request was issued, but the system intercepted it to prevent data loss or VM downtime.
       The `GracefulShutdownPostpone` condition is now active — this means:
       - The node is **intentionally blocking abrupt power-off**.
-      - You must **manually evict VirtualMachines** or other critical workloads before proceeding.
+      - You must **manually evict VirtualMachines** before proceeding.
 
       This is expected behavior for nodes running VMs and ensures safe maintenance.
 
