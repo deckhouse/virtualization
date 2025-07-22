@@ -4,7 +4,7 @@ metadata:
   name: vd-root
 spec:
   persistentVolumeClaim:
-    size: 512Mi
+    size: 1700Mi
   dataSource:
     type: ObjectRef
     objectRef:
