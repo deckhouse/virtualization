@@ -33,6 +33,7 @@ testData:
   vmMigrationCancel: "/tmp/testdata/vm-migration-cancel"
   vmEvacuation: "/tmp/testdata/vm-evacuation"
   vmDiskAttachment: "/tmp/testdata/vm-disk-attachment"
+  vmRestoreForce: "/tmp/testdata/vm-restore-force"
   vmVersions: "/tmp/testdata/vm-versions"
   vdSnapshots: "/tmp/testdata/vd-snapshots"
   ipam: "/tmp/testdata/ipam"

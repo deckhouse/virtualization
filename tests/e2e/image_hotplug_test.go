@@ -33,7 +33,7 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("ImageHotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 	const (
 		viCount    = 2
 		cviCount   = 2
@@ -74,7 +74,7 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 	Context("When the virtualization resources are applied", func() {
 		It("result should be succeeded", func() {
 			if config.IsReusable() {
-				CheckReusableResources(ReusableResources{
+				err := CheckReusableResources(ReusableResources{
 					virtv2.VirtualMachineResource: &Counter{
 						Expected: vmCount,
 					},
@@ -95,6 +95,9 @@ var _ = Describe("Image hotplug", ginkgoutil.CommonE2ETestDecorators(), func() {
 					Namespace:      ns,
 					IgnoreNotFound: true,
 				})
+				if err == nil {
+					return
+				}
 			}
 
 			res := kubectl.Apply(kc.ApplyOptions{
@@ -391,24 +394,21 @@ type ReusableResources map[kc.Resource]*Counter
 // Useful when require to check the created resources in `REUSABLE` mode.
 //
 //	Static output option: `jsonpath='{.items[*].metadata.name}'`.
-func CheckReusableResources(resources ReusableResources, opts kc.GetOptions) {
-	GinkgoHelper()
+func CheckReusableResources(resources ReusableResources, opts kc.GetOptions) error {
 	opts.Output = "jsonpath='{.items[*].metadata.name}'"
 	for r, c := range resources {
 		res := kubectl.List(r, opts)
-		Expect(res.Error()).NotTo(HaveOccurred(), "failed to check the reusable resources %q: %s", r, res.StdErr())
+		if res.Error() != nil {
+			return fmt.Errorf("failed to check the reusable resources %q: %s", r, res.StdErr())
+		}
 		c.Current = len(strings.Split(res.StdOut(), " "))
 	}
 
-	isReusableResourcesExist := false
-	for _, c := range resources {
-		if c.Current == c.Expected {
-			isReusableResourcesExist = true
-		} else {
-			isReusableResourcesExist = false
+	for r, c := range resources {
+		if c.Current != c.Expected {
+			return fmt.Errorf("not enough resources for reusable mode: resource %q; current count %d; expected count %d", r, c.Current, c.Expected)
 		}
 	}
-	if isReusableResourcesExist {
-		return
-	}
+
+	return nil
 }
