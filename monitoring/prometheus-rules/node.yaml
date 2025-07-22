@@ -1,5 +1,10 @@
 - alert: KubeNodeAwaitingWorkloadEvacuationBeforeShutdown
-  expr: kube_node_status_condition{condition="GracefulShutdownPostpone", status="true"} == 1
+  expr: |
+    (
+      kube_node_status_condition{condition="GracefulShutdownPostpone", status="true"} == 1
+      and on(node)
+      sum by (node) (d8_virtualization_virtualmachine_status_phase{phase="Running"}) > 0
+    )
   labels:
     severity_level: "6"
     tier: cluster
