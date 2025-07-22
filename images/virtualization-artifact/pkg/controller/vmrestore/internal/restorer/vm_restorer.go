@@ -69,6 +69,18 @@ func (v *VirtualMachineOverrideValidator) Override(rules []virtv2.NameReplacemen
 	v.vm.Name = overrideName(v.vm.Kind, v.vm.Name, rules)
 	v.vm.Spec.VirtualMachineIPAddress = overrideName(virtv2.VirtualMachineIPAddressKind, v.vm.Spec.VirtualMachineIPAddress, rules)
 
+	if v.vm.Spec.Provisioning != nil {
+		if v.vm.Spec.Provisioning.UserDataRef != nil {
+			if v.vm.Spec.Provisioning.UserDataRef.Kind == virtv2.UserDataRefKindSecret {
+				v.vm.Spec.Provisioning.UserDataRef.Name = overrideName(
+					string(virtv2.UserDataRefKindSecret),
+					v.vm.Spec.Provisioning.UserDataRef.Name,
+					rules,
+				)
+			}
+		}
+	}
+
 	for i := range v.vm.Spec.BlockDeviceRefs {
 		if v.vm.Spec.BlockDeviceRefs[i].Kind != virtv2.DiskDevice {
 			continue
