@@ -71,8 +71,11 @@
           1. Retrieve details of the Deployment: `kubectl -n d8-virtualization describe daemonset virt-handler`
           2. View the status of the Pod and try to figure out why it is not running: `kubectl -n d8-virtualization describe pod --field-selector=spec.nodeName={{ $labels.node }} -l kubevirt.internal.virtualization.deckhouse.io=virt-handler`
 
-    - alert: NoVirtHandlerPodsRunning
-      expr: count(kube_pod_info{namespace="d8-virtualization", pod=~"virt-handler-.*"}) == 0
+    - alert: D8InternalVirtualizationNoVirtHandlerPodsRunning
+      expr: |
+            ( count(kube_pod_info{namespace="d8-virtualization", pod=~"virt-handler-.*"}) == 0 )
+            *
+            ( kube_daemonset_status_number_ready{daemonset="virt-handler", namespace="d8-virtualization"} == 0 ) == 1
       for: 5m
       labels:
         severity_level: "6"
