@@ -26,6 +26,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
@@ -184,6 +185,9 @@ func (imp *Importer) makeImporterContainerSpec() *corev1.Container {
 			},
 		},
 		Env: imp.makeImporterContainerEnv(),
+		SecurityContext: &corev1.SecurityContext{
+			ReadOnlyRootFilesystem: ptr.To(true),
+		},
 	}
 
 	if imp.PodSettings.ResourceRequirements != nil {
@@ -318,6 +322,8 @@ func (imp *Importer) makeImporterContainerEnv() []corev1.EnvVar {
 
 // addVolumes fills Volumes in Pod spec and VolumeMounts and envs in container spec.
 func (imp *Importer) addVolumes(pod *corev1.Pod, container *corev1.Container) {
+	podutil.AddEmptyDirVolume(pod, container, "tmp", "/tmp")
+
 	if imp.EnvSettings.AuthSecret != "" {
 		// Mount source registry auth Secret and pass directory with mounted source registry login config.
 		podutil.AddVolume(pod, container,
