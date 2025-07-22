@@ -4,7 +4,7 @@ metadata:
   name: vm
 spec:
   bootloader: EFI
-  virtualMachineClassName: affinity-discovery
+  virtualMachineClassName: affinity-toleration-discovery
   cpu:
     cores: 1
     coreFraction: 5%
