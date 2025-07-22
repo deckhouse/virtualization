@@ -708,6 +708,21 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 	}
 
 	for _, bdr := range vm.Status.BlockDeviceRefs {
+		if bdr.VirtualMachineBlockDeviceAttachmentName != "" {
+			vmbda, err := object.FetchObject(ctx, types.NamespacedName{Name: bdr.VirtualMachineBlockDeviceAttachmentName, Namespace: vm.Namespace}, h.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
+			if err != nil {
+				return err
+			}
+			if vmbda == nil {
+				continue
+			}
+			vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
+				Kind:       vmbda.Kind,
+				ApiVersion: vmbda.APIVersion,
+				Name:       vmbda.Name,
+			})
+		}
+
 		if bdr.Kind != virtv2.DiskDevice {
 			continue
 		}
@@ -724,21 +739,6 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 			ApiVersion: vd.APIVersion,
 			Name:       vd.Name,
 		})
-
-		if bdr.VirtualMachineBlockDeviceAttachmentName != "" {
-			vmbda, err := object.FetchObject(ctx, types.NamespacedName{Name: bdr.VirtualMachineBlockDeviceAttachmentName, Namespace: vm.Namespace}, h.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
-			if err != nil {
-				return err
-			}
-			if vmbda == nil {
-				continue
-			}
-			vmSnapshot.Status.Resources = append(vmSnapshot.Status.Resources, virtv2.ResourceRef{
-				Kind:       vmbda.Kind,
-				ApiVersion: vmbda.APIVersion,
-				Name:       vmbda.Name,
-			})
-		}
 	}
 
 	return nil

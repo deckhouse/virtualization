@@ -28,7 +28,7 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
+	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
@@ -40,6 +40,240 @@ const (
 	externalHost      = "https://flant.com"
 	nginxActiveStatus = "active"
 )
+
+var _ = Describe("VirtualMachineConnectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
+	var (
+		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
+		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)
+		bObjName      = fmt.Sprintf("%s-vm-connectivity-b", namePrefix)
+		vmA, vmB      virtv2.VirtualMachine
+		svcA, svcB    corev1.Service
+		ns            string
+
+		selectorA string
+		selectorB string
+	)
+
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
+	})
+
+	Context("Preparing the environment", func() {
+		It("sets the namespace", func() {
+			kustomization := fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml")
+			var err error
+			ns, err = kustomize.GetNamespace(kustomization)
+			Expect(err).NotTo(HaveOccurred(), "%w", err)
+			Expect(ns).NotTo(BeEmpty())
+		})
+	})
+
+	Context("When resources are applied", func() {
+		It("result should be succeeded", func() {
+			if config.IsReusable() {
+				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
+					Labels:    testCaseLabel,
+					Namespace: ns,
+					Output:    "jsonpath='{.items[*].metadata.name}'",
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
+
+				if res.StdOut() != "" {
+					return
+				}
+			}
+
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.Connectivity},
+				FilenameOption: kc.Kustomize,
+			})
+			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
+		})
+	})
+
+	Context("When virtual images are applied", func() {
+		It("checks VIs phases", func() {
+			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
+			})
+		})
+	})
+
+	Context("When virtual disks are applied", func() {
+		It("checks VDs phases", func() {
+			By(fmt.Sprintf("VDs should be in %s phase", PhaseReady))
+			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
+			})
+		})
+	})
+
+	Context("When virtual machines are applied", func() {
+		It("checks VMs phases", func() {
+			By("Virtual machine agents should be ready")
+			WaitVMAgentReady(kc.WaitOptions{
+				Labels:    testCaseLabel,
+				Namespace: ns,
+				Timeout:   MaxWaitTimeout,
+			})
+		})
+	})
+
+	Context(fmt.Sprintf("When run %s", CurlPod), func() {
+		It(fmt.Sprintf("status should be in %s phase", PhaseRunning), func() {
+			jsonPath := "jsonpath={.status.phase}"
+			waitFor := fmt.Sprintf("%s=%s", jsonPath, PhaseRunning)
+			res := RunPod(CurlPod, ns, conf.HelperImages.CurlImage, PodEntrypoint{
+				Command: "sleep",
+				Args:    []string{"10000"},
+			})
+			Expect(res.Error()).NotTo(HaveOccurred())
+			WaitResource(kc.ResourcePod, ns, CurlPod, waitFor, ShortWaitDuration)
+		})
+	})
+
+	Context("When virtual machine agents are ready", func() {
+		It("gets VMs and SVCs objects", func() {
+			vmA = virtv2.VirtualMachine{}
+			err := GetObject(kc.ResourceVM, aObjName, &vmA, kc.GetOptions{
+				Namespace: ns,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			vmB = virtv2.VirtualMachine{}
+			err = GetObject(kc.ResourceVM, bObjName, &vmB, kc.GetOptions{
+				Namespace: ns,
+			})
+			Expect(err).NotTo(HaveOccurred())
+
+			svcA = corev1.Service{}
+			err = GetObject(kc.ResourceService, aObjName, &svcA, kc.GetOptions{
+				Namespace: ns,
+			})
+			Expect(err).NotTo(HaveOccurred())
+			svcB = corev1.Service{}
+			err = GetObject(kc.ResourceService, bObjName, &svcB, kc.GetOptions{
+				Namespace: ns,
+			})
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		It("check ssh connection via `d8 v` to VMs", func() {
+			cmd := "hostname"
+			for _, vmName := range []string{vmA.Name, vmB.Name} {
+				By(fmt.Sprintf("VirtualMachine %q", vmName))
+				CheckResultSSHCommand(ns, vmName, cmd, vmName)
+			}
+		})
+
+		It("checks VMs connection to external network", func() {
+			CheckCiliumAgents(kubectl, ns, vmA.Name, vmB.Name)
+			CheckExternalConnection(externalHost, httpStatusOk, ns, vmA.Name, vmB.Name)
+		})
+
+		It("check nginx status via `d8 v` on VMs", func() {
+			cmd := "systemctl is-active nginx.service"
+			for _, vmName := range []string{vmA.Name, vmB.Name} {
+				By(fmt.Sprintf("VirtualMachine %q", vmName))
+				CheckResultSSHCommand(ns, vmName, cmd, nginxActiveStatus)
+			}
+		})
+
+		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
+			service := GenerateServiceURL(&svcA, ns)
+			Eventually(func() (string, error) {
+				res := GetResponseViaPodWithCurl(CurlPod, ns, service)
+				if res.Error() != nil {
+					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+				}
+				return strings.TrimSpace(res.StdOut()), nil
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmA.Name))
+		})
+
+		It(fmt.Sprintf("gets page from service %s", bObjName), func() {
+			service := GenerateServiceURL(&svcB, ns)
+			Eventually(func() (string, error) {
+				res := GetResponseViaPodWithCurl(CurlPod, ns, service)
+				if res.Error() != nil {
+					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+				}
+				return strings.TrimSpace(res.StdOut()), nil
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmB.Name))
+		})
+
+		It(fmt.Sprintf("changes selector in service %s with selector from service %s", aObjName, bObjName), func() {
+			selectorA = svcA.Spec.Selector["service"]
+			selectorB = svcB.Spec.Selector["service"]
+
+			PatchResource(kc.ResourceService, ns, svcA.Name, []*kc.JSONPatch{
+				{
+					Op:    "replace",
+					Path:  "/spec/selector/service",
+					Value: selectorB,
+				},
+			})
+		})
+
+		It(fmt.Sprintf("checks selector in service %s", aObjName), func() {
+			By(fmt.Sprintf("Selector should be %q", selectorB))
+			output := "jsonpath={.spec.selector.service}"
+			CheckField(kc.ResourceService, ns, svcA.Name, output, selectorB)
+		})
+
+		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
+			By(fmt.Sprintf("Response should be from virtual machine %q", vmB.Name))
+			service := GenerateServiceURL(&svcA, ns)
+			Eventually(func() (string, error) {
+				res := GetResponseViaPodWithCurl(CurlPod, ns, service)
+				if res.Error() != nil {
+					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
+				}
+				return strings.TrimSpace(res.StdOut()), nil
+			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmB.Name))
+		})
+
+		It(fmt.Sprintf("changes back selector in service %s", aObjName), func() {
+			PatchResource(kc.ResourceService, ns, svcA.Name, []*kc.JSONPatch{
+				{
+					Op:    "replace",
+					Path:  "/spec/selector/service",
+					Value: selectorA,
+				},
+			})
+		})
+
+		It(fmt.Sprintf("checks selector in service %s", aObjName), func() {
+			By(fmt.Sprintf("Selector should be %q", selectorA))
+			output := "jsonpath={.spec.selector.service}"
+			CheckField(kc.ResourceService, ns, svcA.Name, output, selectorA)
+		})
+	})
+
+	Context("When test is completed", func() {
+		It("deletes test case resources", func() {
+			resourcesToDelete := ResourcesToDelete{
+				AdditionalResources: []AdditionalResource{
+					{
+						Resource: kc.ResourcePod,
+						Labels:   map[string]string{"name": CurlPod},
+					},
+				},
+			}
+
+			if config.IsCleanUpNeeded() {
+				resourcesToDelete.KustomizationDir = conf.TestData.Connectivity
+			}
+
+			DeleteTestCaseResources(ns, resourcesToDelete)
+		})
+	})
+})
 
 var httpStatusOk = fmt.Sprintf("%v", http.StatusOK)
 
@@ -71,29 +305,29 @@ func GetResponseViaPodWithCurl(podName, namespace, host string) *executor.CMDRes
 	return kubectl.RawCommand(cmd, ShortWaitDuration)
 }
 
-func CheckCiliumAgents(kubectl kc.Kubectl, vms ...string) {
+func CheckCiliumAgents(kubectl kc.Kubectl, namespace string, vms ...string) {
 	GinkgoHelper()
 	for _, vm := range vms {
 		By(fmt.Sprintf("Cilium agent should be OK's for VM: %s", vm))
-		err := network.CheckCilliumAgents(context.Background(), kubectl, vm, conf.Namespace)
+		err := network.CheckCilliumAgents(context.Background(), kubectl, vm, namespace)
 		Expect(err).NotTo(HaveOccurred())
 	}
 }
 
-func CheckExternalConnection(host, httpCode string, vms ...string) {
+func CheckExternalConnection(host, httpCode, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
-	for _, vm := range vms {
-		By(fmt.Sprintf("Response code from %q should be %q for %q", host, httpCode, vm))
+	for _, vmName := range vmNames {
+		By(fmt.Sprintf("Response code from %q should be %q for %q", host, httpCode, vmName))
 		cmd := fmt.Sprintf("curl -o /dev/null -s -w \"%%{http_code}\\n\" %s", host)
-		CheckResultSSHCommand(vm, cmd, httpCode)
+		CheckResultSSHCommand(vmNamespace, vmName, cmd, httpCode)
 	}
 }
 
-func CheckResultSSHCommand(vmName, cmd, equal string) {
+func CheckResultSSHCommand(vmNamespace, vmName, cmd, equal string) {
 	GinkgoHelper()
 	Eventually(func() (string, error) {
 		res := d8Virtualization.SSHCommand(vmName, cmd, d8.SSHOptions{
-			Namespace:   conf.Namespace,
+			Namespace:   vmNamespace,
 			Username:    conf.TestData.SSHUser,
 			IdenityFile: conf.TestData.Sshkey,
 		})
@@ -103,236 +337,3 @@ func CheckResultSSHCommand(vmName, cmd, equal string) {
 		return strings.TrimSpace(res.StdOut()), nil
 	}).WithTimeout(Timeout).WithPolling(Interval).Should(Equal(equal))
 }
-
-var _ = Describe("VM connectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
-	var (
-		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
-		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)
-		bObjName      = fmt.Sprintf("%s-vm-connectivity-b", namePrefix)
-		vmA, vmB      virtv2.VirtualMachine
-		svcA, svcB    corev1.Service
-		err           error
-
-		selectorA string
-		selectorB string
-	)
-
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
-		}
-	})
-
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.Connectivity, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
-		})
-	})
-
-	Context("When resources are applied", func() {
-		It("result should be succeeded", func() {
-			if config.IsReusable() {
-				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Output:    "jsonpath='{.items[*].metadata.name}'",
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
-
-				if res.StdOut() != "" {
-					return
-				}
-			}
-
-			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.Connectivity},
-				FilenameOption: kc.Kustomize,
-			})
-			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
-		})
-	})
-
-	Context("When virtual images are applied", func() {
-		It("checks VIs phases", func() {
-			By(fmt.Sprintf("VIs should be in %s phases", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When virtual disks are applied", func() {
-		It("checks VDs phases", func() {
-			By(fmt.Sprintf("VDs should be in %s phase", PhaseReady))
-			WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context("When virtual machines are applied", func() {
-		It("checks VMs phases", func() {
-			By("Virtual machine agents should be ready")
-			WaitVMAgentReady(kc.WaitOptions{
-				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
-				Timeout:   MaxWaitTimeout,
-			})
-		})
-	})
-
-	Context(fmt.Sprintf("When run %s", CurlPod), func() {
-		It(fmt.Sprintf("status should be in %s phase", PhaseRunning), func() {
-			jsonPath := "jsonpath={.status.phase}"
-			waitFor := fmt.Sprintf("%s=%s", jsonPath, PhaseRunning)
-			res := RunPod(CurlPod, conf.Namespace, conf.HelperImages.CurlImage, PodEntrypoint{
-				Command: "sleep",
-				Args:    []string{"10000"},
-			})
-			Expect(res.Error()).NotTo(HaveOccurred())
-			WaitResource(kc.ResourcePod, CurlPod, waitFor, ShortWaitDuration)
-		})
-	})
-
-	Context("When virtual machine agents are ready", func() {
-		It("gets VMs and SVCs objects", func() {
-			vmA = virtv2.VirtualMachine{}
-			err = GetObject(kc.ResourceVM, aObjName, &vmA, kc.GetOptions{
-				Namespace: conf.Namespace,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			vmB = virtv2.VirtualMachine{}
-			err = GetObject(kc.ResourceVM, bObjName, &vmB, kc.GetOptions{
-				Namespace: conf.Namespace,
-			})
-			Expect(err).NotTo(HaveOccurred())
-
-			svcA = corev1.Service{}
-			err = GetObject(kc.ResourceService, aObjName, &svcA, kc.GetOptions{
-				Namespace: conf.Namespace,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			svcB = corev1.Service{}
-			err = GetObject(kc.ResourceService, bObjName, &svcB, kc.GetOptions{
-				Namespace: conf.Namespace,
-			})
-			Expect(err).NotTo(HaveOccurred())
-		})
-
-		It("check ssh connection via `d8 v` to VMs", func() {
-			cmd := "hostname"
-			for _, vmName := range []string{vmA.Name, vmB.Name} {
-				By(fmt.Sprintf("VirtualMachine %q", vmName))
-				CheckResultSSHCommand(vmName, cmd, vmName)
-			}
-		})
-
-		It("checks VMs connection to external network", func() {
-			CheckCiliumAgents(kubectl, vmA.Name, vmB.Name)
-			CheckExternalConnection(externalHost, httpStatusOk, vmA.Name, vmB.Name)
-		})
-
-		It("check nginx status via `d8 v` on VMs", func() {
-			cmd := "systemctl is-active nginx.service"
-			for _, vmName := range []string{vmA.Name, vmB.Name} {
-				By(fmt.Sprintf("VirtualMachine %q", vmName))
-				CheckResultSSHCommand(vmName, cmd, nginxActiveStatus)
-			}
-		})
-
-		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
-			service := GenerateServiceURL(&svcA, conf.Namespace)
-			Eventually(func() (string, error) {
-				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
-				if res.Error() != nil {
-					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-				}
-				return strings.TrimSpace(res.StdOut()), nil
-			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmA.Name))
-		})
-
-		It(fmt.Sprintf("gets page from service %s", bObjName), func() {
-			service := GenerateServiceURL(&svcB, conf.Namespace)
-			Eventually(func() (string, error) {
-				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
-				if res.Error() != nil {
-					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-				}
-				return strings.TrimSpace(res.StdOut()), nil
-			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmB.Name))
-		})
-
-		It(fmt.Sprintf("changes selector in service %s with selector from service %s", aObjName, bObjName), func() {
-			selectorA = svcA.Spec.Selector["service"]
-			selectorB = svcB.Spec.Selector["service"]
-
-			PatchResource(kc.ResourceService, svcA.Name, []*kc.JSONPatch{
-				{
-					Op:    "replace",
-					Path:  "/spec/selector/service",
-					Value: selectorB,
-				},
-			})
-		})
-
-		It(fmt.Sprintf("checks selector in service %s", aObjName), func() {
-			By(fmt.Sprintf("Selector should be %q", selectorB))
-			output := "jsonpath={.spec.selector.service}"
-			CheckField(kc.ResourceService, svcA.Name, output, selectorB)
-		})
-
-		It(fmt.Sprintf("gets page from service %s", aObjName), func() {
-			By(fmt.Sprintf("Response should be from virtual machine %q", vmB.Name))
-			service := GenerateServiceURL(&svcA, conf.Namespace)
-			Eventually(func() (string, error) {
-				res := GetResponseViaPodWithCurl(CurlPod, conf.Namespace, service)
-				if res.Error() != nil {
-					return "", fmt.Errorf("cmd: %s\nstderr: %s", res.GetCmd(), res.StdErr())
-				}
-				return strings.TrimSpace(res.StdOut()), nil
-			}).WithTimeout(Timeout).WithPolling(Interval).Should(ContainSubstring(vmB.Name))
-		})
-
-		It(fmt.Sprintf("changes back selector in service %s", aObjName), func() {
-			PatchResource(kc.ResourceService, svcA.Name, []*kc.JSONPatch{
-				{
-					Op:    "replace",
-					Path:  "/spec/selector/service",
-					Value: selectorA,
-				},
-			})
-		})
-
-		It(fmt.Sprintf("checks selector in service %s", aObjName), func() {
-			By(fmt.Sprintf("Selector should be %q", selectorA))
-			output := "jsonpath={.spec.selector.service}"
-			CheckField(kc.ResourceService, svcA.Name, output, selectorA)
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			resourcesToDelete := ResourcesToDelete{
-				AdditionalResources: []AdditionalResource{
-					{
-						Resource: kc.ResourcePod,
-						Labels:   map[string]string{"name": CurlPod},
-					},
-				},
-			}
-
-			if config.IsCleanUpNeeded() {
-				resourcesToDelete.KustomizationDir = conf.TestData.Connectivity
-			}
-
-			DeleteTestCaseResources(resourcesToDelete)
-		})
-	})
-})

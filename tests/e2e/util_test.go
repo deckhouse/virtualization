@@ -139,46 +139,46 @@ func ItCheckStatusFromFile(filepath, output, compareField string) {
 	}
 }
 
-func WaitResource(resource kc.Resource, name, waitFor string, timeout time.Duration) {
+func WaitResource(resource kc.Resource, ns, name, waitFor string, timeout time.Duration) {
 	GinkgoHelper()
 	waitOpts := kc.WaitOptions{
-		Namespace: conf.Namespace,
+		Namespace: ns,
 		For:       waitFor,
 		Timeout:   timeout,
 	}
 	res := kubectl.WaitResources(resource, waitOpts, name)
-	Expect(res.Error()).NotTo(HaveOccurred(), "wait failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
+	Expect(res.Error()).NotTo(HaveOccurred(), "wait failed %s %s/%s.\n%s", resource, ns, name, res.StdErr())
 }
 
-func PatchResource(resource kc.Resource, name string, patch []*kc.JSONPatch) {
+func PatchResource(resource kc.Resource, ns, name string, patch []*kc.JSONPatch) {
 	GinkgoHelper()
 	res := kubectl.PatchResource(resource, name, kc.PatchOptions{
-		Namespace: conf.Namespace,
+		Namespace: ns,
 		JSONPatch: patch,
 	})
-	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, conf.Namespace, name,
+	Expect(res.Error()).NotTo(HaveOccurred(), "patch failed %s %s/%s.\n%s", resource, ns, name,
 		res.StdErr())
 }
 
-func MergePatchResource(resource kc.Resource, name, patch string) error {
+func MergePatchResource(resource kc.Resource, ns, name, patch string) error {
 	GinkgoHelper()
 	res := kubectl.PatchResource(resource, name, kc.PatchOptions{
-		Namespace:  conf.Namespace,
+		Namespace:  ns,
 		MergePatch: patch,
 	})
 	if res.Error() != nil {
-		return fmt.Errorf("patch failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
+		return fmt.Errorf("patch failed %s %s/%s.\n%s", resource, ns, name, res.StdErr())
 	}
 	return nil
 }
 
-func CheckField(resource kc.Resource, name, output, compareValue string) {
+func CheckField(resource kc.Resource, ns, name, output, compareValue string) {
 	GinkgoHelper()
 	res := kubectl.GetResource(resource, name, kc.GetOptions{
-		Namespace: conf.Namespace,
+		Namespace: ns,
 		Output:    output,
 	})
-	Expect(res.Error()).NotTo(HaveOccurred(), "get failed %s %s/%s.\n%s", resource, conf.Namespace, name, res.StdErr())
+	Expect(res.Error()).NotTo(HaveOccurred(), "get failed %s %s/%s.\n%s", resource, ns, name, res.StdErr())
 	Expect(res.StdOut()).To(Equal(compareValue))
 }
 
@@ -539,7 +539,7 @@ type ResourcesToDelete struct {
 }
 
 // This function checks that all resources in test case can be deleted correctly.
-func DeleteTestCaseResources(resources ResourcesToDelete) {
+func DeleteTestCaseResources(ns string, resources ResourcesToDelete) {
 	By("Response on deletion request should be successful", func() {
 		const errMessage = "cannot delete test case resources"
 
@@ -551,6 +551,7 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 			res := kubectl.Delete(kc.DeleteOptions{
 				Filename:       []string{resources.KustomizationDir},
 				FilenameOption: kc.Kustomize,
+				IgnoreNotFound: true,
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\nkustomizationDir: %s\ncmd: %s\nstderr: %s", errMessage, resources.KustomizationDir, res.GetCmd(), res.StdErr()))
 		}
@@ -558,7 +559,7 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 		for _, r := range resources.AdditionalResources {
 			res := kubectl.Delete(kc.DeleteOptions{
 				Labels:    r.Labels,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Resource:  r.Resource,
 			})
 			Expect(res.Error()).NotTo(HaveOccurred(), fmt.Sprintf("%s\ncmd: %s\nstderr: %s", errMessage, res.GetCmd(), res.StdErr()))
@@ -574,31 +575,31 @@ func DeleteTestCaseResources(resources ResourcesToDelete) {
 	})
 }
 
-func RebootVirtualMachinesByVMOP(label map[string]string, virtualMachines ...string) {
+func RebootVirtualMachinesByVMOP(label map[string]string, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, virtv2.VMOPTypeRestart, virtualMachines...)
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeRestart, vmNamespace, vmNames...)
 }
 
-func StopVirtualMachinesByVMOP(label map[string]string, virtualMachines ...string) {
+func StopVirtualMachinesByVMOP(label map[string]string, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, virtv2.VMOPTypeStop, virtualMachines...)
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeStop, vmNamespace, vmNames...)
 }
 
-func StartVirtualMachinesByVMOP(label map[string]string, virtualMachines ...string) {
+func StartVirtualMachinesByVMOP(label map[string]string, vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
-	CreateAndApplyVMOPs(label, virtv2.VMOPTypeStart, virtualMachines...)
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeStart, vmNamespace, vmNames...)
 }
 
-func CreateAndApplyVMOPs(label map[string]string, vmopType virtv2.VMOPType, virtualMachines ...string) {
-	CreateAndApplyVMOPsWithSuffix(label, "", vmopType, virtualMachines...)
+func CreateAndApplyVMOPs(label map[string]string, vmopType virtv2.VMOPType, vmNamespace string, vmNames ...string) {
+	CreateAndApplyVMOPsWithSuffix(label, "", vmopType, vmNamespace, vmNames...)
 }
 
-func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopType virtv2.VMOPType, virtualMachines ...string) {
-	for _, vm := range virtualMachines {
-		vmop, err := yaml.Marshal(GenerateVMOPWithSuffix(vm, suffix, label, vmopType))
+func CreateAndApplyVMOPsWithSuffix(label map[string]string, suffix string, vmopType virtv2.VMOPType, vmNamespace string, vmNames ...string) {
+	for _, vmName := range vmNames {
+		vmop, err := yaml.Marshal(GenerateVMOPWithSuffix(vmName, suffix, label, vmopType))
 		Expect(err).NotTo(HaveOccurred())
 		var cmd strings.Builder
-		cmd.WriteString(fmt.Sprintf("-n %s create -f - <<EOF\n", conf.Namespace))
+		cmd.WriteString(fmt.Sprintf("-n %s create -f - <<EOF\n", vmNamespace))
 		cmd.Write(vmop)
 		cmd.WriteString("EOF\n")
 
@@ -630,23 +631,23 @@ func GenerateVMOPWithSuffix(vmName, suffix string, labels map[string]string, vmo
 	return res
 }
 
-func StopVirtualMachinesBySSH(virtualMachines ...string) {
+func StopVirtualMachinesBySSH(vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
 
 	cmd := "sudo nohup poweroff -f > /dev/null 2>&1 &"
 
-	for _, vm := range virtualMachines {
-		ExecSSHCommand(vm, cmd)
+	for _, vmName := range vmNames {
+		ExecSSHCommand(vmNamespace, vmName, cmd)
 	}
 }
 
-func RebootVirtualMachinesBySSH(virtualMachines ...string) {
+func RebootVirtualMachinesBySSH(vmNamespace string, vmNames ...string) {
 	GinkgoHelper()
 
 	cmd := "sudo nohup reboot -f > /dev/null 2>&1 &"
 
-	for _, vm := range virtualMachines {
-		ExecSSHCommand(vm, cmd)
+	for _, vmName := range vmNames {
+		ExecSSHCommand(vmNamespace, vmName, cmd)
 	}
 }
 

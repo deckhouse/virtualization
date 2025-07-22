@@ -107,10 +107,12 @@ REUSABLE=yes task run
 ```
 
 ! Only the following e2e tests are supported in REUSABLE mode. All other tests will be skipped.
-- "Virtual machine configuration"
-- "Virtual machine migration"
-- "VM connectivity"
-- "Complex test"
+- "VirtualMachineConfiguration"
+- "VirtualMachineMigration"
+- "VirtualMachineConnectivity"
+- "ComplexTest"
+- "ImageHotplug"
+- "VirtualMachineRestoreForce"
 
 ### PostCleanUp option
 

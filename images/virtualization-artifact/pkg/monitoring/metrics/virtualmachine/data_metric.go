@@ -68,24 +68,16 @@ func newDataMetric(vm *virtv2.VirtualMachine) *dataMetric {
 	)
 
 	awaitingRestartToApplyConfigurationCondition, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
-	if awaitingRestartToApplyConfigurationCondition.Status == metav1.ConditionFalse {
-		awaitingRestartToApplyConfiguration = true
-	}
+	awaitingRestartToApplyConfiguration = awaitingRestartToApplyConfigurationCondition.Status == metav1.ConditionTrue
 
 	configurationAppliedCondition, _ := conditions.GetCondition(vmcondition.TypeConfigurationApplied, vm.Status.Conditions)
-	if configurationAppliedCondition.Status != metav1.ConditionFalse {
-		configurationApplied = true
-	}
+	configurationApplied = configurationAppliedCondition.Status != metav1.ConditionFalse
 
 	agentReadyCondition, _ := conditions.GetCondition(vmcondition.TypeAgentReady, vm.Status.Conditions)
-	if agentReadyCondition.Status == metav1.ConditionTrue {
-		agentReady = true
-	}
+	agentReady = agentReadyCondition.Status == metav1.ConditionTrue
 
 	firmwareUpToDateCondition, _ := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions)
-	if firmwareUpToDateCondition.Status != metav1.ConditionFalse {
-		firmwareUpToDate = true
-	}
+	firmwareUpToDate = firmwareUpToDateCondition.Status != metav1.ConditionFalse
 
 	pods := make([]virtv2.VirtualMachinePod, len(vm.Status.VirtualMachinePods))
 	for i, pod := range vm.Status.VirtualMachinePods {

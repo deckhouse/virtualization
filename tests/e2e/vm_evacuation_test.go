@@ -34,14 +34,15 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineEvacuation", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-evacuation"}
+	var ns string
 
 	BeforeEach(func() {
 		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMEvacuation, "kustomization.yaml")
-		ns, err := kustomize.GetNamespace(kustomization)
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
 		Expect(err).NotTo(HaveOccurred(), "%w", err)
-		conf.SetNamespace(ns)
 
 		res := kubectl.Apply(kc.ApplyOptions{
 			Filename:       []string{conf.TestData.VMEvacuation},
@@ -66,12 +67,12 @@ var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.Common
 		if config.IsCleanUpNeeded() {
 			resourcesToDelete.KustomizationDir = conf.TestData.VMEvacuation
 		}
-		DeleteTestCaseResources(resourcesToDelete)
+		DeleteTestCaseResources(ns, resourcesToDelete)
 	})
 
 	evacuate := func(vms []string) {
 		pods := &corev1.PodList{}
-		err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{Labels: testCaseLabel, Namespace: conf.Namespace})
+		err := GetObjects(kc.ResourcePod, pods, kc.GetOptions{Labels: testCaseLabel, Namespace: ns})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(pods.Items).Should(HaveLen(len(vms)))
 
@@ -91,12 +92,12 @@ var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.Common
 		By("Virtual machine agents should be ready")
 		WaitVMAgentReady(kc.WaitOptions{
 			Labels:    testCaseLabel,
-			Namespace: conf.Namespace,
+			Namespace: ns,
 			Timeout:   MaxWaitTimeout,
 		})
 
 		vms := &virtv2.VirtualMachineList{}
-		err := GetObjects(kc.ResourceVM, vms, kc.GetOptions{Labels: testCaseLabel, Namespace: conf.Namespace})
+		err := GetObjects(kc.ResourceVM, vms, kc.GetOptions{Labels: testCaseLabel, Namespace: ns})
 		Expect(err).NotTo(HaveOccurred())
 
 		vmNames := make([]string, len(vms.Items))
@@ -110,7 +111,7 @@ var _ = Describe("Virtual machine evacuation", SIGMigration(), ginkgoutil.Common
 		By("Waiting for all VMOPs to be finished")
 		Eventually(func() error {
 			vmops := &virtv2.VirtualMachineOperationList{}
-			err := GetObjects(kc.ResourceVMOP, vmops, kc.GetOptions{Namespace: conf.Namespace})
+			err := GetObjects(kc.ResourceVMOP, vmops, kc.GetOptions{Namespace: ns})
 			if err != nil {
 				return err
 			}

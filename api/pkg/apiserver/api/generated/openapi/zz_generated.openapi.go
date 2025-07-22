@@ -4664,6 +4664,13 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineRestoreSpec(ref commo
 			SchemaProps: spec.SchemaProps{
 				Type: []string{"object"},
 				Properties: map[string]spec.Schema{
+					"restoreMode": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Virtual machine restore mode:\n\n* Safe — in this mode, the virtual machine will not be restored if unresolvable conflicts are detected during the restoration process. * Forced — in this mode, the virtual machine configuration will be updated and all associated resources will be recreated. The virtual machine may malfunction if the recovery process fails. Use the mode when you need to restore the virtual machine despite conflicts.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 					"virtualMachineSnapshotName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Snapshot name to restore a virtual machine from.",

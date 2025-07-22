@@ -11,7 +11,6 @@ package tls_certificates_audit
 import (
 	"context"
 	"fmt"
-
 	"hooks/pkg/settings"
 
 	tlscertificate "github.com/deckhouse/module-sdk/common-hooks/tls-certificate"
@@ -32,6 +31,8 @@ var conf = tlscertificate.GenSelfSignedTLSHookConf{
 		fmt.Sprintf("%s.%s", settings.AuditCertCN, settings.ModuleNamespace),
 		// virtualization-audit.d8-virtualization.svc
 		fmt.Sprintf("%s.%s.svc", settings.AuditCertCN, settings.ModuleNamespace),
+		// virtualization-audit.d8-virtualization.svc.cluster.local
+		tlscertificate.ClusterDomainSAN(fmt.Sprintf("%s.%s.svc", settings.AuditCertCN, settings.ModuleNamespace)),
 	}),
 
 	FullValuesPathPrefix: fmt.Sprintf("%s.internal.audit.cert", settings.ModuleName),

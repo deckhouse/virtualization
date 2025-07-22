@@ -29,13 +29,9 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-func MigrateVirtualMachines(label map[string]string, virtualMachines ...string) {
-	GinkgoHelper()
-	CreateAndApplyVMOPs(label, virtv2.VMOPTypeEvict, virtualMachines...)
-}
-
-var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineMigration", SIGMigration(), ginkgoutil.CommonE2ETestDecorators(), func() {
 	testCaseLabel := map[string]string{"testcase": "vm-migration"}
+	var ns string
 
 	AfterEach(func() {
 		if CurrentSpecReport().Failed() {
@@ -46,9 +42,10 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 	Context("Preparing the environment", func() {
 		It("sets the namespace", func() {
 			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMMigration, "kustomization.yaml")
-			ns, err := kustomize.GetNamespace(kustomization)
+			var err error
+			ns, err = kustomize.GetNamespace(kustomization)
 			Expect(err).NotTo(HaveOccurred(), "%w", err)
-			conf.SetNamespace(ns)
+			Expect(ns).NotTo(BeEmpty())
 		})
 	})
 
@@ -57,7 +54,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 			if config.IsReusable() {
 				res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
+					Namespace: ns,
 					Output:    "jsonpath='{.items[*].metadata.name}'",
 				})
 				Expect(res.Error()).NotTo(HaveOccurred(), res.StdErr())
@@ -80,7 +77,7 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 			By("Virtual machine agents should be ready")
 			WaitVMAgentReady(kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 		})
@@ -90,13 +87,13 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 		It("starts migrations", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			MigrateVirtualMachines(testCaseLabel, vms...)
+			MigrateVirtualMachines(testCaseLabel, ns, vms...)
 		})
 	})
 
@@ -105,13 +102,13 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 			By(fmt.Sprintf("VMOPs should be in %s phases", virtv2.VMOPPhaseCompleted))
 			WaitPhaseByLabel(kc.ResourceVMOP, string(virtv2.VMOPPhaseCompleted), kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 			})
 			By("Virtual machines should be migrated")
 			WaitByLabel(kc.ResourceVM, kc.WaitOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Timeout:   MaxWaitTimeout,
 				For:       "'jsonpath={.status.migrationState.result}=Succeeded'",
 			})
@@ -120,14 +117,14 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 		It("checks VMs external connection after migrations", func() {
 			res := kubectl.List(kc.ResourceVM, kc.GetOptions{
 				Labels:    testCaseLabel,
-				Namespace: conf.Namespace,
+				Namespace: ns,
 				Output:    "jsonpath='{.items[*].metadata.name}'",
 			})
 			Expect(res.WasSuccess()).To(Equal(true), res.StdErr())
 
 			vms := strings.Split(res.StdOut(), " ")
-			CheckCiliumAgents(kubectl, vms...)
-			CheckExternalConnection(externalHost, httpStatusOk, vms...)
+			CheckCiliumAgents(kubectl, ns, vms...)
+			CheckExternalConnection(externalHost, httpStatusOk, ns, vms...)
 		})
 	})
 
@@ -146,7 +143,12 @@ var _ = Describe("Virtual machine migration", SIGMigration(), ginkgoutil.CommonE
 				resourcesToDelete.KustomizationDir = conf.TestData.VMMigration
 			}
 
-			DeleteTestCaseResources(resourcesToDelete)
+			DeleteTestCaseResources(ns, resourcesToDelete)
 		})
 	})
 })
+
+func MigrateVirtualMachines(label map[string]string, vmNamespace string, vmNames ...string) {
+	GinkgoHelper()
+	CreateAndApplyVMOPs(label, virtv2.VMOPTypeEvict, vmNamespace, vmNames...)
+}

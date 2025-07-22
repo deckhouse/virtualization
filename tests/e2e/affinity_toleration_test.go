@@ -35,6 +35,439 @@ import (
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
+var _ = Describe("VirtualMachineAffinityAndToleration", ginkgoutil.CommonE2ETestDecorators(), func() {
+	const (
+		nodeLabelKey   = "kubernetes.io/hostname"
+		masterLabelKey = "node.deckhouse.io/group"
+		vmKey          = "vm"
+	)
+
+	var (
+		migratingStatusPollingInterval = 1 * time.Second
+		testCaseLabel                  = map[string]string{"testcase": "affinity-toleration"}
+		vmA                            = map[string]string{"vm": "vm-a"}
+		vmB                            = map[string]string{"vm": "vm-b"}
+		vmC                            = map[string]string{"vm": "vm-c"}
+		vmD                            = map[string]string{"vm": "vm-d"}
+		vmNodeSelector                 = map[string]string{"vm": "vm-node-selector"}
+		vmNodeAffinity                 = map[string]string{"vm": "vm-node-affinity"}
+		workerNodeLabel                = map[string]string{"node.deckhouse.io/group": "worker"}
+		masterNodeLabel                = map[string]string{"node.deckhouse.io/group": "master"}
+		ns                             string
+	)
+
+	BeforeAll(func() {
+		if config.IsReusable() {
+			Skip("Test not available in REUSABLE mode: not supported yet.")
+		}
+
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.AffinityToleration, "kustomization.yaml")
+		var err error
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
+	})
+
+	AfterEach(func() {
+		if CurrentSpecReport().Failed() {
+			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
+		}
+	})
+
+	Context("When the virtualization resources are applied:", func() {
+		It("result should be succeeded", func() {
+			res := kubectl.Apply(kc.ApplyOptions{
+				Filename:       []string{conf.TestData.AffinityToleration},
+				FilenameOption: kc.Kustomize,
+			})
+			Expect(res.Error()).NotTo(HaveOccurred(), "failed to apply the test case resources")
+		})
+
+		It("checks the resources phase", func() {
+			By(fmt.Sprintf("`VirtualImages` should be in the %q phase", virtv2.ImageReady), func() {
+				WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: ns,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+			By(fmt.Sprintf("`VirtualMachineClasses` should be in %s phases", virtv2.ClassPhaseReady), func() {
+				WaitPhaseByLabel(kc.ResourceVMClass, PhaseReady, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: ns,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+			By(fmt.Sprintf("`VirtualDisks` should be in the %q phase", virtv2.DiskReady), func() {
+				WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: ns,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+			By("`VirtualMachines` agents should be ready", func() {
+				WaitVMAgentReady(kc.WaitOptions{
+					Labels:    testCaseLabel,
+					Namespace: ns,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+		})
+	})
+
+	Context("When the virtual machines agents are ready", func() {
+		It("checks the `status.nodeName` field of the `VirtualMachines`", func() {
+			var (
+				vmObjA = &virtv2.VirtualMachine{}
+				vmObjB = &virtv2.VirtualMachine{}
+				vmObjC = &virtv2.VirtualMachine{}
+				vmObjD = &virtv2.VirtualMachine{}
+				err    error
+			)
+			By("Obtain the `VirtualMachine` objects", func() {
+				vmObjA, err = GetVirtualMachineObjByLabel(ns, vmA)
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine`", vmA)
+				vmObjB, err = GetVirtualMachineObjByLabel(ns, vmB)
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine`", vmB)
+				vmObjC, err = GetVirtualMachineObjByLabel(ns, vmC)
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine`", vmC)
+				vmObjD, err = GetVirtualMachineObjByLabel(ns, vmD)
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine`", vmD)
+			})
+			By("Set affinity when creating the `VirtualMachines`.`: `vm-a` and `vm-c` should be running on the same node", func() {
+				Expect(vmObjA.Status.Node).Should(Equal(vmObjC.Status.Node), "%q and %q `VirtualMachines` should be running on the same node", vmA, vmC)
+			})
+			By("Set anti-affinity when creating the `VirtualMachines`: `vm-a` and `vm-b` should be running on the different nodes", func() {
+				Expect(vmObjA.Status.Node).ShouldNot(Equal(vmObjB.Status.Node), "%q and %q `VirtualMachines` should be running on the different nodes", vmA, vmB)
+			})
+			By("Set toleration when creating the `VirtualMachines`: `vm-d` should be running on a master node", func() {
+				nodeObj := corev1.Node{}
+				err := GetObject(kc.ResourceNode, vmObjD.Status.Node, &nodeObj, kc.GetOptions{})
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q node", vmObjD.Status.Node)
+				Expect(nodeObj.Labels).Should(HaveKeyWithValue(masterLabelKey, masterNodeLabel[masterLabelKey]), "%q `VirtualMachine` should be running on a master node", vmD)
+			})
+			By("Change affinity to anti-affinity when the `VirtualMachines` are runnning: `vm-a` and `vm-c` should be running on the different nodes", func() {
+				wg := &sync.WaitGroup{}
+
+				ExpectVirtualMachineIsMigratable(vmObjC)
+				p, err := GenerateVirtualMachineAndPodAntiAffinityPatch(vmKey, nodeLabelKey, metav1.LabelSelectorOpIn, []string{vmA[vmKey]})
+				Expect(err).NotTo(HaveOccurred(), "failed to generate the `VirtualMachineAndPodAntiAffinity` patch")
+				jsonPatchAdd := &kc.JSONPatch{
+					Op:    "add",
+					Path:  "/spec/affinity/virtualMachineAndPodAntiAffinity",
+					Value: string(p),
+				}
+				jsonPatchRemove := &kc.JSONPatch{
+					Op:   "remove",
+					Path: "/spec/affinity/virtualMachineAndPodAffinity",
+				}
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					Eventually(func() error {
+						updatedVMObjC := &virtv2.VirtualMachine{}
+						err := GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
+							Namespace: ns,
+						})
+						if err != nil {
+							return err
+						}
+						if updatedVMObjC.Status.Phase != virtv2.MachineMigrating {
+							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
+						}
+						return nil
+					}).WithTimeout(LongWaitDuration).WithPolling(migratingStatusPollingInterval).Should(Succeed())
+				}()
+				res := kubectl.PatchResource(kc.ResourceVM, vmObjC.Name, kc.PatchOptions{
+					JSONPatch: []*kc.JSONPatch{
+						jsonPatchAdd,
+						jsonPatchRemove,
+					},
+					Namespace: ns,
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmC)
+				wg.Wait()
+
+				WaitVMAgentReady(kc.WaitOptions{
+					Labels:    vmC,
+					Namespace: ns,
+					Timeout:   MaxWaitTimeout,
+				})
+				updatedVMObjC := &virtv2.VirtualMachine{}
+				err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
+					Namespace: ns,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmC)
+				Expect(updatedVMObjC.Status.MigrationState.Source.Node).Should(Equal(vmObjC.Status.Node))
+				Expect(updatedVMObjC.Status.MigrationState.Target.Node).ShouldNot(Equal(vmObjA.Status.Node))
+				Expect(updatedVMObjC.Status.Node).ShouldNot(Equal(vmObjA.Status.Node))
+			})
+			By("Change anti-affinity to affinity when the `VirtualMachines` are runnning: `vm-a` and `vm-c` should be running on the same node", func() {
+				wg := &sync.WaitGroup{}
+
+				updatedVMObjC := &virtv2.VirtualMachine{}
+				err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
+					Namespace: ns,
+				})
+
+				ExpectVirtualMachineIsMigratable(updatedVMObjC)
+				p, err := GenerateVirtualMachineAndPodAffinityPatch(vmKey, nodeLabelKey, metav1.LabelSelectorOpIn, []string{vmA[vmKey]})
+				Expect(err).NotTo(HaveOccurred(), "failed to generate the `VirtualMachineAndPodAffinity` patch")
+				jsonPatchAdd := &kc.JSONPatch{
+					Op:    "add",
+					Path:  "/spec/affinity/virtualMachineAndPodAffinity",
+					Value: string(p),
+				}
+				jsonPatchRemove := &kc.JSONPatch{
+					Op:   "remove",
+					Path: "/spec/affinity/virtualMachineAndPodAntiAffinity",
+				}
+
+				migrationInitiatedAt := time.Now().UTC()
+				res := kubectl.PatchResource(kc.ResourceVM, vmObjC.Name, kc.PatchOptions{
+					JSONPatch: []*kc.JSONPatch{
+						jsonPatchAdd,
+						jsonPatchRemove,
+					},
+					Namespace: ns,
+				})
+				Expect(res.Error()).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmC)
+
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					Eventually(func() error {
+						updatedVMObjC = &virtv2.VirtualMachine{}
+						err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
+							Namespace: ns,
+						})
+						if err != nil {
+							return err
+						}
+
+						if updatedVMObjC.Status.MigrationState == nil || updatedVMObjC.Status.MigrationState.StartTimestamp == nil || updatedVMObjC.Status.MigrationState.StartTimestamp.UTC().Before(migrationInitiatedAt) {
+							return errors.New("couldn't wait for the migration to start")
+						}
+
+						if updatedVMObjC.Status.MigrationState.Source.Node == vmObjA.Status.Node {
+							return errors.New("migration should start from a different node")
+						}
+
+						if updatedVMObjC.Status.MigrationState.Target.Node != vmObjA.Status.Node {
+							return errors.New("migration should end at the same node")
+						}
+
+						if updatedVMObjC.Status.Node != vmObjA.Status.Node {
+							return errors.New("migration should end at the same node")
+						}
+
+						return nil
+					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
+				}()
+
+				wg.Wait()
+
+				WaitVMAgentReady(kc.WaitOptions{
+					Labels:    vmC,
+					Namespace: ns,
+					Timeout:   MaxWaitTimeout,
+				})
+			})
+		})
+	})
+
+	Context("When the virtual machine `node-selector` agent is ready", func() {
+		It("sets the `spec.nodeSelector` field", func() {
+			var (
+				sourceNode string
+				targetNode string
+				err        error
+			)
+			vmObj := &virtv2.VirtualMachine{}
+			By("Sets the `spec.nodeSelector` with the `status.nodeSelector` value", func() {
+				vmObj, err = GetVirtualMachineObjByLabel(ns, vmNodeSelector)
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
+				ExpectVirtualMachineIsMigratable(vmObj)
+				sourceNode = vmObj.Status.Node
+				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
+				mergePatch := fmt.Sprintf(`{"spec":{"nodeSelector":{%q:%q}}}`, nodeLabelKey, sourceNode)
+				err = MergePatchResource(kc.ResourceVM, ns, vmObj.Name, mergePatch)
+				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeSelector)
+			})
+			By("The `VirtualMachine` should not be migrated", func() {
+				time.Sleep(20 * time.Second)
+				updatedVMObj := &virtv2.VirtualMachine{}
+				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+					Namespace: ns,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
+				for _, c := range updatedVMObj.Status.Conditions {
+					if c.Type == string(vmcondition.TypeMigrating) {
+						Expect(c.Status).Should(Equal(metav1.ConditionFalse))
+					}
+				}
+				Expect(updatedVMObj.Status.MigrationState).Should(BeNil())
+				Expect(updatedVMObj.Status.Node).Should(Equal(sourceNode))
+			})
+			By("Sets the `spec.nodeSelector` with `another node` value", func() {
+				wg := &sync.WaitGroup{}
+
+				updatedVMObj := &virtv2.VirtualMachine{}
+				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+					Namespace: ns,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
+				Expect(updatedVMObj.Status.MigrationState).Should(BeNil())
+
+				sourceNode := updatedVMObj.Status.Node
+				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
+
+				targetNode, err = DefineTargetNode(sourceNode, workerNodeLabel)
+				Expect(err).NotTo(HaveOccurred())
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					Eventually(func() error {
+						updatedVMObj := &virtv2.VirtualMachine{}
+						err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+							Namespace: ns,
+						})
+						if err != nil {
+							return err
+						}
+						if updatedVMObj.Status.Phase != virtv2.MachineMigrating {
+							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
+						}
+						return nil
+					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
+				}()
+				mergePatch := fmt.Sprintf(`{"spec":{"nodeSelector":{%q:%q}}}`, nodeLabelKey, targetNode)
+				err = MergePatchResource(kc.ResourceVM, ns, vmObj.Name, mergePatch)
+				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeSelector)
+				wg.Wait()
+			})
+			By("The `VirtualMachine` should be migrated", func() {
+				WaitVMAgentReady(kc.WaitOptions{
+					Labels:    vmNodeSelector,
+					Namespace: ns,
+					Timeout:   MaxWaitTimeout,
+				})
+				updatedVMObj := &virtv2.VirtualMachine{}
+				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+					Namespace: ns,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
+				Expect(updatedVMObj.Status.MigrationState.Source.Node).Should(Equal(sourceNode))
+				Expect(updatedVMObj.Status.MigrationState.Target.Node).Should(Equal(targetNode))
+				Expect(updatedVMObj.Status.Node).Should(Equal(targetNode))
+			})
+		})
+	})
+
+	Context("When the virtual machine `node-affinity` agent is ready", func() {
+		It("sets the `spec.affinity.nodeAffinity` field", func() {
+			var (
+				sourceNode string
+				targetNode string
+				err        error
+			)
+			vmObj := &virtv2.VirtualMachine{}
+			By("Sets the `spec.affinity.nodeAffinity` with the `status.nodeSelector` value", func() {
+				vmObj, err = GetVirtualMachineObjByLabel(ns, vmNodeAffinity)
+				Expect(err).NotTo(HaveOccurred())
+				ExpectVirtualMachineIsMigratable(vmObj)
+				sourceNode = vmObj.Status.Node
+				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
+
+				p, err := GenerateNodeAffinityPatch(nodeLabelKey, corev1.NodeSelectorOpIn, []string{sourceNode})
+				Expect(err).NotTo(HaveOccurred())
+				mergePatch := fmt.Sprintf(`{"spec":{"affinity":%s}}`, p)
+				err = MergePatchResource(kc.ResourceVM, ns, vmObj.Name, mergePatch)
+				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeAffinity)
+			})
+			By("The `VirtualMachine` should not be migrated", func() {
+				time.Sleep(20 * time.Second)
+				updatedVMObj := &virtv2.VirtualMachine{}
+				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+					Namespace: ns,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeAffinity)
+				for _, c := range updatedVMObj.Status.Conditions {
+					if c.Type == string(vmcondition.TypeMigrating) {
+						Expect(c.Status).Should(Equal(metav1.ConditionFalse))
+					}
+				}
+				Expect(updatedVMObj.Status.MigrationState).Should(BeNil())
+				Expect(updatedVMObj.Status.Node).Should(Equal(sourceNode))
+			})
+			By("Sets the `spec.affinity.nodeAffinity` with `another node` value", func() {
+				wg := &sync.WaitGroup{}
+
+				updatedVMObj := &virtv2.VirtualMachine{}
+				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+					Namespace: ns,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeAffinity)
+				Expect(updatedVMObj.Status.MigrationState).Should(BeNil())
+
+				sourceNode = updatedVMObj.Status.Node
+				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
+
+				targetNode, err = DefineTargetNode(sourceNode, workerNodeLabel)
+				Expect(err).NotTo(HaveOccurred())
+
+				p, err := GenerateNodeAffinityPatch(nodeLabelKey, corev1.NodeSelectorOpIn, []string{targetNode})
+				Expect(err).NotTo(HaveOccurred(), "failed to generate the `NodeAffinity` patch")
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					Eventually(func() error {
+						updatedVMObj := &virtv2.VirtualMachine{}
+						err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+							Namespace: ns,
+						})
+						if err != nil {
+							return err
+						}
+						if updatedVMObj.Status.Phase != virtv2.MachineMigrating {
+							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
+						}
+						return nil
+					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
+				}()
+				mergePatch := fmt.Sprintf(`{"spec":{"affinity":%s}}`, p)
+				err = MergePatchResource(kc.ResourceVM, ns, vmObj.Name, mergePatch)
+				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeAffinity)
+				wg.Wait()
+			})
+			By("The `VirtualMachine` should be migrated", func() {
+				WaitVMAgentReady(kc.WaitOptions{
+					Labels:    vmNodeAffinity,
+					Namespace: ns,
+					Timeout:   MaxWaitTimeout,
+				})
+				updatedVMObj := &virtv2.VirtualMachine{}
+				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
+					Namespace: ns,
+				})
+				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeAffinity)
+				Expect(updatedVMObj.Status.MigrationState.Source.Node).Should(Equal(sourceNode))
+				Expect(updatedVMObj.Status.MigrationState.Target.Node).Should(Equal(targetNode))
+				Expect(updatedVMObj.Status.Node).Should(Equal(targetNode))
+			})
+		})
+	})
+
+	Context("When test is completed", func() {
+		It("deletes test case resources", func() {
+			DeleteTestCaseResources(ns, ResourcesToDelete{KustomizationDir: conf.TestData.AffinityToleration})
+		})
+	})
+})
+
 func ExpectVirtualMachineIsMigratable(vmObj *virtv2.VirtualMachine) {
 	GinkgoHelper()
 	for _, c := range vmObj.Status.Conditions {
@@ -158,435 +591,3 @@ func GenerateVirtualMachineAndPodAffinityPatch(key, topologyKey string, operator
 	}
 	return b, nil
 }
-
-var _ = Describe("Virtual machine affinity and toleration", ginkgoutil.CommonE2ETestDecorators(), func() {
-	BeforeAll(func() {
-		if config.IsReusable() {
-			Skip("Test not available in REUSABLE mode: not supported yet.")
-		}
-
-		kustomization := fmt.Sprintf("%s/%s", conf.TestData.AffinityToleration, "kustomization.yaml")
-		ns, err := kustomize.GetNamespace(kustomization)
-		Expect(err).NotTo(HaveOccurred(), "%w", err)
-		conf.SetNamespace(ns)
-	})
-
-	const (
-		nodeLabelKey   = "kubernetes.io/hostname"
-		masterLabelKey = "node.deckhouse.io/group"
-		vmKey          = "vm"
-	)
-
-	var (
-		migratingStatusPollingInterval = 1 * time.Second
-		testCaseLabel                  = map[string]string{"testcase": "affinity-toleration"}
-		vmA                            = map[string]string{"vm": "vm-a"}
-		vmB                            = map[string]string{"vm": "vm-b"}
-		vmC                            = map[string]string{"vm": "vm-c"}
-		vmD                            = map[string]string{"vm": "vm-d"}
-		vmNodeSelector                 = map[string]string{"vm": "vm-node-selector"}
-		vmNodeAffinity                 = map[string]string{"vm": "vm-node-affinity"}
-		workerNodeLabel                = map[string]string{"node.deckhouse.io/group": "worker"}
-		masterNodeLabel                = map[string]string{"node.deckhouse.io/group": "master"}
-	)
-
-	AfterEach(func() {
-		if CurrentSpecReport().Failed() {
-			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
-		}
-	})
-
-	Context("When the virtualization resources are applied:", func() {
-		It("result should be succeeded", func() {
-			res := kubectl.Apply(kc.ApplyOptions{
-				Filename:       []string{conf.TestData.AffinityToleration},
-				FilenameOption: kc.Kustomize,
-			})
-			Expect(res.Error()).NotTo(HaveOccurred(), "failed to apply the test case resources")
-		})
-
-		It("checks the resources phase", func() {
-			By(fmt.Sprintf("`VirtualImages` should be in the %q phase", virtv2.ImageReady), func() {
-				WaitPhaseByLabel(kc.ResourceVI, PhaseReady, kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
-			By(fmt.Sprintf("`VirtualMachineClasses` should be in %s phases", virtv2.ClassPhaseReady), func() {
-				WaitPhaseByLabel(kc.ResourceVMClass, PhaseReady, kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
-			By(fmt.Sprintf("`VirtualDisks` should be in the %q phase", virtv2.DiskReady), func() {
-				WaitPhaseByLabel(kc.ResourceVD, PhaseReady, kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
-			By("`VirtualMachines` agents should be ready", func() {
-				WaitVMAgentReady(kc.WaitOptions{
-					Labels:    testCaseLabel,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
-		})
-	})
-
-	Context("When the virtual machines agents are ready", func() {
-		It("checks the `status.nodeName` field of the `VirtualMachines`", func() {
-			var (
-				vmObjA = &virtv2.VirtualMachine{}
-				vmObjB = &virtv2.VirtualMachine{}
-				vmObjC = &virtv2.VirtualMachine{}
-				vmObjD = &virtv2.VirtualMachine{}
-				err    error
-			)
-			By("Obtain the `VirtualMachine` objects", func() {
-				vmObjA, err = GetVirtualMachineObjByLabel(conf.Namespace, vmA)
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine`", vmA)
-				vmObjB, err = GetVirtualMachineObjByLabel(conf.Namespace, vmB)
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine`", vmB)
-				vmObjC, err = GetVirtualMachineObjByLabel(conf.Namespace, vmC)
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine`", vmC)
-				vmObjD, err = GetVirtualMachineObjByLabel(conf.Namespace, vmD)
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine`", vmD)
-			})
-			By("Set affinity when creating the `VirtualMachines`.`: `vm-a` and `vm-c` should be running on the same node", func() {
-				Expect(vmObjA.Status.Node).Should(Equal(vmObjC.Status.Node), "%q and %q `VirtualMachines` should be running on the same node", vmA, vmC)
-			})
-			By("Set anti-affinity when creating the `VirtualMachines`: `vm-a` and `vm-b` should be running on the different nodes", func() {
-				Expect(vmObjA.Status.Node).ShouldNot(Equal(vmObjB.Status.Node), "%q and %q `VirtualMachines` should be running on the different nodes", vmA, vmB)
-			})
-			By("Set toleration when creating the `VirtualMachines`: `vm-d` should be running on a master node", func() {
-				nodeObj := corev1.Node{}
-				err := GetObject(kc.ResourceNode, vmObjD.Status.Node, &nodeObj, kc.GetOptions{})
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q node", vmObjD.Status.Node)
-				Expect(nodeObj.Labels).Should(HaveKeyWithValue(masterLabelKey, masterNodeLabel[masterLabelKey]), "%q `VirtualMachine` should be running on a master node", vmD)
-			})
-			By("Change affinity to anti-affinity when the `VirtualMachines` are runnning: `vm-a` and `vm-c` should be running on the different nodes", func() {
-				wg := &sync.WaitGroup{}
-
-				ExpectVirtualMachineIsMigratable(vmObjC)
-				p, err := GenerateVirtualMachineAndPodAntiAffinityPatch(vmKey, nodeLabelKey, metav1.LabelSelectorOpIn, []string{vmA[vmKey]})
-				Expect(err).NotTo(HaveOccurred(), "failed to generate the `VirtualMachineAndPodAntiAffinity` patch")
-				jsonPatchAdd := &kc.JSONPatch{
-					Op:    "add",
-					Path:  "/spec/affinity/virtualMachineAndPodAntiAffinity",
-					Value: string(p),
-				}
-				jsonPatchRemove := &kc.JSONPatch{
-					Op:   "remove",
-					Path: "/spec/affinity/virtualMachineAndPodAffinity",
-				}
-				wg.Add(1)
-				go func() {
-					defer GinkgoRecover()
-					defer wg.Done()
-					Eventually(func() error {
-						updatedVMObjC := &virtv2.VirtualMachine{}
-						err := GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
-							Namespace: conf.Namespace,
-						})
-						if err != nil {
-							return err
-						}
-						if updatedVMObjC.Status.Phase != virtv2.MachineMigrating {
-							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
-						}
-						return nil
-					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
-				}()
-				res := kubectl.PatchResource(kc.ResourceVM, vmObjC.Name, kc.PatchOptions{
-					JSONPatch: []*kc.JSONPatch{
-						jsonPatchAdd,
-						jsonPatchRemove,
-					},
-					Namespace: conf.Namespace,
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmC)
-				wg.Wait()
-
-				WaitVMAgentReady(kc.WaitOptions{
-					Labels:    vmC,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-				updatedVMObjC := &virtv2.VirtualMachine{}
-				err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
-					Namespace: conf.Namespace,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmC)
-				Expect(updatedVMObjC.Status.MigrationState.Source.Node).Should(Equal(vmObjC.Status.Node))
-				Expect(updatedVMObjC.Status.MigrationState.Target.Node).ShouldNot(Equal(vmObjA.Status.Node))
-				Expect(updatedVMObjC.Status.Node).ShouldNot(Equal(vmObjA.Status.Node))
-			})
-			By("Change anti-affinity to affinity when the `VirtualMachines` are runnning: `vm-a` and `vm-c` should be running on the same node", func() {
-				wg := &sync.WaitGroup{}
-
-				updatedVMObjC := &virtv2.VirtualMachine{}
-				err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
-					Namespace: conf.Namespace,
-				})
-
-				ExpectVirtualMachineIsMigratable(updatedVMObjC)
-				p, err := GenerateVirtualMachineAndPodAffinityPatch(vmKey, nodeLabelKey, metav1.LabelSelectorOpIn, []string{vmA[vmKey]})
-				Expect(err).NotTo(HaveOccurred(), "failed to generate the `VirtualMachineAndPodAffinity` patch")
-				jsonPatchAdd := &kc.JSONPatch{
-					Op:    "add",
-					Path:  "/spec/affinity/virtualMachineAndPodAffinity",
-					Value: string(p),
-				}
-				jsonPatchRemove := &kc.JSONPatch{
-					Op:   "remove",
-					Path: "/spec/affinity/virtualMachineAndPodAntiAffinity",
-				}
-
-				migrationInitiatedAt := time.Now().UTC()
-				res := kubectl.PatchResource(kc.ResourceVM, vmObjC.Name, kc.PatchOptions{
-					JSONPatch: []*kc.JSONPatch{
-						jsonPatchAdd,
-						jsonPatchRemove,
-					},
-					Namespace: conf.Namespace,
-				})
-				Expect(res.Error()).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmC)
-
-				wg.Add(1)
-				go func() {
-					defer GinkgoRecover()
-					defer wg.Done()
-					Eventually(func() error {
-						updatedVMObjC = &virtv2.VirtualMachine{}
-						err = GetObject(virtv2.VirtualMachineResource, vmObjC.Name, updatedVMObjC, kc.GetOptions{
-							Namespace: conf.Namespace,
-						})
-						if err != nil {
-							return err
-						}
-
-						if updatedVMObjC.Status.MigrationState == nil || updatedVMObjC.Status.MigrationState.StartTimestamp == nil || updatedVMObjC.Status.MigrationState.StartTimestamp.UTC().Before(migrationInitiatedAt) {
-							return errors.New("couldn't wait for the migration to start")
-						}
-
-						if updatedVMObjC.Status.MigrationState.Source.Node == vmObjA.Status.Node {
-							return errors.New("migration should start from a different node")
-						}
-
-						if updatedVMObjC.Status.MigrationState.Target.Node != vmObjA.Status.Node {
-							return errors.New("migration should end at the same node")
-						}
-
-						if updatedVMObjC.Status.Node != vmObjA.Status.Node {
-							return errors.New("migration should end at the same node")
-						}
-
-						return nil
-					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
-				}()
-
-				wg.Wait()
-
-				WaitVMAgentReady(kc.WaitOptions{
-					Labels:    vmC,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-			})
-		})
-	})
-
-	Context("When the virtual machine `node-selector` agent is ready", func() {
-		It("sets the `spec.nodeSelector` field", func() {
-			var (
-				sourceNode string
-				targetNode string
-				err        error
-			)
-			vmObj := &virtv2.VirtualMachine{}
-			By("Sets the `spec.nodeSelector` with the `status.nodeSelector` value", func() {
-				vmObj, err = GetVirtualMachineObjByLabel(conf.Namespace, vmNodeSelector)
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
-				ExpectVirtualMachineIsMigratable(vmObj)
-				sourceNode = vmObj.Status.Node
-				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
-				mergePatch := fmt.Sprintf(`{"spec":{"nodeSelector":{%q:%q}}}`, nodeLabelKey, sourceNode)
-				err = MergePatchResource(kc.ResourceVM, vmObj.Name, mergePatch)
-				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeSelector)
-			})
-			By("The `VirtualMachine` should not be migrated", func() {
-				time.Sleep(20 * time.Second)
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
-					Namespace: conf.Namespace,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
-				for _, c := range updatedVMObj.Status.Conditions {
-					if c.Type == string(vmcondition.TypeMigrating) {
-						Expect(c.Status).Should(Equal(metav1.ConditionFalse))
-					}
-				}
-				Expect(updatedVMObj.Status.MigrationState).Should(BeNil())
-				Expect(updatedVMObj.Status.Node).Should(Equal(sourceNode))
-			})
-			By("Sets the `spec.nodeSelector` with `another node` value", func() {
-				wg := &sync.WaitGroup{}
-
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
-					Namespace: conf.Namespace,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
-				Expect(updatedVMObj.Status.MigrationState).Should(BeNil())
-
-				sourceNode := updatedVMObj.Status.Node
-				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
-
-				targetNode, err = DefineTargetNode(sourceNode, workerNodeLabel)
-				Expect(err).NotTo(HaveOccurred())
-				wg.Add(1)
-				go func() {
-					defer GinkgoRecover()
-					defer wg.Done()
-					Eventually(func() error {
-						updatedVMObj := &virtv2.VirtualMachine{}
-						err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
-							Namespace: conf.Namespace,
-						})
-						if err != nil {
-							return err
-						}
-						if updatedVMObj.Status.Phase != virtv2.MachineMigrating {
-							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
-						}
-						return nil
-					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
-				}()
-				mergePatch := fmt.Sprintf(`{"spec":{"nodeSelector":{%q:%q}}}`, nodeLabelKey, targetNode)
-				err = MergePatchResource(kc.ResourceVM, vmObj.Name, mergePatch)
-				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeSelector)
-				wg.Wait()
-			})
-			By("The `VirtualMachine` should be migrated", func() {
-				WaitVMAgentReady(kc.WaitOptions{
-					Labels:    vmNodeSelector,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
-					Namespace: conf.Namespace,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeSelector)
-				Expect(updatedVMObj.Status.MigrationState.Source.Node).Should(Equal(sourceNode))
-				Expect(updatedVMObj.Status.MigrationState.Target.Node).Should(Equal(targetNode))
-				Expect(updatedVMObj.Status.Node).Should(Equal(targetNode))
-			})
-		})
-	})
-
-	Context("When the virtual machine `node-affinity` agent is ready", func() {
-		It("sets the `spec.affinity.nodeAffinity` field", func() {
-			var (
-				sourceNode string
-				targetNode string
-				err        error
-			)
-			vmObj := &virtv2.VirtualMachine{}
-			By("Sets the `spec.affinity.nodeAffinity` with the `status.nodeSelector` value", func() {
-				vmObj, err = GetVirtualMachineObjByLabel(conf.Namespace, vmNodeAffinity)
-				Expect(err).NotTo(HaveOccurred())
-				ExpectVirtualMachineIsMigratable(vmObj)
-				sourceNode = vmObj.Status.Node
-				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
-
-				p, err := GenerateNodeAffinityPatch(nodeLabelKey, corev1.NodeSelectorOpIn, []string{sourceNode})
-				Expect(err).NotTo(HaveOccurred())
-				mergePatch := fmt.Sprintf(`{"spec":{"affinity":%s}}`, p)
-				err = MergePatchResource(kc.ResourceVM, vmObj.Name, mergePatch)
-				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeAffinity)
-			})
-			By("The `VirtualMachine` should not be migrated", func() {
-				time.Sleep(20 * time.Second)
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
-					Namespace: conf.Namespace,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeAffinity)
-				for _, c := range updatedVMObj.Status.Conditions {
-					if c.Type == string(vmcondition.TypeMigrating) {
-						Expect(c.Status).Should(Equal(metav1.ConditionFalse))
-					}
-				}
-				Expect(updatedVMObj.Status.MigrationState).Should(BeNil())
-				Expect(updatedVMObj.Status.Node).Should(Equal(sourceNode))
-			})
-			By("Sets the `spec.affinity.nodeAffinity` with `another node` value", func() {
-				wg := &sync.WaitGroup{}
-
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
-					Namespace: conf.Namespace,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeAffinity)
-				Expect(updatedVMObj.Status.MigrationState).Should(BeNil())
-
-				sourceNode = updatedVMObj.Status.Node
-				Expect(sourceNode).ShouldNot(BeEmpty(), "the `vm.status.nodeName` should have a value")
-
-				targetNode, err = DefineTargetNode(sourceNode, workerNodeLabel)
-				Expect(err).NotTo(HaveOccurred())
-
-				p, err := GenerateNodeAffinityPatch(nodeLabelKey, corev1.NodeSelectorOpIn, []string{targetNode})
-				Expect(err).NotTo(HaveOccurred(), "failed to generate the `NodeAffinity` patch")
-				wg.Add(1)
-				go func() {
-					defer GinkgoRecover()
-					defer wg.Done()
-					Eventually(func() error {
-						updatedVMObj := &virtv2.VirtualMachine{}
-						err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
-							Namespace: conf.Namespace,
-						})
-						if err != nil {
-							return err
-						}
-						if updatedVMObj.Status.Phase != virtv2.MachineMigrating {
-							return fmt.Errorf("the `VirtualMachine` should be %s", virtv2.MachineMigrating)
-						}
-						return nil
-					}).WithTimeout(Timeout).WithPolling(migratingStatusPollingInterval).Should(Succeed())
-				}()
-				mergePatch := fmt.Sprintf(`{"spec":{"affinity":%s}}`, p)
-				err = MergePatchResource(kc.ResourceVM, vmObj.Name, mergePatch)
-				Expect(err).NotTo(HaveOccurred(), "failed to patch the %q `VirtualMachine`", vmNodeAffinity)
-				wg.Wait()
-			})
-			By("The `VirtualMachine` should be migrated", func() {
-				WaitVMAgentReady(kc.WaitOptions{
-					Labels:    vmNodeAffinity,
-					Namespace: conf.Namespace,
-					Timeout:   MaxWaitTimeout,
-				})
-				updatedVMObj := &virtv2.VirtualMachine{}
-				err := GetObject(virtv2.VirtualMachineResource, vmObj.Name, updatedVMObj, kc.GetOptions{
-					Namespace: conf.Namespace,
-				})
-				Expect(err).NotTo(HaveOccurred(), "failed to obtain the %q `VirtualMachine` object", vmNodeAffinity)
-				Expect(updatedVMObj.Status.MigrationState.Source.Node).Should(Equal(sourceNode))
-				Expect(updatedVMObj.Status.MigrationState.Target.Node).Should(Equal(targetNode))
-				Expect(updatedVMObj.Status.Node).Should(Equal(targetNode))
-			})
-		})
-	})
-
-	Context("When test is completed", func() {
-		It("deletes test case resources", func() {
-			DeleteTestCaseResources(ResourcesToDelete{KustomizationDir: conf.TestData.AffinityToleration})
-		})
-	})
-})

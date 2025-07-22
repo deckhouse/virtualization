@@ -54,6 +54,14 @@ type VirtualMachineRestoreList struct {
 }
 
 type VirtualMachineRestoreSpec struct {
+	// Virtual machine restore mode:
+	//
+	// * Safe — in this mode, the virtual machine will not be restored if unresolvable conflicts are detected during the restoration process.
+	// * Forced — in this mode, the virtual machine configuration will be updated and all associated resources will be recreated. The virtual machine may malfunction if the recovery process fails. Use the mode when you need to restore the virtual machine despite conflicts.
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=Safe;Forced
+	// +kubebuilder:default:=Safe
+	RestoreMode RestoreMode `json:"restoreMode,omitempty"`
 	// Snapshot name to restore a virtual machine from.
 	//
 	// +kubebuilder:validation:MinLength=1
@@ -102,4 +110,11 @@ const (
 	VirtualMachineRestorePhaseReady       VirtualMachineRestorePhase = "Ready"
 	VirtualMachineRestorePhaseFailed      VirtualMachineRestorePhase = "Failed"
 	VirtualMachineRestorePhaseTerminating VirtualMachineRestorePhase = "Terminating"
+)
+
+type RestoreMode string
+
+const (
+	RestoreModeSafe   RestoreMode = "Safe"
+	RestoreModeForced RestoreMode = "Forced"
 )

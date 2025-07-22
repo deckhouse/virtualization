@@ -67,7 +67,7 @@ spec:
     type: Memory
     whenFull: Block
   socket:
-    address: virtualization-audit.d8-virtualization.svc.cluster.local:443
+    address: virtualization-audit.d8-virtualization.svc:443
     mode: TCP
     encoding:
       codec: JSON

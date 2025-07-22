@@ -19,7 +19,6 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
@@ -32,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -65,7 +65,7 @@ func (w VirtualMachineSnapshotWatcher) enqueueRequests(ctx context.Context, obj 
 		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMRestoreByVMSnapshot, obj.GetName()),
 	})
 	if err != nil {
-		slog.Default().Error(fmt.Sprintf("failed to list virtual machine restores: %s", err))
+		log.Error(fmt.Sprintf("failed to list virtual machine restores: %s", err))
 		return
 	}
 
@@ -84,13 +84,13 @@ func (w VirtualMachineSnapshotWatcher) enqueueRequests(ctx context.Context, obj 
 func (w VirtualMachineSnapshotWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 	oldVMSnapshot, ok := e.ObjectOld.(*virtv2.VirtualMachineSnapshot)
 	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old VirtualMachineSnapshot but got a %T", e.ObjectOld))
+		log.Error(fmt.Sprintf("expected an old VirtualMachineSnapshot but got a %T", e.ObjectOld))
 		return false
 	}
 
 	newVMSnapshot, ok := e.ObjectNew.(*virtv2.VirtualMachineSnapshot)
 	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new VirtualMachineSnapshot but got a %T", e.ObjectNew))
+		log.Error(fmt.Sprintf("expected a new VirtualMachineSnapshot but got a %T", e.ObjectNew))
 		return false
 	}
 
