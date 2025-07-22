@@ -39,17 +39,14 @@ spec:
       maxUnavailable: 1
 {{- end -}}
 
-{{- /* Returns node selector for workloads depend on strategy. (Returns only system or control-plane node selector) */ -}}
-{{- define "virt_helper_node_selector" }}
+{{- /* Returns node selector for workloads, only system or control-plane */ -}}
+{{- define "virt_helper_system_master_node_selector" }}
 {{-   $context := index . 0 }} {{- /* Template context with .Values, .Chart, etc */ -}}
-{{-   $strategy := index . 1 | include "helm_lib_internal_check_node_selector_strategy" }} {{- /* check strategy, one of "frontend" "monitoring" "system" "master" "any-node" "wildcard" */ -}}
-{{-   if eq $strategy "system" }}
-{{-     if gt (index $context.Values.global.discovery.d8SpecificNodeCountByRole "system" | int) 0 }}
+{{-   if gt (index $context.Values.global.discovery.d8SpecificNodeCountByRole "system" | int) 0 }}
 nodeSelector:
   node-role.deckhouse.io/system: ""
-{{-     else }}
+{{-   else }}
 nodeSelector:
   node-role.kubernetes.io/control-plane: ""
-{{-     end }}
 {{-   end }}
 {{- end }}
