@@ -4873,7 +4873,8 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotSpec(ref comm
 					},
 					"volumeSnapshotClasses": {
 						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
+							Description: "DEPRECATED: field VolumeSnapshotClasses is deprecated and will be removed in a future release",
+							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
@@ -5323,7 +5324,7 @@ func schema_virtualization_api_core_v1alpha2_VolumeSnapshotClassName(ref common.
 				Properties: map[string]spec.Schema{
 					"storageClassName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StorageClass name associated with a VolumeSnapshotClass.",
+							Description: "StorageClass name associated with a VolumeSnapshotClass. DEPRECATED: field StorageClassName is deprecated and will be removed in a future release",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
@@ -5331,14 +5332,13 @@ func schema_virtualization_api_core_v1alpha2_VolumeSnapshotClassName(ref common.
 					},
 					"volumeSnapshotClassName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "VolumeSnapshotClass name to use for virtual disk snapshotting.",
+							Description: "VolumeSnapshotClass name to use for virtual disk snapshotting. DEPRECATED: field VolumeSnapshotClassName is deprecated and will be removed in a future release",
 							Default:     "",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 				},
-				Required: []string{"storageClassName", "volumeSnapshotClassName"},
 			},
 		},
 	}

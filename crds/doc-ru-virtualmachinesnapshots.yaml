@@ -26,12 +26,15 @@ spec:
                   description: Имя виртуальной машины для создания снимка.
                 volumeSnapshotClasses:
                   items:
-                    description: Устанавливает соответствие между StorageClass и VolumeSnapshotClass.
+                    description: |
+                      DEPRECATED: Данное поле устарело и будет удалено в будущем релизе.
                     properties:
                       storageClassName:
-                        description: Имя ресурса StorageClass, соответствующее указанному ресурсу VolumeSnapshotClass.
+                        description: |
+                          DEPRECATED: Данное поле устарело и будет удалено в будущем релизе.
                       volumeSnapshotClassName:
-                        description: Имя ресурса VolumeSnapshotClass, который будет использован для создания снимков виртуальных дисков с соответствующим классом хранения.
+                        description: |
+                          DEPRECATED: Данное поле устарело и будет удалено в будущем релизе.
             status:
               properties:
                 conditions:

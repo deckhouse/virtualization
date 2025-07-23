@@ -68,7 +68,9 @@ type VirtualMachineSnapshotSpec struct {
 	// +kubebuilder:default:=true
 	RequiredConsistency bool `json:"requiredConsistency"`
 	// +kubebuilder:default:="Always"
-	KeepIPAddress         KeepIPAddress             `json:"keepIPAddress"`
+	KeepIPAddress KeepIPAddress `json:"keepIPAddress"`
+	// DEPRECATED: field VolumeSnapshotClasses is deprecated and will be removed in a future release
+	// +optional
 	VolumeSnapshotClasses []VolumeSnapshotClassName `json:"volumeSnapshotClasses,omitempty"`
 }
 
@@ -100,8 +102,12 @@ type VirtualMachineSnapshotStatus struct {
 // VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding.
 type VolumeSnapshotClassName struct {
 	// StorageClass name associated with a VolumeSnapshotClass.
+	// DEPRECATED: field StorageClassName is deprecated and will be removed in a future release
+	// +optional
 	StorageClassName string `json:"storageClassName"`
 	// VolumeSnapshotClass name to use for virtual disk snapshotting.
+	// DEPRECATED: field VolumeSnapshotClassName is deprecated and will be removed in a future release
+	// +optional
 	VolumeSnapshotClassName string `json:"volumeSnapshotClassName"`
 }
 

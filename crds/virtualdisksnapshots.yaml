@@ -37,7 +37,6 @@ spec:
               type: object
               required:
                 - virtualDiskName
-                - volumeSnapshotClassName
               properties:
                 virtualDiskName:
                   type: string
@@ -46,7 +45,7 @@ spec:
                 volumeSnapshotClassName:
                   type: string
                   description: |
-                    Volume snapshot class name to use while a virtual disk snapshot is created.
+                    DEPRECATED: field VolumeSnapshotClasses is deprecated and will be removed in a future release
                 requiredConsistency:
                   type: boolean
                   default: true
