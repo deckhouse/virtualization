@@ -172,7 +172,7 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 						string(virtv2.BlockDeviceAttachmentPhaseAttached),
 						kc.WaitOptions{
 							Namespace: vm.Namespace,
-							Labels:    testCaseLabel,
+							Labels:    additionalDiskLabel,
 							Timeout:   LongWaitDuration,
 						})
 					err := GetObject(virtv2.VirtualMachineKind, vm.Name, &vm, kc.GetOptions{Namespace: vm.Namespace})
