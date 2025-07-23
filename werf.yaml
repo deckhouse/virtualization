@@ -14,45 +14,23 @@ build:
 ---
 
 # Source repo settings
-{{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" | default "https://github.com") }}
+{{- $_ := set . "SOURCE_REPO" (env "SOURCE_REPO" "https://github.com") }}
 
-{{- $_ := set . "SOURCE_REPO_GIT" (env "SOURCE_REPO_GIT" | default "https://github.com") }}
-
-# Edition module settings
-{{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION") }}
+{{- $_ := set . "SOURCE_REPO_GIT" (env "SOURCE_REPO_GIT" "https://github.com") }}
 
 # Define packages proxy settings
 {{- $_ := set . "DistroPackagesProxy" (env "DISTRO_PACKAGES_PROXY" "") }}
 
-# Component versions
-{{ $_ := set . "Version" dict }}
-{{ $_ := set . "Packages" dict }}
-{{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
-
 # svace analyze toggler
 {{- $_ := set . "SVACE_ENABLED" (env "SVACE_ENABLED" "false") }}
-
-{{- $_ := set . "SVACE_IMAGE_SUFFIX" "" }}
-{{- if ne .SVACE_ENABLED "false" }}{{ $_ := set . "SVACE_IMAGE_SUFFIX" "/svace" }}{{ end }}
-
 {{- $_ := set . "SVACE_ANALYZE_HOST" (env "SVACE_ANALYZE_HOST" "example.host") }}
-
 {{- $_ := set . "SVACE_ANALYZE_SSH_USER" (env "SVACE_ANALYZE_SSH_USER" "user") }}
-
-{{- range $k, $v := $versions_ctx.firmware }}
-  {{- $_ := set $.Version $k $v}}
-{{- end }}
-
-{{- range $k, $v := $versions_ctx.package }}
-  {{- $_ := set $.Packages $k $v}}
-{{- end }}
 
 {{- $_ := set $ "ImagesIDList" list }}
 
 {{- range $path, $content := .Files.Glob ".werf/*.yaml" }}
   {{- tpl $content $ }}
 {{- end }}
-
 
 ---
 image: images-digests
@@ -84,8 +62,7 @@ shell:
       cat images_digests.json
 ---
 image: python-dependencies
-fromImage: BASE_ALT_P11
-fromCacheVersion: "2025-28-05.1"
+fromImage: builder/alt
 git:
   - add: /lib/python/requirements.txt
     to: /requirements.txt
@@ -111,8 +88,8 @@ import:
     add: /dist
     to: /lib/python/dist
     after: setup
-  - image: hooks
-    add: /hooks
+  - image: go-hooks-artifact
+    add: /go-hooks
     to: /hooks/go
     after: setup
 git:
@@ -144,4 +121,4 @@ image: release-channel-version
 fromImage: builder/scratch
 shell:
   install:
-    - echo  '{"version":"{{ env "MODULES_MODULE_TAG" }}"}' > version.json
+    - echo  '{"version":"{{ env "MODULES_MODULE_TAG" "dev" }}"}' > version.json
