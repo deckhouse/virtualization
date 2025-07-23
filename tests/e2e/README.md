@@ -85,12 +85,14 @@ task run
 
 ### Debugging options
 
-- Use FOCUS env to run one test.
-- Use STOP_ON_FAILURE=yes env to stop tests on first failure without cleanup.
+- Use the FOCUS environment variable to run a specific test.
+- Set CONTINUE_ON_FAILURE=yes to continue running tests despite any failures.
+- Set WITHOUT_POST_CLEANUP=yes to disable cleanup after tests.
+     
 
-For example, run only "Complex text" without cleanup on failure:
+For example, to run only the "ComplexTest" without cleanup and without stopping on failure, use the following command: 
 ```bash
-FOCUS="Complex test" STOP_ON_FAILURE=yes task run
+FOCUS="Complex test" CONTINUE_ON_FAILURE=yes WITHOUT_POST_CLEANUP=yes task run
 ```
 
 ### Reusable mode option

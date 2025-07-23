@@ -25,7 +25,10 @@ import (
 // WithPostCleanUpEnv defines an environment variable used to explicitly request the deletion of created/used resources.
 // For example, this option is useful when combined with the `REUSABLE=yes` option,
 // as the reusable mode does not delete created/used resources by default.
-const WithPostCleanUpEnv = "WITH_POST_CLEANUP"
+const (
+	WithPostCleanUpEnv    = "WITH_POST_CLEANUP"
+	WithoutPostCleanUpEnv = "WITHOUT_POST_CLEANUP"
+)
 
 func CheckWithPostCleanUpOption() error {
 	env := os.Getenv(WithPostCleanUpEnv)
@@ -42,9 +45,17 @@ func WithPostCleanUp() bool {
 	return os.Getenv(WithPostCleanUpEnv) == "yes"
 }
 
+func WithoutPostCleanUp() bool {
+	return os.Getenv(WithoutPostCleanUpEnv) == "yes"
+}
+
 func IsCleanUpNeeded() bool {
 	if IsReusable() {
 		return WithPostCleanUp()
+	}
+
+	if WithoutPostCleanUp() {
+		return false
 	}
 
 	return true
