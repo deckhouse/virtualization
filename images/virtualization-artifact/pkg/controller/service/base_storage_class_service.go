@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"sort"
 
 	corev1 "k8s.io/api/core/v1"
@@ -77,17 +76,6 @@ func (s BaseStorageClassService) GetPersistentVolumeClaim(ctx context.Context, s
 	return object.FetchObject(ctx, sup.PersistentVolumeClaim(), s.client, &corev1.PersistentVolumeClaim{})
 }
 
-func (s BaseStorageClassService) IsStorageClassDeprecated(ctx context.Context, scName string) (bool, error) {
-	sc, err := s.GetStorageClass(ctx, scName)
-	if err != nil {
-		return false, fmt.Errorf("failed to fetch the %q storage class: %w", scName, err)
-	}
-
-	if sc != nil {
-		if sc.Labels["module"] == "local-path-provisioner" {
-			return true, nil
-		}
-	}
-
-	return false, nil
+func (s BaseStorageClassService) IsStorageClassDeprecated(sc *storagev1.StorageClass) bool {
+	return sc != nil && sc.Labels["module"] == "local-path-provisioner"
 }

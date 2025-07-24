@@ -73,11 +73,11 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	}
 
 	if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
-		deprecated, err := v.scService.IsStorageClassDeprecated(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
+		sc, err := v.scService.GetStorageClass(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
 		if err != nil {
 			return nil, err
 		}
-		if deprecated {
+		if v.scService.IsStorageClassDeprecated(sc) {
 			return nil, fmt.Errorf(
 				"the provisioner of the %q storage class is deprecated; please use a different one",
 				*vi.Spec.PersistentVolumeClaim.StorageClass,
@@ -123,11 +123,11 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 		}
 	case newVI.Status.Phase == virtv2.ImagePending:
 		if newVI.Spec.PersistentVolumeClaim.StorageClass != nil && *newVI.Spec.PersistentVolumeClaim.StorageClass != "" {
-			deprecated, err := v.scService.IsStorageClassDeprecated(ctx, *newVI.Spec.PersistentVolumeClaim.StorageClass)
+			sc, err := v.scService.GetStorageClass(ctx, *newVI.Spec.PersistentVolumeClaim.StorageClass)
 			if err != nil {
 				return nil, err
 			}
-			if deprecated {
+			if v.scService.IsStorageClassDeprecated(sc) {
 				return nil, fmt.Errorf(
 					"the provisioner of the %q storage class is deprecated; please use a different one",
 					*newVI.Spec.PersistentVolumeClaim.StorageClass,

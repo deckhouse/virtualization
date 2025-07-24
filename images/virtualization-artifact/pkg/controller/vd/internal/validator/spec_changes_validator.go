@@ -46,11 +46,11 @@ func NewSpecChangesValidator(client client.Client, scService *intsvc.VirtualDisk
 
 func (v *SpecChangesValidator) ValidateCreate(ctx context.Context, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
 	if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
-		deprecated, err := v.scService.IsStorageClassDeprecated(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
+		sc, err := v.scService.GetStorageClass(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
 		if err != nil {
 			return nil, err
 		}
-		if deprecated {
+		if v.scService.IsStorageClassDeprecated(sc) {
 			return nil, fmt.Errorf(
 				"the provisioner of the %q storage class is deprecated; please use a different one",
 				*newVD.Spec.PersistentVolumeClaim.StorageClass,
@@ -82,11 +82,11 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 		}
 	case newVD.Status.Phase == virtv2.DiskPending:
 		if newVD.Spec.PersistentVolumeClaim.StorageClass != nil && *newVD.Spec.PersistentVolumeClaim.StorageClass != "" {
-			deprecated, err := v.scService.IsStorageClassDeprecated(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
+			sc, err := v.scService.GetStorageClass(ctx, *newVD.Spec.PersistentVolumeClaim.StorageClass)
 			if err != nil {
 				return nil, err
 			}
-			if deprecated {
+			if v.scService.IsStorageClassDeprecated(sc) {
 				return nil, fmt.Errorf(
 					"the provisioner of the %q storage class is deprecated; please use a different one",
 					*newVD.Spec.PersistentVolumeClaim.StorageClass,
