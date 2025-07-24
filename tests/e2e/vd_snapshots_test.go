@@ -66,7 +66,7 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 		Expect(conf.StorageClass.ImmediateStorageClass).NotTo(BeNil(), "immediate storage class cannot be nil; please set up the immediate storage class in the cluster")
 
 		virtualDiskWithoutConsumer := virtv2.VirtualDisk{}
-		vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-alpine-http.yaml", conf.TestData.VdSnapshots)
+		vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
 		err = UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
 		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
 

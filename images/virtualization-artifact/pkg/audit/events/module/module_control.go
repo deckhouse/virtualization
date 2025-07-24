@@ -85,7 +85,7 @@ func (m *ModuleControl) Fill() error {
 		return nil
 	}
 
-	if (m.event.Verb == "patch" || m.event.Verb == "update") && !*moduleConfig.Spec.Enabled {
+	if (m.event.Verb == "patch" || m.event.Verb == "update") && (moduleConfig.Spec.Enabled != nil && !*moduleConfig.Spec.Enabled) {
 		m.eventLog.Name = "Module disabled"
 		m.eventLog.Level = "warn"
 	}

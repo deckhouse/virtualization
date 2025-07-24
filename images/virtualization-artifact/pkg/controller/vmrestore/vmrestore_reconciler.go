@@ -85,8 +85,6 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		watcher.NewVirtualMachineWatcher(mgr.GetClient()),
 		watcher.NewVirtualDiskWatcher(mgr.GetClient()),
 		watcher.NewVirtualMachineBlockDeviceAttachmentWatcher(mgr.GetClient(), restorer),
-		watcher.NewVirtualImageWatcher(mgr.GetClient(), restorer),
-		watcher.NewClusterVirtualImageWatcher(mgr.GetClient(), restorer),
 		watcher.NewInternalVirtualMachineWatcher(mgr.GetClient()),
 	} {
 		err := w.Watch(mgr, ctr)

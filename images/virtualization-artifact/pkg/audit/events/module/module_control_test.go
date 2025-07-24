@@ -47,6 +47,7 @@ type moduleControlTestArgs struct {
 	customObjectRefNil     bool
 	customStage            audit.Stage
 	customDisabledModule   bool
+	customNilEnabledModule bool
 	shouldFailMatch        bool
 }
 
@@ -78,7 +79,7 @@ var _ = Describe("Module control Events", func() {
 		modConfig = &mcapi.ModuleConfig{
 			ObjectMeta: metav1.ObjectMeta{Name: "test-moduleconfig", Namespace: "test", UID: "0000-0000-4567"},
 			Spec: mcapi.ModuleConfigSpec{
-				Enabled: ptr.To(true),
+				Enabled: nil,
 			},
 		}
 
@@ -149,6 +150,10 @@ var _ = Describe("Module control Events", func() {
 			if args.shouldFailMatch {
 				Expect(eventLog.IsMatched()).To(BeFalse())
 				return
+			}
+
+			if args.customNilEnabledModule {
+				modConfig.Spec.Enabled = nil
 			}
 
 			Expect(eventLog.IsMatched()).To(BeTrue())
@@ -241,6 +246,13 @@ var _ = Describe("Module control Events", func() {
 			expectedLevel:      "warn",
 			expectedActionType: "delete",
 			shouldLostModule:   true,
+		}),
+		Entry("Module Control event shouldn't failed fill with null enabled", moduleControlTestArgs{
+			eventVerb:              "delete",
+			expectedName:           "Module deletion",
+			expectedLevel:          "warn",
+			expectedActionType:     "delete",
+			customNilEnabledModule: true,
 		}),
 	)
 })
