@@ -250,7 +250,6 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 				Source: vsv1.VolumeSnapshotSource{
 					PersistentVolumeClaimName: &pvc.Name,
 				},
-				VolumeSnapshotClassName: ptr.To(""),
 			},
 		}
 
