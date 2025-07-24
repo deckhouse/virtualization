@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-- add: /images/{{ $.ImageName }}
+- add: {{ .ImagePath }}
   to: /src
   stageDependencies:
     install:
@@ -11,8 +11,11 @@ git:
     - go.sum
     setup:
     - "**/*.go"
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
-  install:
+  beforeInstall:
 {{- if eq $.SVACE_ENABLED "false" }}
   {{- include "debian packages proxy" . | nindent 2 }}
   - apt-get -qq install -y --no-install-recommends libnbd-dev
@@ -22,15 +25,17 @@ shell:
   - apt-get -qq install -y libnbd-devel
   {{- include "alt packages clean" . | nindent 2 }}
 {{- end }}
+  install:
+  - cd /src
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
+  - go mod download
   setup:
   - mkdir /out
   - cd /src
   - |
-    export GO111MODULE=on
     export GOOS=linux
-    export CGO_ENABLED=1
     export GOARCH=amd64
-  - |
+    export CGO_ENABLED=1
     {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-importer" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" -o /out/dvcr-importer ./cmd/dvcr-importer`) | nindent 6 }}
     {{- $_ := set $ "ProjectName" (list $.ImageName "dvcr-uploader" | join "/") }}
@@ -62,9 +67,9 @@ binaries:
 
 {{ $dvcrDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -73,24 +78,24 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-- image: {{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /out
   to: /usr/local/bin
   before: setup
-- image: packages/binaries/file
+- image: {{ .ModuleNamePrefix }}packages/binaries/file
   add: /file
   to: /file
   before: install
 # deps for file
-- image: packages/binaries/bzip2
+- image: {{ .ModuleNamePrefix }}packages/binaries/bzip2
   add: /bzip2
   to: /bzip2
   before: install
-- image: packages/binaries/nbdkit
+- image: {{ .ModuleNamePrefix }}packages/binaries/nbdkit
   add: /nbdkit
   to: /nbdkit
   before: install
-- image: qemu
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
   before: install
