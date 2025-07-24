@@ -1,3 +1,22 @@
+
+{{- $version := get $.PackageVersion $.ImageName }}
+{{- $gitRepoUrl := "linux-rdma/rdma-core.git" }}
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc git make libtool libnl-devel ninja-build
+- binutils cmake libudev-devel pkgconfig
+- libsystemd-devel pandoc
+- python3-module-Cython python3-devel python3-module-docutils
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+
+{{/* Temporarily exclude images from build (the build is broken). TODO remove 'if' when build was fixed. */}}
+{{- $build := "false" }}
+{{- if eq $build "true" }}
 ---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
@@ -5,12 +24,22 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /libidn2
+  to: /libibverbs
+  includePaths:
+    - usr/lib64/libibverbs.so
+    - usr/lib64/libibverbs.so.1
+    - usr/lib64/libibverbs.so.1.0.0
+  before: setup
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /rdma-core-devel
+  includePaths:
+    - usr/include
+    - usr/lib64/libibverbs.la
   before: setup
 
 ---
-{{- $version := get $.PackageVersion $.ImageName }}
-{{- $gitRepoUrl := "libidn/libidn2.git" }}
+
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -26,15 +55,6 @@ shell:
 
 ---
 
-{{- $name := print $.ImageName "-dependencies" -}}
-{{- define "$name" -}}
-packages:
-- gcc git make libtool patch gperf help2man gengetopt
-- gtk-doc libgnutls-devel libntlm-devel libreadline-devel
-- gnulib
-{{- end -}}
-
-{{ $builderDependencies := include "$name" . | fromYaml }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
@@ -58,14 +78,14 @@ shell:
     OUTDIR=/out
 
     cd /src
-    ./bootstrap --skip-po
-    ./configure \
-      --prefix=/usr \
-      --libdir=/usr/lib64 \
-      --disable-static \
-      --disable-silent-rules \
-      --disable-nls \
-      --disable-doc
+    cmake .. \
+      -GNinja \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_INSTALL_LIBDIR=/usr/lib64 \
+      -DNO_MAN_PAGES=ON
 
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
+
+{{- end }}

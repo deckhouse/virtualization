@@ -1,21 +1,49 @@
 ---
-image: {{ $.ImageType }}/{{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
   to: /gnutls
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "gnutls/gnutls.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ .SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    cd /src
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+    fi
+
+---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc-c++ gcc git gperf glibc-devel-static wget pkgconfig
+- gcc gcc-c++ git gperf glibc-devel-static pkgconfig
 - make autoconf automake libtool makeinfo gettext-devel patch
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - gem-gettext-devel gettext po4a
@@ -23,28 +51,26 @@ packages:
 - libtpm2-tss-devel libtrousers-devel
 - libtasn1-devel libtasn1-utils zlib-devel
 - libunbound-devel bison gtk-doc texinfo texlive
-- libev4 libev-devel libopencdk-devel
-- libzstd-devel openssl libssl-devel iproute2-devel liboqs-devel libreadline-devel
+- libev4 libev-devel libgcrypt-devel libopencdk-devel
+- liboqs-devel libzstd-devel libreadline-devel
+- openssl libssl-devel iproute2-devel
 - libnettle-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO }}
 import:
-{{- $images := list "libbrotli" "libidn2" "libgcrypt" "libgmp" -}}
-{{- include "importPackageImages" (list $images "install") -}}
+  {{/* TODO: importPackageImages */}}
+  {{- $images := list "libbrotli" "libidn2" "libgcrypt" "libgmp" -}}
+  {{- include "importPackageImages" (list $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get install -y \
-      {{ $builderDependencies.packages | join " " }}
+    apt-get install -y {{ $builderDependencies.packages | join " " }}
 
   {{- include "alt packages clean" . | nindent 2 }}
 
@@ -58,12 +84,11 @@ shell:
     done
 
     OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
 
     ./bootstrap --skip-po
+
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \

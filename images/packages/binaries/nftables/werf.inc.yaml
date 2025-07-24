@@ -1,16 +1,30 @@
 ---
-image: {{ $.ImageType }}/{{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
   to: /nftables
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "nftables.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
@@ -24,13 +38,14 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
 {{- $images := list "libgmp" -}}
 {{- include "importPackageImages" (list $images "install") -}}
 shell:
@@ -39,23 +54,7 @@ shell:
   - |
     apt-get install -y \
       {{ $builderDependencies.packages | join " " }}
-
-  {{ if not $.DistroPackagesProxy }}
-      REPO_URL=http://ftp.altlinux.org/pub/distributions
-  {{- else }}
-      REPO_URL=http://{{ $.DistroPackagesProxy }}/repository/archive-ALT-Linux-APT-Repository
-  {{- end }}
-    
-    cat >/etc/apt/sources.list.d/alt-sisyphus.list<<EOF
-    rpm [alt] $REPO_URL/ALTLinux/Sisyphus x86_64 classic
-    rpm [alt] $REPO_URL/ALTLinux/Sisyphus noarch classic
-    EOF
-    apt-get update
-    apt-get install -y libmnl-devel libnftnl-devel libreadline-devel libjansson-devel libedit-devel
-    rm -f /etc/apt/sources.list.d/alt-sisyphus.list
-
   {{- include "alt packages clean" . | nindent 2 }}
-
   install:
   - |
     # Install packages
@@ -64,11 +63,9 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
-    OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+    OUTDIR=/out
+
     cd /src
 
     ./autogen.sh

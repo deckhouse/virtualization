@@ -21,10 +21,15 @@ package:
   libburn: release-1.5.6
   libfuse3: fuse-3.16.2
   libgcrypt: libgcrypt-1.10.2
+  libtpms: 0.10.0
   libgpg-error: libgpg-error-1.55
   libgsasl: v2.2.2
   libibverbs: 1.0.0
   libidn: 12.6.6
+  rdma-core: v57.0
+  libisoburn: release-1.5.6
+  libgsasl: v2.2.2
+  libidn: v1.37.1
   libidn2: v2.3.8
   libisoburn: release-1.5.6
   libmd: 1.1.0

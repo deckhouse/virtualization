@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageType }}/{{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /libgsasl
   includePaths:
@@ -12,7 +12,7 @@ import:
     - usr/lib64/libgsasl.so.18
     - usr/lib64/libgsasl.so.18.0.0
   before: setup
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /libgsasl-devel
   includePaths:
@@ -25,9 +25,22 @@ import:
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "gsasl/gsasl.git" }}
 
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -38,15 +51,16 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 import:
-{{- $images := list "libgcrypt" "libidn" -}}
-{{- include "importPackageImages" (list $images "install") -}}
+  - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+    add: /src
+    to: /src
+    before: install
+  {{- $images := list "libgcrypt" "libidn" -}}
+  {{- include "importPackageImages" (list $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -66,9 +80,7 @@ shell:
     done
 
     OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
     ./bootstrap --skip-po
     ./configure \

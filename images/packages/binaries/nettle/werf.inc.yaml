@@ -1,34 +1,49 @@
 ---
-image: {{ $.ImageType }}/{{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /nettle
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "gnutls/nettle.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+---
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
-- gcc-c++ gcc git 
+- gcc-c++ gcc git
 - make autoconf automake libtool
 - libssl-devel makeinfo
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
 {{- $images := list "libgmp" -}}
 {{- include "importPackageImages" (list $images "install") -}}
 shell:
@@ -48,11 +63,9 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    
-    OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    OUTDIR=/out
+
     cd /src
     ./.bootstrap
     ./configure \
@@ -61,5 +74,5 @@ shell:
       --enable-shared \
       --disable-static \
       --disable-documentation
-    
+
     make -j$(nproc) DESTDIR=$OUTDIR install-shared-hogweed install-headers install-pkgconfig

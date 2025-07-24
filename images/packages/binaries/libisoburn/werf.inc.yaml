@@ -1,17 +1,31 @@
 ---
-image: {{ $.ImageType }}/{{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
 import:
-- image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /libisoburn
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "libburnia/libisoburn.git" }}
 
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -23,13 +37,14 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageType }}/{{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
 {{- $images := list "libburn" -}}
 {{- include "importPackageImages" (list $images "install") -}}
 shell:
@@ -51,9 +66,7 @@ shell:
     done
 
     OUTDIR=/out
-    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
     ./bootstrap
     ./configure \

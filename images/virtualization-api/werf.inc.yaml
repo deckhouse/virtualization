@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-  - image: virtualization-artifact
+  - image: {{ .ModuleNamePrefix }}virtualization-artifact
     add: /out/virtualization-api
     to: /app/virtualization-api
     after: install
