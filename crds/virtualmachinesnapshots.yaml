@@ -91,9 +91,9 @@ spec:
                     "DEPRECATED: field VolumeSnapshotClasses is deprecated
                     and will be removed in a future release"
                   items:
-                    description:
-                      VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass
-                      binding.
+                    description: |-
+                      VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding.
+                      DEPRECATED: field StorageClassName is deprecated and will be removed in a future release
                     properties:
                       storageClassName:
                         description: |-

@@ -5319,7 +5319,7 @@ func schema_virtualization_api_core_v1alpha2_VolumeSnapshotClassName(ref common.
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding.",
+				Description: "VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding. DEPRECATED: field StorageClassName is deprecated and will be removed in a future release",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"storageClassName": {

@@ -100,6 +100,7 @@ type VirtualMachineSnapshotStatus struct {
 }
 
 // VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding.
+// DEPRECATED: field StorageClassName is deprecated and will be removed in a future release
 type VolumeSnapshotClassName struct {
 	// StorageClass name associated with a VolumeSnapshotClass.
 	// DEPRECATED: field StorageClassName is deprecated and will be removed in a future release
