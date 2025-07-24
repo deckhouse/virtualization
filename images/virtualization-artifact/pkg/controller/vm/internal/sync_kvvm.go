@@ -312,6 +312,8 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 	// 	Name:       "nvme-passthrough",
 	// })
 
+	// kvvm.Spec.Template.Spec.Domain.Devices.ClientPassthrough = &virtv1.ClientPassthroughDevices{}
+
 	err = h.client.Create(ctx, kvvm)
 	if err != nil {
 		if k8serrors.IsAlreadyExists(err) {
