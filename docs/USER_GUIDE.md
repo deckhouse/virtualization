@@ -2106,22 +2106,6 @@ spec:
   requiredConsistency: false
 ```
 
-When creating a snapshot, you must specify the names of the `VolumeSnapshotClasses` volume snapshot class that will be used to create the snapshot.
-
-To get a list of supported `VolumeSnapshotClasses` resources, run the command:
-
-```bash
-d8 k get volumesnapshotclasses
-```
-
-Example output:
-
-```txt
-NAME                     DRIVER                                DELETIONPOLICY   AGE
-csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
-```
-
 An example manifest for creating a disk snapshot:
 
 ```yaml
@@ -2133,7 +2117,6 @@ metadata:
 spec:
   requiredConsistency: true
   virtualDiskName: linux-vm-root
-  volumeSnapshotClassName: sds-replicated-volume
 EOF
 ```
 
@@ -2237,22 +2220,6 @@ When creating an image, follow these recommendations:
 
 #### Creating snapshots
 
-When creating a snapshot, you must specify the names of the `VolumeSnapshotClasses` volume snapshot classes that will be used to create snapshots of the disks attached to the virtual machine.
-
-To get a list of supported `VolumeSnapshotClasses` resources, run the command:
-
-```bash
-d8 k get volumesnapshotclasses
-```
-
-Example output:
-
-```txt
-NAME                     DRIVER                                DELETIONPOLICY   AGE
-csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
-```
-
 Creating a virtual machine snapshot will fail if at least one of the following conditions is met:
 
 - not all dependencies of the virtual machine are ready;
@@ -2278,9 +2245,6 @@ metadata:
   name: linux-vm-snapshot
 spec:
   virtualMachineName: linux-vm
-  volumeSnapshotClasses:
-    - # Substitute your StorageClass name.: i-sds-replicated-thin-r2 # Substitute your StorageClass name.
-      volumeSnapshotClassName: sds-replicated-volume # Substitute your VolumeSnapshotClass name.
   requiredConsistency: true
   keepIPAddress: Never
 EOF
