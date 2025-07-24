@@ -22,6 +22,7 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/validate"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -31,12 +32,39 @@ func NewBlockDeviceSpecRefsValidator() *BlockDeviceSpecRefsValidator {
 	return &BlockDeviceSpecRefsValidator{}
 }
 
+func (v *BlockDeviceSpecRefsValidator) validate(vm *v1alpha2.VirtualMachine) error {
+	err := v.noDoubles(vm)
+	if err != nil {
+		return err
+	}
+
+	for _, bdRef := range vm.Spec.BlockDeviceRefs {
+		var maxLen int
+		switch bdRef.Kind {
+		case v1alpha2.DiskDevice:
+			maxLen = validate.MaxDiskNameLen
+		case v1alpha2.ImageDevice:
+			maxLen = validate.MaxVirtualImageNameLen
+		case v1alpha2.ClusterImageDevice:
+			maxLen = validate.MaxClusterVirtualImageNameLen
+		default:
+			continue
+		}
+
+		if len(bdRef.Name) > maxLen {
+			return fmt.Errorf("%s name %q is too long: it must be no more than %d characters", bdRef.Kind, bdRef.Name, maxLen)
+		}
+	}
+
+	return nil
+}
+
 func (v *BlockDeviceSpecRefsValidator) ValidateCreate(_ context.Context, vm *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return nil, v.noDoubles(vm)
+	return nil, v.validate(vm)
 }
 
 func (v *BlockDeviceSpecRefsValidator) ValidateUpdate(_ context.Context, _, newVM *v1alpha2.VirtualMachine) (admission.Warnings, error) {
-	return nil, v.noDoubles(newVM)
+	return nil, v.validate(newVM)
 }
 
 func (v *BlockDeviceSpecRefsValidator) noDoubles(vm *v1alpha2.VirtualMachine) error {
