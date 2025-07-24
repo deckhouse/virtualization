@@ -249,7 +249,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			Spec: vsv1.VolumeSnapshotSpec{
 				Source: vsv1.VolumeSnapshotSource{
 					PersistentVolumeClaimName: &pvc.Name,
-					VolumeSnapshotContentName: ptr.To(""),
+					VolumeSnapshotContentName: ptr.To("default"),
 				},
 			},
 		}
