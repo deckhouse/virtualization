@@ -140,6 +140,7 @@ binaries:
   - /usr/bin/htop
   - /usr/bin/ps
   - /usr/bin/cat
+  - /usr/bin/grep
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
@@ -323,6 +324,7 @@ shell:
     LIBS+=" /usr/lib64/libxml2.s* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
     LIBS+=" /usr/lib64/libisoburn.s*"
     LIBS+=" /usr/lib64/libgbm.s*"
+    LIBS+=" /usr/lib64/libusbredirparser.s*"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
