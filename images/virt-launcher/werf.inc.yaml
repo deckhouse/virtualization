@@ -107,6 +107,9 @@ libs:
   - libclocale
   - libLLVMSPIRVLib-devel
   - libisofs
+  # debug
+  - libgbm
+  - libusbredir
 packages:
   - ethtool
   - fdisk
@@ -123,9 +126,6 @@ packages:
   - usbutils
   - htop
   - iproute2
-   # debug
-  - libgbm
-  - libusbredir
 binaries:
   # Gnu utils (requared for swtpm)
   - /usr/bin/certtool
