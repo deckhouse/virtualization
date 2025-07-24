@@ -180,6 +180,8 @@ rules:
   - virtualimages
   - virtualmachineipaddressleases
   - virtualmachineipaddresses
+  - virtualmachinemacaddressleases
+  - virtualmachinemacaddresses
   - virtualmachineblockdeviceattachments
   - virtualmachines
   - clustervirtualimages
@@ -206,6 +208,8 @@ rules:
   - clustervirtualimages/finalizers
   - virtualmachineipaddressleases/finalizers
   - virtualmachineipaddresses/finalizers
+  - virtualmachinemacaddressleases/finalizers
+  - virtualmachinemacaddresses/finalizers
   - virtualmachineoperations/finalizers
   - virtualmachineclasses/finalizers
   - virtualdisksnapshots/finalizers
@@ -213,6 +217,8 @@ rules:
   - virtualmachinerestores/finalizers
   - virtualmachineipaddresses/status
   - virtualmachineipaddressleases/status
+  - virtualmachinemacaddresses/status
+  - virtualmachinemacaddressleases/status
   - virtualdisks/status
   - virtualimages/status
   - virtualmachineblockdeviceattachments/status

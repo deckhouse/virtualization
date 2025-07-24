@@ -46,7 +46,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vmSpec)
+		configs := CreateNetworkSpec(vmSpec, nil)
 
 		Expect(configs).To(HaveLen(0))
 	})
@@ -59,7 +59,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vmSpec)
+		configs := CreateNetworkSpec(vmSpec, nil)
 
 		Expect(configs).To(HaveLen(1))
 		Expect(configs[0].Type).To(Equal(virtv2.NetworksTypeNetwork))
@@ -75,7 +75,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vmSpec)
+		configs := CreateNetworkSpec(vmSpec, nil)
 
 		Expect(configs).To(HaveLen(1))
 		Expect(configs[0].Type).To(Equal(virtv2.NetworksTypeClusterNetwork))
@@ -95,7 +95,7 @@ var _ = Describe("Network Config Generation", func() {
 			},
 		}
 
-		configs := CreateNetworkSpec(vmSpec)
+		configs := CreateNetworkSpec(vmSpec, nil)
 
 		Expect(configs).To(HaveLen(2))
 		Expect(configs[0].InterfaceName).NotTo(Equal(configs[1].InterfaceName))

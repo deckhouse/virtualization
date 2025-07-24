@@ -1017,6 +1017,14 @@ spec:
                   type: string
                   description: |
                     IP address of the VM.
+                virtualMachineMACAddressNames:
+                  type: array
+                  description: |
+                    List of MAC addresses of the VM.
+                  items:
+                    type: string
+                    description: |
+                      Name of the VirtualMachineMACAddressName resource with an MAC address of the VM.
                 blockDeviceRefs:
                   type: array
                   description: |
