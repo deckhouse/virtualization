@@ -60,6 +60,7 @@ func Build(store *storage.VirtualMachineStorage) genericapiserver.APIGroupInfo {
 	resources := map[string]rest.Storage{
 		"virtualmachines":                  store,
 		"virtualmachines/console":          store.ConsoleREST(),
+		"virtualmachines/usbredir":         store.UsbRedirREST(),
 		"virtualmachines/vnc":              store.VncREST(),
 		"virtualmachines/portforward":      store.PortForwardREST(),
 		"virtualmachines/addvolume":        store.AddVolumeREST(),

@@ -23,6 +23,15 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:conversion-gen:explicit-from=net/url.Values
 
+type VirtualMachineUsbRedir struct {
+	metav1.TypeMeta `json:",inline"`
+}
+
+// +genclient
+// +genclient:readonly
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +k8s:conversion-gen:explicit-from=net/url.Values
+
 type VirtualMachineConsole struct {
 	metav1.TypeMeta `json:",inline"`
 }
