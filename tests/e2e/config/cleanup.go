@@ -34,9 +34,7 @@ func CheckWithPostCleanUpOption() error {
 		return nil
 	default:
 		log.Printf(
-			"To run tests without post-cleanup, set %s=no. If you want post-cleanup, either leave the variable unset or set %s=yes. By default, when in reusable mode, tests run without post-cleanup if %s is unset.\n",
-			PostCleanUpEnv,
-			PostCleanUpEnv,
+			"Usual behaviour for tests is to make post cleanup (when %[1]s is not set or equal to 'yes'). Use %[1]s=no to skip post cleanup after tests. Reusable mode is opposite: post cleanup is disabled when %[1]s is not set or equal to 'no', to remove temporary resources, run with %[1]s=yes.\n",
 			PostCleanUpEnv,
 		)
 		return fmt.Errorf("invalid value for the %s env: %q", PostCleanUpEnv, env)
