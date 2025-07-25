@@ -65,7 +65,7 @@ shell:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: {{ .ModuleNamePrefix }}base-alt-p11
+fromImage: builder/alt
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /{{ $gitRepoName }}-{{ $version }}

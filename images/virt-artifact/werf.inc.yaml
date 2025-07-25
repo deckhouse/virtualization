@@ -41,8 +41,7 @@ packages:
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-{{- $baseAltP11 := printf "%sbase-alt-p11" .ModuleNamePrefix }}
-fromImage: {{ eq $.SVACE_ENABLED "false" | ternary $baseAltP11 "builder/alt-go-svace" }}
+fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/alt" "builder/alt-go-svace" }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
   add: /kubevirt
