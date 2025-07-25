@@ -87,21 +87,21 @@ task run
 
 - Use the FOCUS environment variable to run a specific test.
 - Set CONTINUE_ON_FAILURE=yes to continue running tests despite any failures.
-- Set WITHOUT_POST_CLEANUP=yes to disable cleanup after tests.
+- Set POST_CLEANUP=no to disable cleanup after tests.
      
 
-For example, to run only the "ComplexTest" without cleanup and without stopping on failure, use the following command: 
+For example, to run only the "ComplexTest" ignoring failed suites and leave all created resources in the cluster, use the following command: 
 ```bash
-FOCUS="Complex test" CONTINUE_ON_FAILURE=yes WITHOUT_POST_CLEANUP=yes task run
+FOCUS="ComplexTest" CONTINUE_ON_FAILURE=yes POST_CLEANUP=no task run
 ```
 
 ### Reusable mode option
 
 The environment variable REUSABLE used to reuse resources created previously.
 By default, it retains all resources created during the e2e test after its completion (no cleanup by default in this mode).
-Use the `WITH_POST_CLEANUP=yes` environment variable to clean up resources created or used during the test.
-When a test starts, it will reuse existing virtual machines created earlier, if they exist.
-If no virtual machines were found, they will be created.
+Use the `POST_CLEANUP=yes` environment variable to clean up resources created or used during the test.
+When a test starts, it will reuse existing virtualization resources created earlier, if they exist.
+If no virtualization resources were found, they will be created.
 
 For example, run test in reusable mode:
 ```bash
@@ -118,13 +118,13 @@ REUSABLE=yes task run
 
 ### PostCleanUp option
 
-WithPostCleanUpEnv defines an environment variable used to explicitly request the deletion of created/used resources.
+POST_CLEANUP defines an environment variable used to explicitly request the deletion of created/used resources.
 For example, this option is useful when combined with the `REUSABLE=yes` option,
 as the reusable mode does not delete created/used resources by default.
 
 For example, run test in reusable mode with the removal of all used resources after test completion:
 ```bash
-REUSABLE=yes WITH_POST_CLEANUP=yes task run
+REUSABLE=yes POST_CLEANUP=yes task run
 ```
 
 ### Working with `Virtualization-controller` errors

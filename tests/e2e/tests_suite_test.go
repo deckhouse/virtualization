@@ -213,13 +213,11 @@ var _ = SynchronizedBeforeSuite(func() {
 
 	StartV12nControllerLogStream(logStreamByV12nControllerPod)
 	DeferCleanup(func() {
-		if !config.IsCleanUpNeeded() {
-			return
-		}
-
-		err := Cleanup()
-		if err != nil {
-			log.Fatal(err)
+		if config.IsCleanUpNeeded() {
+			err := Cleanup()
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	})
 }, func() {})
