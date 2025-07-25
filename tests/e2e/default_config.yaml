@@ -39,6 +39,7 @@ testData:
   ipam: "/tmp/testdata/ipam"
   sshKey: "/tmp/testdata/sshkeys/id_ed"
   sshUser: "cloud"
+  vmVpc: "/tmp/testdata/vm-vpc"
 logFilter:
   - "pattern to exclude"
   - "validation failed for data source objectref" # Err.
