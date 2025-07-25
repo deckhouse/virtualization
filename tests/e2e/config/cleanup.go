@@ -22,30 +22,37 @@ import (
 	"os"
 )
 
-// WithPostCleanUpEnv defines an environment variable used to explicitly request the deletion of created/used resources.
+// PostCleanUpEnv defines an environment variable used to explicitly request the deletion of created/used resources.
 // For example, this option is useful when combined with the `REUSABLE=yes` option,
 // as the reusable mode does not delete created/used resources by default.
-const WithPostCleanUpEnv = "WITH_POST_CLEANUP"
+const PostCleanUpEnv = "POST_CLEANUP"
 
 func CheckWithPostCleanUpOption() error {
-	env := os.Getenv(WithPostCleanUpEnv)
+	env := os.Getenv(PostCleanUpEnv)
 	switch env {
-	case "yes", "":
+	case "yes", "no", "":
 		return nil
 	default:
-		log.Printf("To run tests in %s mode, set %s=yes. If you don't intend to use this mode, leave the variable unset.\n", WithPostCleanUpEnv, WithPostCleanUpEnv)
-		return fmt.Errorf("invalid value for the %s env: %q", WithPostCleanUpEnv, env)
+		log.Printf(
+			"Usual behaviour for tests is to make post cleanup (when %[1]s is not set or equal to 'yes'). Use %[1]s=no to skip post cleanup after tests. Reusable mode is opposite: post cleanup is disabled when %[1]s is not set or equal to 'no', to remove temporary resources, run with %[1]s=yes.\n",
+			PostCleanUpEnv,
+		)
+		return fmt.Errorf("invalid value for the %s env: %q", PostCleanUpEnv, env)
 	}
-}
-
-func WithPostCleanUp() bool {
-	return os.Getenv(WithPostCleanUpEnv) == "yes"
 }
 
 func IsCleanUpNeeded() bool {
-	if IsReusable() {
-		return WithPostCleanUp()
+	if IsReusable() && os.Getenv(PostCleanUpEnv) == "" {
+		return false
 	}
 
-	return true
+	if IsReusable() && os.Getenv(PostCleanUpEnv) == "yes" {
+		return true
+	}
+
+	if os.Getenv(PostCleanUpEnv) == "no" {
+		return false
+	}
+
+	return os.Getenv(PostCleanUpEnv) == "" || os.Getenv(PostCleanUpEnv) == "yes"
 }

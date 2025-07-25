@@ -41,7 +41,6 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	el "github.com/deckhouse/virtualization/tests/e2e/errlogger"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
 	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
@@ -213,6 +212,14 @@ var _ = SynchronizedBeforeSuite(func() {
 	}
 
 	StartV12nControllerLogStream(logStreamByV12nControllerPod)
+	DeferCleanup(func() {
+		if config.IsCleanUpNeeded() {
+			err := Cleanup()
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	})
 }, func() {})
 
 var _ = SynchronizedAfterSuite(func() {}, func() {
@@ -226,15 +233,6 @@ var _ = SynchronizedAfterSuite(func() {}, func() {
 		errs = append(errs, stopErrs...)
 	}
 	Expect(errs).Should(BeEmpty())
-
-	if (ginkgoutil.FailureBehaviourEnvSwitcher{}).IsStopOnFailure() || !config.IsCleanUpNeeded() {
-		return
-	}
-
-	err := Cleanup()
-	if err != nil {
-		log.Fatal(err)
-	}
 })
 
 func Cleanup() error {
