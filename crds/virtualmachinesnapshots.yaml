@@ -87,22 +87,30 @@ spec:
                   minLength: 1
                   type: string
                 volumeSnapshotClasses:
+                  x-doc-deprecated: true
+                  description:
+                    "The parameter is deprecated and will be removed in a future versions."
                   items:
-                    description:
-                      VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass
-                      binding.
+                    x-doc-deprecated: true
+                    description: |-
+                      VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding.
+                      
+                      The parameter is deprecated and will be removed in a future versions.
                     properties:
                       storageClassName:
-                        description: StorageClass name associated with a VolumeSnapshotClass.
+                        x-doc-deprecated: true
+                        description: |-
+                          StorageClass name associated with a VolumeSnapshotClass.
+                          
+                          The parameter is deprecated and will be removed in a future versions.
                         type: string
                       volumeSnapshotClassName:
-                        description:
-                          VolumeSnapshotClass name to use for virtual disk
-                          snapshotting.
+                        x-doc-deprecated: true
+                        description: |-
+                          VolumeSnapshotClass name to use for virtual disk snapshotting.
+                          
+                          The parameter is deprecated and will be removed in a future versions.release
                         type: string
-                    required:
-                      - storageClassName
-                      - volumeSnapshotClassName
                     type: object
                   type: array
               required:

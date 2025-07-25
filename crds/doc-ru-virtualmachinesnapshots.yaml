@@ -26,12 +26,15 @@ spec:
                   description: Имя виртуальной машины для создания снимка.
                 volumeSnapshotClasses:
                   items:
-                    description: Устанавливает соответствие между StorageClass и VolumeSnapshotClass.
+                    description: |
+                      Параметр устарел и будет удален в будущих версиях.
                     properties:
                       storageClassName:
-                        description: Имя ресурса StorageClass, соответствующее указанному ресурсу VolumeSnapshotClass.
+                        description: |
+                          Параметр устарел и будет удален в будущих версиях.
                       volumeSnapshotClassName:
-                        description: Имя ресурса VolumeSnapshotClass, который будет использован для создания снимков виртуальных дисков с соответствующим классом хранения.
+                        description: |
+                          Параметр устарел и будет удален в будущих версиях.
             status:
               properties:
                 conditions:

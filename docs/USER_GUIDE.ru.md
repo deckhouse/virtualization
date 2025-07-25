@@ -2126,22 +2126,6 @@ spec:
   requiredConsistency: false
 ```
 
-При создании снимка требуется указать названия класса снимка томов `VolumeSnapshotClasses`, который будет использоваться для создания снимка.
-
-Для получения списка поддерживаемых ресурсов `VolumeSnapshotClasses` выполните команду:
-
-```bash
-d8 k get volumesnapshotclasses
-```
-
-Пример вывода:
-
-```txt
-NAME                     DRIVER                                DELETIONPOLICY   AGE
-csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
-```
-
 Пример манифеста для создания снимка диска:
 
 ```yaml
@@ -2153,7 +2137,6 @@ metadata:
 spec:
   requiredConsistency: true
   virtualDiskName: linux-vm-root
-  volumeSnapshotClassName: sds-replicated-volume
 EOF
 ```
 
@@ -2262,22 +2245,6 @@ EOF
 
 #### Создание снимков
 
-При создании снимка необходимо указать названия классов снимков томов `VolumeSnapshotClass`, которые будут использованы для создания снимков дисков, подключенных к виртуальной машине.
-
-Чтобы получить список поддерживаемых ресурсов `VolumeSnapshotClasses`, выполните команду:
-
-```bash
-d8 k get volumesnapshotclasses
-```
-
-Пример вывода:
-
-```txt
-NAME                     DRIVER                                DELETIONPOLICY   AGE
-csi-nfs-snapshot-class   nfs.csi.k8s.io                        Delete           34d
-sds-replicated-volume    replicated.csi.storage.deckhouse.io   Delete           39d
-```
-
 Создание снимка виртуальной машины будет неудачным, если выполнится хотя бы одно из следующих условий:
 
 - не все зависимые устройства виртуальной машины готовы;
@@ -2303,9 +2270,6 @@ metadata:
   name: linux-vm-snapshot
 spec:
   virtualMachineName: linux-vm
-  volumeSnapshotClasses:
-    - storageClassName: i-sds-replicated-thin-r2 # Подставьте ваше название StorageClass.
-      volumeSnapshotClassName: sds-replicated-volume # Подставьте ваше название VolumeSnapshotClass.
   requiredConsistency: true
   keepIPAddress: Never
 EOF

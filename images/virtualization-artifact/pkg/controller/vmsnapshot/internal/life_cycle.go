@@ -292,7 +292,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmSnapshot *virtv2.Virtual
 	vdSnapshots, err := h.ensureVirtualDiskSnapshots(ctx, vmSnapshot)
 	switch {
 	case err == nil:
-	case errors.Is(err, ErrVolumeSnapshotClassNotFound), errors.Is(err, ErrCannotTakeSnapshot):
+	case errors.Is(err, ErrCannotTakeSnapshot):
 		vmSnapshot.Status.Phase = virtv2.VirtualMachineSnapshotPhaseFailed
 		msg := service.CapitalizeFirstLetter(err.Error())
 		h.recorder.Event(
@@ -453,12 +453,6 @@ func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnap
 				return nil, fmt.Errorf("the persistent volume claim %q doesn't have the storage class name", pvc.Name)
 			}
 
-			var vsClass string
-			vsClass, err = h.getVolumeSnapshotClassByStorageClass(*pvc.Spec.StorageClassName, vmSnapshot.Spec.VolumeSnapshotClasses)
-			if err != nil {
-				return nil, err
-			}
-
 			vdSnapshot = &virtv2.VirtualDiskSnapshot{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       virtv2.VirtualDiskSnapshotKind,
@@ -472,9 +466,8 @@ func (h LifeCycleHandler) ensureVirtualDiskSnapshots(ctx context.Context, vmSnap
 					},
 				},
 				Spec: virtv2.VirtualDiskSnapshotSpec{
-					VirtualDiskName:         vdName,
-					VolumeSnapshotClassName: vsClass,
-					RequiredConsistency:     vmSnapshot.Spec.RequiredConsistency,
+					VirtualDiskName:     vdName,
+					RequiredConsistency: vmSnapshot.Spec.RequiredConsistency,
 				},
 			}
 
@@ -644,18 +637,6 @@ func (h LifeCycleHandler) ensureSecret(ctx context.Context, vm *virtv2.VirtualMa
 	}
 
 	return nil
-}
-
-var ErrVolumeSnapshotClassNotFound = errors.New("the volume snapshot class not found")
-
-func (h LifeCycleHandler) getVolumeSnapshotClassByStorageClass(storageClassName string, classes []virtv2.VolumeSnapshotClassName) (string, error) {
-	for _, class := range classes {
-		if class.StorageClassName == storageClassName {
-			return class.VolumeSnapshotClassName, nil
-		}
-	}
-
-	return "", fmt.Errorf("%w: please define the volume snapshot class for the storage class %q and recreate resource", ErrVolumeSnapshotClassNotFound, storageClassName)
 }
 
 func getVDName(vdSnapshotName string, vmSnapshot *virtv2.VirtualMachineSnapshot) (string, bool) {
