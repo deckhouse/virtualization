@@ -23,8 +23,8 @@ import (
 )
 
 // Ginkgo decorators helpers:
-// - Common decorators for e2e: Ordered and ContinueOnFailure.
-// - ContinueOnFailure decorator is switchable and can be disabled with STOP_ON_FAILURE=yes env.
+// - Common decorators for e2e: Ordered.
+// - ContinueOnFailure decorator is switchable and can be enabled with CONTINUE_ON_FAILURE=yes env.
 //
 // A quote from Ginkgo documentation:
 // Moreover, Ginkgo also supports passing in arbitrarily nested slices of decorators.
@@ -61,20 +61,20 @@ func DecoratorsFromEnv(decorators ...interface{}) []interface{} {
 	return out
 }
 
-const StopOnFailureEnv = "STOP_ON_FAILURE"
+const ContinueOnFailureEnv = "CONTINUE_ON_FAILURE"
 
 type FailureBehaviourEnvSwitcher struct{}
 
 func (f FailureBehaviourEnvSwitcher) Decorator() interface{} {
-	if !f.IsStopOnFailure() {
+	if f.IsContinueOnFailure() {
 		return ginkgo.ContinueOnFailure
 	}
 	return nil
 }
 
-// IsStopOnFailure returns true if Stop on error is enabled.
-func (f FailureBehaviourEnvSwitcher) IsStopOnFailure() bool {
-	return os.Getenv(StopOnFailureEnv) == "yes"
+// IsContinueOnFailure returns true if Continue on error is enabled.
+func (f FailureBehaviourEnvSwitcher) IsContinueOnFailure() bool {
+	return os.Getenv(ContinueOnFailureEnv) == "yes"
 }
 
 // CommonE2ETestDecorators returns common decorators for e2e tests: Ordered and ContinueOnFailure switchable with env.
