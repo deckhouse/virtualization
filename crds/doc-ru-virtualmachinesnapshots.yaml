@@ -27,14 +27,14 @@ spec:
                 volumeSnapshotClasses:
                   items:
                     description: |
-                      DEPRECATED: Данное поле устарело и будет удалено в будущем релизе.
+                      Параметр устарел и будет удален в будущих версиях.
                     properties:
                       storageClassName:
                         description: |
-                          DEPRECATED: Данное поле устарело и будет удалено в будущем релизе.
+                          Параметр устарел и будет удален в будущих версиях.
                       volumeSnapshotClassName:
                         description: |
-                          DEPRECATED: Данное поле устарело и будет удалено в будущем релизе.
+                          Параметр устарел и будет удален в будущих версиях.
             status:
               properties:
                 conditions:

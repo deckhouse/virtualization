@@ -89,25 +89,27 @@ spec:
                 volumeSnapshotClasses:
                   x-doc-deprecated: true
                   description:
-                    "DEPRECATED: field VolumeSnapshotClasses is deprecated
-                    and will be removed in a future release"
+                    "The parameter is deprecated and will be removed in a future versions."
                   items:
                     x-doc-deprecated: true
                     description: |-
                       VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding.
-                      DEPRECATED: field StorageClassName is deprecated and will be removed in a future release
+                      
+                      The parameter is deprecated and will be removed in a future versions.
                     properties:
                       storageClassName:
                         x-doc-deprecated: true
                         description: |-
                           StorageClass name associated with a VolumeSnapshotClass.
-                          DEPRECATED: field StorageClassName is deprecated and will be removed in a future release
+                          
+                          The parameter is deprecated and will be removed in a future versions.
                         type: string
                       volumeSnapshotClassName:
                         x-doc-deprecated: true
                         description: |-
                           VolumeSnapshotClass name to use for virtual disk snapshotting.
-                          DEPRECATED: field VolumeSnapshotClassName is deprecated and will be removed in a future release
+                          
+                          The parameter is deprecated and will be removed in a future versions.release
                         type: string
                     type: object
                   type: array

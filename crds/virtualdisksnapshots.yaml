@@ -46,7 +46,8 @@ spec:
                   type: string
                   x-doc-deprecated: true
                   description: |
-                    DEPRECATED: field VolumeSnapshotClasses is deprecated and will be removed in a future release
+
+                    The parameter is deprecated and will be removed in a future versions.
                 requiredConsistency:
                   type: boolean
                   default: true
