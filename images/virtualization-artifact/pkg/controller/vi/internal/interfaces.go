@@ -46,5 +46,5 @@ type StorageClassService interface {
 	GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
 	GetStorageClass(ctx context.Context, sc string) (*storagev1.StorageClass, error)
 	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
-	IsStorageClassDeprecated(ctx context.Context, scName string) (bool, error)
+	IsStorageClassDeprecated(sc *storagev1.StorageClass) bool
 }

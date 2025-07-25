@@ -140,8 +140,8 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 			svc.GetStorageClassFunc = func(_ context.Context, _ string) (*storagev1.StorageClass, error) {
 				return sc, nil
 			}
-			svc.IsStorageClassDeprecatedFunc = func(_ context.Context, _ string) (bool, error) {
-				return false, nil
+			svc.IsStorageClassDeprecatedFunc = func(_ *storagev1.StorageClass) bool {
+				return false
 			}
 
 			h := NewStorageClassReadyHandler(svc)
@@ -156,8 +156,11 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 			svc.IsStorageClassAllowedFunc = func(_ string) bool {
 				return false
 			}
-			svc.IsStorageClassDeprecatedFunc = func(_ context.Context, _ string) (bool, error) {
-				return false, nil
+			svc.IsStorageClassDeprecatedFunc = func(_ *storagev1.StorageClass) bool {
+				return false
+			}
+			svc.GetStorageClassFunc = func(_ context.Context, _ string) (*storagev1.StorageClass, error) {
+				return nil, nil
 			}
 
 			h := NewStorageClassReadyHandler(svc)
@@ -176,8 +179,8 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 				sc.DeletionTimestamp = ptr.To(metav1.Now())
 				return sc, nil
 			}
-			svc.IsStorageClassDeprecatedFunc = func(_ context.Context, _ string) (bool, error) {
-				return false, nil
+			svc.IsStorageClassDeprecatedFunc = func(_ *storagev1.StorageClass) bool {
+				return false
 			}
 
 			h := NewStorageClassReadyHandler(svc)
@@ -195,8 +198,8 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 			svc.GetStorageClassFunc = func(_ context.Context, _ string) (*storagev1.StorageClass, error) {
 				return nil, nil
 			}
-			svc.IsStorageClassDeprecatedFunc = func(_ context.Context, _ string) (bool, error) {
-				return false, nil
+			svc.IsStorageClassDeprecatedFunc = func(_ *storagev1.StorageClass) bool {
+				return false
 			}
 
 			h := NewStorageClassReadyHandler(svc)
@@ -213,8 +216,8 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 			svc.GetModuleStorageClassFunc = func(_ context.Context) (*storagev1.StorageClass, error) {
 				return sc, nil
 			}
-			svc.IsStorageClassDeprecatedFunc = func(_ context.Context, _ string) (bool, error) {
-				return false, nil
+			svc.IsStorageClassDeprecatedFunc = func(_ *storagev1.StorageClass) bool {
+				return false
 			}
 
 			h := NewStorageClassReadyHandler(svc)
@@ -230,8 +233,8 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 				sc.DeletionTimestamp = ptr.To(metav1.Now())
 				return sc, nil
 			}
-			svc.IsStorageClassDeprecatedFunc = func(_ context.Context, _ string) (bool, error) {
-				return false, nil
+			svc.IsStorageClassDeprecatedFunc = func(_ *storagev1.StorageClass) bool {
+				return false
 			}
 
 			h := NewStorageClassReadyHandler(svc)
@@ -254,8 +257,8 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 			svc.GetDefaultStorageClassFunc = func(_ context.Context) (*storagev1.StorageClass, error) {
 				return sc, nil
 			}
-			svc.IsStorageClassDeprecatedFunc = func(_ context.Context, _ string) (bool, error) {
-				return false, nil
+			svc.IsStorageClassDeprecatedFunc = func(_ *storagev1.StorageClass) bool {
+				return false
 			}
 
 			h := NewStorageClassReadyHandler(svc)
@@ -271,8 +274,8 @@ var _ = Describe("StorageClassReadyHandler Run", func() {
 				sc.DeletionTimestamp = ptr.To(metav1.Now())
 				return sc, nil
 			}
-			svc.IsStorageClassDeprecatedFunc = func(_ context.Context, _ string) (bool, error) {
-				return false, nil
+			svc.IsStorageClassDeprecatedFunc = func(_ *storagev1.StorageClass) bool {
+				return false
 			}
 
 			h := NewStorageClassReadyHandler(svc)

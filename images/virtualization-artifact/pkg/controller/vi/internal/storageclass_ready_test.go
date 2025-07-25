@@ -119,8 +119,8 @@ func newStorageClassServiceMock(existedStorageClass *string) *StorageClassServic
 		return nil, nil
 	}
 
-	storageClassServiceMock.IsStorageClassDeprecatedFunc = func(_ context.Context, _ string) (bool, error) {
-		return false, nil
+	storageClassServiceMock.IsStorageClassDeprecatedFunc = func(_ *storagev1.StorageClass) bool {
+		return false
 	}
 
 	storageClassServiceMock.GetStorageClassFunc = func(ctx context.Context, storageClassName string) (*storagev1.StorageClass, error) {
