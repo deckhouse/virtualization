@@ -325,6 +325,7 @@ shell:
     LIBS+=" /usr/lib64/libisoburn.s*"
     LIBS+=" /usr/lib64/libgbm.s*"
     LIBS+=" /usr/lib64/libusbredirparser.s*"
+    LIBS+=" /usr/lib64/libusbredirhost.s*"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
