@@ -25,14 +25,19 @@ func main() {
 
 	//-----------------------------------------------------------------
 	// 2. Собираем wss‑URL к subresource usbredir
-	ns, name := "default", "ubuntu-vm"
+	ns, name := "test-project", "linux-vm"
 	host := strings.TrimPrefix(kcfg.Host, "https://")
 	wsURL := url.URL{
 		Scheme: "wss",
 		Host:   host,
-		Path: fmt.Sprintf("/apis/subresources.kubevirt.io/v1/namespaces/%s/"+
-			"virtualmachineinstances/%s/usbredir", ns, name),
+		// Path: fmt.Sprintf("/apis/subresources.kubevirt.io/v1/namespaces/%s/"+
+		// 	"virtualmachineinstances/%s/usbredir", ns, name),
+		Path: fmt.Sprintf("/apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/%s/"+
+			"virtualmachines/%s/usbredir", ns, name),
+		// Path: "/apis/subresources.virtualization.deckhouse.io/v1alpha2/namespaces/test-project/virtualmachines/linux-vm/usbredir",
+		// kvvmiPathTmpl = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachineinstances/%s/%s"
 	}
+	fmt.Println(wsURL)
 
 	//-----------------------------------------------------------------
 	// 3. Создаём TLS‑конфиг из kube‑config  (функция rest.TLSConfigFor)
@@ -43,7 +48,7 @@ func main() {
 
 	dialer := websocket.Dialer{
 		TLSClientConfig: tlsCfg,
-		Subprotocols:    []string{"binary.kubevirt.io"},
+		Subprotocols:    []string{""},
 	}
 
 	//-----------------------------------------------------------------
