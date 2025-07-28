@@ -11,6 +11,7 @@ requirements:
   deckhouse: ">= 1.69.4"
   modules:
     cni-cilium: ">= 0.0.0"
+    snapshot-controller: ">= 0.1.2"
 disable:
   confirmation: true
   message: |
