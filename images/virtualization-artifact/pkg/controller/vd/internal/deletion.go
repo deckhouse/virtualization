@@ -43,7 +43,7 @@ func NewDeletionHandler(sources *source.Sources) *DeletionHandler {
 func (h DeletionHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))
 
-	if vd.DeletionTimestamp != nil {
+	if vd.DeletionTimestamp != nil && !controllerutil.ContainsFinalizer(vd, virtv2.FinalizerVDProtection) {
 		requeue, err := h.sources.CleanUp(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, err
