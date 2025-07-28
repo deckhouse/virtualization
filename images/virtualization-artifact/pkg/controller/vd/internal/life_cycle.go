@@ -94,9 +94,17 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 	if !source.IsDiskProvisioningFinished(readyCondition) {
 		datasourceReadyCondition, _ := conditions.GetCondition(vdcondition.DatasourceReadyType, vd.Status.Conditions)
 		if datasourceReadyCondition.Status != metav1.ConditionTrue || !conditions.IsLastUpdated(datasourceReadyCondition, vd) {
+			message := "Datasource is not ready for provisioning."
+			if datasourceReadyCondition.Status == metav1.ConditionFalse && datasourceReadyCondition.Message != "" {
+				message = datasourceReadyCondition.Message
+			}
+			reason := vdcondition.DatasourceIsNotReady
+			if datasourceReadyCondition.Reason == string(vdcondition.ImageNotFound) || datasourceReadyCondition.Reason == string(vdcondition.ClusterImageNotFound) {
+				reason = vdcondition.DatasourceIsNotFound
+			}
 			cb.
-				Reason(vdcondition.DatasourceIsNotReady).
-				Message("Datasource is not ready for provisioning.").
+				Reason(reason).
+				Message(message).
 				Status(metav1.ConditionFalse)
 			conditions.SetCondition(cb, &vd.Status.Conditions)
 
