@@ -19,7 +19,6 @@ require (
 	k8s.io/client-go v0.32.2
 	k8s.io/component-base v0.29.3
 	k8s.io/klog/v2 v2.130.1
-	k8s.io/utils v0.0.0-20241210054802-24370beab758
 )
 
 require github.com/golang/protobuf v1.5.4 // indirect
@@ -69,6 +68,7 @@ require (
 	k8s.io/api v0.32.2 // indirect
 	k8s.io/apiextensions-apiserver v0.29.3 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
+	k8s.io/utils v0.0.0-20241210054802-24370beab758 // indirect
 	kubevirt.io/api v1.2.0 // indirect
 	kubevirt.io/containerized-data-importer-api v1.57.0-alpha1 // indirect
 	kubevirt.io/controller-lifecycle-operator-sdk/api v0.0.0-20220329064328-f3cc58c6ed90 // indirect
