@@ -19,8 +19,10 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 
+	corev1 "k8s.io/api/core/v1"
 	storev1 "k8s.io/api/storage/v1"
 
 	"github.com/deckhouse/virtualization-controller/pkg/config"
@@ -116,4 +118,24 @@ func (svc *VirtualImageStorageClassService) IsStorageClassAllowed(scName string)
 
 func (svc *VirtualImageStorageClassService) GetModuleStorageClass(ctx context.Context) (*storev1.StorageClass, error) {
 	return svc.GetStorageClass(ctx, svc.storageClassSettings.DefaultStorageClassName)
+}
+
+func (svc *VirtualImageStorageClassService) ValidateClaimPropertySets(ctx context.Context, scName string) error {
+	sp, err := svc.GetStorageProfile(ctx, scName)
+	if err != nil {
+		return fmt.Errorf("get storage profile %q: %w", scName, err)
+	}
+
+	var valid bool
+	for _, cps := range sp.Spec.ClaimPropertySets {
+		if slices.Contains(cps.AccessModes, corev1.ReadWriteMany) && *cps.VolumeMode == corev1.PersistentVolumeBlock {
+			valid = true
+		}
+	}
+
+	if !valid {
+		return fmt.Errorf("the storage class %q is not supported in the current version due to known compatibility issues with virtual images; please choose a different storage class", scName)
+	}
+
+	return nil
 }

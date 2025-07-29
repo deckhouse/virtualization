@@ -173,6 +173,16 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *virtv2.Vi
 		return nil
 	}
 
+	err = h.svc.ValidateClaimPropertySets(ctx, sc.Name)
+	if err != nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.StorageClassNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		conditions.SetCondition(cb, &vi.Status.Conditions)
+		return nil
+	}
+
 	cb.
 		Status(metav1.ConditionTrue).
 		Reason(vicondition.StorageClassReady).
@@ -241,6 +251,16 @@ func (h StorageClassReadyHandler) setFromModuleSettings(ctx context.Context, vi 
 		return nil
 	}
 
+	err = h.svc.ValidateClaimPropertySets(ctx, moduleStorageClass.Name)
+	if err != nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.StorageClassNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		conditions.SetCondition(cb, &vi.Status.Conditions)
+		return nil
+	}
+
 	if moduleStorageClass.DeletionTimestamp.IsZero() {
 		cb.
 			Status(metav1.ConditionTrue).
@@ -276,6 +296,16 @@ func (h StorageClassReadyHandler) setFromDefault(ctx context.Context, vi *virtv2
 			Status(metav1.ConditionFalse).
 			Reason(vicondition.StorageClassNotReady).
 			Message(fmt.Sprintf("The provisioner of the %q storage class is deprecated; please use a different one.", defaultStorageClass.Name))
+		conditions.SetCondition(cb, &vi.Status.Conditions)
+		return nil
+	}
+
+	err = h.svc.ValidateClaimPropertySets(ctx, defaultStorageClass.Name)
+	if err != nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.StorageClassNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
 		conditions.SetCondition(cb, &vi.Status.Conditions)
 		return nil
 	}

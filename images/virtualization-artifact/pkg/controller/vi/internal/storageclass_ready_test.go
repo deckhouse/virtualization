@@ -156,6 +156,10 @@ func newStorageClassServiceMock(existedStorageClass *string) *StorageClassServic
 		return true
 	}
 
+	storageClassServiceMock.ValidateClaimPropertySetsFunc = func(ctx context.Context, _ string) error {
+		return nil
+	}
+
 	return &storageClassServiceMock
 }
 

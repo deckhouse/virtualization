@@ -83,6 +83,18 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 				*vi.Spec.PersistentVolumeClaim.StorageClass,
 			)
 		}
+
+		err = v.scService.ValidateClaimPropertySets(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == "" {
+		err := v.validateDefaultStorageClass(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return nil, nil
@@ -133,6 +145,18 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 					*newVI.Spec.PersistentVolumeClaim.StorageClass,
 				)
 			}
+
+			err = v.scService.ValidateClaimPropertySets(ctx, *newVI.Spec.PersistentVolumeClaim.StorageClass)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if newVI.Spec.PersistentVolumeClaim.StorageClass == nil || *newVI.Spec.PersistentVolumeClaim.StorageClass == "" {
+			err := v.validateDefaultStorageClass(ctx)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -151,4 +175,28 @@ func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admissi
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
+}
+
+func (v *Validator) validateDefaultStorageClass(ctx context.Context) error {
+	mcDefaultStorageClass, err := v.scService.GetModuleStorageClass(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch a default storage class from module config")
+	}
+
+	err = v.scService.ValidateClaimPropertySets(ctx, mcDefaultStorageClass.Name)
+	if err != nil {
+		return err
+	}
+
+	defaultStorageClass, err := v.scService.GetDefaultStorageClass(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch a default storage class from global config")
+	}
+
+	err = v.scService.ValidateClaimPropertySets(ctx, defaultStorageClass.Name)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
