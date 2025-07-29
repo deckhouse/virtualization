@@ -85,4 +85,4 @@
         summary: "No virt-handler pods found in d8-virtualization namespace"
         description: |
           There are currently no virt-handler pods (matching 'virt-handler-.*') in the 'd8-virtualization' namespace.
-          Make sure that kvm is enabled on the cluster nodes intended for virtualisation and at least one node is assigned to start virtual machines.
+          Make sure that kvm is enabled on the cluster nodes intended for virtualization and at least one node is assigned to start virtual machines.
