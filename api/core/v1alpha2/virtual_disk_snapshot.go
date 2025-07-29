@@ -45,9 +45,8 @@ type VirtualDiskSnapshotList struct {
 }
 
 type VirtualDiskSnapshotSpec struct {
-	VirtualDiskName         string `json:"virtualDiskName"`
-	VolumeSnapshotClassName string `json:"volumeSnapshotClassName"`
-	RequiredConsistency     bool   `json:"requiredConsistency"`
+	VirtualDiskName     string `json:"virtualDiskName"`
+	RequiredConsistency bool   `json:"requiredConsistency"`
 }
 
 type VirtualDiskSnapshotStatus struct {

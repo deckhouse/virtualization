@@ -2549,13 +2549,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotSpec(ref common.
 							Format:  "",
 						},
 					},
-					"volumeSnapshotClassName": {
-						SchemaProps: spec.SchemaProps{
-							Default: "",
-							Type:    []string{"string"},
-							Format:  "",
-						},
-					},
 					"requiredConsistency": {
 						SchemaProps: spec.SchemaProps{
 							Default: false,
@@ -2564,7 +2557,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualDiskSnapshotSpec(ref common.
 						},
 					},
 				},
-				Required: []string{"virtualDiskName", "volumeSnapshotClassName", "requiredConsistency"},
+				Required: []string{"virtualDiskName", "requiredConsistency"},
 			},
 		},
 	}
