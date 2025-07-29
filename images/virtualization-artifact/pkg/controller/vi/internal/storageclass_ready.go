@@ -90,6 +90,10 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 	}
 
 	if moduleStorageClass != nil {
+		err := h.validateStorageClass(ctx, vi, moduleStorageClass, cb)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		h.setFromModuleSettings(vi, moduleStorageClass, cb)
 		return reconcile.Result{}, nil
 	}
@@ -101,6 +105,10 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vi *virtv2.Virtual
 	}
 
 	if defaultStorageClass != nil {
+		err := h.validateStorageClass(ctx, vi, defaultStorageClass, cb)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		h.setFromDefault(vi, defaultStorageClass, cb)
 		return reconcile.Result{}, nil
 	}
@@ -127,6 +135,23 @@ func (h StorageClassReadyHandler) setFromSpec(ctx context.Context, vi *virtv2.Vi
 	sc, err := h.svc.GetStorageClass(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
 	if err != nil {
 		return fmt.Errorf("get storage class specified in spec: %w", err)
+	}
+
+	if sc != nil {
+		sp, err := h.svc.GetStorageProfile(ctx, sc.Name)
+		if err != nil {
+			return fmt.Errorf("get storage profile that accorded with storage class specified in spec: %w", err)
+		}
+
+		err = h.svc.ValidateClaimPropertySets(sp)
+		if err != nil {
+			cb.
+				Status(metav1.ConditionFalse).
+				Reason(vicondition.StorageClassNotReady).
+				Message(service.CapitalizeFirstLetter(err.Error() + "."))
+			conditions.SetCondition(cb, &vi.Status.Conditions)
+			return nil
+		}
 	}
 
 	if h.svc.IsStorageClassDeprecated(sc) {
@@ -267,4 +292,23 @@ func (h StorageClassReadyHandler) setFromDefault(vi *virtv2.VirtualImage, defaul
 		conditions.SetCondition(cb, &vi.Status.Conditions)
 		return
 	}
+}
+
+func (h StorageClassReadyHandler) validateStorageClass(ctx context.Context, vi *virtv2.VirtualImage, sc *storagev1.StorageClass, cb *conditions.ConditionBuilder) error {
+	storageProfile, err := h.svc.GetStorageProfile(ctx, sc.Name)
+	if err != nil {
+		return fmt.Errorf("get storage profile: %w", err)
+	}
+
+	err = h.svc.ValidateClaimPropertySets(storageProfile)
+	if err != nil {
+		cb.
+			Status(metav1.ConditionFalse).
+			Reason(vicondition.StorageClassNotReady).
+			Message(service.CapitalizeFirstLetter(err.Error() + "."))
+		conditions.SetCondition(cb, &vi.Status.Conditions)
+		return err
+	}
+
+	return nil
 }

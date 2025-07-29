@@ -23,6 +23,7 @@ import (
 	"reflect"
 	"strings"
 
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -83,6 +84,25 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 				*vi.Spec.PersistentVolumeClaim.StorageClass,
 			)
 		}
+
+		if sc != nil {
+			sp, err := v.scService.GetStorageProfile(ctx, sc.Name)
+			if err != nil {
+				return nil, err
+			}
+
+			err = v.scService.ValidateClaimPropertySets(sp)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
+	if vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == "" {
+		err := v.validateDefaultStorageClass(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return nil, nil
@@ -133,6 +153,25 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 					*newVI.Spec.PersistentVolumeClaim.StorageClass,
 				)
 			}
+
+			if sc != nil {
+				sp, err := v.scService.GetStorageProfile(ctx, sc.Name)
+				if err != nil {
+					return nil, err
+				}
+
+				err = v.scService.ValidateClaimPropertySets(sp)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		if newVI.Spec.PersistentVolumeClaim.StorageClass == nil || *newVI.Spec.PersistentVolumeClaim.StorageClass == "" {
+			err := v.validateDefaultStorageClass(ctx)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -151,4 +190,37 @@ func (v *Validator) ValidateDelete(_ context.Context, _ runtime.Object) (admissi
 	err := fmt.Errorf("misconfigured webhook rules: delete operation not implemented")
 	v.logger.Error("Ensure the correctness of ValidatingWebhookConfiguration", "err", err)
 	return nil, nil
+}
+
+func (v *Validator) validateDefaultStorageClass(ctx context.Context) error {
+	var sc *storagev1.StorageClass
+	mcDefaultStorageClass, err := v.scService.GetModuleStorageClass(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch a default storage class from module config")
+	}
+
+	if mcDefaultStorageClass != nil {
+		sc = mcDefaultStorageClass
+	} else {
+		defaultStorageClass, err := v.scService.GetDefaultStorageClass(ctx)
+		if err != nil {
+			return errors.New("the default storage class was not found in either the cluster or the module settings; please specify a storage class name explicitly in the spec")
+		}
+
+		if defaultStorageClass != nil {
+			sc = defaultStorageClass
+		}
+	}
+
+	sp, err := v.scService.GetStorageProfile(ctx, sc.Name)
+	if err != nil {
+		return err
+	}
+
+	err = v.scService.ValidateClaimPropertySets(sp)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
