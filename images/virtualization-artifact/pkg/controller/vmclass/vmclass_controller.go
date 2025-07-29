@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmclass/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -44,6 +45,7 @@ func NewController(
 ) (controller.Controller, error) {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
+	vmClassService := service.NewVirtualMachineClassService(client)
 	handlers := []Handler{
 		internal.NewDeletionHandler(client, recorder, log),
 		internal.NewDiscoveryHandler(recorder),
@@ -67,7 +69,7 @@ func NewController(
 
 	if err = builder.WebhookManagedBy(mgr).
 		For(&v1alpha2.VirtualMachineClass{}).
-		WithValidator(NewValidator(mgr.GetClient(), log, recorder)).
+		WithValidator(NewValidator(mgr.GetClient(), log, recorder, vmClassService)).
 		Complete(); err != nil {
 		return nil, err
 	}
