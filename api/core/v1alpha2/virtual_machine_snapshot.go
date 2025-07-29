@@ -69,9 +69,6 @@ type VirtualMachineSnapshotSpec struct {
 	RequiredConsistency bool `json:"requiredConsistency"`
 	// +kubebuilder:default:="Always"
 	KeepIPAddress KeepIPAddress `json:"keepIPAddress"`
-	// DEPRECATED: field VolumeSnapshotClasses is deprecated and will be removed in a future release
-	// +optional
-	VolumeSnapshotClasses []VolumeSnapshotClassName `json:"volumeSnapshotClasses,omitempty"`
 }
 
 type ResourceRef struct {
@@ -97,19 +94,6 @@ type VirtualMachineSnapshotStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-}
-
-// VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding.
-// DEPRECATED: field StorageClassName is deprecated and will be removed in a future release
-type VolumeSnapshotClassName struct {
-	// StorageClass name associated with a VolumeSnapshotClass.
-	// DEPRECATED: field StorageClassName is deprecated and will be removed in a future release
-	// +optional
-	StorageClassName string `json:"storageClassName"`
-	// VolumeSnapshotClass name to use for virtual disk snapshotting.
-	// DEPRECATED: field VolumeSnapshotClassName is deprecated and will be removed in a future release
-	// +optional
-	VolumeSnapshotClassName string `json:"volumeSnapshotClassName"`
 }
 
 // KeepIPAddress defines whether to keep the IP address of a virtual machine or not:

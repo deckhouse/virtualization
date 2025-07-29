@@ -142,7 +142,6 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineSpec":                        schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats":                       schema_virtualization_api_core_v1alpha2_VirtualMachineStats(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStatus":                      schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref),
-		"github.com/deckhouse/virtualization/api/core/v1alpha2.VolumeSnapshotClassName":                   schema_virtualization_api_core_v1alpha2_VolumeSnapshotClassName(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.WeightedVirtualMachineAndPodAffinityTerm":  schema_virtualization_api_core_v1alpha2_WeightedVirtualMachineAndPodAffinityTerm(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineAddVolume":           schema_virtualization_api_subresources_v1alpha2_VirtualMachineAddVolume(ref),
 		"github.com/deckhouse/virtualization/api/subresources/v1alpha2.VirtualMachineCancelEvacuation":    schema_virtualization_api_subresources_v1alpha2_VirtualMachineCancelEvacuation(ref),
@@ -4871,26 +4870,10 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSnapshotSpec(ref comm
 							Format:  "",
 						},
 					},
-					"volumeSnapshotClasses": {
-						SchemaProps: spec.SchemaProps{
-							Description: "DEPRECATED: field VolumeSnapshotClasses is deprecated and will be removed in a future release",
-							Type:        []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: map[string]interface{}{},
-										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VolumeSnapshotClassName"),
-									},
-								},
-							},
-						},
-					},
 				},
 				Required: []string{"virtualMachineName", "requiredConsistency", "keepIPAddress"},
 			},
 		},
-		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.VolumeSnapshotClassName"},
 	}
 }
 
@@ -5312,35 +5295,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 		},
 		Dependencies: []string{
 			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus", "github.com/deckhouse/virtualization/api/core/v1alpha2.Versions", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"},
-	}
-}
-
-func schema_virtualization_api_core_v1alpha2_VolumeSnapshotClassName(ref common.ReferenceCallback) common.OpenAPIDefinition {
-	return common.OpenAPIDefinition{
-		Schema: spec.Schema{
-			SchemaProps: spec.SchemaProps{
-				Description: "VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding. DEPRECATED: field StorageClassName is deprecated and will be removed in a future release",
-				Type:        []string{"object"},
-				Properties: map[string]spec.Schema{
-					"storageClassName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "StorageClass name associated with a VolumeSnapshotClass. DEPRECATED: field StorageClassName is deprecated and will be removed in a future release",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-					"volumeSnapshotClassName": {
-						SchemaProps: spec.SchemaProps{
-							Description: "VolumeSnapshotClass name to use for virtual disk snapshotting. DEPRECATED: field VolumeSnapshotClassName is deprecated and will be removed in a future release",
-							Default:     "",
-							Type:        []string{"string"},
-							Format:      "",
-						},
-					},
-				},
-			},
-		},
 	}
 }
 
