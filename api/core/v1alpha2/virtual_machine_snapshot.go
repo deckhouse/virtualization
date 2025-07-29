@@ -68,8 +68,7 @@ type VirtualMachineSnapshotSpec struct {
 	// +kubebuilder:default:=true
 	RequiredConsistency bool `json:"requiredConsistency"`
 	// +kubebuilder:default:="Always"
-	KeepIPAddress         KeepIPAddress             `json:"keepIPAddress"`
-	VolumeSnapshotClasses []VolumeSnapshotClassName `json:"volumeSnapshotClasses,omitempty"`
+	KeepIPAddress KeepIPAddress `json:"keepIPAddress"`
 }
 
 type ResourceRef struct {
@@ -95,14 +94,6 @@ type VirtualMachineSnapshotStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
-}
-
-// VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass binding.
-type VolumeSnapshotClassName struct {
-	// StorageClass name associated with a VolumeSnapshotClass.
-	StorageClassName string `json:"storageClassName"`
-	// VolumeSnapshotClass name to use for virtual disk snapshotting.
-	VolumeSnapshotClassName string `json:"volumeSnapshotClassName"`
 }
 
 // KeepIPAddress defines whether to keep the IP address of a virtual machine or not:

@@ -86,25 +86,6 @@ spec:
                   description: Name of the virtual machine to take a snapshot of.
                   minLength: 1
                   type: string
-                volumeSnapshotClasses:
-                  items:
-                    description:
-                      VolumeSnapshotClassName defines StorageClass and VolumeSnapshotClass
-                      binding.
-                    properties:
-                      storageClassName:
-                        description: StorageClass name associated with a VolumeSnapshotClass.
-                        type: string
-                      volumeSnapshotClassName:
-                        description:
-                          VolumeSnapshotClass name to use for virtual disk
-                          snapshotting.
-                        type: string
-                    required:
-                      - storageClassName
-                      - volumeSnapshotClassName
-                    type: object
-                  type: array
               required:
                 - keepIPAddress
                 - requiredConsistency

@@ -23,10 +23,8 @@ import (
 	"sync"
 	"time"
 
-	snapshotvolv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -45,12 +43,11 @@ const (
 
 var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), func() {
 	var (
-		defaultVolumeSnapshotClassName string
-		testCaseLabel                  = map[string]string{"testcase": "vd-snapshots", "id": namePrefix}
-		attachedVirtualDiskLabel       = map[string]string{"attachedVirtualDisk": ""}
-		hasNoConsumerLabel             = map[string]string{"hasNoConsumer": "vd-snapshots"}
-		vmAutomaticWithHotplug         = map[string]string{"vm": "automatic-with-hotplug"}
-		ns                             string
+		testCaseLabel            = map[string]string{"testcase": "vd-snapshots", "id": namePrefix}
+		attachedVirtualDiskLabel = map[string]string{"attachedVirtualDisk": ""}
+		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "vd-snapshots"}
+		vmAutomaticWithHotplug   = map[string]string{"vm": "automatic-with-hotplug"}
+		ns                       string
 	)
 
 	BeforeAll(func() {
@@ -73,9 +70,6 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 		virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
 		err = WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
 		Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
-
-		defaultVolumeSnapshotClassName, err = GetVolumeSnapshotClassName(conf.StorageClass.DefaultStorageClass)
-		Expect(err).NotTo(HaveOccurred(), "cannot define default `VolumeSnapshotClass`\nstderr: %s", err)
 	})
 
 	AfterEach(func() {
@@ -149,12 +143,9 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 			vds := strings.Split(res.StdOut(), " ")
 
-			volumeSnapshotClassName, getErr := GetVolumeSnapshotClassName(conf.StorageClass.ImmediateStorageClass)
-			Expect(getErr).NotTo(HaveOccurred(), "%s", getErr)
-
 			for _, vdName := range vds {
-				By(fmt.Sprintf("Create snapshot for %q with volume snapshot class %q", vdName, volumeSnapshotClassName))
-				err := CreateVirtualDiskSnapshot(vdName, vdName, volumeSnapshotClassName, ns, true, hasNoConsumerLabel)
+				By(fmt.Sprintf("Create snapshot for %q", vdName))
+				err := CreateVirtualDiskSnapshot(vdName, vdName, ns, true, hasNoConsumerLabel)
 				Expect(err).NotTo(HaveOccurred(), "%s", err)
 			}
 		})
@@ -201,12 +192,8 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 				blockDevices := vm.Status.BlockDeviceRefs
 				for _, blockDevice := range blockDevices {
 					if blockDevice.Kind == virtv2.VirtualDiskKind {
-						By(fmt.Sprintf(
-							"Create snapshot for %q with volume snapshot class %q",
-							blockDevice.Name,
-							defaultVolumeSnapshotClassName,
-						))
-						err := CreateVirtualDiskSnapshot(blockDevice.Name, blockDevice.Name, defaultVolumeSnapshotClassName, ns, true, attachedVirtualDiskLabel)
+						By(fmt.Sprintf("Create snapshot for %q", blockDevice.Name))
+						err := CreateVirtualDiskSnapshot(blockDevice.Name, blockDevice.Name, ns, true, attachedVirtualDiskLabel)
 						Expect(err).NotTo(HaveOccurred(), "%s", err)
 
 						Eventually(func() error {
@@ -249,20 +236,15 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 				blockDevices := vm.Status.BlockDeviceRefs
 				for _, blockDevice := range blockDevices {
 					if blockDevice.Kind == virtv2.VirtualDiskKind {
-						By(fmt.Sprintf(
-							"Create five snapshots for %q of %q with volume snapshot class %q",
-							blockDevice.Name,
-							vm.Name,
-							defaultVolumeSnapshotClassName,
-						))
+						By(fmt.Sprintf("Create five snapshots for %q of %q", blockDevice.Name, vm.Name))
 						errs := make([]error, 0, 5)
 						wg := sync.WaitGroup{}
-						for i := 0; i < 5; i++ {
+						for i := range 5 {
 							wg.Add(1)
 							go func(index int) {
 								defer wg.Done()
 								snapshotName := fmt.Sprintf("%s-%d", blockDevice.Name, index)
-								err := CreateVirtualDiskSnapshot(blockDevice.Name, snapshotName, defaultVolumeSnapshotClassName, ns, true, attachedVirtualDiskLabel)
+								err := CreateVirtualDiskSnapshot(blockDevice.Name, snapshotName, ns, true, attachedVirtualDiskLabel)
 								if err != nil {
 									errs = append(errs, err)
 								}
@@ -355,9 +337,8 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 	})
 })
 
-func CreateVirtualDiskSnapshot(vdName, snapshotName, volumeSnapshotClassName, namespace string, requiredConsistency bool, labels map[string]string) error {
+func CreateVirtualDiskSnapshot(vdName, snapshotName, namespace string, requiredConsistency bool, labels map[string]string) error {
 	GinkgoHelper()
-	vdSnapshotName := fmt.Sprintf("%s-%s", snapshotName, volumeSnapshotClassName)
 	vdSnapshot := virtv2.VirtualDiskSnapshot{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: APIVersion,
@@ -365,20 +346,19 @@ func CreateVirtualDiskSnapshot(vdName, snapshotName, volumeSnapshotClassName, na
 		},
 		ObjectMeta: v1.ObjectMeta{
 			Labels:    labels,
-			Name:      vdSnapshotName,
+			Name:      snapshotName,
 			Namespace: namespace,
 		},
 		Spec: virtv2.VirtualDiskSnapshotSpec{
-			RequiredConsistency:     requiredConsistency,
-			VirtualDiskName:         vdName,
-			VolumeSnapshotClassName: volumeSnapshotClassName,
+			RequiredConsistency: requiredConsistency,
+			VirtualDiskName:     vdName,
 		},
 	}
 
-	filePath := fmt.Sprintf("%s/snapshots/%s-%s.yaml", conf.TestData.VdSnapshots, vdSnapshotName, volumeSnapshotClassName)
+	filePath := fmt.Sprintf("%s/snapshots/%s.yaml", conf.TestData.VdSnapshots, snapshotName)
 	err := WriteYamlObject(filePath, &vdSnapshot)
 	if err != nil {
-		return fmt.Errorf("cannot write file with virtual disk snapshot: %s\nstderr: %w", vdSnapshotName, err)
+		return fmt.Errorf("cannot write file with virtual disk snapshot: %s\nstderr: %w", snapshotName, err)
 	}
 
 	res := kubectl.Apply(kc.ApplyOptions{
@@ -386,25 +366,9 @@ func CreateVirtualDiskSnapshot(vdName, snapshotName, volumeSnapshotClassName, na
 		FilenameOption: kc.Filename,
 	})
 	if res.Error() != nil {
-		return fmt.Errorf("cannot create virtual disk snapshot: %s\nstderr: %s", vdSnapshotName, res.StdErr())
+		return fmt.Errorf("cannot create virtual disk snapshot: %s\nstderr: %s", snapshotName, res.StdErr())
 	}
 	return nil
-}
-
-func GetVolumeSnapshotClassName(storageClass *storagev1.StorageClass) (string, error) {
-	vscObjects := snapshotvolv1.VolumeSnapshotClassList{}
-	err := GetObjects(kc.ResourceVolumeSnapshotClass, &vscObjects, kc.GetOptions{})
-	if err != nil {
-		return "", fmt.Errorf("cannot get `VolumeSnapshotClasses` by provisioner %q\nstderr: %w", storageClass.Provisioner, err)
-	}
-
-	for _, vsc := range vscObjects.Items {
-		if vsc.Driver == storageClass.Provisioner {
-			return vsc.Name, nil
-		}
-	}
-
-	return "", fmt.Errorf("cannot found `VolumeSnapshotClass` by provisioner %q", storageClass.Provisioner)
 }
 
 func CheckFileSystemFrozen(vmName, vmNamespace string) (bool, error) {

@@ -24,14 +24,6 @@ spec:
                     - виртуальная машина с агентом, операция заморозки прошла успешно.
                 virtualMachineName:
                   description: Имя виртуальной машины для создания снимка.
-                volumeSnapshotClasses:
-                  items:
-                    description: Устанавливает соответствие между StorageClass и VolumeSnapshotClass.
-                    properties:
-                      storageClassName:
-                        description: Имя ресурса StorageClass, соответствующее указанному ресурсу VolumeSnapshotClass.
-                      volumeSnapshotClassName:
-                        description: Имя ресурса VolumeSnapshotClass, который будет использован для создания снимков виртуальных дисков с соответствующим классом хранения.
             status:
               properties:
                 conditions:

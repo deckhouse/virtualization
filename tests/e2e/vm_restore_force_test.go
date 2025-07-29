@@ -70,8 +70,6 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 
 		storageClass, err = GetDefaultStorageClass()
 		Expect(err).NotTo(HaveOccurred(), "failed to get the `DefaultStorageClass`")
-		volumeSnapshotClass, err = GetVolumeSnapshotClassName(storageClass)
-		Expect(err).NotTo(HaveOccurred(), "failed to get the `VolumeSnapshotClass`")
 
 		res := kubectl.Delete(kc.DeleteOptions{
 			IgnoreNotFound: true,
@@ -291,12 +289,6 @@ func NewVirtualMachineSnapshot(
 			VirtualMachineName:  vmName,
 			RequiredConsistency: requiredConsistency,
 			KeepIPAddress:       keepIPaddress,
-			VolumeSnapshotClasses: []virtv2.VolumeSnapshotClassName{
-				{
-					StorageClassName:        storageClass,
-					VolumeSnapshotClassName: volumeSnapshotClass,
-				},
-			},
 		},
 	}
 }
