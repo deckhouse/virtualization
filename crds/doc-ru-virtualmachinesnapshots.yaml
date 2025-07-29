@@ -24,17 +24,6 @@ spec:
                     - виртуальная машина с агентом, операция заморозки прошла успешно.
                 virtualMachineName:
                   description: Имя виртуальной машины для создания снимка.
-                volumeSnapshotClasses:
-                  items:
-                    description: |
-                      Параметр устарел и будет удален в будущих версиях.
-                    properties:
-                      storageClassName:
-                        description: |
-                          Параметр устарел и будет удален в будущих версиях.
-                      volumeSnapshotClassName:
-                        description: |
-                          Параметр устарел и будет удален в будущих версиях.
             status:
               properties:
                 conditions:

@@ -42,12 +42,6 @@ spec:
                   type: string
                   description: |
                     Virtual disk name the snapshot is created for.
-                volumeSnapshotClassName:
-                  type: string
-                  x-doc-deprecated: true
-                  description: |
-
-                    The parameter is deprecated and will be removed in a future versions.
                 requiredConsistency:
                   type: boolean
                   default: true

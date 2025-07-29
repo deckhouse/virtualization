@@ -13,9 +13,6 @@ spec:
                 virtualDiskName:
                   description: |
                     Имя виртуального диска, для которого будет создан снимок.
-                volumeSnapshotClassName:
-                  description: |
-                    DEPRECATED: Данное поле устарело и будет удалено в будущем релизе
                 requiredConsistency:
                   description: |
                     Создавать снимок диска подключённой виртуальной машины только в том случае, если возможно заморозить её через агента.
