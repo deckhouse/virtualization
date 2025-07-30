@@ -29,6 +29,18 @@ Example of creating a virtual machine with Ubuntu 22.04.
    EOF
    ```
 
+   How to create a virtual machine image from an external source in the web interface:
+
+   - Go to the "Projects" tab and select the desired project.
+   - Go to the "Virtualization" -> "Disk Images" section.
+   - Click "Create Image".
+   - Select "Download data via link (HTTP)" from the list.
+   - In the form that opens, enter `ubuntu` in the "Image Name" field.
+   - Select `ContainerRegistry` in the "Storage" field.
+   - In the "URL" field, paste `https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img>`.
+   - Click the "Create" button.
+   - The image status is displayed at the top left, under the image name.
+
 1. Create a virtual machine disk from the image created in the previous step (Caution: Make sure that the default StorageClass is present on the system before creating it):
 
    ```yaml
@@ -45,6 +57,24 @@ Example of creating a virtual machine with Ubuntu 22.04.
          name: ubuntu
    EOF
    ```
+
+   How to create a virtual machine disk from the image created in the previous step in the web interface (this step can be skipped and performed when creating a VM):
+
+   - Go to the "Projects" tab and select the desired project.
+   - Go to the "Virtualization" section -> "VM Disks".
+   - Click "Create Disk".
+   - In the form that opens, enter `linux-disk` in the "Disk Name" field.
+   - In the "Source" field, make sure that the "Project" checkbox is selected.
+   - Select `ubuntu` from the drop-down list
+   - In the "Size" field, you can change the size to a larger. one, for example, `5Gi`.
+   - In the "StorageClass Name" field, you can select StorageClass or leave the default selection.
+   - Click the "Create" button.
+   - The disk status is displayed at the top left, under the disk name.
+
+   {{< alert level="info">}}
+   Remember, if your StorageClass has the WaitForFirstConsumer setting, the disk will wait for a VM to be created with that disk.
+   In this case, the disk status will be "CREATING 0%," but the disk will already be selectable when creating a VM, [see the disks section](#disks).
+   {{< /alert >}}
 
 1. Creating a virtual machine:
 
@@ -93,6 +123,47 @@ Example of creating a virtual machine with Ubuntu 22.04.
    EOF
    ```
 
+   How to create a virtual machine in the web interface:
+
+   - Go to the "Projects" tab and select the desired project.
+   - Go to the "Virtualization" -> "Virtual Machines" section.
+   - Click "Create".
+   - In the form that opens, enter `linux-vm` in the "Name" field.
+   - In the "Machine Parameters" section, you can leave the settings at their default values.
+   - In the "Disks and Images" section, in the "Boot Disks" subsection, click "Add".
+
+     If you have already created a disk:
+      - In the form that opens, click "Select from existing".
+      - Select the `linux-disk` disk from the list.
+
+     If you have not created a disk:
+
+     - In the form that opens, click "Create new disk”"
+     - In the "Name" field, enter `linux-disk`.
+     - In the "Source" field, click the arrow to expand the list and make sure that the "Project" checkbox is selected.
+     - Select `ubuntu` from the drop-down list.
+     - In the "Size" field, you can change the size to a larger one, for example, `5Gi`.
+     - In the "Storage Class" field, you can select StorageClass or leave the default selection.
+     - Click the "Create and Add" button.
+
+   - Scroll down to the "Additional parameters" section.
+   - Enable the "Cloud-init" switch.
+   - Enter your data in the field that appears:
+
+     ```yaml
+     #cloud-config
+     ssh_pwauth: True
+     users:
+     - name: cloud
+       passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
+       shell: /bin/bash
+       sudo: ALL=(ALL) NOPASSWD:ALL
+       lock_passwd: False
+     ```
+
+   - Click the "Create" button.
+   - The VM status is displayed at the top left, under its name.
+
    Useful links:
 
    - [cloud-init documentation](https://cloudinit.readthedocs.io/)
@@ -134,6 +205,14 @@ Example of creating a virtual machine with Ubuntu 22.04.
    cloud@linux-vm:~$
    ```
 
+   How to connect to a virtual machine using the console in the web interface:
+
+   - Go to the "Projects" tab and select the desired project.
+   - Go to the "Virtualization" -> "Virtual Machines" section.
+   - Select the required VM from the list and click on its name.
+   - In the form that opens, go to the "TTY" tab.
+   - Go to the console window that opens. Here you can connect to the VM.
+
 1. Use the following commands to delete previously created resources:
 
    ```bash
@@ -161,25 +240,14 @@ There are different types of images:
 
 Examples of resources for obtaining virtual machine images:
 
-- Ubuntu
-  - [24.04 LTS (Noble Numbat)](https://cloud-images.ubuntu.com/noble/current/)
-  - [22.04 LTS (Jammy Jellyfish)](https://cloud-images.ubuntu.com/jammy/current/)
-  - [20.04 LTS (Focal Fossa)](https://cloud-images.ubuntu.com/focal/current/)
-  - [Minimal images](https://cloud-images.ubuntu.com/minimal/releases/)
-- Debian
-  - [12 bookworm](https://cdimage.debian.org/images/cloud/bookworm/latest/)
-  - [11 bullseye](https://cdimage.debian.org/images/cloud/bullseye/latest/)
-- AlmaLinux
-  - [9](https://repo.almalinux.org/almalinux/9/cloud/x86_64/images/)
-  - [8](https://repo.almalinux.org/almalinux/8/cloud/x86_64/images/)
-- RockyLinux
-  - [9.5](https://download.rockylinux.org/pub/rocky/9.5/images/x86_64/)
-  - [8.10](https://download.rockylinux.org/pub/rocky/8.10/images/x86_64/)
-- CentOS
-  - [10 Stream](https://cloud.centos.org/centos/10-stream/x86_64/images/)
-  - [9 Stream](https://cloud.centos.org/centos/9-stream/x86_64/images/)
-  - [8 Stream](https://cloud.centos.org/centos/8-stream/x86_64/)
-  - [8](https://cloud.centos.org/centos/8/x86_64/images/)
+| Distribution                                                                      | Default user.             |
+| --------------------------------------------------------------------------------- | ------------------------- |
+| [AlmaLinux](https://almalinux.org/get-almalinux/#Cloud_Images)                    | `almalinux`               |
+| [AlpineLinux](https://alpinelinux.org/cloud/)                                     | `alpine`                  |
+| [CentOS](https://cloud.centos.org/centos/)                                        | `cloud-user`              |
+| [Debian](https://cdimage.debian.org/images/cloud/)                                | `debian`                  |
+| [Rocky](https://rockylinux.org/download/)                                         | `rocky`                   |
+| [Ubuntu](https://cloud-images.ubuntu.com/)                                        | `ubuntu`                  |
 
 The following preinstalled image formats are supported:
 
@@ -277,6 +345,18 @@ The `VirtualImage` resource description provides additional information about th
 d8 k describe vi ubuntu-22-04
 ```
 
+How to create an image from an HTTP server in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Disk Images" section.
+- Click "Create Image".
+- Select "Download data via link (HTTP)" from the list.
+- In the form that opens, enter the image name in the "Image name" field.
+- Select `ContainerRegistry` in the "Storage" field.
+- Specify the link to the image in the "URL" field.
+- Click the "Create" button.
+- The image status is displayed at the top left, under the image name.
+
 Now let's look at an example of creating an image and storing it in PVC:
 
 ```yaml
@@ -312,6 +392,19 @@ ubuntu-22-04-pvc  Ready   false   100%       23h
 ```
 
 If the `.spec.persistentVolumeClaim.storageClassName` parameter is not specified, the default `StorageClass` at the cluster level will be used, or for images if specified in [module settings](./admin_guide.html#storage-class-settings-for-images).
+
+How to create an image and store it in PVC in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Disk Images" section.
+- Click "Create Image".
+- Select "Upload data via link (HTTP)" from the list.
+- In the form that opens, enter the image name in the "mage name" field.
+- In the "Storage" field, select `PersistentVolumeClaim`.
+- In the "Storage class" field, you can select StorageClass or leave the default selection.
+- In the URL field, specify the link to the image.
+- Click the Create button.
+- The image status is displayed at the top left, under the image name.
 
 ### Creating an image from Container Registry
 
@@ -360,6 +453,18 @@ spec:
       image: docker.io/<username>/ubuntu2204:latest
 EOF
 ```
+
+How to create an image from Container Registry in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Disk Images" section.
+- Click "Create Image".
+- Select "Upload data from container image" from the list.
+- In the form that opens, enter the image name in the "Image Name" field.
+- In the "Storage" field, select `ContainerRegistry`.
+- In the "Image in container registry" field, specify `docker.io/<username>/ubuntu2204:latest`.
+- Click the "Create" button.
+- The image status is displayed at the top left, under the image name.
 
 ### Load an image from the command line
 
@@ -420,6 +525,17 @@ NAME         PHASE   CDROM   PROGRESS   AGE
 some-image   Ready   false   100%       1m
 ```
 
+How to upload an image from the command line in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Disk Images" section.
+- Click "Create Image" then select "Upload from Computer" from the drop-down menu.
+- Enter the image name in the "Image Name" field.
+- In the "Upload File" field, click the "Select File on Your Computer" link.
+- Select the file in the file manager that opens.
+- Click the "Create" button.
+- Wait until the image changes to `Ready` status.
+
 ### Creating an image from a disk
 
 It is possible to create an image from [disk](#disks). To do so, one of the following conditions must be met:
@@ -444,6 +560,18 @@ spec:
       name: linux-vm-root
 EOF
 ```
+
+How to create an image from a disk in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Disk Images" section.
+- Click "Create Image".
+- Select "Write data from disk" from the list.
+- In the form that opens, enter `linux-vm-root` in the "Image Name" field.
+- In the "Storage" field, select `ContainerRegistry`.
+- In the "Disk" field, select the desired disk from the drop-down list.
+- Click the "Create" button.
+- The image status is displayed at the top left, under its name.
 
 ### Creating an image from a disk snapshot
 
@@ -515,6 +643,10 @@ nfs-4-1-wffc                         nfs.csi.k8s.io                        Delet
 
 A full description of the disk configuration settings can be found at [link](cr.html#virtualdisk).
 
+How to find out the available storage options on the platform in the web interface:
+
+- Go to the "System" tab, then to the "Storage" section -> "Storage Classes".
+
 ## Create an empty disk
 
 Empty disks are usually used to install an OS on them, or to store some data.
@@ -566,6 +698,17 @@ Example output:
 NAME       PHASE   CAPACITY   AGE
 blank-disk   Ready   100Mi      1m2s
 ```
+
+How to create an empty disk in the web interface (this step can be skipped and performed when creating a VM):
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "VM Disks" section.
+- Click "Create Disk".
+- In the form that opens, enter `blank-disk` in the "Disk Name" field.
+- In the "Size" field, set the size with the measurement units `100Mi`.
+- In the "StorageClass Name" field, you can select a StorageClass or leave the default selection.
+- Click the "Create" button.
+- The disk status is displayed at the top left, under the disk name.
 
 ### Creating a disk from an image
 
@@ -648,6 +791,19 @@ linux-vm-root    Ready   10Gi       7m52s
 linux-vm-root-2  Ready   2590Mi     7m15s
 ```
 
+How to create a disk from an image in the web interface (this step can be skipped and performed when creating a VM):
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "VM Disks" section.
+- Click "Create Disk".
+- In the form that opens, enter `linux-vm-root` in the "Disk Name" field.
+- In the "Source" field, make sure that the "Project" checkbox is selected.
+- Select the image you want from the drop-down list.
+- In the "Size" field, you can change the size to a larger one or leave the default selection.
+- In the "StorageClass Name" field, you can select a StorageClass or leave the default selection.
+- Click the "Create" button.
+- The disk status is displayed at the top left, under the disk name.
+
 ### Change disk size
 
 You can increase the size of disks even if they are already attached to a running virtual machine. To do this, edit the `spec.persistentVolumeClaim.size` field:
@@ -683,6 +839,26 @@ Example output:
 NAME          PHASE   CAPACITY   AGE
 linux-vm-root   Ready   11Gi       12m
 ```
+
+How to change the disk size in the web interface:
+
+Method #1:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "VM Disks" section.
+- Select the desired disk and click on the pencil icon in the "Size" column.
+- In the pop-up window, you can change the size to a larger one.
+- Click on the "Apply" button.
+- The disk status is displayed in the "Status" column.
+
+Method #2:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "VM Disks" section.
+- Select the desired disk and click on its name.
+- In the form that opens, on the "Configuration" tab, in the "Size" field, you can change the size to a larger one.
+- Click on the "Save" button that appears.
+- The disk status is displayed at the top left, under its name.
 
 ## Virtual machines
 
@@ -768,6 +944,45 @@ linux-vm   Running   virtlab-pt-2   10.66.10.12   11m
 ```
 
 After creation, the virtual machine will automatically get an IP address from the range specified in the module settings (`virtualMachineCIDRs` block).
+
+How to create a virtual machine in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Click "Create".
+- In the form that opens, enter `linux-vm` in the "Name" field.
+- In the "Machine Parameters" section, set `1` in the "Cores" field.
+- In the "Machine Parameters" section, set `10%` in the "CPU Share" field.
+- In the "Machine Parameters" section, set `1Gi` in the "Size" field.
+- In the "Disks and Images" section, in the "Boot Disks" subsection, click "Add".
+- In the form that opens, click "Select from existing".
+- Select the `linux-vm-root` disk from the list.
+- Scroll down to the "Additional Parameters" section.
+- Enable the "Cloud-init" switch.
+- Enter your data in the field that appears:
+
+  ```yaml
+  #cloud-config
+  package_update: true
+  packages:
+    - nginx
+    - qemu-guest-agent
+  run_cmd:
+    - systemctl daemon-reload
+    - systemctl enable --now nginx.service
+    - systemctl enable --now qemu-guest-agent.service
+  ssh_pwauth: True
+  users:
+  - name: cloud
+    passwd: '$6$rounds=4096$saltsalt$fPmUsbjAuA7mnQNTajQM6ClhesyG0.yyQhvahas02ejfMAq1ykBo1RquzS0R6GgdIDlvS.kbUwDablGZKZcTP/'
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: False
+  final_message: "The system is finally up, after $UPTIME seconds"
+  ```
+
+- Click the "Create" button.
+- The VM status is displayed at the top left, under its name.
 
 ### Virtual Machine Life Cycle
 
@@ -1097,6 +1312,15 @@ Example command for connecting via SSH.
 d8 v ssh cloud@linux-vm --local-ssh
 ```
 
+How to connect to a virtual machine in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the required VM from the list and click on its name.
+- In the form that opens, go to the "TTY" tab to work with the serial console.
+- In the form that opens, go to the "VNC" tab to connect via VNC.
+- Go to the window that opens. Here you can connect to the VM.
+
 ### Virtual machine startup policy and virtual machine state management
 
 The virtual machine startup policy is intended for automated virtual machine state management. It is defined as the `.spec.runPolicy` parameter in the virtual machine specification. The following policies are supported:
@@ -1105,6 +1329,14 @@ The virtual machine startup policy is intended for automated virtual machine sta
 - `AlwaysOn` - after creation the VM is always in a running state, even in case of its shutdown by OS means. In case of failures the VM operation is restored automatically.
 - `Manual` - after creation, the state of the VM is controlled manually by the user using commands or operations.
 - `AlwaysOff` - after creation the VM is always in the off state. There is no possibility to turn on the VM through commands/operations.
+
+How to select a VM startup policy in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the desired VM from the list and click on its name.
+- On the "Configuration" tab, scroll down to the "Additional Settings" section.
+- Select the desired policy from the Startup Policy combo box.
 
 The state of the virtual machine can be controlled using the following methods:
 
@@ -1144,11 +1376,18 @@ d8 v restart  linux-vm
 A list of possible operations is given in the table below:
 
 | d8             | vmop type | Action                         |
-| -------------- | --------- | ------------------------------ | ------- |
-| `d8 v stop`    | `Stop`    | Stop VM                        | Stop VM |
+| -------------- | --------- | ------------------------------ |
+| `d8 v stop`    | `Stop`    | Stop VM                        |
 | `d8 v start`   | `Start`   | Start the VM                   |
-| `d8 v restart` | `Restart` | Restart the VM                 |         |
+| `d8 v restart` | `Restart` | Restart the VM                 |
 | `d8 v evict`   | `Evict`   | Migrate the VM to another host |
+
+How to perform the operation in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the desired virtual machine from the list and click the ellipsis button.
+- In the pop-up menu, you can select possible operations for the VM.
 
 ### Change virtual machine configuration
 
@@ -1173,6 +1412,14 @@ If the virtual machine is running (`.status.phase: Running`), the way the change
 | `.spec.affinity`                        | EE, SE+: Applies immediately, CE: Only after VM restart |
 | `.spec.nodeSelector`                    | EE, SE+: Applies immediately, CE: Only after VM restart |
 | `.spec.*`                               | Only after VM restart                                   |
+
+How to change the VM configuration in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the required VM from the list and click on its name.
+- You are now on the "Configuration" tab, where you can make changes.
+- The list of changed parameters and a warning if the VM needs to be restarted are displayed at the top of the page.
 
 Let's consider an example of changing the configuration of a virtual machine:
 
@@ -1274,6 +1521,15 @@ spec:
     restartApprovalMode: Automatic
 ```
 
+How to perform the operation in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines”"section.
+- Select the required VM from the list and click on its name.
+- On the "Configuration" tab, scroll down to the "Additional Settings" section.
+- Enable the "Auto-apply changes" switch.
+- Click on the "Save" button that appears.
+
 ### Initialization scripts
 
 Initialization scripts are intended for the initial configuration of a virtual machine when it is started.
@@ -1372,11 +1628,20 @@ All of the above parameters (including the `.spec.nodeSelector` parameter from V
 
 {{< alert level="info" >}}
 When changing placement parameters:
+
 - If the current location of the VM meets the new requirements, it remains on the current node.
 - If the requirements are violated:
-- In commercial editions: The VM is automatically moved to a suitable node using live migration.
-- In the CE edition: The VM will require a reboot to apply.
+
+  - In commercial editions: The VM is automatically moved to a suitable node using live migration.
+  - In the CE edition: The VM will require a reboot to apply.
 {{< /alert >}}
+
+How to manage VM placement parameters by nodes in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the required VM from the list and click on its name.
+- On the "Configuration" tab, scroll down to the "Placement" section.
 
 #### Simple label binding (nodeSelector)
 
@@ -1392,9 +1657,17 @@ spec:
 
 In this example, there are three nodes in the cluster: two with fast disks (`disktype=ssd`) and one with slow disks (`disktype=hdd`). The virtual machine will only be placed on nodes that have the `disktype` label with the value `ssd`.
 
+How to perform the operation in the web interface in the [Placement section](#placement-of-vms-by-nodes):
+
+- Click "Add" in the "Run by nodes" -> "Select nodes by labels block".
+- In the pop-up window, you can set the "Key" and "Value" of the key that corresponds to the `spec.nodeSelector` settings.
+- To confirm the key parameters, click the "Enter" button.
+- Click the "Save" button that appears.
+
 #### Preferred Binding (Affinity)
 
 Placement requirements can be:
+
 - Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — The VM is placed only on nodes that meet the condition.
 - Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — The VM is placed on suitable nodes, if possible.
 
@@ -1442,6 +1715,14 @@ spec:
 
 In this example, the virtual machine will be placed, if possible (since preferred is used) only on hosts that have a virtual machine with the server label and database value.
 
+How to set "preferences" and "mandatories" for placing virtual machines in the web interface in the [Placement section](#placement-of-vms-by-nodes):
+
+- Click "Add" in the "Run VM next to other VMs" block.
+- In the pop-up window, you can set the "Key" and "Value" of the key that corresponds to the `spec.affinity.virtualMachineAndPodAffinity` settings.
+- To confirm the key parameters, click the "Enter" button.
+- Select one of the options "On the same server" or "In the same zone" that corresponds to the `topologyKey` parameter.
+- Click the "Save" button that appears.
+
 #### Avoid co-location (AntiAffinity)
 
 `AntiAffinity` is the opposite of `Affinity`, which allows you to specify requirements to avoid co-location of virtual machines on the same hosts. This is useful for load balancing or fault tolerance.
@@ -1450,7 +1731,7 @@ Placement requirements can be strict or soft:
 - Strict (`requiredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled only on nodes that meet the condition.
 - Soft (`preferredDuringSchedulingIgnoredDuringExecution`) — The VM is scheduled on suitable nodes if possible.
 
-{{< alert level=“warn” >}}
+{{< alert level="warning" >}}
 Be careful when using strict requirements in small clusters with few nodes for VMs. If you apply `virtualMachineAndPodAntiAffinity` with `requiredDuringSchedulingIgnoredDuringExecution`, each VM replica must run on a separate node. In a cluster with limited nodes, this may cause some VMs to fail to start due to insufficient available nodes.
 {{< /alert >}}
 
@@ -1472,6 +1753,15 @@ spec:
 ![](images/placement-vm-antiaffinity.png)
 
 In this example, the virtual machine being created will not be placed on the same host as the virtual machine labeled server: database.
+
+How to configure VM AntiAffinity on nodes in the web interface in the [Placement section](#placement-of-vms-by-nodes):
+
+- Click "Add" in the "Define similar VMs by labels" -> "Select labels" block.
+- In the pop-up window, you can set the "Key" and "Value" of the key that corresponds to the `spec.affinity.virtualMachineAndPodAntiAffinity` settings.
+- To confirm the key parameters, click the "Enter" button.
+- Check the boxes next to the labels you want to use in the placement settings.
+- Select one of the options in the "Select options" section.
+- Click the "Save" button that appears.
 
 ### Static and dynamic block devices
 
@@ -1501,6 +1791,14 @@ spec:
     - kind: VirtualImage
       name: <virtual-image-name>
 ```
+
+How to work with static block devices in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the required VM from the list and click on its name.
+- On the "Configuration" tab, scroll down to the "Disks and Images" section.
+- You can add, extract, delete, resize, and reorder static block devices in the "Boot Disks" section.
 
 #### Dynamic Block Devices
 
@@ -1585,6 +1883,14 @@ spec:
 EOF
 ```
 
+How to work with dynamic block devices in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the required VM from the list and click on its name.
+- On the "Configuration" tab, scroll down to the "Disks and Images" section.
+- You can add, extract, delete, and resize dynamic block devices in the "Additional Disks" section.
+
 ### Organizing interaction with virtual machines
 
 Virtual machines can be accessed directly via their fixed IP addresses. However, this approach has limitations: direct use of IP addresses requires manual management, complicates scaling, and makes the infrastructure less flexible. An alternative is services—a mechanism that abstracts access to VMs by providing logical entry points instead of binding to physical addresses.
@@ -1618,6 +1924,20 @@ Example output:
 ```txt
 virtualmachine.virtualization.deckhouse.io/linux-vm labeled
 ```
+
+How to add labels and annotations to VMs in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the desired VM from the list and click on its name.
+- Go to the "Meta" tab.
+- You can add labels in the "Labels" section.
+- You can add annotations in the "Annotations" section.
+- Click "Add" in the desired section.
+- In the pop-up window, you can set the "Key" and "Value" of the key.
+- To confirm the key parameters, click the "Enter" button.
+- Click the "Save" button that appears.
+
 #### Headless service
 
 A headless service allows you to easily route requests within a cluster without the need for load balancing. Instead, it simply returns all IP addresses of virtual machines connected to this service.
@@ -1661,6 +1981,13 @@ spec:
     app: nginx
 EOF
 ```
+
+How to perform the operation in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Network" -> "Services" section.
+- In the window that opens, configure the service settings.
+- Click on the "Create" button.
 
 #### Publish virtual machine services using a service with the NodePort type
 
@@ -1768,6 +2095,14 @@ EOF
 ```
 
 ![](images/lb-ingress.png)
+
+How to publish a VM service using Ingress in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Network" -> "Ingresses" section.
+- Click the "Create Ingress" button.
+- In the window that opens, configure the service settings.
+- Click the "Create" button.
 
 ### Live virtual machine migration
 
@@ -1881,7 +2216,14 @@ firmware-update-fnbk2   Completed   Evict   static-vm-node-00   148m
 
 You can interrupt any live migration while it is in the `Pending`, `InProgress` phase by deleting the corresponding `VirtualMachineOperations` resource.
 
-#### How to perform a live migration of a virtual machine using `VirtualMachineOperations`.
+How to view active operations in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the required VM from the list and click on its name.
+- Go to the "Events" tab.
+
+#### How to perform a live migration of a virtual machine using `VirtualMachineOperations`
 
 Let's look at an example. Before starting the migration, view the current status of the virtual machine:
 
@@ -1938,6 +2280,14 @@ linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   7
 linux-vm                              Migrating   virtlab-pt-1   10.66.10.14   79m
 linux-vm                              Running     virtlab-pt-2   10.66.10.14   79m
 ```
+
+How to perform a live VM migration in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the desired virtual machine from the list and click the ellipsis button.
+- Select "Migrate" from the pop-up menu.
+- Confirm or cancel the migration in the pop-up window.
 
 #### Live migration of virtual machine when changing placement parameters (not available in CE edition)
 
@@ -2065,7 +2415,7 @@ spec:
   virtualMachineIPAddressName: linux-vm-7prpx
 ```
 
-Even if the `vmip` resource is deleted. It remains rented for the current project/namespace for another 10 minutes. Therefore, it is possible to reoccupy it on request:
+Even if the `vmip` resource is deleted, IP adress remains rented for the current project/namespace for another 10 minutes. Therefore, it is possible to reoccupy it on request:
 
 ```yaml
 d8 k apply -f - <<EOF
@@ -2092,11 +2442,11 @@ To ensure data integrity, a disk snapshot can be created in the following cases:
 - The disk is not attached to any virtual machine.
 - The VM is powered off.
 - The VM is running, but qemu-guest-agent is installed in the guest OS.
-The file system has been successfully “frozen” (fsfreeze operation).
+The file system has been successfully "frozen”"(fsfreeze operation).
 
 If data consistency is not required (for example, for test scenarios), a snapshot can be created:
 
-- On a running VM without “freezing” the file system.
+- On a running VM without "freezing" the file system.
 - Even if the disk is attached to an active VM.
 
 To do this, specify in the VirtualDiskSnapshot manifest:
@@ -2143,7 +2493,19 @@ After creation, `VirtualDiskSnapshot` can be in the following states (phases):
 
 Diagnosing problems with a resource is done by analyzing the information in the `.status.conditions` block.
 
-A full description of the `VirtualDiskSnapshot` resource configuration parameters for machines can be found at [link](cr.html#virtualdisksnapshot)
+A full description of the `VirtualDiskSnapshot` resource configuration parameters for machines can be found at [link](cr.html#virtualdisksnapshot).
+
+How to create a disk image in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Disk Images" section.
+- Click "Create Disk Snapshot".
+- In the "Disk Snapshot Name" field, enter a name for the snapshot.
+- On the "Configuration" tab, in the "Disk Name" field, select the disk from which the snapshot will be created.
+- In the "Snapshot Storage Class" field, select the desired `VolumeSnapshotClasses`.
+- Enable the "Integrity Guarantee" switch.
+- Click the "Create" button.
+- The image status is displayed at the top left, under the snapshot name.
 
 ### Recovering disks from snapshots
 
@@ -2167,6 +2529,19 @@ spec:
       name: linux-vm-root-1728027905
 EOF
 ```
+
+How to restore a disk from a previously created snapshot in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "VM Disks" section.
+- Click "Create Disk""
+- In the form that opens, enter a name for the disk in the "Disk Name" field.
+- In the "Source" field, make sure the "Snapshots" checkbox is selected.
+- From the drop-down list, select the disk snapshot you want to restore from.
+- In the "Size" field, set a size that is the same or larger than the size of the original disk.
+- In the "StorageClass Name" field, enter the "StorageClass" of the original disk.
+- Click the "Create" button.
+- The disk status is displayed at the top left, under the disk name.
 
 ### Creating snapshots of virtual machines
 
@@ -2268,6 +2643,20 @@ status:
     kind: VirtualDisk
     name: linux-vm-root
 ```
+
+How to create a VM snapshot in the web interface:
+
+- Go to the "Projects" tab and select the desired project.
+- Go to the "Virtualization" -> "Virtual Machines" section.
+- Select the required VM from the list and click on its name.
+- Go to the "Snapshots" tab.
+- Click the "Create" button.
+- In the form that opens, enter `linux-vm-snapshot` in the "Snapshot name" field.
+- On the "Configuration" tab, select `Never` in the "IP address conversion policy" field.
+- Enable the "Integrity Guarantee" switch.
+- In the "Snapshot Storage Class" field, select a class for the disk snapshot.
+- Click the "Create" button.
+- The snapshot status is displayed at the top left, under the snapshot name.
 
 ### Restore from snapshots
 
