@@ -98,7 +98,6 @@ shell:
 ---
 image: bundle
 fromImage: builder/scratch
-fromCacheVersion: "2024-11-07.1"
 import:
   - image: images-digests
     add: /images_digests.json
