@@ -973,7 +973,7 @@ spec:
                       name:
                         type: string
                         description: |
-                          The type of the network interface.
+                          The name of the network interface.
             status:
               type: object
               properties:
