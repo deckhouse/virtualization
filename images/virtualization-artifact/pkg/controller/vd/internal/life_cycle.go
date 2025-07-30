@@ -99,7 +99,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (r
 				message = datasourceReadyCondition.Message
 			}
 			reason := vdcondition.DatasourceIsNotReady
-			if datasourceReadyCondition.Reason == string(vdcondition.ImageNotFound) || datasourceReadyCondition.Reason == string(vdcondition.ClusterImageNotFound) {
+			if datasourceReadyCondition.Reason == vdcondition.ImageNotFound.String() || datasourceReadyCondition.Reason == vdcondition.ClusterImageNotFound.String() {
 				reason = vdcondition.DatasourceIsNotFound
 			}
 			cb.
