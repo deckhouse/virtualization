@@ -12,14 +12,14 @@
         plk_create_group_if_not_exists__d8_internal_virtualization_virt_handler_health: "D8InternalVirtualizationVirtHandlerlHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_internal_virtualization_virt_handler_health: "D8InternalVirtualizationVirtHandlerlHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_ignore_labels: "job"
-        summary: Prometheus cannot scrape the virtualization-controller metrics.
+        summary: Prometheus cannot scrape the virtualization-handler metrics.
         description: |
           The recommended course of action:
           1. Check the Pod status: `kubectl -n d8-virtualization get pod -l kubevirt.internal.virtualization.deckhouse.io=virt-handler`
           2. Or check the Pod logs: `kubectl -n d8-virtualization logs daemonsets/virt-handler`
 
     - alert: D8InternalVirtualizationVirtHandlerTargetAbsent
-      expr: absent(up{job="internal-virtualization-kubevirt-prometheus-metrics"}) == 1
+      expr: absent(up{job="internal-virtualization-kubevirt-prometheus-metrics"} == 1)
       labels:
         severity_level: "6"
         tier: cluster
@@ -30,7 +30,7 @@
         plk_ignore_labels: "job"
         plk_create_group_if_not_exists__d8_internal_virtualization_virt_handler_health: "D8InternalVirtualizationVirtHandlerHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         plk_grouped_by__d8_internal_virtualization_virt_handler_health: "D8InternalVirtualizationVirtHandlerHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        summary: There is no `virtualization-controller` target in Prometheus.
+        summary: There is no `virtualization-handler` target in Prometheus.
         description: |
           The recommended course of action:
           1. Check the Pod status: `kubectl -n d8-virtualization get pod -l kubevirt.internal.virtualization.deckhouse.io=virt-handler`
