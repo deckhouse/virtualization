@@ -19,7 +19,7 @@
           2. Or check the Pod logs: `kubectl -n d8-virtualization logs daemonsets/virt-handler`
 
     - alert: D8InternalVirtualizationVirtHandlerTargetAbsent
-      expr: absent(up{job="internal-virtualization-kubevirt-prometheus-metrics"} == 1)
+      expr: absent(up{job="internal-virtualization-kubevirt-prometheus-metrics"})
       labels:
         severity_level: "6"
         tier: cluster
