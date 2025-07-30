@@ -1,0 +1,35 @@
+- name: kubernetes.internal.virtualization.virt_metrics_state
+  rules:
+    - alert: D8InternalVirtualizationVirtMetricsTargetDown
+      expr: max by (job) (up{job="kubevirt-prometheus-metrics"}) == 0
+      for: 1m
+      labels:
+        severity_level: "6"
+        tier: cluster
+      annotations:
+        plk_markup_format: "markdown"
+        plk_protocol_version: "1"
+        plk_create_group_if_not_exists__d8_internal_virtualization_virt_metrics_health: "D8InternalVirtualizationVirtMetricslHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_internal_virtualization_virt_handler_health: "D8InternalVirtualizationVirtMetricslHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_ignore_labels: "job"
+        summary: Prometheus cannot scrape the virtualization-handler metrics.
+        description: |
+          The recommended course of action:
+          1. Check the endpoints status: `kubectl -n d8-virtualization get endpoints kubevirt-prometheus-metrics`
+
+    - alert: D8InternalVirtualizationVirtVirtMetricsTargetAbsent
+      expr: absent(up{job="kubevirt-prometheus-metrics"}) == 1
+      labels:
+        severity_level: "6"
+        tier: cluster
+      for: 1m
+      annotations:
+        plk_protocol_version: "1"
+        plk_markup_format: "markdown"
+        plk_ignore_labels: "job"
+        plk_create_group_if_not_exists__d8_internal_virtualization_virt_metrics_health: "D8InternalVirtualizationVirtMetricsHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_internal_virtualization_virt_handler_health: "D8InternalVirtualizationVirtMetricsHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        summary: There is no `virtualization-handler` target in Prometheus.
+        description: |
+          The recommended course of action:
+          1. Check that service exists `kubectl -n d8-virtualization get svc -l prometheus.kubevirt.internal.virtualization.deckhouse.io=true`
