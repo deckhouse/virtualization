@@ -130,7 +130,7 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 		case <-cmd.Context().Done():
 			return nil
 		default:
-			cmd.Printf("Connecting to %s via VNC...\n", vmName)
+			cmd.Printf("Connecting to %s VNC...\n", vmName)
 
 			err := connect(cmd.Context(), ln, client, cmd, namespace, vmName)
 			if err != nil {

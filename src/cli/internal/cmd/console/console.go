@@ -87,7 +87,7 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 		case <-cmd.Context().Done():
 			return nil
 		default:
-			cmd.Printf("Connecting to %s via console...\n", name)
+			cmd.Printf("Connecting to %s console...\n", name)
 
 			err := connect(cmd.Context(), name, namespace, client, c.timeout)
 			if err != nil {
