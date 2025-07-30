@@ -235,7 +235,7 @@ var _ = Describe("LifeCycleHandler Run", func() {
 
 	DescribeTable(
 		"Message propagation and DatasourceIsNotFound reason",
-		func(datasourceReason string, expectedReadyReason string, expectedMessage string) {
+		func(datasourceReason, expectedReadyReason, expectedMessage string) {
 			var sourcesMock SourcesMock
 			recorder := &eventrecord.EventRecorderLoggerMock{
 				EventFunc: func(_ client.Object, _, _, _ string) {},
