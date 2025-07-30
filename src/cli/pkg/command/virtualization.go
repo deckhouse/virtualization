@@ -72,10 +72,6 @@ func NewCommand(programName string) *cobra.Command {
 
 	virtCmd.SetUsageTemplate(templates.MainUsageTemplate())
 	virtCmd.SetOut(os.Stdout)
-	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	virtCmd.SetContext(clientconfig.NewContext(
-		ctx, kubeclient.DefaultClientConfig(virtCmd.PersistentFlags()),
-	))
 
 	optionsCmd := &cobra.Command{
 		Use:    "options",
@@ -99,5 +95,14 @@ func NewCommand(programName string) *cobra.Command {
 		lifecycle.NewEvictCommand(),
 		optionsCmd,
 	)
+
+	ctx, _ := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctxWithClient := clientconfig.NewContext(ctx, kubeclient.DefaultClientConfig(virtCmd.PersistentFlags()))
+
+	virtCmd.SetContext(ctxWithClient)
+	for _, cmd := range virtCmd.Commands() {
+		cmd.SetContext(ctxWithClient)
+	}
+
 	return virtCmd
 }
