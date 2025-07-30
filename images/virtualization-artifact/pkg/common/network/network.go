@@ -42,7 +42,6 @@ type InterfaceStatus struct {
 	Name       string             `json:"name"`
 	IfName     string             `json:"ifName"`
 	Mac        string             `json:"mac"`
-	IPAddress  string             `json:"ipAddress,omitempty"`
 	Conditions []metav1.Condition `json:"conditions"`
 }
 
