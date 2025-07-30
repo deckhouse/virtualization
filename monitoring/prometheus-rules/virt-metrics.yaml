@@ -33,4 +33,4 @@
         description: |
           The recommended course of action:
           1. Check that service exists `kubectl -n d8-virtualization get service kubevirt-prometheus-metrics`
-          2. Check that virt-handler virt-api virt-controller exists `kubectl -n d8-virtualization get po -l prometheus.kubevirt.internal.virtualization.deckhouse.io=true`
+          2. Check that virt-handler, virt-api, and virt-controller exist: `kubectl -n d8-virtualization get po -l prometheus.kubevirt.internal.virtualization.deckhouse.io=true`
