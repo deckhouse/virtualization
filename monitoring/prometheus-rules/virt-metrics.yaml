@@ -17,7 +17,7 @@
           The recommended course of action:
           1. Check the service: `kubectl -n d8-virtualization get service kubevirt-prometheus-metrics`
 
-    - alert: D8InternalVirtualizationVirtVirtMetricsTargetAbsent
+    - alert: D8InternalVirtualizationVirtMetricsTargetAbsent
       expr: absent(up{job="kubevirt-prometheus-metrics"}) == 1
       labels:
         severity_level: "6"
