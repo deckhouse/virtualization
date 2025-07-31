@@ -17,6 +17,7 @@ limitations under the License.
 package vmop
 
 import (
+	"context"
 	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -26,38 +27,84 @@ import (
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
-	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const gcControllerName = "vmop-gc-controller"
 
-func SetupGC(
-	mgr manager.Manager,
-	log *log.Logger,
-	gcSettings config.BaseGcSettings,
-) error {
-	ttl := 24 * time.Hour
-	if gcSettings.TTL.Duration > 0 {
-		ttl = gcSettings.TTL.Duration
+func SetupGC(mgr manager.Manager, log *log.Logger, gcSettings config.BaseGcSettings) error {
+	vmopGCMgr := newVMOPGCManager(mgr.GetClient(), gcSettings.TTL.Duration, 10)
+	source, err := gc.NewCronSource(gcSettings.Schedule, mgr.GetClient(), vmopGCMgr, log.With("resource", "vmop"))
+	if err != nil {
+		return err
 	}
+
 	return gc.SetupGcController(gcControllerName,
 		mgr,
 		log,
-		gc.NewCronSource(mgr.GetClient(),
-			gcSettings.Schedule,
-			&virtv2.VirtualMachineOperationList{},
-			gc.NewDefaultCronSourceOption(&virtv2.VirtualMachineOperationList{}, ttl, log),
-			log.With("resource", "vmop"),
-		),
-		func() client.Object {
-			return &virtv2.VirtualMachineOperation{}
-		},
-		func(obj client.Object) bool {
-			vmop, ok := obj.(*virtv2.VirtualMachineOperation)
-			if !ok {
-				return false
-			}
-			return commonvmop.IsFinished(vmop)
-		},
+		source,
+		vmopGCMgr,
 	)
+}
+
+func newVMOPGCManager(client client.Client, ttl time.Duration, max int) *vmopGCManager {
+	if ttl == 0 {
+		ttl = 24 * time.Hour
+	}
+	if max == 0 {
+		max = 10
+	}
+	return &vmopGCManager{
+		client: client,
+		ttl:    ttl,
+		max:    max,
+	}
+}
+
+var (
+	_ gc.ReconcileGCManager = &vmopGCManager{}
+	_ gc.SourceGCManager    = &vmopGCManager{}
+)
+
+type vmopGCManager struct {
+	client client.Client
+	ttl    time.Duration
+	max    int
+}
+
+func (m *vmopGCManager) New() client.Object {
+	return &v1alpha2.VirtualMachineOperation{}
+}
+
+func (m *vmopGCManager) ShouldBeDeleted(obj client.Object) bool {
+	vmop, ok := obj.(*v1alpha2.VirtualMachineOperation)
+	if !ok {
+		return false
+	}
+	return commonvmop.IsFinished(vmop)
+}
+
+func (m *vmopGCManager) ListForDelete(ctx context.Context, now time.Time) ([]client.Object, error) {
+	vmopList := &v1alpha2.VirtualMachineOperationList{}
+	err := m.client.List(ctx, vmopList)
+	if err != nil {
+		return nil, err
+	}
+
+	objs := make([]client.Object, 0, len(vmopList.Items))
+	for _, vmop := range vmopList.Items {
+		objs = append(objs, &vmop)
+	}
+
+	result := gc.DefaultFilter(objs, m.ShouldBeDeleted, m.ttl, m.getIndex, m.max, now)
+
+	return result, nil
+}
+
+func (m *vmopGCManager) getIndex(obj client.Object) string {
+	vmop, ok := obj.(*v1alpha2.VirtualMachineOperation)
+	if !ok {
+		return ""
+	}
+	return vmop.Spec.VirtualMachine
 }

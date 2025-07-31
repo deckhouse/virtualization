@@ -20,7 +20,6 @@ import (
 	"context"
 	"time"
 
-	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -31,56 +30,48 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
+	dlog "github.com/deckhouse/deckhouse/pkg/log"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 )
 
-type (
-	IsNeedDelete func(obj client.Object) bool
-	NewObject    func() client.Object
-)
-
 type Reconciler struct {
-	client.Client
-	recorder     record.EventRecorder
-	watchSource  source.Source
-	newObject    NewObject
-	isNeedDelete IsNeedDelete
+	client      client.Client
+	watchSource source.Source
+	mgr         ReconcileGCManager
 }
 
-func NewReconciler(c client.Client,
-	recorder record.EventRecorder,
-	watchSource source.Source,
-	newObject NewObject,
-	isNeedDelete IsNeedDelete,
-) Reconciler {
+func NewReconciler(client client.Client, watchSource source.Source, mgr ReconcileGCManager) Reconciler {
 	return Reconciler{
-		Client:       c,
-		recorder:     recorder,
-		watchSource:  watchSource,
-		newObject:    newObject,
-		isNeedDelete: isNeedDelete,
+		client:      client,
+		watchSource: watchSource,
+		mgr:         mgr,
 	}
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	log := logger.FromContext(ctx)
-	obj := r.newObject()
-	err := r.Get(ctx, request.NamespacedName, obj)
+	obj := r.mgr.New()
+	err := r.client.Get(ctx, request.NamespacedName, obj)
 	if err != nil {
 		return reconcile.Result{}, client.IgnoreNotFound(err)
 	}
-	if r.isNeedDelete(obj) {
-		log.Info("deleting object")
-		return reconcile.Result{}, r.Delete(ctx, obj)
+
+	if !obj.GetDeletionTimestamp().IsZero() {
+		return reconcile.Result{}, nil
 	}
+
+	if r.mgr.ShouldBeDeleted(obj) {
+		log.Info("deleting object")
+		return reconcile.Result{}, r.client.Delete(ctx, obj)
+	}
+
 	return reconcile.Result{}, nil
 }
 
-func (r *Reconciler) SetupWithManager(controllerName string, mgr ctrl.Manager, log *log.Logger) error {
+func (r *Reconciler) SetupWithManager(controllerName string, mgr ctrl.Manager, log *dlog.Logger) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(controllerName).
-		For(r.newObject(), builder.WithPredicates(predicate.Funcs{
+		For(r.mgr.New(), builder.WithPredicates(predicate.Funcs{
 			UpdateFunc: func(ue event.UpdateEvent) bool {
 				return false
 			},
