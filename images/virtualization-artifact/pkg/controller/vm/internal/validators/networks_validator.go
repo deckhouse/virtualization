@@ -53,8 +53,13 @@ func (v *NetworksValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.War
 		return nil, fmt.Errorf("network with type '%s' should not have a name", v1alpha2.NetworksTypeMain)
 	}
 
+	mainNetworkCount := 0
 	for i, network := range networksSpec {
 		if network.Type == v1alpha2.NetworksTypeMain {
+			mainNetworkCount++
+			if mainNetworkCount > 1 {
+				return nil, fmt.Errorf("only one network of type '%s' is allowed", v1alpha2.NetworksTypeMain)
+			}
 			continue
 		}
 

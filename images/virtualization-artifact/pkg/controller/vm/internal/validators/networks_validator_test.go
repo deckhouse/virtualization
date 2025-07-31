@@ -30,6 +30,7 @@ func TestNetworksValidate(t *testing.T) {
 	}{
 		{[]v1alpha2.NetworksSpec{}, true},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}}, true},
+		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeMain}}, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain, Name: "main"}}, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeNetwork, Name: "test"}, {Type: v1alpha2.NetworksTypeMain}}, false},
 		{[]v1alpha2.NetworksSpec{{Type: v1alpha2.NetworksTypeMain}, {Type: v1alpha2.NetworksTypeNetwork, Name: "test"}}, true},
