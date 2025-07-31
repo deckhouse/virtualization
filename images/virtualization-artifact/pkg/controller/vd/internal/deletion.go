@@ -45,7 +45,7 @@ func (h DeletionHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (re
 
 	if vd.DeletionTimestamp != nil {
 		if controllerutil.ContainsFinalizer(vd, virtv2.FinalizerVDProtection) {
-			return reconcile.Result{RequeueAfter: time.Second}, nil
+			return reconcile.Result{}, nil
 		}
 
 		requeue, err := h.sources.CleanUp(ctx, vd)
