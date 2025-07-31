@@ -94,14 +94,12 @@ func (m *vmopGCManager) ListForDelete(ctx context.Context) ([]client.Object, err
 
 	objs := make([]client.Object, 0, len(vmopList.Items))
 	for _, vmop := range vmopList.Items {
-		if m.ShouldBeDeleted(&vmop) {
-			objs = append(objs, &vmop)
-		}
+		objs = append(objs, &vmop)
 	}
-	objs = gc.ExpiredFilter(objs, m.ttl)
-	objs = gc.MaxByIndexFilter(objs, m.getIndex, m.max)
 
-	return objs, nil
+	result := gc.DefaultFilter(objs, m.ShouldBeDeleted, m.ttl, m.getIndex, m.max)
+
+	return result, nil
 }
 
 func (m *vmopGCManager) getIndex(obj client.Object) string {

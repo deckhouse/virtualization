@@ -1,3 +1,19 @@
+/*
+Copyright 2025 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package gc
 
 import (
@@ -19,7 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 )
 
-var _ = FDescribe("CronSource", func() {
+var _ = Describe("CronSource", func() {
 	const (
 		// Every day at 00:00
 		scheduleSpec = "0 * * * *"
@@ -31,7 +47,6 @@ var _ = FDescribe("CronSource", func() {
 		fakeClient client.Client
 		mgr        *fakeGCManager
 		fakeClock  *clock.FakeClock
-		//queue      workqueue.RateLimitingInterface
 	)
 
 	BeforeEach(func() {
@@ -50,7 +65,6 @@ var _ = FDescribe("CronSource", func() {
 
 		mgr = newFakeGCManager(fakeClient, time.Hour, 10)
 		fakeClock = clock.NewFakeClock(time.Now())
-		//queue = workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 	})
 
 	newSource := func(scheduleSpec string) *CronSource {
@@ -91,30 +105,6 @@ var _ = FDescribe("CronSource", func() {
 			Expect(obj.Phase).NotTo(Equal(fakeObjectPhaseCompleted))
 		}
 	})
-
-	//It("should return the oldest object", func() {
-	//	// Every day at 00:00
-	//	scheduleSpec := "0 * * * *"
-	//	source := newSource(scheduleSpec)
-	//
-	//	for i := range 2 {
-	//		namespace := fmt.Sprintf("test-namespace-%d", i)
-	//		for j := range 5 {
-	//			obj := NewFakeObject(fmt.Sprintf("fake-%d", j), namespace)
-	//			obj.Phase = fakeObjectPhaseCompleted
-	//
-	//			Expect(obj.Phase).To(Equal(fakeObjectPhaseCompleted))
-	//			Expect(fakeClient.Create(context.Background(), obj)).To(Succeed())
-	//		}
-	//	}
-	//
-	//	Expect(source.Start(context.Background(), nil, queue)).To(Succeed())
-	//	Expect(queue.Len()).To(Equal(0))
-	//
-	//	fakeClock.Step(time.Hour * 25)
-	//
-	//	Eventually(queue.Len()).WithTimeout(10 * time.Second).Should(Equal(20))
-	//})
 })
 
 func spawnFakeObjects(countNamespaces, countPerNamespace int, phase string, client client.Client) {
