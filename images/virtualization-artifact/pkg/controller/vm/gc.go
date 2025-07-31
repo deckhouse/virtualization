@@ -17,6 +17,7 @@ limitations under the License.
 package vm
 
 import (
+	"context"
 	"time"
 
 	virtv1 "kubevirt.io/api/core/v1"
@@ -24,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+
 	"github.com/deckhouse/virtualization-controller/pkg/config"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/gc"
 )
@@ -35,30 +37,78 @@ func SetupGC(
 	log *log.Logger,
 	gcSettings config.BaseGcSettings,
 ) error {
-	ttl := 24 * time.Hour
-	if gcSettings.TTL.Duration > 0 {
-		ttl = gcSettings.TTL.Duration
+	mgrClient := mgr.GetClient()
+	vmimGCMgr := newVMIMGCManager(mgrClient, gcSettings.TTL.Duration, 10)
+	source, err := gc.NewCronSource(gcSettings.Schedule, mgrClient, vmimGCMgr, log.With("resource", "vmi-migration"))
+	if err != nil {
+		return err
 	}
+
 	return gc.SetupGcController(gcVMMigrationControllerName,
 		mgr,
 		log,
-		gc.NewCronSource(mgr.GetClient(),
-			gcSettings.Schedule,
-			&virtv1.VirtualMachineInstanceMigrationList{},
-			gc.NewDefaultCronSourceOption(&virtv1.VirtualMachineInstanceMigrationList{}, ttl, log),
-			log.With("resource", "vmi-migration"),
-		),
-		func() client.Object {
-			return &virtv1.VirtualMachineInstanceMigration{}
-		},
-		func(obj client.Object) bool {
-			migration, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
-			if !ok {
-				return false
-			}
-			return vmiMigrationIsFinal(migration)
-		},
+		source,
+		vmimGCMgr,
 	)
+}
+
+func newVMIMGCManager(client client.Client, ttl time.Duration, max int) *vmimGCManager {
+	if ttl == 0 {
+		ttl = 24 * time.Hour
+	}
+	if max == 0 {
+		max = 10
+	}
+	return &vmimGCManager{
+		client: client,
+		ttl:    ttl,
+		max:    max,
+	}
+}
+
+type vmimGCManager struct {
+	client client.Client
+	ttl    time.Duration
+	max    int
+}
+
+func (m *vmimGCManager) New() client.Object {
+	return &virtv1.VirtualMachineInstanceMigration{}
+}
+
+func (m *vmimGCManager) ShouldBeDeleted(obj client.Object) bool {
+	vmim, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+	if !ok {
+		return false
+	}
+	return vmiMigrationIsFinal(vmim)
+}
+
+func (m *vmimGCManager) ListForDelete(ctx context.Context) ([]client.Object, error) {
+	vmimList := &virtv1.VirtualMachineInstanceMigrationList{}
+	err := m.client.List(ctx, vmimList)
+	if err != nil {
+		return nil, err
+	}
+
+	objs := make([]client.Object, 0, len(vmimList.Items))
+	for _, vmim := range vmimList.Items {
+		if m.ShouldBeDeleted(&vmim) {
+			objs = append(objs, &vmim)
+		}
+	}
+	objs = gc.ExpiredFilter(objs, m.ttl)
+	objs = gc.MaxByIndexFilter(objs, m.getIndex, m.max)
+
+	return objs, nil
+}
+
+func (m *vmimGCManager) getIndex(obj client.Object) string {
+	vmim, ok := obj.(*virtv1.VirtualMachineInstanceMigration)
+	if !ok {
+		return ""
+	}
+	return vmim.Spec.VMIName
 }
 
 func vmiMigrationIsFinal(migration *virtv1.VirtualMachineInstanceMigration) bool {
