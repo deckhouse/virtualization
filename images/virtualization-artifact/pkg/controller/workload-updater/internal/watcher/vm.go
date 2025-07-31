@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -46,28 +47,33 @@ func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error 
 		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{}),
 		&handler.EnqueueRequestForObject{},
 		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
+			CreateFunc: func(e event.CreateEvent) bool {
+				return predicateVirtualMachine(e.Object)
+			},
 			DeleteFunc: func(e event.DeleteEvent) bool { return false },
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				vm, ok := e.ObjectNew.(*v1alpha2.VirtualMachine)
-				if !ok {
-					return false
-				}
-
-				c, _ := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions)
-				outOfDate := c.Status == metav1.ConditionFalse
-
-				c, _ = conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
-				running := c.Status == metav1.ConditionTrue
-
-				c, _ = conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
-				migrating := c.Status == metav1.ConditionTrue
-
-				return outOfDate && running && !migrating
+				return predicateVirtualMachine(e.ObjectNew)
 			},
 		},
 	); err != nil {
 		return fmt.Errorf("error setting watch on VM: %w", err)
 	}
 	return nil
+}
+
+func predicateVirtualMachine(obj client.Object) bool {
+	vm, ok := obj.(*v1alpha2.VirtualMachine)
+	if !ok {
+		return false
+	}
+	c, _ := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions)
+	outOfDate := c.Status == metav1.ConditionFalse
+
+	c, _ = conditions.GetCondition(vmcondition.TypeRunning, vm.Status.Conditions)
+	running := c.Status == metav1.ConditionTrue
+
+	c, _ = conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	migrating := c.Status == metav1.ConditionTrue
+
+	return outOfDate && running && !migrating
 }
