@@ -273,7 +273,13 @@ func checkVirtualMachineConfiguration(vm *virtv2.VirtualMachine) bool {
 			if c.Status != metav1.ConditionTrue {
 				return false
 			}
+
+		case vmcondition.TypeNetworkReady:
+			if c.Status == metav1.ConditionFalse && c.Reason == vmcondition.ReasonSDNModuleDisable.String() {
+				return false
+			}
 		}
 	}
+
 	return true
 }

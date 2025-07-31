@@ -47,6 +47,8 @@ func SetupController(
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
+	isSDNEnabled bool,
+	clusterUUID string,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	mgrCache := mgr.GetCache()
@@ -63,7 +65,8 @@ func SetupController(
 		internal.NewSnapshottingHandler(client),
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
-		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder),
+		internal.NewNetworkInterfaceHandler(isSDNEnabled),
+		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, clusterUUID),
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),

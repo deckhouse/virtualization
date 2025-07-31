@@ -157,6 +157,7 @@ type TestData struct {
 	Sshkey                string `yaml:"sshKey"`
 	SSHUser               string `yaml:"sshUser"`
 	IPAM                  string `yaml:"ipam"`
+	VMVpc                 string `yaml:"vmVpc"`
 }
 
 type StorageClass struct {
@@ -353,8 +354,8 @@ func (k *Kustomize) ExcludeResource(filePath, resourceName string) error {
 	return nil
 }
 
-func GetModuleConfig() (*ModuleConfig, error) {
-	res := kubectl.GetResource(kc.ResourceModuleConfig, "virtualization", kc.GetOptions{Output: "yaml"})
+func GetModuleConfig(moduleName string) (*ModuleConfig, error) {
+	res := kubectl.GetResource(kc.ResourceModuleConfig, moduleName, kc.GetOptions{Output: "yaml"})
 	if !res.WasSuccess() {
 		return nil, errors.New(res.StdErr())
 	}

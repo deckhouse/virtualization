@@ -62,6 +62,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.MemoryStatus":                              schema_virtualization_api_core_v1alpha2_MemoryStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacement":                           schema_virtualization_api_core_v1alpha2_NameReplacement(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.NameReplacementFrom":                       schema_virtualization_api_core_v1alpha2_NameReplacementFrom(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.NetworksSpec":                              schema_virtualization_api_core_v1alpha2_NetworksSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.NetworksStatus":                            schema_virtualization_api_core_v1alpha2_NetworksStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.NodeSelector":                              schema_virtualization_api_core_v1alpha2_NodeSelector(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.Provisioning":                              schema_virtualization_api_core_v1alpha2_Provisioning(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.ResourceRef":                               schema_virtualization_api_core_v1alpha2_ResourceRef(ref),
@@ -1693,6 +1695,67 @@ func schema_virtualization_api_core_v1alpha2_NameReplacementFrom(ref common.Refe
 					},
 				},
 				Required: []string{"name"},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_NetworksSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"type", "name"},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_NetworksStatus(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Type: []string{"object"},
+				Properties: map[string]spec.Schema{
+					"type": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+					"macAddress": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
+				},
+				Required: []string{"type", "name", "macAddress"},
 			},
 		},
 	}
@@ -5108,12 +5171,25 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineSpec(ref common.Refer
 							Format:      "",
 						},
 					},
+					"networks": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.NetworksSpec"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"virtualMachineClassName", "cpu", "memory", "blockDeviceRefs", "liveMigrationPolicy"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceSpecRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.CPUSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.Disruptions", "github.com/deckhouse/virtualization/api/core/v1alpha2.MemorySpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.Provisioning", "github.com/deckhouse/virtualization/api/core/v1alpha2.VMAffinity", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceSpecRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.CPUSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.Disruptions", "github.com/deckhouse/virtualization/api/core/v1alpha2.MemorySpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.NetworksSpec", "github.com/deckhouse/virtualization/api/core/v1alpha2.Provisioning", "github.com/deckhouse/virtualization/api/core/v1alpha2.VMAffinity", "k8s.io/api/core/v1.Toleration", "k8s.io/api/core/v1.TopologySpreadConstraint"},
 	}
 }
 
@@ -5282,12 +5358,25 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 							Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus"),
 						},
 					},
+					"networks": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.NetworksStatus"),
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"phase", "nodeName", "virtualMachineIPAddressName", "ipAddress"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus", "github.com/deckhouse/virtualization/api/core/v1alpha2.Versions", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"},
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.BlockDeviceStatusRef", "github.com/deckhouse/virtualization/api/core/v1alpha2.NetworksStatus", "github.com/deckhouse/virtualization/api/core/v1alpha2.ResourcesStatus", "github.com/deckhouse/virtualization/api/core/v1alpha2.Versions", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePod", "github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineStats", "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1.JSON", "k8s.io/apimachinery/pkg/apis/meta/v1.Condition", "kubevirt.io/api/core/v1.VirtualMachineInstanceGuestOSInfo"},
 	}
 }
 
