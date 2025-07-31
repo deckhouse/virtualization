@@ -137,6 +137,10 @@ func extractNetworkStatusFromPods(pods *corev1.PodList) (string, error) {
 	var errorMessages []string
 
 	for _, pod := range pods.Items {
+		if pod.Status.Phase == corev1.PodSucceeded {
+			continue
+		}
+
 		networkStatusAnnotation, found := pod.Annotations[annotations.AnnNetworksStatus]
 		if !found {
 			errorMessages = append(errorMessages, fmt.Sprintf("Annotation %s is not found", annotations.AnnNetworksStatus))

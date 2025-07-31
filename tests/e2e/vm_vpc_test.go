@@ -40,26 +40,21 @@ var _ = Describe("VirtualMachineAdditionalNetworkInterfaces", SIGMigration(), gi
 	testCaseLabel := map[string]string{"testcase": "vm-vpc"}
 	var ns string
 
-	BeforeEach(func() {
+	BeforeAll(func() {
 		sbdEnabled, err := isSdnModuleEnabled()
 		if err != nil || !sbdEnabled {
 			Skip("Module SDN is disabled. Skipping all tests for module SDN.")
 		}
+
+		kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMVpc, "kustomization.yaml")
+		ns, err = kustomize.GetNamespace(kustomization)
+		Expect(err).NotTo(HaveOccurred(), "%w", err)
 	})
 
-	AfterEach(func() {
+	AfterAll(func() {
 		if CurrentSpecReport().Failed() {
 			SaveTestResources(testCaseLabel, CurrentSpecReport().LeafNodeText)
 		}
-	})
-
-	Context("Preparing the environment", func() {
-		It("sets the namespace", func() {
-			kustomization := fmt.Sprintf("%s/%s", conf.TestData.VMVpc, "kustomization.yaml")
-			var err error
-			ns, err = kustomize.GetNamespace(kustomization)
-			Expect(err).NotTo(HaveOccurred(), "%w", err)
-		})
 	})
 
 	Context("When resources are applied", func() {

@@ -17,6 +17,7 @@ limitations under the License.
 package mac
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 )
@@ -39,14 +40,23 @@ func GenerateOUI(clusterUID string) string {
 				oui = cleanUID[start:]
 				oui += cleanUID[:(6 - len(oui))]
 			}
-			return oui
+			return formatOUI(oui)
 		}
 	}
 
 	oui := cleanUID[:6]
 	oui = oui[:1] + "2" + oui[2:]
 
-	return oui
+	return formatOUI(oui)
+}
+
+func formatOUI(prefix string) string {
+	prefix = strings.TrimSpace(prefix)
+
+	re := regexp.MustCompile(`(?i)([0-9A-Fa-f]{2})`)
+	matches := re.FindAllString(prefix, -1)
+
+	return fmt.Sprintf("%s:%s:%s", matches[0], matches[1], matches[2])
 }
 
 func validateUUID(uid string) bool {

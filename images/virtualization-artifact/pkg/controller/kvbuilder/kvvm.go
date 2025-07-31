@@ -532,7 +532,7 @@ func (b *KVVM) GetOSSettings() map[string]interface{} {
 
 func (b *KVVM) ClearNetworkInterfaces() {
 	b.Resource.Spec.Template.Spec.Networks = nil
-	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = []virtv1.Interface{}
+	b.Resource.Spec.Template.Spec.Domain.Devices.Interfaces = nil
 }
 
 func (b *KVVM) SetNetworkInterface(name, macAddress string) {
