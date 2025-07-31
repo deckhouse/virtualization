@@ -46,25 +46,18 @@ func (v *NetworksValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.War
 		return nil, nil
 	}
 
-	mainNetworkFound := false
-	for i, network := range networksSpec {
-		if network.Type == v1alpha2.NetworksTypeMain {
-			if i != 0 {
-				return nil, fmt.Errorf("network with type '%s' must be first in the list", v1alpha2.NetworksTypeMain)
-			}
-
-			if network.Name != "" {
-				return nil, fmt.Errorf("network with type '%s' should not have a name", v1alpha2.NetworksTypeMain)
-			}
-
-			mainNetworkFound = true
-		} else if network.Name == "" {
+	if networksSpec[0].Type != v1alpha2.NetworksTypeMain {
+		return nil, fmt.Errorf("first network in the list must be of type '%s'", v1alpha2.NetworksTypeMain)
+	}
+	if networksSpec[0].Name != "" {
+		return nil, fmt.Errorf("network with type '%s' should not have a name", v1alpha2.NetworksTypeMain)	
+	}
+	
+	for i := range len(networksSpec) {
+		network := &networksSpec[i + 1]
+		if network.Name == "" {
 			return nil, fmt.Errorf("network with type '%s' must have a non-empty name", network.Type)
 		}
-	}
-
-	if !mainNetworkFound {
-		return nil, fmt.Errorf("network with type '%s' must be specified", v1alpha2.NetworksTypeMain)
 	}
 	return nil, nil
 }
