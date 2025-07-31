@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/testutil"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/source"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -235,16 +236,28 @@ var _ = Describe("LifeCycleHandler Run", func() {
 
 	DescribeTable(
 		"Message propagation and DatasourceIsNotFound reason",
-		func(datasourceReason, expectedReadyReason, expectedMessage string) {
+		func(datasourceReason, expectedReadyReason string) {
 			var sourcesMock SourcesMock
 			recorder := &eventrecord.EventRecorderLoggerMock{
 				EventFunc: func(_ client.Object, _, _, _ string) {},
 			}
-			ctx := logger.ToContext(context.TODO(), slog.Default())
-			vd := virtv2.VirtualDisk{Status: virtv2.VirtualDiskStatus{Conditions: []metav1.Condition{
-				{Type: vdcondition.DatasourceReadyType.String(), Status: metav1.ConditionFalse, Reason: datasourceReason, Message: "Test message"},
-				{Type: vdcondition.StorageClassReadyType.String(), Status: metav1.ConditionTrue},
-			}}}
+			ctx := logger.ToContext(context.TODO(), testutil.NewNoOpSlogLogger())
+			vd := virtv2.VirtualDisk{
+				Status: virtv2.VirtualDiskStatus{
+					Conditions: []metav1.Condition{
+						{
+							Type:    vdcondition.DatasourceReadyType.String(),
+							Status:  metav1.ConditionFalse,
+							Reason:  datasourceReason,
+							Message: "Test message",
+						},
+						{
+							Type:   vdcondition.StorageClassReadyType.String(),
+							Status: metav1.ConditionTrue,
+						},
+					},
+				},
+			}
 
 			sourcesMock.ChangedFunc = func(_ context.Context, _ *virtv2.VirtualDisk) bool {
 				return false
@@ -258,11 +271,23 @@ var _ = Describe("LifeCycleHandler Run", func() {
 			_, _ = handler.Handle(ctx, &vd)
 			readyCond, _ := conditions.GetCondition(vdcondition.ReadyType, vd.Status.Conditions)
 			Expect(readyCond.Reason).Should(Equal(expectedReadyReason))
-			Expect(readyCond.Message).Should(Equal(expectedMessage))
+			Expect(readyCond.Message).Should(Equal("Test message"))
 		},
-		Entry("Generic not ready, propagate message", vdcondition.ImageNotReady.String(), vdcondition.DatasourceIsNotReady.String(), "Test message"),
-		Entry("Image not found, use DatasourceIsNotFound and propagate", vdcondition.ImageNotFound.String(), vdcondition.DatasourceIsNotFound.String(), "Test message"),
-		Entry("Cluster image not found, use DatasourceIsNotFound and propagate", vdcondition.ClusterImageNotFound.String(), vdcondition.DatasourceIsNotFound.String(), "Test message"),
+		Entry(
+			"Generic not ready, propagate message",
+			vdcondition.ImageNotReady.String(),
+			vdcondition.DatasourceIsNotReady.String(),
+		),
+		Entry(
+			"Image not found, use DatasourceIsNotFound and propagate",
+			vdcondition.ImageNotFound.String(),
+			vdcondition.DatasourceIsNotFound.String(),
+		),
+		Entry(
+			"Cluster image not found, use DatasourceIsNotFound and propagate",
+			vdcondition.ClusterImageNotFound.String(),
+			vdcondition.DatasourceIsNotFound.String(),
+		),
 	)
 })
 
