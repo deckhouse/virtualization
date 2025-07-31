@@ -52,6 +52,7 @@ rules:
   - subresources.virtualization.deckhouse.io
   resources:
   - virtualmachines/console
+  - virtualmachines/usbredir
   - virtualmachines/vnc
   - virtualmachines/portforward
   - virtualmachines/addvolume

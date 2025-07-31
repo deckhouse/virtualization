@@ -43,6 +43,7 @@ type VirtualMachineStorage struct {
 	groupResource    schema.GroupResource
 	vmLister         virtlisters.VirtualMachineLister
 	console          *vmrest.ConsoleREST
+	usbredir         *vmrest.UsbRedirREST
 	vnc              *vmrest.VNCREST
 	portforward      *vmrest.PortForwardREST
 	addVolume        *vmrest.AddVolumeREST
@@ -93,6 +94,7 @@ func NewStorage(
 		vmLister:         vmLister,
 		console:          vmrest.NewConsoleREST(vmLister, kubevirt, proxyCertManager),
 		vnc:              vmrest.NewVNCREST(vmLister, kubevirt, proxyCertManager),
+		usbredir:         vmrest.NewUsbRedirREST(vmLister, kubevirt, proxyCertManager),
 		portforward:      vmrest.NewPortForwardREST(vmLister, kubevirt, proxyCertManager),
 		addVolume:        vmrest.NewAddVolumeREST(vmLister, kubevirt, proxyCertManager),
 		removeVolume:     vmrest.NewRemoveVolumeREST(vmLister, kubevirt, proxyCertManager),
@@ -134,6 +136,10 @@ func (store VirtualMachineStorage) UnfreezeREST() *vmrest.UnfreezeREST {
 
 func (store VirtualMachineStorage) CancelEvacuationREST() *vmrest.CancelEvacuationREST {
 	return store.cancelEvacuation
+}
+
+func (store VirtualMachineStorage) UsbRedirREST() *vmrest.UsbRedirREST {
+	return store.usbredir
 }
 
 // New implements rest.Storage interface

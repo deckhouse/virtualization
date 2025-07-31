@@ -120,6 +120,8 @@ packages:
   - policycoreutils
   - psmisc
   - msulogin
+  - usbutils
+  - htop
   - iproute2
 binaries:
   # Gnu utils (requared for swtpm)
@@ -128,6 +130,22 @@ binaries:
   - /usr/bin/ocsptool
   - /usr/bin/p11tool
   - /usr/bin/psktool
+  # Debug
+  - /usr/bin/usbhid-dump
+  # Debug2
+  - /usr/bin/pgrep
+  - /usr/bin/bash
+  - /usr/bin/ls
+  - /usr/bin/lsusb
+  - /usr/bin/lspci
+  - /usr/bin/htop
+  - /usr/bin/ps
+  - /usr/bin/cat
+  - /usr/bin/grep
+  - /usr/bin/mkdir
+  - /usr/bin/mount
+  - /usr/bin/chmod
+  - /usr/bin/mknod
   # Xorriso (Creates an image of an ISO9660 filesystem)
   - /usr/bin/xorriso-dd-target /usr/bin/xorrisofs /usr/bin/xorriso
   # Swtpm
@@ -310,6 +328,8 @@ shell:
     LIBS+=" /usr/lib64/libtpms* /usr/lib64/libjson* /usr/lib64/libfuse*"
     LIBS+=" /usr/lib64/libxml2.s* /usr/lib64/libgcc_s* /usr/lib64/libaudit*"
     LIBS+=" /usr/lib64/libisoburn.s*"
+    LIBS+=" /usr/lib64/libgbm.s*"
+    LIBS+=" /usr/lib64/libusbredirparser.s*"
 
     echo "Relocate additional libs for files in /VBINS"
     ./relocate_binaries.sh -i "$FILES" -o /VBINS
