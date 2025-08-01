@@ -20,9 +20,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"strings"
-	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,10 +29,9 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common"
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
-	"github.com/deckhouse/virtualization-controller/pkg/common/mac"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/pointer"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/ipam"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -93,7 +90,7 @@ func ApplyVirtualMachineSpec(
 	cviByName map[string]*virtv2.ClusterVirtualImage,
 	class *virtv2.VirtualMachineClass,
 	ipAddress string,
-	clusterUUID string,
+	macAddresses map[string]string,
 ) error {
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
 		return err
@@ -109,7 +106,7 @@ func ApplyVirtualMachineSpec(
 	}
 
 	kvvm.SetMetadata(vm.ObjectMeta)
-	setNetwork(kvvm, vm.Spec, clusterUUID)
+	setNetwork(kvvm, vm.Spec, macAddresses)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
 	kvvm.SetTolerations(vm.Spec.Tolerations, class.Spec.Tolerations)
@@ -241,7 +238,7 @@ func ApplyVirtualMachineSpec(
 	kvvm.AddFinalizer(virtv2.FinalizerKVVMProtection)
 
 	// Set ip address cni request annotation.
-	kvvm.SetKVVMIAnnotation(ipam.AnnoIPAddressCNIRequest, ipAddress)
+	kvvm.SetKVVMIAnnotation(netmanager.AnnoIPAddressCNIRequest, ipAddress)
 	// Set live migration annotation.
 	kvvm.SetKVVMIAnnotation(virtv1.AllowPodBridgeNetworkLiveMigrationAnnotation, "true")
 	// Set label to skip the check for PodSecurityStandards to avoid irrelevant alerts related to a privileged virtual machine pod.
@@ -255,18 +252,13 @@ func ApplyVirtualMachineSpec(
 	return nil
 }
 
-func setNetwork(kvvm *KVVM, vmSpec virtv2.VirtualMachineSpec, clusterUUID string) {
+func setNetwork(kvvm *KVVM, vmSpec virtv2.VirtualMachineSpec, macAddresses map[string]string) {
 	kvvm.ClearNetworkInterfaces()
 	kvvm.SetNetworkInterface(network.NameDefaultInterface, "")
 
 	for _, n := range network.CreateNetworkSpec(vmSpec) {
-		kvvm.SetNetworkInterface(n.InterfaceName, generateMACAddress(clusterUUID))
+		kvvm.SetNetworkInterface(n.InterfaceName, macAddresses[n.InterfaceName])
 	}
-}
-
-func generateMACAddress(clusterUUID string) string {
-	r := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return fmt.Sprintf("%s:%02x:%02x:%02x", mac.GenerateOUI(clusterUUID), r.Intn(256), r.Intn(256), r.Intn(256))
 }
 
 func setNetworksAnnotation(kvvm *KVVM, vmSpec virtv2.VirtualMachineSpec) error {
