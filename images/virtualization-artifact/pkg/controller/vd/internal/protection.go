@@ -39,27 +39,23 @@ func (h ProtectionHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (
 		log.Debug("virtual disk connected to multiple virtual machines", "vms", len(vd.Status.AttachedToVirtualMachines))
 	}
 
-	switch {
-	case len(vd.Status.AttachedToVirtualMachines) == 0:
-		log.Debug("Allow virtual disk deletion")
-		controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVDProtection)
-	case len(vd.Status.AttachedToVirtualMachines) != 0:
-		unmounted := true
-		for _, vm := range vd.Status.AttachedToVirtualMachines {
-			if vm.Mounted {
-				unmounted = false
-			}
+	unmounted := true
+	for _, vm := range vd.Status.AttachedToVirtualMachines {
+		if vm.Mounted {
+			unmounted = false
+			break
 		}
-		if unmounted {
-			log.Debug("Allow virtual disk deletion")
-			controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVDProtection)
-		}
-	case vd.DeletionTimestamp == nil:
-		log.Debug("Protect virtual disk from deletion")
-		controllerutil.AddFinalizer(vd, virtv2.FinalizerVDProtection)
-	default:
-		log.Debug("Virtual disk deletion is delayed: it's protected by virtual machines")
 	}
 
+	if unmounted {
+		log.Debug("Allow virtual disk deletion")
+		controllerutil.RemoveFinalizer(vd, virtv2.FinalizerVDProtection)
+		return reconcile.Result{}, nil
+	}
+
+	if vd.DeletionTimestamp == nil {
+		log.Debug("Protect virtual disk from deletion")
+		controllerutil.AddFinalizer(vd, virtv2.FinalizerVDProtection)
+	}
 	return reconcile.Result{}, nil
 }
