@@ -342,7 +342,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 	err = h.updateVMRunPolicy(ctx, vmObj, runPolicy)
 	if err != nil {
 		if errors.Is(err, restorer.ErrUpdating) {
-			setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineIsNotStopped, err.Error())
+			setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
 			return reconcile.Result{}, nil
 		}
 		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
