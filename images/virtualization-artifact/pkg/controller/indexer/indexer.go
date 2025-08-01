@@ -52,8 +52,6 @@ const (
 	IndexFieldVMIPByAddress = "spec.staticIP|status.address"
 
 	IndexFieldVMBDAByVM = "spec.virtualMachineName"
-
-	IndexFieldVMClassByAnnotationIsDefauld = "vmclass,metadata.annotations[@=virtualization.deckhouse.io/is-default-virtual-machine-class]"
 )
 
 var IndexGetters = []IndexGetter{
