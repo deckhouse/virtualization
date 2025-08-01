@@ -46,6 +46,9 @@ func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client cl
 		vmTmpl.Annotations = make(map[string]string)
 		vmTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
+
+	vmTmpl.Spec.RunPolicy = virtv2.AlwaysOffPolicy
+
 	return &VirtualMachineOverrideValidator{
 		vm: &virtv2.VirtualMachine{
 			TypeMeta: metav1.TypeMeta{
