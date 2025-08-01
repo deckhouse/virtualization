@@ -20,13 +20,17 @@ Initially copied from https://github.com/kubevirt/kubevirt/blob/main/pkg/virtctl
 package console
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 
@@ -79,64 +83,138 @@ func (c *Console) Run(cmd *cobra.Command, args []string) error {
 	}
 
 	for {
-		err := connect(name, namespace, client, c.timeout)
-		if err == nil {
-			continue
-		}
+		select {
+		case <-cmd.Context().Done():
+			return nil
+		default:
+			cmd.Printf("Connecting to %s console...\n", name)
 
-		if errors.Is(err, util.ErrorInterrupt) || strings.Contains(err.Error(), "not found") {
-			return err
-		}
+			err := connect(cmd.Context(), name, namespace, client, c.timeout)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return err
+				}
 
-		var e *websocket.CloseError
-		if errors.As(err, &e) {
-			switch e.Code {
-			case websocket.CloseGoingAway:
-				cmd.Printf("\nYou were disconnected from the console. This has one of the following reasons:" +
-					"\n - another user connected to the console of the target vm\n")
+				var e *websocket.CloseError
+				if errors.As(err, &e) {
+					switch e.Code {
+					case websocket.CloseGoingAway:
+						cmd.Printf(util.CloseGoingAwayMessage)
+						return nil
+					case websocket.CloseAbnormalClosure:
+						cmd.Printf(util.CloseAbnormalClosureMessage)
+					}
+				} else {
+					cmd.Printf("%s\n", err)
+				}
+
+				time.Sleep(time.Second)
+			} else {
 				return nil
-			case websocket.CloseAbnormalClosure:
-				cmd.Printf("\nYou were disconnected from the console. This has one of the following reasons:" +
-					"\n - network issues" +
-					"\n - machine restart\n")
 			}
-		} else {
-			cmd.Printf("%s\n", err)
 		}
-
-		time.Sleep(time.Second)
 	}
 }
 
-func connect(name string, namespace string, virtCli kubeclient.Client, timeout int) error {
+func connect(ctx context.Context, name string, namespace string, virtCli kubeclient.Client, timeout int) error {
+	// in -> stdinWriter | stdinReader -> console
+	// out <- stdoutReader | stdoutWriter <- console
 	stdinReader, stdinWriter := io.Pipe()
 	stdoutReader, stdoutWriter := io.Pipe()
 
-	// in -> stdinWriter | stdinReader -> console
-	// out <- stdoutReader | stdoutWriter <- console
-	// Wait until the virtual machine is in running phase, user interrupt or timeout
-	resChan := make(chan error)
-	runningChan := make(chan error)
+	doneChan := make(chan struct{}, 1)
+
+	k8sResErr := make(chan error)
+	writeStopErr := make(chan error)
+	readStopErr := make(chan error)
+
+	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &kubeclient.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
+	if err != nil {
+		return fmt.Errorf("can't access VM %s: %s", name, err.Error())
+	}
 
 	go func() {
-		con, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &kubeclient.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
-		runningChan <- err
-
-		if err != nil {
-			return
-		}
-
-		resChan <- con.Stream(kubeclient.StreamOptions{
+		err := console.Stream(kubeclient.StreamOptions{
 			In:  stdinReader,
 			Out: stdoutWriter,
 		})
+		if err != nil {
+			k8sResErr <- err
+		}
 	}()
 
-	err := <-runningChan
-	if err != nil {
-		return err
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		state, err := term.MakeRaw(int(os.Stdin.Fd()))
+		if err != nil {
+			return fmt.Errorf("make raw terminal failed: %w", err)
+		}
+		defer term.Restore(int(os.Stdin.Fd()), state)
 	}
 
-	err = util.AttachConsole(stdinReader, stdoutReader, stdinWriter, stdoutWriter, name, resChan)
+	fmt.Fprintf(os.Stderr, "Successfully connected to %s console. The escape sequence is ^]\n", name)
+
+	out := os.Stdout
+	go func() {
+		_, err := io.Copy(out, stdoutReader)
+		if err != nil {
+			readStopErr <- err
+		}
+	}()
+
+	stdinCh := make(chan []byte)
+	go func() {
+		in := os.Stdin
+		buf := make([]byte, 1024)
+		for {
+			// reading from stdin
+			n, err := in.Read(buf)
+			if err != nil {
+				if err != io.EOF || n == 0 {
+					return
+				}
+
+				readStopErr <- err
+			}
+
+			// the escape sequence
+			if buf[0] == 29 {
+				doneChan <- struct{}{}
+				return
+			}
+
+			stdinCh <- buf[0:n]
+		}
+	}()
+
+	go func() {
+		_, err := stdinWriter.Write([]byte("\r"))
+		if err != nil {
+			if err == io.EOF {
+				return
+			}
+
+			writeStopErr <- err
+		}
+
+		for b := range stdinCh {
+			_, err = stdinWriter.Write(b)
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+
+				writeStopErr <- err
+			}
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+	case <-doneChan:
+	case err = <-k8sResErr:
+	case err = <-writeStopErr:
+	case err = <-readStopErr:
+	}
+
 	return err
 }
