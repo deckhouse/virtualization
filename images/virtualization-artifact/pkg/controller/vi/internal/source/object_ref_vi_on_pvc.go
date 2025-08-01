@@ -216,7 +216,7 @@ func (ds ObjectRefDataVirtualImageOnPVC) StoreToPVC(ctx context.Context, vi, viR
 	case IsImageProvisioningFinished(condition):
 		log.Info("Disk provisioning finished: clean up")
 
-		setPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
+		SetPhaseConditionForFinishedImage(pvc, cb, &vi.Status.Phase, supgen)
 
 		// Protect Ready Disk and underlying PVC.
 		err = ds.diskService.Protect(ctx, vi, nil, pvc)
