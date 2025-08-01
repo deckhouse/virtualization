@@ -88,6 +88,10 @@ const (
 	ClusterImageNotReady DatasourceReadyReason = "ClusterImageNotReady"
 	// VirtualDiskSnapshotNotReady indicates that the `VirtualDiskSnapshot` datasource is not ready, which prevents the import process from starting.
 	VirtualDiskSnapshotNotReady DatasourceReadyReason = "VirtualDiskSnapshot"
+	// ImageNotFound indicates that the `VirtualImage` datasource is not found, which prevents the import process from starting.
+	ImageNotFound DatasourceReadyReason = "ImageNotFound"
+	// ClusterImageNotFound indicates that the `ClusterVirtualImage` datasource is not found, which prevents the import process from starting.
+	ClusterImageNotFound DatasourceReadyReason = "ClusterImageNotFound"
 
 	// WaitForUserUpload indicates that the `VirtualDisk` is waiting for the user to upload a datasource for the import process to continue.
 	WaitForUserUpload ReadyReason = "WaitForUserUpload"
@@ -109,6 +113,8 @@ const (
 	ImagePullFailed ReadyReason = "ImagePullFailed"
 	// DatasourceIsNotReady indicates that Datasource is not ready for provisioning.
 	DatasourceIsNotReady ReadyReason = "DatasourceIsNotReady"
+	// DatasourceIsNotFound indicates that Datasource is not found.
+	DatasourceIsNotFound ReadyReason = "DatasourceIsNotFound"
 	// StorageClassIsNotReady indicates that Storage class is not ready.
 	StorageClassIsNotReady ReadyReason = "StorageClassIsNotReady"
 

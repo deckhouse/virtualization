@@ -93,7 +93,11 @@ func (ds ObjectRefClusterVirtualImage) Validate(ctx context.Context, vd *virtv2.
 		return fmt.Errorf("fetch vi %q: %w", cviRefKey, err)
 	}
 
-	if cviRef == nil || cviRef.Status.Phase != virtv2.ImageReady || cviRef.Status.Target.RegistryURL == "" {
+	if cviRef == nil {
+		return NewClusterImageNotFoundError(vd.Spec.DataSource.ObjectRef.Name)
+	}
+
+	if cviRef.Status.Phase != virtv2.ImageReady || cviRef.Status.Target.RegistryURL == "" {
 		return NewClusterImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 

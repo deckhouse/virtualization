@@ -42,6 +42,18 @@ func NewImageNotReadyError(name string) error {
 	}
 }
 
+type ImageNotFoundError struct {
+	Name string
+}
+
+func (e ImageNotFoundError) Error() string {
+	return fmt.Sprintf("VirtualImage %q not found", e.Name)
+}
+
+func NewImageNotFoundError(name string) error {
+	return ImageNotFoundError{Name: name}
+}
+
 type ClusterImageNotReadyError struct {
 	name string
 }
@@ -54,6 +66,18 @@ func NewClusterImageNotReadyError(name string) error {
 	return ClusterImageNotReadyError{
 		name: name,
 	}
+}
+
+type ClusterImageNotFoundError struct {
+	Name string
+}
+
+func (e ClusterImageNotFoundError) Error() string {
+	return fmt.Sprintf("ClusterVirtualImage %q not found", e.Name)
+}
+
+func NewClusterImageNotFoundError(name string) error {
+	return ClusterImageNotFoundError{Name: name}
 }
 
 type VirtualDiskSnapshotNotReadyError struct {
