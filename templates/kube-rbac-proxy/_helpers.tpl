@@ -50,6 +50,24 @@
   - containerPort: {{ $settings.listenPort | default "8082" }}
     name: {{ $settings.portName | default "https-metrics" }}
     protocol: TCP
+  livenessProbe:
+    httpGet:
+      path: /metrics
+      port: {{ $settings.portName | default "https-metrics" }}
+      scheme: HTTPS
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /metrics
+      port: {{ $settings.portName | default "https-metrics" }}
+      scheme: HTTPS
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
 {{- end -}}
 
 {{- define "kube_rbac_proxy.pod_spec_strategic_patch" -}}
