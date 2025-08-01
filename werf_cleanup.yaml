@@ -20,7 +20,3 @@ cleanup:
       branch: main
     imagesPerReference:
       last: 1
-  - references:
-      branch: pre-alpha
-    imagesPerReference:
-      last: 1
