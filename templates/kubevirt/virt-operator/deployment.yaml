@@ -136,6 +136,13 @@ spec:
             scheme: HTTP
           initialDelaySeconds: 5
           timeoutSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8443
+            scheme: HTTP
+          initialDelaySeconds: 5
+          timeoutSeconds: 10
         resources:
           requests:
             {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
