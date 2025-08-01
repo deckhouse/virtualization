@@ -196,8 +196,9 @@ type VirtualDiskList struct {
 // * `Resizing`: The process of resource resizing is in progress.
 // * `Failed`: There was an error when creating the resource.
 // * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
+// * `Exporting`: The child PV of the resource is in the process of exporting.
 // * `Terminating`: The resource is being deleted.
-// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,WaitForFirstConsumer,Ready,Resizing,Failed,PVCLost,Terminating}
+// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,WaitForFirstConsumer,Ready,Resizing,Failed,PVCLost,Exporting,Terminating}
 type DiskPhase string
 
 const (
@@ -209,5 +210,6 @@ const (
 	DiskResizing             DiskPhase = "Resizing"
 	DiskFailed               DiskPhase = "Failed"
 	DiskLost                 DiskPhase = "PVCLost"
+	DiskExporting            DiskPhase = "Exporting"
 	DiskTerminating          DiskPhase = "Terminating"
 )
