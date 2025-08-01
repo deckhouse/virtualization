@@ -55,6 +55,9 @@ func (v *NetworksValidator) Validate(vm *v1alpha2.VirtualMachine) (admission.War
 
 	for i, network := range networksSpec {
 		if network.Type == v1alpha2.NetworksTypeMain {
+			if i > 0 {
+				return nil, fmt.Errorf("only one network of type '%s' is allowed", v1alpha2.NetworksTypeMain)
+			}
 			continue
 		}
 
