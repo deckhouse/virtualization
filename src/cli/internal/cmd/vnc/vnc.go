@@ -28,7 +28,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -36,14 +35,13 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/spf13/cobra"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
+	"github.com/deckhouse/virtualization/src/cli/internal/util"
 )
 
 const (
@@ -106,9 +104,6 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	}
 	if namespace == "" {
 		namespace = defaultNamespace
-		if err != nil {
-			return err
-		}
 	}
 
 	// Format the listening address to account for the port (ex: 127.0.0.0:5900)
@@ -130,46 +125,41 @@ func (o *VNC) Run(cmd *cobra.Command, args []string) error {
 	}
 	// End of pre-flight checks. Everything looks good, we can start
 	// the goroutines and let the data flow
-
 	for {
-		err := connect(ln, client, cmd, namespace, vmName)
-		if err != nil {
-			if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "could not find") {
+		select {
+		case <-cmd.Context().Done():
+			return nil
+		default:
+			cmd.Printf("Connecting to %s VNC...\n", vmName)
+
+			err := connect(cmd.Context(), ln, client, cmd, namespace, vmName)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return err
+				}
+
+				var e *websocket.CloseError
+				if errors.As(err, &e) {
+					switch e.Code {
+					case websocket.CloseGoingAway:
+						cmd.Printf(util.CloseGoingAwayMessage)
+						return nil
+					case websocket.CloseAbnormalClosure:
+						cmd.Printf(util.CloseAbnormalClosureMessage)
+					}
+				} else {
+					cmd.Printf("%s\n", err)
+				}
+
+				time.Sleep(time.Second)
+			} else {
 				return err
 			}
-
-			var e *websocket.CloseError
-			if errors.As(err, &e) {
-				switch e.Code {
-				case websocket.CloseGoingAway:
-					cmd.PrintErrf("\nYou were disconnected from the console. This has one of the following reasons:" +
-						"\n - another user connected to the console of the target vm\n")
-					return nil
-				case websocket.CloseAbnormalClosure:
-					cmd.PrintErrf("\nYou were disconnected from the console. This has one of the following reasons:" +
-						"\n - network issues" +
-						"\n - machine restart\n")
-				}
-			} else {
-				return fmt.Errorf("failed to connect to the VNC: %v", err)
-			}
-			time.Sleep(time.Second)
-		} else {
-			return nil
 		}
 	}
 }
 
-func connect(ln *net.TCPListener, virtCli kubeclient.Client, cmd *cobra.Command, namespace, vmName string) (err error) {
-	vm, err := virtCli.VirtualMachines(namespace).Get(context.Background(), vmName, v1.GetOptions{})
-	if err != nil {
-		return err
-	}
-
-	if vm.Status.Phase != v1alpha2.MachineRunning {
-		return errors.New("VM is not running")
-	}
-
+func connect(ctx context.Context, ln *net.TCPListener, virtCli kubeclient.Client, cmd *cobra.Command, namespace, vmName string) (err error) {
 	// setup connection with VM
 	vnc, err := virtCli.VirtualMachines(namespace).VNC(vmName)
 	if err != nil {
@@ -182,38 +172,43 @@ func connect(ln *net.TCPListener, virtCli kubeclient.Client, cmd *cobra.Command,
 	pipeInReader, pipeInWriter := io.Pipe()
 	pipeOutReader, pipeOutWriter := io.Pipe()
 
-	k8ResChan := make(chan error)
-	listenResChan := make(chan error)
-	viewResChan := make(chan error)
-	stopChan := make(chan struct{}, 1)
 	doneChan := make(chan struct{}, 1)
-	writeStop := make(chan error)
-	readStop := make(chan error)
+
+	listenResErr := make(chan error)
+	writeStopErr := make(chan error)
+	readStopErr := make(chan error)
+	viewResErr := make(chan error)
+	k8ResErr := make(chan error)
+
+	port := ln.Addr().(*net.TCPAddr).Port
+	ctx, cancelCtx := context.WithCancel(ctx)
 
 	go func() {
 		// transfer data from/to the VM
-		k8ResChan <- vnc.Stream(kubeclient.StreamOptions{
+		err := vnc.Stream(kubeclient.StreamOptions{
 			In:  pipeInReader,
 			Out: pipeOutWriter,
 		})
+		if err != nil {
+			k8ResErr <- err
+		}
 	}()
 
-	// wait for vnc client to connect to our local proxy server
 	go func() {
 		start := time.Now()
-		klog.Infof("connection timeout: %v", ListenTimeout)
+		klog.V(2).Infof("trying to connect to the VM with timeout: %v", ListenTimeout)
 		// Don't set deadline if only proxy is running and VNC is to be connected manually
 		if !proxyOnly {
 			// exit early if spawning vnc client fails
 			err := ln.SetDeadline(time.Now().Add(ListenTimeout))
 			if err != nil {
-				listenResChan <- err
+				listenResErr <- err
 			}
 		}
 		fd, err := ln.Accept()
 		if err != nil {
 			klog.V(2).Infof("Failed to accept unix sock connection. %s", err.Error())
-			listenResChan <- err
+			listenResErr <- err
 		}
 		defer fd.Close()
 
@@ -223,53 +218,45 @@ func connect(ln *net.TCPListener, virtCli kubeclient.Client, cmd *cobra.Command,
 		// write to FD <- pipeOutReader
 		go func() {
 			_, err := io.Copy(fd, pipeOutReader)
-			readStop <- err
+			if err != nil {
+				readStopErr <- err
+			}
 		}()
 
 		// read from FD -> pipeInWriter
 		go func() {
 			_, err := io.Copy(pipeInWriter, fd)
-			writeStop <- err
+			if err != nil {
+				writeStopErr <- err
+			}
 		}()
 
 		// don't terminate until vnc client is done
 		<-doneChan
-		listenResChan <- err
 	}()
 
-	port := ln.Addr().(*net.TCPAddr).Port
-
-	ctx, cancelCtx := context.WithCancel(context.Background())
-
-	if proxyOnly {
-		defer close(doneChan)
-		optionString, err := json.Marshal(struct {
-			Port int `json:"port"`
-		}{port})
-		if err != nil {
-			return fmt.Errorf("error encountered: %s", err.Error())
-		}
-		fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
-	} else {
-		// execute VNC Viewer
-		go checkAndRunVNCViewer(ctx, doneChan, viewResChan, port)
-	}
-
 	go func() {
-		defer close(stopChan)
-		interrupt := make(chan os.Signal, 1)
-		signal.Notify(interrupt, os.Interrupt)
-		<-interrupt
-		viewResChan <- fmt.Errorf("interrupted")
+		if proxyOnly {
+			defer close(doneChan)
+			optionString, err := json.Marshal(struct {
+				Port int `json:"port"`
+			}{port})
+			if err != nil {
+				viewResErr <- fmt.Errorf("error encountered: %s", err.Error())
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), string(optionString))
+		} else {
+			// execute VNC Viewer
+			checkAndRunVNCViewer(ctx, doneChan, viewResErr, port)
+		}
 	}()
 
 	select {
-	case <-stopChan:
-	case err = <-readStop:
-	case err = <-writeStop:
-	case err = <-k8ResChan:
-	case err = <-viewResChan:
-	case err = <-listenResChan:
+	case <-ctx.Done():
+	case <-doneChan:
+	case err = <-k8ResErr:
+	case err = <-viewResErr:
+	case err = <-listenResErr:
 	}
 
 	cancelCtx()
@@ -277,7 +264,7 @@ func connect(ln *net.TCPListener, virtCli kubeclient.Client, cmd *cobra.Command,
 	return err
 }
 
-func checkAndRunVNCViewer(ctx context.Context, doneChan chan struct{}, viewResChan chan error, port int) {
+func checkAndRunVNCViewer(ctx context.Context, doneChan chan struct{}, viewResErr chan error, port int) {
 	defer close(doneChan)
 	var (
 		err    error
@@ -294,26 +281,26 @@ func checkAndRunVNCViewer(ctx context.Context, doneChan chan struct{}, viewResCh
 			vncBin = matches[len(matches)-1]
 			args = tigerVncArgs(port)
 		} else if errors.Is(err, filepath.ErrBadPattern) {
-			viewResChan <- err
+			viewResErr <- err
 			return
 		} else if _, err := os.Stat(MACOSChickenVNC); err == nil {
 			vncBin = MACOSChickenVNC
 			args = chickenVncArgs(port)
 		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
+			viewResErr <- err
 			return
 		} else if _, err := os.Stat(MACOSRealVNC); err == nil {
 			vncBin = MACOSRealVNC
 			args = realVncArgs(port)
 		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
+			viewResErr <- err
 			return
 		} else if _, err := exec.LookPath(RemoteViewer); err == nil {
 			// fall back to user supplied script/binary in path
 			vncBin = RemoteViewer
 			args = remoteViewerArgs(port)
 		} else if !errors.Is(err, os.ErrNotExist) {
-			viewResChan <- err
+			viewResErr <- err
 			return
 		}
 	case "linux", "windows":
@@ -324,31 +311,30 @@ func checkAndRunVNCViewer(ctx context.Context, doneChan chan struct{}, viewResCh
 			vncBin = TigerVNC
 			args = tigerVncArgs(port)
 		} else {
-			viewResChan <- fmt.Errorf("could not find %s or %s binary in $PATH",
+			viewResErr <- fmt.Errorf("could not find %s or %s binary in $PATH",
 				RemoteViewer, TigerVNC)
-			viewResChan <- err
 			return
 		}
 	default:
-		viewResChan <- fmt.Errorf("virtctl does not support VNC on %v", osType)
+		viewResErr <- fmt.Errorf("virtctl does not support VNC on %v", osType)
 		return
 	}
 
 	if vncBin == "" {
 		klog.Errorf("No supported VNC app found in %s", osType)
-		err = fmt.Errorf("no supported VNC app found in %s", osType)
+		viewResErr <- fmt.Errorf("no supported VNC app found in %s", osType)
 	} else {
 		klog.V(4).Infof("Executing commandline: '%s %v'", vncBin, args)
 		// #nosec No risk for attacket injection. vncBin and args include predefined strings
 		cmd := exec.CommandContext(ctx, vncBin, args...)
 		output, err = cmd.CombinedOutput()
 		if err != nil {
-			klog.Errorf("%s execution failed: %v, output: %v", vncBin, err, string(output))
+			klog.V(2).Infof("%s execution failed: %v, output: %v", vncBin, err, string(output))
+			viewResErr <- err
 		} else {
 			klog.V(2).Infof("%v output: %v", vncBin, string(output))
 		}
 	}
-	viewResChan <- err
 }
 
 func tigerVncArgs(port int) (args []string) {
