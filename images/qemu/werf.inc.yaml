@@ -7,7 +7,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
-- add: {{ .ImagePath }}
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /
   includePaths:
   - install-qemu.sh
@@ -17,7 +17,7 @@ git:
   stageDependencies:
     install:
       - '**/*'
-- add: {{ .ModuleDir }}/images/base-alt-p11-binaries/relocate_binaries.sh
+- add: {{ .ModuleDir }}/build/tools/relocate_binaries.sh
   to: /relocate_binaries.sh
   stageDependencies:
     install:
@@ -153,7 +153,7 @@ import:
   - install-qemu.sh
   - relocate_binaries.sh
 {{- $images := list "dmidecode" "libgcrypt" "nettle" -}}
-{{- include "importPackageImages" (list $images "install") -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}

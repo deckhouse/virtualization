@@ -1,14 +1,14 @@
 {{/*
 # Parse variables for images from their path.
-# for example: `packages/binaries/swtpm/werf.inc.yaml` turns into
-# ImageType: packages/binaries
+# for example: `packages/swtpm/werf.inc.yaml` turns into
+# PackagePath: packages
 # ImageName: swtpm
 */}}
 
 {{-   $Root := . }}
 
-{{-   $packageImagePathGlob := (printf "%s/images/packages/*/*/{Dockerfile,werf.inc.yaml}" (trimPrefix "/" .ModuleDir )) }}
-{{-   $packageImagePathRegex := (trimPrefix "/" (printf "%s/images/(packages)/([0-9a-z-_]+)/([0-9a-z-_]+)/(werf.inc.yaml)$" (trimPrefix "/" .ModuleDir ))) }}
+{{-   $packageImagePathGlob := (printf "%s/images/packages/*/{Dockerfile,werf.inc.yaml}" (trimPrefix "/" .ModuleDir )) }}
+{{-   $packageImagePathRegex := (trimPrefix "/" (printf "%s/images/(packages)/([0-9a-z-_]+)/(werf.inc.yaml)$" (trimPrefix "/" .ModuleDir ))) }}
 
 {{    $ImagePackages := $Root.Files.Glob $packageImagePathGlob }}
 
@@ -16,10 +16,10 @@
 {{-      $ctx := dict }}
 {{-      $_ := set $ctx "ImageInstructionType" "Stapel" }}
 
-{{-      $ImageData := regexReplaceAll $packageImagePathRegex $path "${1}#${2}#${3}#${4}" | split "#" }}
+{{-      $ImageData := regexReplaceAll $packageImagePathRegex $path "${1}#${2}#${3}" | split "#" }}
 
-{{-      $_ := set $ctx "PackagePath" (printf "%s/%s" $ImageData._0 $ImageData._1) }}
-{{-      $_ := set $ctx "ImageName" $ImageData._2 }}
+{{-      $_ := set $ctx "PackagePath" $ImageData._0 }}
+{{-      $_ := set $ctx "ImageName" $ImageData._1 }}
 {{-      $_ := set $ctx "ModuleNamePrefix" $Root.ModuleNamePrefix }}
 {{-      $_ := set $ctx "ImageBuildData" $content }}
 {{-      $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}

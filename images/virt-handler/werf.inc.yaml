@@ -52,7 +52,6 @@ packages:
 - libnftnl
 - libjansson4
 binaries:
-- /usr/bin/findmnt
 - /usr/bin/getfacl
 - /usr/bin/setfacl
 - /usr/sbin/nft
@@ -77,7 +76,7 @@ import:
   - bin/mount
   - bin/umount
 {{- $images := list "libisoburn" "nftables" "acl" -}}
-{{- include "importPackageImages" (list $images "install") -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate

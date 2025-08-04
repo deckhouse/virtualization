@@ -1,0 +1,42 @@
+firmware:
+  qemu: 9.2.0
+  libvirt: 10.9.0
+  edk2: stable202411
+core:
+  3p-kubevirt: v1.3.1-v12n.8
+  3p-containerized-data-importer: v1.60.3-v12n.7
+package:
+  acl: v2.3.1
+  bzip2: bzip2-1.0.8
+  dmidecode: dmidecode-3-6
+  dtc: v1.7.2
+  file: FILE5_45
+  gcc: releases/gcc-14.2.0
+  glib2: 2.82.5
+  glibc: glibc-2.38
+  libgmp: 6.3.0
+  gnutls: 3.8.6
+  libattr: v2.5.2
+  libaudit: v4.0.3
+  libblkid: v2.41
+  libbrotli: v1.1.0
+  libbsd: 0.12.2
+  libburn: release-1.5.6
+  libfuse3: fuse-3.16.2
+  libgcrypt: libgcrypt-1.10.2
+  libtpms: v0.10.0
+  libgpg-error: libgpg-error-1.55
+  libibverbs: 1.0.0
+  rdma-core: v57.0
+  libgsasl: v2.2.2
+  libidn: v1.37.1
+  libidn2: v2.3.8
+  libisoburn: release-1.5.6
+  libmd: 1.1.0
+  lvm2: v2_03_32
+  nbdkit: v1.39.5
+  nettle: nettle_3.10.1_release_20241230
+  nftables: v1.1.3
+  numactl: v2.0.19
+  openssl: openssl-3.4.1
+  swtpm: v0.10.0

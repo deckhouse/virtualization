@@ -4,7 +4,8 @@
 # Component versions
 {{- $_ := set . "Version" dict -}}
 {{- $_ := set . "Package" dict -}}
-{{- $versions_path := "/component_versions/version_map.yml" -}}
+{{- $_ := set . "Core" dict -}}
+{{- $versions_path := "/build/component_versions/version_map.yml" -}}
 
 {{- if .ModuleDir -}}
 {{-   $versions_path = (printf "%s%s" (trimPrefix "/" .ModuleDir ) $versions_path) -}}
@@ -18,4 +19,8 @@
 
 {{- range $k, $v := $versions_ctx.package -}}
 {{-   $_ := set $.Package $k $v -}}
+{{- end -}}
+
+{{- range $k, $v := $versions_ctx.core -}}
+{{-   $_ := set $.Core $k $v -}}
 {{- end -}}

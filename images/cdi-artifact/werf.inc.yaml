@@ -1,12 +1,14 @@
 ---
-{{- $version := "v1.60.3-v12n.7" }}
-{{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
+{{- $gitRepoName := "3p-containerized-data-importer" }}
+{{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
+{{- $version := get $.Core $gitRepoName }}
+
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
-  - add: {{ .ImagePath }}
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /src
     stageDependencies:
       install:
@@ -140,7 +142,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-  - add: {{ .ImagePath }}
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /
     includePaths:
     - static_binaries

@@ -55,10 +55,8 @@ import:
   add: /qemu-img
   to: /relocate
   before: setup
-- image: {{ .ModuleNamePrefix }}packages/binaries/nbdkit
-  add: /nbdkit
-  to: /nbdkit
-  before: install
+{{- $images := list "nbdkit" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   install:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -68,8 +66,12 @@ shell:
       {{ $cdiImporterDependencies.libraries | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
   - |
-    cp -a /nbdkit/. /
-    rm -rf /nbdkit
+    echo "Install packages"
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
   setup:
   - |
     /relocate_binaries.sh -i "{{ $cdiImporterDependencies.binaries | join " " }}" -o /relocate

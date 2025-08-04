@@ -16,7 +16,8 @@ imageSpec:
     user: 0
 
 ---
-{{- define "virt-launcher-dependencies" -}}
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
 libs:
   - libssh-devel
   - libssh2-devel
@@ -107,6 +108,7 @@ libs:
   - libclocale
   - libLLVMSPIRVLib-devel
   - libisofs
+  - libffi-devel
 packages:
   - ethtool
   - fdisk
@@ -140,7 +142,7 @@ binaries:
   - /usr/sbin/tc
 {{- end -}}
 
-{{ $virtLauncherDependencies := include "virt-launcher-dependencies" . | fromYaml }}
+{{ $builderDependencies := include "$name" . | fromYaml }}
 
 {{- $gitRepoName := "libvirt" }}
 {{- $version := get $.Version $gitRepoName }}
@@ -150,7 +152,7 @@ final: false
 fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 git:
   # Add qemu and virtqemud configs
-  - add: {{ .ImagePath }}/configs
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/configs
     to: /relocate/etc/libvirt
     stageDependencies:
       setup:
@@ -159,7 +161,7 @@ git:
     includePaths:
     - qemu.conf
     - virtqemud.conf
-  - add: {{ .ImagePath }}/configs
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/configs
     to: /relocate/etc
     stageDependencies:
       setup:
@@ -175,10 +177,6 @@ import:
 - image: {{ .ModuleNamePrefix }}qemu
   add: /BINS
   to: /qemu-bins
-  before: install
-- image: {{ .ModuleNamePrefix }}packages/binaries/dmidecode
-  add: /dmidecode
-  to: /dmidecode
   before: install
 
 # EDK2 (uefi firmware)
@@ -223,15 +221,10 @@ import:
   - vlctl
 
 {{- $images := list "swtpm" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" -}}
-{{- include "importPackageImages" (list $images "install") -}}
-
-- image: libs/libffi
-  add: /usr
-  to: /libffi8/usr
-  before: install
+{{- include "importPackageImages" (list . $images "install") -}}
 
 # Statically builded
-- image: {{ .ModuleNamePrefix }}packages/binaries/openssl
+- image: {{ .ModuleNamePrefix }}packages/openssl
   add: /openssl
   to: /relocate
   after: setup
@@ -254,7 +247,6 @@ import:
   - usr/bin/sleep
   - usr/bin/coreutils
 
-
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
   add: /bins
   to: /relocate/usr/bin
@@ -263,18 +255,18 @@ import:
   - temp_pod
 shell:
   beforeInstall:
-    {{- include "alt packages proxy" . | nindent 2 }}
+  {{- include "alt packages proxy" . | nindent 2 }}
   - |
-    apt-get install -y {{ $virtLauncherDependencies.libs | join " " }} {{ $virtLauncherDependencies.packages | join " " }}
-
-    rm -f /etc/apt/sources.list.d/alt-sisyphus.list
+    # apt-get update
+    apt-get install -y \
+      {{ $builderDependencies.libs | join " " }} \
+      {{ $builderDependencies.packages | join " " }}
 
     {{- include "alt packages clean" . | nindent 2 }}
   install:
   - |
-    # Install packages
+    echo "Install packages"
     PKGS="{{ $images | join " " }}"
-    PKGS+=" libffi8"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
@@ -316,7 +308,8 @@ shell:
 
   setup:
   - |
-    ./relocate_binaries.sh -i "{{ $virtLauncherDependencies.binaries | join " " }}" -o /relocate
+    echo "Copy binaries to /relocate"
+    ./relocate_binaries.sh -i "{{ $builderDependencies.binaries | join " " }}" -o /relocate
 
     echo "Copy additional config swtpm"
     cp -a /etc/{swtpm_setup.conf,swtpm-localca.conf,swtpm-localca.options} /relocate/etc/
@@ -409,14 +402,14 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-gobuilder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-  - add: {{ .ImagePath }}/node-labeller
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/node-labeller
     to: /node-labeller
     includePaths:
       - '**/*'
     stageDependencies:
       install:
       - '**/*'
-  - add: {{ .ImagePath }}/vlctl
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/vlctl
     to: /src-vlctl
     includePaths:
       - '**/*'
@@ -456,7 +449,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-  - add: {{ .ImagePath }}/static_binaries
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}/static_binaries
     to: /static_binaries
     stageDependencies:
       install:

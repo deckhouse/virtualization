@@ -1,0 +1,104 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /gnutls
+  before: setup
+
+---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "gnutls/gnutls.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ .SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+    cd /src
+
+    if [[ "$(cat /run/secrets/SOURCE_REPO)" =~ "github.com" ]] ; then
+      echo "Checkout submodules"
+      git submodule update --init --recursive --depth=1
+    else
+      echo "Checkout submodules with URL rewrite"
+      git \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://github.com/  \
+        -c url."$(cat /run/secrets/SOURCE_REPO)/".insteadOf=https://gitlab.com/  \
+        submodule update --init --recursive --depth=1
+    fi
+
+---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc gcc-c++ git gperf glibc-devel-static pkgconfig
+- make autoconf automake libtool makeinfo gettext-devel patch
+- perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
+- gem-gettext-devel gettext po4a
+- libp11-kit-devel libunistring-devel
+- libtpm2-tss-devel libtrousers-devel
+- libtasn1-devel libtasn1-utils zlib-devel
+- libunbound-devel bison gtk-doc texinfo texlive
+- libev4 libev-devel libgcrypt-devel libopencdk-devel
+- liboqs-devel libzstd-devel libreadline-devel
+- openssl libssl-devel iproute2-devel
+- libnettle-devel
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- $images := list "libbrotli" "libidn2" "libgcrypt" "libgmp" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+    OUTDIR=/out
+
+    cd /src
+
+    ./bootstrap --skip-po
+
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --with-default-trust-store-file=/usr/share/ca-certificates/ca-bundle.crt \
+      --disable-tests \
+      --disable-doc
+
+    make -j$(nproc)
+
+    make DESTDIR=$OUTDIR install-strip

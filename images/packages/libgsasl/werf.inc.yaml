@@ -1,0 +1,96 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libgsasl
+  includePaths:
+    - usr/bin/gsasl
+    - usr/lib64/libgsasl.so
+    - usr/lib64/libgsasl.so.18
+    - usr/lib64/libgsasl.so.18.0.0
+  before: setup
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libgsasl-devel
+  includePaths:
+    - usr/include/gsasl-mech.h
+    - usr/include/gsasl-version.h
+    - usr/include/gsasl.h
+    - usr/lib64/libgsasl.la
+    - usr/lib64/pkgconfig/libgsasl.pc
+    - usr/share/info/gsasl.info
+  before: setup
+
+---
+{{- $version := get $.PackageVersion $.ImageName }}
+{{- $gitRepoUrl := "gsasl/gsasl.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+
+---
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc git make libtool gettext-tools
+- patch gperf help2man texinfo gengetopt
+- gtk-doc libgnutls-devel libkrb5-devel libntlm-devel libreadline-devel
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{/*{{- $images := list "libgcrypt" "libidn" -}} */}}
+{{- $images := list "libgcrypt" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
+    OUTDIR=/out
+
+    cd /src
+    ./bootstrap --skip-po
+    ./configure \
+      --prefix=/usr \
+      --libdir=/usr/lib64 \
+      --disable-static \
+      --disable-doc \
+      --disable-nls
+    make -j$(nproc)
+    make DESTDIR=$OUTDIR install
+    rm -rf /out/usr/share/man
+
