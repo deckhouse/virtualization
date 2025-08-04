@@ -184,27 +184,4 @@ spec:
   {{- if $isWebhook -}}
   {{-   include "kube_api_rewriter.webhook_container_port" .| nindent 4 }}
   {{- end -}}
-    - containerPort: 9090
-      name: metrics
-      protocol: TCP
-  livenessProbe:
-    httpGet:
-      path: /healthz
-      port: metrics
-      scheme: HTTP
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 3
-    successThreshold: 1
-    failureThreshold: 3
-  readinessProbe:
-    httpGet:
-      path: /readyz
-      port: metrics
-      scheme: HTTP
-    initialDelaySeconds: 5
-    periodSeconds: 10
-    timeoutSeconds: 3
-    successThreshold: 1
-    failureThreshold: 3
 {{- end -}}
