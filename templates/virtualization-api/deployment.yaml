@@ -109,15 +109,13 @@ spec:
               path: /healthz
               port: apiserver
               scheme: HTTPS
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: 10
           readinessProbe:
             httpGet:
               path: /healthz
               port: apiserver
               scheme: HTTPS
-            initialDelaySeconds: 5
-            periodSeconds: 10
+            initialDelaySeconds: 10
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
