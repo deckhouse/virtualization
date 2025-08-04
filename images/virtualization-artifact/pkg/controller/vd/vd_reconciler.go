@@ -19,6 +19,7 @@ package vd
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -91,7 +92,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 			CreateFunc: func(e event.CreateEvent) bool { return true },
 			DeleteFunc: func(e event.DeleteEvent) bool { return true },
 			UpdateFunc: func(e event.UpdateEvent) bool {
-				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+				return !reflect.DeepEqual(e.ObjectOld.GetFinalizers(), e.ObjectNew.GetFinalizers()) || e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
 			},
 		},
 	); err != nil {
