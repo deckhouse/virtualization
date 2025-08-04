@@ -46,6 +46,11 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmmac *virtv2.VirtualMachi
 		return reconcile.Result{}, nil
 	}
 
+	diff := vmmac.CreationTimestamp.Time.Sub(attachedCondition.LastTransitionTime.Time).Abs()
+	if diff.Seconds() < 1 {
+		return reconcile.Result{}, nil
+	}
+
 	err := h.client.Delete(ctx, vmmac)
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return reconcile.Result{}, fmt.Errorf("delete vmmac: %w", err)

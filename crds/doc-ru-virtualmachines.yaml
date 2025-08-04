@@ -533,6 +533,12 @@ spec:
                     Указывается при необходимости использования ранее созданного IP-адреса ВМ.
 
                     Если не указано явно, по умолчанию для ВМ создаётся ресурс virtualMachineIPAddress с именем, аналогичным ресурсу ВМ (`.metadata.name`).
+                virtualMachineMACAddressNames:
+                  description: |
+                    Список MAC-адресов виртуальной машины.
+                  items:
+                    description: |
+                      Имя virtualMachineMACAddressName, содержащее MAC-адрес виртуальной машины.
                 liveMigrationPolicy:
                   type: string
                   description: |
