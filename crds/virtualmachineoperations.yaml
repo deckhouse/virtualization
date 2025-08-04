@@ -73,6 +73,38 @@ spec:
                     * Effect on `Restart` and `Stop`: operation performs immediately.
                     * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
                   type: boolean
+                restore:
+                  description: Restore defines the restore operation.
+                  properties:
+                    dryRun:
+                      description:
+                        DryRun defines whether to perform a dry run of the
+                        restore operation.
+                      type: boolean
+                    from:
+                      description: From defines the source of the restore operation.
+                      items:
+                        description:
+                          VirtualMachineOperationRestoreFromSpec defines
+                          the source of the restore operation.
+                        properties:
+                          kind:
+                            description: Kind of virtual machine resource to restore.
+                            enum:
+                              - VirtualMachineSnapshot
+                            type: string
+                          name:
+                            description: Name of existing VirtualMachineSnapshot resource.
+                            type: string
+                        required:
+                          - kind
+                          - name
+                        type: object
+                      minItems: 1
+                      type: array
+                  required:
+                    - dryRun
+                  type: object
                 type:
                   description: |-
                     Type of the operation to execute on a virtual machine:
@@ -81,12 +113,14 @@ spec:
                     * `Restart`: Restart the virtual machine.
                     * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
                     * `Evict`: Migrate the virtual machine to another node where it can be started.
+                    * `Restore`: Restore the virtual machine from a snapshot.
                   enum:
                     - Restart
                     - Start
                     - Stop
                     - Migrate
                     - Evict
+                    - Restore
                   type: string
                 virtualMachineName:
                   description:
@@ -106,6 +140,8 @@ spec:
                   rule:
                     "self.type == 'Migrate' ? !has(self.force) || !self.force :
                     true"
+                - message: Restore requires restore field.
+                  rule: "self.type == 'Restore' ? has(self.restore) : true"
             status:
               properties:
                 conditions:
