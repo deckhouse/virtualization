@@ -21,7 +21,9 @@ metadata:
   {{- include "helm_lib_module_labels" (list $context) | nindent 2 }}
 type: kubernetes.io/tls
 data:
+{{- if (hasKey $module_values.internal.customCertificateData "ca.crt") }}
   ca.crt: {{ index $module_values.internal.customCertificateData "ca.crt" | b64enc }}
+{{- end }}
   tls.crt: {{ index $module_values.internal.customCertificateData "tls.crt" | b64enc }}
   tls.key: {{ index $module_values.internal.customCertificateData "tls.key" | b64enc }}
   {{- end -}}
