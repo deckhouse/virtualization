@@ -96,6 +96,11 @@ func (s CreateDataVolumeFromClusterVirtualImageStep) Take(ctx context.Context, v
 	size, err := s.getPVCSize(vd, cviRef)
 	if err != nil {
 		if errors.Is(err, service.ErrInsufficientPVCSize) {
+			vd.Status.Phase = virtv2.DiskFailed
+			s.cb.
+				Status(metav1.ConditionFalse).
+				Reason(vdcondition.ProvisioningFailed).
+				Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 			return &reconcile.Result{}, nil
 		}
 
