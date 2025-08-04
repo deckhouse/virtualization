@@ -108,7 +108,7 @@ spec:
             httpGet:
               path: /healthz
               port: apiserver
-              scheme: HTTP
+              scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 10
@@ -116,7 +116,7 @@ spec:
             httpGet:
               path: /healthz
               port: apiserver
-              scheme: HTTP
+              scheme: HTTPS
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 10
