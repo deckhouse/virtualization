@@ -23,6 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -72,7 +73,7 @@ func (v *SingleDefaultClassValidator) checkDefaultIsSingle(ctx context.Context, 
 	// Prevent adding default class annotation if default class was already assigned.
 	for _, vmClassItem := range classes.Items {
 		if v.vmClassService.IsDefault(&vmClassItem) && vmClassItem.GetName() != vmClass.GetName() {
-			return fmt.Errorf("multiple default virtual machine classes are prohibited, current default class is %s. (tip: to assign new default class first remove '%s' annotation from the current default class)", vmClassItem.GetName(), "ANNO")
+			return fmt.Errorf("multiple default virtual machine classes are prohibited, current default class is %s. (tip: to assign new default class first remove '%s' annotation from the current default class)", vmClassItem.GetName(), annotations.AnnVirtualMachineClassDefault)
 		}
 	}
 	return nil
