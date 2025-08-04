@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: 'Daily CVE tests'
+name: "Daily CVE tests"
 on:
   schedule:
-    - cron: '0 02 * * *'
+    - cron: "0 02 * * *"
   workflow_dispatch:
     inputs:
       release_branch:
-        description: 'release version in semver minor format, example: 1.68'
+        description: "release version in semver minor format, example: 1.68"
         required: false
 
 concurrency:
