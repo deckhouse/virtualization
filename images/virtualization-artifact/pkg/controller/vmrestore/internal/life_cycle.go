@@ -155,8 +155,13 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 		return reconcile.Result{}, err
 	}
 
-	for _, vmmac := range vmmacs {
-		overrideValidators = append(overrideValidators, restorer.NewVirtualMachineMACAddressOverrideValidator(vmmac, h.client, string(vmRestore.UID)))
+	if vmmacs != nil {
+		var vmmacNames []string
+		for _, vmmac := range vmmacs {
+			vmmacNames = append(vmmacNames, vmmac.Name)
+			overrideValidators = append(overrideValidators, restorer.NewVirtualMachineMACAddressOverrideValidator(vmmac, h.client, string(vmRestore.UID)))
+		}
+		vm.Spec.VirtualMachineMACAddresses = vmmacNames
 	}
 
 	overrideValidators = append(overrideValidators, restorer.NewVirtualMachineOverrideValidator(vm, h.client, string(vmRestore.UID)))

@@ -91,8 +91,14 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	println("dlopatin case", macAddressesByIfName)
 
 	if len(macAddressesByIfName) < len(networkSpec) {
+		if vm.Spec.VirtualMachineMACAddresses != nil {
+			cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Waiting for the MAC address to be created %d/%d", len(macAddressesByIfName), len(networkSpec)))
+			return reconcile.Result{}, nil
+		}
+
 		if kvvm != nil {
 			for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
 				if _, ok := macAddressesByIfName[iface.Name]; !ok {
@@ -113,7 +119,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 			}
 		}
 
-		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Waiting for the MAC address lease to be created %d/%d", len(macAddressesByIfName), len(networkSpec)))
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Waiting for the MAC address to be created %d/%d", len(macAddressesByIfName), len(networkSpec)))
 		return reconcile.Result{}, nil
 	}
 

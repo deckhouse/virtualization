@@ -168,7 +168,14 @@ spec:
                     Specified when it is necessary to use a previously created IP address of a VM.
 
                     If not explicitly specified, by default a virtualMachineIPAddress resource is created with a name similar to the VM resource (`.metadata.name`).
-
+                virtualMachineMACAddressNames:
+                  type: array
+                  description: |
+                    List of MAC addresses of the VM.
+                  items:
+                    type: string
+                    description: |
+                      Name of the VirtualMachineMACAddressName resource with an MAC address of the VM.
                 topologySpreadConstraints:
                   description: |
                     [The same](https://kubernetes.io/docs/concepts/scheduling-eviction/topology-spread-constraints/) as in the pod parameter `spec.topologySpreadConstraints` in Kubernetes.

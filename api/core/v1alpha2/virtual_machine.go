@@ -101,9 +101,10 @@ type VirtualMachineSpec struct {
 	// +kubebuilder:default:="BIOS"
 	Bootloader BootloaderType `json:"bootloader,omitempty"`
 	// Name of the `VirtualMachineClass` resource describing the requirements for a virtual CPU, memory and the resource allocation policy and node placement policies for virtual machines.
-	VirtualMachineClassName string     `json:"virtualMachineClassName"`
-	CPU                     CPUSpec    `json:"cpu"`
-	Memory                  MemorySpec `json:"memory"`
+	VirtualMachineClassName    string     `json:"virtualMachineClassName"`
+	VirtualMachineMACAddresses []string   `json:"virtualMachineMACAddressNames"`
+	CPU                        CPUSpec    `json:"cpu"`
+	Memory                     MemorySpec `json:"memory"`
 	// List of block devices that can be mounted by disks belonging to the virtual machine.
 	// The order of booting is determined by the order in the list.
 	// +kubebuilder:validation:MinItems:=1

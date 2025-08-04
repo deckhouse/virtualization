@@ -335,25 +335,39 @@ func (s *state) MACAddressesByInterfaceName(ctx context.Context) (map[string]*vi
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	vmmacNames := s.vm.Current().Spec.VirtualMachineMACAddresses
+	if vmmacNames == nil {
+		vmmacList := &virtv2.VirtualMachineMACAddressList{}
+		err := s.client.List(ctx, vmmacList, &client.ListOptions{
+			Namespace:     s.vm.Current().GetNamespace(),
+			LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineUID: string(s.vm.Current().GetUID())}),
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list VirtualMachineMACAddress: %w", err)
+		}
 
-	vmmacList := &virtv2.VirtualMachineMACAddressList{}
-	err := s.client.List(ctx, vmmacList, &client.ListOptions{
-		Namespace:     s.vm.Current().GetNamespace(),
-		LabelSelector: labels.SelectorFromSet(map[string]string{annotations.LabelVirtualMachineUID: string(s.vm.Current().GetUID())}),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list VirtualMachineMACAddress: %w", err)
+		if len(vmmacList.Items) == 0 {
+			return nil, nil
+		}
+		macAddressesByIfName := make(map[string]*virtv2.VirtualMachineMACAddress)
+		for _, vmmac := range vmmacList.Items {
+			macAddressesByIfName[vmmac.Spec.InterfaceName] = &vmmac
+		}
+
+		s.macAddressesByIfName = macAddressesByIfName
+	} else {
+		macAddressesByIfName := make(map[string]*virtv2.VirtualMachineMACAddress)
+		for _, vmmacName := range vmmacNames {
+			vmmacKey := types.NamespacedName{Name: vmmacName, Namespace: s.vm.Current().GetNamespace()}
+			vmmac, err := object.FetchObject(ctx, vmmacKey, s.client, &virtv2.VirtualMachineMACAddress{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch VirtualMachineMACAddress: %w", err)
+			}
+			macAddressesByIfName[vmmac.Spec.InterfaceName] = vmmac
+		}
+		s.macAddressesByIfName = macAddressesByIfName
 	}
 
-	if len(vmmacList.Items) == 0 {
-		return nil, nil
-	}
-	macAddressesByIfName := make(map[string]*virtv2.VirtualMachineMACAddress)
-	for _, vmmac := range vmmacList.Items {
-		macAddressesByIfName[vmmac.Spec.InterfaceName] = &vmmac
-	}
-
-	s.macAddressesByIfName = macAddressesByIfName
 	return s.macAddressesByIfName, nil
 }
 
