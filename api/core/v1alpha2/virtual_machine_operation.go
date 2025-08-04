@@ -45,6 +45,7 @@ type VirtualMachineOperation struct {
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message=".spec is immutable"
 // +kubebuilder:validation:XValidation:rule="self.type == 'Start' ? !has(self.force) || !self.force : true",message="The `Start` operation cannot be performed forcibly."
 // +kubebuilder:validation:XValidation:rule="self.type == 'Migrate' ? !has(self.force) || !self.force : true",message="The `Migrate` operation cannot be performed forcibly."
+// +kubebuilder:validation:XValidation:rule="self.type == 'Restore' ? has(self.restore) : true",message="Restore requires restore field."
 type VirtualMachineOperationSpec struct {
 	Type VMOPType `json:"type"`
 	// Name of the virtual machine the operation is performed for.
@@ -54,6 +55,34 @@ type VirtualMachineOperationSpec struct {
 	// * Effect on `Restart` and `Stop`: operation performs immediately.
 	// * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
 	Force *bool `json:"force,omitempty"`
+	// Restore defines the restore operation.
+	Restore *VirtualMachineOperationRestoreSpec `json:"restore,omitempty"`
+}
+
+// VirtualMachineOperationRestoreSpec defines the restore operation.
+type VirtualMachineOperationRestoreSpec struct {
+	// DryRun defines whether to perform a dry run of the restore operation.
+	DryRun bool `json:"dryRun"`
+	// From defines the source of the restore operation.
+	// +kubebuilder:validation:MinItems=1
+	From []VirtualMachineOperationRestoreFromSpec `json:"from,omitempty"`
+}
+
+// VMOPRestoreKind defines the kind of the restore operation.
+// * `VirtualMachineSnapshot`: Restore the virtual machine from a snapshot.
+// +kubebuilder:validation:Enum={VirtualMachineSnapshot}
+type VMOPRestoreKind string
+
+const (
+	VMOPRestoreVirtualMachineSnapshot VMOPRestoreKind = "VirtualMachineSnapshot"
+)
+
+// VirtualMachineOperationRestoreFromSpec defines the source of the restore operation.
+type VirtualMachineOperationRestoreFromSpec struct {
+	// Kind of virtual machine resource to restore.
+	Kind VMOPRestoreKind `json:"kind"`
+	// Name of existing VirtualMachineSnapshot resource.
+	Name string `json:"name"`
 }
 
 type VirtualMachineOperationStatus struct {
@@ -95,7 +124,8 @@ const (
 // * `Restart`: Restart the virtual machine.
 // * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
 // * `Evict`: Migrate the virtual machine to another node where it can be started.
-// +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate,Evict}
+// * `Restore`: Restore the virtual machine from a snapshot.
+// +kubebuilder:validation:Enum={Restart,Start,Stop,Migrate,Evict,Restore}
 type VMOPType string
 
 const (
@@ -104,4 +134,5 @@ const (
 	VMOPTypeStop    VMOPType = "Stop"
 	VMOPTypeMigrate VMOPType = "Migrate"
 	VMOPTypeEvict   VMOPType = "Evict"
+	VMOPTypeRestore VMOPType = "Restore"
 )

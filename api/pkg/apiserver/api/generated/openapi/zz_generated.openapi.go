@@ -129,6 +129,8 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineMigrationState":              schema_virtualization_api_core_v1alpha2_VirtualMachineMigrationState(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperation":                   schema_virtualization_api_core_v1alpha2_VirtualMachineOperation(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationList":               schema_virtualization_api_core_v1alpha2_VirtualMachineOperationList(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreFromSpec":    schema_virtualization_api_core_v1alpha2_VirtualMachineOperationRestoreFromSpec(ref),
+		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreSpec":        schema_virtualization_api_core_v1alpha2_VirtualMachineOperationRestoreSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationSpec":               schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationStatus":             schema_virtualization_api_core_v1alpha2_VirtualMachineOperationStatus(ref),
 		"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachinePhaseTransitionTimestamp":    schema_virtualization_api_core_v1alpha2_VirtualMachinePhaseTransitionTimestamp(ref),
@@ -4482,6 +4484,74 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationList(ref com
 	}
 }
 
+func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationRestoreFromSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineOperationRestoreFromSpec defines the source of the restore operation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"kind": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kind of virtual machine resource to restore.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"name": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Name of existing VirtualMachineSnapshot resource.",
+							Default:     "",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"kind", "name"},
+			},
+		},
+	}
+}
+
+func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationRestoreSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "VirtualMachineOperationRestoreSpec defines the restore operation.",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"dryRun": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DryRun defines whether to perform a dry run of the restore operation.",
+							Default:     false,
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"from": {
+						SchemaProps: spec.SchemaProps{
+							Description: "From defines the source of the restore operation.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Default: map[string]interface{}{},
+										Ref:     ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreFromSpec"),
+									},
+								},
+							},
+						},
+					},
+				},
+				Required: []string{"dryRun"},
+			},
+		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreFromSpec"},
+	}
+}
+
 func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref common.ReferenceCallback) common.OpenAPIDefinition {
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
@@ -4510,10 +4580,18 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineOperationSpec(ref com
 							Format:      "",
 						},
 					},
+					"restore": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Restore defines the restore operation.",
+							Ref:         ref("github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreSpec"),
+						},
+					},
 				},
 				Required: []string{"type", "virtualMachineName"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/deckhouse/virtualization/api/core/v1alpha2.VirtualMachineOperationRestoreSpec"},
 	}
 }
 
