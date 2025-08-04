@@ -20,7 +20,7 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
   add: /out
-  to: /libgmp10
+  to: /libgmp
   before: setup
 
 ---

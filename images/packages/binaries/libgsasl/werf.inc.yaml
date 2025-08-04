@@ -55,12 +55,13 @@ image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
-  - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
-    add: /src
-    to: /src
-    before: install
-  {{- $images := list "libgcrypt" "libidn" -}}
-  {{- include "importPackageImages" (list $images "install") -}}
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{/*{{- $images := list "libgcrypt" "libidn" -}} */}}
+{{- $images := list "libgcrypt" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}

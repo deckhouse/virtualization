@@ -9,7 +9,7 @@ import:
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "libbsd/libmd.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact

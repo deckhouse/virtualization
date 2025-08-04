@@ -3,7 +3,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
-- add: {{ .ImagePath }}
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /app/images/hooks
   stageDependencies:
     install:
@@ -38,4 +38,4 @@ shell:
     export CGO_ENABLED=0
     export TAGS="{{ printf "-tags %s" .MODULE_EDITION }}"
     {{- $_ := set $ "ProjectName" (list $.ImageName "hooks" | join "/") }}
-    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /hooks/virtualization-module-hooks ./cmd/virtualization-module-hooks`) | nindent 6 }}
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /go-hooks/virtualization-module-hooks ./cmd/virtualization-module-hooks`) | nindent 6 }}

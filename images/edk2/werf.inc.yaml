@@ -3,7 +3,6 @@
 {{- $version := get .Version $gitRepoName }}
 {{- $gitRepoUrl := "tianocore/edk2.git" }}
 
-image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -61,20 +60,15 @@ git:
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
-import:
-{{- $images := list "libisoburn" -}}
-{{- include "importPackageImages" (list $images "install") -}}
-- image: qemu
-  add: /qemu-img
-  to: /qemu-img
-  before: install
 shell:
   install:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     echo "Git clone Edk2 repository..."
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $gitRepoName }}-{{ $version }} {{ $gitRepoName }}-{{ $version }}
+    git clone \
+      --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} \
+      --branch {{ $gitRepoName }}-{{ $version }} /{{ $gitRepoName }}-{{ $version }}
 
     git clone $(cat /run/secrets/SOURCE_REPO)/tianocore/edk2-platforms.git
 
@@ -119,6 +113,12 @@ import:
   add: /build.sh
   to: /build.sh
   before: install
+{{- $images := list "libisoburn" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
+- image: {{ .ModuleNamePrefix }}qemu
+  add: /qemu-img
+  to: /qemu-img
+  before: install
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -138,8 +138,11 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-
-    cd {{ $gitRepoName }}-{{ $version }}
+    
+    echo "List files in /"
+    ls -la /
+    cd /{{ $gitRepoName }}-{{ $version }}
+    echo "========"
 
     # Set env edk
     export EDK_TOOLS_PATH=$(pwd)/BaseTools

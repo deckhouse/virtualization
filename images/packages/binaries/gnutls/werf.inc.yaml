@@ -63,9 +63,12 @@ image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
 final: false
 fromImage: builder/alt
 import:
-  {{/* TODO: importPackageImages */}}
-  {{- $images := list "libbrotli" "libidn2" "libgcrypt" "libgmp" -}}
-  {{- include "importPackageImages" (list $images "install") -}}
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+{{- $images := list "libbrotli" "libidn2" "libgcrypt" "libgmp" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}

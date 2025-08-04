@@ -23,7 +23,7 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 {{- $name := print $.ImageName "-dependencies" -}}
@@ -32,8 +32,10 @@ packages:
 - gcc
 - git pkg-config trousers
 - automake autoconf make makeinfo libtool
-- musl-devel-static
 - flex bison asciidoc-a2x
+- libmnl-devel libnftnl-devel libreadline-devel libjansson-devel
+- gmp-devel libedit-devel
+- python3-devel python3-module-setuptools
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -47,7 +49,7 @@ import:
   to: /src
   before: install
 {{- $images := list "libgmp" -}}
-{{- include "importPackageImages" (list $images "install") -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}

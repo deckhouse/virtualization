@@ -3,7 +3,7 @@ image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-- add: {{ .ImagePath }}
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /src
   stageDependencies:
     install:
@@ -84,13 +84,9 @@ import:
   add: /out
   to: /usr/local/bin
   before: setup
-{{/*
-  # TODO: change template for import packages "importPackageImages"
-   - image: {{ .ModuleNamePrefix }}packages/binaries/file
-*/}}
 {{- $images := list "bzip2" "file" "nbdkit" -}}
-{{- include "importPackageImages" (list $images "install") -}}
-- image: qemu
+{{- include "importPackageImages" (list . $images "install") -}}
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
   before: install

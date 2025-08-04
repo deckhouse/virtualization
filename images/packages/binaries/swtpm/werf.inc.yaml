@@ -23,7 +23,7 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
-    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch v{{ $version }} /src
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 ---
 
 
@@ -53,8 +53,8 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libgmp" -}}
-{{- include "importPackageImages" (list $images "install") -}}
+{{- $images := list "libgmp" "libtpms" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
