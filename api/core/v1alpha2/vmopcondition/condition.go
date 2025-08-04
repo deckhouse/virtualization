@@ -80,6 +80,9 @@ const (
 	// ReasonOtherMigrationInProgress is a ReasonCompleted indicating that there are other migrations in progress.
 	ReasonOtherMigrationInProgress ReasonCompleted = "OtherMigrationInProgress"
 
+	// ReasonQuotaExceeded is a completed reason that indicates the project's quota has been exceeded and the migration has been paused.
+	ReasonQuotaExceeded ReasonCompleted = "QuotaExceeded"
+
 	// ReasonOperationFailed is a ReasonCompleted indicating that operation has failed.
 	ReasonOperationFailed ReasonCompleted = "OperationFailed"
 
