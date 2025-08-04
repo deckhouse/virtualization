@@ -93,7 +93,11 @@ func (ds ObjectRefVirtualImage) Validate(ctx context.Context, vd *virtv2.Virtual
 		return fmt.Errorf("fetch vi %q: %w", viRefKey, err)
 	}
 
-	if viRef == nil || viRef.Status.Phase != virtv2.ImageReady {
+	if viRef == nil {
+		return NewImageNotFoundError(vd.Spec.DataSource.ObjectRef.Name)
+	}
+
+	if viRef.Status.Phase != virtv2.ImageReady {
 		return NewImageNotReadyError(vd.Spec.DataSource.ObjectRef.Name)
 	}
 
