@@ -86,6 +86,8 @@
 {{- end }}
 - name: METRICS_BIND_ADDRESS
   value: "127.0.0.1:8080"
+- name: HEALTH_PROBE_BIND_ADDRESS
+  value: ":8082"
 {{- if eq .Values.virtualization.logLevel "debug" }}
 - name: PPROF_BIND_ADDRESS
   value: ":8081"

@@ -78,8 +78,6 @@ spec:
           {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationController") }}
           imagePullPolicy: IfNotPresent
-          args:
-            - --health-probe-bind-address=0.0.0.0:8082
           volumeMounts:
             - mountPath: /tmp/k8s-webhook-server/serving-certs
               name: admission-webhook-secret
@@ -108,7 +106,7 @@ spec:
             {{- include "virtualization-controller.envs" . | nindent 12 }}
           livenessProbe:
             httpGet:
-              path: /livez
+              path: /healthz
               port: health
               scheme: HTTP
             initialDelaySeconds: 10
