@@ -133,13 +133,13 @@ spec:
           httpGet:
             path: /healthz
             port: 8443
-            scheme: HTTPS
+            scheme: HTTP
           initialDelaySeconds: 10
         livenessProbe:
           httpGet:
             path: /healthz
             port: 8443
-            scheme: HTTPS
+            scheme: HTTP
           initialDelaySeconds: 10
         resources:
           requests:
