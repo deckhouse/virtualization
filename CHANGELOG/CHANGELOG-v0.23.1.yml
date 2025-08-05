@@ -1,0 +1,5 @@
+api:
+  fixes:
+    - summary: A virtual machine with the `AlwaysOn` run policy can be restored with the `forced` mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1294
+
