@@ -38,6 +38,9 @@ func (r ReasonCompleted) String() string {
 }
 
 const (
+	// ReasonRestoreInProgress is a ReasonCompleted indicating that the start signal has been sent and start is in progress.
+	ReasonRestoreInProgress ReasonCompleted = "RestoreInProgress"
+
 	// ReasonVirtualMachineNotFound is a ReasonCompleted indicating that the specified virtual machine is absent.
 	ReasonVirtualMachineNotFound ReasonCompleted = "VirtualMachineNotFound"
 
