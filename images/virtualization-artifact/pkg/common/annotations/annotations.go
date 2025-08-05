@@ -105,6 +105,9 @@ const (
 	// SkipPodSecurityStandardsCheckLabel is a label to skip the check for PodSecurityStandards to avoid irrelevant alerts related to a privileged virtual machine pod.
 	SkipPodSecurityStandardsCheckLabel = "security.deckhouse.io/skip-pss-check"
 
+	// LabelVirtualMachineMACAddressUID is a label to link VirtualMachineMACAddressLease to VirtualMachineMACAddress.
+	LabelVirtualMachineMACAddressUID = LabelsPrefix + "/virtual-machine-mac-address-uid"
+
 	UploaderServiceLabel = "service"
 
 	// AppKubernetesManagedByLabel is the Kubernetes recommended managed-by label.
