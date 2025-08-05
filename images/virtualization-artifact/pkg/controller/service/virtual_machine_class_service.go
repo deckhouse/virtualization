@@ -36,12 +36,18 @@ func (v *VirtualMachineClassService) IsDefault(vmClass *v1alpha2.VirtualMachineC
 	if vmClass == nil {
 		return false
 	}
-	classAnnotations := vmClass.GetAnnotations()
-	if classAnnotations == nil {
-		return false
+	return vmClass.Annotations[annotations.AnnVirtualMachineClassDefault] == "true"
+}
+
+func (v *VirtualMachineClassService) ValidateDefaultAnnotation(vmClass *v1alpha2.VirtualMachineClass) error {
+	if vmClass == nil {
+		return nil
 	}
-	_, ok := classAnnotations[annotations.AnnVirtualMachineClassDefault]
-	return ok
+	annoValue, ok := vmClass.Annotations[annotations.AnnVirtualMachineClassDefault]
+	if ok && annoValue != "true" {
+		return fmt.Errorf("annotation for default class '%s' may have only 'true' value")
+	}
+	return nil
 }
 
 func (v *VirtualMachineClassService) GetDefault(classes *v1alpha2.VirtualMachineClassList) (*v1alpha2.VirtualMachineClass, error) {
