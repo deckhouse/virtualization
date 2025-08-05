@@ -41,7 +41,12 @@ func NewSingleDefaultClassValidator(client client.Client, vmClassService *servic
 }
 
 func (v *SingleDefaultClassValidator) ValidateCreate(ctx context.Context, vmClass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
-	err := v.checkDefaultIsSingle(ctx, vmClass)
+	err := v.vmClassService.ValidateDefaultAnnotation(vmClass)
+	if err != nil {
+		return nil, err
+	}
+
+	err = v.checkDefaultIsSingle(ctx, vmClass)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +55,12 @@ func (v *SingleDefaultClassValidator) ValidateCreate(ctx context.Context, vmClas
 }
 
 func (v *SingleDefaultClassValidator) ValidateUpdate(ctx context.Context, _, newVMClass *v1alpha2.VirtualMachineClass) (admission.Warnings, error) {
-	err := v.checkDefaultIsSingle(ctx, newVMClass)
+	err := v.vmClassService.ValidateDefaultAnnotation(newVMClass)
+	if err != nil {
+		return nil, err
+	}
+
+	err = v.checkDefaultIsSingle(ctx, newVMClass)
 	if err != nil {
 		return nil, err
 	}
