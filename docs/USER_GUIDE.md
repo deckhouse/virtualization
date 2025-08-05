@@ -2502,7 +2502,6 @@ How to create a disk image in the web interface:
 - Click "Create Disk Snapshot".
 - In the "Disk Snapshot Name" field, enter a name for the snapshot.
 - On the "Configuration" tab, in the "Disk Name" field, select the disk from which the snapshot will be created.
-- In the "Snapshot Storage Class" field, select the desired `VolumeSnapshotClasses`.
 - Enable the "Integrity Guarantee" switch.
 - Click the "Create" button.
 - The image status is displayed at the top left, under the snapshot name.
