@@ -261,10 +261,6 @@ func main() {
 		log.Error("Failed to add healthz check", logger.SlogErr(err))
 		os.Exit(1)
 	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		log.Error("Failed to add readyz check", logger.SlogErr(err))
-		os.Exit(1)
-	}
 
 	log.Info("Registering Components.")
 
