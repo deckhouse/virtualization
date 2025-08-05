@@ -122,7 +122,7 @@ func main() {
 	flag.StringVar(&metricsBindAddr, "metrics-bind-address", getEnv(metricsBindAddrEnv, ":8080"), "metric bind address")
 
 	var healthProbeBindAddr string
-	flag.StringVar(&healthProbeBindAddr, "health-probe-bind-address", getEnv(healthProbeBindAddrEnv, ":8082"), "health probe bind address")
+	flag.StringVar(&healthProbeBindAddr, "health-probe-bind-address", getEnv(healthProbeBindAddrEnv, ":8083"), "health probe bind address")
 
 	var firmwareImage string
 	flag.StringVar(&firmwareImage, "firmware-image", os.Getenv(FirmwareImageEnv), "Firmware image")

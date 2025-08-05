@@ -92,7 +92,7 @@ spec:
             - containerPort: 8081
               name: pprof
               protocol: TCP
-            - containerPort: 8082
+            - containerPort: 8083
               name: health
               protocol: TCP
           resources:
