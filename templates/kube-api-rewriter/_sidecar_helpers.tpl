@@ -171,26 +171,18 @@ spec:
         - ALL
     seccompProfile:
       type: RuntimeDefault
-#  livenessProbe:
-#    httpGet:
-#      path: /healthz
-#      port: 9090
-#      scheme: HTTP
-#    initialDelaySeconds: 5
-#    periodSeconds: 10
-#    timeoutSeconds: 3
-#    successThreshold: 1
-#    failureThreshold: 3
-#  readinessProbe:
-#    httpGet:
-#      path: /readyz
-#      port: 9090
-#      scheme: HTTP
-#    initialDelaySeconds: 5
-#    periodSeconds: 10
-#    timeoutSeconds: 3
-#    successThreshold: 1
-#    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 9090
+      scheme: HTTP
+    initialDelaySeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 9090
+      scheme: HTTP
+    initialDelaySeconds: 10
   terminationMessagePath: /dev/termination-log
   terminationMessagePolicy: File
   {{- if $isWebhook }}
