@@ -22,7 +22,6 @@ import (
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -97,13 +96,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, err
 	}
 
+	if vm.IsEmpty() {
+		log.Info("Reconcile observe an absent VirtualMachine: it may be deleted")
+		return reconcile.Result{}, nil
+	}
+
+	s := state.New(r.client, vm)
 	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Changed().Status.Conditions)
 	if maintenance.Status == metav1.ConditionTrue {
 		log.Info("Reconcile observe an VirtualMachine in maintenance mode, stopped vm")
-		kvvm := &virtv1.VirtualMachine{}
-		err = r.client.Get(ctx, req.NamespacedName, kvvm)
+		kvvm, err := s.KVVM(ctx)
 		if err != nil {
-			return reconcile.Result{}, client.IgnoreNotFound(err)
+			return reconcile.Result{}, err
+		}
+		if kvvm == nil {
+			return reconcile.Result{}, nil
 		}
 		err = object.CleanupObject(ctx, r.client, kvvm)
 		if err != nil {
@@ -112,13 +119,6 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 		return reconcile.Result{}, nil
 	}
-
-	if vm.IsEmpty() {
-		log.Info("Reconcile observe an absent VirtualMachine: it may be deleted")
-		return reconcile.Result{}, nil
-	}
-
-	s := state.New(r.client, vm)
 
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
