@@ -101,7 +101,7 @@ spec:
         - name: MONITORING_NAMESPACE
         args:
         - -metrics_address
-        - 127.0.0.1:8080
+        - :8080
         image: {{ include "helm_lib_module_image" (list . "cdiOperator") }}
         imagePullPolicy: IfNotPresent
         ports:
