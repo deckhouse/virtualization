@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -85,8 +86,12 @@ var _ = Describe("NetworkInterfaceHandler", func() {
 	})
 
 	reconcile := func() {
-		h := NewNetworkInterfaceHandler(true)
-		_, err := h.Handle(ctx, vmState)
+		gate, _, setFromMap, err := featuregates.New()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(setFromMap(map[string]bool{string(featuregates.SDN): true})).To(Succeed())
+
+		h := NewNetworkInterfaceHandler(gate)
+		_, err = h.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
 		err = resource.Update(context.Background())
 		Expect(err).NotTo(HaveOccurred())

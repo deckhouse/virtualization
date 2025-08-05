@@ -32,6 +32,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -47,7 +48,6 @@ func SetupController(
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
-	isSDNEnabled bool,
 	clusterUUID string,
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
@@ -65,7 +65,7 @@ func SetupController(
 		internal.NewSnapshottingHandler(client),
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
-		internal.NewNetworkInterfaceHandler(isSDNEnabled),
+		internal.NewNetworkInterfaceHandler(featuregates.Default()),
 		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, clusterUUID),
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
