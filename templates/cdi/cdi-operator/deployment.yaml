@@ -102,23 +102,28 @@ spec:
         args:
         - -metrics_address
         - 127.0.0.1:8080
+        - -health-probe-bind-address
+        - :8081
         image: {{ include "helm_lib_module_image" (list . "cdiOperator") }}
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
           name: metrics
           protocol: TCP
+        - containerPort: 8081
+          name: health
+          protocol: TCP
         livenessProbe:
           httpGet:
             path: /healthz
-            port: metrics
-            scheme: HTTPS
+            port: health
+            scheme: HTTP
           initialDelaySeconds: 10
         readinessProbe:
           httpGet:
             path: /healthz
-            port: metrics
-            scheme: HTTPS
+            port: health
+            scheme: HTTP
           initialDelaySeconds: 10
         resources:
           requests:
