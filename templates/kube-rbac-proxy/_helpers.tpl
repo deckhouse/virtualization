@@ -14,6 +14,7 @@
   terminationMessagePolicy: File
   args:
   - "--secure-listen-address=$(KUBE_RBAC_PROXY_LISTEN_ADDRESS):{{ $settings.listenPort | default "8082" }}"
+  - "--proxy-endpoints-port={{ $settings.proxyEndpointPort | default "8083" }}"
   - "--v={{ $settings.logLevel | default "2" }}"
   - "--logtostderr=true"
   - "--stale-cache-interval={{ $settings.staleCacheInterval | default "1h30m" }}"
@@ -50,24 +51,21 @@
   - containerPort: {{ $settings.listenPort | default "8082" }}
     name: {{ $settings.portName | default "https-metrics" }}
     protocol: TCP
-#  livenessProbe:
-#    httpGet:
-#      path: /metrics
-#      port: {{ $settings.portName | default "https-metrics" }}
-#      scheme: HTTPS
-#    initialDelaySeconds: 5
-#    periodSeconds: 10
-#    timeoutSeconds: 3
-#    failureThreshold: 3
-#  readinessProbe:
-#    httpGet:
-#      path: /metrics
-#      port: {{ $settings.portName | default "https-metrics" }}
-#      scheme: HTTPS
-#    initialDelaySeconds: 5
-#    periodSeconds: 10
-#    timeoutSeconds: 3
-#    failureThreshold: 3
+  - containerPort: {{ $settings.proxyEndpointPort | default "8083" }}
+    name: {{ $settings.proxyEndpointPortName | default "proxy-endpoint" }}
+    protocol: TCP
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: {{ $settings.proxyEndpointPortName | default "proxy-endpoint" }}
+      scheme: HTTP
+    initialDelaySeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /healthz
+      port: {{ $settings.proxyEndpointPortName | default "proxy-endpoint" }}
+      scheme: HTTP
+    initialDelaySeconds: 10
 {{- end -}}
 
 {{- define "kube_rbac_proxy.pod_spec_strategic_patch" -}}
