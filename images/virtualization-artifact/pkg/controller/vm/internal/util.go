@@ -212,7 +212,7 @@ var mapReasons = map[string]vmcondition.Reason{
 	virtv1.GuestNotRunningReason: vmcondition.ReasonGuestNotRunning,
 }
 
-func isPodStartedError(vm *virtv1.VirtualMachine) bool {
+func IsPodStartedError(vm *virtv1.VirtualMachine) bool {
 	synchronized := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceSynchronized), vm.Status.Conditions)
 	if synchronized != nil &&
 		synchronized.Status == corev1.ConditionFalse &&

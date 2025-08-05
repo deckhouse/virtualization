@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -54,6 +55,8 @@ func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 				newVM := e.ObjectNew.(*virtv1.VirtualMachine)
 				return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
 					oldVM.Status.Ready != newVM.Status.Ready ||
+					internal.IsPodStartedError(oldVM) ||
+					internal.IsPodStartedError(newVM) ||
 					oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
 					oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested]
 			},
