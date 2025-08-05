@@ -106,13 +106,15 @@ spec:
               path: /healthz
               port: metrics
               scheme: HTTP
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
+            failureThreshold: 6
           readinessProbe:
             httpGet:
               path: /healthz
               port: metrics
               scheme: HTTP
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
+            failureThreshold: 6
         {{- $kubeRbacProxySettings := dict }}
         {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
         {{- $_ := set $kubeRbacProxySettings "upstreams" (list
