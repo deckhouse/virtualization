@@ -106,13 +106,13 @@ spec:
               protocol: TCP
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /livez
               port: apiserver
               scheme: HTTPS
             initialDelaySeconds: 10
           readinessProbe:
             httpGet:
-              path: /healthz
+              path: /readyz
               port: apiserver
               scheme: HTTPS
             initialDelaySeconds: 10

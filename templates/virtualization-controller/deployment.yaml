@@ -78,6 +78,8 @@ spec:
           {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 10 }}
           image: {{ include "helm_lib_module_image" (list . "virtualizationController") }}
           imagePullPolicy: IfNotPresent
+          args:
+            - --health-probe-bind-address=0.0.0.0:8082
           volumeMounts:
             - mountPath: /tmp/k8s-webhook-server/serving-certs
               name: admission-webhook-secret
@@ -92,6 +94,9 @@ spec:
             - containerPort: 8081
               name: pprof
               protocol: TCP
+            - containerPort: 8082
+              name: health
+              protocol: TCP
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -103,18 +108,16 @@ spec:
             {{- include "virtualization-controller.envs" . | nindent 12 }}
           livenessProbe:
             httpGet:
-              path: /healthz
-              port: metrics
+              path: /livez
+              port: health
               scheme: HTTP
-            initialDelaySeconds: 30
-            failureThreshold: 6
+            initialDelaySeconds: 10
           readinessProbe:
             httpGet:
-              path: /healthz
-              port: metrics
+              path: /readyz
+              port: health
               scheme: HTTP
-            initialDelaySeconds: 30
-            failureThreshold: 6
+            initialDelaySeconds: 10
         {{- $kubeRbacProxySettings := dict }}
         {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
         {{- $_ := set $kubeRbacProxySettings "upstreams" (list
