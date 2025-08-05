@@ -56,7 +56,8 @@ func (o StopOperation) IsApplicableForVMPhase(phase virtv2.MachinePhase) bool {
 	return phase == virtv2.MachineRunning ||
 		phase == virtv2.MachineDegraded ||
 		phase == virtv2.MachineStarting ||
-		phase == virtv2.MachinePause
+		phase == virtv2.MachinePause ||
+		phase == virtv2.MachinePending
 }
 
 func (o StopOperation) IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool {
