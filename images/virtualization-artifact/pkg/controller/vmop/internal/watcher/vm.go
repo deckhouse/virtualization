@@ -40,37 +40,34 @@ func NewVMWatcher() *VMWatcher {
 type VMWatcher struct{}
 
 func (w VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+	mgrClient := mgr.GetClient()
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, vm client.Object) []reconcile.Request {
-			c := mgr.GetClient()
-			vmops := &v1alpha2.VirtualMachineOperationList{}
-			if err := c.List(ctx, vmops, client.InNamespace(vm.GetNamespace())); err != nil {
-				return nil
-			}
-			var requests []reconcile.Request
-			for _, vmop := range vmops.Items {
-				if vmop.Spec.VirtualMachine == vm.GetName() && vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
-					requests = append(requests, reconcile.Request{
-						NamespacedName: types.NamespacedName{
-							Namespace: vmop.GetNamespace(),
-							Name:      vmop.GetName(),
-						},
-					})
-					break
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *v1alpha2.VirtualMachine) []reconcile.Request {
+				vmops := &v1alpha2.VirtualMachineOperationList{}
+				if err := mgrClient.List(ctx, vmops, client.InNamespace(vm.GetNamespace())); err != nil {
+					return nil
 				}
-			}
-			return requests
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVM := e.ObjectOld.(*v1alpha2.VirtualMachine)
-				newVM := e.ObjectNew.(*v1alpha2.VirtualMachine)
-				return oldVM.Status.Phase != newVM.Status.Phase || newVM.Status.MigrationState != nil
+				var requests []reconcile.Request
+				for _, vmop := range vmops.Items {
+					if vmop.Spec.VirtualMachine == vm.GetName() && vmop.Status.Phase == v1alpha2.VMOPPhaseInProgress {
+						requests = append(requests, reconcile.Request{
+							NamespacedName: types.NamespacedName{
+								Namespace: vmop.GetNamespace(),
+								Name:      vmop.GetName(),
+							},
+						})
+						break
+					}
+				}
+				return requests
+			}),
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || e.ObjectNew.Status.MigrationState != nil
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}

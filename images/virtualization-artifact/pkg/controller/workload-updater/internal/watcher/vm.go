@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -44,28 +43,25 @@ type VMWatcher struct{}
 // this approach avoids duplicating logic and maintains the contract with the TypeFirmwareUpToDate condition.
 func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return predicateVirtualMachine(e.Object)
+		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachine]{},
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool {
+					return predicateVirtualMachine(e.Object)
+				},
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachine]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
+					return predicateVirtualMachine(e.ObjectNew)
+				},
 			},
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return predicateVirtualMachine(e.ObjectNew)
-			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VM: %w", err)
 	}
 	return nil
 }
 
-func predicateVirtualMachine(obj client.Object) bool {
-	vm, ok := obj.(*v1alpha2.VirtualMachine)
-	if !ok {
-		return false
-	}
+func predicateVirtualMachine(vm *v1alpha2.VirtualMachine) bool {
 	c, _ := conditions.GetCondition(vmcondition.TypeFirmwareUpToDate, vm.Status.Conditions)
 	outOfDate := c.Status == metav1.ConditionFalse
 

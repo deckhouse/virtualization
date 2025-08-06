@@ -34,15 +34,17 @@ func NewVirtualMachineBlockDeviceAttachmentWatcher() *VirtualMachineBlockDeviceA
 }
 
 func (w VirtualMachineBlockDeviceAttachmentWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineBlockDeviceAttachment{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineBlockDeviceAttachment{},
+			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachineBlockDeviceAttachment]{},
+			predicate.TypedFuncs[*virtv2.VirtualMachineBlockDeviceAttachment]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineBlockDeviceAttachment]) bool {
+					return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+				},
 			},
-		},
-	)
+		),
+	); err != nil {
+		return err
+	}
+	return nil
 }

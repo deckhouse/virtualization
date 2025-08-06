@@ -242,6 +242,7 @@ func MergeResults(results ...reconcile.Result) reconcile.Result {
 		if r.IsZero() {
 			continue
 		}
+		//nolint:staticcheck // We have to handle it until it is removed
 		if r.Requeue && r.RequeueAfter == 0 {
 			return r
 		}

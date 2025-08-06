@@ -38,22 +38,19 @@ type MigrationWatcher struct{}
 
 func (w MigrationWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstanceMigration{}),
-		handler.EnqueueRequestForOwner(
-			mgr.GetScheme(),
-			mgr.GetRESTMapper(),
-			&v1alpha2.VirtualMachineOperation{},
-			handler.OnlyControllerOwner(),
-		),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldMig := e.ObjectOld.(*virtv1.VirtualMachineInstanceMigration)
-				newMig := e.ObjectNew.(*virtv1.VirtualMachineInstanceMigration)
-				return oldMig.Status.Phase != newMig.Status.Phase
+		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstanceMigration{},
+			handler.TypedEnqueueRequestForOwner[*virtv1.VirtualMachineInstanceMigration](
+				mgr.GetScheme(),
+				mgr.GetRESTMapper(),
+				&v1alpha2.VirtualMachineOperation{},
+				handler.OnlyControllerOwner(),
+			),
+			predicate.TypedFuncs[*virtv1.VirtualMachineInstanceMigration]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstanceMigration]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineInstanceMigration: %w", err)
 	}

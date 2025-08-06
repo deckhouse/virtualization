@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // VirtualMachineIPAddressLeaseLister helps list VirtualMachineIPAddressLeases.
@@ -30,39 +30,19 @@ import (
 type VirtualMachineIPAddressLeaseLister interface {
 	// List lists all VirtualMachineIPAddressLeases in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineIPAddressLease, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualMachineIPAddressLease, err error)
 	// Get retrieves the VirtualMachineIPAddressLease from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.VirtualMachineIPAddressLease, error)
+	Get(name string) (*corev1alpha2.VirtualMachineIPAddressLease, error)
 	VirtualMachineIPAddressLeaseListerExpansion
 }
 
 // virtualMachineIPAddressLeaseLister implements the VirtualMachineIPAddressLeaseLister interface.
 type virtualMachineIPAddressLeaseLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1alpha2.VirtualMachineIPAddressLease]
 }
 
 // NewVirtualMachineIPAddressLeaseLister returns a new VirtualMachineIPAddressLeaseLister.
 func NewVirtualMachineIPAddressLeaseLister(indexer cache.Indexer) VirtualMachineIPAddressLeaseLister {
-	return &virtualMachineIPAddressLeaseLister{indexer: indexer}
-}
-
-// List lists all VirtualMachineIPAddressLeases in the indexer.
-func (s *virtualMachineIPAddressLeaseLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineIPAddressLease, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineIPAddressLease))
-	})
-	return ret, err
-}
-
-// Get retrieves the VirtualMachineIPAddressLease from the index for a given name.
-func (s *virtualMachineIPAddressLeaseLister) Get(name string) (*v1alpha2.VirtualMachineIPAddressLease, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("virtualmachineipaddresslease"), name)
-	}
-	return obj.(*v1alpha2.VirtualMachineIPAddressLease), nil
+	return &virtualMachineIPAddressLeaseLister{listers.New[*corev1alpha2.VirtualMachineIPAddressLease](indexer, corev1alpha2.Resource("virtualmachineipaddresslease"))}
 }

@@ -32,7 +32,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . Importer Uploader Stat
+//go:generate go tool moq -rm -out mock.go . Importer Uploader Stat
 
 type Importer interface {
 	Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error

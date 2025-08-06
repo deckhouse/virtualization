@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -44,47 +43,38 @@ type VMOPWatcher struct{}
 
 func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineOperation{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			vmop, ok := obj.(*virtv2.VirtualMachineOperation)
-			if !ok {
-				return nil
-			}
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      vmop.Spec.VirtualMachine,
-						Namespace: vmop.GetNamespace(),
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualMachineOperation{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmop *virtv2.VirtualMachineOperation) []reconcile.Request {
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      vmop.Spec.VirtualMachine,
+							Namespace: vmop.GetNamespace(),
+						},
 					},
+				}
+			}),
+			predicate.TypedFuncs[*virtv2.VirtualMachineOperation]{
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineOperation]) bool {
+					return commonvmop.IsMigration(e.Object)
 				},
-			}
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				vmop, ok := e.Object.(*virtv2.VirtualMachineOperation)
-				if !ok {
-					return false
-				}
-				return commonvmop.IsMigration(vmop)
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineOperation]) bool {
+					if commonvmop.IsMigration(e.ObjectNew) {
+						return false
+					}
+					if e.ObjectNew.Status.Phase != virtv2.VMOPPhaseInProgress {
+						return false
+					}
+
+					oldCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, e.ObjectOld.Status.Conditions)
+					newCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, e.ObjectNew.Status.Conditions)
+
+					return oldCompleted.Reason != newCompleted.Reason
+				},
 			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVMOP := e.ObjectOld.(*virtv2.VirtualMachineOperation)
-				newVMOP := e.ObjectNew.(*virtv2.VirtualMachineOperation)
-
-				if commonvmop.IsMigration(newVMOP) {
-					return false
-				}
-				if newVMOP.Status.Phase != virtv2.VMOPPhaseInProgress {
-					return false
-				}
-
-				oldCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, oldVMOP.Status.Conditions)
-				newCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, newVMOP.Status.Conditions)
-
-				return oldCompleted.Reason != newCompleted.Reason
-			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineOperation: %w", err)
 	}

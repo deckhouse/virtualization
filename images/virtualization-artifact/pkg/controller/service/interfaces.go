@@ -22,7 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//go:generate moq -rm -out mock.go . Client
+//go:generate go tool moq -rm -out mock.go . Client
 
 type Client = client.Client
 

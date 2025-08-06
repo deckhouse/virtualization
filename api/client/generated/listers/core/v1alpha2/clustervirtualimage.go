@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // ClusterVirtualImageLister helps list ClusterVirtualImages.
@@ -30,39 +30,19 @@ import (
 type ClusterVirtualImageLister interface {
 	// List lists all ClusterVirtualImages in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.ClusterVirtualImage, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.ClusterVirtualImage, err error)
 	// Get retrieves the ClusterVirtualImage from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.ClusterVirtualImage, error)
+	Get(name string) (*corev1alpha2.ClusterVirtualImage, error)
 	ClusterVirtualImageListerExpansion
 }
 
 // clusterVirtualImageLister implements the ClusterVirtualImageLister interface.
 type clusterVirtualImageLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1alpha2.ClusterVirtualImage]
 }
 
 // NewClusterVirtualImageLister returns a new ClusterVirtualImageLister.
 func NewClusterVirtualImageLister(indexer cache.Indexer) ClusterVirtualImageLister {
-	return &clusterVirtualImageLister{indexer: indexer}
-}
-
-// List lists all ClusterVirtualImages in the indexer.
-func (s *clusterVirtualImageLister) List(selector labels.Selector) (ret []*v1alpha2.ClusterVirtualImage, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.ClusterVirtualImage))
-	})
-	return ret, err
-}
-
-// Get retrieves the ClusterVirtualImage from the index for a given name.
-func (s *clusterVirtualImageLister) Get(name string) (*v1alpha2.ClusterVirtualImage, error) {
-	obj, exists, err := s.indexer.GetByKey(name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("clustervirtualimage"), name)
-	}
-	return obj.(*v1alpha2.ClusterVirtualImage), nil
+	return &clusterVirtualImageLister{listers.New[*corev1alpha2.ClusterVirtualImage](indexer, corev1alpha2.Resource("clustervirtualimage"))}
 }

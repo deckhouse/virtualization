@@ -22,7 +22,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . OneShotMigration
+//go:generate go tool moq -rm -out mock.go . OneShotMigration
 
 type OneShotMigration interface {
 	OnceMigrate(ctx context.Context, vm *v1alpha2.VirtualMachine, annotationKey, annotationExpectedValue string) (bool, error)

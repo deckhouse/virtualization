@@ -28,7 +28,7 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -258,7 +258,7 @@ func CreateVMBDAManifest(filePath, vmName, blockDeviceName string, blockDeviceTy
 		},
 	}
 
-	err := WriteYamlObject(filePath, vmbda)
+	err := helper.WriteYamlObject(filePath, vmbda)
 	if err != nil {
 		return err
 	}

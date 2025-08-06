@@ -28,50 +28,38 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/deckhouse/pkg/log"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type PodWatcher struct {
-	logger *log.Logger
 	client client.Client
 }
 
 func NewPodWatcher(client client.Client) *PodWatcher {
 	return &PodWatcher{
-		logger: log.Default().With("watcher", "pod"),
 		client: client,
 	}
 }
 
 func (w PodWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &corev1.Pod{}),
-		handler.EnqueueRequestForOwner(
-			mgr.GetScheme(),
-			mgr.GetRESTMapper(),
-			&virtv2.VirtualImage{},
+	if err := ctr.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&corev1.Pod{},
+			handler.TypedEnqueueRequestForOwner[*corev1.Pod](
+				mgr.GetScheme(),
+				mgr.GetRESTMapper(),
+				&virtv2.VirtualImage{},
+			),
+			predicate.TypedFuncs[*corev1.Pod]{
+				DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Pod]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Pod]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
+				},
+			},
 		),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
-}
-
-func (w PodWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldPod, ok := e.ObjectOld.(*corev1.Pod)
-	if !ok {
-		w.logger.Error(fmt.Sprintf("expected an old Pod but got a %T", e.ObjectOld))
-		return false
+	); err != nil {
+		return fmt.Errorf("error setting watch on Pod: %w", err)
 	}
-
-	newPod, ok := e.ObjectNew.(*corev1.Pod)
-	if !ok {
-		w.logger.Error(fmt.Sprintf("expected a new Pod but got a %T", e.ObjectNew))
-		return false
-	}
-
-	return oldPod.Status.Phase != newPod.Status.Phase
+	return nil
 }
