@@ -363,8 +363,8 @@ func (h LifecycleHandler) isKubeVirtMigrationRejectedDueToQuota(ctx context.Cont
 		return false, nil
 	}
 
-	kubevirtMigrationRejectedByResourceQuotaCondition := conditions.GetKVVMIMCondition(conditions.KubevirtMigrationRejectedByResourceQuotaType, kubevirtMigration.Status.Conditions)
-	if kubevirtMigrationRejectedByResourceQuotaCondition != nil {
+	_, ok := conditions.GetKVVMIMCondition(conditions.KubevirtMigrationRejectedByResourceQuotaType, kubevirtMigration.Status.Conditions)
+	if ok {
 		return true, nil
 	}
 
