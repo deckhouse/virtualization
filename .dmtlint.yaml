@@ -1,6 +1,4 @@
 linters-settings:
-  container:
-    exclude-rules:
   openapi:
     exclude-rules:
       enum:
