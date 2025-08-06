@@ -51,16 +51,12 @@
     name: {{ $settings.portName | default "https-metrics" }}
     protocol: TCP
   livenessProbe:
-    httpGet:
-      path: /metrics
+    tcpSocket:
       port: {{ $settings.portName | default "https-metrics" }}
-      scheme: HTTPS
     initialDelaySeconds: 10
   readinessProbe:
-    httpGet:
-      path: /metrics
+    tcpSocket:
       port: {{ $settings.portName | default "https-metrics" }}
-      scheme: HTTPS
     initialDelaySeconds: 10
 {{- end -}}
 
