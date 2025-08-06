@@ -28,7 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -53,10 +53,14 @@ func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				oldVM := e.ObjectOld.(*virtv1.VirtualMachine)
 				newVM := e.ObjectNew.(*virtv1.VirtualMachine)
+
+				oldSynchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, oldVM.Status.Conditions)
+				newSynchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, newVM.Status.Conditions)
+
 				return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
+					oldSynchronizedCondition.Status != newSynchronizedCondition.Status ||
+					oldSynchronizedCondition.Reason != newSynchronizedCondition.Reason ||
 					oldVM.Status.Ready != newVM.Status.Ready ||
-					internal.IsPodStartedError(oldVM) ||
-					internal.IsPodStartedError(newVM) ||
 					oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
 					oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested]
 			},

@@ -136,7 +136,7 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 		}
 
 		// Try to extract error from kvvm Synchronized condition.
-		if IsPodStartedError(kvvm) {
+		if isPodStartedError(kvvm) {
 			vm.Status.Phase = virtv2.MachinePending
 			msg := fmt.Sprintf("Failed to start pod: %s", kvvm.Status.PrintableStatus)
 			if kvvmi != nil {

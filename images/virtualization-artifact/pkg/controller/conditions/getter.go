@@ -48,6 +48,15 @@ func GetDataVolumeCondition(condType cdiv1.DataVolumeConditionType, conds []cdiv
 	return cdiv1.DataVolumeCondition{}, false
 }
 
+func GetKVVMCondition(condType virtv1.VirtualMachineConditionType, conds []virtv1.VirtualMachineCondition) (virtv1.VirtualMachineCondition, bool) {
+	for _, cond := range conds {
+		if cond.Type == condType {
+			return cond, true
+		}
+	}
+	return virtv1.VirtualMachineCondition{}, false
+}
+
 func GetKVVMICondition(condType virtv1.VirtualMachineInstanceConditionType, conds []virtv1.VirtualMachineInstanceCondition) (virtv1.VirtualMachineInstanceCondition, bool) {
 	for _, cond := range conds {
 		if cond.Type == condType {
@@ -59,4 +68,5 @@ func GetKVVMICondition(condType virtv1.VirtualMachineInstanceConditionType, cond
 
 const (
 	VirtualMachineInstanceNodePlacementNotMatched virtv1.VirtualMachineInstanceConditionType = "NodePlacementNotMatched"
+	VirtualMachineSynchronized                    virtv1.VirtualMachineConditionType         = "Synchronized"
 )
