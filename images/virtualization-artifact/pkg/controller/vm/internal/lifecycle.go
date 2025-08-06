@@ -113,7 +113,6 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 	cb := conditions.NewConditionBuilder(vmcondition.TypeRunning).Generation(vm.GetGeneration())
 
 	if pod != nil && pod.Status.Message != "" {
-		vm.Status.Phase = virtv2.MachinePending
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonPodNotStarted).
 			Message(fmt.Sprintf("%s: %s", pod.Status.Reason, pod.Status.Message))
@@ -137,7 +136,6 @@ func (h *LifeCycleHandler) syncRunning(vm *virtv2.VirtualMachine, kvvm *virtv1.V
 
 		// Try to extract error from kvvm Synchronized condition.
 		if isPodStartedError(kvvm) {
-			vm.Status.Phase = virtv2.MachinePending
 			msg := fmt.Sprintf("Failed to start pod: %s", kvvm.Status.PrintableStatus)
 			if kvvmi != nil {
 				msg = fmt.Sprintf("%s, %s", msg, kvvmi.Status.Phase)
