@@ -70,6 +70,8 @@ shell:
     go get golang.org/x/crypto@v0.38.0
     # CVE-2025-22870, CVE-2025-22872
     go get golang.org/x/net@v0.40.0
+    # CVE-2025-22868
+    go get golang.org/x/oauth2@v0.27.0
 
     go mod vendor
 

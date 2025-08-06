@@ -58,4 +58,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
+// CVE Replaces
+replace (
+        golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
+        golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
+)
