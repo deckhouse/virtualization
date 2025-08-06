@@ -14,20 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package snapshot
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"context"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/service"
-	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
+	corev1 "k8s.io/api/core/v1"
+
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type SvcOpCreator func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error)
+//go:generate moq -rm -out mock.go . Restorer
 
-func NewSvcOpCreator(client client.Client, recorder eventrecord.EventRecorderLogger) SvcOpCreator {
-	return func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error) {
-		return service.NewOperationService(client, recorder, vmop)
-	}
+type Restorer interface {
+	RestoreVirtualMachine(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachine, error)
+	RestoreProvisioner(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
+	RestoreVirtualMachineIPAddress(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error)
+	RestoreVirtualMachineBlockDeviceAttachments(ctx context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error)
 }

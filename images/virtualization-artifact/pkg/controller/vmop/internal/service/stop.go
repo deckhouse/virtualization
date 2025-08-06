@@ -21,6 +21,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -39,13 +40,13 @@ type StopOperation struct {
 	vmop   *virtv2.VirtualMachineOperation
 }
 
-func (o StopOperation) Do(ctx context.Context) error {
+func (o StopOperation) Do(ctx context.Context) (reconcile.Result, error) {
 	kvvmi := &virtv1.VirtualMachineInstance{}
 	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), kvvmi)
 	if err != nil {
-		return err
+		return reconcile.Result{}, err
 	}
-	return powerstate.StopVM(ctx, o.client, kvvmi, o.vmop.Spec.Force)
+	return reconcile.Result{}, powerstate.StopVM(ctx, o.client, kvvmi, o.vmop.Spec.Force)
 }
 
 func (o StopOperation) Cancel(_ context.Context) (bool, error) {
