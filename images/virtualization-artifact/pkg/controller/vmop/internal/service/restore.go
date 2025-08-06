@@ -19,33 +19,37 @@ package service
 import (
 	"context"
 
-	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-func NewRestoreOperation(client client.Client, vmop *virtv2.VirtualMachineOperation) *RestoreOperation {
+func NewRestoreOperation(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *virtv2.VirtualMachineOperation) *RestoreOperation {
 	return &RestoreOperation{
-		client: client,
-		vmop:   vmop,
+		client:  client,
+		vmop:    vmop,
+		restore: snapshot.NewVMSnapshotRestore(client, recorder, vmop),
 	}
 }
 
 type RestoreOperation struct {
-	client client.Client
-	vmop   *virtv2.VirtualMachineOperation
+	client  client.Client
+	vmop    *virtv2.VirtualMachineOperation
+	restore *snapshot.VMSnapshotRestore
 }
 
-func (o RestoreOperation) Do(ctx context.Context) error {
-	kvvm := &virtv1.VirtualMachine{}
-	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), kvvm)
+func (o RestoreOperation) Do(ctx context.Context) (reconcile.Result, error) {
+	vm := &virtv2.VirtualMachine{}
+	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), vm)
 	if err != nil {
-		return err
+		return reconcile.Result{}, err
 	}
-	// return kvvmutil.AddRestoreAnnotation(ctx, o.client, kvvm)
-	return nil
+
+	return o.restore.Sync(ctx, vm)
 }
 
 func (o RestoreOperation) Cancel(_ context.Context) (bool, error) {

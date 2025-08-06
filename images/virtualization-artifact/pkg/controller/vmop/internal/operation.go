@@ -89,7 +89,7 @@ func (h OperationHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	err = svcOp.Do(ctx)
+	rec, err := svcOp.Do(ctx)
 	if err != nil {
 		failMsg := fmt.Sprintf("Sending signal %q to VM", vmop.Spec.Type)
 		log.Debug(failMsg, logger.SlogErr(err))
@@ -109,7 +109,7 @@ func (h OperationHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 				Status(metav1.ConditionFalse),
 			&vmop.Status.Conditions)
 
-		return reconcile.Result{}, nil
+		return rec, nil
 	}
 
 	msg := fmt.Sprintf("Sent signal %q to VM without errors.", vmop.Spec.Type)
