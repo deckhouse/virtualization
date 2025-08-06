@@ -1,0 +1,88 @@
+/*
+Copyright 2025 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package watcher
+
+import (
+	"context"
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+type VirtualMachineWatcher struct{}
+
+func NewVirtualMachineWatcher() *VirtualMachineWatcher {
+	return &VirtualMachineWatcher{}
+}
+
+func (w *VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(),
+			&virtv2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueClusterImagesAttachedToVM),
+			predicate.TypedFuncs[*virtv2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool {
+					return w.vmHasAttachedClusterImages(e.Object)
+				},
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachine]) bool {
+					return w.vmHasAttachedClusterImages(e.Object)
+				},
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+					return w.vmHasAttachedClusterImages(e.ObjectOld) || w.vmHasAttachedClusterImages(e.ObjectNew)
+				},
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VMs: %w", err)
+	}
+	return nil
+}
+
+func (w *VirtualMachineWatcher) enqueueClusterImagesAttachedToVM(_ context.Context, vm *virtv2.VirtualMachine) []reconcile.Request {
+	var requests []reconcile.Request
+
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind != virtv2.ClusterImageDevice {
+			continue
+		}
+
+		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
+			Name: bda.Name,
+		}})
+	}
+
+	return requests
+}
+
+func (w *VirtualMachineWatcher) vmHasAttachedClusterImages(vm *virtv2.VirtualMachine) bool {
+	for _, bda := range vm.Status.BlockDeviceRefs {
+		if bda.Kind == virtv2.ClusterImageDevice {
+			return true
+		}
+	}
+
+	return false
+}

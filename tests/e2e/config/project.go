@@ -23,7 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
 )
 
 var kustomize *Kustomize
@@ -35,7 +35,7 @@ func PrepareProject(testData string) {
 	project := Project{}
 	projectFilePath := fmt.Sprintf("%s/project/project.yaml", testData)
 
-	err = UnmarshalResource(projectFilePath, &project)
+	err = helper.UnmarshalResource(projectFilePath, &project)
 	Expect(err).NotTo(HaveOccurred(), "cannot get project from file: %s\nstderr: %s", projectFilePath, err)
 
 	namePrefix, err := GetNamePrefix()
@@ -48,7 +48,7 @@ func PrepareProject(testData string) {
 	}
 	project.Labels["id"] = namePrefix
 
-	err = WriteYamlObject(projectFilePath, &project)
+	err = helper.WriteYamlObject(projectFilePath, &project)
 	Expect(err).NotTo(HaveOccurred(), "cannot update project with id and labels: %s\nstderr: %s", projectFilePath, err)
 }
 

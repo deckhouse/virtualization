@@ -19,15 +19,14 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"context"
-	"time"
+	context "context"
 
 	scheme "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/scheme"
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // VirtualMachineBlockDeviceAttachmentsGetter has a method to return a VirtualMachineBlockDeviceAttachmentInterface.
@@ -38,158 +37,38 @@ type VirtualMachineBlockDeviceAttachmentsGetter interface {
 
 // VirtualMachineBlockDeviceAttachmentInterface has methods to work with VirtualMachineBlockDeviceAttachment resources.
 type VirtualMachineBlockDeviceAttachmentInterface interface {
-	Create(ctx context.Context, virtualMachineBlockDeviceAttachment *v1alpha2.VirtualMachineBlockDeviceAttachment, opts v1.CreateOptions) (*v1alpha2.VirtualMachineBlockDeviceAttachment, error)
-	Update(ctx context.Context, virtualMachineBlockDeviceAttachment *v1alpha2.VirtualMachineBlockDeviceAttachment, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineBlockDeviceAttachment, error)
-	UpdateStatus(ctx context.Context, virtualMachineBlockDeviceAttachment *v1alpha2.VirtualMachineBlockDeviceAttachment, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineBlockDeviceAttachment, error)
+	Create(ctx context.Context, virtualMachineBlockDeviceAttachment *corev1alpha2.VirtualMachineBlockDeviceAttachment, opts v1.CreateOptions) (*corev1alpha2.VirtualMachineBlockDeviceAttachment, error)
+	Update(ctx context.Context, virtualMachineBlockDeviceAttachment *corev1alpha2.VirtualMachineBlockDeviceAttachment, opts v1.UpdateOptions) (*corev1alpha2.VirtualMachineBlockDeviceAttachment, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, virtualMachineBlockDeviceAttachment *corev1alpha2.VirtualMachineBlockDeviceAttachment, opts v1.UpdateOptions) (*corev1alpha2.VirtualMachineBlockDeviceAttachment, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha2.VirtualMachineBlockDeviceAttachment, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha2.VirtualMachineBlockDeviceAttachmentList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1alpha2.VirtualMachineBlockDeviceAttachment, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1alpha2.VirtualMachineBlockDeviceAttachmentList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineBlockDeviceAttachment, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1alpha2.VirtualMachineBlockDeviceAttachment, err error)
 	VirtualMachineBlockDeviceAttachmentExpansion
 }
 
 // virtualMachineBlockDeviceAttachments implements VirtualMachineBlockDeviceAttachmentInterface
 type virtualMachineBlockDeviceAttachments struct {
-	client rest.Interface
-	ns     string
+	*gentype.ClientWithList[*corev1alpha2.VirtualMachineBlockDeviceAttachment, *corev1alpha2.VirtualMachineBlockDeviceAttachmentList]
 }
 
 // newVirtualMachineBlockDeviceAttachments returns a VirtualMachineBlockDeviceAttachments
 func newVirtualMachineBlockDeviceAttachments(c *VirtualizationV1alpha2Client, namespace string) *virtualMachineBlockDeviceAttachments {
 	return &virtualMachineBlockDeviceAttachments{
-		client: c.RESTClient(),
-		ns:     namespace,
+		gentype.NewClientWithList[*corev1alpha2.VirtualMachineBlockDeviceAttachment, *corev1alpha2.VirtualMachineBlockDeviceAttachmentList](
+			"virtualmachineblockdeviceattachments",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			namespace,
+			func() *corev1alpha2.VirtualMachineBlockDeviceAttachment {
+				return &corev1alpha2.VirtualMachineBlockDeviceAttachment{}
+			},
+			func() *corev1alpha2.VirtualMachineBlockDeviceAttachmentList {
+				return &corev1alpha2.VirtualMachineBlockDeviceAttachmentList{}
+			},
+		),
 	}
-}
-
-// Get takes name of the virtualMachineBlockDeviceAttachment, and returns the corresponding virtualMachineBlockDeviceAttachment object, and an error if there is any.
-func (c *virtualMachineBlockDeviceAttachments) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineBlockDeviceAttachment, err error) {
-	result = &v1alpha2.VirtualMachineBlockDeviceAttachment{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineblockdeviceattachments").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineBlockDeviceAttachments that match those selectors.
-func (c *virtualMachineBlockDeviceAttachments) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualMachineBlockDeviceAttachmentList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha2.VirtualMachineBlockDeviceAttachmentList{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineblockdeviceattachments").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineBlockDeviceAttachments.
-func (c *virtualMachineBlockDeviceAttachments) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineblockdeviceattachments").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a virtualMachineBlockDeviceAttachment and creates it.  Returns the server's representation of the virtualMachineBlockDeviceAttachment, and an error, if there is any.
-func (c *virtualMachineBlockDeviceAttachments) Create(ctx context.Context, virtualMachineBlockDeviceAttachment *v1alpha2.VirtualMachineBlockDeviceAttachment, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineBlockDeviceAttachment, err error) {
-	result = &v1alpha2.VirtualMachineBlockDeviceAttachment{}
-	err = c.client.Post().
-		Namespace(c.ns).
-		Resource("virtualmachineblockdeviceattachments").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineBlockDeviceAttachment).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a virtualMachineBlockDeviceAttachment and updates it. Returns the server's representation of the virtualMachineBlockDeviceAttachment, and an error, if there is any.
-func (c *virtualMachineBlockDeviceAttachments) Update(ctx context.Context, virtualMachineBlockDeviceAttachment *v1alpha2.VirtualMachineBlockDeviceAttachment, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineBlockDeviceAttachment, err error) {
-	result = &v1alpha2.VirtualMachineBlockDeviceAttachment{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("virtualmachineblockdeviceattachments").
-		Name(virtualMachineBlockDeviceAttachment.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineBlockDeviceAttachment).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *virtualMachineBlockDeviceAttachments) UpdateStatus(ctx context.Context, virtualMachineBlockDeviceAttachment *v1alpha2.VirtualMachineBlockDeviceAttachment, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineBlockDeviceAttachment, err error) {
-	result = &v1alpha2.VirtualMachineBlockDeviceAttachment{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("virtualmachineblockdeviceattachments").
-		Name(virtualMachineBlockDeviceAttachment.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineBlockDeviceAttachment).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the virtualMachineBlockDeviceAttachment and deletes it. Returns an error if one occurs.
-func (c *virtualMachineBlockDeviceAttachments) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("virtualmachineblockdeviceattachments").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *virtualMachineBlockDeviceAttachments) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("virtualmachineblockdeviceattachments").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched virtualMachineBlockDeviceAttachment.
-func (c *virtualMachineBlockDeviceAttachments) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineBlockDeviceAttachment, err error) {
-	result = &v1alpha2.VirtualMachineBlockDeviceAttachment{}
-	err = c.client.Patch(pt).
-		Namespace(c.ns).
-		Resource("virtualmachineblockdeviceattachments").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

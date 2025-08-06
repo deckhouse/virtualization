@@ -17,6 +17,8 @@ limitations under the License.
 package watcher
 
 import (
+	"fmt"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -39,15 +41,17 @@ func NewVirtualMachineSnapshotWatcher(client client.Client) *VirtualMachineSnaps
 }
 
 func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineSnapshot{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineSnapshot{},
+			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachineSnapshot]{},
+			predicate.TypedFuncs[*virtv2.VirtualMachineSnapshot]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineSnapshot]) bool {
+					return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+				},
 			},
-		},
-	)
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineSnapshot: %w", err)
+	}
+	return nil
 }

@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // VirtualDiskSnapshotLister helps list VirtualDiskSnapshots.
@@ -30,7 +30,7 @@ import (
 type VirtualDiskSnapshotLister interface {
 	// List lists all VirtualDiskSnapshots in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualDiskSnapshot, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualDiskSnapshot, err error)
 	// VirtualDiskSnapshots returns an object that can list and get VirtualDiskSnapshots.
 	VirtualDiskSnapshots(namespace string) VirtualDiskSnapshotNamespaceLister
 	VirtualDiskSnapshotListerExpansion
@@ -38,25 +38,17 @@ type VirtualDiskSnapshotLister interface {
 
 // virtualDiskSnapshotLister implements the VirtualDiskSnapshotLister interface.
 type virtualDiskSnapshotLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1alpha2.VirtualDiskSnapshot]
 }
 
 // NewVirtualDiskSnapshotLister returns a new VirtualDiskSnapshotLister.
 func NewVirtualDiskSnapshotLister(indexer cache.Indexer) VirtualDiskSnapshotLister {
-	return &virtualDiskSnapshotLister{indexer: indexer}
-}
-
-// List lists all VirtualDiskSnapshots in the indexer.
-func (s *virtualDiskSnapshotLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualDiskSnapshot, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualDiskSnapshot))
-	})
-	return ret, err
+	return &virtualDiskSnapshotLister{listers.New[*corev1alpha2.VirtualDiskSnapshot](indexer, corev1alpha2.Resource("virtualdisksnapshot"))}
 }
 
 // VirtualDiskSnapshots returns an object that can list and get VirtualDiskSnapshots.
 func (s *virtualDiskSnapshotLister) VirtualDiskSnapshots(namespace string) VirtualDiskSnapshotNamespaceLister {
-	return virtualDiskSnapshotNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return virtualDiskSnapshotNamespaceLister{listers.NewNamespaced[*corev1alpha2.VirtualDiskSnapshot](s.ResourceIndexer, namespace)}
 }
 
 // VirtualDiskSnapshotNamespaceLister helps list and get VirtualDiskSnapshots.
@@ -64,36 +56,15 @@ func (s *virtualDiskSnapshotLister) VirtualDiskSnapshots(namespace string) Virtu
 type VirtualDiskSnapshotNamespaceLister interface {
 	// List lists all VirtualDiskSnapshots in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualDiskSnapshot, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualDiskSnapshot, err error)
 	// Get retrieves the VirtualDiskSnapshot from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.VirtualDiskSnapshot, error)
+	Get(name string) (*corev1alpha2.VirtualDiskSnapshot, error)
 	VirtualDiskSnapshotNamespaceListerExpansion
 }
 
 // virtualDiskSnapshotNamespaceLister implements the VirtualDiskSnapshotNamespaceLister
 // interface.
 type virtualDiskSnapshotNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all VirtualDiskSnapshots in the indexer for a given namespace.
-func (s virtualDiskSnapshotNamespaceLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualDiskSnapshot, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualDiskSnapshot))
-	})
-	return ret, err
-}
-
-// Get retrieves the VirtualDiskSnapshot from the indexer for a given namespace and name.
-func (s virtualDiskSnapshotNamespaceLister) Get(name string) (*v1alpha2.VirtualDiskSnapshot, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("virtualdisksnapshot"), name)
-	}
-	return obj.(*v1alpha2.VirtualDiskSnapshot), nil
+	listers.ResourceIndexer[*corev1alpha2.VirtualDiskSnapshot]
 }

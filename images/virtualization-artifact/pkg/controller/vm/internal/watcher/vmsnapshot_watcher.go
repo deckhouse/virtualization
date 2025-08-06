@@ -19,10 +19,8 @@ package watcher
 import (
 	"context"
 	"fmt"
-	"log/slog"
 
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -41,46 +39,28 @@ func NewVirtualMachineSnapshotWatcher() *VirtualMachineSnapshotWatcher {
 }
 
 func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineSnapshot{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
-}
-
-func (w VirtualMachineSnapshotWatcher) enqueueRequests(_ context.Context, obj client.Object) (requests []reconcile.Request) {
-	vmSnapshot, ok := obj.(*virtv2.VirtualMachineSnapshot)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a VirtualMachineSnapshot but got a %T", obj))
-		return nil
-	}
-
-	return []reconcile.Request{
-		{
-			NamespacedName: types.NamespacedName{
-				Name:      vmSnapshot.Spec.VirtualMachineName,
-				Namespace: vmSnapshot.Namespace,
+	if err := ctr.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualMachineSnapshot{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot) []reconcile.Request {
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      vmSnapshot.Spec.VirtualMachineName,
+							Namespace: vmSnapshot.Namespace,
+						},
+					},
+				}
+			}),
+			predicate.TypedFuncs[*virtv2.VirtualMachineSnapshot]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineSnapshot]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
+				},
 			},
-		},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineSnapshot: %w", err)
 	}
-}
-
-func (w VirtualMachineSnapshotWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVMSnapshot, ok := e.ObjectOld.(*virtv2.VirtualMachineSnapshot)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old VirtualMachineSnapshot but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newVMSnapshot, ok := e.ObjectNew.(*virtv2.VirtualMachineSnapshot)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new VirtualMachineSnapshot but got a %T", e.ObjectNew))
-		return false
-	}
-
-	return oldVMSnapshot.Status.Phase != newVMSnapshot.Status.Phase
+	return nil
 }

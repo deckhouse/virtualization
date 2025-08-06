@@ -42,49 +42,36 @@ type VirtualImageWatcher struct{}
 
 func (w *VirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualImage{}),
-		handler.EnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice(mgr.GetClient(), virtv2.ImageDevice)),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVi, oldOk := e.ObjectOld.(*virtv2.VirtualImage)
-				newVi, newOk := e.ObjectNew.(*virtv2.VirtualImage)
-				if !oldOk || !newOk {
-					return false
-				}
-				return oldVi.Status.Phase != newVi.Status.Phase
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualImage{},
+			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*virtv2.VirtualImage](mgr.GetClient())),
+			predicate.TypedFuncs[*virtv2.VirtualImage]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualImage]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualImage: %w", err)
 	}
 	return nil
 }
 
-func enqueueRequestsBlockDevice(cl client.Client, kind virtv2.BlockDeviceKind) func(ctx context.Context, obj client.Object) []reconcile.Request {
-	return func(ctx context.Context, obj client.Object) []reconcile.Request {
+func enqueueRequestsBlockDevice[T client.Object](cl client.Client) func(ctx context.Context, obj T) []reconcile.Request {
+	return func(ctx context.Context, obj T) []reconcile.Request {
 		var opts []client.ListOption
-		switch kind {
-		case virtv2.ImageDevice:
-			if _, ok := obj.(*virtv2.VirtualImage); !ok {
-				return nil
-			}
+		switch obj.GetObjectKind().GroupVersionKind().Kind {
+		case virtv2.VirtualImageKind:
 			opts = append(opts,
 				client.InNamespace(obj.GetNamespace()),
 				client.MatchingFields{indexer.IndexFieldVMByVI: obj.GetName()},
 			)
-		case virtv2.ClusterImageDevice:
-			if _, ok := obj.(*virtv2.ClusterVirtualImage); !ok {
-				return nil
-			}
+		case virtv2.ClusterVirtualImageKind:
 			opts = append(opts,
 				client.MatchingFields{indexer.IndexFieldVMByCVI: obj.GetName()},
 			)
-		case virtv2.DiskDevice:
-			if _, ok := obj.(*virtv2.VirtualDisk); !ok {
-				return nil
-			}
+		case virtv2.VirtualDiskKind:
 			opts = append(opts,
 				client.InNamespace(obj.GetNamespace()),
 				client.MatchingFields{indexer.IndexFieldVMByVD: obj.GetName()},

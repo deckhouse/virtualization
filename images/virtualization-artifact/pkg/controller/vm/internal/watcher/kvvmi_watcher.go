@@ -23,7 +23,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -42,26 +41,25 @@ type KVVMIWatcher struct{}
 func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	// Subscribe on Kubevirt VirtualMachineInstances to update our VM status.
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, vmi client.Object) []reconcile.Request {
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      vmi.GetName(),
-						Namespace: vmi.GetNamespace(),
+		source.Kind(
+			mgr.GetCache(),
+			&virtv1.VirtualMachineInstance{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmi *virtv1.VirtualMachineInstance) []reconcile.Request {
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      vmi.GetName(),
+							Namespace: vmi.GetNamespace(),
+						},
 					},
+				}
+			}),
+			predicate.TypedFuncs[*virtv1.VirtualMachineInstance]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {
+					return !reflect.DeepEqual(e.ObjectOld.Status, e.ObjectNew.Status)
 				},
-			}
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVM := e.ObjectOld.(*virtv1.VirtualMachineInstance)
-				newVM := e.ObjectNew.(*virtv1.VirtualMachineInstance)
-				return !reflect.DeepEqual(oldVM.Status, newVM.Status)
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}

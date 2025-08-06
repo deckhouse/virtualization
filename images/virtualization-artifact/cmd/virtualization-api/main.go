@@ -17,6 +17,9 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
+	"os"
+
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/component-base/logs"
 
@@ -25,10 +28,12 @@ import (
 
 func main() {
 	logs.InitLogs()
-	defer logs.FlushLogs()
 
-	cmd := app.NewAPIServerCommand(genericapiserver.SetupSignalHandler())
-	if err := cmd.Execute(); err != nil {
-		panic(err)
+	if err := app.NewAPIServerCommand().ExecuteContext(genericapiserver.SetupSignalContext()); err != nil {
+		logs.FlushLogs()
+		_, _ = fmt.Fprintf(os.Stderr, "ERROR:%v\n", err)
+		os.Exit(1)
 	}
+
+	logs.FlushLogs()
 }

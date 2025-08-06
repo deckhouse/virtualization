@@ -18,7 +18,7 @@ set -o nounset
 set -o pipefail
 
 function usage {
-  cat <<EOF
+    cat <<EOF
 Usage: $(basename "$0") { core | subresources | crds | all }
 Example:
    $(basename "$0") core
@@ -26,111 +26,98 @@ EOF
 }
 
 function source::settings {
-  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
-  SCRIPT_ROOT="${SCRIPT_DIR}/.."
-  CODEGEN_PKG="$(go env GOMODCACHE)/$(go list -f '{{.Path}}@{{.Version}}' -m k8s.io/code-generator)"
-  MODULE="github.com/deckhouse/virtualization/api"
-  PREFIX_GROUP="virtualization.deckhouse.io_"
-  # TODO: Temporary filter until all CRDs become auto-generated.
-  ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass"
-                            "VirtualMachineBlockDeviceAttachment"
-                            "VirtualMachineSnapshot"
-                            "VirtualMachineRestore"
-                            "VirtualMachineOperation"
-                            "VirtualDisk"
-                            "VirtualImage"
-                            "ClusterVirtualImage")
-  source "${CODEGEN_PKG}/kube_codegen.sh"
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+    API_ROOT="${SCRIPT_DIR}/.."
+    ROOT="${API_ROOT}/.."
+    CODEGEN_PKG="$(go env GOMODCACHE)/$(go list -f '{{.Path}}@{{.Version}}' -m k8s.io/code-generator)"
+    THIS_PKG="github.com/deckhouse/virtualization/api"
+    # TODO: Temporary filter until all CRDs become auto-generated.
+    ALLOWED_RESOURCE_GEN_CRD=("VirtualMachineClass"
+                              "VirtualMachineBlockDeviceAttachment"
+                              "VirtualMachineSnapshot"
+                              "VirtualMachineRestore"
+                              "VirtualMachineOperation"
+                              "VirtualDisk"
+                              "VirtualImage"
+                              "ClusterVirtualImage")
+
+    source "${CODEGEN_PKG}/kube_codegen.sh"
 }
 
 function generate::subresources {
-          cd "${SCRIPT_ROOT}"
+    kube::codegen::gen_helpers                           \
+        --boilerplate "${SCRIPT_DIR}/boilerplate.go.txt" \
+        "${API_ROOT}/subresources"
 
-          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}/subresources" . ":subresources" \
-            --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
-            --output-base "${SCRIPT_ROOT}"
-
-          cd "${SCRIPT_ROOT}/subresources"
-
-          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy,conversion" "${MODULE}/subresources" . ":v1alpha2" \
-          --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
-          --output-base "${SCRIPT_ROOT}/subresources"
-
-          chmod +x "${GOPATH}/bin/openapi-gen"
-          "${GOPATH}/bin/openapi-gen" \
-            -i "${MODULE}/core/v1alpha2,${MODULE}/subresources/v1alpha2,kubevirt.io/api/core/v1,k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1,k8s.io/api/core/v1,k8s.io/apimachinery/pkg/apis/meta/v1,k8s.io/apimachinery/pkg/api/resource,k8s.io/apimachinery/pkg/version" \
-            -p pkg/apiserver/api/generated/openapi/        \
-            -O zz_generated.openapi                        \
-            -o "${SCRIPT_ROOT}"                            \
-            -h "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" -r /dev/null
+    go tool openapi-gen                                                                           \
+        --output-pkg "openapi"                                                                    \
+        --output-dir "${ROOT}/images/virtualization-artifact/pkg/apiserver/api/generated/openapi" \
+        --output-file "zz_generated.openapi.go"                                                   \
+        --go-header-file "${SCRIPT_DIR}/boilerplate.go.txt"                                       \
+        -r /dev/null                                                                              \
+       "${THIS_PKG}/core/v1alpha2" "${THIS_PKG}/subresources/v1alpha2" "kubevirt.io/api/core/v1" "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1" "k8s.io/api/core/v1" "k8s.io/apimachinery/pkg/apis/meta/v1" "k8s.io/apimachinery/pkg/api/resource" "k8s.io/apimachinery/pkg/version"
 }
 
 function generate::core {
-          cd "${SCRIPT_ROOT}/core"
+    kube::codegen::gen_helpers                           \
+        --boilerplate "${SCRIPT_DIR}/boilerplate.go.txt" \
+        "${API_ROOT}/core"
 
-          bash "${CODEGEN_PKG}/generate-groups.sh" "deepcopy" "${MODULE}/core" . ":v1alpha2" \
-            --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
-            --output-base "${SCRIPT_ROOT}/core"
-
-          OUTPUT_BASE=$(mktemp -d)
-          trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
-
-          bash "${CODEGEN_PKG}/generate-groups.sh" "client,lister,informer" "${MODULE}/client/generated" "${MODULE}" "core:v1alpha2" \
-          --go-header-file "${SCRIPT_ROOT}/scripts/boilerplate.go.txt" \
-          --output-base "${OUTPUT_BASE}"
-
-          cp -R "${OUTPUT_BASE}/${MODULE}/." "${SCRIPT_ROOT}"
+    kube::codegen::gen_client                            \
+        --with-watch                                     \
+        --output-dir "${API_ROOT}/client/generated"      \
+        --output-pkg "${THIS_PKG}/client/generated"      \
+        --boilerplate "${SCRIPT_DIR}/boilerplate.go.txt" \
+        "${API_ROOT}"
 }
 
-function generate::crds() {
-          cd "${SCRIPT_ROOT}/.."
-          OUTPUT_BASE=$(mktemp -d)
-          trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
+function generate::crds {
+    OUTPUT_BASE=$(mktemp -d)
+    trap 'rm -rf "${OUTPUT_BASE}"' ERR EXIT
 
-          "${GOPATH}/bin/controller-gen" crd paths=./api/core/v1alpha2/... output:crd:dir="${OUTPUT_BASE}"
+    go tool controller-gen crd paths="${API_ROOT}/core/v1alpha2/..." output:crd:dir="${OUTPUT_BASE}"
 
-          # shellcheck disable=SC2044
-          for file in $(find "${OUTPUT_BASE}"/* -type f -iname "*.yaml"); do
-              # TODO: Temporary filter until all CRDs become auto-generated.
-              # shellcheck disable=SC2002
-              if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(cat "$file" | yq '.spec.names.kind')[[:space:]] ]]; then
-                continue
-              fi
-              cp "$file" "./crds/$(echo $file | awk -Fio_ '{print $2}')"
-          done
+    # shellcheck disable=SC2044
+    for file in $(find "${OUTPUT_BASE}"/* -type f -iname "*.yaml"); do
+        # TODO: Temporary filter until all CRDs become auto-generated.
+        # shellcheck disable=SC2002
+        if ! [[ " ${ALLOWED_RESOURCE_GEN_CRD[*]} " =~ [[:space:]]$(cat "$file" | yq '.spec.names.kind')[[:space:]] ]]; then
+            continue
+        fi
+        cp "$file" "${ROOT}/crds/$(echo $file | awk -Fio_ '{print $2}')"
+    done
 }
-
 
 WHAT=$1
 if [ "$#" != 1 ] || [ "${WHAT}" == "--help" ] ; then
-  usage
-  exit
+    usage
+    exit
 fi
 
 case "$WHAT" in
-  core)
-    source::settings
-    generate::core
-    ;;
-  subresources)
-    source::settings
-    generate::subresources
-    ;;
-  crds)
-    source::settings
-    generate::crds
-    ;;
-  all)
-    source::settings
-    generate::core
-    generate::subresources
-    generate::crds
-    ;;
-*)
-    echo "Invalid argument: $WHAT"
-    usage
-    exit 1
-    ;;
+    core)
+        source::settings
+        generate::core
+        ;;
+    subresources)
+        source::settings
+        generate::subresources
+        ;;
+    crds)
+        source::settings
+        generate::crds
+        ;;
+    all)
+        source::settings
+        generate::core
+        generate::subresources
+        generate::crds
+        ;;
+    *)
+        echo "Invalid argument: $WHAT"
+        usage
+        exit 1
+        ;;
 esac
 
 

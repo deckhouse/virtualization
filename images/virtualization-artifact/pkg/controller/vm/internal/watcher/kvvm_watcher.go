@@ -39,25 +39,28 @@ type KVVMWatcher struct{}
 
 func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachine{}),
-		handler.EnqueueRequestForOwner(
-			mgr.GetScheme(),
-			mgr.GetRESTMapper(),
-			&virtv2.VirtualMachine{},
-			handler.OnlyControllerOwner(),
-		),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVM := e.ObjectOld.(*virtv1.VirtualMachine)
-				newVM := e.ObjectNew.(*virtv1.VirtualMachine)
-				return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
-					oldVM.Status.Ready != newVM.Status.Ready ||
-					oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
-					oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested]
+		source.Kind(
+			mgr.GetCache(),
+			&virtv1.VirtualMachine{},
+			handler.TypedEnqueueRequestForOwner[*virtv1.VirtualMachine](
+				mgr.GetScheme(),
+				mgr.GetRESTMapper(),
+				&virtv2.VirtualMachine{},
+				handler.OnlyControllerOwner(),
+			),
+			predicate.TypedFuncs[*virtv1.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv1.VirtualMachine]) bool { return true },
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv1.VirtualMachine]) bool { return true },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachine]) bool {
+					oldVM := e.ObjectOld
+					newVM := e.ObjectNew
+					return oldVM.Status.PrintableStatus != newVM.Status.PrintableStatus ||
+						oldVM.Status.Ready != newVM.Status.Ready ||
+						oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
+						oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested]
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}

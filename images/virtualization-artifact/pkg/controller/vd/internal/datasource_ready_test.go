@@ -32,7 +32,7 @@ import (
 )
 
 func TestDatasourceReadyHandler_Handle(t *testing.T) {
-	ctx := context.TODO()
+	ctx := t.Context()
 	blank := &HandlerMock{
 		ValidateFunc: func(_ context.Context, _ *virtv2.VirtualDisk) error {
 			return nil

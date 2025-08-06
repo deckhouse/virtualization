@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -189,7 +189,7 @@ var _ = Describe("SizingPolicy", ginkgoutil.CommonE2ETestDecorators(), func() {
 				Expect(err).NotTo(HaveOccurred())
 				vmClass.Name = vmClassDiscoveryCopy
 				vmClass.Labels = map[string]string{"id": namePrefix}
-				writeErr := WriteYamlObject(newVMClassFilePath, &vmClass)
+				writeErr := helper.WriteYamlObject(newVMClassFilePath, &vmClass)
 				Expect(writeErr).NotTo(HaveOccurred(), writeErr)
 				res := kubectl.Apply(kc.ApplyOptions{
 					Filename:       []string{newVMClassFilePath},

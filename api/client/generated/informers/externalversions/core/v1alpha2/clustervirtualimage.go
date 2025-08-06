@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	versioned "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	internalinterfaces "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/internalinterfaces"
-	v1alpha2 "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
-	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
+	apicorev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // ClusterVirtualImages.
 type ClusterVirtualImageInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha2.ClusterVirtualImageLister
+	Lister() corev1alpha2.ClusterVirtualImageLister
 }
 
 type clusterVirtualImageInformer struct {
@@ -61,16 +61,28 @@ func NewFilteredClusterVirtualImageInformer(client versioned.Interface, resyncPe
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().ClusterVirtualImages().List(context.TODO(), options)
+				return client.VirtualizationV1alpha2().ClusterVirtualImages().List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().ClusterVirtualImages().Watch(context.TODO(), options)
+				return client.VirtualizationV1alpha2().ClusterVirtualImages().Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.VirtualizationV1alpha2().ClusterVirtualImages().List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.VirtualizationV1alpha2().ClusterVirtualImages().Watch(ctx, options)
 			},
 		},
-		&corev1alpha2.ClusterVirtualImage{},
+		&apicorev1alpha2.ClusterVirtualImage{},
 		resyncPeriod,
 		indexers,
 	)
@@ -81,9 +93,9 @@ func (f *clusterVirtualImageInformer) defaultInformer(client versioned.Interface
 }
 
 func (f *clusterVirtualImageInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1alpha2.ClusterVirtualImage{}, f.defaultInformer)
+	return f.factory.InformerFor(&apicorev1alpha2.ClusterVirtualImage{}, f.defaultInformer)
 }
 
-func (f *clusterVirtualImageInformer) Lister() v1alpha2.ClusterVirtualImageLister {
-	return v1alpha2.NewClusterVirtualImageLister(f.Informer().GetIndexer())
+func (f *clusterVirtualImageInformer) Lister() corev1alpha2.ClusterVirtualImageLister {
+	return corev1alpha2.NewClusterVirtualImageLister(f.Informer().GetIndexer())
 }

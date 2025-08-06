@@ -19,123 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeVirtualImages implements VirtualImageInterface
-type FakeVirtualImages struct {
+// fakeVirtualImages implements VirtualImageInterface
+type fakeVirtualImages struct {
+	*gentype.FakeClientWithList[*v1alpha2.VirtualImage, *v1alpha2.VirtualImageList]
 	Fake *FakeVirtualizationV1alpha2
-	ns   string
 }
 
-var virtualimagesResource = v1alpha2.SchemeGroupVersion.WithResource("virtualimages")
-
-var virtualimagesKind = v1alpha2.SchemeGroupVersion.WithKind("VirtualImage")
-
-// Get takes name of the virtualImage, and returns the corresponding virtualImage object, and an error if there is any.
-func (c *FakeVirtualImages) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualImage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(virtualimagesResource, c.ns, name), &v1alpha2.VirtualImage{})
-
-	if obj == nil {
-		return nil, err
+func newFakeVirtualImages(fake *FakeVirtualizationV1alpha2, namespace string) corev1alpha2.VirtualImageInterface {
+	return &fakeVirtualImages{
+		gentype.NewFakeClientWithList[*v1alpha2.VirtualImage, *v1alpha2.VirtualImageList](
+			fake.Fake,
+			namespace,
+			v1alpha2.SchemeGroupVersion.WithResource("virtualimages"),
+			v1alpha2.SchemeGroupVersion.WithKind("VirtualImage"),
+			func() *v1alpha2.VirtualImage { return &v1alpha2.VirtualImage{} },
+			func() *v1alpha2.VirtualImageList { return &v1alpha2.VirtualImageList{} },
+			func(dst, src *v1alpha2.VirtualImageList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha2.VirtualImageList) []*v1alpha2.VirtualImage {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha2.VirtualImageList, items []*v1alpha2.VirtualImage) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha2.VirtualImage), err
-}
-
-// List takes label and field selectors, and returns the list of VirtualImages that match those selectors.
-func (c *FakeVirtualImages) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualImageList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(virtualimagesResource, virtualimagesKind, c.ns, opts), &v1alpha2.VirtualImageList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha2.VirtualImageList{ListMeta: obj.(*v1alpha2.VirtualImageList).ListMeta}
-	for _, item := range obj.(*v1alpha2.VirtualImageList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested virtualImages.
-func (c *FakeVirtualImages) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(virtualimagesResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a virtualImage and creates it.  Returns the server's representation of the virtualImage, and an error, if there is any.
-func (c *FakeVirtualImages) Create(ctx context.Context, virtualImage *v1alpha2.VirtualImage, opts v1.CreateOptions) (result *v1alpha2.VirtualImage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(virtualimagesResource, c.ns, virtualImage), &v1alpha2.VirtualImage{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualImage), err
-}
-
-// Update takes the representation of a virtualImage and updates it. Returns the server's representation of the virtualImage, and an error, if there is any.
-func (c *FakeVirtualImages) Update(ctx context.Context, virtualImage *v1alpha2.VirtualImage, opts v1.UpdateOptions) (result *v1alpha2.VirtualImage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(virtualimagesResource, c.ns, virtualImage), &v1alpha2.VirtualImage{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualImage), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualImages) UpdateStatus(ctx context.Context, virtualImage *v1alpha2.VirtualImage, opts v1.UpdateOptions) (*v1alpha2.VirtualImage, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(virtualimagesResource, "status", c.ns, virtualImage), &v1alpha2.VirtualImage{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualImage), err
-}
-
-// Delete takes name of the virtualImage and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualImages) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualimagesResource, c.ns, name, opts), &v1alpha2.VirtualImage{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualImages) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualimagesResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha2.VirtualImageList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched virtualImage.
-func (c *FakeVirtualImages) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualImage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(virtualimagesResource, c.ns, name, pt, data, subresources...), &v1alpha2.VirtualImage{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualImage), err
 }

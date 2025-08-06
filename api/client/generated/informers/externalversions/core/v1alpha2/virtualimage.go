@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	versioned "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	internalinterfaces "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/internalinterfaces"
-	v1alpha2 "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
-	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
+	apicorev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // VirtualImages.
 type VirtualImageInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha2.VirtualImageLister
+	Lister() corev1alpha2.VirtualImageLister
 }
 
 type virtualImageInformer struct {
@@ -62,16 +62,28 @@ func NewFilteredVirtualImageInformer(client versioned.Interface, namespace strin
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualImages(namespace).List(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualImages(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualImages(namespace).Watch(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualImages(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.VirtualizationV1alpha2().VirtualImages(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.VirtualizationV1alpha2().VirtualImages(namespace).Watch(ctx, options)
 			},
 		},
-		&corev1alpha2.VirtualImage{},
+		&apicorev1alpha2.VirtualImage{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *virtualImageInformer) defaultInformer(client versioned.Interface, resyn
 }
 
 func (f *virtualImageInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1alpha2.VirtualImage{}, f.defaultInformer)
+	return f.factory.InformerFor(&apicorev1alpha2.VirtualImage{}, f.defaultInformer)
 }
 
-func (f *virtualImageInformer) Lister() v1alpha2.VirtualImageLister {
-	return v1alpha2.NewVirtualImageLister(f.Informer().GetIndexer())
+func (f *virtualImageInformer) Lister() corev1alpha2.VirtualImageLister {
+	return corev1alpha2.NewVirtualImageLister(f.Informer().GetIndexer())
 }

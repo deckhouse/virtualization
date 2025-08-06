@@ -19,123 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeVirtualDisks implements VirtualDiskInterface
-type FakeVirtualDisks struct {
+// fakeVirtualDisks implements VirtualDiskInterface
+type fakeVirtualDisks struct {
+	*gentype.FakeClientWithList[*v1alpha2.VirtualDisk, *v1alpha2.VirtualDiskList]
 	Fake *FakeVirtualizationV1alpha2
-	ns   string
 }
 
-var virtualdisksResource = v1alpha2.SchemeGroupVersion.WithResource("virtualdisks")
-
-var virtualdisksKind = v1alpha2.SchemeGroupVersion.WithKind("VirtualDisk")
-
-// Get takes name of the virtualDisk, and returns the corresponding virtualDisk object, and an error if there is any.
-func (c *FakeVirtualDisks) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualDisk, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(virtualdisksResource, c.ns, name), &v1alpha2.VirtualDisk{})
-
-	if obj == nil {
-		return nil, err
+func newFakeVirtualDisks(fake *FakeVirtualizationV1alpha2, namespace string) corev1alpha2.VirtualDiskInterface {
+	return &fakeVirtualDisks{
+		gentype.NewFakeClientWithList[*v1alpha2.VirtualDisk, *v1alpha2.VirtualDiskList](
+			fake.Fake,
+			namespace,
+			v1alpha2.SchemeGroupVersion.WithResource("virtualdisks"),
+			v1alpha2.SchemeGroupVersion.WithKind("VirtualDisk"),
+			func() *v1alpha2.VirtualDisk { return &v1alpha2.VirtualDisk{} },
+			func() *v1alpha2.VirtualDiskList { return &v1alpha2.VirtualDiskList{} },
+			func(dst, src *v1alpha2.VirtualDiskList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha2.VirtualDiskList) []*v1alpha2.VirtualDisk {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha2.VirtualDiskList, items []*v1alpha2.VirtualDisk) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha2.VirtualDisk), err
-}
-
-// List takes label and field selectors, and returns the list of VirtualDisks that match those selectors.
-func (c *FakeVirtualDisks) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualDiskList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(virtualdisksResource, virtualdisksKind, c.ns, opts), &v1alpha2.VirtualDiskList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha2.VirtualDiskList{ListMeta: obj.(*v1alpha2.VirtualDiskList).ListMeta}
-	for _, item := range obj.(*v1alpha2.VirtualDiskList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested virtualDisks.
-func (c *FakeVirtualDisks) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(virtualdisksResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a virtualDisk and creates it.  Returns the server's representation of the virtualDisk, and an error, if there is any.
-func (c *FakeVirtualDisks) Create(ctx context.Context, virtualDisk *v1alpha2.VirtualDisk, opts v1.CreateOptions) (result *v1alpha2.VirtualDisk, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(virtualdisksResource, c.ns, virtualDisk), &v1alpha2.VirtualDisk{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualDisk), err
-}
-
-// Update takes the representation of a virtualDisk and updates it. Returns the server's representation of the virtualDisk, and an error, if there is any.
-func (c *FakeVirtualDisks) Update(ctx context.Context, virtualDisk *v1alpha2.VirtualDisk, opts v1.UpdateOptions) (result *v1alpha2.VirtualDisk, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(virtualdisksResource, c.ns, virtualDisk), &v1alpha2.VirtualDisk{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualDisk), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualDisks) UpdateStatus(ctx context.Context, virtualDisk *v1alpha2.VirtualDisk, opts v1.UpdateOptions) (*v1alpha2.VirtualDisk, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(virtualdisksResource, "status", c.ns, virtualDisk), &v1alpha2.VirtualDisk{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualDisk), err
-}
-
-// Delete takes name of the virtualDisk and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualDisks) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualdisksResource, c.ns, name, opts), &v1alpha2.VirtualDisk{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualDisks) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualdisksResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha2.VirtualDiskList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched virtualDisk.
-func (c *FakeVirtualDisks) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualDisk, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(virtualdisksResource, c.ns, name, pt, data, subresources...), &v1alpha2.VirtualDisk{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualDisk), err
 }

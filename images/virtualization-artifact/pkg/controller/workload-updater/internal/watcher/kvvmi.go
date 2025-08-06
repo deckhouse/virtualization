@@ -42,26 +42,23 @@ type KVVMIWatcher struct{}
 
 func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, vmi client.Object) []reconcile.Request {
-			return []reconcile.Request{
-				{
-					NamespacedName: client.ObjectKeyFromObject(vmi),
-				},
-			}
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				newVM, ok := e.ObjectNew.(*virtv1.VirtualMachineInstance)
-				if !ok {
-					return false
+		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmi *virtv1.VirtualMachineInstance) []reconcile.Request {
+				return []reconcile.Request{
+					{
+						NamespacedName: client.ObjectKeyFromObject(vmi),
+					},
 				}
-				cond, _ := conditions.GetKVVMICondition(conditions.VirtualMachineInstanceNodePlacementNotMatched, newVM.Status.Conditions)
-				return cond.Status == corev1.ConditionTrue
+			}),
+			predicate.TypedFuncs[*virtv1.VirtualMachineInstance]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv1.VirtualMachineInstance]) bool { return false },
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv1.VirtualMachineInstance]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {
+					cond, _ := conditions.GetKVVMICondition(conditions.VirtualMachineInstanceNodePlacementNotMatched, e.ObjectNew.Status.Conditions)
+					return cond.Status == corev1.ConditionTrue
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineInstance: %w", err)
 	}

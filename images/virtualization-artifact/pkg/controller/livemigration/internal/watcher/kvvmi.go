@@ -18,8 +18,8 @@ package watcher
 
 import (
 	"fmt"
-	"reflect"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -38,17 +38,16 @@ type KVVMIWatcher struct{}
 func (w *KVVMIWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	// Subscribe to KVVMI status updates.
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVMI := e.ObjectOld.(*virtv1.VirtualMachineInstance)
-				newVMI := e.ObjectNew.(*virtv1.VirtualMachineInstance)
-				return !reflect.DeepEqual(oldVMI.Status, newVMI.Status)
+		source.Kind(mgr.GetCache(), &virtv1.VirtualMachineInstance{},
+			&handler.TypedEnqueueRequestForObject[*virtv1.VirtualMachineInstance]{},
+			predicate.TypedFuncs[*virtv1.VirtualMachineInstance]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv1.VirtualMachineInstance]) bool { return false },
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv1.VirtualMachineInstance]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstance]) bool {
+					return !equality.Semantic.DeepEqual(e.ObjectOld.Status, e.ObjectNew.Status)
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineInstance: %w", err)
 	}

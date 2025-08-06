@@ -49,28 +49,25 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 }
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVM := e.ObjectOld.(*virtv2.VirtualMachine)
-				newVM := e.ObjectNew.(*virtv2.VirtualMachine)
-				return oldVM.Spec.VirtualMachineIPAddress != newVM.Spec.VirtualMachineIPAddress ||
-					oldVM.Status.VirtualMachineIPAddress != newVM.Status.VirtualMachineIPAddress
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualMachine]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+					oldVM := e.ObjectOld
+					newVM := e.ObjectNew
+					return oldVM.Spec.VirtualMachineIPAddress != newVM.Spec.VirtualMachineIPAddress ||
+						oldVM.Status.VirtualMachineIPAddress != newVM.Status.VirtualMachineIPAddress
+				},
 			},
-		},
-	)
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.Object) []reconcile.Request {
-	vm, ok := obj.(*virtv2.VirtualMachine)
-	if !ok {
-		return nil
-	}
-
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.VirtualMachine) []reconcile.Request {
 	var requests []reconcile.Request
 
 	vmipNames := make(map[string]struct{})
