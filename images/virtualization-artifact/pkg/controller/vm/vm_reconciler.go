@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -104,17 +105,41 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	s := state.New(r.client, vm)
 	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Changed().Status.Conditions)
 	if maintenance.Status == metav1.ConditionTrue {
-		log.Info("Reconcile observe an VirtualMachine in maintenance mode, stopped vm")
+		log.Info("Reconcile observe an VirtualMachine in maintenance mode, cleaning up resources")
+
 		kvvm, err := s.KVVM(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		if kvvm == nil {
-			return reconcile.Result{}, nil
+		if kvvm != nil {
+			err = object.CleanupObject(ctx, r.client, kvvm)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
 		}
-		err = object.CleanupObject(ctx, r.client, kvvm)
+
+		kvvmi, err := s.KVVMI(ctx)
 		if err != nil {
 			return reconcile.Result{}, err
+		}
+		if kvvmi != nil {
+			err = r.client.Delete(ctx, kvvmi)
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return reconcile.Result{}, fmt.Errorf("delete KVVMI in maintenance mode: %w", err)
+			}
+		}
+
+		pods, err := s.Pods(ctx)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if pods != nil {
+			for i := range pods.Items {
+				err = r.client.Delete(ctx, &pods.Items[i])
+				if err != nil && !k8serrors.IsNotFound(err) {
+					return reconcile.Result{}, fmt.Errorf("delete Pod in maintenance mode: %w", err)
+				}
+			}
 		}
 
 		return reconcile.Result{}, nil

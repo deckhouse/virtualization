@@ -77,6 +77,12 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, nil
 	}
 
+	// Remove maintenance condition if it's false
+	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, changed.Status.Conditions)
+	if maintenance.Status == metav1.ConditionFalse {
+		conditions.RemoveCondition(vmcondition.TypeMaintenance, &changed.Status.Conditions)
+	}
+
 	if updated := addAllUnknown(changed, vmcondition.TypeRunning); updated || changed.Status.Phase == "" {
 		changed.Status.Phase = virtv2.MachinePending
 		return reconcile.Result{Requeue: true}, nil
