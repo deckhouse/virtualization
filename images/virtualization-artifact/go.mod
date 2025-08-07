@@ -122,7 +122,6 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.24.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230822172742-b8732ec3820d // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230822172742-b8732ec3820d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d // indirect
@@ -145,8 +144,6 @@ require (
 replace github.com/deckhouse/virtualization/api => ./../../api
 
 replace (
-	golang.org/x/crypto => golang.org/x/crypto v0.38.0 // CVE-2024-45337,CVE-2025-22869
-	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
 	k8s.io/api => k8s.io/api v0.29.2
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.29.2
 	k8s.io/apimachinery => k8s.io/apimachinery v0.29.2
@@ -154,4 +151,11 @@ replace (
 	k8s.io/client-go => k8s.io/client-go v0.29.2
 	k8s.io/code-generator => k8s.io/code-generator v0.29.2
 	k8s.io/component-base => k8s.io/component-base v0.29.2
+)
+
+// CVE Replaces
+replace (
+	golang.org/x/crypto => golang.org/x/crypto v0.38.0 // CVE-2024-45337,CVE-2025-22869
+	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
+	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
 )
