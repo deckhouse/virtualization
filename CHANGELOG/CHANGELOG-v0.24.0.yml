@@ -1,0 +1,61 @@
+api:
+  features:
+    - summary: Remove setting of VolumeSnapshotClass. Set field deprecated in CRDS's.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1274
+ci:
+  fixes:
+    - summary: update werf cleanup rules
+      pull_request: https://github.com/deckhouse/virtualization/pull/1302
+cli:
+  fixes:
+    - summary: Rewrite VNC and Console for consistent behavior and code structure.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1290
+core:
+  features:
+    - summary: >-
+        bump kubevirt to tag v1.3.1-v12n.8. Set mac address for non default pod network and improve
+        reason when live-migration failed
+      pull_request: https://github.com/deckhouse/virtualization/pull/1287
+  fixes:
+    - summary: fix CVE-2025-22868
+      pull_request: https://github.com/deckhouse/virtualization/pull/1322
+module:
+  fixes:
+    - summary: Improve VM Access audit messages. Add stage from audit message to eventLog name.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1313
+    - summary: Fix helm template to be compatible with CustomCertificate https mode.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1297
+observability:
+  fixes:
+    - summary: >-
+        fix alerts D8InternalVirtualizationVirtHandlerTargetAbsent and
+        D8InternalVirtualizationVirtHandlerTargetDown, by removing them and adding virtualization
+        virt metrics state
+      pull_request: https://github.com/deckhouse/virtualization/pull/1291
+vd:
+  features:
+    - summary: Add `Exporting` phase and new conditions to `VirtualDisk` status
+      pull_request: https://github.com/deckhouse/virtualization/pull/1256
+  fixes:
+    - summary: Fail with error on insufficient PVC size
+      pull_request: https://github.com/deckhouse/virtualization/pull/1295
+    - summary: Set ImageNotReady/ClusterImageNotReady condition when VI/CVI is missing.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1286
+    - summary: Improve virtual disk protection logic during deletion
+      pull_request: https://github.com/deckhouse/virtualization/pull/1285
+vm:
+  features:
+    - summary: Add additional network interfaces for VirtualMachines.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1253
+  fixes:
+    - summary: >-
+        Fix an issue where multiple networks of type "Main" could be specified in a virtual
+        machine's spec.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1299
+    - summary: Add react on create virtual machine event for WorkloadUpdater controller
+      pull_request: https://github.com/deckhouse/virtualization/pull/1293
+    - summary: >-
+        Add validation to ensure that names in spec.blockDeviceRefs do not exceed the maximum
+        allowed lengths.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1276
+
