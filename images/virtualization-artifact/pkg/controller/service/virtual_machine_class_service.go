@@ -45,7 +45,7 @@ func (v *VirtualMachineClassService) ValidateDefaultAnnotation(vmClass *v1alpha2
 	}
 	annoValue, ok := vmClass.Annotations[annotations.AnnVirtualMachineClassDefault]
 	if ok && annoValue != "true" {
-		return fmt.Errorf("annotation for default class '%s' may have only 'true' value")
+		return fmt.Errorf("annotation for default class '%s' may have only 'true' value", annotations.AnnVirtualMachineClassDefault)
 	}
 	return nil
 }
