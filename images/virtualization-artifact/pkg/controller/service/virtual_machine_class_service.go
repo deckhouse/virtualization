@@ -45,7 +45,10 @@ func (v *VirtualMachineClassService) ValidateDefaultAnnotation(vmClass *v1alpha2
 	}
 	annoValue, ok := vmClass.Annotations[annotations.AnnVirtualMachineClassDefault]
 	if ok && annoValue != "true" {
-		return fmt.Errorf("annotation for default class '%s' may have only 'true' value", annotations.AnnVirtualMachineClassDefault)
+		// Message from validating webhook will be like this:
+		// Error from server (Forbidden): admission webhook "vmclass.virtualization-controller.validate.d8-virtualization" denied the request:
+		// only 'true' value allowed for annotation that specifies a default class (virtualmachineclass.virtualization.deckhouse.io/is-default-class)
+		return fmt.Errorf("only 'true' value allowed for annotation that specifies a default class (%s)", annotations.AnnVirtualMachineClassDefault)
 	}
 	return nil
 }
