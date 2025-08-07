@@ -45,6 +45,8 @@ const (
 	TypeNeedsEvict Type = "NeedsEvict"
 
 	TypeNetworkReady Type = "NetworkReady"
+
+	TypeMaintenance Type = "Maintenance"
 )
 
 type Reason string
@@ -122,4 +124,6 @@ const (
 	ReasonNetworkReady     Reason = "NetworkReady"
 	ReasonNetworkNotReady  Reason = "NetworkNotReady"
 	ReasonSDNModuleDisable Reason = "SDNModuleDisable"
+
+	ReasonMaintenanceRestore Reason = "RestoreInProgress"
 )
