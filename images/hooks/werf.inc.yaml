@@ -9,7 +9,24 @@ git:
     install:
     - go.mod
     - go.sum
-    - '**/*.go'
+    setup:
+    - "**/*.go"
+- add: {{ .ModuleDir }}/images/virtualization-artifact
+  to: /app/images/virtualization-artifact
+  stageDependencies:
+    install:
+      - go.mod
+      - go.sum
+    setup:
+      - "**/*.go"
+- add: {{ .ModuleDir }}/api
+  to: /app/api
+  stageDependencies:
+    install:
+      - go.mod
+      - go.sum
+    setup:
+      - "**/*.go"
 ---
 image: {{ .ModuleNamePrefix }}go-hooks-artifact
 final: false
@@ -39,3 +56,5 @@ shell:
     export TAGS="{{ printf "-tags %s" .MODULE_EDITION }}"
     {{- $_ := set $ "ProjectName" (list $.ImageName "hooks" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /go-hooks/virtualization-module-hooks ./cmd/virtualization-module-hooks`) | nindent 6 }}
+    # Note: module-config-reporter should have extension to be treated as a classic shell hook (not batch).
+    {{- include "image-build.build" (set $ "BuildCommand" `go build -ldflags="-s -w" $TAGS -a -o /go-hooks/module-config-reporter.exe ./cmd/module-config-reporter`) | nindent 6 }}

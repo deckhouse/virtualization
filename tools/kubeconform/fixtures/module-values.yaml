@@ -379,6 +379,22 @@ virtualization:
       ca: ""
       crt: ROOT-CA-CRT
       key: ROOT-CA-KEY
+    moduleConfig:
+      audit:
+        enabled: true
+
+      dvcr:
+        storage:
+          persistentVolumeClaim:
+            size: 50G
+            storageClassName: linstor-thick-data-r2
+          type: PersistentVolumeClaim
+      logLevel: debug
+      virtualMachineCIDRs:
+        - 10.0.10.0/24
+        - 10.0.20.0/24
+        - 10.0.30.0/24
+
   logLevel: debug
   registry:
     base: some-registry.io/sys/deckhouse-oss/modules

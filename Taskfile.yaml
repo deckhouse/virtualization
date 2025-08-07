@@ -12,9 +12,6 @@ includes:
     aliases: [controller]
     taskfile: ./images/virtualization-artifact
     dir: ./images/virtualization-artifact
-  hooks:
-    taskfile: ./hooks
-    dir: ./hooks
   gohooks:
     taskfile: ./images/hooks
     dir: ./images/hooks
