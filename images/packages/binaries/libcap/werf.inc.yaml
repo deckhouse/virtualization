@@ -10,7 +10,7 @@ import:
 
 ---
 {{- $version := get $.Package $.ImageName }}
-{{- $gitRepoUrl := "attr.git" }}
+{{- $gitRepoUrl := "libcap/libcap.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
