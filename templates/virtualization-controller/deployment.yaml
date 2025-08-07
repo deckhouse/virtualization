@@ -96,6 +96,9 @@ spec:
             - containerPort: 8081
               name: pprof
               protocol: TCP
+            - containerPort: 8083
+              name: health
+              protocol: TCP
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}
@@ -105,6 +108,18 @@ spec:
           env:
             {{- include "kube_api_rewriter.kubeconfig_env" . | nindent 12 }}
             {{- include "virtualization-controller.envs" . | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+              scheme: HTTP
+            initialDelaySeconds: 10
         {{- $kubeRbacProxySettings := dict }}
         {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
         {{- $_ := set $kubeRbacProxySettings "upstreams" (list
