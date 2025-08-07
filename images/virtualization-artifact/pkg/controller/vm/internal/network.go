@@ -24,12 +24,14 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/component-base/featuregate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
@@ -37,12 +39,12 @@ import (
 const nameNetworkHandler = "NetworkInterfaceHandler"
 
 type NetworkInterfaceHandler struct {
-	isSdnEnabled bool
+	featureGate featuregate.FeatureGate
 }
 
-func NewNetworkInterfaceHandler(isSdnEnabled bool) *NetworkInterfaceHandler {
+func NewNetworkInterfaceHandler(featureGate featuregate.FeatureGate) *NetworkInterfaceHandler {
 	return &NetworkInterfaceHandler{
-		isSdnEnabled: isSdnEnabled,
+		featureGate: featureGate,
 	}
 }
 
@@ -79,7 +81,7 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		return reconcile.Result{}, nil
 	}
 
-	if !h.isSdnEnabled {
+	if !h.featureGate.Enabled(featuregates.SDN) {
 		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonSDNModuleDisable).Message("For additional network interfaces, please enable SDN module")
 		return reconcile.Result{}, nil
 	}
