@@ -136,7 +136,7 @@ func (h *MigratingHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv
 	{
 		var inProgressVmops []*virtv2.VirtualMachineOperation
 		for _, op := range vmops {
-			if commonvmop.IsMigration(op) && op.Status.Phase == virtv2.VMOPPhaseInProgress {
+			if commonvmop.IsMigration(op) && (op.Status.Phase == virtv2.VMOPPhaseInProgress || op.Status.Phase == virtv2.VMOPPhasePending) {
 				inProgressVmops = append(inProgressVmops, op)
 			}
 		}

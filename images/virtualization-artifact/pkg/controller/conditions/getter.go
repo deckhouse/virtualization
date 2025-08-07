@@ -57,6 +57,17 @@ func GetKVVMICondition(condType virtv1.VirtualMachineInstanceConditionType, cond
 	return virtv1.VirtualMachineInstanceCondition{}, false
 }
 
+func GetKVVMIMCondition(condType virtv1.VirtualMachineInstanceMigrationConditionType, conditions []virtv1.VirtualMachineInstanceMigrationCondition) (virtv1.VirtualMachineInstanceMigrationCondition, bool) {
+	for _, condition := range conditions {
+		if condition.Type == condType {
+			return condition, true
+		}
+	}
+
+	return virtv1.VirtualMachineInstanceMigrationCondition{}, false
+}
+
 const (
-	VirtualMachineInstanceNodePlacementNotMatched virtv1.VirtualMachineInstanceConditionType = "NodePlacementNotMatched"
+	VirtualMachineInstanceNodePlacementNotMatched virtv1.VirtualMachineInstanceConditionType          = "NodePlacementNotMatched"
+	KubevirtMigrationRejectedByResourceQuotaType  virtv1.VirtualMachineInstanceMigrationConditionType = "migrationRejectedByResourceQuota"
 )

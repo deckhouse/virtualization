@@ -58,6 +58,9 @@ const (
 	// ReasonErrVMOPFailed is event reason that operation is failed
 	ReasonErrVMOPFailed = "VirtualMachineOperationFailed"
 
+	// ReasonErrVMOPPending is event reason that operation is pending
+	ReasonErrVMOPPending = "VirtualMachineOperationPending"
+
 	// ReasonVMOPSucceeded is event reason that the operation is successfully completed
 	ReasonVMOPSucceeded = "VirtualMachineOperationSucceeded"
 
