@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"slices"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -49,59 +49,50 @@ func NewInUseHandler(client client.Client) *InUseHandler {
 }
 
 func (h InUseHandler) Handle(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	inUseCondition, ok := conditions.GetCondition(vdcondition.InUseType, vd.Status.Conditions)
-	if !ok {
-		cb := conditions.NewConditionBuilder(vdcondition.InUseType).
-			Status(metav1.ConditionUnknown).
-			Reason(conditions.ReasonUnknown).
-			Generation(vd.Generation)
-		conditions.SetCondition(cb, &vd.Status.Conditions)
-		inUseCondition = cb.Condition()
-	}
-
 	err := h.updateAttachedVirtualMachines(ctx, vd)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	usedByVM, usedByImage := false, false
+	var (
+		usedByVM         bool
+		usedByImage      bool
+		usedByDataExport bool
+	)
 
-	if inUseCondition.Reason != vdcondition.UsedForImageCreation.String() {
-		usedByVM = h.checkUsageByVM(vd)
-
-		if !usedByVM {
-			usedByImage, err = h.checkImageUsage(ctx, vd)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
-	} else {
+	usedByVM = h.checkUsageByVM(vd)
+	if !usedByVM {
 		usedByImage, err = h.checkImageUsage(ctx, vd)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-
-		if !usedByImage {
-			usedByVM = h.checkUsageByVM(vd)
+	}
+	if !usedByVM && !usedByImage {
+		usedByDataExport, err = h.checkDataExportUsage(ctx, vd)
+		if err != nil {
+			return reconcile.Result{}, err
 		}
 	}
 
-	cb := conditions.NewConditionBuilder(vdcondition.InUseType)
+	cb := conditions.NewConditionBuilder(vdcondition.InUseType).Generation(vd.Generation)
 	switch {
 	case usedByVM:
-		cb.Generation(vd.Generation).
+		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.AttachedToVirtualMachine).
-			Message("").
-			LastTransitionTime(time.Now())
+			Message("")
 	case usedByImage:
-		cb.Generation(vd.Generation).
+		cb.
 			Status(metav1.ConditionTrue).
 			Reason(vdcondition.UsedForImageCreation).
-			Message("").
-			LastTransitionTime(time.Now())
+			Message("")
+	case usedByDataExport:
+		cb.
+			Status(metav1.ConditionTrue).
+			Reason(vdcondition.UsedForDataExport).
+			Message("")
 	default:
-		cb.Generation(vd.Generation).
+		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.NotInUse).
 			Message("")
@@ -119,6 +110,23 @@ func (h InUseHandler) isVDAttachedToVM(vdName string, vm virtv2.VirtualMachine) 
 	}
 
 	return false
+}
+
+func (h InUseHandler) checkDataExportUsage(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
+	pvcName := vd.Status.Target.PersistentVolumeClaim
+	if pvcName == "" {
+		return false, nil
+	}
+
+	pvc, err := object.FetchObject(ctx, types.NamespacedName{Name: pvcName, Namespace: vd.Namespace}, h.client, &corev1.PersistentVolumeClaim{})
+	if err != nil {
+		return false, fmt.Errorf("fetch pvc: %w", err)
+	}
+	if pvc == nil {
+		return false, nil
+	}
+
+	return pvc.GetAnnotations()[annotations.AnnDataExportRequest] == "true", nil
 }
 
 func (h InUseHandler) checkImageUsage(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {

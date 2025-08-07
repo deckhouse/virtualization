@@ -127,6 +127,20 @@ const (
 	// AnnNodeCpuFeature is the Kubevirt annotation for CPU feature.
 	AnnNodeCPUFeature = "cpu-feature.node.virtualization.deckhouse.io/"
 
+	// AnnDataExportRequest is the annotation for indicating that export requested.
+	AnnDataExportRequest = "storage.deckhouse.io/data-export-request"
+
+	// TODO: remove deprecated annotations in the v1 version.
+	// AnnStorageClassName is the annotation for indicating that storage class name. (USED IN STORAGE sds controllers)
+	AnnStorageClassName           = AnnAPIGroupV + "/storage-class-name"
+	AnnStorageClassNameDeprecated = "storageClass"
+	// AnnVolumeMode is the annotation for indicating that volume mode.  (USED IN STORAGE sds controllers)
+	AnnVolumeMode           = AnnAPIGroupV + "/volume-mode"
+	AnnVolumeModeDeprecated = "volumeMode"
+	// AnnAccessMode is the annotation for indicating that access mode.  (USED IN STORAGE sds controllers)
+	AnnAccessModes           = AnnAPIGroupV + "/access-mode"
+	AnnAccessModesDeprecated = "accessModes"
+
 	// AppLabel is the app name label.
 	AppLabel = "app"
 	// CDILabelValue provides a constant  for CDI Pod label values.

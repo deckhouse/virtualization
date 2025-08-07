@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -111,6 +112,10 @@ func (w PersistentVolumeClaimWatcher) filterUpdateEvents(e event.UpdateEvent) bo
 
 	if service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, oldPVC.Status.Conditions) != nil ||
 		service.GetPersistentVolumeClaimCondition(corev1.PersistentVolumeClaimResizing, newPVC.Status.Conditions) != nil {
+		return true
+	}
+
+	if !equality.Semantic.DeepEqual(oldPVC.GetAnnotations(), newPVC.GetAnnotations()) {
 		return true
 	}
 
