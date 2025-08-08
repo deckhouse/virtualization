@@ -60,6 +60,7 @@ func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 }
 
 func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+	fmt.Printf(">>>vd reconcile %q\n", req.Name)
 	vd := reconciler.NewResource(req.NamespacedName, r.client, r.factory, r.statusGetter)
 
 	err := vd.Fetch(ctx)
@@ -120,11 +121,18 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 					return false
 				}
 
+				fmt.Printf(">>>new claim is: %s\n", newDV.Status.ClaimName)
+
 				if oldDV.Status.Progress != newDV.Status.Progress {
 					return true
 				}
 
 				if oldDV.Status.Phase != newDV.Status.Phase && newDV.Status.Phase == cdiv1.Succeeded {
+					return true
+				}
+
+				if oldDV.Status.ClaimName != newDV.Status.ClaimName {
+					fmt.Println(">>>dv claim changed")
 					return true
 				}
 

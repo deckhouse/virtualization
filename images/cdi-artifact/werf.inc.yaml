@@ -1,5 +1,5 @@
 ---
-{{- $version := "v1.60.3-v12n.7" }}
+{{- $version := "v1.60.3-virtualization-watch-resource-quota" }}
 {{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
 
 ---
@@ -23,9 +23,10 @@ shell:
   - apt-get -qq install -y libnbd-devel
   {{- include "alt packages clean" . | nindent 2 }}
 {{- end }}
-
+  installCacheVersion: "{{ now | date "Mon Jan 2 15:04:05 MST 2006" }}" # <--- для пересборки
   install:
   - |
+    echo $date
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
     echo "Git clone CDI repository..."

@@ -23,10 +23,16 @@ import (
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	klient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
@@ -77,6 +83,41 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		if err != nil {
 			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
 		}
+	}
+
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &corev1.ResourceQuota{}),
+		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
+			quota, ok := obj.(*corev1.ResourceQuota)
+			if !ok {
+				return nil
+			}
+
+			var vmList virtv2.VirtualMachineList
+			client := mgr.GetClient()
+			if err := client.List(ctx, &vmList, klient.InNamespace(quota.Namespace)); err != nil {
+				return nil
+			}
+
+			var reqs []reconcile.Request
+			for _, vm := range vmList.Items {
+				reqs = append(reqs, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Namespace: vm.Namespace,
+						Name:      vm.Name,
+					},
+				})
+			}
+
+			return reqs
+		}),
+		predicate.Funcs{
+			CreateFunc: func(e event.CreateEvent) bool { return false },
+			DeleteFunc: func(e event.DeleteEvent) bool { return true },
+			UpdateFunc: func(e event.UpdateEvent) bool { return true },
+		},
+	); err != nil {
+		return fmt.Errorf("error setting watch on resourceQuota: %w", err)
 	}
 
 	return nil
