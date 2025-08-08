@@ -7,9 +7,6 @@ import:
   add: /out
   to: /{{ $.ImageName }}
   before: setup
-
-{{- $images := list "libcap" -}}
-{{- include "importPackageImages" (list $images "install") -}}
 ---
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "file/file.git" }}
@@ -49,6 +46,8 @@ import:
   add: /src
   to: /src
   before: install
+{{- $images := list "libcap" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
