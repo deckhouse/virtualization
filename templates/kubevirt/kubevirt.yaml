@@ -9,7 +9,7 @@
   {{- $_ := set $.Version $k $v}}
 {{- end }}
 {{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
-{{- $logVerbosity := include "kubevirt.logVerbosity" .Values.virtualization.logLevel | int }}
+{{- $logVerbosity := include "kubevirt.logVerbosity" .Values.virtualization.internal.moduleConfig.logLevel | int }}
 ---
 apiVersion: internal.virtualization.deckhouse.io/v1
 kind: InternalVirtualizationKubeVirt

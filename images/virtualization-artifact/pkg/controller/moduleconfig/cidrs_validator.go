@@ -39,29 +39,32 @@ func newCIDRsValidator(client client.Client) *cidrsValidator {
 }
 
 func (v cidrsValidator) ValidateUpdate(ctx context.Context, _, newMC *mcapi.ModuleConfig) (admission.Warnings, error) {
-	CIDRs, err := parseCIDRs(newMC.Spec.Settings)
+	cidrs, err := ParseCIDRs(newMC.Spec.Settings)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
 
-	err = checkOverlapsCIDRs(CIDRs)
+	err = CheckCIDRsOverlap(cidrs)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
 
-	err = v.checkNodeSubnets(ctx, CIDRs)
+	err = v.checkOverlapWithNodeAddresses(ctx, cidrs)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
+
+	// CheckCIDRsOverlapWithSubnet(cidrs, podsSubnetCIDR)
+	// CheckCIDRsOverlapWithSubnet(cidrs, servicesSubnetCIDR)
 
 	return admission.Warnings{}, nil
 }
 
-func (v cidrsValidator) checkNodeSubnets(ctx context.Context, excludedPrefixes []netip.Prefix) error {
+func (v cidrsValidator) checkOverlapWithNodeAddresses(ctx context.Context, cidrs []netip.Prefix) error {
 	nodes := &corev1.NodeList{}
 	err := v.client.List(ctx, nodes)
 	if err != nil {
 		return fmt.Errorf("internal error: unable to retrieve nodes at the moment, please try again later. Details: %w", err)
 	}
-	return checkNodeAddressesOverlap(nodes.Items, excludedPrefixes)
+	return CheckCIDRsOverlapWithNodeAddresses(cidrs, nodes.Items)
 }

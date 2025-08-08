@@ -13,14 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package settings
 
-import (
-	"hooks/pkg/readiness"
-
-	"github.com/deckhouse/module-sdk/pkg/app"
+const (
+	InternalValuesConfigCopyPath       = "virtualization.internal.moduleConfig"
+	InternalValuesConfigValidationPath = "virtualization.internal.moduleConfigValidation"
 )
-
-func main() {
-	app.Run(app.WithReadiness(&readiness.ReadinessConfig))
-}
