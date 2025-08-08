@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -25,6 +26,7 @@ import (
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -73,7 +75,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 		Entry(
 			"StorageClassReady must be false because no storage class can be return",
 			handlerTestArgs{
-				StorageClassServiceMock: newStorageClassServiceMock(nil),
+				StorageClassServiceMock: newStorageClassServiceMock(nil, false),
 				VI:                      newVI(nil, virtv2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionFalse,
@@ -84,7 +86,7 @@ var _ = Describe("StorageClassHandler Run", func() {
 		Entry(
 			"StorageClassReady must be true because storage class from spec found",
 			handlerTestArgs{
-				StorageClassServiceMock: newStorageClassServiceMock(ptr.To("sc")),
+				StorageClassServiceMock: newStorageClassServiceMock(ptr.To("sc"), false),
 				VI:                      newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
@@ -95,11 +97,22 @@ var _ = Describe("StorageClassHandler Run", func() {
 		Entry(
 			"StorageClassReady must be true because default storage class found",
 			handlerTestArgs{
-				StorageClassServiceMock: newStorageClassServiceMock(ptr.To("sc")),
+				StorageClassServiceMock: newStorageClassServiceMock(ptr.To("sc"), false),
 				VI:                      newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
 				ExpectedCondition: metav1.Condition{
 					Status: metav1.ConditionTrue,
 					Reason: vicondition.StorageClassReady.String(),
+				},
+			},
+		),
+		Entry(
+			"StorageClassReady must be false because storage class is not supported",
+			handlerTestArgs{
+				StorageClassServiceMock: newStorageClassServiceMock(ptr.To("sc"), true),
+				VI:                      newVI(ptr.To("sc"), virtv2.StoragePersistentVolumeClaim),
+				ExpectedCondition: metav1.Condition{
+					Status: metav1.ConditionFalse,
+					Reason: vicondition.StorageClassNotReady.String(),
 				},
 			},
 		),
@@ -112,7 +125,7 @@ type handlerTestArgs struct {
 	ExpectedCondition       metav1.Condition
 }
 
-func newStorageClassServiceMock(existedStorageClass *string) *StorageClassServiceMock {
+func newStorageClassServiceMock(existedStorageClass *string, unsupportedStorageClass bool) *StorageClassServiceMock {
 	var storageClassServiceMock StorageClassServiceMock
 
 	storageClassServiceMock.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
@@ -144,6 +157,10 @@ func newStorageClassServiceMock(existedStorageClass *string) *StorageClassServic
 		}
 	}
 
+	storageClassServiceMock.GetStorageProfileFunc = func(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+		return &cdiv1.StorageProfile{}, nil
+	}
+
 	storageClassServiceMock.GetModuleStorageClassFunc = func(ctx context.Context) (*storagev1.StorageClass, error) {
 		return nil, service.ErrDefaultStorageClassNotFound
 	}
@@ -154,6 +171,16 @@ func newStorageClassServiceMock(existedStorageClass *string) *StorageClassServic
 
 	storageClassServiceMock.IsStorageClassAllowedFunc = func(_ string) bool {
 		return true
+	}
+
+	storageClassServiceMock.ValidateClaimPropertySetsFunc = func(_ *cdiv1.StorageProfile) error {
+		if unsupportedStorageClass {
+			return fmt.Errorf(
+				"the storage class %q is not supported in the current version due to known compatibility issues with virtual images; please choose a different storage class",
+				*existedStorageClass,
+			)
+		}
+		return nil
 	}
 
 	return &storageClassServiceMock

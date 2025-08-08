@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/types"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
@@ -78,4 +79,8 @@ func (s BaseStorageClassService) GetPersistentVolumeClaim(ctx context.Context, s
 
 func (s BaseStorageClassService) IsStorageClassDeprecated(sc *storagev1.StorageClass) bool {
 	return sc != nil && sc.Labels["module"] == "local-path-provisioner"
+}
+
+func (s BaseStorageClassService) GetStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error) {
+	return object.FetchObject(ctx, types.NamespacedName{Name: name}, s.client, &cdiv1.StorageProfile{})
 }
