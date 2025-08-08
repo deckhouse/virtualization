@@ -45,5 +45,4 @@ shell:
     cd /src
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
-    tree /out
 

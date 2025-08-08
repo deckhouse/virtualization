@@ -7,6 +7,9 @@ import:
   add: /out
   to: /{{ $.ImageName }}
   before: setup
+
+{{- $images := list "libcap" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 ---
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "file/file.git" }}
@@ -32,7 +35,7 @@ packages:
 - make automake autoconf libtool makeinfo
 - pkg-config
 - bison
-- bzlib-devel libcap-devel liblzma-devel libseccomp-devel libzstd-devel zlib-devel lzip ncompress strace
+- bzlib-devel liblzma-devel libseccomp-devel libzstd-devel zlib-devel lzip ncompress strace
 {{- end -}}
 
 
@@ -57,13 +60,18 @@ shell:
 
   install:
   - |
-    OUTDIR=/out
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
 
+    OUTDIR=/out
     cd /src
-    
+
     autoreconf -f -i
     ./configure --prefix=/usr --libdir=/usr/lib64 --datadir=/usr/share
-    
+
     make install -j $(nproc) DESTDIR=$OUTDIR
 
     rm -rf $OUTDIR/share/man
