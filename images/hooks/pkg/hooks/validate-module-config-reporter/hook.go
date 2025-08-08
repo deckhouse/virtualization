@@ -21,23 +21,10 @@ import (
 
 	"hooks/pkg/settings"
 
+	"k8s.io/utils/ptr"
+
 	"github.com/deckhouse/module-sdk/pkg"
 	"github.com/deckhouse/module-sdk/pkg/registry"
-	"github.com/deckhouse/virtualization/api/core"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2"
-)
-
-const (
-	snapshotModuleConfig = "module-config"
-	moduleConfigJQFilter = `{"cidrs": .spec.settings.virtualMachineCIDRs}`
-
-	snapshotNodes = "nodes"
-	nodesJQFilter = `{"addresses": .status.addresses}`
-
-	// see https://helm.sh/docs/howto/charts_tips_and_tricks/#tell-helm-not-to-uninstall-a-resource
-	helmResourcePolicyKey  = "helm.sh/resource-policy"
-	helmResourcePolicyKeep = "keep"
-	apiVersion             = core.GroupName + "/" + v1alpha2.Version
 )
 
 var _ = registry.RegisterFunc(config, Reconcile)
@@ -47,6 +34,19 @@ var config = &pkg.HookConfig{
 		{
 			Name:    "validate-module-config-reporter",
 			Crontab: "*/15 * * * * *",
+		},
+	},
+	Kubernetes: []pkg.KubernetesConfig{
+		{
+			Name:       "somename",
+			APIVersion: "deckhouse.io/v1alpha1",
+			Kind:       "ModuleConfig",
+			NameSelector: &pkg.NameSelector{
+				MatchNames: []string{"virtualization"},
+			},
+			ExecuteHookOnSynchronization: ptr.To(false),
+			ExecuteHookOnEvents:          ptr.To(false),
+			JqFilter:                     `.metadata.name`,
 		},
 	},
 	Queue: fmt.Sprintf("modules/%s/validate-module-config-reporter", settings.ModuleName),
