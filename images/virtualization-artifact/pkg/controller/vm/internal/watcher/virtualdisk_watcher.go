@@ -51,10 +51,16 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 					return false
 				}
 
+				fmt.Printf(">>>vm: vd pvc: %s\n", newVd.Status.Target.PersistentVolumeClaim)
+
 				oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVd.Status.Conditions)
 				newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVd.Status.Conditions)
 
 				if oldVd.Status.Phase != newVd.Status.Phase || oldInUseCondition != newInUseCondition {
+					return true
+				}
+
+				if oldVd.Status.Target.PersistentVolumeClaim != newVd.Status.Target.PersistentVolumeClaim {
 					return true
 				}
 

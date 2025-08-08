@@ -303,10 +303,12 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 		case virtv2.DiskDevice:
 			vd, hasKey := s.VDByName[bd.Name]
 			if !hasKey {
+				fmt.Println(">>>no key")
 				canStartKVVM = false
 				continue
 			}
 
+			fmt.Printf(">>>2pvc: %s\n", vd.Status.Target.PersistentVolumeClaim)
 			if vd.Status.Target.PersistentVolumeClaim == "" {
 				canStartKVVM = false
 				continue
@@ -327,5 +329,6 @@ func (h *BlockDeviceHandler) countReadyBlockDevices(vm *virtv2.VirtualMachine, s
 		}
 	}
 
+	fmt.Printf(">>>canStart: %t\n", canStartKVVM)
 	return ready, canStartKVVM, warnings
 }

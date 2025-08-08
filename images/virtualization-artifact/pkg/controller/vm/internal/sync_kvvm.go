@@ -64,6 +64,7 @@ type SyncKvvmHandler struct {
 }
 
 func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
+	fmt.Println(">>>in syncKVVM")
 	log, ctx := logger.GetHandlerContext(ctx, nameSyncKvvmHandler)
 
 	if s.VirtualMachine().IsEmpty() {
@@ -168,12 +169,14 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 					"the virtual machine cannot be restarted immediately to apply pending configuration changes " +
 					"as it is awaiting the availability of dependent resources.",
 			)
+		fmt.Println(">>>waiting")
 		return reconcile.Result{RequeueAfter: time.Minute}, nil
 	}
 
 	var errs error
 
 	// 3. Create or update KVVM.
+	fmt.Println(">>>in syncKVVM: pre call")
 	synced, kvvmSyncErr := h.syncKVVM(ctx, s, allChanges)
 	if kvvmSyncErr != nil {
 		errs = errors.Join(errs, fmt.Errorf("failed to sync the internal virtual machine: %w", kvvmSyncErr))
@@ -241,11 +244,13 @@ func (h *SyncKvvmHandler) syncKVVM(ctx context.Context, s state.VirtualMachineSt
 	}
 
 	if kvvm == nil {
+		fmt.Println(">>>precreate")
 		err = h.createKVVM(ctx, s)
 		if err != nil {
 			return false, fmt.Errorf("create the internal virtual machine: %w", err)
 		}
 
+		fmt.Println(">>>created")
 		return true, nil
 	}
 
