@@ -28,12 +28,12 @@ func NewVMSnapshotRestore(client client.Client, recorder eventrecord.EventRecord
 	}
 }
 
-func (vmr VMSnapshotRestore) Sync(ctx context.Context, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
+func (r VMSnapshotRestore) Sync(ctx context.Context, vm *virtv2.VirtualMachine) (reconcile.Result, error) {
 	cb := conditions.NewConditionBuilder(vmrestorecondition.VirtualMachineRestoreReadyType)
 	defer func() { conditions.SetCondition(cb.Generation(vm.Generation), &vm.Status.Conditions) }()
 
 	return steptaker.NewStepTakers(
-		step.NewStopVMStep(vmr.recorder, cb, vm),
-		step.NewRestoreVMStep(vmr.recorder, cb, vm),
+		step.NewStopVMStep(r.recorder, cb),
+		step.NewRestoreVMStep(r.client, r.recorder, cb, r.vmop),
 	).Run(ctx, vm)
 }
