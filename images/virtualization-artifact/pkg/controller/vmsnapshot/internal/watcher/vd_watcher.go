@@ -105,6 +105,10 @@ func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
 		return false
 	}
 
+	if oldVD.Status.Phase != newVD.Status.Phase {
+		return true
+	}
+
 	oldResized, _ := conditions.GetCondition(vdcondition.ResizingType, oldVD.Status.Conditions)
 	newResized, _ := conditions.GetCondition(vdcondition.ResizingType, newVD.Status.Conditions)
 
