@@ -19,6 +19,14 @@ git:
     - go.sum
     setup:
     - "**/*.go"
+- add: /api
+  to: /app/api
+  stageDependencies:
+    install:
+    - go.mod
+    - go.sum
+    setup:
+    - "**/*.go"
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
