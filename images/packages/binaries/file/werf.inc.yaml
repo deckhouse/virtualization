@@ -7,6 +7,9 @@ import:
   add: /out
   to: /{{ $.ImageName }}
   before: setup
+
+{{- $images := list "libcap" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 ---
 {{- $version := get $.Package $.ImageName }}
 {{- $gitRepoUrl := "file/file.git" }}
@@ -18,7 +21,7 @@ packages:
 - make automake autoconf libtool makeinfo
 - pkg-config
 - bison
-- bzlib-devel libcap-devel liblzma-devel libseccomp-devel libzstd-devel zlib-devel lzip ncompress strace
+- bzlib-devel liblzma-devel libseccomp-devel libzstd-devel zlib-devel lzip ncompress strace
 {{- end -}}
 
 
@@ -41,15 +44,21 @@ shell:
 
   install:
   - |
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
+
     OUTDIR=/out
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-    
+
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
-    
+
     autoreconf -f -i
     ./configure --prefix=/usr --libdir=/usr/lib64 --datadir=/usr/share
-    
+
     make install -j $(nproc) DESTDIR=$OUTDIR
 
     rm -rf $OUTDIR/share/man
