@@ -11,6 +11,14 @@ git:
     - go.sum
     setup:
     - "**/*.go"
+- add: /images/virtualization-artifact
+  to: /app/images/virtualization-artifact
+  stageDependencies:
+    install:
+    - go.mod
+    - go.sum
+    setup:
+    - "**/*.go"
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
