@@ -30,13 +30,16 @@ var ReadinessConfig = app.ReadinessConfig{
 }
 
 func checkModuleReadiness(ctx context.Context, input *pkg.HookInput) error {
-	readinessObj := input.Values.Get(settings.InternalValuesReadinessPath)
-	if !readinessObj.IsObject() {
+	validationObj := input.Values.Get(settings.InternalValuesConfigValidationPath)
+	if validationObj.IsObject() {
+		validationErr := validationObj.Get("error")
+		if validationErr.Exists() {
+			return fmt.Errorf(validationErr.String())
+		}
+		// moduleConfigValidation is present, but no errors. Something wrong.
 		return fmt.Errorf("module is not ready yet")
 	}
-	validationErr := readinessObj.Get("moduleConfigValidationError")
-	if validationErr.Exists() {
-		return fmt.Errorf(validationErr.String())
-	}
+	// No module validation problems.
+	// TODO add readiness checks for various hidden resources later: cdi config, kubevirt config, etc.
 	return nil
 }

@@ -9,6 +9,27 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+/*
+Problems:
+
+1. Current versions of deckhouse-controller (2025-08-08) and module-sdk (0.3.3)
+are not reporting readiness probe errors in user accessible resources.
+This hook is a simple workaround to see readiness problems in
+module/virtualization status field.
+
+2. Current version of module-sdk (0.3.3) not supports Queue for Schedule
+configurations in batch hooks.
+
+Workaround:
+
+Use classic shell hook to run schedules in a parallel queue.
+Check value with error messsage:
+If value is present, print it to stderr and exit with 1.
+If no value, do nothing.
+
+TODO remove this hook after implementing readiness probe error reporting in the deckhouse-controller.
+*/
+
 func main() {
 	// Print hook config to stdout if --config is passed.
 	if len(os.Args) > 1 && os.Args[1] == "--config" {
@@ -57,7 +78,7 @@ func loadValues() (gjson.Result, error) {
 }
 
 func handle(values gjson.Result) error {
-	readinessObj := values.Get(settings.InternalValuesReadinessPath)
+	readinessObj := values.Get(settings.InternalValuesConfigValidationPath)
 	if !readinessObj.IsObject() {
 		return fmt.Errorf("module is not ready yet")
 	}

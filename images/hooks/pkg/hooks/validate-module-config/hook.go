@@ -86,11 +86,13 @@ func Reconcile(_ context.Context, input *pkg.HookInput) error {
 	// Run checks.
 	err = validateModuleConfigSettings(mc, nodes)
 	if err != nil {
-		input.Values.Set(settings.InternalValuesReadinessPath, map[string]string{
-			"moduleConfigValidationError": fmt.Sprintf("ModuleConfig/virtualization is invalid: %v", err),
+		input.Values.Set(settings.InternalValuesConfigValidationPath, map[string]string{
+			"error": fmt.Sprintf("ModuleConfig/virtualization is invalid: %v", err),
 		})
 	} else {
-		input.Values.Remove(settings.InternalValuesReadinessPath)
+		// Module is valid, remove moduleConfigValidation object to indicate valid state for the readiness probe.
+		input.Values.Remove(settings.InternalValuesConfigValidationPath)
+		// Copy valid settings from config values to apply them in helm templates.
 		copyModuleConfigSettingsIntoInternalValues(input)
 	}
 

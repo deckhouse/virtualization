@@ -16,6 +16,6 @@ limitations under the License.
 package settings
 
 const (
-	InternalValuesConfigCopyPath = "virtualization.internal.moduleConfig"
-	InternalValuesReadinessPath  = "virtualization.internal.readiness"
+	InternalValuesConfigCopyPath       = "virtualization.internal.moduleConfig"
+	InternalValuesConfigValidationPath = "virtualization.internal.moduleConfigValidation"
 )
