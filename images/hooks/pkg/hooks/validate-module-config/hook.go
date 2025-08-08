@@ -103,19 +103,21 @@ func validateModuleConfigSettings(mc *mcapi.ModuleConfig, nodes []corev1.Node) e
 		return err
 	}
 
-	err = moduleconfig.CheckOverlapsCIDRs(CIDRs)
+	err = moduleconfig.CheckCIDRsOverlap(CIDRs)
 	if err != nil {
 		return err
 	}
 
-	err = moduleconfig.CheckNodeAddressesOverlap(nodes, CIDRs)
+	err = moduleconfig.CheckCIDRsOverlapWithNodeAddresses(CIDRs, nodes)
 	if err != nil {
 		return err
 	}
 
 	// TODO check Pods network.
+	// CheckCIDRsOverlapWithSubnet(cidrs, podsSubnetCIDR)
 
 	// TODO check Services network.
+	// CheckCIDRsOverlapWithSubnet(cidrs, servicesSubnetCIDR)
 
 	return nil
 }
