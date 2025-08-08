@@ -33,6 +33,7 @@ packages:
 - pkg-config
 - bison
 - bzlib-devel liblzma-devel libseccomp-devel libzstd-devel zlib-devel lzip ncompress strace
+- tree
 {{- end -}}
 
 
