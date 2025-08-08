@@ -381,6 +381,7 @@ spec:
                     * `Resizing`: The process of resource resizing is in progress.
                     * `Failed`: There was an error when creating the resource.
                     * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
+                    * `Exporting`: The child PV of the resource is in the process of exporting.
                     * `Terminating`: The resource is being deleted.
                   enum:
                     - Pending
@@ -391,6 +392,7 @@ spec:
                     - Resizing
                     - Failed
                     - PVCLost
+                    - Exporting
                     - Terminating
                   type: string
                 progress:

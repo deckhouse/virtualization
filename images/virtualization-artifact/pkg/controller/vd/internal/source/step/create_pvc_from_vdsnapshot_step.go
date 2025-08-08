@@ -123,9 +123,20 @@ func (s CreatePVCFromVDSnapshotStep) Take(ctx context.Context, vd *virtv2.Virtua
 }
 
 func (s CreatePVCFromVDSnapshotStep) buildPVC(vd *virtv2.VirtualDisk, vs *vsv1.VolumeSnapshot) *corev1.PersistentVolumeClaim {
-	storageClassName := vs.Annotations["storageClass"]
-	volumeMode := vs.Annotations["volumeMode"]
-	accessModesStr := strings.Split(vs.Annotations["accessModes"], ",")
+	storageClassName := vs.Annotations[annotations.AnnStorageClassName]
+	if storageClassName == "" {
+		storageClassName = vs.Annotations[annotations.AnnStorageClassNameDeprecated]
+	}
+	volumeMode := vs.Annotations[annotations.AnnVolumeMode]
+	if volumeMode == "" {
+		volumeMode = vs.Annotations[annotations.AnnVolumeModeDeprecated]
+	}
+	accessModesRaw := vs.Annotations[annotations.AnnAccessModes]
+	if accessModesRaw == "" {
+		accessModesRaw = vs.Annotations[annotations.AnnAccessModesDeprecated]
+	}
+
+	accessModesStr := strings.Split(accessModesRaw, ",")
 	accessModes := make([]corev1.PersistentVolumeAccessMode, 0, len(accessModesStr))
 	for _, accessModeStr := range accessModesStr {
 		accessModes = append(accessModes, corev1.PersistentVolumeAccessMode(accessModeStr))
