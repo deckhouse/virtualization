@@ -61,29 +61,24 @@ type VirtualMachineOperationSpec struct {
 
 // VirtualMachineOperationRestoreSpec defines the restore operation.
 type VirtualMachineOperationRestoreSpec struct {
-	// DryRun defines whether to perform a dry run of the restore operation.
-	DryRun bool `json:"dryRun"`
-	// From defines the source of the restore operation.
-	// +kubebuilder:validation:MinItems=1
-	From []VirtualMachineOperationRestoreFromSpec `json:"from,omitempty"`
+	// Mode defines the restore mode.
+	Mode VMOPRestoreMode `json:"mode"`
+	// VirtualMachineSnapshotName defines the source of the restore operation.
+	VirtualMachineSnapshotName string `json:"virtualMachineSnapshotName"`
 }
 
 // VMOPRestoreKind defines the kind of the restore operation.
-// * `VirtualMachineSnapshot`: Restore the virtual machine from a snapshot.
+// * `DryRun`: DryRun run without any changes. Compatability shows in status.
+// * `Strict`: Strict restore as is in the snapshot.
+// * `BestEffort`: BestEffost restore without deleted external missing dependencies.
 // +kubebuilder:validation:Enum={VirtualMachineSnapshot}
-type VMOPRestoreKind string
+type VMOPRestoreMode string
 
 const (
-	VMOPRestoreVirtualMachineSnapshot VMOPRestoreKind = "VirtualMachineSnapshot"
+	VMOPRestoreModeDryRun     VMOPRestoreMode = "DryRun"
+	VMOPRestoreModeStrict     VMOPRestoreMode = "Strict"
+	VMOPRestoreModeBestEffort VMOPRestoreMode = "BestEffort"
 )
-
-// VirtualMachineOperationRestoreFromSpec defines the source of the restore operation.
-type VirtualMachineOperationRestoreFromSpec struct {
-	// Kind of virtual machine resource to restore.
-	Kind VMOPRestoreKind `json:"kind"`
-	// Name of existing VirtualMachineSnapshot resource.
-	Name string `json:"name"`
-}
 
 type VirtualMachineOperationStatus struct {
 	Phase VMOPPhase `json:"phase"`

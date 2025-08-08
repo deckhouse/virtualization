@@ -26,25 +26,25 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type StopVMStep struct {
+type RestoreVMStep struct {
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
 	vm       *virtv2.VirtualMachine
 }
 
-func NewStopVMStep(
+func NewRestoreVMStep(
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 	vm *virtv2.VirtualMachine,
-) *StopVMStep {
-	return &StopVMStep{
+) *RestoreVMStep {
+	return &RestoreVMStep{
 		recorder: recorder,
 		cb:       cb,
 		vm:       vm,
 	}
 }
 
-func (s StopVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
+func (s RestoreVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
 	// log, _ := logger.GetDataSourceContext(ctx, "objectref")
 
 	return &reconcile.Result{}, nil
