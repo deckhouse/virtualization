@@ -1,4 +1,4 @@
-{{- if and (.Values.virtualization.internal.moduleConfig | hasKey "audit") ((.Values.virtualization.internal.moduleConfig.audit).enabled) }}
+{{- if ((.Values.virtualization.internal.moduleConfig.audit).enabled) }}
 {{- if (.Values.global.enabledModules | has "log-shipper") }}
 {{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
 ---
