@@ -35,7 +35,7 @@ func CheckCIDRsOverlap(cidrs []netip.Prefix) error {
 	for i := 0; i < len(cidrs)-1; i++ {
 		err := CheckCIDRsOverlapWithSubnet(cidrs[i+1:], cidrs[i])
 		if err != nil {
-			return fmt.Errorf("no overlaps allowed: %v", err)
+			return fmt.Errorf("no overlaps allowed: %w", err)
 		}
 	}
 
@@ -54,7 +54,7 @@ func CheckCIDRsOverlapWithNodeAddresses(cidrs []netip.Prefix, nodes []corev1.Nod
 
 				err = CheckCIDRsOverlapWithAddress(cidrs, nodeIP)
 				if err != nil {
-					return fmt.Errorf("check node %s: %v", node.GetName(), err)
+					return fmt.Errorf("check node %s: %w", node.GetName(), err)
 				}
 			}
 		}
@@ -70,6 +70,7 @@ func CheckCIDRsOverlapWithAddress(cidrs []netip.Prefix, address netip.Addr) erro
 	}
 	return nil
 }
+
 func CheckCIDRsOverlapWithSubnet(cidrs []netip.Prefix, subnet netip.Prefix) error {
 	for _, cidr := range cidrs {
 		if cidr.Overlaps(subnet) {
