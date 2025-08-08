@@ -1,9 +1,9 @@
 ---
-image: pre-delete-hook-builder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-- add: /images/{{ $.ImageName }}
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /pre-delete-hook
   stageDependencies:
     install:
@@ -11,11 +11,15 @@ git:
     - go.sum
     setup:
     - "**/*.go"
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 mount:
 - fromPath: ~/go-pkg-cache
   to: /go/pkg
 shell:
   install:
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - cd /pre-delete-hook
   - go mod download
   setup:
@@ -27,10 +31,10 @@ shell:
     {{- $_ := set $ "ProjectName" (list $.ImageName "pre-delete-hook" | join "/") }}
     {{- include "image-build.build" (set $ "BuildCommand" `go build -v -a -o pre-delete-hook main.go`) | nindent 6 }}
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: builder/scratch
 import:
-- image: pre-delete-hook-builder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /pre-delete-hook/pre-delete-hook
   to: /pre-delete-hook
   after: install
