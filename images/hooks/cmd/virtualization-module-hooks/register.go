@@ -30,5 +30,4 @@ import (
 	_ "hooks/pkg/hooks/tls-certificates-controller"
 	_ "hooks/pkg/hooks/tls-certificates-dvcr"
 	_ "hooks/pkg/hooks/validate-module-config"
-	_ "hooks/pkg/hooks/validate-module-config-reporter"
 )
