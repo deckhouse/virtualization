@@ -76,34 +76,19 @@ spec:
                 restore:
                   description: Restore defines the restore operation.
                   properties:
-                    dryRun:
+                    mode:
+                      description: Mode defines the restore mode.
+                      enum:
+                        - VirtualMachineSnapshot
+                      type: string
+                    virtualMachineSnapshotName:
                       description:
-                        DryRun defines whether to perform a dry run of the
-                        restore operation.
-                      type: boolean
-                    from:
-                      description: From defines the source of the restore operation.
-                      items:
-                        description:
-                          VirtualMachineOperationRestoreFromSpec defines
-                          the source of the restore operation.
-                        properties:
-                          kind:
-                            description: Kind of virtual machine resource to restore.
-                            enum:
-                              - VirtualMachineSnapshot
-                            type: string
-                          name:
-                            description: Name of existing VirtualMachineSnapshot resource.
-                            type: string
-                        required:
-                          - kind
-                          - name
-                        type: object
-                      minItems: 1
-                      type: array
+                        VirtualMachineSnapshotName defines the source of
+                        the restore operation.
+                      type: string
                   required:
-                    - dryRun
+                    - mode
+                    - virtualMachineSnapshotName
                   type: object
                 type:
                   description: |-
