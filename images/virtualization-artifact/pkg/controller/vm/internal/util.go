@@ -115,7 +115,13 @@ var mapPhases = map[virtv1.VirtualMachinePrintableStatus]PhaseGetter{
 		return virtv2.MachineStarting
 	},
 	// VirtualMachineStatusStarting indicates that the virtual machine is being prepared for running.
-	virtv1.VirtualMachineStatusStarting: func(_ *virtv2.VirtualMachine, _ *virtv1.VirtualMachine) virtv2.MachinePhase {
+	virtv1.VirtualMachineStatusStarting: func(_ *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) virtv2.MachinePhase {
+		synchronizedCondition, _ := conditions.GetKVVMCondition(conditions.VirtualMachineSynchronized, kvvm.Status.Conditions)
+
+		if synchronizedCondition.Reason == failedCreatePodReason {
+			return virtv2.MachinePending
+		}
+
 		return virtv2.MachineStarting
 	},
 	// VirtualMachineStatusRunning indicates that the virtual machine is running.
