@@ -19,114 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeClusterVirtualImages implements ClusterVirtualImageInterface
-type FakeClusterVirtualImages struct {
+// fakeClusterVirtualImages implements ClusterVirtualImageInterface
+type fakeClusterVirtualImages struct {
+	*gentype.FakeClientWithList[*v1alpha2.ClusterVirtualImage, *v1alpha2.ClusterVirtualImageList]
 	Fake *FakeVirtualizationV1alpha2
 }
 
-var clustervirtualimagesResource = v1alpha2.SchemeGroupVersion.WithResource("clustervirtualimages")
-
-var clustervirtualimagesKind = v1alpha2.SchemeGroupVersion.WithKind("ClusterVirtualImage")
-
-// Get takes name of the clusterVirtualImage, and returns the corresponding clusterVirtualImage object, and an error if there is any.
-func (c *FakeClusterVirtualImages) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.ClusterVirtualImage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootGetAction(clustervirtualimagesResource, name), &v1alpha2.ClusterVirtualImage{})
-	if obj == nil {
-		return nil, err
+func newFakeClusterVirtualImages(fake *FakeVirtualizationV1alpha2) corev1alpha2.ClusterVirtualImageInterface {
+	return &fakeClusterVirtualImages{
+		gentype.NewFakeClientWithList[*v1alpha2.ClusterVirtualImage, *v1alpha2.ClusterVirtualImageList](
+			fake.Fake,
+			"",
+			v1alpha2.SchemeGroupVersion.WithResource("clustervirtualimages"),
+			v1alpha2.SchemeGroupVersion.WithKind("ClusterVirtualImage"),
+			func() *v1alpha2.ClusterVirtualImage { return &v1alpha2.ClusterVirtualImage{} },
+			func() *v1alpha2.ClusterVirtualImageList { return &v1alpha2.ClusterVirtualImageList{} },
+			func(dst, src *v1alpha2.ClusterVirtualImageList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha2.ClusterVirtualImageList) []*v1alpha2.ClusterVirtualImage {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha2.ClusterVirtualImageList, items []*v1alpha2.ClusterVirtualImage) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha2.ClusterVirtualImage), err
-}
-
-// List takes label and field selectors, and returns the list of ClusterVirtualImages that match those selectors.
-func (c *FakeClusterVirtualImages) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.ClusterVirtualImageList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootListAction(clustervirtualimagesResource, clustervirtualimagesKind, opts), &v1alpha2.ClusterVirtualImageList{})
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha2.ClusterVirtualImageList{ListMeta: obj.(*v1alpha2.ClusterVirtualImageList).ListMeta}
-	for _, item := range obj.(*v1alpha2.ClusterVirtualImageList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested clusterVirtualImages.
-func (c *FakeClusterVirtualImages) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewRootWatchAction(clustervirtualimagesResource, opts))
-}
-
-// Create takes the representation of a clusterVirtualImage and creates it.  Returns the server's representation of the clusterVirtualImage, and an error, if there is any.
-func (c *FakeClusterVirtualImages) Create(ctx context.Context, clusterVirtualImage *v1alpha2.ClusterVirtualImage, opts v1.CreateOptions) (result *v1alpha2.ClusterVirtualImage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootCreateAction(clustervirtualimagesResource, clusterVirtualImage), &v1alpha2.ClusterVirtualImage{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.ClusterVirtualImage), err
-}
-
-// Update takes the representation of a clusterVirtualImage and updates it. Returns the server's representation of the clusterVirtualImage, and an error, if there is any.
-func (c *FakeClusterVirtualImages) Update(ctx context.Context, clusterVirtualImage *v1alpha2.ClusterVirtualImage, opts v1.UpdateOptions) (result *v1alpha2.ClusterVirtualImage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateAction(clustervirtualimagesResource, clusterVirtualImage), &v1alpha2.ClusterVirtualImage{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.ClusterVirtualImage), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeClusterVirtualImages) UpdateStatus(ctx context.Context, clusterVirtualImage *v1alpha2.ClusterVirtualImage, opts v1.UpdateOptions) (*v1alpha2.ClusterVirtualImage, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(clustervirtualimagesResource, "status", clusterVirtualImage), &v1alpha2.ClusterVirtualImage{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.ClusterVirtualImage), err
-}
-
-// Delete takes name of the clusterVirtualImage and deletes it. Returns an error if one occurs.
-func (c *FakeClusterVirtualImages) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteActionWithOptions(clustervirtualimagesResource, name, opts), &v1alpha2.ClusterVirtualImage{})
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeClusterVirtualImages) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewRootDeleteCollectionAction(clustervirtualimagesResource, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha2.ClusterVirtualImageList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched clusterVirtualImage.
-func (c *FakeClusterVirtualImages) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.ClusterVirtualImage, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootPatchSubresourceAction(clustervirtualimagesResource, name, pt, data, subresources...), &v1alpha2.ClusterVirtualImage{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.ClusterVirtualImage), err
 }

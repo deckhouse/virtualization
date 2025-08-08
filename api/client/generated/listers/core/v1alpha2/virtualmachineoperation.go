@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // VirtualMachineOperationLister helps list VirtualMachineOperations.
@@ -30,7 +30,7 @@ import (
 type VirtualMachineOperationLister interface {
 	// List lists all VirtualMachineOperations in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineOperation, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualMachineOperation, err error)
 	// VirtualMachineOperations returns an object that can list and get VirtualMachineOperations.
 	VirtualMachineOperations(namespace string) VirtualMachineOperationNamespaceLister
 	VirtualMachineOperationListerExpansion
@@ -38,25 +38,17 @@ type VirtualMachineOperationLister interface {
 
 // virtualMachineOperationLister implements the VirtualMachineOperationLister interface.
 type virtualMachineOperationLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1alpha2.VirtualMachineOperation]
 }
 
 // NewVirtualMachineOperationLister returns a new VirtualMachineOperationLister.
 func NewVirtualMachineOperationLister(indexer cache.Indexer) VirtualMachineOperationLister {
-	return &virtualMachineOperationLister{indexer: indexer}
-}
-
-// List lists all VirtualMachineOperations in the indexer.
-func (s *virtualMachineOperationLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineOperation, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineOperation))
-	})
-	return ret, err
+	return &virtualMachineOperationLister{listers.New[*corev1alpha2.VirtualMachineOperation](indexer, corev1alpha2.Resource("virtualmachineoperation"))}
 }
 
 // VirtualMachineOperations returns an object that can list and get VirtualMachineOperations.
 func (s *virtualMachineOperationLister) VirtualMachineOperations(namespace string) VirtualMachineOperationNamespaceLister {
-	return virtualMachineOperationNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return virtualMachineOperationNamespaceLister{listers.NewNamespaced[*corev1alpha2.VirtualMachineOperation](s.ResourceIndexer, namespace)}
 }
 
 // VirtualMachineOperationNamespaceLister helps list and get VirtualMachineOperations.
@@ -64,36 +56,15 @@ func (s *virtualMachineOperationLister) VirtualMachineOperations(namespace strin
 type VirtualMachineOperationNamespaceLister interface {
 	// List lists all VirtualMachineOperations in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineOperation, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualMachineOperation, err error)
 	// Get retrieves the VirtualMachineOperation from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.VirtualMachineOperation, error)
+	Get(name string) (*corev1alpha2.VirtualMachineOperation, error)
 	VirtualMachineOperationNamespaceListerExpansion
 }
 
 // virtualMachineOperationNamespaceLister implements the VirtualMachineOperationNamespaceLister
 // interface.
 type virtualMachineOperationNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all VirtualMachineOperations in the indexer for a given namespace.
-func (s virtualMachineOperationNamespaceLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineOperation, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineOperation))
-	})
-	return ret, err
-}
-
-// Get retrieves the VirtualMachineOperation from the indexer for a given namespace and name.
-func (s virtualMachineOperationNamespaceLister) Get(name string) (*v1alpha2.VirtualMachineOperation, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("virtualmachineoperation"), name)
-	}
-	return obj.(*v1alpha2.VirtualMachineOperation), nil
+	listers.ResourceIndexer[*corev1alpha2.VirtualMachineOperation]
 }

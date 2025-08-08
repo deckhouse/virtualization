@@ -19,7 +19,7 @@ limitations under the License.
 package externalversions
 
 import (
-	"fmt"
+	fmt "fmt"
 
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

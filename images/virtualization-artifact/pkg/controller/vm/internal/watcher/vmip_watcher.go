@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -41,35 +40,30 @@ type VMIPWatcher struct{}
 
 func (w *VMIPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddress{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			vmip, ok := obj.(*virtv2.VirtualMachineIPAddress)
-			if !ok {
-				return nil
-			}
-			name := vmip.Status.VirtualMachine
-			if name == "" {
-				return nil
-			}
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      name,
-						Namespace: vmip.GetNamespace(),
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualMachineIPAddress{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmip *virtv2.VirtualMachineIPAddress) []reconcile.Request {
+				name := vmip.Status.VirtualMachine
+				if name == "" {
+					return nil
+				}
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      name,
+							Namespace: vmip.GetNamespace(),
+						},
 					},
+				}
+			}),
+			predicate.TypedFuncs[*virtv2.VirtualMachineIPAddress]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineIPAddress]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
+						e.ObjectOld.Status.VirtualMachine != e.ObjectNew.Status.VirtualMachine
 				},
-			}
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVmip := e.ObjectOld.(*virtv2.VirtualMachineIPAddress)
-				newVmip := e.ObjectNew.(*virtv2.VirtualMachineIPAddress)
-				return oldVmip.Status.Phase != newVmip.Status.Phase ||
-					oldVmip.Status.VirtualMachine != newVmip.Status.VirtualMachine
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineIpAddress: %w", err)
 	}

@@ -47,24 +47,20 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 }
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualMachine]{
+				UpdateFunc: w.filterUpdateEvents,
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	vm, ok := obj.(*virtv2.VirtualMachine)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an VirtualMachine but got a %T", obj))
-		return
-	}
-
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.VirtualMachine) (requests []reconcile.Request) {
 	vdByName := make(map[string]struct{})
 	for _, bdr := range vm.Status.BlockDeviceRefs {
 		if bdr.Kind != virtv2.DiskDevice {
@@ -80,7 +76,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 
 	var vdSnapshots virtv2.VirtualDiskSnapshotList
 	err := w.client.List(ctx, &vdSnapshots, &client.ListOptions{
-		Namespace: obj.GetNamespace(),
+		Namespace: vm.GetNamespace(),
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list virtual disk snapshots: %s", err))
@@ -88,7 +84,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 	}
 
 	for _, vdSnapshot := range vdSnapshots.Items {
-		_, ok = vdByName[vdSnapshot.Spec.VirtualDiskName]
+		_, ok := vdByName[vdSnapshot.Spec.VirtualDiskName]
 		if !ok {
 			continue
 		}
@@ -104,32 +100,20 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 	return
 }
 
-func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVM, ok := e.ObjectOld.(*virtv2.VirtualMachine)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old VirtualMachine but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newVM, ok := e.ObjectNew.(*virtv2.VirtualMachine)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new VirtualMachine but got a %T", e.ObjectNew))
-		return false
-	}
-
-	if oldVM.Status.Phase != newVM.Status.Phase {
+func (w VirtualMachineWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+	if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
 		return true
 	}
 
-	oldFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, oldVM.Status.Conditions)
-	newFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, newVM.Status.Conditions)
+	oldFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, e.ObjectOld.Status.Conditions)
+	newFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, e.ObjectNew.Status.Conditions)
 
 	if oldFSFrozen.Status != newFSFrozen.Status {
 		return true
 	}
 
-	oldAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, oldVM.Status.Conditions)
-	newAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, newVM.Status.Conditions)
+	oldAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, e.ObjectOld.Status.Conditions)
+	newAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, e.ObjectNew.Status.Conditions)
 
 	return oldAgentReady.Status != newAgentReady.Status
 }

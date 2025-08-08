@@ -34,7 +34,7 @@ func NewVMOPWatcher() *VMOPWatcher {
 type VMOPWatcher struct{}
 
 func (w VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	err := ctr.Watch(source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineOperation{}), &handler.EnqueueRequestForObject{})
+	err := ctr.Watch(source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineOperation{}, &handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachineOperation]{}))
 	if err != nil {
 		return fmt.Errorf("error setting watch on VMOP: %w", err)
 	}

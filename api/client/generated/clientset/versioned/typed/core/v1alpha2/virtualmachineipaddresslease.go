@@ -19,15 +19,14 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"context"
-	"time"
+	context "context"
 
 	scheme "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/scheme"
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // VirtualMachineIPAddressLeasesGetter has a method to return a VirtualMachineIPAddressLeaseInterface.
@@ -38,147 +37,36 @@ type VirtualMachineIPAddressLeasesGetter interface {
 
 // VirtualMachineIPAddressLeaseInterface has methods to work with VirtualMachineIPAddressLease resources.
 type VirtualMachineIPAddressLeaseInterface interface {
-	Create(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.CreateOptions) (*v1alpha2.VirtualMachineIPAddressLease, error)
-	Update(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineIPAddressLease, error)
-	UpdateStatus(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineIPAddressLease, error)
+	Create(ctx context.Context, virtualMachineIPAddressLease *corev1alpha2.VirtualMachineIPAddressLease, opts v1.CreateOptions) (*corev1alpha2.VirtualMachineIPAddressLease, error)
+	Update(ctx context.Context, virtualMachineIPAddressLease *corev1alpha2.VirtualMachineIPAddressLease, opts v1.UpdateOptions) (*corev1alpha2.VirtualMachineIPAddressLease, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, virtualMachineIPAddressLease *corev1alpha2.VirtualMachineIPAddressLease, opts v1.UpdateOptions) (*corev1alpha2.VirtualMachineIPAddressLease, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha2.VirtualMachineIPAddressLease, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha2.VirtualMachineIPAddressLeaseList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1alpha2.VirtualMachineIPAddressLease, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1alpha2.VirtualMachineIPAddressLeaseList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineIPAddressLease, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1alpha2.VirtualMachineIPAddressLease, err error)
 	VirtualMachineIPAddressLeaseExpansion
 }
 
 // virtualMachineIPAddressLeases implements VirtualMachineIPAddressLeaseInterface
 type virtualMachineIPAddressLeases struct {
-	client rest.Interface
+	*gentype.ClientWithList[*corev1alpha2.VirtualMachineIPAddressLease, *corev1alpha2.VirtualMachineIPAddressLeaseList]
 }
 
 // newVirtualMachineIPAddressLeases returns a VirtualMachineIPAddressLeases
 func newVirtualMachineIPAddressLeases(c *VirtualizationV1alpha2Client) *virtualMachineIPAddressLeases {
 	return &virtualMachineIPAddressLeases{
-		client: c.RESTClient(),
+		gentype.NewClientWithList[*corev1alpha2.VirtualMachineIPAddressLease, *corev1alpha2.VirtualMachineIPAddressLeaseList](
+			"virtualmachineipaddressleases",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			"",
+			func() *corev1alpha2.VirtualMachineIPAddressLease { return &corev1alpha2.VirtualMachineIPAddressLease{} },
+			func() *corev1alpha2.VirtualMachineIPAddressLeaseList {
+				return &corev1alpha2.VirtualMachineIPAddressLeaseList{}
+			},
+		),
 	}
-}
-
-// Get takes name of the virtualMachineIPAddressLease, and returns the corresponding virtualMachineIPAddressLease object, and an error if there is any.
-func (c *virtualMachineIPAddressLeases) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
-	result = &v1alpha2.VirtualMachineIPAddressLease{}
-	err = c.client.Get().
-		Resource("virtualmachineipaddressleases").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineIPAddressLeases that match those selectors.
-func (c *virtualMachineIPAddressLeases) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualMachineIPAddressLeaseList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha2.VirtualMachineIPAddressLeaseList{}
-	err = c.client.Get().
-		Resource("virtualmachineipaddressleases").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineIPAddressLeases.
-func (c *virtualMachineIPAddressLeases) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Resource("virtualmachineipaddressleases").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a virtualMachineIPAddressLease and creates it.  Returns the server's representation of the virtualMachineIPAddressLease, and an error, if there is any.
-func (c *virtualMachineIPAddressLeases) Create(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
-	result = &v1alpha2.VirtualMachineIPAddressLease{}
-	err = c.client.Post().
-		Resource("virtualmachineipaddressleases").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineIPAddressLease).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a virtualMachineIPAddressLease and updates it. Returns the server's representation of the virtualMachineIPAddressLease, and an error, if there is any.
-func (c *virtualMachineIPAddressLeases) Update(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
-	result = &v1alpha2.VirtualMachineIPAddressLease{}
-	err = c.client.Put().
-		Resource("virtualmachineipaddressleases").
-		Name(virtualMachineIPAddressLease.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineIPAddressLease).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *virtualMachineIPAddressLeases) UpdateStatus(ctx context.Context, virtualMachineIPAddressLease *v1alpha2.VirtualMachineIPAddressLease, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
-	result = &v1alpha2.VirtualMachineIPAddressLease{}
-	err = c.client.Put().
-		Resource("virtualmachineipaddressleases").
-		Name(virtualMachineIPAddressLease.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineIPAddressLease).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the virtualMachineIPAddressLease and deletes it. Returns an error if one occurs.
-func (c *virtualMachineIPAddressLeases) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Resource("virtualmachineipaddressleases").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *virtualMachineIPAddressLeases) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Resource("virtualmachineipaddressleases").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched virtualMachineIPAddressLease.
-func (c *virtualMachineIPAddressLeases) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineIPAddressLease, err error) {
-	result = &v1alpha2.VirtualMachineIPAddressLease{}
-	err = c.client.Patch(pt).
-		Resource("virtualmachineipaddressleases").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

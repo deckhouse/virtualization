@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // VirtualMachineSnapshotLister helps list VirtualMachineSnapshots.
@@ -30,7 +30,7 @@ import (
 type VirtualMachineSnapshotLister interface {
 	// List lists all VirtualMachineSnapshots in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineSnapshot, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualMachineSnapshot, err error)
 	// VirtualMachineSnapshots returns an object that can list and get VirtualMachineSnapshots.
 	VirtualMachineSnapshots(namespace string) VirtualMachineSnapshotNamespaceLister
 	VirtualMachineSnapshotListerExpansion
@@ -38,25 +38,17 @@ type VirtualMachineSnapshotLister interface {
 
 // virtualMachineSnapshotLister implements the VirtualMachineSnapshotLister interface.
 type virtualMachineSnapshotLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1alpha2.VirtualMachineSnapshot]
 }
 
 // NewVirtualMachineSnapshotLister returns a new VirtualMachineSnapshotLister.
 func NewVirtualMachineSnapshotLister(indexer cache.Indexer) VirtualMachineSnapshotLister {
-	return &virtualMachineSnapshotLister{indexer: indexer}
-}
-
-// List lists all VirtualMachineSnapshots in the indexer.
-func (s *virtualMachineSnapshotLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineSnapshot, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineSnapshot))
-	})
-	return ret, err
+	return &virtualMachineSnapshotLister{listers.New[*corev1alpha2.VirtualMachineSnapshot](indexer, corev1alpha2.Resource("virtualmachinesnapshot"))}
 }
 
 // VirtualMachineSnapshots returns an object that can list and get VirtualMachineSnapshots.
 func (s *virtualMachineSnapshotLister) VirtualMachineSnapshots(namespace string) VirtualMachineSnapshotNamespaceLister {
-	return virtualMachineSnapshotNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return virtualMachineSnapshotNamespaceLister{listers.NewNamespaced[*corev1alpha2.VirtualMachineSnapshot](s.ResourceIndexer, namespace)}
 }
 
 // VirtualMachineSnapshotNamespaceLister helps list and get VirtualMachineSnapshots.
@@ -64,36 +56,15 @@ func (s *virtualMachineSnapshotLister) VirtualMachineSnapshots(namespace string)
 type VirtualMachineSnapshotNamespaceLister interface {
 	// List lists all VirtualMachineSnapshots in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineSnapshot, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualMachineSnapshot, err error)
 	// Get retrieves the VirtualMachineSnapshot from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.VirtualMachineSnapshot, error)
+	Get(name string) (*corev1alpha2.VirtualMachineSnapshot, error)
 	VirtualMachineSnapshotNamespaceListerExpansion
 }
 
 // virtualMachineSnapshotNamespaceLister implements the VirtualMachineSnapshotNamespaceLister
 // interface.
 type virtualMachineSnapshotNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all VirtualMachineSnapshots in the indexer for a given namespace.
-func (s virtualMachineSnapshotNamespaceLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualMachineSnapshot, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualMachineSnapshot))
-	})
-	return ret, err
-}
-
-// Get retrieves the VirtualMachineSnapshot from the indexer for a given namespace and name.
-func (s virtualMachineSnapshotNamespaceLister) Get(name string) (*v1alpha2.VirtualMachineSnapshot, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("virtualmachinesnapshot"), name)
-	}
-	return obj.(*v1alpha2.VirtualMachineSnapshot), nil
+	listers.ResourceIndexer[*corev1alpha2.VirtualMachineSnapshot]
 }

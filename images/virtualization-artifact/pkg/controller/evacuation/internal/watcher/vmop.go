@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -42,34 +41,26 @@ func NewVMOPWatcher() *VMOPWatcher {
 
 func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachineOperation{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			vmop, ok := object.(*v1alpha2.VirtualMachineOperation)
-			if !ok {
-				return nil
-			}
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      vmop.Spec.VirtualMachine,
-						Namespace: vmop.Namespace,
+		source.Kind(
+			mgr.GetCache(),
+			&v1alpha2.VirtualMachineOperation{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation) []reconcile.Request {
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      vmop.Spec.VirtualMachine,
+							Namespace: vmop.Namespace,
+						},
 					},
-				},
-			}
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVMOP, oldOK := e.ObjectOld.(*v1alpha2.VirtualMachineOperation)
-				newVMOP, newOK := e.ObjectNew.(*v1alpha2.VirtualMachineOperation)
-				if !oldOK || !newOK {
-					return false
 				}
-				_, isEvacuation := newVMOP.GetAnnotations()[annotations.AnnVMOPEvacuation]
-				return isEvacuation && oldVMOP.Status.Phase != newVMOP.Status.Phase
+			}),
+			predicate.TypedFuncs[*v1alpha2.VirtualMachineOperation]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachineOperation]) bool {
+					_, isEvacuation := e.ObjectNew.GetAnnotations()[annotations.AnnVMOPEvacuation]
+					return isEvacuation && e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineOperation: %w", err)
 	}

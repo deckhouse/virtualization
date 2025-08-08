@@ -19,10 +19,10 @@ limitations under the License.
 package v1alpha2
 
 import (
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/tools/cache"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	labels "k8s.io/apimachinery/pkg/labels"
+	listers "k8s.io/client-go/listers"
+	cache "k8s.io/client-go/tools/cache"
 )
 
 // VirtualDiskLister helps list VirtualDisks.
@@ -30,7 +30,7 @@ import (
 type VirtualDiskLister interface {
 	// List lists all VirtualDisks in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualDisk, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualDisk, err error)
 	// VirtualDisks returns an object that can list and get VirtualDisks.
 	VirtualDisks(namespace string) VirtualDiskNamespaceLister
 	VirtualDiskListerExpansion
@@ -38,25 +38,17 @@ type VirtualDiskLister interface {
 
 // virtualDiskLister implements the VirtualDiskLister interface.
 type virtualDiskLister struct {
-	indexer cache.Indexer
+	listers.ResourceIndexer[*corev1alpha2.VirtualDisk]
 }
 
 // NewVirtualDiskLister returns a new VirtualDiskLister.
 func NewVirtualDiskLister(indexer cache.Indexer) VirtualDiskLister {
-	return &virtualDiskLister{indexer: indexer}
-}
-
-// List lists all VirtualDisks in the indexer.
-func (s *virtualDiskLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualDisk, err error) {
-	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualDisk))
-	})
-	return ret, err
+	return &virtualDiskLister{listers.New[*corev1alpha2.VirtualDisk](indexer, corev1alpha2.Resource("virtualdisk"))}
 }
 
 // VirtualDisks returns an object that can list and get VirtualDisks.
 func (s *virtualDiskLister) VirtualDisks(namespace string) VirtualDiskNamespaceLister {
-	return virtualDiskNamespaceLister{indexer: s.indexer, namespace: namespace}
+	return virtualDiskNamespaceLister{listers.NewNamespaced[*corev1alpha2.VirtualDisk](s.ResourceIndexer, namespace)}
 }
 
 // VirtualDiskNamespaceLister helps list and get VirtualDisks.
@@ -64,36 +56,15 @@ func (s *virtualDiskLister) VirtualDisks(namespace string) VirtualDiskNamespaceL
 type VirtualDiskNamespaceLister interface {
 	// List lists all VirtualDisks in the indexer for a given namespace.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1alpha2.VirtualDisk, err error)
+	List(selector labels.Selector) (ret []*corev1alpha2.VirtualDisk, err error)
 	// Get retrieves the VirtualDisk from the indexer for a given namespace and name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1alpha2.VirtualDisk, error)
+	Get(name string) (*corev1alpha2.VirtualDisk, error)
 	VirtualDiskNamespaceListerExpansion
 }
 
 // virtualDiskNamespaceLister implements the VirtualDiskNamespaceLister
 // interface.
 type virtualDiskNamespaceLister struct {
-	indexer   cache.Indexer
-	namespace string
-}
-
-// List lists all VirtualDisks in the indexer for a given namespace.
-func (s virtualDiskNamespaceLister) List(selector labels.Selector) (ret []*v1alpha2.VirtualDisk, err error) {
-	err = cache.ListAllByNamespace(s.indexer, s.namespace, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1alpha2.VirtualDisk))
-	})
-	return ret, err
-}
-
-// Get retrieves the VirtualDisk from the indexer for a given namespace and name.
-func (s virtualDiskNamespaceLister) Get(name string) (*v1alpha2.VirtualDisk, error) {
-	obj, exists, err := s.indexer.GetByKey(s.namespace + "/" + name)
-	if err != nil {
-		return nil, err
-	}
-	if !exists {
-		return nil, errors.NewNotFound(v1alpha2.Resource("virtualdisk"), name)
-	}
-	return obj.(*v1alpha2.VirtualDisk), nil
+	listers.ResourceIndexer[*corev1alpha2.VirtualDisk]
 }

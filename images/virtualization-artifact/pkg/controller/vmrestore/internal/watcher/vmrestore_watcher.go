@@ -17,6 +17,8 @@ limitations under the License.
 package watcher
 
 import (
+	"fmt"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -39,30 +41,24 @@ func NewVirtualMachineRestoreWatcher(client client.Client) *VirtualMachineRestor
 }
 
 func (w VirtualMachineRestoreWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineRestore{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVMRestore, ok := e.ObjectOld.(*virtv2.VirtualMachineRestore)
-				if !ok {
-					return false
-				}
-				newVMRestore, ok := e.ObjectNew.(*virtv2.VirtualMachineRestore)
-				if !ok {
-					return false
-				}
-				oldPhase := oldVMRestore.Status.Phase
-				newPhase := newVMRestore.Status.Phase
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineRestore{},
+			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualMachineRestore]{},
+			predicate.TypedFuncs[*virtv2.VirtualMachineRestore]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineRestore]) bool {
+					oldPhase := e.ObjectOld.Status.Phase
+					newPhase := e.ObjectNew.Status.Phase
 
-				if oldPhase != newPhase {
-					return true
-				}
+					if oldPhase != newPhase {
+						return true
+					}
 
-				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+					return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+				},
 			},
-		},
-	)
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineRestore: %w", err)
+	}
+	return nil
 }

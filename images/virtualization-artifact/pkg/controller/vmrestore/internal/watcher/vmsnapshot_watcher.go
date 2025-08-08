@@ -47,22 +47,26 @@ func NewVirtualMachineSnapshotWatcher(client client.Client) *VirtualMachineSnaps
 }
 
 func (w VirtualMachineSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineSnapshot{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineSnapshot{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualMachineSnapshot]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineSnapshot]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
+				},
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineSnapshot: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualMachineSnapshotWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w VirtualMachineSnapshotWatcher) enqueueRequests(ctx context.Context, vmSnapshot *virtv2.VirtualMachineSnapshot) (requests []reconcile.Request) {
 	var vmRestores virtv2.VirtualMachineRestoreList
 	err := w.client.List(ctx, &vmRestores, &client.ListOptions{
-		Namespace:     obj.GetNamespace(),
-		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMRestoreByVMSnapshot, obj.GetName()),
+		Namespace:     vmSnapshot.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMRestoreByVMSnapshot, vmSnapshot.GetName()),
 	})
 	if err != nil {
 		log.Error(fmt.Sprintf("failed to list virtual machine restores: %s", err))
@@ -79,20 +83,4 @@ func (w VirtualMachineSnapshotWatcher) enqueueRequests(ctx context.Context, obj 
 	}
 
 	return
-}
-
-func (w VirtualMachineSnapshotWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVMSnapshot, ok := e.ObjectOld.(*virtv2.VirtualMachineSnapshot)
-	if !ok {
-		log.Error(fmt.Sprintf("expected an old VirtualMachineSnapshot but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newVMSnapshot, ok := e.ObjectNew.(*virtv2.VirtualMachineSnapshot)
-	if !ok {
-		log.Error(fmt.Sprintf("expected a new VirtualMachineSnapshot but got a %T", e.ObjectNew))
-		return false
-	}
-
-	return oldVMSnapshot.Status.Phase != newVMSnapshot.Status.Phase
 }

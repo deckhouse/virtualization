@@ -40,26 +40,24 @@ func NewVMWatcher() *VMWatcher {
 
 func (w *VMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &v1alpha2.VirtualMachine{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				newVM, ok := e.ObjectNew.(*v1alpha2.VirtualMachine)
-				if !ok {
-					return false
-				}
+		source.Kind(
+			mgr.GetCache(),
+			&v1alpha2.VirtualMachine{},
+			&handler.TypedEnqueueRequestForObject[*v1alpha2.VirtualMachine]{},
+			predicate.TypedFuncs[*v1alpha2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*v1alpha2.VirtualMachine]) bool { return false },
+				DeleteFunc: func(e event.TypedDeleteEvent[*v1alpha2.VirtualMachine]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*v1alpha2.VirtualMachine]) bool {
+					cond, _ := conditions.GetCondition(vmcondition.TypeNeedsEvict, e.ObjectNew.Status.Conditions)
+					needEvict := cond.Status == metav1.ConditionTrue
 
-				cond, _ := conditions.GetCondition(vmcondition.TypeNeedsEvict, newVM.Status.Conditions)
-				needEvict := cond.Status == metav1.ConditionTrue
+					cond, _ = conditions.GetCondition(vmcondition.TypeMigrating, e.ObjectNew.Status.Conditions)
+					migrating := cond.Status == metav1.ConditionTrue
 
-				cond, _ = conditions.GetCondition(vmcondition.TypeMigrating, newVM.Status.Conditions)
-				migrating := cond.Status == metav1.ConditionTrue
-
-				return needEvict || migrating
+					return needEvict || migrating
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}

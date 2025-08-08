@@ -48,21 +48,33 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 }
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+					oldRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, e.ObjectOld.Status.Conditions)
+					newRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, e.ObjectNew.Status.Conditions)
+
+					if oldRunningCondition.Status != newRunningCondition.Status || e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						return true
+					}
+
+					return w.hasBlockDeviceAttachmentChanges(e.ObjectOld, e.ObjectNew)
+				},
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VMs: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.VirtualMachine) (requests []reconcile.Request) {
 	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
 	err := w.client.List(ctx, &vmbdas, &client.ListOptions{
-		Namespace: obj.GetNamespace(),
+		Namespace: vm.GetNamespace(),
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
@@ -70,7 +82,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 	}
 
 	for _, vmbda := range vmbdas.Items {
-		if vmbda.Spec.VirtualMachineName != obj.GetName() {
+		if vmbda.Spec.VirtualMachineName != vm.GetName() {
 			continue
 		}
 
@@ -83,29 +95,6 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 	}
 
 	return
-}
-
-func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVM, ok := e.ObjectOld.(*virtv2.VirtualMachine)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old VirtualMachine but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newVM, ok := e.ObjectNew.(*virtv2.VirtualMachine)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new VirtualMachine but got a %T", e.ObjectNew))
-		return false
-	}
-
-	oldRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, oldVM.Status.Conditions)
-	newRunningCondition, _ := conditions.GetCondition(vmcondition.TypeRunning, newVM.Status.Conditions)
-
-	if oldRunningCondition.Status != newRunningCondition.Status || oldVM.Status.Phase != newVM.Status.Phase {
-		return true
-	}
-
-	return w.hasBlockDeviceAttachmentChanges(oldVM, newVM)
 }
 
 func (w VirtualMachineWatcher) hasBlockDeviceAttachmentChanges(oldVM, newVM *virtv2.VirtualMachine) bool {
