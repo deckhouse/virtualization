@@ -36,6 +36,9 @@ const (
 
 	snapshotNodes = "nodes"
 	nodesJQFilter = `{"kind":.kind, "apiVersion":.apiVersion, "metadata":{"name": .metadata.name}, "status":{"addresses": .status.addresses}}`
+
+	podSubnetCIDRPath     = "global.clusterConfiguration.podSubnetCIDR"
+	serviceSubnetCIDRPath = "global.clusterConfiguration.serviceSubnetCIDR"
 )
 
 var _ = registry.RegisterFunc(config, Reconcile)
