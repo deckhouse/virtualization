@@ -44,5 +44,5 @@ shell:
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
     make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+    make DESTDIR=$OUTDIR prefix=/usr install
 
