@@ -31,7 +31,7 @@ func isEqualCIDRs(a, b netip.Prefix) bool {
 	return a.Addr() == b.Addr() && a.Bits() == b.Bits()
 }
 
-func checkOverlapsCIDRs(prefixes []netip.Prefix) error {
+func CheckOverlapsCIDRs(prefixes []netip.Prefix) error {
 	for i := 0; i < len(prefixes); i++ {
 		for j := i + 1; j < len(prefixes); j++ {
 			if prefixes[i].Overlaps(prefixes[j]) {
@@ -42,7 +42,7 @@ func checkOverlapsCIDRs(prefixes []netip.Prefix) error {
 	return nil
 }
 
-func checkNodeAddressesOverlap(nodes []corev1.Node, excludedPrefixes []netip.Prefix) error {
+func CheckNodeAddressesOverlap(nodes []corev1.Node, excludedPrefixes []netip.Prefix) error {
 	for _, node := range nodes {
 		for _, address := range node.Status.Addresses {
 			if address.Type == corev1.NodeInternalIP || address.Type == corev1.NodeExternalIP {
@@ -63,7 +63,7 @@ func checkNodeAddressesOverlap(nodes []corev1.Node, excludedPrefixes []netip.Pre
 	return nil
 }
 
-func parseCIDRs(settings mcapi.SettingsValues) ([]netip.Prefix, error) {
+func ParseCIDRs(settings mcapi.SettingsValues) ([]netip.Prefix, error) {
 	raw := settings[virtualMachineCIDRs].([]interface{})
 	CIDRs, err := convertToStringSlice(raw)
 	if err != nil {

@@ -39,12 +39,12 @@ func newCIDRsValidator(client client.Client) *cidrsValidator {
 }
 
 func (v cidrsValidator) ValidateUpdate(ctx context.Context, _, newMC *mcapi.ModuleConfig) (admission.Warnings, error) {
-	CIDRs, err := parseCIDRs(newMC.Spec.Settings)
+	CIDRs, err := ParseCIDRs(newMC.Spec.Settings)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
 
-	err = checkOverlapsCIDRs(CIDRs)
+	err = CheckOverlapsCIDRs(CIDRs)
 	if err != nil {
 		return admission.Warnings{}, err
 	}
@@ -63,5 +63,5 @@ func (v cidrsValidator) checkNodeSubnets(ctx context.Context, excludedPrefixes [
 	if err != nil {
 		return fmt.Errorf("internal error: unable to retrieve nodes at the moment, please try again later. Details: %w", err)
 	}
-	return checkNodeAddressesOverlap(nodes.Items, excludedPrefixes)
+	return CheckNodeAddressesOverlap(nodes.Items, excludedPrefixes)
 }
