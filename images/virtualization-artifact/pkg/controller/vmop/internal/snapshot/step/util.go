@@ -27,7 +27,7 @@ var ErrVirtualDiskSnapshotNotFound = errors.New("not found")
 
 const VDPrefix = "vd-"
 
-func GetVirtualDisks(ctx context.Context, client kubeclient.Client, vmSnapshot *virtv2.VirtualMachineSnapshot) ([]*virtv2.VirtualDisk, error) {
+func getVirtualDisks(ctx context.Context, client kubeclient.Client, vmSnapshot *virtv2.VirtualMachineSnapshot) ([]*virtv2.VirtualDisk, error) {
 	vds := make([]*virtv2.VirtualDisk, 0, len(vmSnapshot.Status.VirtualDiskSnapshotNames))
 
 	for _, vdSnapshotName := range vmSnapshot.Status.VirtualDiskSnapshotNames {
@@ -72,7 +72,7 @@ func GetVirtualDisks(ctx context.Context, client kubeclient.Client, vmSnapshot *
 	return vds, nil
 }
 
-func GetCurrentVirtualMachineBlockDeviceAttachments(ctx context.Context, client kubeclient.Client, vmName, vmNamespace, vmRestoreUID string) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error) {
+func getCurrentVirtualMachineBlockDeviceAttachments(ctx context.Context, client kubeclient.Client, vmName, vmNamespace, vmRestoreUID string) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error) {
 	vmbdas := &virtv2.VirtualMachineBlockDeviceAttachmentList{}
 	err := client.List(ctx, vmbdas, &kubeclient.ListOptions{Namespace: vmNamespace})
 	if err != nil {
@@ -93,7 +93,7 @@ func GetCurrentVirtualMachineBlockDeviceAttachments(ctx context.Context, client 
 	return vmbdasByVM, nil
 }
 
-func DeleteCurrentVirtualMachineBlockDeviceAttachments(ctx context.Context, client kubeclient.Client, vmbdas []*virtv2.VirtualMachineBlockDeviceAttachment) error {
+func deleteCurrentVirtualMachineBlockDeviceAttachments(ctx context.Context, client kubeclient.Client, vmbdas []*virtv2.VirtualMachineBlockDeviceAttachment) error {
 	for _, vmbda := range vmbdas {
 		err := object.DeleteObject(ctx, client, kubeclient.Object(vmbda))
 		if err != nil {
@@ -104,7 +104,7 @@ func DeleteCurrentVirtualMachineBlockDeviceAttachments(ctx context.Context, clie
 	return nil
 }
 
-func CreateBatch(ctx context.Context, client kubeclient.Client, objs ...kubeclient.Object) error {
+func createBatch(ctx context.Context, client kubeclient.Client, objs ...kubeclient.Object) error {
 	for _, obj := range objs {
 		err := client.Create(ctx, obj)
 		if err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -115,7 +115,7 @@ func CreateBatch(ctx context.Context, client kubeclient.Client, objs ...kubeclie
 	return nil
 }
 
-func SetPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.VirtualMachineRestorePhase, err error) {
+func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.VirtualMachineRestorePhase, err error) {
 	*phase = virtv2.VirtualMachineRestorePhaseFailed
 	cb.
 		Status(metav1.ConditionFalse).
@@ -123,7 +123,7 @@ func SetPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.Vi
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
-func SetPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *virtv2.VirtualMachineRestorePhase, reason vmrestorecondition.VirtualMachineRestoreReadyReason, msg string) {
+func setPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *virtv2.VirtualMachineRestorePhase, reason vmrestorecondition.VirtualMachineRestoreReadyReason, msg string) {
 	*phase = virtv2.VirtualMachineRestorePhasePending
 	cb.
 		Status(metav1.ConditionFalse).
@@ -159,7 +159,7 @@ func GetVMRestoreVMOP(ctx context.Context, client kubeclient.Client, vmNamespace
 	return nil, nil
 }
 
-func StopVirtualMachine(ctx context.Context, client kubeclient.Client, vmName, vmNamespace, vmRestoreUID string) error {
+func stopVirtualMachine(ctx context.Context, client kubeclient.Client, vmName, vmNamespace, vmRestoreUID string) error {
 	vmopStop, err := GetVMRestoreVMOP(ctx, client, vmNamespace, vmRestoreUID, virtv2.VMOPTypeStop)
 	if err != nil {
 		return fmt.Errorf("failed to list the `VirtualMachineOperations`: %w", err)
@@ -185,7 +185,7 @@ func StopVirtualMachine(ctx context.Context, client kubeclient.Client, vmName, v
 	}
 }
 
-func StartVirtualMachine(ctx context.Context, client kubeclient.Client, vmRestore *virtv2.VirtualMachineRestore) error {
+func startVirtualMachine(ctx context.Context, client kubeclient.Client, vmRestore *virtv2.VirtualMachineRestore) error {
 	vms := &virtv2.VirtualMachineList{}
 	err := client.List(ctx, vms, &kubeclient.ListOptions{Namespace: vmRestore.Namespace})
 	if err != nil {
@@ -222,7 +222,7 @@ func StartVirtualMachine(ctx context.Context, client kubeclient.Client, vmRestor
 	return nil
 }
 
-func CheckKVVMDiskStatus(ctx context.Context, client kubeclient.Client, vmName, vmNamespace string) error {
+func checkKVVMDiskStatus(ctx context.Context, client kubeclient.Client, vmName, vmNamespace string) error {
 	kvvmKey := types.NamespacedName{Name: vmName, Namespace: vmNamespace}
 	kvvm, err := object.FetchObject(ctx, kvvmKey, client, &virtv1.VirtualMachine{})
 	if err != nil {
@@ -249,7 +249,7 @@ type OverrideValidator interface {
 	ProcessWithForce(ctx context.Context) error
 }
 
-func GetOverrridedVMName(overrideValidators []OverrideValidator) (string, error) {
+func getOverrridedVMName(overrideValidators []OverrideValidator) (string, error) {
 	for _, ov := range overrideValidators {
 		if ov.Object().GetObjectKind().GroupVersionKind().Kind == virtv2.VirtualMachineKind {
 			return ov.Object().GetName(), nil
@@ -259,7 +259,7 @@ func GetOverrridedVMName(overrideValidators []OverrideValidator) (string, error)
 	return "", fmt.Errorf("failed to get the `VirtualMachine` name")
 }
 
-func UpdateVMRunPolicy(ctx context.Context, client kubeclient.Client, vmObj *virtv2.VirtualMachine, runPolicy virtv2.RunPolicy) error {
+func updateVMRunPolicy(ctx context.Context, client kubeclient.Client, vmObj *virtv2.VirtualMachine, runPolicy virtv2.RunPolicy) error {
 	vmObj.Spec.RunPolicy = runPolicy
 
 	err := client.Update(ctx, vmObj)

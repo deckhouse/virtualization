@@ -29,18 +29,15 @@ import (
 type StopVMStep struct {
 	recorder eventrecord.EventRecorderLogger
 	cb       *conditions.ConditionBuilder
-	vm       *virtv2.VirtualMachine
 }
 
 func NewStopVMStep(
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
-	vm *virtv2.VirtualMachine,
 ) *StopVMStep {
 	return &StopVMStep{
 		recorder: recorder,
 		cb:       cb,
-		vm:       vm,
 	}
 }
 
