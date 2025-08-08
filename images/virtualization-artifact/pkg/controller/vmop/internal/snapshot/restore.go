@@ -34,5 +34,6 @@ func (vmr VMSnapshotRestore) Sync(ctx context.Context, vm *virtv2.VirtualMachine
 
 	return steptaker.NewStepTakers(
 		step.NewStopVMStep(vmr.recorder, cb, vm),
+		step.NewRestoreVMStep(vmr.recorder, cb, vm),
 	).Run(ctx, vm)
 }
