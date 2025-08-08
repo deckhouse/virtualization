@@ -49,7 +49,7 @@ var _ = Describe("LifecycleHandler", func() {
 		ctx = testutil.ContextBackgroundWithNoOpLogger()
 		recorderMock = &eventrecord.EventRecorderLoggerMock{
 			EventFunc:  func(_ client.Object, _, _, _ string) {},
-			EventfFunc: func(_ client.Object, _, _, _ string, _ ...interface{}) {},
+			EventfFunc: func(_ client.Object, _, _, _ string, _ ...any) {},
 		}
 	})
 
@@ -80,7 +80,7 @@ var _ = Describe("LifecycleHandler", func() {
 
 		fakeClient, srv = setupEnvironment(vmop, vm)
 
-		h := NewLifecycleHandler(fakeClient, NewSvcOpCreator(fakeClient), recorderMock)
+		h := NewLifecycleHandler(fakeClient, NewSvcOpCreator(fakeClient, recorderMock), recorderMock)
 		_, err := h.Handle(ctx, srv.Changed())
 		Expect(err).NotTo(HaveOccurred())
 

@@ -26,6 +26,7 @@ import (
 	"k8s.io/utils/ptr"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -45,8 +46,8 @@ type MigrateOperation struct {
 	vmop   *virtv2.VirtualMachineOperation
 }
 
-func (o MigrateOperation) Do(ctx context.Context) error {
-	return o.createMigration(ctx)
+func (o MigrateOperation) Do(ctx context.Context) (reconcile.Result, error) {
+	return reconcile.Result{}, o.createMigration(ctx)
 }
 
 func (o MigrateOperation) Cancel(ctx context.Context) (bool, error) {

@@ -1,5 +1,5 @@
 /*
-Copyright 2025 Flant JSC
+Copyright 2024 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,20 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package internal
+package step
 
 import (
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"context"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/service"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type SvcOpCreator func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error)
+type StopVMStep struct {
+	recorder eventrecord.EventRecorderLogger
+	cb       *conditions.ConditionBuilder
+}
 
-func NewSvcOpCreator(client client.Client, recorder eventrecord.EventRecorderLogger) SvcOpCreator {
-	return func(vmop *virtv2.VirtualMachineOperation) (service.Operation, error) {
-		return service.NewOperationService(client, recorder, vmop)
+func NewStopVMStep(
+	recorder eventrecord.EventRecorderLogger,
+	cb *conditions.ConditionBuilder,
+) *StopVMStep {
+	return &StopVMStep{
+		recorder: recorder,
+		cb:       cb,
 	}
+}
+
+func (s StopVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
+	// log, _ := logger.GetDataSourceContext(ctx, "objectref")
+
+	return &reconcile.Result{}, nil
 }

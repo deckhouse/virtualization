@@ -73,6 +73,23 @@ spec:
                     * Effect on `Restart` and `Stop`: operation performs immediately.
                     * Effect on `Evict` and `Migrate`: enable the AutoConverge feature to force migration via CPU throttling if the `PreferSafe` or `PreferForced` policies are used for live migration.
                   type: boolean
+                restore:
+                  description: Restore defines the restore operation.
+                  properties:
+                    mode:
+                      description: Mode defines the restore mode.
+                      enum:
+                        - VirtualMachineSnapshot
+                      type: string
+                    virtualMachineSnapshotName:
+                      description:
+                        VirtualMachineSnapshotName defines the source of
+                        the restore operation.
+                      type: string
+                  required:
+                    - mode
+                    - virtualMachineSnapshotName
+                  type: object
                 type:
                   description: |-
                     Type of the operation to execute on a virtual machine:
@@ -81,12 +98,14 @@ spec:
                     * `Restart`: Restart the virtual machine.
                     * `Migrate` (deprecated): Migrate the virtual machine to another node where it can be started.
                     * `Evict`: Migrate the virtual machine to another node where it can be started.
+                    * `Restore`: Restore the virtual machine from a snapshot.
                   enum:
                     - Restart
                     - Start
                     - Stop
                     - Migrate
                     - Evict
+                    - Restore
                   type: string
                 virtualMachineName:
                   description:
@@ -106,6 +125,8 @@ spec:
                   rule:
                     "self.type == 'Migrate' ? !has(self.force) || !self.force :
                     true"
+                - message: Restore requires restore field.
+                  rule: "self.type == 'Restore' ? has(self.restore) : true"
             status:
               properties:
                 conditions:

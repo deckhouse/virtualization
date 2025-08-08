@@ -21,6 +21,7 @@ import (
 
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	kvvmutil "github.com/deckhouse/virtualization-controller/pkg/common/kvvm"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -39,13 +40,13 @@ type RestartOperation struct {
 	vmop   *virtv2.VirtualMachineOperation
 }
 
-func (o RestartOperation) Do(ctx context.Context) error {
+func (o RestartOperation) Do(ctx context.Context) (reconcile.Result, error) {
 	kvvm := &virtv1.VirtualMachine{}
 	err := o.client.Get(ctx, virtualMachineKeyByVmop(o.vmop), kvvm)
 	if err != nil {
-		return err
+		return reconcile.Result{}, err
 	}
-	return kvvmutil.AddRestartAnnotation(ctx, o.client, kvvm)
+	return reconcile.Result{}, kvvmutil.AddRestartAnnotation(ctx, o.client, kvvm)
 }
 
 func (o RestartOperation) Cancel(_ context.Context) (bool, error) {
