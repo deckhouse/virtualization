@@ -19,6 +19,7 @@ package:
   libbrotli: v1.1.0
   libbsd: 0.12.2
   libburn: release-1.5.6
+  libcap: libcap-2.69
   libfuse3: fuse-3.16.2
   libgcrypt: libgcrypt-1.10.2
   libgpg-error: libgpg-error-1.55
