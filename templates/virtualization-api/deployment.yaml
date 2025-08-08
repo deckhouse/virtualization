@@ -77,7 +77,7 @@ spec:
             - --kubevirt-cabundle=/etc/virt-api/certificates/ca.crt
             - --kubevirt-endpoint=virt-api.d8-{{ .Chart.Name}}.svc
             - --secure-port=8443
-            {{- if eq .Values.virtualization.logLevel "debug" }}
+            {{- if eq .Values.virtualization.internal.moduleConfig.logLevel "debug" }}
             - --v=10
             {{- else }}
             - --v=3

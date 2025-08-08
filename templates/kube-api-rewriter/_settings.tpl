@@ -9,8 +9,8 @@
 
 {{- define "kube_api_rewriter.env" -}}
 - name: LOG_LEVEL
-  value: {{ .Values.virtualization.logLevel }}
-{{- if eq .Values.virtualization.logLevel "debug" }}
+  value: {{ .Values.virtualization.internal.moduleConfig.logLevel }}
+{{- if eq .Values.virtualization.internal.moduleConfig.logLevel "debug" }}
 - name: PPROF_BIND_ADDRESS
   value: ":{{ include "kube_api_rewriter.pprof_port" . }}"
 {{- end }}

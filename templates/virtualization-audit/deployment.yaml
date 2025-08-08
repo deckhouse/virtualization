@@ -5,7 +5,7 @@ cpu: 10m
 memory: 150Mi
 {{- end }}
 
-{{- if ((.Values.virtualization.audit).enabled) }}
+{{- if and (.Values.virtualization.internal.moduleConfig | hasKey "audit") ((.Values.virtualization.internal.moduleConfig.audit).enabled) }}
 {{- if (.Values.global.enabledModules | has "log-shipper") }}
 {{- if (.Values.global.enabledModules | has "runtime-audit-engine") }}
 
@@ -72,7 +72,7 @@ spec:
           {{- include "helm_lib_module_container_security_context_read_only_root_filesystem" . | nindent 10 }}
           args:
             - --secure-port=8443
-            {{- if eq .Values.virtualization.logLevel "debug" }}
+            {{- if eq .Values.virtualization.internal.moduleConfig.logLevel "debug" }}
             - --verbose=10
             {{- else }}
             - --verbose=3
