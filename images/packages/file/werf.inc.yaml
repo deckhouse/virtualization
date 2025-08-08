@@ -59,6 +59,7 @@ shell:
 
   install:
   - |
+    tree /libcap
     PKGS="{{ $images | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
