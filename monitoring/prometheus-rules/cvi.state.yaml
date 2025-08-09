@@ -9,8 +9,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_clustervirtualimage_stuck_in_pending_phase: "D8VirtualizationClusterVirtualImageStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_clustervirtualimage_stuck_in_pending_phase: "D8VirtualizationClusterVirtualImageStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_clustervirtualimage_state: "D8VirtualizationClusterVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_clustervirtualimage_state: "D8VirtualizationClusterVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: ClusterVirtualImage is stuck in the `Pending` phase for a long time.
         description: |
           The virtual image `{{ $labels.name }}` has been stuck in the `Pending` phase for more than 60 minutes.
@@ -54,8 +54,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_clustervirtualimage_stuck_in_waitforuserupload_phase: "D8VirtualizationClusterVirtualImageStuckInWaitForUserUploadPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_clustervirtualimage_stuck_in_waitforuserupload_phase: "D8VirtualizationClusterVirtualImageStuckInWaitForUserUploadPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_clustervirtualimage_state: "D8VirtualizationClusterVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_clustervirtualimage_state: "D8VirtualizationClusterVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: ClusterVirtualImage is stuck in the `WaitForUserUpload` phase for a long time.
         description: |
           The cluster virtual image `{{ $labels.name }}` has been waiting for a user image upload for more than 60 minutes.
@@ -95,8 +95,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_clustervirtualimage__failed: "D8VirtualizationClusterVirtualImageFailed,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_clustervirtualimage__failed: "D8VirtualizationClusterVirtualImageFailed,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_clustervirtualimage_state: "D8VirtualizationClusterVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_clustervirtualimage_state: "D8VirtualizationClusterVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: ClusterVirtualImage in the `Failed` phase.
         description: |
           The virtual image `{{ $labels.name }}` in the `Failed` phase.

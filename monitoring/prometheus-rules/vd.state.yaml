@@ -9,8 +9,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_virtualdisk_stuck_in_pending_phase: "D8VirtualizationVirtualDiskStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_virtualdisk_stuck_in_pending_phase: "D8VirtualizationVirtualDiskStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualdisk_state: "D8VirtualizationVirtualDiskState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualdisk_state: "D8VirtualizationVirtualDiskState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: VirtualDisk is stuck in the `Pending` phase for a long time.
         description: |
           The virtual disk `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the `Pending` phase for more than 60 minutes.
@@ -59,8 +59,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_virtualdisk_stuck_in_waitforuserupload_phase: "D8VirtualizationVirtualDiskStuckInWaitForUserUploadPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_virtualdisk_stuck_in_waitforuserupload_phase: "D8VirtualizationVirtualDiskStuckInWaitForUserUploadPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualdisk_state: "D8VirtualizationVirtualDiskState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualdisk_state: "D8VirtualizationVirtualDiskState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: VirtualDisk is stuck in the `WaitForUserUpload` phase for a long time.
         description: |
           The virtual disk `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been waiting for a user image upload for more than 60 minutes.
@@ -100,8 +100,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_virtualdisk_failed: "D8VirtualizationVirtualDiskFailed,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_virtualdisk_failed: "D8VirtualizationVirtualDiskFailed,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualdisk_state: "D8VirtualizationVirtualDiskState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualdisk_state: "D8VirtualizationVirtualDiskState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: VirtualDisk is in the `Failed` phase.
         description: |
           The virtual disk `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` in the `Failed` phase.

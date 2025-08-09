@@ -47,8 +47,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_stuck_in_pending_phase: "D8VirtualizationVirtualMachineStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_virtualmachine_stuck_in_pending_phase: "D8VirtualizationVirtualMachineStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: VirtualMachine is stuck in the `Pending` phase for a long time.
         description: |
           The virtual machine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the `Pending` phase for more than 60 minutes.
@@ -102,8 +102,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_stuck_in_starting_phase: "D8VirtualizationVirtualMachineStuckInStartingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_virtualmachine_stuck_in_starting_phase: "D8VirtualizationVirtualMachineStuckInStartingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: VirtualMachine is stuck in the `Starting` phase for a long time.
         description: |
           The virtual machine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the `Starting` phase for more than 60 minutes.
@@ -152,8 +152,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_stuck_in_stopping_phase: "D8VirtualizationVirtualMachineStuckInStoppingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_virtualmachine_stuck_in_stopping_phase: "D8VirtualizationVirtualMachineStuckInStoppingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: VirtualMachine is stuck in the `Stopping` phase for a long time.
         description: |
           The virtual machine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the `Stopping` phase for more than 60 minutes.
@@ -187,8 +187,8 @@
     #   annotations:
     #     plk_protocol_version: "1"
     #     plk_markup_format: "markdown"
-    #     plk_create_group_if_not_exists__d8_virtualization_virtualmachine_is_taking_too_long_to_migrate: "D8VirtualizationVirtualMachineIsTakingTooLongToMigrate,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-    #     plk_grouped_by__d8_virtualization_virtualmachine_is_taking_too_long_to_migrate: "D8VirtualizationVirtualMachineIsTakingTooLongToMigrate,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+    #     plk_create_group_if_not_exists__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+    #     plk_grouped_by__d8_virtualization_virtualmachine_state: "D8VirtualizationVirtualMachineState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
     #     summary: Virtual machine is taking too long to migrate.
     #     description: |
     #       The virtual machine `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the _Migrating_ phase for more than 30 minutes.

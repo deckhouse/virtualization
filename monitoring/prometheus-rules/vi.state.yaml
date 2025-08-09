@@ -9,8 +9,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_virtualimage_stuck_in_pending_phase: "D8VirtualizationVirtualImageStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_virtualimage_stuck_in_pending_phase: "D8VirtualizationVirtualImageStuckInPendingPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualimage_state: "D8VirtualizationVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualimage_state: "D8VirtualizationVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: VirtualImage is stuck in the `Pending` phase for a long time.
         description: |
           The virtual image `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been stuck in the `Pending` phase for more than 60 minutes.
@@ -58,8 +58,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_virtualimage_stuck_in_waitforuserupload_phase: "D8VirtualizationVirtualImageStuckInWaitForUserUploadPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_virtualimage_stuck_in_waitforuserupload_phase: "D8VirtualizationVirtualImageStuckInWaitForUserUploadPhase,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualimage_state: "D8VirtualizationVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualimage_state: "D8VirtualizationVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: VirtualImage is stuck in the `WaitForUserUpload` phase for a long time.
         description: |
           The virtual image `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` has been waiting for a user image upload for more than 60 minutes.
@@ -99,8 +99,8 @@
       annotations:
         plk_protocol_version: "1"
         plk_markup_format: "markdown"
-        plk_create_group_if_not_exists__d8_virtualization_virtualimage_failed: "D8VirtualizationVirtualImageFailed,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
-        plk_grouped_by__d8_virtualization_virtualimage_failed: "D8VirtualizationVirtualImageFailed,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_create_group_if_not_exists__d8_virtualization_virtualimage_state: "D8VirtualizationVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
+        plk_grouped_by__d8_virtualization_virtualimage_state: "D8VirtualizationVirtualImageState,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: VirtualImage is in the `Failed` phase.
         description: |
           The virtual image `{{ $labels.name }}` in the namespace `{{ $labels.namespace }}` in the `Failed` phase.
