@@ -9,7 +9,7 @@ packages:
 - binutils cmake libudev-devel pkgconfig
 - libsystemd-devel pandoc
 - python3-module-Cython python3-devel python3-module-docutils
-- libpcap-devel libibumad
+- libpcap-devel libibumad libnl3 libnl-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -65,14 +65,14 @@ shell:
     OUTDIR=/out
 
     cd /src
-    cmake .. \
-      -GNinja \
+    cmake -GNinja \
       -DCMAKE_BUILD_TYPE=Release \
       -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_INSTALL_SYSCONFDIR=/etc \
       -DCMAKE_INSTALL_LIBDIR=/usr/lib64 \
       -DNO_MAN_PAGES=ON
 
-    make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+    ninja -j$(nproc)
+    DESTDIR=$OUTDIR ninja install
 
 {{- end }}
