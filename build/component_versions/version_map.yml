@@ -5,6 +5,7 @@ firmware:
 core:
   3p-kubevirt: v1.3.1-v12n.8
   3p-containerized-data-importer: v1.60.3-v12n.7
+  distribution: 2.8.3
 package:
   acl: v2.3.1
   bzip2: bzip2-1.0.8

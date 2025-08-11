@@ -14,7 +14,7 @@
 {{- $versions_ctx := (.Files.Get $versions_path | fromYaml) -}}
 
 {{- range $k, $v := $versions_ctx.firmware -}}
-{{-   $_ := set $.Version $k $v -}}
+{{-   $_ := set $.Firmware $k $v -}}
 {{- end -}}
 
 {{- range $k, $v := $versions_ctx.package -}}

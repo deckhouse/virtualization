@@ -145,7 +145,7 @@ binaries:
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
 {{- $gitRepoName := "libvirt" }}
-{{- $version := get $.Version $gitRepoName }}
+{{- $version := get $.Firmware $gitRepoName }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
 final: false

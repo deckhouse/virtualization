@@ -1,6 +1,6 @@
 ---
 {{- $gitRepoName := $.ImageName }}
-{{- $version := get $.Version $gitRepoName }}
+{{- $version := get $.Firmware $gitRepoName }}
 {{- $gitRepoUrl := "libvirt/libvirt.git" }}
 
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact

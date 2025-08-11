@@ -97,7 +97,7 @@ git:
     includePaths:
       - charts
       - crds
-      - component_versions
+      - build/component_versions
       - docs
       - hooks
       - openapi
@@ -107,7 +107,7 @@ git:
       - module.yaml
       - .helmignore
     excludePaths:
-      - component_versions/README.md
+      - build/component_versions/README.md
       - hooks/lib/tests
       - hooks/test*
       - hooks/Taskfile*
