@@ -263,14 +263,26 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		switch dv.Status.ClaimName {
+		case "":
+			vd.Status.Phase = virtv2.DiskPending
+		default:
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		}
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.QuotaExceeded).
 			Message(dvQuotaNotExceededCondition.Message)
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
-		vd.Status.Phase = virtv2.DiskPending
+		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		switch dv.Status.ClaimName {
+		case "":
+			vd.Status.Phase = virtv2.DiskPending
+		default:
+			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
+		}
 		cb.
 			Status(metav1.ConditionFalse).
 			Reason(vdcondition.ImagePullFailed).
