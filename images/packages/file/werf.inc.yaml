@@ -74,5 +74,6 @@ shell:
     ./configure --prefix=/usr --libdir=/usr/lib64 --datadir=/usr/share
 
     make install -j $(nproc) DESTDIR=$OUTDIR
+    ldd $OUTDIR/bin/file
 
     rm -rf $OUTDIR/share/man
