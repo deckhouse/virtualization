@@ -1,3 +1,14 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libidn
+  before: setup
+
+---
 {{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "libidn/libidn.git" }}
 
@@ -9,36 +20,6 @@ packages:
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
-
-
-{{/* Temporarily exclude images from build (the build is broken). TODO remove 'if' when build was fixed. */}}
-{{- $build := "false" }}
-{{- if eq $build "true" }}
----
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
-final: false
-fromImage: builder/scratch
-import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /libidn
-  includePaths:
-    - usr/bin/idn
-    - usr/lib64/libidn.so
-    - usr/lib64/libidn.so.12
-    - usr/lib64/libidn.so.12.6.6
-  before: setup
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /libidn-devel
-  includePaths:
-    - usr/include
-    - usr/lib64/libidn.la
-    - usr/lib64/pkgconfig/libidn.pc
-  before: setup
-
----
-
 
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
@@ -53,7 +34,6 @@ shell:
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
@@ -75,7 +55,6 @@ shell:
   - |
     OUTDIR=/out
 
-    cd /src
     ./bootstrap --skip-po
     ./configure \
       --prefix=/usr \
@@ -88,5 +67,3 @@ shell:
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
     rm -rf /out/usr/share
-
-{{- end }}

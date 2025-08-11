@@ -59,8 +59,7 @@ import:
   add: /src
   to: /src
   before: install
-{{/*{{- $images := list "libgcrypt" "libidn" -}} */}}
-{{- $images := list "libgcrypt" -}}
+{{- $images := list "libgcrypt" "libidn" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
