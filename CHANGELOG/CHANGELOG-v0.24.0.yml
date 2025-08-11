@@ -2,6 +2,10 @@ api:
   features:
     - summary: Remove setting of VolumeSnapshotClass. Set field deprecated in CRDS's.
       pull_request: https://github.com/deckhouse/virtualization/pull/1274
+cdi:
+  features:
+    - summary: Add more CSI modules support in CDI.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1288
 ci:
   fixes:
     - summary: update werf cleanup rules
@@ -26,6 +30,9 @@ module:
     - summary: Fix helm template to be compatible with CustomCertificate https mode.
       pull_request: https://github.com/deckhouse/virtualization/pull/1297
 observability:
+  features:
+    - summary: add prometheus alert if on virt-handler pod in cluster
+      pull_request: https://github.com/deckhouse/virtualization/pull/1263
   fixes:
     - summary: >-
         fix alerts D8InternalVirtualizationVirtHandlerTargetAbsent and

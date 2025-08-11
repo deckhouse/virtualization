@@ -1,16 +1,11 @@
 # Changelog v0.24
 
-## [MALFORMED]
-
-
- - #1263 invalid type "feat"
- - #1288 invalid type "feat"
-
 ## Features
 
 
  - **[api]** Remove setting of VolumeSnapshotClass. Set field deprecated in CRDS's. [#1274](https://github.com/deckhouse/virtualization/pull/1274)
  - **[core]** bump kubevirt to tag v1.3.1-v12n.8. Set mac address for non default pod network and improve reason when live-migration failed [#1287](https://github.com/deckhouse/virtualization/pull/1287)
+ - **[observability]** add prometheus alert if on virt-handler pod in cluster [#1263](https://github.com/deckhouse/virtualization/pull/1263)
  - **[vd]** Add `Exporting` phase and new conditions to `VirtualDisk` status [#1256](https://github.com/deckhouse/virtualization/pull/1256)
  - **[vm]** Add additional network interfaces for VirtualMachines. [#1253](https://github.com/deckhouse/virtualization/pull/1253)
 
