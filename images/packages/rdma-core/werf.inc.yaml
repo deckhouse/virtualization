@@ -9,6 +9,7 @@ packages:
 - binutils cmake libudev-devel pkgconfig
 - libsystemd-devel pandoc
 - python3-module-Cython python3-devel python3-module-docutils
+- libpcap-devel libibumad
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -24,23 +25,10 @@ fromImage: builder/scratch
 import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
-  to: /libibverbs
-  includePaths:
-    - usr/lib64/libibverbs.so
-    - usr/lib64/libibverbs.so.1
-    - usr/lib64/libibverbs.so.1.0.0
-  before: setup
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /rdma-core-devel
-  includePaths:
-    - usr/include
-    - usr/lib64/libibverbs.la
+  to: /rdma-core
   before: setup
 
 ---
-
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -55,8 +43,6 @@ shell:
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
 
 ---
-
-
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
 final: false
 fromImage: builder/alt
