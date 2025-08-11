@@ -19,8 +19,15 @@ on:
     - cron: "0 02 * * *"
   workflow_dispatch:
     inputs:
-      release_branch:
-        description: "release version in semver minor format, example: 1.68"
+      tag_type:
+        type: choice
+        description: Tag type
+        required: false
+        options:
+        - release
+        - dev
+      tag_name:
+        description: "release version in semver minor format (example: 1.68) or specified tag from dev registry"
         required: false
 
 concurrency:
@@ -32,9 +39,10 @@ jobs:
     runs-on: [self-hosted, large]
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/cve_scan@v3
+      - uses: deckhouse/modules-actions/cve_scan@cve_scan_specified_dev_tag
         with:
-          tag: ${{ github.event.inputs.release_branch || 'main' }}
+          tag: ${{ github.event.inputs.tag_name || 'main' }}
+          tag_type: ${{ github.event.inputs.tag_type }}
           module_name: ${{ vars.MODULE_NAME }}
           dd_url: ${{vars.DEFECTDOJO_HOST}}
           dd_token: ${{secrets.DEFECTDOJO_API_TOKEN}}
