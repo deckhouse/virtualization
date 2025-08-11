@@ -78,7 +78,7 @@ libraries:
 - libdevmapper-devel
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
-- libnuma-devel libcap-ng-devel
+- libnuma-devel
 - libcurl-devel
 - libfuse-devel libnbd-devel
 - libgnutls-devel libp11-kit-devel
@@ -118,6 +118,8 @@ import:
   add: /qemu-img
   to: /qemu-img
   before: install
+{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libcap-ng" -}}
+{{- include "importPackageImages" (list $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}

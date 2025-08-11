@@ -21,7 +21,6 @@ imageSpec:
 libs:
   - libssh-devel
   - libssh2-devel
-  - libcap-ng-devel
   - libxfs-devel
   - zlib-devel
   - libcurl-devel
@@ -219,7 +218,7 @@ import:
   - node-labeller
   - vlctl
 
-{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" -}}
+{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 
 # Statically builded
