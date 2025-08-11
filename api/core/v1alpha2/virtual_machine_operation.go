@@ -86,6 +86,47 @@ type VirtualMachineOperationStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	//  Resource generation last processed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+	// Resources contains the list of resources that are affected by the snapshot operation.
+	Resources []VirtualMachineOperationResource `json:"resources,omitempty"`
+}
+
+// VMOPResourceKind defines the kind of the resource affected by the operation.
+// * `VirtualDisk`: VirtualDisk resource.
+// * `VirtualMachine`: VirtualMachine resource.
+// * `VirtualImage`: VirtualImage resource.
+// * `ClusterVirtualImage`: ClusterVirtualImage resource.
+// * `VirtualMachineIPAddress`: VirtualMachineIPAddress resource.
+// * `VirtualMachineIPAddressLease`: VirtualMachineIPAddressLease resource.
+// * `VirtualMachineClass`: VirtualMachineClass resource.
+// * `VirtualMachineOperation`: VirtualMachineOperation resource.
+// +kubebuilder:validation:Enum={VMOPResourceSecret,VMOPResourceNetwork,VMOPResourceVirtualDisk,VMOPResourceVirtualImage,VMOPResourceVirtualMachine,VMOPResourceClusterNetwork,VMOPResourceClusterVirtualImage,VMOPResourceVirtualMachineIPAddress,VMOPResourceVirtualMachineMacAddress,VMOPResourceVirtualMachineBlockDeviceAttachment}
+type VMOPResourceKind string
+
+const (
+	VMOPResourceSecret                              VMOPResourceKind = "Secret"
+	VMOPResourceNetwork                             VMOPResourceKind = "Network"
+	VMOPResourceVirtualDisk                         VMOPResourceKind = "VirtualDisk"
+	VMOPResourceVirtualImage                        VMOPResourceKind = "VirtualImage"
+	VMOPResourceVirtualMachine                      VMOPResourceKind = "VirtualMachine"
+	VMOPResourceClusterNetwork                      VMOPResourceKind = "ClusterNetwork"
+	VMOPResourceClusterVirtualImage                 VMOPResourceKind = "ClusterVirtualImage"
+	VMOPResourceVirtualMachineIPAddress             VMOPResourceKind = "VirtualMachineIPAddress"
+	VMOPResourceVirtualMachineMacAddress            VMOPResourceKind = "VirtualMachineIPAddress"
+	VMOPResourceVirtualMachineBlockDeviceAttachment VMOPResourceKind = "VirtualMachineBlockDeviceAttachment"
+)
+
+// VirtualMachineOperationResource defines the resource affected by the operation.
+type VirtualMachineOperationResource struct {
+	// API version of the resource.
+	APIVersion string `json:"apiVersion"`
+	// Name of the resource.
+	Name string `json:"name"`
+	// Kind of the resource.
+	Kind string `json:"kind"`
+	// Status of the resource.
+	Status string `json:"status"`
+	// Message about the resource.
+	Message string `json:"message"`
 }
 
 // VirtualMachineOperationList contains a list of VirtualMachineOperation resources.
