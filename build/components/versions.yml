@@ -24,6 +24,7 @@ package:
   libbsd: 0.12.2
   libburn: release-1.5.6
   libcap: libcap-2.69
+  libcap-ng: 
   libfuse3: fuse-3.16.2
   libgcrypt: libgcrypt-1.10.2
   libtpms: v0.10.0
