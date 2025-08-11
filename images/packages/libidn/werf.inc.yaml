@@ -16,7 +16,7 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool patch gperf help2man gengetopt
-- python3 python3-module-docutils
+- python3 python3-module-docutils gtk-doc makeinfo
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -54,6 +54,8 @@ shell:
   install:
   - |
     OUTDIR=/out
+
+    cd /src
 
     ./bootstrap --skip-po
     ./configure \

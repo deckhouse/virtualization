@@ -1,3 +1,7 @@
+{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
+{{- if eq .ModuleNamePrefix "" }}
+{{- end }}
+---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -10,9 +14,6 @@ packages:
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "linux-audit/audit-userspace.git" }}
 
-{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
-{{- if eq .ModuleNamePrefix "" }}
----
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
@@ -73,4 +74,3 @@ shell:
       --disable-zos-remote
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
-{{- end }}

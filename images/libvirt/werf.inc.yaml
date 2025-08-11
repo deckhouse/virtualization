@@ -79,7 +79,7 @@ libraries:
 - ceph-devel
 - libiscsi-devel libglusterfs-devel
 - libnuma-devel libcap-ng-devel
-- libcurl-devel libaudit-devel
+- libcurl-devel
 - libfuse-devel libnbd-devel
 - libblkid-devel libgcrypt-devel
 - libgnutls-devel libp11-kit-devel
@@ -94,6 +94,7 @@ libraries:
 - zlib-devel libclocale
 - libfuse3-devel libnuma libslirp-devel
 - libyajl-devel libselinux-devel
+# - libaudit-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -113,7 +114,7 @@ import:
   add: /install-libvirt.sh
   to: /install-libvirt.sh
   before: install
-{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" -}}
+{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
