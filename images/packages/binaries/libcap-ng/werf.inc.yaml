@@ -16,7 +16,7 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool gettext-tools
-- kernel-headers libattr-devel
+- glibc-kernheaders libattr-devel
 - rpm-build-python3 python3-devel
 - tree
 {{- end -}}
