@@ -24,8 +24,8 @@ on:
         description: Tag type
         required: false
         options:
-        - release
-        - dev
+          - release
+          - dev
       tag_name:
         description: "release version in semver minor format (example: 1.68) or specified tag from dev registry"
         required: false
