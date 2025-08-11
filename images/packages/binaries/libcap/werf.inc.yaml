@@ -16,6 +16,7 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool gettext-tools
+- libpam-devel gperf
 - tree
 {{- end -}}
 
