@@ -73,35 +73,37 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		return warnings, nil
 	}
 
-	if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
-		sc, err := v.scService.GetStorageClass(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
-		if err != nil {
-			return nil, err
-		}
-		if v.scService.IsStorageClassDeprecated(sc) {
-			return nil, fmt.Errorf(
-				"the provisioner of the %q storage class is deprecated; please use a different one",
-				*vi.Spec.PersistentVolumeClaim.StorageClass,
-			)
-		}
-
-		if sc != nil {
-			sp, err := v.scService.GetStorageProfile(ctx, sc.Name)
+	if vi.Spec.Storage == virtv2.StorageKubernetes || vi.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
+		if vi.Spec.PersistentVolumeClaim.StorageClass != nil && *vi.Spec.PersistentVolumeClaim.StorageClass != "" {
+			sc, err := v.scService.GetStorageClass(ctx, *vi.Spec.PersistentVolumeClaim.StorageClass)
 			if err != nil {
 				return nil, err
 			}
+			if v.scService.IsStorageClassDeprecated(sc) {
+				return nil, fmt.Errorf(
+					"the provisioner of the %q storage class is deprecated; please use a different one",
+					*vi.Spec.PersistentVolumeClaim.StorageClass,
+				)
+			}
 
-			err = v.scService.ValidateClaimPropertySets(sp)
+			if sc != nil {
+				sp, err := v.scService.GetStorageProfile(ctx, sc.Name)
+				if err != nil {
+					return nil, err
+				}
+
+				err = v.scService.ValidateClaimPropertySets(sp)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		if vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == "" {
+			err := v.validateDefaultStorageClass(ctx)
 			if err != nil {
 				return nil, err
 			}
-		}
-	}
-
-	if vi.Spec.PersistentVolumeClaim.StorageClass == nil || *vi.Spec.PersistentVolumeClaim.StorageClass == "" {
-		err := v.validateDefaultStorageClass(ctx)
-		if err != nil {
-			return nil, err
 		}
 	}
 
@@ -142,35 +144,37 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 			return nil, errors.New("spec cannot be changed if the VirtualImage is the process of termination")
 		}
 	case newVI.Status.Phase == virtv2.ImagePending:
-		if newVI.Spec.PersistentVolumeClaim.StorageClass != nil && *newVI.Spec.PersistentVolumeClaim.StorageClass != "" {
-			sc, err := v.scService.GetStorageClass(ctx, *newVI.Spec.PersistentVolumeClaim.StorageClass)
-			if err != nil {
-				return nil, err
-			}
-			if v.scService.IsStorageClassDeprecated(sc) {
-				return nil, fmt.Errorf(
-					"the provisioner of the %q storage class is deprecated; please use a different one",
-					*newVI.Spec.PersistentVolumeClaim.StorageClass,
-				)
-			}
-
-			if sc != nil {
-				sp, err := v.scService.GetStorageProfile(ctx, sc.Name)
+		if newVI.Spec.Storage == virtv2.StorageKubernetes || newVI.Spec.Storage == virtv2.StoragePersistentVolumeClaim {
+			if newVI.Spec.PersistentVolumeClaim.StorageClass != nil && *newVI.Spec.PersistentVolumeClaim.StorageClass != "" {
+				sc, err := v.scService.GetStorageClass(ctx, *newVI.Spec.PersistentVolumeClaim.StorageClass)
 				if err != nil {
 					return nil, err
 				}
+				if v.scService.IsStorageClassDeprecated(sc) {
+					return nil, fmt.Errorf(
+						"the provisioner of the %q storage class is deprecated; please use a different one",
+						*newVI.Spec.PersistentVolumeClaim.StorageClass,
+					)
+				}
 
-				err = v.scService.ValidateClaimPropertySets(sp)
+				if sc != nil {
+					sp, err := v.scService.GetStorageProfile(ctx, sc.Name)
+					if err != nil {
+						return nil, err
+					}
+
+					err = v.scService.ValidateClaimPropertySets(sp)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
+
+			if newVI.Spec.PersistentVolumeClaim.StorageClass == nil || *newVI.Spec.PersistentVolumeClaim.StorageClass == "" {
+				err := v.validateDefaultStorageClass(ctx)
 				if err != nil {
 					return nil, err
 				}
-			}
-		}
-
-		if newVI.Spec.PersistentVolumeClaim.StorageClass == nil || *newVI.Spec.PersistentVolumeClaim.StorageClass == "" {
-			err := v.validateDefaultStorageClass(ctx)
-			if err != nil {
-				return nil, err
 			}
 		}
 	}
