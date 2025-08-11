@@ -52,6 +52,6 @@ shell:
       --with-python=no \
       --with-python3=no
     make -j$(nproc)
-    make DESTDIR=$OUTDIR strip-install
+    make DESTDIR=$OUTDIR install-strip
     tree $OUTDIR
 
