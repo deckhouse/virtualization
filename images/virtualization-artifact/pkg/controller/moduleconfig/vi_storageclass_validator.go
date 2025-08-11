@@ -84,7 +84,10 @@ func (v viStorageClassValidator) validateStorageClass(ctx context.Context, scNam
 		}
 	}
 
-	return admission.Warnings{}, fmt.Errorf("the storage class %q is not supported in the current version due to known compatibility issues with virtual images; please choose a different storage class", scName)
+	return admission.Warnings{}, fmt.Errorf(
+		"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' and access mode 'ReadWriteMany'",
+		scName,
+	)
 }
 
 type viStorageClassSettings struct {

@@ -132,5 +132,8 @@ func (svc *VirtualImageStorageClassService) ValidateClaimPropertySets(sp *cdiv1.
 		}
 	}
 
-	return fmt.Errorf("the storage class %q is not supported in the current version due to known compatibility issues with virtual images; please choose a different storage class", sp.Name)
+	return fmt.Errorf(
+		"the storage class %q lacks of capabilities to support 'Virtual Images on PVC' function; use StorageClass that supports volume mode 'Block' and access mode 'ReadWriteMany'",
+		sp.Name,
+	)
 }
