@@ -430,7 +430,7 @@ jobs:
       - dev_setup_build
     steps:
       - uses: actions/checkout@v4
-      - uses: deckhouse/modules-actions/cve_scan@v3
+      - uses: deckhouse/modules-actions/cve_scan@v5
         with:
           tag: ${{needs.set_vars.outputs.modules_module_tag}}
           module_name: ${{ vars.MODULE_NAME }}
