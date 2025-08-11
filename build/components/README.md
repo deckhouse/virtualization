@@ -1,7 +1,7 @@
 # Component versions
-**permalink: /component_versions/**
+**permalink: /componentns/**
 
-The `version_map.yaml` file appears to be a configuration file that maps specific software components to their respective versions. This type of file is commonly used to manage and track the versions of dependencies or tools used in a project.
+The `versions.yaml` file appears to be a configuration file that maps specific software components to their respective versions. This type of file is commonly used to manage and track the versions of dependencies or tools used in a project.
 
 ## Purpose of version_map.yaml:  
 ### Version Management:  

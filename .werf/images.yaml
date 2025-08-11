@@ -31,7 +31,7 @@ dockerfile: Dockerfile
 {{-   $_ := set $ctx "SOURCE_REPO" $Root.SOURCE_REPO }}
 {{-   $_ := set $ctx "SOURCE_REPO_GIT" $Root.SOURCE_REPO_GIT }}
 {{-   $_ := set $ctx "MODULE_EDITION" $Root.MODULE_EDITION }}
-{{-   $_ := set $ctx "Version" $Root.Firmware }}
+{{-   $_ := set $ctx "Firmware" $Root.Firmware }}
 {{-   $_ := set $ctx "Package" $Root.Package }}
 {{-   $_ := set $ctx "Core" $Root.Core }}
 {{-   $_ := set $ctx "GOPROXY" (env "GOPROXY" "https://proxy.golang.org,direct") }}

@@ -26,7 +26,7 @@ build:
 {{- $_ := set . "SVACE_ANALYZE_HOST" (env "SVACE_ANALYZE_HOST" "example.host") }}
 {{- $_ := set . "SVACE_ANALYZE_SSH_USER" (env "SVACE_ANALYZE_SSH_USER" "user") }}
 
-{{- $_ := set $ "ImagesIDList" list }}
+{{- $_ := set . "ImagesIDList" list }}
 
 {{- range $path, $content := .Files.Glob ".werf/*.yaml" }}
   {{- tpl $content $ }}
@@ -97,7 +97,7 @@ git:
     includePaths:
       - charts
       - crds
-      - build/component_versions
+      - build/components
       - docs
       - hooks
       - openapi
@@ -107,7 +107,7 @@ git:
       - module.yaml
       - .helmignore
     excludePaths:
-      - build/component_versions/README.md
+      - build/components/README.md
       - hooks/lib/tests
       - hooks/test*
       - hooks/Taskfile*

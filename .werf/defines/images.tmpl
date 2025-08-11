@@ -1,7 +1,7 @@
 {{/*
 Template for ease of use of multiple image imports
 Default stage "install".
-Also used current context, where must be exists variable "ModuleNamePrefix".
+Important! To render properly in "embedded module" mode, ensure that caller passes context with "ModuleNamePrefix" variable.
 
 Usage:
 {{- $images := list "swtpm" "numactl" "libfuse3" -}}

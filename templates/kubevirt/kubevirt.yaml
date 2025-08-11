@@ -4,7 +4,7 @@
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $priorityClassName := include "priorityClassName" . | quote }}
 {{ $_ := set . "Version" dict }}
-{{- $versions_ctx := (.Files.Get "build/component_versions/version_map.yml" | fromYaml) }}
+{{- $versions_ctx := (.Files.Get "build/components/versions.yml" | fromYaml) }}
 {{- range $k, $v := $versions_ctx.firmware }}
   {{- $_ := set $.Firmware $k $v}}
 {{- end }}

@@ -2,10 +2,10 @@
 {{- $_ := set . "MODULE_EDITION" (env "MODULE_EDITION" "EE") }}
 
 # Component versions
-{{- $_ := set . "Version" dict -}}
+{{- $_ := set . "Firmware" dict -}}
 {{- $_ := set . "Package" dict -}}
 {{- $_ := set . "Core" dict -}}
-{{- $versions_path := "/build/component_versions/version_map.yml" -}}
+{{- $versions_path := "/build/components/versions.yml" -}}
 
 {{- if .ModuleDir -}}
 {{-   $versions_path = (printf "%s%s" (trimPrefix "/" .ModuleDir ) $versions_path) -}}
