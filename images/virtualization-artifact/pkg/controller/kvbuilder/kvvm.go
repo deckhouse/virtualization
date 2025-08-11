@@ -322,6 +322,7 @@ func (b *KVVM) SetDisk(name string, opts SetDiskOptions) error {
 		Name:        name,
 		DiskDevice:  dd,
 		Serial:      opts.Serial,
+		Cache:       virtv1.CacheWriteBack,
 		ErrorPolicy: ptr.To(virtv1.DiskErrorPolicyReport),
 	}
 
