@@ -26,7 +26,7 @@ spec:
           tokenBucketRateLimiter:
             qps: 5000
             burst: 6000
-    selinuxLauncherType: container_t
+    selinuxLauncherType: spc_t
     migrations:
       bandwidthPerMigration: 640Mi
       completionTimeoutPerGiB: 800
