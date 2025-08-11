@@ -46,9 +46,6 @@ import:
   add: /src
   to: /src
   before: install
-secrets:
-- id: SOURCE_REPO
-  value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
