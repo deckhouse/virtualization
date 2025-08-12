@@ -81,6 +81,7 @@ spec:
       {{- include "kube_api_rewriter.sidecar_container" . | nindent 6 }}
       {{- $kubeRbacProxySettings := dict }}
       {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
+      {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/healthz,/readyz" }}
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
           (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
       ) }}
@@ -110,13 +111,13 @@ spec:
           protocol: TCP
         livenessProbe:
           httpGet:
-            path: /metrics
+            path: /healthz
             port: metrics
             scheme: HTTP
           initialDelaySeconds: 10
         readinessProbe:
           httpGet:
-            path: /metrics
+            path: /healthz
             port: metrics
             scheme: HTTP
           initialDelaySeconds: 10

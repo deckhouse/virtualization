@@ -92,6 +92,7 @@ spec:
       # Add kube-rbac-proxy as a sidecar container to cdi-apiserver and cdi-deployment.
       {{- $kubeRbacProxySettings := dict }}
       {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" true }}
+      {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/healthz,/readyz" }}
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
           (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
           (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-operator")
@@ -101,6 +102,7 @@ spec:
         patch: {{ include "kube_rbac_proxy.pod_spec_strategic_patch_json" (tuple . $kubeRbacProxySettings) }}
         type: strategic
 
+      {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/healthz,/readyz" }}
       {{- $_ := set $kubeRbacProxySettings "upstreams" (list
           (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")
           (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "cdi-deployment")

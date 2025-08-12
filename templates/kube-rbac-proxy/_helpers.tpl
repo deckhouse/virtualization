@@ -17,6 +17,9 @@
   - "--v={{ $settings.logLevel | default "2" }}"
   - "--logtostderr=true"
   - "--stale-cache-interval={{ $settings.staleCacheInterval | default "1h30m" }}"
+  {{- if hasKey $settings "ignorePaths" }}
+  - "--ignore-paths={{ $settings.ignorePaths }}"
+  {{- end }}
   env:
   - name: KUBE_RBAC_PROXY_LISTEN_ADDRESS
     valueFrom:

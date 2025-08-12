@@ -118,6 +118,7 @@ spec:
             initialDelaySeconds: 10
         {{- $kubeRbacProxySettings := dict }}
         {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
+        {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/healthz,/readyz" }}
         {{- $_ := set $kubeRbacProxySettings "upstreams" (list
             (dict "upstream" "http://127.0.0.1:8080/metrics" "path" "/metrics" "name" "virtualization-controller")
             (dict "upstream" "http://127.0.0.1:9090/metrics" "path" "/proxy/metrics" "name" "kube-api-rewriter")

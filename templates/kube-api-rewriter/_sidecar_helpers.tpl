@@ -155,7 +155,7 @@ spec:
       value: "{{ $settings.WEBHOOK_KEY_FILE }}"
     {{- end }}
     - name: MONITORING_BIND_ADDRESS
-      value: ":9090"
+      value: "127.0.0.1:9090"
     {{- include "kube_api_rewriter.env" $ctx | nindent 4 }}
   resources:
     requests:
@@ -174,13 +174,13 @@ spec:
   livenessProbe:
     httpGet:
       path: /healthz
-      port: 9090
+      port: 8082
       scheme: HTTP
     initialDelaySeconds: 10
   readinessProbe:
     httpGet:
       path: /readyz
-      port: 9090
+      port: 8082
       scheme: HTTP
     initialDelaySeconds: 10
   terminationMessagePath: /dev/termination-log
