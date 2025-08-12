@@ -175,13 +175,13 @@ spec:
     httpGet:
       path: /proxy/healthz
       port: 8082
-      scheme: HTTP
+      scheme: HTTPS
     initialDelaySeconds: 10
   readinessProbe:
     httpGet:
       path: /proxy/readyz
       port: 8082
-      scheme: HTTP
+      scheme: HTTPS
     initialDelaySeconds: 10
   terminationMessagePath: /dev/termination-log
   terminationMessagePolicy: File
