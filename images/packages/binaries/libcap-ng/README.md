@@ -1,109 +1,59 @@
-# libcap
+# libcap-ng
 ```
-├── libcap.a
-├── libcap.so -> libcap.so.2
-├── libcap.so.2 -> libcap.so.2.69
-├── libcap.so.2.69
-├── libpsx.a
-├── libpsx.so -> libpsx.so.2
-├── libpsx.so.2 -> libpsx.so.2.69
-├── libpsx.so.2.69
-├── pkgconfig
-│   ├── libcap.pc
-│   └── libpsx.pc
-├── sbin
-│   ├── capsh
-│   ├── getcap
-│   ├── getpcaps
-│   └── setcap
 └── usr
+    ├── bin
+    │   ├── captest
+    │   ├── filecap
+    │   ├── netcap
+    │   └── pscap
     ├── include
-    │   └── sys
-    │       ├── capability.h
-    │       └── psx_syscall.h
+    │   └── cap-ng.h
+    ├── lib64
+    │   ├── libcap-ng.a
+    │   ├── libcap-ng.la
+    │   ├── libcap-ng.so -> libcap-ng.so.0.0.0
+    │   ├── libcap-ng.so.0 -> libcap-ng.so.0.0.0
+    │   ├── libcap-ng.so.0.0.0
+    │   ├── libdrop_ambient.a
+    │   ├── libdrop_ambient.la
+    │   ├── libdrop_ambient.so -> libdrop_ambient.so.0.0.0
+    │   ├── libdrop_ambient.so.0 -> libdrop_ambient.so.0.0.0
+    │   ├── libdrop_ambient.so.0.0.0
+    │   └── pkgconfig
+    │       └── libcap-ng.pc
     └── share
+        ├── aclocal
+        │   └── cap-ng.m4
         └── man
-            ├── man1
-            │   └── capsh.1
             ├── man3
-            │   ├── __psx_syscall.3
-            │   ├── cap_clear.3
-            │   ├── cap_clear_flag.3
-            │   ├── cap_compare.3
-            │   ├── cap_copy_ext.3
-            │   ├── cap_copy_int.3
-            │   ├── cap_copy_int_check.3
-            │   ├── cap_drop_bound.3
-            │   ├── cap_dup.3
-            │   ├── cap_fill.3
-            │   ├── cap_fill_flag.3
-            │   ├── cap_free.3
-            │   ├── cap_from_name.3
-            │   ├── cap_from_text.3
-            │   ├── cap_func_launcher.3
-            │   ├── cap_get_bound.3
-            │   ├── cap_get_fd.3
-            │   ├── cap_get_file.3
-            │   ├── cap_get_flag.3
-            │   ├── cap_get_mode.3
-            │   ├── cap_get_nsowner.3
-            │   ├── cap_get_pid.3
-            │   ├── cap_get_proc.3
-            │   ├── cap_get_secbits.3
-            │   ├── cap_iab.3
-            │   ├── cap_iab_compare.3
-            │   ├── cap_iab_dup.3
-            │   ├── cap_iab_fill.3
-            │   ├── cap_iab_from_text.3
-            │   ├── cap_iab_get_pid.3
-            │   ├── cap_iab_get_proc.3
-            │   ├── cap_iab_get_vector.3
-            │   ├── cap_iab_init.3
-            │   ├── cap_iab_set_proc.3
-            │   ├── cap_iab_set_vector.3
-            │   ├── cap_iab_to_text.3
-            │   ├── cap_init.3
-            │   ├── cap_launch.3
-            │   ├── cap_launcher_callback.3
-            │   ├── cap_launcher_set_chroot.3
-            │   ├── cap_launcher_set_iab.3
-            │   ├── cap_launcher_set_mode.3
-            │   ├── cap_launcher_setgroups.3
-            │   ├── cap_launcher_setuid.3
-            │   ├── cap_max_bits.3
-            │   ├── cap_mode.3
-            │   ├── cap_mode_name.3
-            │   ├── cap_new_launcher.3
-            │   ├── cap_prctl.3
-            │   ├── cap_prctlw.3
-            │   ├── cap_proc_root.3
-            │   ├── cap_set_fd.3
-            │   ├── cap_set_file.3
-            │   ├── cap_set_flag.3
-            │   ├── cap_set_mode.3
-            │   ├── cap_set_nsowner.3
-            │   ├── cap_set_proc.3
-            │   ├── cap_set_secbits.3
-            │   ├── cap_set_syscall.3
-            │   ├── cap_setgroups.3
-            │   ├── cap_setuid.3
-            │   ├── cap_size.3
-            │   ├── cap_to_name.3
-            │   ├── cap_to_text.3
-            │   ├── capgetp.3
-            │   ├── capsetp.3
-            │   ├── libcap.3
-            │   ├── libpsx.3
-            │   ├── psx_load_syscalls.3
-            │   ├── psx_set_sensitivity.3
-            │   ├── psx_syscall.3
-            │   ├── psx_syscall3.3
-            │   └── psx_syscall6.3
+            │   ├── capng_apply.3
+            │   ├── capng_apply_caps_fd.3
+            │   ├── capng_capability_to_name.3
+            │   ├── capng_change_id.3
+            │   ├── capng_clear.3
+            │   ├── capng_fill.3
+            │   ├── capng_get_caps_fd.3
+            │   ├── capng_get_caps_process.3
+            │   ├── capng_get_rootid.3
+            │   ├── capng_have_capabilities.3
+            │   ├── capng_have_capability.3
+            │   ├── capng_lock.3
+            │   ├── capng_name_to_capability.3
+            │   ├── capng_print_caps_numeric.3
+            │   ├── capng_print_caps_text.3
+            │   ├── capng_restore_state.3
+            │   ├── capng_save_state.3
+            │   ├── capng_set_rootid.3
+            │   ├── capng_setpid.3
+            │   ├── capng_update.3
+            │   └── capng_updatev.3
+            ├── man7
+            │   └── libdrop_ambient.7
             └── man8
-                ├── captree.8
-                ├── getcap.8
-                ├── getpcaps.8
-                └── setcap.8
+                ├── captest.8
+                ├── filecap.8
+                ├── netcap.8
+                └── pscap.8
 
-11 directories, 94 files
+12 directories, 43 files
 ```
