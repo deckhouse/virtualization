@@ -1,14 +1,4 @@
----
-image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
-final: false
-fromImage: builder/scratch
-import:
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /libidn
-  before: setup
 
----
 {{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "libidn/libidn.git" }}
 
@@ -22,6 +12,20 @@ packages:
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
+{{/* Temporarily exclude images from build (the build is broken). TODO remove 'if' when build was fixed. */}}
+{{- $build := "false" }}
+{{- if eq $build "true" }}
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
+  add: /out
+  to: /libidn
+  before: setup
+
+---
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
@@ -76,3 +80,4 @@ shell:
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
     rm -rf /out/usr/share
+{{- end }}
