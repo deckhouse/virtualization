@@ -187,7 +187,7 @@ shell:
     echo '!!!!!!!root:'
     ls -l /
     echo '!!!!!!!lib64:'
-    ls -l /lib64
+    ls -l /lib64/pkgconfig/
     cat /usr/lib/pkgconfig/capstone.pc
     echo $PKG_CONFIG_PATH
 
