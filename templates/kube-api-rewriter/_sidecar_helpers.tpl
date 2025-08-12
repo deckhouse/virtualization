@@ -173,13 +173,13 @@ spec:
       type: RuntimeDefault
   livenessProbe:
     httpGet:
-      path: /healthz
+      path: /proxy/healthz
       port: 8082
       scheme: HTTP
     initialDelaySeconds: 10
   readinessProbe:
     httpGet:
-      path: /readyz
+      path: /proxy/readyz
       port: 8082
       scheme: HTTP
     initialDelaySeconds: 10
