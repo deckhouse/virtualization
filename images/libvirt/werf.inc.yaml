@@ -56,7 +56,7 @@ packages:
 - openvswitch ebtables
 - pkgconfig
 - polkit kmod
-- lvm2 parted
+- parted
 - qemu-img open-iscsi
 - xml-utils xsltproc
 - systemd-container polkit
@@ -81,7 +81,6 @@ libraries:
 - libnuma-devel libcap-ng-devel
 - libcurl-devel
 - libfuse-devel libnbd-devel
-- libblkid-devel libgcrypt-devel
 - libgnutls-devel libp11-kit-devel
 - libreadline-devel libtasn1-devel
 - libattr-devel libbsd-devel
@@ -92,7 +91,7 @@ libraries:
 - libtirpc-devel libsasl2-devel
 - wireshark-devel
 - zlib-devel libclocale
-- libfuse3-devel libnuma libslirp-devel
+- libnuma libslirp-devel
 - libyajl-devel libselinux-devel
 {{- end -}}
 
