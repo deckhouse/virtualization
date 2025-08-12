@@ -94,13 +94,14 @@ func (h *AttachedHandler) getAttachedVirtualMachine(ctx context.Context, vmmac *
 	var found bool
 	var attachedVM *virtv2.VirtualMachine
 	for _, vm := range vms.Items {
-		for _, macName := range vm.Status.VirtualMachineMACAddresses {
-			if macName == vmmac.Name {
+		for _, ns := range vm.Status.Networks {
+			if ns.VirtualMachineMACAddressName == vmmac.Name {
 				attachedVM = &vm
 				found = true
 				break
 			}
 		}
+
 		if found {
 			break
 		}

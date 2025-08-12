@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -387,10 +388,12 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 	if err != nil {
 		return nil, err
 	}
+
 	var macAddresses []string
 	for _, macAddress := range vmmacs {
 		macAddresses = append(macAddresses, macAddress.Status.Address)
 	}
+	sort.Strings(macAddresses)
 
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
 	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ip.Status.Address, macAddresses)

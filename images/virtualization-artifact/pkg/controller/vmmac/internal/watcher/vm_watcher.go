@@ -75,9 +75,9 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 
 	vmmacNames := make(map[string]struct{})
 
-	if len(vm.Status.VirtualMachineMACAddresses) != 0 {
-		for _, vmmac := range vm.Status.VirtualMachineMACAddresses {
-			vmmacNames[vmmac] = struct{}{}
+	if len(vm.Status.Networks) != 0 {
+		for _, nc := range vm.Status.Networks {
+			vmmacNames[nc.VirtualMachineMACAddressName] = struct{}{}
 		}
 	}
 

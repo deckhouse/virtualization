@@ -121,15 +121,11 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		return reconcile.Result{}, nil
 	}
 
-	vm.Status.VirtualMachineMACAddresses = []string{}
-
 	var notReadyMessages []string
 	allReady := true
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(nameMACHandler))
 	for _, macAddress := range vmmacs {
-		vm.Status.VirtualMachineMACAddresses = append(vm.Status.VirtualMachineMACAddresses, macAddress.Name)
-
 		// 1. OK: already bound.
 		if h.macManager.IsBound(vm.GetName(), macAddress) {
 			continue

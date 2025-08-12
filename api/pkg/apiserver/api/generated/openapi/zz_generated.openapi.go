@@ -1763,8 +1763,15 @@ func schema_virtualization_api_core_v1alpha2_NetworksStatus(ref common.Reference
 							Format:  "",
 						},
 					},
+					"virtualMachineMACAddressName": {
+						SchemaProps: spec.SchemaProps{
+							Default: "",
+							Type:    []string{"string"},
+							Format:  "",
+						},
+					},
 				},
-				Required: []string{"type", "name", "macAddress"},
+				Required: []string{"type", "name", "macAddress", "virtualMachineMACAddressName"},
 			},
 		},
 	}
@@ -5627,20 +5634,6 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 							Format:      "",
 						},
 					},
-					"virtualMachineMACAddressNames": {
-						SchemaProps: spec.SchemaProps{
-							Type: []string{"array"},
-							Items: &spec.SchemaOrArray{
-								Schema: &spec.Schema{
-									SchemaProps: spec.SchemaProps{
-										Default: "",
-										Type:    []string{"string"},
-										Format:  "",
-									},
-								},
-							},
-						},
-					},
 					"ipAddress": {
 						SchemaProps: spec.SchemaProps{
 							Description: "IP address of VM.",
@@ -5755,7 +5748,7 @@ func schema_virtualization_api_core_v1alpha2_VirtualMachineStatus(ref common.Ref
 						},
 					},
 				},
-				Required: []string{"phase", "nodeName", "virtualMachineIPAddressName", "virtualMachineMACAddressNames", "ipAddress"},
+				Required: []string{"phase", "nodeName", "virtualMachineIPAddressName", "ipAddress"},
 			},
 		},
 		Dependencies: []string{

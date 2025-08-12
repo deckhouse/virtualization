@@ -279,8 +279,7 @@ type VirtualMachineStatus struct {
 	// The name of the node on which the VM is currently running.
 	Node string `json:"nodeName"`
 	// Name of `virtualMachineIPAddressName` holding the ip address of the VirtualMachine.
-	VirtualMachineIPAddress    string   `json:"virtualMachineIPAddressName"`
-	VirtualMachineMACAddresses []string `json:"virtualMachineMACAddressNames"`
+	VirtualMachineIPAddress string `json:"virtualMachineIPAddressName"`
 	// IP address of VM.
 	IPAddress       string                                   `json:"ipAddress"`
 	BlockDeviceRefs []BlockDeviceStatusRef                   `json:"blockDeviceRefs,omitempty"`
@@ -421,9 +420,10 @@ type Versions struct {
 }
 
 type NetworksStatus struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
-	MAC  string `json:"macAddress"`
+	Type                         string `json:"type"`
+	Name                         string `json:"name"`
+	MAC                          string `json:"macAddress"`
+	VirtualMachineMACAddressName string `json:"virtualMachineMACAddressName"`
 }
 
 // MachinePhase defines current phase of the virtual machine:

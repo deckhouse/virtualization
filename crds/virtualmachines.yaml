@@ -1017,14 +1017,6 @@ spec:
                   type: string
                   description: |
                     IP address of the VM.
-                virtualMachineMACAddressNames:
-                  type: array
-                  description: |
-                    List of MAC addresses of the VM.
-                  items:
-                    type: string
-                    description: |
-                      Name of the VirtualMachineMACAddressName resource with an MAC address of the VM.
                 blockDeviceRefs:
                   type: array
                   description: |
@@ -1322,6 +1314,10 @@ spec:
                         type: string
                         description: |
                           The MAC address of the network interface.
+                      virtualMachineMACAddressName:
+                        type: string
+                        description: |
+                          The name of the `VirtualMachineMACAddress` resource that is associated with the network interface.
       additionalPrinterColumns:
         - description: Virtual machine phase.
           jsonPath: .status.phase
