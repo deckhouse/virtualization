@@ -49,8 +49,8 @@ shell:
 
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
-    ./make.sh PREFIX=/usr -j$(nproc)
-    ./make.sh install DESTDIR=$OUTDIR
+    MAKE_JOBS=$(nproc) PREFIX=/usr ./make.sh
+    DESTDIR=$OUTDIR ./make.sh install
     strip $OUTDIR/usr/bin/*
     strip $OUTDIR/usr/lib/*
     tree $OUTDIR
