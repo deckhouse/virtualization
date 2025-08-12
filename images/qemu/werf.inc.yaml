@@ -184,7 +184,10 @@ shell:
       rm -rf /$pkg
     done
     ldd /usr/lib/libcapstone.so.4
-    pkg-config capstone
+    echo '!!!!!!!root:'
+    ls -l /
+    echo '!!!!!!!lib64:'
+    ls -l /lib64
     cat /usr/lib/pkgconfig/capstone.pc
     echo $PKG_CONFIG_PATH
 
