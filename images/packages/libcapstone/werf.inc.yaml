@@ -54,7 +54,7 @@ shell:
     sed -i 's;%buildroot;;' capstone.pc
     # remove static libs entry from the pkgconfig file
     sed -i 's;archive.*;;' capstone.pc
-    DESTDIR=$OUTDIR LIBDIRARCH=lib64./make.sh install
+    DESTDIR=$OUTDIR LIBDIRARCH=lib64 ./make.sh install
     strip $OUTDIR/usr/bin/cstool
     strip $OUTDIR/usr/lib/libcapstone.a
     strip $OUTDIR/usr/lib/libcapstone.so.4
