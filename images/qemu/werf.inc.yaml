@@ -183,6 +183,7 @@ shell:
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
+    ldd /usr/lib/libcapstone.so.4
 
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
 
