@@ -6,22 +6,6 @@ import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
   add: /out
   to: /libgsasl
-  includePaths:
-    - usr/bin/gsasl
-    - usr/lib64/libgsasl.so
-    - usr/lib64/libgsasl.so.18
-    - usr/lib64/libgsasl.so.18.0.0
-  before: setup
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}-builder
-  add: /out
-  to: /libgsasl-devel
-  includePaths:
-    - usr/include/gsasl-mech.h
-    - usr/include/gsasl-version.h
-    - usr/include/gsasl.h
-    - usr/lib64/libgsasl.la
-    - usr/lib64/pkgconfig/libgsasl.pc
-    - usr/share/info/gsasl.info
   before: setup
 
 ---
