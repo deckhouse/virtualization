@@ -31,7 +31,7 @@ import (
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
-	. "github.com/deckhouse/virtualization/tests/e2e/helper"
+	"github.com/deckhouse/virtualization/tests/e2e/helper"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -64,11 +64,11 @@ var _ = Describe("VirtualDiskSnapshots", ginkgoutil.CommonE2ETestDecorators(), f
 
 		virtualDiskWithoutConsumer := virtv2.VirtualDisk{}
 		vdWithoutConsumerFilePath := fmt.Sprintf("%s/vd/vd-ubuntu-http.yaml", conf.TestData.VdSnapshots)
-		err = UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+		err = helper.UnmarshalResource(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
 		Expect(err).NotTo(HaveOccurred(), "cannot get object from file: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
 
 		virtualDiskWithoutConsumer.Spec.PersistentVolumeClaim.StorageClass = &conf.StorageClass.ImmediateStorageClass.Name
-		err = WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
+		err = helper.WriteYamlObject(vdWithoutConsumerFilePath, &virtualDiskWithoutConsumer)
 		Expect(err).NotTo(HaveOccurred(), "cannot update virtual disk with custom storage class: %s\nstderr: %s", vdWithoutConsumerFilePath, err)
 	})
 
@@ -356,7 +356,7 @@ func CreateVirtualDiskSnapshot(vdName, snapshotName, namespace string, requiredC
 	}
 
 	filePath := fmt.Sprintf("%s/snapshots/%s.yaml", conf.TestData.VdSnapshots, snapshotName)
-	err := WriteYamlObject(filePath, &vdSnapshot)
+	err := helper.WriteYamlObject(filePath, &vdSnapshot)
 	if err != nil {
 		return fmt.Errorf("cannot write file with virtual disk snapshot: %s\nstderr: %w", snapshotName, err)
 	}

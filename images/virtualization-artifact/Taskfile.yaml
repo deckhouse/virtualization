@@ -52,7 +52,7 @@ tasks:
     desc: "Run go unit tests"
     cmds:
       - |
-        ginkgo -v -r pkg/
+        go tool ginkgo -v -r pkg/
 
   lint:
     desc: "Run linters locally"

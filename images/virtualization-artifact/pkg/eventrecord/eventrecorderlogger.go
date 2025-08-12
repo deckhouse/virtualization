@@ -32,7 +32,7 @@ const (
 	involvedKindLabel      = "involvedKind"
 )
 
-//go:generate moq -rm -out mock.go . EventRecorderLogger
+//go:generate go tool moq -rm -out mock.go . EventRecorderLogger
 
 // InfoLogger is local interface to use Info method from different loggers.
 type InfoLogger interface {

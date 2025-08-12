@@ -1,4 +1,4 @@
-FROM golang:1.21.8-bookworm@sha256:ac14cc827536ef1a124cd2f7a03178c3335c1db8ad3807e7fdd57f74096abfa0 AS builder
+FROM golang:1.24-bookworm@sha256:ef8c5c733079ac219c77edab604c425d748c740d8699530ea6aced9de79aea40 AS builder
 WORKDIR /app/images/vm-route-forge
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
 

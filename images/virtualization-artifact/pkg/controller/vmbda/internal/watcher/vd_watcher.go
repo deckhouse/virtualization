@@ -47,21 +47,33 @@ func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 }
 
 func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualDisk]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualDisk]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						return true
+					}
+
+					oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, e.ObjectOld.Status.Conditions)
+					newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, e.ObjectNew.Status.Conditions)
+
+					return oldReadyCondition.Status != newReadyCondition.Status
+				},
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VDs: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.VirtualDisk) (requests []reconcile.Request) {
 	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
 	err := w.client.List(ctx, &vmbdas, &client.ListOptions{
-		Namespace: obj.GetNamespace(),
+		Namespace: vd.GetNamespace(),
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vmbdas: %s", err))
@@ -69,7 +81,7 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 	}
 
 	for _, vmbda := range vmbdas.Items {
-		if vmbda.Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindVirtualDisk && vmbda.Spec.BlockDeviceRef.Name != obj.GetName() {
+		if vmbda.Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindVirtualDisk && vmbda.Spec.BlockDeviceRef.Name != vd.GetName() {
 			continue
 		}
 
@@ -82,27 +94,4 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 	}
 
 	return
-}
-
-func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVD, ok := e.ObjectOld.(*virtv2.VirtualDisk)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old VirtualDisk but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newVD, ok := e.ObjectNew.(*virtv2.VirtualDisk)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new VirtualDisk but got a %T", e.ObjectNew))
-		return false
-	}
-
-	if oldVD.Status.Phase != newVD.Status.Phase {
-		return true
-	}
-
-	oldReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, oldVD.Status.Conditions)
-	newReadyCondition, _ := conditions.GetCondition(vdcondition.ReadyType, newVD.Status.Conditions)
-
-	return oldReadyCondition.Status != newReadyCondition.Status
 }

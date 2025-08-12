@@ -19,123 +19,34 @@ limitations under the License.
 package fake
 
 import (
-	"context"
-
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	labels "k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
-	testing "k8s.io/client-go/testing"
+	gentype "k8s.io/client-go/gentype"
 )
 
-// FakeVirtualDiskSnapshots implements VirtualDiskSnapshotInterface
-type FakeVirtualDiskSnapshots struct {
+// fakeVirtualDiskSnapshots implements VirtualDiskSnapshotInterface
+type fakeVirtualDiskSnapshots struct {
+	*gentype.FakeClientWithList[*v1alpha2.VirtualDiskSnapshot, *v1alpha2.VirtualDiskSnapshotList]
 	Fake *FakeVirtualizationV1alpha2
-	ns   string
 }
 
-var virtualdisksnapshotsResource = v1alpha2.SchemeGroupVersion.WithResource("virtualdisksnapshots")
-
-var virtualdisksnapshotsKind = v1alpha2.SchemeGroupVersion.WithKind("VirtualDiskSnapshot")
-
-// Get takes name of the virtualDiskSnapshot, and returns the corresponding virtualDiskSnapshot object, and an error if there is any.
-func (c *FakeVirtualDiskSnapshots) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualDiskSnapshot, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewGetAction(virtualdisksnapshotsResource, c.ns, name), &v1alpha2.VirtualDiskSnapshot{})
-
-	if obj == nil {
-		return nil, err
+func newFakeVirtualDiskSnapshots(fake *FakeVirtualizationV1alpha2, namespace string) corev1alpha2.VirtualDiskSnapshotInterface {
+	return &fakeVirtualDiskSnapshots{
+		gentype.NewFakeClientWithList[*v1alpha2.VirtualDiskSnapshot, *v1alpha2.VirtualDiskSnapshotList](
+			fake.Fake,
+			namespace,
+			v1alpha2.SchemeGroupVersion.WithResource("virtualdisksnapshots"),
+			v1alpha2.SchemeGroupVersion.WithKind("VirtualDiskSnapshot"),
+			func() *v1alpha2.VirtualDiskSnapshot { return &v1alpha2.VirtualDiskSnapshot{} },
+			func() *v1alpha2.VirtualDiskSnapshotList { return &v1alpha2.VirtualDiskSnapshotList{} },
+			func(dst, src *v1alpha2.VirtualDiskSnapshotList) { dst.ListMeta = src.ListMeta },
+			func(list *v1alpha2.VirtualDiskSnapshotList) []*v1alpha2.VirtualDiskSnapshot {
+				return gentype.ToPointerSlice(list.Items)
+			},
+			func(list *v1alpha2.VirtualDiskSnapshotList, items []*v1alpha2.VirtualDiskSnapshot) {
+				list.Items = gentype.FromPointerSlice(items)
+			},
+		),
+		fake,
 	}
-	return obj.(*v1alpha2.VirtualDiskSnapshot), err
-}
-
-// List takes label and field selectors, and returns the list of VirtualDiskSnapshots that match those selectors.
-func (c *FakeVirtualDiskSnapshots) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualDiskSnapshotList, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewListAction(virtualdisksnapshotsResource, virtualdisksnapshotsKind, c.ns, opts), &v1alpha2.VirtualDiskSnapshotList{})
-
-	if obj == nil {
-		return nil, err
-	}
-
-	label, _, _ := testing.ExtractFromListOptions(opts)
-	if label == nil {
-		label = labels.Everything()
-	}
-	list := &v1alpha2.VirtualDiskSnapshotList{ListMeta: obj.(*v1alpha2.VirtualDiskSnapshotList).ListMeta}
-	for _, item := range obj.(*v1alpha2.VirtualDiskSnapshotList).Items {
-		if label.Matches(labels.Set(item.Labels)) {
-			list.Items = append(list.Items, item)
-		}
-	}
-	return list, err
-}
-
-// Watch returns a watch.Interface that watches the requested virtualDiskSnapshots.
-func (c *FakeVirtualDiskSnapshots) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	return c.Fake.
-		InvokesWatch(testing.NewWatchAction(virtualdisksnapshotsResource, c.ns, opts))
-
-}
-
-// Create takes the representation of a virtualDiskSnapshot and creates it.  Returns the server's representation of the virtualDiskSnapshot, and an error, if there is any.
-func (c *FakeVirtualDiskSnapshots) Create(ctx context.Context, virtualDiskSnapshot *v1alpha2.VirtualDiskSnapshot, opts v1.CreateOptions) (result *v1alpha2.VirtualDiskSnapshot, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewCreateAction(virtualdisksnapshotsResource, c.ns, virtualDiskSnapshot), &v1alpha2.VirtualDiskSnapshot{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualDiskSnapshot), err
-}
-
-// Update takes the representation of a virtualDiskSnapshot and updates it. Returns the server's representation of the virtualDiskSnapshot, and an error, if there is any.
-func (c *FakeVirtualDiskSnapshots) Update(ctx context.Context, virtualDiskSnapshot *v1alpha2.VirtualDiskSnapshot, opts v1.UpdateOptions) (result *v1alpha2.VirtualDiskSnapshot, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateAction(virtualdisksnapshotsResource, c.ns, virtualDiskSnapshot), &v1alpha2.VirtualDiskSnapshot{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualDiskSnapshot), err
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeVirtualDiskSnapshots) UpdateStatus(ctx context.Context, virtualDiskSnapshot *v1alpha2.VirtualDiskSnapshot, opts v1.UpdateOptions) (*v1alpha2.VirtualDiskSnapshot, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewUpdateSubresourceAction(virtualdisksnapshotsResource, "status", c.ns, virtualDiskSnapshot), &v1alpha2.VirtualDiskSnapshot{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualDiskSnapshot), err
-}
-
-// Delete takes name of the virtualDiskSnapshot and deletes it. Returns an error if one occurs.
-func (c *FakeVirtualDiskSnapshots) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	_, err := c.Fake.
-		Invokes(testing.NewDeleteActionWithOptions(virtualdisksnapshotsResource, c.ns, name, opts), &v1alpha2.VirtualDiskSnapshot{})
-
-	return err
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *FakeVirtualDiskSnapshots) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(virtualdisksnapshotsResource, c.ns, listOpts)
-
-	_, err := c.Fake.Invokes(action, &v1alpha2.VirtualDiskSnapshotList{})
-	return err
-}
-
-// Patch applies the patch and returns the patched virtualDiskSnapshot.
-func (c *FakeVirtualDiskSnapshots) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualDiskSnapshot, err error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewPatchSubresourceAction(virtualdisksnapshotsResource, c.ns, name, pt, data, subresources...), &v1alpha2.VirtualDiskSnapshot{})
-
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v1alpha2.VirtualDiskSnapshot), err
 }

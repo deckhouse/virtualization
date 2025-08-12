@@ -17,6 +17,8 @@ limitations under the License.
 package watcher
 
 import (
+	"fmt"
+
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -39,15 +41,17 @@ func NewVirtualDiskSnapshotWatcher(client client.Client) *VirtualDiskSnapshotWat
 }
 
 func (w VirtualDiskSnapshotWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDiskSnapshot{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualDiskSnapshot{},
+			&handler.TypedEnqueueRequestForObject[*virtv2.VirtualDiskSnapshot]{},
+			predicate.TypedFuncs[*virtv2.VirtualDiskSnapshot]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDiskSnapshot]) bool {
+					return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+				},
 			},
-		},
-	)
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualDiskSnapshot: %w", err)
+	}
+	return nil
 }

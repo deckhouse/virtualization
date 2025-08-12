@@ -18,6 +18,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,47 +43,47 @@ func NewVirtualMachineClassWatcher() *VirtualMachineClassWatcher {
 }
 
 func (w VirtualMachineClassWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, object client.Object) []reconcile.Request {
-			c := mgr.GetClient()
-			vms := &virtv2.VirtualMachineList{}
-			err := c.List(ctx, vms, client.MatchingFields{
-				indexer.IndexFieldVMByClass: object.GetName(),
-			})
-			if err != nil {
-				log := logger.FromContext(ctx)
-				log.Error(
-					"error retrieving virtual machines during the search for virtual machines belonging changed class",
-					logger.SlogErr(err),
-				)
-				return nil
-			}
+	if err := ctr.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualMachineClass{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmClass *virtv2.VirtualMachineClass) []reconcile.Request {
+				c := mgr.GetClient()
+				vms := &virtv2.VirtualMachineList{}
+				err := c.List(ctx, vms, client.MatchingFields{
+					indexer.IndexFieldVMByClass: vmClass.GetName(),
+				})
+				if err != nil {
+					log := logger.FromContext(ctx)
+					log.Error(
+						"error retrieving virtual machines during the search for virtual machines belonging changed class",
+						logger.SlogErr(err),
+					)
+					return nil
+				}
 
-			requests := make([]reconcile.Request, len(vms.Items))
-			for i, vm := range vms.Items {
-				requests[i] = reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      vm.Name,
-						Namespace: vm.Namespace,
-					},
+				requests := make([]reconcile.Request, len(vms.Items))
+				for i, vm := range vms.Items {
+					requests[i] = reconcile.Request{
+						NamespacedName: types.NamespacedName{
+							Name:      vm.Name,
+							Namespace: vm.Namespace,
+						},
+					}
 				}
-			}
-			return requests
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return false },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVMC, oldOk := e.ObjectOld.(*virtv2.VirtualMachineClass)
-				newVMC, newOk := e.ObjectNew.(*virtv2.VirtualMachineClass)
-				if !oldOk || !newOk {
-					return false
-				}
-				return !equality.Semantic.DeepEqual(oldVMC.Spec.SizingPolicies, newVMC.Spec.SizingPolicies) ||
-					!equality.Semantic.DeepEqual(oldVMC.Spec.Tolerations, oldVMC.Spec.Tolerations) ||
-					!equality.Semantic.DeepEqual(oldVMC.Spec.NodeSelector, newVMC.Spec.NodeSelector)
+				return requests
+			}),
+			predicate.TypedFuncs[*virtv2.VirtualMachineClass]{
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineClass]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineClass]) bool {
+					return !equality.Semantic.DeepEqual(e.ObjectOld.Spec.SizingPolicies, e.ObjectNew.Spec.SizingPolicies) ||
+						!equality.Semantic.DeepEqual(e.ObjectOld.Spec.Tolerations, e.ObjectNew.Spec.Tolerations) ||
+						!equality.Semantic.DeepEqual(e.ObjectOld.Spec.NodeSelector, e.ObjectNew.Spec.NodeSelector)
+				},
 			},
-		},
-	)
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineClass: %w", err)
+	}
+	return nil
 }

@@ -37,20 +37,16 @@ type CLusterVirtualImageWatcher struct{}
 
 func (w *CLusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.ClusterVirtualImage{}),
-		handler.EnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice(mgr.GetClient(), virtv2.ClusterImageDevice)),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldCvi, oldOk := e.ObjectOld.(*virtv2.ClusterVirtualImage)
-				newCvi, newOk := e.ObjectNew.(*virtv2.ClusterVirtualImage)
-				if !oldOk || !newOk {
-					return false
-				}
-				return oldCvi.Status.Phase != newCvi.Status.Phase
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.ClusterVirtualImage{},
+			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*virtv2.ClusterVirtualImage](mgr.GetClient())),
+			predicate.TypedFuncs[*virtv2.ClusterVirtualImage]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.ClusterVirtualImage]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on ClusterVirtualImage: %w", err)
 	}

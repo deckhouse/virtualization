@@ -45,7 +45,7 @@ func NewEvacuationHandler(client client.Client, evacuateCanceler EvacuateCancele
 	}
 }
 
-//go:generate moq -rm -out mock.go . EvacuateCanceler
+//go:generate go tool moq -rm -out mock.go . EvacuateCanceler
 type EvacuateCanceler interface {
 	Cancel(ctx context.Context, name, namespace string) error
 }

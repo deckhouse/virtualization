@@ -29,51 +29,51 @@ type FakeVirtualizationV1alpha2 struct {
 }
 
 func (c *FakeVirtualizationV1alpha2) ClusterVirtualImages() v1alpha2.ClusterVirtualImageInterface {
-	return &FakeClusterVirtualImages{c}
+	return newFakeClusterVirtualImages(c)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualDisks(namespace string) v1alpha2.VirtualDiskInterface {
-	return &FakeVirtualDisks{c, namespace}
+	return newFakeVirtualDisks(c, namespace)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualDiskSnapshots(namespace string) v1alpha2.VirtualDiskSnapshotInterface {
-	return &FakeVirtualDiskSnapshots{c, namespace}
+	return newFakeVirtualDiskSnapshots(c, namespace)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualImages(namespace string) v1alpha2.VirtualImageInterface {
-	return &FakeVirtualImages{c, namespace}
+	return newFakeVirtualImages(c, namespace)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachines(namespace string) v1alpha2.VirtualMachineInterface {
-	return &FakeVirtualMachines{c, namespace}
+	return newFakeVirtualMachines(c, namespace)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineBlockDeviceAttachments(namespace string) v1alpha2.VirtualMachineBlockDeviceAttachmentInterface {
-	return &FakeVirtualMachineBlockDeviceAttachments{c, namespace}
+	return newFakeVirtualMachineBlockDeviceAttachments(c, namespace)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineClasses() v1alpha2.VirtualMachineClassInterface {
-	return &FakeVirtualMachineClasses{c}
+	return newFakeVirtualMachineClasses(c)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineIPAddresses(namespace string) v1alpha2.VirtualMachineIPAddressInterface {
-	return &FakeVirtualMachineIPAddresses{c, namespace}
+	return newFakeVirtualMachineIPAddresses(c, namespace)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineIPAddressLeases() v1alpha2.VirtualMachineIPAddressLeaseInterface {
-	return &FakeVirtualMachineIPAddressLeases{c}
+	return newFakeVirtualMachineIPAddressLeases(c)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineOperations(namespace string) v1alpha2.VirtualMachineOperationInterface {
-	return &FakeVirtualMachineOperations{c, namespace}
+	return newFakeVirtualMachineOperations(c, namespace)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineRestores(namespace string) v1alpha2.VirtualMachineRestoreInterface {
-	return &FakeVirtualMachineRestores{c, namespace}
+	return newFakeVirtualMachineRestores(c, namespace)
 }
 
 func (c *FakeVirtualizationV1alpha2) VirtualMachineSnapshots(namespace string) v1alpha2.VirtualMachineSnapshotInterface {
-	return &FakeVirtualMachineSnapshots{c, namespace}
+	return newFakeVirtualMachineSnapshots(c, namespace)
 }
 
 // RESTClient returns a RESTClient that is used to communicate

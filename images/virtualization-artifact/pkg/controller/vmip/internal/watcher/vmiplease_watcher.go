@@ -24,10 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -48,23 +46,17 @@ func NewVirtualMachineIPAddressLeaseWatcher(client client.Client) *VirtualMachin
 }
 
 func (w VirtualMachineIPAddressLeaseWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressLease{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineIPAddressLease{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineIPAddressLease: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	lease, ok := obj.(*virtv2.VirtualMachineIPAddressLease)
-	if !ok {
-		return nil
-	}
-
+func (w VirtualMachineIPAddressLeaseWatcher) enqueueRequests(ctx context.Context, lease *virtv2.VirtualMachineIPAddressLease) (requests []reconcile.Request) {
 	var opts client.ListOptions
 	vmipRef := lease.Spec.VirtualMachineIPAddressRef
 	if vmipRef != nil && vmipRef.Namespace != "" {

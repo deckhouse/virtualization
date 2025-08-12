@@ -19,9 +19,8 @@ package cvi
 import (
 	"context"
 	"fmt"
-	"log/slog"
+	"reflect"
 
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -31,12 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/cvi/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/watchers"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type Watcher interface {
@@ -86,68 +83,30 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.ClusterVirtualImage{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.ClusterVirtualImage{},
+			&handler.TypedEnqueueRequestForObject[*virtv2.ClusterVirtualImage]{},
+			predicate.TypedFuncs[*virtv2.ClusterVirtualImage]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.ClusterVirtualImage]) bool {
+					return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+				},
 			},
-		},
+		),
 	); err != nil {
 		return err
 	}
 
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(r.enqueueClusterImagesAttachedToVM()),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool {
-				return r.vmHasAttachedClusterImages(e.Object)
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return r.vmHasAttachedClusterImages(e.Object)
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return r.vmHasAttachedClusterImages(e.ObjectOld) || r.vmHasAttachedClusterImages(e.ObjectNew)
-			},
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on VMs: %w", err)
-	}
-
-	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
-		handler.EnqueueRequestsFromMapFunc(r.enqueueRequestsFromVDs),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVD, ok := e.ObjectOld.(*virtv2.VirtualDisk)
-				if !ok {
-					slog.Default().Error(fmt.Sprintf("expected an old VirtualDisk but got a %T", e.ObjectOld))
-					return false
-				}
-
-				newVD, ok := e.ObjectNew.(*virtv2.VirtualDisk)
-				if !ok {
-					slog.Default().Error(fmt.Sprintf("expected a new VirtualDisk but got a %T", e.ObjectNew))
-					return false
-				}
-
-				oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVD.Status.Conditions)
-				newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVD.Status.Conditions)
-
-				if oldVD.Status.Phase != newVD.Status.Phase || len(oldVD.Status.AttachedToVirtualMachines) != len(newVD.Status.AttachedToVirtualMachines) || oldInUseCondition != newInUseCondition {
-					return true
-				}
-
-				return false
-			},
-		},
-	); err != nil {
-		return fmt.Errorf("error setting watch on VDs: %w", err)
+	mgrClient := mgr.GetClient()
+	for _, w := range []Watcher{
+		watcher.NewVirtualMachineWatcher(),
+		watcher.NewVirtualDiskWatcher(mgrClient),
+		watcher.NewVirtualDiskSnapshotWatcher(mgrClient),
+	} {
+		err := w.Watch(mgr, ctr)
+		if err != nil {
+			return fmt.Errorf("failed to run watcher %s: %w", reflect.TypeOf(w).Elem().Name(), err)
+		}
 	}
 
 	cviFromVIEnqueuer := watchers.NewClusterVirtualImageRequestEnqueuer(mgr.GetClient(), &virtv2.VirtualImage{}, virtv2.ClusterVirtualImageObjectRefKindVirtualImage)
@@ -162,43 +121,7 @@ func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr
 		return fmt.Errorf("error setting watch on CVIs: %w", err)
 	}
 
-	for _, w := range []Watcher{
-		watcher.NewVirtualDiskSnapshotWatcher(mgr.GetClient()),
-	} {
-		err := w.Watch(mgr, ctr)
-		if err != nil {
-			return fmt.Errorf("error setting watcher: %w", err)
-		}
-	}
-
 	return nil
-}
-
-func (r *Reconciler) enqueueRequestsFromVDs(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	var cviList virtv2.ClusterVirtualImageList
-	err := r.client.List(ctx, &cviList, &client.ListOptions{})
-	if err != nil {
-		slog.Default().Error(fmt.Sprintf("failed to list cvi: %s", err))
-		return
-	}
-
-	for _, cvi := range cviList.Items {
-		if cvi.Spec.DataSource.Type != virtv2.DataSourceTypeObjectRef || cvi.Spec.DataSource.ObjectRef == nil {
-			continue
-		}
-
-		if cvi.Spec.DataSource.ObjectRef.Kind != virtv2.VirtualDiskKind || cvi.Spec.DataSource.ObjectRef.Name != obj.GetName() && cvi.Spec.DataSource.ObjectRef.Namespace != obj.GetNamespace() {
-			continue
-		}
-
-		requests = append(requests, reconcile.Request{
-			NamespacedName: types.NamespacedName{
-				Name: cvi.Name,
-			},
-		})
-	}
-
-	return
 }
 
 func (r *Reconciler) factory() *virtv2.ClusterVirtualImage {
@@ -207,42 +130,4 @@ func (r *Reconciler) factory() *virtv2.ClusterVirtualImage {
 
 func (r *Reconciler) statusGetter(obj *virtv2.ClusterVirtualImage) virtv2.ClusterVirtualImageStatus {
 	return obj.Status
-}
-
-func (r *Reconciler) enqueueClusterImagesAttachedToVM() handler.MapFunc {
-	return func(_ context.Context, obj client.Object) []reconcile.Request {
-		vm, ok := obj.(*virtv2.VirtualMachine)
-		if !ok {
-			return nil
-		}
-
-		var requests []reconcile.Request
-
-		for _, bda := range vm.Status.BlockDeviceRefs {
-			if bda.Kind != virtv2.ClusterImageDevice {
-				continue
-			}
-
-			requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-				Name: bda.Name,
-			}})
-		}
-
-		return requests
-	}
-}
-
-func (r *Reconciler) vmHasAttachedClusterImages(obj client.Object) bool {
-	vm, ok := obj.(*virtv2.VirtualMachine)
-	if !ok {
-		return false
-	}
-
-	for _, bda := range vm.Status.BlockDeviceRefs {
-		if bda.Kind == virtv2.ClusterImageDevice {
-			return true
-		}
-	}
-
-	return false
 }

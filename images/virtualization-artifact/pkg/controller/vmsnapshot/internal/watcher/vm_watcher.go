@@ -49,22 +49,25 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 }
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool { return false },
+				UpdateFunc: w.filterUpdateEvents,
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, vm *virtv2.VirtualMachine) (requests []reconcile.Request) {
 	var vmSnapshots virtv2.VirtualMachineSnapshotList
 	err := w.client.List(ctx, &vmSnapshots, &client.ListOptions{
-		Namespace:     obj.GetNamespace(),
-		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMSnapshotByVM, obj.GetName()),
+		Namespace:     vm.GetNamespace(),
+		FieldSelector: fields.OneTermEqualSelector(indexer.IndexFieldVMSnapshotByVM, vm.GetName()),
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list virtual machine snapshots: %s", err))
@@ -72,7 +75,7 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 	}
 
 	for _, vmSnapshot := range vmSnapshots.Items {
-		if vmSnapshot.Spec.VirtualMachineName == obj.GetName() {
+		if vmSnapshot.Spec.VirtualMachineName == vm.GetName() {
 			requests = append(requests, reconcile.Request{
 				NamespacedName: types.NamespacedName{
 					Name:      vmSnapshot.Name,
@@ -85,35 +88,23 @@ func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.O
 	return
 }
 
-func (w VirtualMachineWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVM, ok := e.ObjectOld.(*virtv2.VirtualMachine)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old VirtualMachine but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newVM, ok := e.ObjectNew.(*virtv2.VirtualMachine)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new VirtualMachine but got a %T", e.ObjectNew))
-		return false
-	}
-
-	oldAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, oldVM.Status.Conditions)
-	newAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, newVM.Status.Conditions)
+func (w VirtualMachineWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+	oldAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, e.ObjectOld.Status.Conditions)
+	newAgentReady, _ := conditions.GetCondition(vmcondition.TypeAgentReady, e.ObjectNew.Status.Conditions)
 
 	if oldAgentReady != newAgentReady {
 		return true
 	}
 
-	oldFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, oldVM.Status.Conditions)
-	newFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, newVM.Status.Conditions)
+	oldFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, e.ObjectOld.Status.Conditions)
+	newFSFrozen, _ := conditions.GetCondition(vmcondition.TypeFilesystemFrozen, e.ObjectNew.Status.Conditions)
 
 	if oldFSFrozen.Reason != newFSFrozen.Reason {
 		return true
 	}
 
-	oldSnapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, oldVM.Status.Conditions)
-	newSnapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, newVM.Status.Conditions)
+	oldSnapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, e.ObjectOld.Status.Conditions)
+	newSnapshotting, _ := conditions.GetCondition(vmcondition.TypeSnapshotting, e.ObjectNew.Status.Conditions)
 
 	return oldSnapshotting.Status != newSnapshotting.Status
 }

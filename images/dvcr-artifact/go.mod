@@ -1,8 +1,6 @@
 module github.com/deckhouse/virtualization-controller/dvcr-importers
 
-go 1.23.1
-
-toolchain go1.24.0
+go 1.24.5
 
 require (
 	github.com/containers/image/v5 v5.32.0
@@ -111,7 +109,7 @@ require (
 	golang.org/x/crypto v0.38.0 // indirect
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8 // indirect
 	golang.org/x/net v0.26.0 // indirect
-	golang.org/x/oauth2 v0.21.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
