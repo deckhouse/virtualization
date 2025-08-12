@@ -47,8 +47,6 @@ import:
   add: /src
   to: /src
   before: install
-# {{- $images := list "libcap" -}}
-# {{- include "importPackageImages" (list $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
