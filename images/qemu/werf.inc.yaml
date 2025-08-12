@@ -184,6 +184,7 @@ shell:
       rm -rf /$pkg
     done
     ldd /usr/lib/libcapstone.so.4
+    pkgconfig capstone
     cat /usr/lib/pkgconfig/capstone.pc
     echo $PKG_CONFIG_PATH
 
