@@ -107,7 +107,7 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *virtv2.VirtualMachin
 	}
 
 	// Pending if quota exceeded.
-	isQuotaExceededDuringMigration, err := h.isKubeVirtMigrationRejectedDueToQuota(ctx, vmop)
+	isQuotaExceededDuringMigration, err := service.IsKubeVirtMigrationRejectedDueToQuota(ctx, h.client, vmop)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -342,32 +342,6 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 			return true, nil
 		}
 	}
-	return false, nil
-}
-
-func (h LifecycleHandler) isKubeVirtMigrationRejectedDueToQuota(ctx context.Context, vmop *virtv2.VirtualMachineOperation) (bool, error) {
-	if !commonvmop.IsMigration(vmop) {
-		return false, nil
-	}
-
-	kubevirtMigrationName := service.KubevirtMigrationName(vmop)
-	kubevirtMigration, err := object.FetchObject(ctx, types.NamespacedName{
-		Namespace: vmop.GetNamespace(),
-		Name:      kubevirtMigrationName,
-	}, h.client, &virtv1.VirtualMachineInstanceMigration{})
-	if err != nil {
-		return false, err
-	}
-
-	if kubevirtMigration == nil {
-		return false, nil
-	}
-
-	_, ok := conditions.GetKVVMIMCondition(conditions.KubevirtMigrationRejectedByResourceQuotaType, kubevirtMigration.Status.Conditions)
-	if ok {
-		return true, nil
-	}
-
 	return false, nil
 }
 

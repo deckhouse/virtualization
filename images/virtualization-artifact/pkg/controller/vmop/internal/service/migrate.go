@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -176,4 +177,30 @@ var mapMigrationPhaseToReason = map[virtv1.VirtualMachineInstanceMigrationPhase]
 	virtv1.MigrationRunning:     vmopcondition.ReasonMigrationRunning,
 	virtv1.MigrationSucceeded:   vmopcondition.ReasonOperationCompleted,
 	virtv1.MigrationFailed:      vmopcondition.ReasonOperationFailed,
+}
+
+func IsKubeVirtMigrationRejectedDueToQuota(ctx context.Context, client client.Client, vmop *virtv2.VirtualMachineOperation) (bool, error) {
+	if !commonvmop.IsMigration(vmop) {
+		return false, nil
+	}
+
+	kubevirtMigrationName := KubevirtMigrationName(vmop)
+	kubevirtMigration, err := object.FetchObject(ctx, types.NamespacedName{
+		Namespace: vmop.GetNamespace(),
+		Name:      kubevirtMigrationName,
+	}, client, &virtv1.VirtualMachineInstanceMigration{})
+	if err != nil {
+		return false, err
+	}
+
+	if kubevirtMigration == nil {
+		return false, nil
+	}
+
+	_, ok := conditions.GetKVVMIMCondition(conditions.KubevirtMigrationRejectedByResourceQuotaType, kubevirtMigration.Status.Conditions)
+	if ok {
+		return true, nil
+	}
+
+	return false, nil
 }
