@@ -122,7 +122,7 @@ spec:
           initialDelaySeconds: 10
         readinessProbe:
           httpGet:
-            path: /healthz
+            path: /readyz
             port: health
             scheme: HTTP
           initialDelaySeconds: 10
