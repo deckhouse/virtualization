@@ -25,6 +25,7 @@ package:
   libburn: release-1.5.6
   libcap: libcap-2.69
   libcap-ng: v0.8.5
+  libcapstone: 4.0.2
   libfuse3: fuse-3.16.2
   libgcrypt: libgcrypt-1.10.2
   libtpms: v0.10.0
