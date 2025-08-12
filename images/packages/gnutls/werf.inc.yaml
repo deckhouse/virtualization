@@ -51,7 +51,7 @@ packages:
 - libtpm2-tss-devel libtrousers-devel
 - libtasn1-devel libtasn1-utils zlib-devel
 - libunbound-devel bison gtk-doc texinfo texlive
-- libev4 libev-devel libgcrypt-devel libopencdk-devel
+- libev4 libev-devel libopencdk-devel
 - liboqs-devel libzstd-devel libreadline-devel
 - openssl libssl-devel iproute2-devel
 - libnettle-devel
