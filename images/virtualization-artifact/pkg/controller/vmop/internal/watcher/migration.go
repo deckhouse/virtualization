@@ -43,11 +43,6 @@ func (w MigrationWatcher) Watch(mgr manager.Manager, ctr controller.Controller) 
 				&v1alpha2.VirtualMachineOperation{},
 				handler.OnlyControllerOwner(),
 			),
-			predicate.TypedFuncs[*virtv1.VirtualMachineInstanceMigration]{
-				UpdateFunc: func(e event.TypedUpdateEvent[*virtv1.VirtualMachineInstanceMigration]) bool {
-					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase
-				},
-			},
 		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineInstanceMigration: %w", err)
