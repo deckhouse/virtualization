@@ -9,7 +9,7 @@ import:
   before: setup
 
 ---
-{{- $version := get $.Package $.ImageName }}
+{{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "stevegrubb/libcap-ng.git" }}
 
 {{- $name := print $.ImageName "-dependencies" -}}
