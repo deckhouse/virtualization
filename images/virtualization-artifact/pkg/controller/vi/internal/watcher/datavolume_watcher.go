@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
@@ -56,6 +57,28 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 
 					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase && e.ObjectNew.Status.Phase == cdiv1.Succeeded {
 						return true
+					}
+
+					if e.ObjectOld.Status.ClaimName != e.ObjectNew.Status.ClaimName {
+						return true
+					}
+
+					oldDVQuotaNotExceeded, oldOk := conditions.GetDataVolumeCondition(conditions.DVQoutaNotExceededConditionType, e.ObjectOld.Status.Conditions)
+					newDVQuotaNotExceeded, newOk := conditions.GetDataVolumeCondition(conditions.DVQoutaNotExceededConditionType, e.ObjectNew.Status.Conditions)
+
+					if !oldOk && newOk {
+						return true
+					}
+
+					if oldOk && newOk {
+						switch {
+						case oldDVQuotaNotExceeded.Status != newDVQuotaNotExceeded.Status:
+							return true
+						case oldDVQuotaNotExceeded.Reason != newDVQuotaNotExceeded.Reason:
+							return true
+						case oldDVQuotaNotExceeded.Message != newDVQuotaNotExceeded.Message:
+							return true
+						}
 					}
 
 					dvRunning := service.GetDataVolumeCondition(cdiv1.DataVolumeRunning, e.ObjectNew.Status.Conditions)
