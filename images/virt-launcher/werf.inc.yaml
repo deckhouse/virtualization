@@ -220,7 +220,7 @@ import:
   - node-labeller
   - vlctl
 
-{{- $images := list "swtpm" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl"-}}
+{{- $images := list "swtpm" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 
 # Statically builded
