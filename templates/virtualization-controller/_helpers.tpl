@@ -94,10 +94,6 @@
 {{- end }}
 - name: FIRMWARE_IMAGE
   value: {{ include "helm_lib_module_image" (list . "virtLauncher") }}
-{{- if (.Values.global.enabledModules | has "sdn") }}
-- name: SDN_ENABLED
-  value: "true"
-{{- end }}
 - name: CLUSTER_UUID
   value: {{ .Values.global.discovery.clusterUUID }}
 {{- end }}

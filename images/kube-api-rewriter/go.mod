@@ -58,7 +58,6 @@ require (
 	golang.org/x/term v0.32.0 // indirect
 	golang.org/x/text v0.25.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
@@ -70,7 +69,10 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 )
 
+replace google.golang.org/protobuf => google.golang.org/protobuf v1.33.0
+
+// CVE Replaces
 replace (
 	golang.org/x/net => golang.org/x/net v0.40.0 // CVE-2025-22870, CVE-2025-22872
-	google.golang.org/protobuf => google.golang.org/protobuf v1.33.0
+	golang.org/x/oauth2 => golang.org/x/oauth2 v0.27.0 // CVE-2025-22868
 )

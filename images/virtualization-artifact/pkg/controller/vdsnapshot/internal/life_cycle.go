@@ -27,6 +27,7 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -223,11 +224,11 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 
 		anno := make(map[string]string)
 		if pvc.Spec.StorageClassName != nil && *pvc.Spec.StorageClassName != "" {
-			anno["storageClass"] = *pvc.Spec.StorageClassName
+			anno[annotations.AnnStorageClassName] = *pvc.Spec.StorageClassName
 		}
 
 		if pvc.Spec.VolumeMode != nil && *pvc.Spec.VolumeMode != "" {
-			anno["volumeMode"] = string(*pvc.Spec.VolumeMode)
+			anno[annotations.AnnVolumeMode] = string(*pvc.Spec.VolumeMode)
 		}
 
 		accessModes := make([]string, 0, len(pvc.Status.AccessModes))
@@ -235,7 +236,7 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vdSnapshot *virtv2.Virtual
 			accessModes = append(accessModes, string(accessMode))
 		}
 
-		anno["accessModes"] = strings.Join(accessModes, ",")
+		anno[annotations.AnnAccessModes] = strings.Join(accessModes, ",")
 
 		vs = &vsv1.VolumeSnapshot{
 			ObjectMeta: metav1.ObjectMeta{
