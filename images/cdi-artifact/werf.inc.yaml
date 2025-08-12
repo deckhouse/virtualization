@@ -1,17 +1,49 @@
 ---
-{{- $version := "v1.60.3-v12n.9" }}
-{{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
+{{- $gitRepoName := "3p-containerized-data-importer" }}
+{{- $gitRepoUrl := (printf "%s/%s" "deckhouse" $gitRepoName) }}
+{{- $version := get $.Core $gitRepoName }}
+
+
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+git:
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}
+    to: /src
+    stageDependencies:
+      install:
+        - '**/*'
+    excludePaths:
+      - patches/README.md
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+    echo "Git clone CDI repository..."
+    git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /src/containerized-data-importer
+
+    rm -rf /src/containerized-data-importer/.git
 
 ---
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 mount:
   - fromPath: ~/go-pkg-cache
     to: /go/pkg
+import:
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-src-artifact
+  add: /src/containerized-data-importer
+  to: /containerized-data-importer
+  before: install
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO }}
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
   beforeInstall:
 {{- if eq $.SVACE_ENABLED "false" }}
@@ -26,11 +58,8 @@ shell:
 
   install:
   - |
+    export GOPROXY=$(cat /run/secrets/GOPROXY)
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
-
-    echo "Git clone CDI repository..."
-    git config --global --add advice.detachedHead false
-    git clone --depth 1 --branch {{ $version }} $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} /containerized-data-importer
 
   - |
     echo Download Go modules.
@@ -109,12 +138,14 @@ shell:
   - ls -la /cdi-binaries
 
 ---
-image: {{ $.ImageName }}-cbuilder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-cbuilder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-  - add: /images/{{ $.ImageName }}/static_binaries
+  - add: {{ .ModuleDir }}/images/{{ .ImageName }}
     to: /
+    includePaths:
+    - static_binaries
     stageDependencies:
       install:
         - '*.c'
@@ -130,6 +161,7 @@ shell:
   {{- include "alt packages clean" . | nindent 2 }}
 {{- end }}
   - |
+    cd /static_binaries
     echo "Building simple app that prints hello cdi"
     mkdir -p /bins
     {{- $_ := set $ "ProjectName" (list $.ImageName "hello" | join "/") }}

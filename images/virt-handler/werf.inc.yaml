@@ -1,8 +1,8 @@
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-- image: {{ $.ImageName }}-bins
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
   add: /relocate
   to: /
   after: install
@@ -15,7 +15,7 @@ import:
   includePaths:
   - usr/bin/cp
   - usr/bin/coreutils
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt-binaries/
   to: /usr/bin
   after: install
@@ -23,19 +23,17 @@ import:
   - virt-chroot
   - virt-handler
   - container-disk
-- image: virt-artifact
-  add: /kubevirt/cmd/{{ $.ImageName }}/
-  to: /
+- image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt/cmd/{{ $.ImageName }}/virt_launcher.cil
+  to: /virt_launcher.cil
   after: install
-  includePaths:
-  - virt_launcher.cil
-- image: virt-artifact
-  add: /kubevirt-config-files/
-  to: /
+- image: {{ .ModuleNamePrefix }}virt-artifact
+  add: /kubevirt-config-files/.version
+  to: /.version
   after: install
   includePaths:
   - .version
-- image: virt-artifact
+- image: {{ .ModuleNamePrefix }}virt-artifact
   add: /kubevirt/cmd/{{ $.ImageName }}/
   to: /etc
   after: install
@@ -66,9 +64,9 @@ binaries:
 
 {{ $virtHandlerDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -78,8 +76,8 @@ import:
   - bin/mount
   - bin/umount
 {{- $images := list "libisoburn" "nftables" "acl" -}}
-{{- include "importPackageImages" (list $images "install") -}}
-- image: qemu
+{{- include "importPackageImages" (list . $images "install") -}}
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /relocate
   before: setup
@@ -89,7 +87,7 @@ shell:
   - |
     apt-get install --yes \
       {{ $virtHandlerDependencies.packages | join " " }}
-  
+
   {{- include "alt packages clean" . | nindent 2 }}
   - |
     # Install packages
