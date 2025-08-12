@@ -111,16 +111,19 @@ spec:
         - containerPort: 8080
           name: metrics
           protocol: TCP
+        - containerPort: 8081
+          name: health
+          protocol: TCP
         livenessProbe:
           httpGet:
             path: /healthz
-            port: metrics
+            port: health
             scheme: HTTP
           initialDelaySeconds: 10
         readinessProbe:
           httpGet:
             path: /healthz
-            port: metrics
+            port: health
             scheme: HTTP
           initialDelaySeconds: 10
         resources:
