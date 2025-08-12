@@ -49,12 +49,6 @@ shell:
 
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
-    # fix the pkgconfig file
-    sed -i 's;%buildroot;;' capstone.pc
-    # remove static libs entry from the pkgconfig file
-    sed -i 's;archive.*;;' capstone.pc
-    # remove temporary fuzzallcorp test from 'check:' in Makefile
-    sed -E -i 's;^(check:.*)fuzzallcorp;\1;g' Makefile
     ./make.sh PREFIX=/usr -j$(nproc)
     ./make.sh install DESTDIR=$OUTDIR
     strip $OUTDIR/usr/bin/*
