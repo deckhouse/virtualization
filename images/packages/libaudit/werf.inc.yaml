@@ -1,6 +1,3 @@
-{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
-{{- if eq .ModuleNamePrefix "" }}
-{{- end }}
 ---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}

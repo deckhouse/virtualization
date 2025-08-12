@@ -94,7 +94,6 @@ libraries:
 - zlib-devel libclocale
 - libfuse3-devel libnuma libslirp-devel
 - libyajl-devel libselinux-devel
-# - libaudit-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
