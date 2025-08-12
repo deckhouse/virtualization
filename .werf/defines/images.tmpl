@@ -1,10 +1,11 @@
 {{/*
 Template for ease of use of multiple image imports
-Stage "before" hardcoded.
+Default stage "install".
+Important! To render properly in "embedded module" mode, ensure that caller passes context with "ModuleNamePrefix" variable.
 
 Usage:
 {{- $images := list "swtpm" "numactl" "libfuse3" -}}
-{{- include "importPackageImages" (list $images "install") -}}  # install stage (default)
+{{- include "importPackageImages" (list . $images "install") -}}  # install stage (default)
 Result:
 ...
  - image: packages/binaries/libfuse3
@@ -13,7 +14,7 @@ Result:
    before: install
 ...
 
-{{- include "importPackageImages" (list $images "setup") -}}    # setup stage
+{{- include "importPackageImages" (list . $images "setup") -}}    # setup stage
 Result:
 ...
  - image: packages/binaries/libfuse3
@@ -24,16 +25,17 @@ Result:
 */}}
 
 {{ define "importPackageImages" }}
-{{- if not (eq (kindOf .) "slice") }}
-{{    fail "importPackageImages: invalid type of argument, slice is expected" -}}
-{{- end }}
-{{- $ImageNameList := index . 0 }}
-{{- $stage := "install" }}
-{{- if gt (len .) 1 }}
-{{-   $stage = index . 1 }}
-{{- end }}
+{{-   if not (eq (kindOf .) "slice") }}
+{{-      fail "importPackageImages: invalid type of argument, slice is expected" }}
+{{-   end }}
+{{-   $context := index . 0 }}
+{{-   $ImageNameList := index . 1 }}
+{{-   $stage := "install" }}
+{{-   if gt (len .) 2 }}
+{{-     $stage = index . 2 }}
+{{-   end }}
 {{-   range $imageName := $ImageNameList }}
-- image: packages/binaries/{{ $imageName }}
+- image: {{ $context.ModuleNamePrefix }}packages/{{ $imageName }}
   add: /{{ $imageName }}
   to: /{{ $imageName }}
   before: {{ $stage }}

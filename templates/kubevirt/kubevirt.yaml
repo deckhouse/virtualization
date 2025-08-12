@@ -3,10 +3,10 @@
 {{- $tolerationsSystem := index (include "helm_lib_tolerations" (tuple . "system") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $tolerationsAnyNode := index (include "helm_lib_tolerations" (tuple . "any-node") | fromYaml) "tolerations" | default (list) | toJson }}
 {{- $priorityClassName := include "priorityClassName" . | quote }}
-{{ $_ := set . "Version" dict }}
-{{- $versions_ctx := (.Files.Get "component_versions/version_map.yml" | fromYaml) }}
+{{ $_ := set . "Firmware" dict }}
+{{- $versions_ctx := (.Files.Get "build/components/versions.yml" | fromYaml) }}
 {{- range $k, $v := $versions_ctx.firmware }}
-  {{- $_ := set $.Version $k $v}}
+  {{- $_ := set $.Firmware $k $v}}
 {{- end }}
 {{- $dvpNestingLevel := dig "discovery" "dvpNestingLevel" 0 .Values.global | int }}
 {{- $logVerbosity := include "kubevirt.logVerbosity" .Values.virtualization.logLevel | int }}
@@ -291,9 +291,9 @@ spec:
 env:
 # Firmware component versions.
 - name: QEMU_VERSION
-  value: {{$.Version.qemu}}
+  value: {{$.Firmware.qemu}}
 - name: LIBVIRT_VERSION
-  value: {{$.Version.libvirt}}
+  value: {{$.Firmware.libvirt}}
 {{ end }}
     - resourceType: Deployment
       resourceName: virt-controller

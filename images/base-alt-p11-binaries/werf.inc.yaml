@@ -4,25 +4,19 @@
 packages:
 - glibc-utils
 - mount xfsprogs xfstests util-linux e2fsprogs
+- libffi-devel
 libraries:
 - libssh-devel libssh2-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: false
-fromImage: BASE_ALT_P11
+fromImage: builder/alt
 git:
-  - add: /images/{{ $.ImageName }}
-    to: /
-    includePaths:
-    - relocate_binaries.sh
-import:
-- image: libs/libffi
-  add: /usr
-  to: /libffi8/usr
-  before: install
+  - add: {{ .ModuleDir }}/build/tools/relocate_binaries.sh
+    to: /relocate_binaries.sh
 shell:
   install:
   {{- include "alt packages proxy" . | nindent 2 }}
@@ -31,6 +25,3 @@ shell:
         {{ $builderDependencies.packages | join " " }} \
         {{ $builderDependencies.libraries | join " " }}
   {{- include "alt packages clean" . | nindent 2 }}
-  - |
-    cp -a /libffi8/. /
-    rm -rf /libffi8

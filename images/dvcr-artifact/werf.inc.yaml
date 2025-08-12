@@ -1,9 +1,9 @@
 ---
-image: {{ $.ImageName }}-builder
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
 final: false
 fromImage: {{ eq $.SVACE_ENABLED "false" | ternary "builder/golang-bookworm-1.23" "builder/alt-go-svace" }}
 git:
-- add: /images/{{ $.ImageName }}
+- add: {{ .ModuleDir }}/images/{{ .ImageName }}
   to: /src
   stageDependencies:
     install:
@@ -11,8 +11,11 @@ git:
     - go.sum
     setup:
     - "**/*.go"
+secrets:
+- id: GOPROXY
+  value: {{ .GOPROXY }}
 shell:
-  install:
+  beforeInstall:
 {{- if eq $.SVACE_ENABLED "false" }}
   {{- include "debian packages proxy" . | nindent 2 }}
   - apt-get -qq install -y --no-install-recommends libnbd-dev
@@ -22,6 +25,10 @@ shell:
   - apt-get -qq install -y libnbd-devel
   {{- include "alt packages clean" . | nindent 2 }}
 {{- end }}
+  install:
+  - cd /src
+  - export GOPROXY=$(cat /run/secrets/GOPROXY)
+  - go mod download
   setup:
   - mkdir /out
   - cd /src
@@ -62,9 +69,9 @@ binaries:
 
 {{ $dvcrDependencies := include "$name" . | fromYaml }}
 
-image: {{ $.ImageName }}-bins
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}-bins
 final: false
-fromImage: base-alt-p11-binaries
+fromImage: {{ .ModuleNamePrefix }}base-alt-p11-binaries
 import:
 - image: tools/util-linux
   add: /
@@ -73,13 +80,13 @@ import:
   includePaths:
   - bin/mount
   - bin/umount
-- image: {{ $.ImageName }}-builder
+- image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /out
   to: /usr/local/bin
   before: setup
 {{- $images := list "bzip2" "file" "nbdkit" -}}
-{{- include "importPackageImages" (list $images "install") -}}
-- image: qemu
+{{- include "importPackageImages" (list . $images "install") -}}
+- image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
   before: install

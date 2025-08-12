@@ -1,0 +1,80 @@
+---
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
+final: false
+fromImage: builder/scratch
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+  add: /out
+  to: /{{ $.ImageName }}
+  before: setup
+---
+{{- $version := get .PackageVersion .ImageName }}
+{{- $gitRepoUrl := "bzip2/bzip2.git" }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+final: false
+fromImage: builder/src
+secrets:
+- id: SOURCE_REPO
+  value: {{ $.SOURCE_REPO_GIT }}
+shell:
+  install:
+  - |
+    mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+    git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
+    
+---
+
+{{- $name := print $.ImageName "-dependencies" -}}
+{{- define "$name" -}}
+packages:
+- gcc git libtool
+- make automake autoconf libtool makeinfo
+- meson ninja-build
+- pkg-config
+{{- end -}}
+
+{{ $builderDependencies := include "$name" . | fromYaml }}
+
+image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-builder
+final: false
+fromImage: builder/alt
+import:
+- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
+  add: /src
+  to: /src
+  before: install
+shell:
+  beforeInstall:
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+      {{ $builderDependencies.packages | join " " }}
+
+  {{- include "alt packages clean" . | nindent 2 }}
+
+  install:
+  - |
+    OUTDIR=/out
+    pkgver=$( echo {{ $version }} | cut -d "-" -f2)
+
+    cd /src
+    
+    mkdir -p $OUTDIR/usr/lib64
+    
+    sed -i \
+      -e 's:\$(PREFIX)/man:\$(PREFIX)/share/man:g' \
+      -e 's:ln -s -f \$(PREFIX)/bin/:ln -s :' \
+      Makefile
+
+    make -f Makefile-libbz2_so all -j $(nproc)
+    make all
+
+    make -j $(nproc) PREFIX=${OUTDIR}/usr install
+
+    install -D libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.$pkgver
+    ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so
+    ln -s libbz2.so.$pkgver "${OUTDIR}"/usr/lib64/libbz2.so.${pkgver%%.*}
+
+    rm -rf $OUTDIR/usr/share
