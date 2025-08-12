@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"reflect"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -123,8 +122,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			return reconcile.Result{}, err
 		}
 		if kvvmi != nil {
-			err = r.client.Delete(ctx, kvvmi)
-			if err != nil && !k8serrors.IsNotFound(err) {
+			err = object.DeleteObject(ctx, r.client, kvvmi)
+			if err != nil {
 				return reconcile.Result{}, fmt.Errorf("delete KVVMI in maintenance mode: %w", err)
 			}
 		}
@@ -135,8 +134,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 		if pods != nil {
 			for i := range pods.Items {
-				err = r.client.Delete(ctx, &pods.Items[i])
-				if err != nil && !k8serrors.IsNotFound(err) {
+				err = object.DeleteObject(ctx, r.client, &pods.Items[i])
+				if err != nil {
 					return reconcile.Result{}, fmt.Errorf("delete Pod in maintenance mode: %w", err)
 				}
 			}
