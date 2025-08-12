@@ -18,10 +18,8 @@ package step
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,19 +27,10 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
 )
-
-type Restorer interface {
-	RestoreVirtualMachine(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachine, error)
-	RestoreProvisioner(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)
-	RestoreVirtualMachineIPAddress(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error)
-	RestoreVirtualMachineBlockDeviceAttachments(ctx context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error)
-}
 
 type VMSnapshotReadyStep struct {
 	client   client.Client

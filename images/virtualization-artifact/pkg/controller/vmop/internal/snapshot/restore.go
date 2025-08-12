@@ -49,7 +49,10 @@ func (r VMSnapshotRestore) Sync(ctx context.Context, vm *virtv2.VirtualMachine) 
 	defer func() { conditions.SetCondition(cb.Generation(vm.Generation), &vm.Status.Conditions) }()
 
 	return steptaker.NewStepTakers(
-		step.NewStopVMStep(r.recorder, cb),
+		step.NewDryRunStep(r.recorder, cb, vm),
+		step.NewVMSnapshotReadyStep(r.client, r.recorder, cb, r.vmop),
+		step.NewStopVMStep(r.client, r.recorder, cb, r.vmop),
 		step.NewRestoreVMStep(r.client, r.recorder, cb, r.vmop),
+		step.NewStartVMStep(r.client, r.recorder, cb, r.vmop),
 	).Run(ctx, vm)
 }
