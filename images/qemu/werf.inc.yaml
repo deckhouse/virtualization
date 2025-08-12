@@ -114,7 +114,7 @@ libraries:
 - libxdp-devel libSDL2-devel libSDL2_image-devel
 - libncursesw-devel libalsa-devel libpulseaudio-devel
 - pipewire-libs pipewire-jack-libs-devel
-- libsoundio-devel libcapstone-devel libsasl2-devel
+- libsoundio-devel libsasl2-devel
 - libjpeg-devel libpng-devel libxkbcommon-devel xkeyboard-config-devel
 - glusterfs11 libgtk+3-devel libvte libvte-devel libvte3-devel
 - libvirglrenderer-devel libusb-devel liburing-devel libbpf-devel
@@ -152,7 +152,7 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" -}}
+{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: SOURCE_REPO
