@@ -1,5 +1,5 @@
 ---
-{{- $version := "feat/core/add-healthz" }}
+{{- $version := "5f034d2e3626e7de6042a235035ca548ea0b7049" }}
 {{- $gitRepoUrl := "deckhouse/3p-containerized-data-importer" }}
 
 ---
