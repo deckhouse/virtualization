@@ -1,8 +1,6 @@
 module vlctl
 
-go 1.23.0
-
-toolchain go1.23.9
+go 1.24.5
 
 require (
 	github.com/spf13/cobra v1.9.1

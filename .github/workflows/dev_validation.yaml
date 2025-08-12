@@ -15,7 +15,7 @@
 name: Validations
 
 env:
-  GO_VERSION: "1.22.7"
+  GO_VERSION: "1.24.5"
 
 on:
   pull_request:
@@ -159,9 +159,12 @@ jobs:
       matrix:
         # Define two groups of components with their respective Go versions
         components:
-          - { component: virtualization-artifact, go-version: "1.23.9" }
-          - { component: vm-route-forge, go-version: "1.23.9" }
-          - { component: api, go-version: "1.22.7" }
+          - {
+              component: virtualization-artifact,
+              go-version: "${{ env.GO_VERSION }}",
+            }
+          - { component: vm-route-forge, go-version: "${{ env.GO_VERSION }}" }
+          - { component: api, go-version: "${{ env.GO_VERSION }}" }
 
     steps:
       - name: Set skip flag
@@ -240,12 +243,8 @@ jobs:
               export GOPATH=$(go env GOPATH)
               echo "GOPATH=$GOPATH" >> $GITHUB_ENV
               echo "Installing k8s tools..."
-              go get k8s.io/code-generator@v0.29.2
-              go install github.com/matryer/moq@v0.4.0
-              
-              go install -mod=readonly sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.4
-              go install -mod=readonly k8s.io/kube-openapi/cmd/openapi-gen
-              
+              go install tool
+
               echo "Run generate"
               task generate
               # task controller:api:generate

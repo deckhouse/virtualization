@@ -19,15 +19,14 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"context"
-	"time"
+	context "context"
 
 	scheme "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/scheme"
-	v1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	rest "k8s.io/client-go/rest"
+	gentype "k8s.io/client-go/gentype"
 )
 
 // VirtualMachineIPAddressesGetter has a method to return a VirtualMachineIPAddressInterface.
@@ -38,158 +37,34 @@ type VirtualMachineIPAddressesGetter interface {
 
 // VirtualMachineIPAddressInterface has methods to work with VirtualMachineIPAddress resources.
 type VirtualMachineIPAddressInterface interface {
-	Create(ctx context.Context, virtualMachineIPAddress *v1alpha2.VirtualMachineIPAddress, opts v1.CreateOptions) (*v1alpha2.VirtualMachineIPAddress, error)
-	Update(ctx context.Context, virtualMachineIPAddress *v1alpha2.VirtualMachineIPAddress, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineIPAddress, error)
-	UpdateStatus(ctx context.Context, virtualMachineIPAddress *v1alpha2.VirtualMachineIPAddress, opts v1.UpdateOptions) (*v1alpha2.VirtualMachineIPAddress, error)
+	Create(ctx context.Context, virtualMachineIPAddress *corev1alpha2.VirtualMachineIPAddress, opts v1.CreateOptions) (*corev1alpha2.VirtualMachineIPAddress, error)
+	Update(ctx context.Context, virtualMachineIPAddress *corev1alpha2.VirtualMachineIPAddress, opts v1.UpdateOptions) (*corev1alpha2.VirtualMachineIPAddress, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, virtualMachineIPAddress *corev1alpha2.VirtualMachineIPAddress, opts v1.UpdateOptions) (*corev1alpha2.VirtualMachineIPAddress, error)
 	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
-	Get(ctx context.Context, name string, opts v1.GetOptions) (*v1alpha2.VirtualMachineIPAddress, error)
-	List(ctx context.Context, opts v1.ListOptions) (*v1alpha2.VirtualMachineIPAddressList, error)
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*corev1alpha2.VirtualMachineIPAddress, error)
+	List(ctx context.Context, opts v1.ListOptions) (*corev1alpha2.VirtualMachineIPAddressList, error)
 	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
-	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineIPAddress, err error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *corev1alpha2.VirtualMachineIPAddress, err error)
 	VirtualMachineIPAddressExpansion
 }
 
 // virtualMachineIPAddresses implements VirtualMachineIPAddressInterface
 type virtualMachineIPAddresses struct {
-	client rest.Interface
-	ns     string
+	*gentype.ClientWithList[*corev1alpha2.VirtualMachineIPAddress, *corev1alpha2.VirtualMachineIPAddressList]
 }
 
 // newVirtualMachineIPAddresses returns a VirtualMachineIPAddresses
 func newVirtualMachineIPAddresses(c *VirtualizationV1alpha2Client, namespace string) *virtualMachineIPAddresses {
 	return &virtualMachineIPAddresses{
-		client: c.RESTClient(),
-		ns:     namespace,
+		gentype.NewClientWithList[*corev1alpha2.VirtualMachineIPAddress, *corev1alpha2.VirtualMachineIPAddressList](
+			"virtualmachineipaddresses",
+			c.RESTClient(),
+			scheme.ParameterCodec,
+			namespace,
+			func() *corev1alpha2.VirtualMachineIPAddress { return &corev1alpha2.VirtualMachineIPAddress{} },
+			func() *corev1alpha2.VirtualMachineIPAddressList { return &corev1alpha2.VirtualMachineIPAddressList{} },
+		),
 	}
-}
-
-// Get takes name of the virtualMachineIPAddress, and returns the corresponding virtualMachineIPAddress object, and an error if there is any.
-func (c *virtualMachineIPAddresses) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha2.VirtualMachineIPAddress, err error) {
-	result = &v1alpha2.VirtualMachineIPAddress{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineipaddresses").
-		Name(name).
-		VersionedParams(&options, scheme.ParameterCodec).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// List takes label and field selectors, and returns the list of VirtualMachineIPAddresses that match those selectors.
-func (c *virtualMachineIPAddresses) List(ctx context.Context, opts v1.ListOptions) (result *v1alpha2.VirtualMachineIPAddressList, err error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	result = &v1alpha2.VirtualMachineIPAddressList{}
-	err = c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineipaddresses").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Watch returns a watch.Interface that watches the requested virtualMachineIPAddresses.
-func (c *virtualMachineIPAddresses) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
-	var timeout time.Duration
-	if opts.TimeoutSeconds != nil {
-		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
-	}
-	opts.Watch = true
-	return c.client.Get().
-		Namespace(c.ns).
-		Resource("virtualmachineipaddresses").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Watch(ctx)
-}
-
-// Create takes the representation of a virtualMachineIPAddress and creates it.  Returns the server's representation of the virtualMachineIPAddress, and an error, if there is any.
-func (c *virtualMachineIPAddresses) Create(ctx context.Context, virtualMachineIPAddress *v1alpha2.VirtualMachineIPAddress, opts v1.CreateOptions) (result *v1alpha2.VirtualMachineIPAddress, err error) {
-	result = &v1alpha2.VirtualMachineIPAddress{}
-	err = c.client.Post().
-		Namespace(c.ns).
-		Resource("virtualmachineipaddresses").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineIPAddress).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Update takes the representation of a virtualMachineIPAddress and updates it. Returns the server's representation of the virtualMachineIPAddress, and an error, if there is any.
-func (c *virtualMachineIPAddresses) Update(ctx context.Context, virtualMachineIPAddress *v1alpha2.VirtualMachineIPAddress, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineIPAddress, err error) {
-	result = &v1alpha2.VirtualMachineIPAddress{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("virtualmachineipaddresses").
-		Name(virtualMachineIPAddress.Name).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineIPAddress).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *virtualMachineIPAddresses) UpdateStatus(ctx context.Context, virtualMachineIPAddress *v1alpha2.VirtualMachineIPAddress, opts v1.UpdateOptions) (result *v1alpha2.VirtualMachineIPAddress, err error) {
-	result = &v1alpha2.VirtualMachineIPAddress{}
-	err = c.client.Put().
-		Namespace(c.ns).
-		Resource("virtualmachineipaddresses").
-		Name(virtualMachineIPAddress.Name).
-		SubResource("status").
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(virtualMachineIPAddress).
-		Do(ctx).
-		Into(result)
-	return
-}
-
-// Delete takes name of the virtualMachineIPAddress and deletes it. Returns an error if one occurs.
-func (c *virtualMachineIPAddresses) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("virtualmachineipaddresses").
-		Name(name).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// DeleteCollection deletes a collection of objects.
-func (c *virtualMachineIPAddresses) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
-	var timeout time.Duration
-	if listOpts.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
-	}
-	return c.client.Delete().
-		Namespace(c.ns).
-		Resource("virtualmachineipaddresses").
-		VersionedParams(&listOpts, scheme.ParameterCodec).
-		Timeout(timeout).
-		Body(&opts).
-		Do(ctx).
-		Error()
-}
-
-// Patch applies the patch and returns the patched virtualMachineIPAddress.
-func (c *virtualMachineIPAddresses) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v1alpha2.VirtualMachineIPAddress, err error) {
-	result = &v1alpha2.VirtualMachineIPAddress{}
-	err = c.client.Patch(pt).
-		Namespace(c.ns).
-		Resource("virtualmachineipaddresses").
-		Name(name).
-		SubResource(subresources...).
-		VersionedParams(&opts, scheme.ParameterCodec).
-		Body(data).
-		Do(ctx).
-		Into(result)
-	return
 }

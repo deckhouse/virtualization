@@ -47,27 +47,23 @@ func NewVirtualDiskWatcher(client client.Client) *VirtualDiskWatcher {
 }
 
 func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.VirtualDisk]{
+				UpdateFunc: w.filterUpdateEvents,
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
+	}
+	return nil
 }
 
-func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	vd, ok := obj.(*virtv2.VirtualDisk)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a VirtualDisk but got a %T", obj))
-		return
-	}
-
+func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, vd *virtv2.VirtualDisk) (requests []reconcile.Request) {
 	var vdSnapshots virtv2.VirtualDiskSnapshotList
 	err := w.client.List(ctx, &vdSnapshots, &client.ListOptions{
-		Namespace: obj.GetNamespace(),
+		Namespace: vd.GetNamespace(),
 	})
 	if err != nil {
 		slog.Default().Error(fmt.Sprintf("failed to list vdsnapshots: %s", err))
@@ -90,25 +86,13 @@ func (w VirtualDiskWatcher) enqueueRequests(ctx context.Context, obj client.Obje
 	return
 }
 
-func (w VirtualDiskWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldVD, ok := e.ObjectOld.(*virtv2.VirtualDisk)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old VirtualDisk but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newVD, ok := e.ObjectNew.(*virtv2.VirtualDisk)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new VirtualDisk but got a %T", e.ObjectNew))
-		return false
-	}
-
-	if oldVD.Status.Phase != newVD.Status.Phase {
+func (w VirtualDiskWatcher) filterUpdateEvents(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+	if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
 		return true
 	}
 
-	oldSnapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, oldVD.Status.Conditions)
-	newSnapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, newVD.Status.Conditions)
+	oldSnapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, e.ObjectOld.Status.Conditions)
+	newSnapshotting, _ := conditions.GetCondition(vdcondition.SnapshottingType, e.ObjectNew.Status.Conditions)
 
 	return oldSnapshotting.Status != newSnapshotting.Status || oldSnapshotting.Reason != newSnapshotting.Reason
 }

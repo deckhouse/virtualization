@@ -24,7 +24,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . Storer Snapshotter
+//go:generate go tool moq -rm -out mock.go . Storer Snapshotter
 
 type Storer interface {
 	Store(ctx context.Context, vm *virtv2.VirtualMachine, vmSnapshot *virtv2.VirtualMachineSnapshot) (*corev1.Secret, error)

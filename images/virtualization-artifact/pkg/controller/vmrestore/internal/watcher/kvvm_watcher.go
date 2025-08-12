@@ -24,10 +24,8 @@ import (
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -48,27 +46,20 @@ func NewInternalVirtualMachineWatcher(client client.Client) *InternalVirtualMach
 }
 
 func (w InternalVirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv1.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv1.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
+	}
+	return nil
 }
 
-func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	kvvm, ok := obj.(*virtv1.VirtualMachine)
-	if !ok {
-		log.Error(fmt.Sprintf("expected a VirtualMachine but got a %T", obj))
-		return
-	}
-
+func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, kvvm *virtv1.VirtualMachine) (requests []reconcile.Request) {
 	var vmRestores virtv2.VirtualMachineRestoreList
 	err := w.client.List(ctx, &vmRestores, &client.ListOptions{
-		Namespace: obj.GetNamespace(),
+		Namespace: kvvm.GetNamespace(),
 	})
 	if err != nil {
 		log.Error(fmt.Sprintf("failed to list vmRestores: %s", err))
@@ -78,7 +69,7 @@ func (w InternalVirtualMachineWatcher) enqueueRequests(ctx context.Context, obj 
 	for _, vmRestore := range vmRestores.Items {
 		vmSnapshotName := vmRestore.Spec.VirtualMachineSnapshotName
 		var vmSnapshot virtv2.VirtualMachineSnapshot
-		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: obj.GetNamespace()}, &vmSnapshot)
+		err := w.client.Get(ctx, types.NamespacedName{Name: vmSnapshotName, Namespace: kvvm.GetNamespace()}, &vmSnapshot)
 		if err != nil {
 			log.Error(fmt.Sprintf("failed to get vmSnapshot: %s", err))
 			return

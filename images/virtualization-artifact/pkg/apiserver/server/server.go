@@ -17,6 +17,8 @@ limitations under the License.
 package server
 
 import (
+	"context"
+
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/client-go/tools/cache"
 
@@ -41,17 +43,17 @@ type Server struct {
 	virtualMachines  cache.Controller
 }
 
-func (s *Server) RunUntil(stopCh <-chan struct{}) error {
+func (s *Server) RunUntil(ctx context.Context) error {
 	go s.proxyCertManager.Start()
 	// Start informers
-	go s.virtualMachines.Run(stopCh)
+	go s.virtualMachines.Run(ctx.Done())
 
 	// Ensure cache is up-to-date
-	ok := cache.WaitForCacheSync(stopCh, s.virtualMachines.HasSynced)
+	ok := cache.WaitForCacheSync(ctx.Done(), s.virtualMachines.HasSynced)
 	if !ok {
 		return nil
 	}
-	err := s.GenericAPIServer.PrepareRun().Run(stopCh)
+	err := s.GenericAPIServer.PrepareRun().RunWithContext(ctx)
 	s.proxyCertManager.Stop()
 	return err
 }

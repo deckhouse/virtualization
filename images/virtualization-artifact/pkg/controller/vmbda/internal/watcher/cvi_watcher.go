@@ -47,18 +47,30 @@ func NewClusterVirtualImageWatcher(client client.Client) *ClusterVirtualImageWat
 }
 
 func (w ClusterVirtualImageWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.ClusterVirtualImage{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: w.filterUpdateEvents,
-		},
-	)
+	if err := ctr.Watch(
+		source.Kind(mgr.GetCache(), &virtv2.ClusterVirtualImage{},
+			handler.TypedEnqueueRequestsFromMapFunc(w.enqueueRequests),
+			predicate.TypedFuncs[*virtv2.ClusterVirtualImage]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.ClusterVirtualImage]) bool { return false },
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.ClusterVirtualImage]) bool {
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						return true
+					}
+
+					oldReadyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, e.ObjectOld.Status.Conditions)
+					newReadyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, e.ObjectNew.Status.Conditions)
+
+					return oldReadyCondition.Status != newReadyCondition.Status
+				},
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on CVIs: %w", err)
+	}
+	return nil
 }
 
-func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
+func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, cvi *virtv2.ClusterVirtualImage) (requests []reconcile.Request) {
 	var vmbdas virtv2.VirtualMachineBlockDeviceAttachmentList
 	err := w.client.List(ctx, &vmbdas)
 	if err != nil {
@@ -67,7 +79,7 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj cli
 	}
 
 	for _, vmbda := range vmbdas.Items {
-		if vmbda.Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindClusterVirtualImage && vmbda.Spec.BlockDeviceRef.Name != obj.GetName() {
+		if vmbda.Spec.BlockDeviceRef.Kind != virtv2.VMBDAObjectRefKindClusterVirtualImage && vmbda.Spec.BlockDeviceRef.Name != cvi.GetName() {
 			continue
 		}
 
@@ -80,27 +92,4 @@ func (w ClusterVirtualImageWatcher) enqueueRequests(ctx context.Context, obj cli
 	}
 
 	return
-}
-
-func (w ClusterVirtualImageWatcher) filterUpdateEvents(e event.UpdateEvent) bool {
-	oldCVI, ok := e.ObjectOld.(*virtv2.ClusterVirtualImage)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected an old ClusterVirtualImage but got a %T", e.ObjectOld))
-		return false
-	}
-
-	newCVI, ok := e.ObjectNew.(*virtv2.ClusterVirtualImage)
-	if !ok {
-		slog.Default().Error(fmt.Sprintf("expected a new ClusterVirtualImage but got a %T", e.ObjectNew))
-		return false
-	}
-
-	if oldCVI.Status.Phase != newCVI.Status.Phase {
-		return true
-	}
-
-	oldReadyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, oldCVI.Status.Conditions)
-	newReadyCondition, _ := conditions.GetCondition(cvicondition.ReadyType, newCVI.Status.Conditions)
-
-	return oldReadyCondition.Status != newReadyCondition.Status
 }

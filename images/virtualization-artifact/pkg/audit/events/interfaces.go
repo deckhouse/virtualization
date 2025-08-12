@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-//go:generate moq -rm -out mock.go . TTLCache InformerList EventLoggerOptions
+//go:generate go tool moq -rm -out mock.go . TTLCache InformerList EventLoggerOptions
 
 type TTLCache interface {
 	Get(key string) (any, bool)

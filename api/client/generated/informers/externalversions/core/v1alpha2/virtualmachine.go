@@ -19,13 +19,13 @@ limitations under the License.
 package v1alpha2
 
 import (
-	"context"
+	context "context"
 	time "time"
 
 	versioned "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned"
 	internalinterfaces "github.com/deckhouse/virtualization/api/client/generated/informers/externalversions/internalinterfaces"
-	v1alpha2 "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
-	corev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	corev1alpha2 "github.com/deckhouse/virtualization/api/client/generated/listers/core/v1alpha2"
+	apicorev1alpha2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -36,7 +36,7 @@ import (
 // VirtualMachines.
 type VirtualMachineInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1alpha2.VirtualMachineLister
+	Lister() corev1alpha2.VirtualMachineLister
 }
 
 type virtualMachineInformer struct {
@@ -62,16 +62,28 @@ func NewFilteredVirtualMachineInformer(client versioned.Interface, namespace str
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualMachines(namespace).List(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualMachines(namespace).List(context.Background(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.VirtualizationV1alpha2().VirtualMachines(namespace).Watch(context.TODO(), options)
+				return client.VirtualizationV1alpha2().VirtualMachines(namespace).Watch(context.Background(), options)
+			},
+			ListWithContextFunc: func(ctx context.Context, options v1.ListOptions) (runtime.Object, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.VirtualizationV1alpha2().VirtualMachines(namespace).List(ctx, options)
+			},
+			WatchFuncWithContext: func(ctx context.Context, options v1.ListOptions) (watch.Interface, error) {
+				if tweakListOptions != nil {
+					tweakListOptions(&options)
+				}
+				return client.VirtualizationV1alpha2().VirtualMachines(namespace).Watch(ctx, options)
 			},
 		},
-		&corev1alpha2.VirtualMachine{},
+		&apicorev1alpha2.VirtualMachine{},
 		resyncPeriod,
 		indexers,
 	)
@@ -82,9 +94,9 @@ func (f *virtualMachineInformer) defaultInformer(client versioned.Interface, res
 }
 
 func (f *virtualMachineInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&corev1alpha2.VirtualMachine{}, f.defaultInformer)
+	return f.factory.InformerFor(&apicorev1alpha2.VirtualMachine{}, f.defaultInformer)
 }
 
-func (f *virtualMachineInformer) Lister() v1alpha2.VirtualMachineLister {
-	return v1alpha2.NewVirtualMachineLister(f.Informer().GetIndexer())
+func (f *virtualMachineInformer) Lister() corev1alpha2.VirtualMachineLister {
+	return corev1alpha2.NewVirtualMachineLister(f.Informer().GetIndexer())
 }

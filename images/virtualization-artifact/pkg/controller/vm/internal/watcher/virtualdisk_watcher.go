@@ -39,28 +39,23 @@ type VirtualDiskWatcher struct{}
 
 func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualDisk{}),
-		handler.EnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice(mgr.GetClient(), virtv2.DiskDevice)),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVd, oldOk := e.ObjectOld.(*virtv2.VirtualDisk)
-				newVd, newOk := e.ObjectNew.(*virtv2.VirtualDisk)
-				if !oldOk || !newOk {
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualDisk{},
+			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*virtv2.VirtualDisk](mgr.GetClient())),
+			predicate.TypedFuncs[*virtv2.VirtualDisk]{
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
+					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
+
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || oldInUseCondition != newInUseCondition {
+						return true
+					}
+
 					return false
-				}
-
-				oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, oldVd.Status.Conditions)
-				newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, newVd.Status.Conditions)
-
-				if oldVd.Status.Phase != newVd.Status.Phase || oldInUseCondition != newInUseCondition {
-					return true
-				}
-
-				return false
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualDisk: %w", err)
 	}

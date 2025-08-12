@@ -27,7 +27,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-//go:generate moq -rm -out mock.go . DiskService Sources StorageClassService
+//go:generate go tool moq -rm -out mock.go . DiskService Sources StorageClassService
 
 type Sources interface {
 	Changed(ctx context.Context, vi *virtv2.VirtualImage) bool

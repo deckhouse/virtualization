@@ -1,6 +1,6 @@
 module hooks
 
-go 1.24
+go 1.24.5
 
 tool github.com/onsi/ginkgo/v2/ginkgo
 
