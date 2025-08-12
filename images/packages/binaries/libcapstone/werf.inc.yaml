@@ -50,6 +50,10 @@ shell:
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
     cd /src
     MAKE_JOBS=$(nproc) PREFIX=/usr LIBDIR=/usr/lib64 ./make.sh
+    # fix the pkgconfig file
+    sed -i 's;%buildroot;;' capstone.pc
+    # remove static libs entry from the pkgconfig file
+    sed -i 's;archive.*;;' capstone.pc
     DESTDIR=$OUTDIR ./make.sh install
     strip $OUTDIR/usr/bin/cstool
     strip $OUTDIR/usr/lib/libcapstone.a
