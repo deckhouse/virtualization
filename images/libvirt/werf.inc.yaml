@@ -112,14 +112,12 @@ import:
   add: /install-libvirt.sh
   to: /install-libvirt.sh
   before: install
-{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" -}}
+{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libaudit" "libcap-ng" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 - image: {{ .ModuleNamePrefix }}qemu
   add: /qemu-img
   to: /qemu-img
   before: install
-{{- $images := list "dmidecode" "lvm2" "libattr" "libbsd" "libmd" "libblkid" "libgcrypt" "libfuse3" "libcap-ng" -}}
-{{- include "importPackageImages" (list $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
