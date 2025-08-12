@@ -1,9 +1,9 @@
 {{- if eq .MODULE_EDITION "EE" }}
 ---
-image: {{ $.ImageName }}
-fromImage: distroless
+image: {{ .ModuleNamePrefix }}{{ .ImageName }}
+fromImage: {{ .ModuleNamePrefix }}distroless
 import:
-  - image: virtualization-artifact
+  - image: {{ .ModuleNamePrefix }}virtualization-artifact
     add: /out/virtualization-audit
     to: /app/virtualization-audit
     after: install

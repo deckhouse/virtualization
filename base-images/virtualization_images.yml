@@ -1,5 +1,0 @@
-# REGISTRY_PATH is a special key which is concatenated with other base images
-REGISTRY_PATH: "docker.io/"
-
-# Digest for image created at 2024-09-20.
-BASE_ALT_P11: "alt:p11@sha256:39f03d3bca1a92dc36835c28c2ba2f22ec15257e950b3930e0a3f034466e8dfb"
