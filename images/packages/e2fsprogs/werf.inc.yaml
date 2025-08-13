@@ -52,7 +52,6 @@ shell:
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
-      --sbindir=/sbin \
       --disable-uuidd \
       --enable-nls \
       --enable-elf-shlibs \
@@ -61,6 +60,6 @@ shell:
       --enable-fsck \
       --with-libarchive
     make -j$(nproc)
-    make DESTDIR=$OUTDIR prefix=/usr install
+    make DESTDIR=$OUTDIR install
     tree $OUTDIR
 
