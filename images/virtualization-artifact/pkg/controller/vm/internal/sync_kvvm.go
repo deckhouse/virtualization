@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -384,7 +383,7 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 		return nil, fmt.Errorf("the IP address is not found for the virtual machine")
 	}
 
-	vmmacs, err := s.VirtualMachineMACAddresses(ctx, len(network.CreateNetworkSpec(current.Spec)))
+	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
 	if err != nil {
 		return nil, err
 	}

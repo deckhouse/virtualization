@@ -82,7 +82,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	}
 
 	networkSpec := network.CreateNetworkSpec(vm.Spec)
-	vmmacs, err := s.VirtualMachineMACAddresses(ctx, len(networkSpec))
+	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

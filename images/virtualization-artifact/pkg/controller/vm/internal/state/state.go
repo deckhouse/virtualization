@@ -23,7 +23,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
@@ -52,14 +51,14 @@ type VirtualMachineState interface {
 	ClusterVirtualImagesByName(ctx context.Context) (map[string]*virtv2.ClusterVirtualImage, error)
 	VirtualMachineBlockDeviceAttachments(ctx context.Context) (map[virtv2.VMBDAObjectRef][]*virtv2.VirtualMachineBlockDeviceAttachment, error)
 	IPAddress(ctx context.Context) (*virtv2.VirtualMachineIPAddress, error)
-	VirtualMachineMACAddresses(ctx context.Context, vmmacCount int) ([]*virtv2.VirtualMachineMACAddress, error)
+	VirtualMachineMACAddresses(ctx context.Context) ([]*virtv2.VirtualMachineMACAddress, error)
 	Class(ctx context.Context) (*virtv2.VirtualMachineClass, error)
 	VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, error)
 	Shared(fn func(s *Shared))
 }
 
-func New(c client.Client, virtClient kubeclient.Client, vm *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) VirtualMachineState {
-	return &state{client: c, virtClient: virtClient, vm: vm}
+func New(c client.Client, vm *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) VirtualMachineState {
+	return &state{client: c, vm: vm}
 }
 
 type state struct {
@@ -328,7 +327,7 @@ func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*vir
 	return cviByName, nil
 }
 
-func (s *state) VirtualMachineMACAddresses(ctx context.Context, expectedCount int) ([]*virtv2.VirtualMachineMACAddress, error) {
+func (s *state) VirtualMachineMACAddresses(ctx context.Context) ([]*virtv2.VirtualMachineMACAddress, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
@@ -339,7 +338,6 @@ func (s *state) VirtualMachineMACAddresses(ctx context.Context, expectedCount in
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// 1. Trying to find the vmmac in the local cache.
 	vmmacList := &virtv2.VirtualMachineMACAddressList{}
 	err := s.client.List(ctx, vmmacList, &client.ListOptions{
 		Namespace:     s.vm.Current().GetNamespace(),
@@ -347,17 +345,6 @@ func (s *state) VirtualMachineMACAddresses(ctx context.Context, expectedCount in
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list VirtualMachineMACAddress: %w", err)
-	}
-
-	// The local cache might be outdated, which is why the vmmac is not present in the cache, even though it may already exist in the cluster.
-	// Double-check vmmac existence in the cluster by making a direct request to the Kubernetes API.
-	if len(vmmacList.Items) < expectedCount {
-		vmmacList, err = s.virtClient.VirtualMachineMACAddresses(s.vm.Current().GetNamespace()).List(ctx, metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", annotations.LabelVirtualMachineUID, string(s.vm.Current().GetUID())),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("list vmmac via direct request to kubeapi: %w", err)
-		}
 	}
 
 	if len(vmmacList.Items) == 0 {

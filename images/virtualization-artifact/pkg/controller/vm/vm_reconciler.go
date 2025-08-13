@@ -32,7 +32,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -45,18 +44,16 @@ type Watcher interface {
 	Watch(mgr manager.Manager, ctr controller.Controller) error
 }
 
-func NewReconciler(client client.Client, virtClient kubeclient.Client, handlers ...Handler) *Reconciler {
+func NewReconciler(client client.Client, handlers ...Handler) *Reconciler {
 	return &Reconciler{
-		client:     client,
-		virtClient: virtClient,
-		handlers:   handlers,
+		client:   client,
+		handlers: handlers,
 	}
 }
 
 type Reconciler struct {
-	client     client.Client
-	virtClient kubeclient.Client
-	handlers   []Handler
+	client   client.Client
+	handlers []Handler
 }
 
 func (r *Reconciler) SetupController(_ context.Context, mgr manager.Manager, ctr controller.Controller) error {
@@ -101,7 +98,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	s := state.New(r.client, r.virtClient, vm)
+	s := state.New(r.client, vm)
 
 	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {

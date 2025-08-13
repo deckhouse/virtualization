@@ -35,7 +35,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	vmmetrics "github.com/deckhouse/virtualization-controller/pkg/monitoring/metrics/virtualmachine"
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -46,7 +45,6 @@ const (
 func SetupController(
 	ctx context.Context,
 	mgr manager.Manager,
-	virtClient kubeclient.Client,
 	log *log.Logger,
 	dvcrSettings *dvcr.Settings,
 	firmwareImage string,
@@ -77,7 +75,7 @@ func SetupController(
 		internal.NewEvictHandler(),
 		internal.NewStatisticHandler(client),
 	}
-	r := NewReconciler(client, virtClient, handlers...)
+	r := NewReconciler(client, handlers...)
 
 	c, err := controller.New(ControllerName, mgr, controller.Options{
 		Reconciler:       r,
