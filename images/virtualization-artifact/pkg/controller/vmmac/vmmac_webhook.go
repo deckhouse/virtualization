@@ -72,7 +72,7 @@ func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		if ok && allocatedLease.Spec.VirtualMachineMACAddressRef != nil &&
 			(allocatedLease.Spec.VirtualMachineMACAddressRef.Namespace != vmmac.Namespace ||
 				allocatedLease.Spec.VirtualMachineMACAddressRef.Name != vmmac.Name) {
-			return nil, fmt.Errorf("VirtualMachineMACAddress cannot be created: the MAC address %s has already been allocated by VirtualMachineMACAddress/%s in ns/%s", address, allocatedLease.Spec.VirtualMachineMACAddressRef.Name, allocatedLease.Spec.VirtualMachineMACAddressRef.Namespace)
+			return nil, fmt.Errorf("invalid VirtualMachineMACAddress: the MAC address %s has already been allocated by VirtualMachineMACAddress/%s in ns/%s", address, allocatedLease.Spec.VirtualMachineMACAddressRef.Name, allocatedLease.Spec.VirtualMachineMACAddressRef.Namespace)
 		}
 
 		err = v.macService.IsAvailableAddress(address, allocatedMACs)
