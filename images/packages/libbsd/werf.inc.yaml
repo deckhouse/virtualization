@@ -1,3 +1,4 @@
+---
 {{- $name := print $.ImageName "-dependencies" -}}
 {{- define "$name" -}}
 packages:
@@ -10,9 +11,6 @@ packages:
 {{- $version := get .PackageVersion .ImageName }}
 {{- $gitRepoUrl := "libbsd/libbsd.git" }}
 
-{{/* Temporarily exclude images from build as submodule. TODO remove 'if' when this image is used in import section.  */}}
-{{- if eq .ModuleNamePrefix "" }}
----
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}
 final: false
 fromImage: builder/scratch
@@ -72,4 +70,3 @@ shell:
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
 
-{{- end }}
