@@ -280,6 +280,7 @@ global:
     - sds-replicated-volume
     - descheduler
     - sdn
+    - runtime-audit-engine
   internal:
     modules:
       kubeRBACProxyCA:
@@ -382,7 +383,6 @@ virtualization:
     moduleConfig:
       audit:
         enabled: true
-
       dvcr:
         storage:
           persistentVolumeClaim:

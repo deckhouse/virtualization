@@ -32,8 +32,12 @@ are not reporting readiness probe errors in user accessible resources.
 This hook is a simple workaround to see readiness problems in
 module/virtualization status field.
 
+Fix: No fixes yet.
+
 2. Current version of module-sdk (0.3.3) not supports Queue for Schedule
 configurations in batch hooks.
+
+Fix: PR is merged, planned release version is 1.72, see https://github.com/deckhouse/deckhouse/pull/14961
 
 Workaround:
 
@@ -42,7 +46,7 @@ Check value with error messsage:
 If value is present, print it to stderr and exit with 1.
 If no value, do nothing.
 
-TODO remove this hook after implementing readiness probe error reporting in the deckhouse-controller.
+TODO remove this hook after fixes reached rock solid channel.
 */
 
 func main() {
