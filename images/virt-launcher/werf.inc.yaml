@@ -43,7 +43,6 @@ libs:
   - pipewire-libs
   - pipewire-jack-libs-devel
   - libsoundio-devel
-  - libcapstone-devel
   - libsasl2-devel
   - libjpeg-devel
   - libpng-devel
