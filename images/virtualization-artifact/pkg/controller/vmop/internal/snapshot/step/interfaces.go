@@ -23,7 +23,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-// go:generate moq -rm -out mock.go . Restorer
+//go:generate moq -rm -out mock.go . Restorer
 type Restorer interface {
 	RestoreVirtualMachine(ctx context.Context, secret *corev1.Secret) (*virtv2.VirtualMachine, error)
 	RestoreProvisioner(ctx context.Context, secret *corev1.Secret) (*corev1.Secret, error)

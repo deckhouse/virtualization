@@ -88,6 +88,8 @@ const (
 
 	// ReasonOperationCompleted is a ReasonCompleted indicating that operation is completed.
 	ReasonOperationCompleted ReasonCompleted = "OperationCompleted"
+
+	ReasonTODO ReasonCompleted = "TODO"
 )
 
 // ReasonCompleted represents specific reasons for the 'SignalSent' condition type.

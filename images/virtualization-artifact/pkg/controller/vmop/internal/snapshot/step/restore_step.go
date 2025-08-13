@@ -33,7 +33,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type RestoreVMStep struct {
@@ -59,28 +59,29 @@ func NewRestoreVMStep(
 }
 
 func (s RestoreVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
-	vmRestore := &virtv2.VirtualMachineRestore{}
+	// TODO:
+	vmSnapshot := &virtv2.VirtualMachineSnapshot{}
 
-	switch vmRestore.Status.Phase {
-	case virtv2.VirtualMachineRestorePhaseReady,
-		virtv2.VirtualMachineRestorePhaseFailed,
-		virtv2.VirtualMachineRestorePhaseTerminating:
+	switch s.vmop.Status.Phase {
+	case virtv2.VMOPPhaseCompleted,
+		virtv2.VMOPPhaseFailed,
+		virtv2.VMOPPhaseTerminating:
 		return &reconcile.Result{}, nil
 	}
 
-	cb := conditions.NewConditionBuilder(vmrestorecondition.VirtualMachineRestoreReadyType)
-	defer func() { conditions.SetCondition(cb.Generation(vmRestore.Generation), &vmRestore.Status.Conditions) }()
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
+	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
 
-	if !conditions.HasCondition(cb.GetType(), vmRestore.Status.Conditions) {
+	if !conditions.HasCondition(cb.GetType(), s.vmop.Status.Conditions) {
 		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 	}
 
-	if vmRestore.Status.Phase == "" {
-		vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhasePending
+	if s.vmop.Status.Phase == "" {
+		s.vmop.Status.Phase = virtv2.VMOPPhasePending
 	}
 
-	if vmRestore.DeletionTimestamp != nil {
-		vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseTerminating
+	if s.vmop.DeletionTimestamp != nil {
+		s.vmop.Status.Phase = virtv2.VMOPPhaseTerminating
 		cb.Status(metav1.ConditionUnknown).Reason(conditions.ReasonUnknown)
 		return &reconcile.Result{}, nil
 	}
@@ -88,39 +89,37 @@ func (s RestoreVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*re
 	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
 	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
 	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	var (
 		overrideValidators []OverrideValidator
-		runPolicy          virtv2.RunPolicy
 		overridedVMName    string
 	)
 
 	restoredVM, err := s.restorer.RestoreVirtualMachine(ctx, restorerSecret)
 	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
-	runPolicy = restoredVM.Spec.RunPolicy
 
 	vmip, err := s.restorer.RestoreVirtualMachineIPAddress(ctx, restorerSecret)
 	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	if vmip != nil {
 		restoredVM.Spec.VirtualMachineIPAddress = vmip.Name
-		overrideValidators = append(overrideValidators, restorer.NewVirtualMachineIPAddressOverrideValidator(vmip, s.client, string(vmRestore.UID)))
+		overrideValidators = append(overrideValidators, restorer.NewVirtualMachineIPAddressOverrideValidator(vmip, s.client, string(s.vmop.UID)))
 	}
 
-	overrideValidators = append(overrideValidators, restorer.NewVirtualMachineOverrideValidator(restoredVM, s.client, string(vmRestore.UID)))
+	overrideValidators = append(overrideValidators, restorer.NewVirtualMachineOverrideValidator(restoredVM, s.client, string(s.vmop.UID)))
 
 	overridedVMName, err = getOverrridedVMName(overrideValidators)
 	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
@@ -128,104 +127,90 @@ func (s RestoreVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*re
 	switch {
 	case err == nil:
 	case errors.Is(err, ErrVirtualDiskSnapshotNotFound):
-		vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhasePending
+		s.vmop.Status.Phase = virtv2.VMOPPhasePending
 		cb.
 			Status(metav1.ConditionFalse).
-			Reason(vmrestorecondition.VirtualMachineSnapshotNotReady).
+			Reason(vmopcondition.ReasonTODO).
 			Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 		return &reconcile.Result{}, nil
 	default:
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	vmbdas, err := s.restorer.RestoreVirtualMachineBlockDeviceAttachments(ctx, restorerSecret)
 	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	provisioner, err := s.restorer.RestoreProvisioner(ctx, restorerSecret)
 	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	for _, vd := range vds {
-		overrideValidators = append(overrideValidators, restorer.NewVirtualDiskOverrideValidator(vd, s.client, string(vmRestore.UID)))
+		overrideValidators = append(overrideValidators, restorer.NewVirtualDiskOverrideValidator(vd, s.client, string(s.vmop.UID)))
 	}
 
 	for _, vmbda := range vmbdas {
-		overrideValidators = append(overrideValidators, restorer.NewVirtualMachineBlockDeviceAttachmentsOverrideValidator(vmbda, s.client, string(vmRestore.UID)))
+		overrideValidators = append(overrideValidators, restorer.NewVirtualMachineBlockDeviceAttachmentsOverrideValidator(vmbda, s.client, string(s.vmop.UID)))
 	}
 
 	if provisioner != nil {
-		overrideValidators = append(overrideValidators, restorer.NewProvisionerOverrideValidator(provisioner, s.client, string(vmRestore.UID)))
+		overrideValidators = append(overrideValidators, restorer.NewProvisionerOverrideValidator(provisioner, s.client, string(s.vmop.UID)))
 	}
 
 	var toCreate []client.Object
 
-	if vmRestore.Spec.RestoreMode == virtv2.RestoreModeForced {
+	if s.vmop.Spec.Restore.Mode == virtv2.VMOPRestoreModeBestEffort {
 		for _, ov := range overrideValidators {
-			ov.Override(vmRestore.Spec.NameReplacements)
+			// ov.Override(s.vmop.Spec.NameReplacements)
 
 			err := ov.ValidateWithForce(ctx)
 			switch {
 			case err == nil:
 				toCreate = append(toCreate, ov.Object())
 			case errors.Is(err, restorer.ErrAlreadyInUse), errors.Is(err, restorer.ErrAlreadyExistsAndHasDiff):
-				vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseFailed
+				s.vmop.Status.Phase = virtv2.VMOPPhaseFailed
 				cb.
 					Status(metav1.ConditionFalse).
-					Reason(vmrestorecondition.VirtualMachineRestoreConflict).
+					Reason(vmopcondition.ReasonTODO).
 					Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 				return &reconcile.Result{}, nil
 			case errors.Is(err, restorer.ErrAlreadyExists):
 			default:
-				setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+				setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 				return &reconcile.Result{}, err
 			}
 		}
 
 		vmObj, err := object.FetchObject(ctx, types.NamespacedName{Name: overridedVMName, Namespace: restoredVM.Namespace}, s.client, &virtv2.VirtualMachine{})
 		if err != nil {
-			setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+			setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 			return &reconcile.Result{}, fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
 		}
 
 		if vmObj == nil {
 			err := errors.New("restoration with `Forced` mode can be applied only to an existing virtual machine; you can restore the virtual machine with `Safe` mode")
-			setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+			setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 			return &reconcile.Result{}, err
 		} else {
 			switch vmObj.Status.Phase {
 			case virtv2.MachinePending:
 				err := errors.New("a virtual machine cannot be restored from the pending phase with `Forced` mode; you can delete the virtual machine and restore it with `Safe` mode")
-				setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+				setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 				return &reconcile.Result{}, err
 			case virtv2.MachineStopped:
 			default:
-				if runPolicy != virtv2.AlwaysOffPolicy {
-					err := updateVMRunPolicy(ctx, s.client, vmObj, virtv2.AlwaysOffPolicy)
-					if err != nil {
-						if errors.Is(err, restorer.ErrUpdating) {
-							setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineIsNotStopped, err.Error())
-							return &reconcile.Result{}, nil
-						}
-						setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
-						return &reconcile.Result{}, err
-					}
-					setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineIsNotStopped, "waiting for the virtual machine run policy will be updated")
-					return &reconcile.Result{}, nil
-				}
-
-				err := stopVirtualMachine(ctx, s.client, restoredVM.Name, restoredVM.Namespace, string(vmRestore.UID))
+				err := stopVirtualMachine(ctx, s.client, restoredVM.Name, restoredVM.Namespace, string(s.vmop.UID))
 				if err != nil {
 					if errors.Is(err, restorer.ErrIncomplete) {
-						setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineIsNotStopped, "waiting for the virtual machine will be stopped")
+						setPhaseConditionToPending(cb, &s.vmop.Status.Phase, vmopcondition.ReasonStopInProgress, "waiting for the virtual machine will be stopped")
 						return &reconcile.Result{}, nil
 					}
-					setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+					setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 					return &reconcile.Result{}, err
 				}
 			}
@@ -236,31 +221,31 @@ func (s RestoreVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*re
 			switch {
 			case err == nil:
 			case errors.Is(err, restorer.ErrRestoring), errors.Is(err, restorer.ErrUpdating):
-				setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
+				setPhaseConditionToPending(cb, &s.vmop.Status.Phase, vmopcondition.ReasonTODO, err.Error())
 				return &reconcile.Result{}, nil
 			default:
-				setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
+				setPhaseConditionToPending(cb, &s.vmop.Status.Phase, vmopcondition.ReasonTODO, err.Error())
 				return &reconcile.Result{}, err
 			}
 		}
 	}
 
-	if vmRestore.Spec.RestoreMode == virtv2.RestoreModeSafe {
+	if s.vmop.Spec.Restore.Mode == virtv2.VMOPRestoreModeStrict {
 		for _, ov := range overrideValidators {
-			ov.Override(vmRestore.Spec.NameReplacements)
+			// ov.Override(s.vmop.Spec.NameReplacements)
 
 			err = ov.Validate(ctx)
 			switch {
 			case err == nil:
 			case errors.Is(err, restorer.ErrAlreadyExists), errors.Is(err, restorer.ErrAlreadyInUse), errors.Is(err, restorer.ErrAlreadyExistsAndHasDiff):
-				vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseFailed
+				s.vmop.Status.Phase = virtv2.VMOPPhaseFailed
 				cb.
 					Status(metav1.ConditionFalse).
-					Reason(vmrestorecondition.VirtualMachineRestoreConflict).
+					Reason(vmopcondition.ReasonTODO).
 					Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 				return &reconcile.Result{}, nil
 			default:
-				setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+				setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 				return &reconcile.Result{}, err
 			}
 
@@ -268,53 +253,37 @@ func (s RestoreVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*re
 		}
 	}
 
-	currentHotplugs, err := getCurrentVirtualMachineBlockDeviceAttachments(ctx, s.client, restoredVM.Name, restoredVM.Namespace, string(vmRestore.UID))
+	currentHotplugs, err := getCurrentVirtualMachineBlockDeviceAttachments(ctx, s.client, restoredVM.Name, restoredVM.Namespace, string(s.vmop.UID))
 	if err != nil {
-		setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
+		setPhaseConditionToPending(cb, &s.vmop.Status.Phase, vmopcondition.ReasonTODO, err.Error())
 		return &reconcile.Result{}, err
 	}
 
 	err = deleteCurrentVirtualMachineBlockDeviceAttachments(ctx, s.client, currentHotplugs)
 	if err != nil {
-		setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
+		setPhaseConditionToPending(cb, &s.vmop.Status.Phase, vmopcondition.ReasonTODO, err.Error())
 		return &reconcile.Result{}, err
 	}
 
 	err = createBatch(ctx, s.client, toCreate...)
 	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	err = checkKVVMDiskStatus(ctx, s.client, restoredVM.Name, restoredVM.Namespace)
 	if err != nil {
 		if errors.Is(err, restorer.ErrRestoring) {
-			setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
+			setPhaseConditionToPending(cb, &s.vmop.Status.Phase, vmopcondition.ReasonTODO, err.Error())
 			return &reconcile.Result{}, nil
 		}
 		return &reconcile.Result{}, err
 	}
 
-	vmObj, err := object.FetchObject(ctx, types.NamespacedName{Name: overridedVMName, Namespace: restoredVM.Namespace}, s.client, &virtv2.VirtualMachine{})
-	if err != nil {
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
-		return &reconcile.Result{}, fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
-	}
-
-	err = updateVMRunPolicy(ctx, s.client, vmObj, runPolicy)
-	if err != nil {
-		if errors.Is(err, restorer.ErrUpdating) {
-			setPhaseConditionToPending(cb, &vmRestore.Status.Phase, vmrestorecondition.VirtualMachineResourcesAreNotReady, err.Error())
-			return &reconcile.Result{}, nil
-		}
-		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
-		return &reconcile.Result{}, err
-	}
-
-	vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseInProgress
+	s.vmop.Status.Phase = virtv2.VMOPPhaseInProgress
 	cb.
 		Status(metav1.ConditionFalse).
-		Reason(vmrestorecondition.VirtualMachineSnapshotNotReady).
+		Reason(vmopcondition.ReasonTODO).
 		Message(fmt.Sprintf("The virtual machine %q is in the process of restore.", vmSnapshot.Spec.VirtualMachineName))
 
 	return &reconcile.Result{}, nil

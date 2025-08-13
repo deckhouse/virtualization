@@ -131,16 +131,16 @@ func createBatch(ctx context.Context, client kubeclient.Client, objs ...kubeclie
 	return nil
 }
 
-func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.VirtualMachineRestorePhase, err error) {
-	*phase = virtv2.VirtualMachineRestorePhaseFailed
+func setPhaseConditionToFailed(cb *conditions.ConditionBuilder, phase *virtv2.VMOPPhase, err error) {
+	*phase = virtv2.VMOPPhaseFailed
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(vmrestorecondition.VirtualMachineRestoreFailed).
 		Message(service.CapitalizeFirstLetter(err.Error()) + ".")
 }
 
-func setPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *virtv2.VirtualMachineRestorePhase, reason vmrestorecondition.VirtualMachineRestoreReadyReason, msg string) {
-	*phase = virtv2.VirtualMachineRestorePhasePending
+func setPhaseConditionToPending(cb *conditions.ConditionBuilder, phase *virtv2.VMOPPhase, reason vmopcondition.ReasonCompleted, msg string) {
+	*phase = virtv2.VMOPPhasePending
 	cb.
 		Status(metav1.ConditionFalse).
 		Reason(reason).
@@ -201,21 +201,21 @@ func stopVirtualMachine(ctx context.Context, client kubeclient.Client, vmName, v
 	}
 }
 
-func startVirtualMachine(ctx context.Context, client kubeclient.Client, vmRestore *virtv2.VirtualMachineRestore) error {
+func startVirtualMachine(ctx context.Context, client kubeclient.Client, vmop *virtv2.VirtualMachineOperation) error {
 	vms := &virtv2.VirtualMachineList{}
-	err := client.List(ctx, vms, &kubeclient.ListOptions{Namespace: vmRestore.Namespace})
+	err := client.List(ctx, vms, &kubeclient.ListOptions{Namespace: vmop.Namespace})
 	if err != nil {
 		return fmt.Errorf("failed to list the `VirtualMachines`: %w", err)
 	}
 
 	var vmName string
 	for _, vm := range vms.Items {
-		if v, ok := vm.Annotations[annotations.AnnVMRestore]; ok && v == string(vmRestore.UID) {
+		if v, ok := vm.Annotations[annotations.AnnVMRestore]; ok && v == string(vmop.UID) {
 			vmName = vm.Name
 		}
 	}
 
-	vmKey := types.NamespacedName{Name: vmName, Namespace: vmRestore.Namespace}
+	vmKey := types.NamespacedName{Name: vmName, Namespace: vmop.Namespace}
 	vmObj, err := object.FetchObject(ctx, vmKey, client, &virtv2.VirtualMachine{})
 	if err != nil {
 		return fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
@@ -227,7 +227,7 @@ func startVirtualMachine(ctx context.Context, client kubeclient.Client, vmRestor
 		}
 
 		if vmObj.Status.Phase == virtv2.MachineStopped {
-			vmopStart := NewVMRestoreVMOP(vmName, vmRestore.Namespace, string(vmRestore.UID), virtv2.VMOPTypeStart)
+			vmopStart := NewVMRestoreVMOP(vmName, vmop.Namespace, string(vmop.UID), virtv2.VMOPTypeStart)
 			err := client.Create(ctx, vmopStart)
 			if err != nil {
 				return fmt.Errorf("failed to start the `VirtualMachine`: %w", err)
@@ -273,19 +273,4 @@ func getOverrridedVMName(overrideValidators []OverrideValidator) (string, error)
 	}
 
 	return "", fmt.Errorf("failed to get the `VirtualMachine` name")
-}
-
-func updateVMRunPolicy(ctx context.Context, client kubeclient.Client, vmObj *virtv2.VirtualMachine, runPolicy virtv2.RunPolicy) error {
-	vmObj.Spec.RunPolicy = runPolicy
-
-	err := client.Update(ctx, vmObj)
-	if err != nil {
-		if k8serrors.IsConflict(err) {
-			return fmt.Errorf("waiting for the virtual machine run policy %w", restorer.ErrUpdating)
-		} else {
-			return fmt.Errorf("failed to update the virtual machine run policy: %w", err)
-		}
-	}
-
-	return nil
 }

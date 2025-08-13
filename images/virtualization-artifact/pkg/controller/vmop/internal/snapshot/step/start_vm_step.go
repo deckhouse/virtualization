@@ -28,12 +28,12 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type StartVMStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
-	restorer Restorer
 	cb       *conditions.ConditionBuilder
 	vmop     *virtv2.VirtualMachineOperation
 }
@@ -53,13 +53,11 @@ func NewStartVMStep(
 }
 
 func (s StartVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
-	vmRestore := &virtv2.VirtualMachineRestore{}
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
+	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
 
-	cb := conditions.NewConditionBuilder(vmrestorecondition.VirtualMachineRestoreReadyType)
-	defer func() { conditions.SetCondition(cb.Generation(vmRestore.Generation), &vmRestore.Status.Conditions) }()
-
-	if vmRestore.Status.Phase == virtv2.VirtualMachineRestorePhaseInProgress {
-		err := startVirtualMachine(ctx, s.client, vmRestore)
+	if s.vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
+		err := startVirtualMachine(ctx, s.client, s.vmop)
 		if err != nil {
 			s.recorder.Event(
 				s.vmop,
@@ -69,7 +67,7 @@ func (s StartVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reco
 			)
 		}
 
-		vmRestore.Status.Phase = virtv2.VirtualMachineRestorePhaseReady
+		s.vmop.Status.Phase = virtv2.VMOPPhaseCompleted
 		cb.Status(metav1.ConditionTrue).Reason(vmrestorecondition.VirtualMachineRestoreReady)
 
 		return &reconcile.Result{}, nil
