@@ -2,6 +2,8 @@
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 final: true
 fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
   - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-binaries
     add: /relocate

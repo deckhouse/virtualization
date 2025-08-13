@@ -1,0 +1,7 @@
+# A list of pre-created mount points for containerd strict mode.
+
+dirs:
+  - /etc/virt-operator/certificates
+  - /etc/virt-api/certificates
+  # Create dirs in /run, as /var/run is a symlink to /run.
+  - /run/certs/cdi-apiserver-server-cert
