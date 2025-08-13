@@ -19,19 +19,19 @@ git:
     to: /relocate_binaries.sh
 import:
 {{- $images := list "e2fsprogs" -}}
-{{- include "importPackageImages" (list . $images "beforeInstall") -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   install:
-    - |
+  - |
     # Install packages
     PKGS="{{ $images | join " " }}"
     for pkg in $PKGS; do
       cp -a /$pkg/. /
       rm -rf /$pkg
     done
-    {{- include "alt packages proxy" . | nindent 2 }}
-    - |
-      apt-get install -y \
-          {{ $builderDependencies.packages | join " " }} \
-          {{ $builderDependencies.libraries | join " " }}
-    {{- include "alt packages clean" . | nindent 2 }}
+  {{- include "alt packages proxy" . | nindent 2 }}
+  - |
+    apt-get install -y \
+        {{ $builderDependencies.packages | join " " }} \
+        {{ $builderDependencies.libraries | join " " }}
+  {{- include "alt packages clean" . | nindent 2 }}
