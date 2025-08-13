@@ -18,6 +18,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
@@ -136,7 +137,7 @@ func (h *MigratingHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv
 	{
 		var inProgressVmops []*virtv2.VirtualMachineOperation
 		for _, op := range vmops {
-			if commonvmop.IsMigration(op) && (op.Status.Phase == virtv2.VMOPPhaseInProgress || op.Status.Phase == virtv2.VMOPPhasePending) {
+			if commonvmop.IsMigration(op) && op.Status.Phase == virtv2.VMOPPhaseInProgress {
 				inProgressVmops = append(inProgressVmops, op)
 			}
 		}
@@ -147,6 +148,15 @@ func (h *MigratingHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv
 			vmop = inProgressVmops[0]
 		default:
 			log.Error("Found vmops in progress phase. This is unexpected. Please report a bug.", slog.Int("VMOPCount", length))
+		}
+	}
+
+	if vmop == nil {
+		for _, op := range vmops {
+			if commonvmop.IsMigration(op) && op.Status.Phase == virtv2.VMOPPhasePending {
+				vmop = op
+				break
+			}
 		}
 	}
 
@@ -167,6 +177,9 @@ func (h *MigratingHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv
 			cb.Message("Migration is awaiting execution.")
 		case vmopcondition.ReasonMigrationRunning.String():
 			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonVmIsMigrating)
+		case vmopcondition.ReasonQuotaExceeded.String():
+			cb.Reason(vmcondition.ReasonMigrationIsPending)
+			cb.Message(fmt.Sprintf("Migration is pending: %s", completed.Message))
 		}
 		conditions.SetCondition(cb, &vm.Status.Conditions)
 
