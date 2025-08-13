@@ -16,7 +16,7 @@ import:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool gettext-tools
-- libblkid-devel libuuid-devel libarchive-devel rpm-build-vm acl
+- libblkid-devel libuuid-devel libarchive-devel acl
 - tree
 {{- end -}}
 
