@@ -259,10 +259,6 @@ func checkKVVMDiskStatus(ctx context.Context, client kubeclient.Client, vmName, 
 
 type OverrideValidator interface {
 	Object() kubeclient.Object
-	Override(rules []virtv2.NameReplacement)
-	Validate(ctx context.Context) error
-	ValidateWithForce(ctx context.Context) error
-	ProcessWithForce(ctx context.Context) error
 }
 
 func getOverrridedVMName(overrideValidators []OverrideValidator) (string, error) {
