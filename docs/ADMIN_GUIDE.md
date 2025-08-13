@@ -421,7 +421,7 @@ How to perform the operation in the web interface:
 
 The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
 
-By default, a single VirtualMachineClass `generic` resource is automatically created, which represents a universal CPU model that uses the rather old but supported by most modern processors Nehalem model. This allows you to run VMs on any nodes in the cluster with the possibility of live migration.
+During install, a single VirtualMachineClass `generic` resource is automatically created, which represents a universal CPU model that uses the rather old but supported by most modern processors Nehalem model. This allows you to run VMs on any nodes in the cluster with the possibility of live migration.
 
 {{< alert level="info" >}}
 It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
@@ -454,6 +454,10 @@ spec:
   virtualMachineClassName: generic # VirtualMachineClass resource name.
   ...
 ```
+
+### Default VirtualMachineClass
+
+It is possible to specify default VirtualMachineClass
 
 ### VirtualMachineClass settings
 
