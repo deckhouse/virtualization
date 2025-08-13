@@ -19,6 +19,8 @@ shell:
 ---
 image: {{ .ModuleNamePrefix }}{{ .ImageName }}
 fromImage: {{ .ModuleNamePrefix }}distroless
+git:
+  {{- include "image mount points" . }}
 import:
 - image: {{ .ModuleNamePrefix }}{{ .ImageName }}-builder
   add: /container-registry-binary
