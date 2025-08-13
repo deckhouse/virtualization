@@ -62,4 +62,5 @@ shell:
       --with-libarchive
     make -j$(nproc)
     make DESTDIR=$OUTDIR prefix=/usr install
+    tree $OUTDIR
 
