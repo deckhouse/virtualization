@@ -328,7 +328,7 @@ func (s *state) ClusterVirtualImagesByName(ctx context.Context) (map[string]*vir
 	return cviByName, nil
 }
 
-func (s *state) VirtualMachineMACAddresses(ctx context.Context, expecredCount int) ([]*virtv2.VirtualMachineMACAddress, error) {
+func (s *state) VirtualMachineMACAddresses(ctx context.Context, expectedCount int) ([]*virtv2.VirtualMachineMACAddress, error) {
 	if s.vm == nil {
 		return nil, nil
 	}
