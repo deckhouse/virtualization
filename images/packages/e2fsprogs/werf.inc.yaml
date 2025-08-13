@@ -58,8 +58,10 @@ shell:
       --enable-libblkid \
       --enable-libuuid \
       --enable-fsck \
-      --with-libarchive
+      --with-libarchive \
+      --without-manpages
     make -j$(nproc)
-    make DESTDIR=$OUTDIR install
+    make DESTDIR=$OUTDIR install-strip
+    # rm -rf $OUTDIR/usr/share/locale
     tree $OUTDIR
 
