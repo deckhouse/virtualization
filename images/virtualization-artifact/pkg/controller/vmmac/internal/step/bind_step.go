@@ -67,7 +67,7 @@ func (s BindStep) Take(_ context.Context, vmmac *virtv2.VirtualMachineMACAddress
 		return &reconcile.Result{}, nil
 	}
 
-	// 5. All checks have passed, the vmmac is bound.
+	// 4. All checks have passed, the vmmac is bound.
 	s.cb.
 		Status(metav1.ConditionTrue).
 		Reason(vmmaccondition.Bound).
