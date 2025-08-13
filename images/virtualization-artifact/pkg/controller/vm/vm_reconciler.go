@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -29,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
@@ -104,40 +107,70 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	s := state.New(r.client, vm)
 	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Changed().Status.Conditions)
 	if maintenance.Status == metav1.ConditionTrue {
-		log.Info("Reconcile observe an VirtualMachine in maintenance mode, cleaning up resources")
-
-		kvvm, err := s.KVVM(ctx)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		if kvvm != nil {
-			err = object.CleanupObject(ctx, r.client, kvvm)
-			if err != nil {
-				return reconcile.Result{}, err
-			}
-		}
+		log.Info("Reconcile observe an VirtualMachine in maintenance mode, stopped vm")
 
 		kvvmi, err := s.KVVMI(ctx)
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, fmt.Errorf("get KVVMI: %w", err)
 		}
+
 		if kvvmi != nil {
-			err = object.DeleteObject(ctx, r.client, kvvmi)
+			vmops, err := s.VMOPs(ctx)
 			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("delete KVVMI in maintenance mode: %w", err)
+				return reconcile.Result{}, fmt.Errorf("get VMOPs: %w", err)
 			}
+
+			stopInProgress := false
+			for _, vmop := range vmops {
+				if vmop.Spec.Type == virtv2.VMOPTypeStop &&
+					vmop.Status.Phase != virtv2.VMOPPhaseCompleted &&
+					vmop.Status.Phase != virtv2.VMOPPhaseFailed {
+					stopInProgress = true
+					break
+				}
+			}
+
+			vmName := vm.Name().Name
+			if !stopInProgress {
+				stopOp := vmop.New(
+					vmop.WithGenerateName(fmt.Sprintf("%s-maintenance-stop-", vmName)),
+					vmop.WithNamespace(vm.Name().Namespace),
+					vmop.WithType(virtv2.VMOPTypeStop),
+					vmop.WithVirtualMachine(vmName),
+				)
+
+				log.Info("Creating VMOP to stop VM for maintenance")
+				err = r.client.Create(ctx, stopOp)
+				if err != nil && !k8serrors.IsAlreadyExists(err) {
+					return reconcile.Result{}, fmt.Errorf("create stop VMOP: %w", err)
+				}
+			}
+
+			log.Info("Waiting for VM to stop")
+			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
 		}
 
 		pods, err := s.Pods(ctx)
 		if err != nil {
-			return reconcile.Result{}, err
+			return reconcile.Result{}, fmt.Errorf("get pods: %w", err)
 		}
-		if pods != nil {
-			for i := range pods.Items {
-				err = object.DeleteObject(ctx, r.client, &pods.Items[i])
-				if err != nil {
-					return reconcile.Result{}, fmt.Errorf("delete Pod in maintenance mode: %w", err)
-				}
+		if pods != nil && len(pods.Items) > 0 {
+			// If pods still exist but KVVMI is gone, force delete them
+			for _, pod := range pods.Items {
+				object.CleanupObject(ctx, r.client, &pod)
+			}
+		}
+
+		kvvm, err := s.KVVM(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("get KVVM: %w", err)
+		}
+
+		if kvvm != nil {
+			log.Info("Deleting KVVM for maintenance mode")
+			err = object.CleanupObject(ctx, r.client, kvvm)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("delete KVVM: %w", err)
 			}
 		}
 
