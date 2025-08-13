@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -47,16 +48,26 @@ type InterfaceStatus struct {
 
 type InterfaceSpecList []InterfaceSpec
 
-func CreateNetworkSpec(vmSpec virtv2.VirtualMachineSpec) InterfaceSpecList {
+func CreateNetworkSpec(vmSpec virtv2.VirtualMachineSpec, vmmacs []*virtv2.VirtualMachineMACAddress) InterfaceSpecList {
+	var macAddresses []string
+	for _, vmmac := range vmmacs {
+		macAddresses = append(macAddresses, vmmac.Status.Address)
+	}
+	sort.Strings(macAddresses)
+
 	var networksSpec InterfaceSpecList
 	for id, network := range vmSpec.Networks {
 		if network.Type == virtv2.NetworksTypeMain {
 			continue
 		}
+		if len(macAddresses) == 0 || id > len(macAddresses) {
+			break
+		}
+
 		networksSpec = append(networksSpec, InterfaceSpec{
 			Type:          network.Type,
 			Name:          network.Name,
-			InterfaceName: generateInterfaceName(id, network.Name, network.Type),
+			InterfaceName: generateInterfaceName(macAddresses[id-1], network.Type),
 		})
 	}
 
@@ -71,10 +82,10 @@ func (c InterfaceSpecList) ToString() (string, error) {
 	return string(data), nil
 }
 
-func generateInterfaceName(id int, networkName, networkType string) string {
+func generateInterfaceName(macAddress, networkType string) string {
 	name := ""
 
-	hash := md5.Sum([]byte(fmt.Sprintf("%s%d", networkName, id)))
+	hash := md5.Sum([]byte(fmt.Sprintf("%s", macAddress)))
 	hashHex := hex.EncodeToString(hash[:])
 
 	switch networkType {

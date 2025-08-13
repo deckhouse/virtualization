@@ -35,7 +35,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
-	virtfake "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/fake"
+
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
@@ -120,8 +120,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
-		fakeVirtClient := virtfake.NewSimpleClientset()
-		vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+		vmState := state.New(fakeClient, vmResource)
 		handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 		_, err = handler.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
@@ -229,8 +229,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
-		fakeVirtClient := virtfake.NewSimpleClientset()
-		vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+		vmState := state.New(fakeClient, vmResource)
 		handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 		_, err = handler.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
@@ -324,8 +324,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
-		fakeVirtClient := virtfake.NewSimpleClientset()
-		vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+		vmState := state.New(fakeClient, vmResource)
 		handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 		_, err = handler.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
@@ -441,8 +441,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
-		fakeVirtClient := virtfake.NewSimpleClientset()
-		vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+		vmState := state.New(fakeClient, vmResource)
 		handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 		_, err = handler.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
@@ -533,8 +533,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		err := vmResource.Fetch(ctx)
 		Expect(err).NotTo(HaveOccurred())
-		fakeVirtClient := virtfake.NewSimpleClientset()
-		vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+		vmState := state.New(fakeClient, vmResource)
 		handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 		_, err = handler.Handle(ctx, vmState)
 		Expect(err).NotTo(HaveOccurred())
@@ -668,8 +668,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			fakeVirtClient := virtfake.NewSimpleClientset()
-			vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+			vmState := state.New(fakeClient, vmResource)
 			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
@@ -750,8 +750,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			fakeVirtClient := virtfake.NewSimpleClientset()
-			vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+			vmState := state.New(fakeClient, vmResource)
 			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
@@ -862,8 +862,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			fakeVirtClient := virtfake.NewSimpleClientset()
-			vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+			vmState := state.New(fakeClient, vmResource)
 			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
@@ -1004,8 +1004,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			fakeVirtClient := virtfake.NewSimpleClientset()
-			vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+			vmState := state.New(fakeClient, vmResource)
 			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
@@ -1077,8 +1077,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			fakeVirtClient := virtfake.NewSimpleClientset()
-			vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+			vmState := state.New(fakeClient, vmResource)
 			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
@@ -1150,8 +1150,8 @@ var _ = Describe("Test BlockDeviceReady condition", func() {
 			vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			err := vmResource.Fetch(ctx)
 			Expect(err).NotTo(HaveOccurred())
-			fakeVirtClient := virtfake.NewSimpleClientset()
-			vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+			vmState := state.New(fakeClient, vmResource)
 			handler := NewBlockDeviceHandler(fakeClient, okBlockDeviceServiceMock)
 			_, err = handler.Handle(ctx, vmState)
 			Expect(err).NotTo(HaveOccurred())
@@ -1372,8 +1372,8 @@ var _ = Describe("Capacity check", func() {
 		fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm).Build()
 		vmResource := reconciler.NewResource(namespacedName, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 		_ = vmResource.Fetch(ctx)
-		fakeVirtClient := virtfake.NewSimpleClientset()
-		vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+		vmState := state.New(fakeClient, vmResource)
 
 		It("Should be ok because fewer than 16 devices are connected", func() {
 			okBlockDeviceServiceMock := &BlockDeviceServiceMock{
@@ -1556,8 +1556,8 @@ var _ = Describe("Capacity check", func() {
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vm, kvvm, kvvmi, vi, cvi, vmbdaVi, vmbdaCvi).Build()
 			vmResource := reconciler.NewResource(namespacedVirtualMachine, fakeClient, vmFactoryByVM(vm), vmStatusGetter)
 			_ = vmResource.Fetch(ctx)
-			fakeVirtClient := virtfake.NewSimpleClientset()
-			vmState := state.New(fakeClient, fakeVirtClient.VirtualizationV1alpha2(), vmResource)
+
+			vmState := state.New(fakeClient, vmResource)
 
 			handler := NewBlockDeviceHandler(fakeClient, blockDeviceServiceMock)
 			_, err := handler.Handle(ctx, vmState)

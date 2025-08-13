@@ -26,7 +26,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
@@ -81,18 +80,19 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 		return reconcile.Result{}, nil
 	}
 
-	networkSpec := network.CreateNetworkSpec(vm.Spec)
 	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	expectedMACAddresses := len(vm.Spec.Networks) - 1
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if len(vmmacs) < len(networkSpec) {
+	if len(vmmacs) < expectedMACAddresses {
 		if kvvm != nil {
 			vmmacByAddress := make(map[string]*virtv2.VirtualMachineMACAddress)
 			for _, vmmac := range vmmacs {
@@ -108,7 +108,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 				}
 			}
 		} else {
-			macsToCreate := len(networkSpec) - len(vmmacs)
+			macsToCreate := expectedMACAddresses - len(vmmacs)
 			for i := 0; i < macsToCreate; i++ {
 				err = h.macManager.CreateMACAddress(ctx, vm, h.client, "")
 				if err != nil {
@@ -117,7 +117,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 			}
 		}
 
-		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Waiting for the MAC address lease to be created %d/%d", len(vmmacs), len(networkSpec)))
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMACAddressNotReady).Message(fmt.Sprintf("Waiting for the MAC address to be created %d/%d", len(vmmacs), expectedMACAddresses))
 		return reconcile.Result{}, nil
 	}
 

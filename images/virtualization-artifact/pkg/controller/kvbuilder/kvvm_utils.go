@@ -20,6 +20,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,7 +91,8 @@ func ApplyVirtualMachineSpec(
 	cviByName map[string]*virtv2.ClusterVirtualImage,
 	class *virtv2.VirtualMachineClass,
 	ipAddress string,
-	macAddresses []string,
+	networkSpec network.InterfaceSpecList,
+	vmmacs []*virtv2.VirtualMachineMACAddress,
 ) error {
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
 		return err
@@ -106,7 +108,7 @@ func ApplyVirtualMachineSpec(
 	}
 
 	kvvm.SetMetadata(vm.ObjectMeta)
-	setNetwork(kvvm, vm.Spec, macAddresses)
+	setNetwork(kvvm, networkSpec, vmmacs)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
 	kvvm.SetTolerations(vm.Spec.Tolerations, class.Spec.Tolerations)
@@ -245,25 +247,33 @@ func ApplyVirtualMachineSpec(
 	kvvm.SetKVVMILabel(annotations.SkipPodSecurityStandardsCheckLabel, "true")
 
 	// Set annotation for request network configuration.
-	err := setNetworksAnnotation(kvvm, vm.Spec)
+	err := setNetworksAnnotation(kvvm, networkSpec)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func setNetwork(kvvm *KVVM, vmSpec virtv2.VirtualMachineSpec, macAddresses []string) {
+func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList, vmmacs []*virtv2.VirtualMachineMACAddress) {
 	kvvm.ClearNetworkInterfaces()
 	kvvm.SetNetworkInterface(network.NameDefaultInterface, "")
 
-	for i, n := range network.CreateNetworkSpec(vmSpec) {
+	var macAddresses []string
+	for _, vmmac := range vmmacs {
+		if vmmac != nil && vmmac.Status.Address != "" {
+			macAddresses = append(macAddresses, vmmac.Status.Address)
+		}
+	}
+	sort.Strings(macAddresses)
+
+	for i, n := range networkSpec {
 		kvvm.SetNetworkInterface(n.InterfaceName, macAddresses[i])
 	}
 }
 
-func setNetworksAnnotation(kvvm *KVVM, vmSpec virtv2.VirtualMachineSpec) error {
-	if len(vmSpec.Networks) > 1 {
-		networkConfig := network.CreateNetworkSpec(vmSpec)
+func setNetworksAnnotation(kvvm *KVVM, networkSpec network.InterfaceSpecList) error {
+	if len(networkSpec) > 1 {
+		networkConfig := networkSpec
 		networkConfigStr, err := networkConfig.ToString()
 		if err != nil {
 			return err
