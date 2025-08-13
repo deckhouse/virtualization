@@ -77,6 +77,26 @@ func (h *LifeCycleHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, nil
 	}
 
+	// DELETE ME
+	if current.Annotations[annotations.AnnVMMaintenance] == "true" {
+		// Set maintenance condition if annotation is present
+		cb := conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+			Generation(current.GetGeneration()).
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonMaintenanceRestore).
+			Message("VM is in maintenance mode")
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+	} else if current.Annotations[annotations.AnnVMMaintenance] == "false" {
+		// Explicitly set maintenance to false if annotation is "false"
+		cb := conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+			Generation(current.GetGeneration()).
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonMaintenanceRestore).
+			Message("VM maintenance mode disabled")
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+	}
+
+	// Original logic for removing false maintenance condition
 	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, changed.Status.Conditions)
 	if maintenance.Status == metav1.ConditionFalse {
 		conditions.RemoveCondition(vmcondition.TypeMaintenance, &changed.Status.Conditions)
