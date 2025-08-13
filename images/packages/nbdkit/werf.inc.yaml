@@ -91,6 +91,7 @@ shell:
       --prefix=/usr \
       --libdir=/usr/lib64 \
       --without-bash-completions \
+      --with-ext2 \
       --disable-torrent
 
     make -j$(nproc)
