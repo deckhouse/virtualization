@@ -11,6 +11,7 @@ package:
   bzip2: bzip2-1.0.8
   dmidecode: dmidecode-3-6
   dtc: v1.7.2
+  e2fsprogs: v1.47.1
   file: FILE5_45
   gcc: releases/gcc-14.2.0
   glib2: 2.82.5
