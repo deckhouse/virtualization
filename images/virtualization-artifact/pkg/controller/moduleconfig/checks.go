@@ -31,31 +31,30 @@ func isEqualCIDRs(a, b netip.Prefix) bool {
 	return a.Addr() == b.Addr() && a.Bits() == b.Bits()
 }
 
-func checkOverlapsCIDRs(prefixes []netip.Prefix) error {
-	for i := 0; i < len(prefixes); i++ {
-		for j := i + 1; j < len(prefixes); j++ {
-			if prefixes[i].Overlaps(prefixes[j]) {
-				return fmt.Errorf("subnets must not overlap, but there is an overlap between CIDRs %v and %v. Please adjust the configuration to resolve this issue", prefixes[i], prefixes[j])
-			}
+func CheckCIDRsOverlap(cidrs []netip.Prefix) error {
+	for i := 0; i < len(cidrs)-1; i++ {
+		err := CheckCIDRsOverlapWithSubnet(cidrs[i+1:], cidrs[i])
+		if err != nil {
+			return fmt.Errorf("no overlaps allowed: %w", err)
 		}
 	}
+
 	return nil
 }
 
-func checkNodeAddressesOverlap(nodes []corev1.Node, excludedPrefixes []netip.Prefix) error {
+func CheckCIDRsOverlapWithNodeAddresses(cidrs []netip.Prefix, nodes []corev1.Node) error {
 	for _, node := range nodes {
 		for _, address := range node.Status.Addresses {
 			if address.Type == corev1.NodeInternalIP || address.Type == corev1.NodeExternalIP {
-				ip, err := netip.ParseAddr(address.Address)
+				nodeIP, err := netip.ParseAddr(address.Address)
 				if err != nil {
-					// No way to detect if invalid address is in excludedPrefixes, just ignore the error and move on.
+					// No way to detect if cidrs contain invalid address. Just ignore the error and move on.
 					continue
 				}
 
-				for _, prefix := range excludedPrefixes {
-					if prefix.Contains(ip) {
-						return fmt.Errorf("subnet %s is invalid, it should not contain addresses assigned to nodes: got node %s with IP %s", prefix, node.GetName(), ip)
-					}
+				err = CheckCIDRsOverlapWithAddress(cidrs, nodeIP)
+				if err != nil {
+					return fmt.Errorf("check node %s: %w", node.GetName(), err)
 				}
 			}
 		}
@@ -63,7 +62,41 @@ func checkNodeAddressesOverlap(nodes []corev1.Node, excludedPrefixes []netip.Pre
 	return nil
 }
 
-func parseCIDRs(settings mcapi.SettingsValues) ([]netip.Prefix, error) {
+func CheckCIDRsOverlapWithAddress(cidrs []netip.Prefix, address netip.Addr) error {
+	for _, cidr := range cidrs {
+		if cidr.Contains(address) {
+			return fmt.Errorf("subnet %v is invalid: should not contain address %v. Please adjust the configuration to resolve this issue", cidr, address)
+		}
+	}
+	return nil
+}
+
+func CheckCIDRsOverlapWithSubnet(cidrs []netip.Prefix, subnet netip.Prefix) error {
+	for _, cidr := range cidrs {
+		if cidr.Overlaps(subnet) {
+			return fmt.Errorf("subnet %v is invalid: should not overlap with subnet %v. Please adjust the configuration to resolve this issue", cidr, subnet)
+		}
+	}
+	return nil
+}
+
+func CheckCIDRsOverlapWithPodSubnet(cidrs []netip.Prefix, subnet netip.Prefix) error {
+	err := CheckCIDRsOverlapWithSubnet(cidrs, subnet)
+	if err != nil {
+		return fmt.Errorf("check overlap with global podSubnetCIDR: %w", err)
+	}
+	return nil
+}
+
+func CheckCIDRsOverlapWithServiceSubnet(cidrs []netip.Prefix, subnet netip.Prefix) error {
+	err := CheckCIDRsOverlapWithSubnet(cidrs, subnet)
+	if err != nil {
+		return fmt.Errorf("check overlap with global serviceSubnetCIDR: %w", err)
+	}
+	return nil
+}
+
+func ParseCIDRs(settings mcapi.SettingsValues) ([]netip.Prefix, error) {
 	raw := settings[virtualMachineCIDRs].([]interface{})
 	CIDRs, err := convertToStringSlice(raw)
 	if err != nil {
