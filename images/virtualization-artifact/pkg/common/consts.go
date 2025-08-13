@@ -79,10 +79,6 @@ const (
 	ImportProxyNoProxy = "no_proxy"
 	// ImporterProxyCertDirVar provides a constant to capture our env variable "IMPORTER_PROXY_CERT_DIR"
 	ImporterProxyCertDirVar = "IMPORTER_PROXY_CERT_DIR"
-	// ImporterExtraHeader provides a constant to include extra HTTP headers, as the prefix to a format string
-	ImporterExtraHeader = "IMPORTER_EXTRA_HEADER_"
-	// ImporterSecretExtraHeadersDir is where the secrets containing extra HTTP headers will be mounted
-	ImporterSecretExtraHeadersDir = "/extraheaders"
 
 	// ImporterDestinationAuthConfigDir is a mount directory for auth Secret.
 	ImporterDestinationAuthConfigDir = "/dvcr-auth"
@@ -101,10 +97,8 @@ const (
 
 	UploaderDestinationEndpoint       = "UPLOADER_DESTINATION_ENDPOINT"
 	UploaderDestinationAuthConfigVar  = "UPLOADER_DESTINATION_AUTH_CONFIG"
-	UploaderExtraHeader               = "UPLOADER_EXTRA_HEADER_"
 	UploaderDestinationAuthConfigDir  = "/dvcr-auth"
 	UploaderDestinationAuthConfigFile = "/dvcr-auth/.dockerconfigjson"
-	UploaderSecretExtraHeadersDir     = "/extraheaders"
 
 	DockerRegistrySchemePrefix = "docker://"
 
