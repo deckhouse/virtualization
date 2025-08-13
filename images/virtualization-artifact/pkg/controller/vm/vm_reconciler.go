@@ -23,6 +23,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -113,31 +114,20 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			return reconcile.Result{}, fmt.Errorf("get KVVMI: %w", err)
 		}
 
-		if kvvmi != nil {
-			if kvvmi.DeletionTimestamp == nil {
-				log.Info("Stopping VM for maintenance mode")
+		if kvvmi != nil && kvvmi.Status.Phase != v1.Failed && kvvmi.Status.Phase != v1.Succeeded {
+			log.Info("Stopping VM for maintenance mode")
 
-				force := new(bool)
-				*force = false
-				if err := powerstate.StopVM(ctx, r.client, kvvmi, force); err != nil {
-					return reconcile.Result{}, fmt.Errorf("stop VM: %w", err)
-				}
+			force := new(bool)
+			*force = false
+			if err := powerstate.StopVM(ctx, r.client, kvvmi, force); err != nil {
+				return reconcile.Result{}, fmt.Errorf("stop VM: %w", err)
 			}
 
 			log.Info("Waiting for VM to stop")
-			return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			return reconcile.Result{}, nil
 		}
 
-		pods, err := s.Pods(ctx)
-		if err != nil {
-			return reconcile.Result{}, fmt.Errorf("get pods: %w", err)
-		}
-		if pods != nil && len(pods.Items) > 0 {
-			// If pods still exist but KVVMI is gone, force delete them
-			for _, pod := range pods.Items {
-				object.CleanupObject(ctx, r.client, &pod)
-			}
-		}
+		log.Info("Cleanup resources for maintenance mode")
 
 		kvvm, err := s.KVVM(ctx)
 		if err != nil {
@@ -149,6 +139,25 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			err = object.CleanupObject(ctx, r.client, kvvm)
 			if err != nil {
 				return reconcile.Result{}, fmt.Errorf("delete KVVM: %w", err)
+			}
+		}
+
+		if kvvmi != nil {
+			log.Info("Deleting KVVMI for maintenance mode")
+			err = object.CleanupObject(ctx, r.client, kvvmi)
+			if err != nil {
+				return reconcile.Result{}, fmt.Errorf("delete KVVM: %w", err)
+			}
+		}
+
+		pods, err := s.Pods(ctx)
+		if err != nil {
+			return reconcile.Result{}, fmt.Errorf("get pods: %w", err)
+		}
+		if pods != nil && len(pods.Items) > 0 {
+			log.Info("Deleting pods for maintenance mode")
+			for _, pod := range pods.Items {
+				object.CleanupObject(ctx, r.client, &pod)
 			}
 		}
 
