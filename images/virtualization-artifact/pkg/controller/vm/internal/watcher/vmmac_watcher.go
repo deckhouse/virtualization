@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -41,35 +40,36 @@ type VMMACWatcher struct{}
 
 func (w *VMMACWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
 	if err := ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineMACAddress{}),
-		handler.EnqueueRequestsFromMapFunc(func(ctx context.Context, obj client.Object) []reconcile.Request {
-			vmmac, ok := obj.(*virtv2.VirtualMachineMACAddress)
-			if !ok {
-				return nil
-			}
-			name := vmmac.Status.VirtualMachine
-			if name == "" {
-				return nil
-			}
-			return []reconcile.Request{
-				{
-					NamespacedName: types.NamespacedName{
-						Name:      name,
-						Namespace: vmmac.GetNamespace(),
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualMachineMACAddress{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) []reconcile.Request {
+				name := vmmac.Status.VirtualMachine
+				if name == "" {
+					return nil
+				}
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      name,
+							Namespace: vmmac.GetNamespace(),
+						},
 					},
+				}
+			}),
+			predicate.TypedFuncs[*virtv2.VirtualMachineMACAddress]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineMACAddress]) bool {
+					return true
 				},
-			}
-		}),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVmmac := e.ObjectOld.(*virtv2.VirtualMachineMACAddress)
-				newVmmac := e.ObjectNew.(*virtv2.VirtualMachineMACAddress)
-				return oldVmmac.Status.Phase != newVmmac.Status.Phase ||
-					oldVmmac.Status.VirtualMachine != newVmmac.Status.VirtualMachine
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineMACAddress]) bool {
+					return true
+				},
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineMACAddress]) bool {
+					return e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase ||
+						e.ObjectOld.Status.VirtualMachine != e.ObjectNew.Status.VirtualMachine
+				},
 			},
-		},
+		),
 	); err != nil {
 		return fmt.Errorf("error setting watch on VirtualMachineMACAddress: %w", err)
 	}

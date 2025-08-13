@@ -56,7 +56,7 @@ func CreateNetworkSpec(vmSpec virtv2.VirtualMachineSpec) InterfaceSpecList {
 		networksSpec = append(networksSpec, InterfaceSpec{
 			Type:          network.Type,
 			Name:          network.Name,
-			InterfaceName: generateInterfaceName(id, network.Type),
+			InterfaceName: generateInterfaceName(id, network.Name, network.Type),
 		})
 	}
 
@@ -71,10 +71,10 @@ func (c InterfaceSpecList) ToString() (string, error) {
 	return string(data), nil
 }
 
-func generateInterfaceName(id int, networkType string) string {
+func generateInterfaceName(id int, networkName, networkType string) string {
 	name := ""
 
-	hash := md5.Sum([]byte(fmt.Sprintf("%d", id)))
+	hash := md5.Sum([]byte(fmt.Sprintf("%s%d", networkName, id)))
 	hashHex := hex.EncodeToString(hash[:])
 
 	switch networkType {

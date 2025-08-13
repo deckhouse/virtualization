@@ -17,11 +17,16 @@ limitations under the License.
 package watcher
 
 import (
+	"context"
+	"fmt"
+
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -33,14 +38,35 @@ func NewVirtualMachineMACAddressWatcher() *VirtualMachineMACAddressWatcher {
 	return &VirtualMachineMACAddressWatcher{}
 }
 
-func (w VirtualMachineMACAddressWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineMACAddress{}),
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
-		},
-	)
+func (w *VirtualMachineMACAddressWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+	if err := ctr.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualMachineMACAddress{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(_ context.Context, vmmac *virtv2.VirtualMachineMACAddress) []reconcile.Request {
+				return []reconcile.Request{
+					{
+						NamespacedName: types.NamespacedName{
+							Name:      vmmac.Name,
+							Namespace: vmmac.Namespace,
+						},
+					},
+				}
+			}),
+			predicate.TypedFuncs[*virtv2.VirtualMachineMACAddress]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineMACAddress]) bool {
+					return true
+				},
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineMACAddress]) bool {
+					return false
+				},
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineMACAddress]) bool {
+					return true
+				},
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineMACAddress: %w", err)
+	}
+	return nil
 }

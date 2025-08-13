@@ -351,7 +351,7 @@ func (s *state) VirtualMachineMACAddresses(ctx context.Context, expectedCount in
 
 	// The local cache might be outdated, which is why the vmmac is not present in the cache, even though it may already exist in the cluster.
 	// Double-check vmmac existence in the cluster by making a direct request to the Kubernetes API.
-	if len(vmmacList.Items) < expecredCount {
+	if len(vmmacList.Items) < expectedCount {
 		vmmacList, err = s.virtClient.VirtualMachineMACAddresses(s.vm.Current().GetNamespace()).List(ctx, metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s", annotations.LabelVirtualMachineUID, string(s.vm.Current().GetUID())),
 		})

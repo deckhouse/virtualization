@@ -50,56 +50,59 @@ func NewVirtualMachineWatcher(client client.Client) *VirtualMachineWatcher {
 }
 
 func (w VirtualMachineWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachine{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return true },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				oldVM := e.ObjectOld.(*virtv2.VirtualMachine)
-				newVM := e.ObjectNew.(*virtv2.VirtualMachine)
-				return !reflect.DeepEqual(oldVM.Status.Networks, newVM.Status.Networks)
+	if err := ctr.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualMachine{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vm *virtv2.VirtualMachine) []reconcile.Request {
+				vmmacNames := make(map[string]struct{})
+
+				if len(vm.Status.Networks) > 0 {
+					for _, nc := range vm.Status.Networks {
+						if nc.VirtualMachineMACAddressName != "" {
+							vmmacNames[nc.VirtualMachineMACAddressName] = struct{}{}
+						}
+					}
+				}
+
+				vmmacs := &virtv2.VirtualMachineMACAddressList{}
+				if err := w.client.List(ctx, vmmacs, client.InNamespace(vm.Namespace), &client.MatchingFields{
+					indexer.IndexFieldVMMACByVM: vm.Name,
+				}); err != nil {
+					w.logger.Error(fmt.Sprintf("failed to list vmmacs for vm %s/%s: %s", vm.Namespace, vm.Name, err))
+					return nil
+				}
+
+				for _, vmmac := range vmmacs.Items {
+					vmmacNames[vmmac.Name] = struct{}{}
+				}
+
+				var requests []reconcile.Request
+				for name := range vmmacNames {
+					requests = append(requests, reconcile.Request{
+						NamespacedName: types.NamespacedName{
+							Namespace: vm.Namespace,
+							Name:      name,
+						},
+					})
+				}
+
+				return requests
+			}),
+			predicate.TypedFuncs[*virtv2.VirtualMachine]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachine]) bool {
+					return true
+				},
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachine]) bool {
+					return true
+				},
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachine]) bool {
+					return !reflect.DeepEqual(e.ObjectOld.Status.Networks, e.ObjectNew.Status.Networks)
+				},
 			},
-		},
-	)
-}
-
-func (w VirtualMachineWatcher) enqueueRequests(ctx context.Context, obj client.Object) []reconcile.Request {
-	vm, ok := obj.(*virtv2.VirtualMachine)
-	if !ok {
-		return nil
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachine: %w", err)
 	}
-
-	var requests []reconcile.Request
-
-	vmmacNames := make(map[string]struct{})
-
-	if len(vm.Status.Networks) != 0 {
-		for _, nc := range vm.Status.Networks {
-			vmmacNames[nc.VirtualMachineMACAddressName] = struct{}{}
-		}
-	}
-
-	vmmacs := &virtv2.VirtualMachineMACAddressList{}
-	err := w.client.List(ctx, vmmacs, client.InNamespace(vm.Namespace), &client.MatchingFields{
-		indexer.IndexFieldVMMACByVM: vm.Name,
-	})
-	if err != nil {
-		w.logger.Error(fmt.Sprintf("failed to list vmmac: %s", err))
-		return nil
-	}
-
-	for _, vmmac := range vmmacs.Items {
-		vmmacNames[vmmac.Name] = struct{}{}
-	}
-
-	for vmmacName := range vmmacNames {
-		requests = append(requests, reconcile.Request{NamespacedName: types.NamespacedName{
-			Namespace: vm.Namespace,
-			Name:      vmmacName,
-		}})
-	}
-
-	return requests
+	return nil
 }

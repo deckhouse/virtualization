@@ -48,46 +48,54 @@ func NewVirtualMachineMACAddressWatcher(client client.Client) *VirtualMachineMAC
 	}
 }
 
-func (w VirtualMachineMACAddressWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
-	return ctr.Watch(
-		source.Kind(mgr.GetCache(), &virtv2.VirtualMachineMACAddress{}),
-		handler.EnqueueRequestsFromMapFunc(w.enqueueRequests),
-		predicate.Funcs{
-			CreateFunc: func(e event.CreateEvent) bool { return false },
-			DeleteFunc: func(e event.DeleteEvent) bool { return true },
-			UpdateFunc: func(e event.UpdateEvent) bool { return true },
-		},
-	)
-}
+func (w *VirtualMachineMACAddressWatcher) Watch(mgr manager.Manager, ctr controller.Controller) error {
+	if err := ctr.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&virtv2.VirtualMachineMACAddress{},
+			handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, vmmac *virtv2.VirtualMachineMACAddress) []reconcile.Request {
+				var requests []reconcile.Request
 
-func (w VirtualMachineMACAddressWatcher) enqueueRequests(ctx context.Context, obj client.Object) (requests []reconcile.Request) {
-	vmmac, ok := obj.(*virtv2.VirtualMachineMACAddress)
-	if !ok {
-		return nil
+				var leases virtv2.VirtualMachineMACAddressLeaseList
+				if err := w.client.List(ctx, &leases, &client.ListOptions{}); err != nil {
+					w.logger.Error(fmt.Sprintf("failed to list leases: %s", err))
+					return nil
+				}
+
+				for _, lease := range leases.Items {
+					if vmmac.Status.Address != "" && vmmac.Status.Address == mac.LeaseNameToAddress(lease.Name) {
+						requests = append(requests, reconcile.Request{
+							NamespacedName: types.NamespacedName{Name: lease.Name},
+						})
+						continue
+					}
+
+					vmmacRef := lease.Spec.VirtualMachineMACAddressRef
+					if vmmacRef != nil &&
+						vmmacRef.Name == vmmac.Name &&
+						vmmacRef.Namespace == vmmac.Namespace {
+						requests = append(requests, reconcile.Request{
+							NamespacedName: types.NamespacedName{Name: lease.Name},
+						})
+					}
+				}
+
+				return requests
+			}),
+			predicate.TypedFuncs[*virtv2.VirtualMachineMACAddress]{
+				CreateFunc: func(e event.TypedCreateEvent[*virtv2.VirtualMachineMACAddress]) bool {
+					return false
+				},
+				DeleteFunc: func(e event.TypedDeleteEvent[*virtv2.VirtualMachineMACAddress]) bool {
+					return true
+				},
+				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineMACAddress]) bool {
+					return true
+				},
+			},
+		),
+	); err != nil {
+		return fmt.Errorf("error setting watch on VirtualMachineMACAddress: %w", err)
 	}
-
-	var leases virtv2.VirtualMachineMACAddressLeaseList
-	err := w.client.List(ctx, &leases, &client.ListOptions{})
-	if err != nil {
-		w.logger.Error(fmt.Sprintf("failed to list leases: %s", err))
-		return
-	}
-
-	for _, lease := range leases.Items {
-		if vmmac.Status.Address != "" && vmmac.Status.Address == mac.LeaseNameToAddress(lease.Name) {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: lease.Name},
-			})
-			continue
-		}
-
-		vmmacRef := lease.Spec.VirtualMachineMACAddressRef
-		if vmmacRef != nil && vmmacRef.Name == obj.GetName() && vmmacRef.Namespace == obj.GetNamespace() {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{Name: lease.Name},
-			})
-		}
-	}
-
-	return requests
+	return nil
 }
