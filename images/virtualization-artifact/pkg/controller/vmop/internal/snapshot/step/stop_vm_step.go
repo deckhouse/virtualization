@@ -18,6 +18,7 @@ package step
 
 import (
 	"context"
+	"errors"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,9 +26,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -53,8 +54,25 @@ func NewStopVMStep(
 }
 
 func (s StopVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
-	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
-	defer func() { conditions.SetCondition(cb.Generation(s.vmop.Generation), &s.vmop.Status.Conditions) }()
+	switch vm.Status.Phase {
+	case virtv2.MachinePending:
+		// TODO: wat?
+		err := errors.New("a virtual machine cannot be restored from the pending phase with `Forced` mode; you can delete the virtual machine and restore it with `Strict` mode")
+		setPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	case virtv2.MachineStopped:
+	default:
+		err := stopVirtualMachine(ctx, s.client, vm.Name, vm.Namespace, "TODO")
+		if err != nil {
+			if errors.Is(err, restorer.ErrIncomplete) {
+				setPhaseConditionToPending(s.cb, &s.vmop.Status.Phase, vmopcondition.ReasonTODO, "waiting for the virtual machine will be stopped")
+				return &reconcile.Result{}, nil
+			}
+
+			setPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
+			return &reconcile.Result{}, err
+		}
+	}
 
 	if s.vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
 		err := stopVirtualMachine(ctx, s.client, s.vmop.Spec.VirtualMachine, s.vmop.Namespace, "TODO")
@@ -68,7 +86,7 @@ func (s StopVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*recon
 		}
 
 		s.vmop.Status.Phase = virtv2.VMOPPhaseCompleted
-		cb.Status(metav1.ConditionTrue).Reason(vmrestorecondition.VirtualMachineRestoreReady)
+		s.cb.Status(metav1.ConditionTrue).Reason(vmopcondition.ReasonTODO)
 
 		return &reconcile.Result{}, nil
 	}

@@ -30,7 +30,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
-	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type VMSnapshotReadyStep struct {
@@ -55,30 +54,27 @@ func NewVMSnapshotReadyStep(
 }
 
 func (s VMSnapshotReadyStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
-	cb := conditions.NewConditionBuilder(vmopcondition.TypeCompleted)
-	defer func() { conditions.SetCondition(cb.Generation(vm.Generation), &vm.Status.Conditions) }()
-
-	vmSnapshotReadyToUseCondition, _ := conditions.GetCondition(vmrestorecondition.VirtualMachineSnapshotReadyToUseType, s.vmop.Status.Conditions)
-	if vmSnapshotReadyToUseCondition.Status != metav1.ConditionTrue {
-		s.vmop.Status.Phase = virtv2.VMOPPhasePending
-		cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmrestorecondition.VirtualMachineSnapshotNotReadyToUse).
-			Message(fmt.Sprintf("Waiting for the virtual machine snapshot %q to be ready to use.", s.vmop.Spec.Restore.VirtualMachineSnapshotName))
-		return &reconcile.Result{}, nil
+	if s.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
+		err := fmt.Errorf("the virtual machine snapshot name is empty")
+		setPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: s.vmop.Namespace, Name: s.vmop.Spec.Restore.VirtualMachineSnapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &virtv2.VirtualMachineSnapshot{})
 	if err != nil {
-		setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		setPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
-	if vmSnapshot == nil {
-		err = fmt.Errorf("the virtual machine snapshot %q is nil, please report a bug", s.vmop.Spec.Restore.VirtualMachineSnapshotName)
-		setPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+	vmSnapshotReadyToUseCondition, _ := conditions.GetCondition(vmrestorecondition.VirtualMachineSnapshotReadyToUseType, vmSnapshot.Status.Conditions)
+	if vmSnapshotReadyToUseCondition.Status != metav1.ConditionTrue {
+		s.vmop.Status.Phase = virtv2.VMOPPhasePending
+		s.cb.
+			Status(metav1.ConditionFalse).
+			Reason(vmrestorecondition.VirtualMachineSnapshotNotReadyToUse).
+			Message(fmt.Sprintf("Waiting for the virtual machine snapshot %q to be ready to use.", s.vmop.Spec.Restore.VirtualMachineSnapshotName))
+		return &reconcile.Result{}, nil
 	}
 
 	return &reconcile.Result{}, nil
