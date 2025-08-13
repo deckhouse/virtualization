@@ -37,7 +37,7 @@ spec:
               properties:
                 address:
                   description: |
-                    The requested MAC address that should be assigned to the virtual machine.
+                    The requested MAC address that should be assigned to the virtual machine. Random address is assigned if empty.
                   type: string
               type: object
             status:
