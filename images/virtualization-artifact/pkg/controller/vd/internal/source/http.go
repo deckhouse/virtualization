@@ -107,6 +107,12 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
 	}
 
+	var sc *storagev1.StorageClass
+	sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	switch {
 	case IsDiskProvisioningFinished(condition):
 		log.Debug("Disk provisioning finished: clean up")
@@ -246,11 +252,6 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 			return reconcile.Result{}, fmt.Errorf("failed to get importer tolerations: %w", err)
 		}
 
-		var sc *storagev1.StorageClass
-		sc, err = ds.diskService.GetStorageClass(ctx, vd.Status.StorageClassName)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
 		err = ds.diskService.Start(ctx, diskSize, sc, source, vd, supgen, service.WithNodePlacement(nodePlacement))
 		if updated, err := setPhaseConditionFromStorageError(err, vd, cb); err != nil || updated {
 			return reconcile.Result{}, err
@@ -264,10 +265,8 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 
 		return reconcile.Result{RequeueAfter: time.Second}, nil
 	case dvQuotaNotExceededCondition != nil && dvQuotaNotExceededCondition.Status == corev1.ConditionFalse:
-		switch dv.Status.ClaimName {
-		case "":
-			vd.Status.Phase = virtv2.DiskPending
-		default:
+		vd.Status.Phase = virtv2.DiskPending
+		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
 			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
 		}
 		cb.
@@ -276,10 +275,8 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 			Message(dvQuotaNotExceededCondition.Message)
 		return reconcile.Result{}, nil
 	case dvRunningCondition != nil && dvRunningCondition.Status != corev1.ConditionTrue && dvRunningCondition.Reason == DVImagePullFailedReason:
-		switch dv.Status.ClaimName {
-		case "":
-			vd.Status.Phase = virtv2.DiskPending
-		default:
+		vd.Status.Phase = virtv2.DiskPending
+		if dv.Status.ClaimName != "" && isStorageClassWFFC(sc) {
 			vd.Status.Phase = virtv2.DiskWaitForFirstConsumer
 		}
 		cb.
