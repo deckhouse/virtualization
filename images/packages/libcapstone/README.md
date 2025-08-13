@@ -19,7 +19,7 @@
     │       ├── tms320c64x.h
     │       ├── x86.h
     │       └── xcore.h
-    └── lib
+    └── lib64
         ├── libcapstone.a
         ├── libcapstone.so -> libcapstone.so.4
         ├── libcapstone.so.4
