@@ -22,6 +22,7 @@ import:
 {{- include "importPackageImages" (list . $images "beforeInstall") -}}
 shell:
   install:
+    - |
     # Install packages
     PKGS="{{ $images | join " " }}"
     for pkg in $PKGS; do
