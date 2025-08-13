@@ -69,15 +69,8 @@ func (w *DataVolumeWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 						return true
 					}
 
-					if oldOk && newOk {
-						switch {
-						case oldDVQuotaNotExceeded.Status != newDVQuotaNotExceeded.Status:
-							return true
-						case oldDVQuotaNotExceeded.Reason != newDVQuotaNotExceeded.Reason:
-							return true
-						case oldDVQuotaNotExceeded.Message != newDVQuotaNotExceeded.Message:
-							return true
-						}
+					if oldOk && newOk && oldDVQuotaNotExceeded != newDVQuotaNotExceeded {
+						return true
 					}
 
 					dvRunning := service.GetDataVolumeCondition(cdiv1.DataVolumeRunning, e.ObjectNew.Status.Conditions)
