@@ -22,7 +22,6 @@ import (
 	"reflect"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -31,9 +30,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/deckhouse/virtualization-controller/pkg/builder/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/watcher"
@@ -107,7 +106,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	s := state.New(r.client, vm)
 	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Changed().Status.Conditions)
 	if maintenance.Status == metav1.ConditionTrue {
-		log.Info("Reconcile observe an VirtualMachine in maintenance mode, stopped vm")
+		log.Info("Reconcile observe an VirtualMachine in maintenance mode")
 
 		kvvmi, err := s.KVVMI(ctx)
 		if err != nil {
@@ -115,34 +114,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 
 		if kvvmi != nil {
-			vmops, err := s.VMOPs(ctx)
-			if err != nil {
-				return reconcile.Result{}, fmt.Errorf("get VMOPs: %w", err)
-			}
+			if kvvmi.DeletionTimestamp == nil {
+				log.Info("Stopping VM for maintenance mode")
 
-			stopInProgress := false
-			for _, vmop := range vmops {
-				if vmop.Spec.Type == virtv2.VMOPTypeStop &&
-					vmop.Status.Phase != virtv2.VMOPPhaseCompleted &&
-					vmop.Status.Phase != virtv2.VMOPPhaseFailed {
-					stopInProgress = true
-					break
-				}
-			}
-
-			vmName := vm.Name().Name
-			if !stopInProgress {
-				stopOp := vmop.New(
-					vmop.WithGenerateName(fmt.Sprintf("%s-maintenance-stop-", vmName)),
-					vmop.WithNamespace(vm.Name().Namespace),
-					vmop.WithType(virtv2.VMOPTypeStop),
-					vmop.WithVirtualMachine(vmName),
-				)
-
-				log.Info("Creating VMOP to stop VM for maintenance")
-				err = r.client.Create(ctx, stopOp)
-				if err != nil && !k8serrors.IsAlreadyExists(err) {
-					return reconcile.Result{}, fmt.Errorf("create stop VMOP: %w", err)
+				force := new(bool)
+				*force = false
+				if err := powerstate.StopVM(ctx, r.client, kvvmi, force); err != nil {
+					return reconcile.Result{}, fmt.Errorf("stop VM: %w", err)
 				}
 			}
 
