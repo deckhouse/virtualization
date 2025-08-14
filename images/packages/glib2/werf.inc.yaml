@@ -3,6 +3,7 @@
 packages:
 - gcc gcc-c++
 - git pkg-config meson cmake
+- tree
 - libunwind-devel libelf-devel libffi-devel zlib-devel libpcre2-devel sysprof-devel libgvdb-devel
 {{- end -}}
 
@@ -82,5 +83,7 @@ shell:
     meson setup _build -Dprefix=$OUTDIR/usr -Dgtk_doc=false -Dbuildtype=release -Dstrip=true
     meson compile -C _build
     meson install -C _build
+
+    tree $OUTDIR
 
 {{- end}}
