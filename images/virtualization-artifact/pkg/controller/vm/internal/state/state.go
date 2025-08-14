@@ -33,7 +33,6 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/reconciler"
-	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
@@ -63,7 +62,6 @@ func New(c client.Client, vm *reconciler.Resource[*virtv2.VirtualMachine, virtv2
 
 type state struct {
 	client      client.Client
-	virtClient  kubeclient.Client
 	mu          sync.RWMutex
 	vm          *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]
 	kvvm        *virtv1.VirtualMachine

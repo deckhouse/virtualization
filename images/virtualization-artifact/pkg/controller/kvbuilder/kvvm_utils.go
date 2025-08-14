@@ -20,7 +20,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -264,7 +263,6 @@ func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList, vmmacs []*vir
 			macAddresses = append(macAddresses, vmmac.Status.Address)
 		}
 	}
-	sort.Strings(macAddresses)
 
 	for i, n := range networkSpec {
 		kvvm.SetNetworkInterface(n.InterfaceName, macAddresses[i])

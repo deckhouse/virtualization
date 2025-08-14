@@ -62,6 +62,10 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	}
 	vm := s.VirtualMachine().Changed()
 
+	if vm.Status.Phase != virtv2.MachineStopped && vm.Status.Phase != virtv2.MachinePending {
+		return reconcile.Result{}, nil
+	}
+
 	if isDeletion(vm) {
 		return reconcile.Result{}, nil
 	}
@@ -93,18 +97,11 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	}
 
 	if len(vmmacs) < expectedMACAddresses {
-		if kvvm != nil {
-			vmmacByAddress := make(map[string]*virtv2.VirtualMachineMACAddress)
-			for _, vmmac := range vmmacs {
-				vmmacByAddress[vmmac.Spec.Address] = vmmac
-			}
-
+		if kvvm != nil && len(vmmacs) == 0 {
 			for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
-				if _, ok := vmmacByAddress[iface.MacAddress]; !ok {
-					err = h.macManager.CreateMACAddress(ctx, vm, h.client, iface.MacAddress)
-					if err != nil {
-						return reconcile.Result{}, err
-					}
+				err = h.macManager.CreateMACAddress(ctx, vm, h.client, iface.MacAddress)
+				if err != nil {
+					return reconcile.Result{}, err
 				}
 			}
 		} else {
