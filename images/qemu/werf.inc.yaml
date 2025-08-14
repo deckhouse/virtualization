@@ -152,13 +152,15 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" -}}
+{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" "libxcrypt -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
+  apt-get install aptitude -y
+  aptitude hold libcrypto
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
