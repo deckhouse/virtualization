@@ -28,28 +28,29 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 const ReasonPVCNotFound = "PVC not found"
 
-type VirtualMachineOverrideValidator struct {
-	vm           *virtv2.VirtualMachine
-	client       client.Client
-	vmRestoreUID string
+type VMHandler struct {
+	vm         *virtv2.VirtualMachine
+	client     client.Client
+	restoreUID string
 }
 
-func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client client.Client, vmRestoreUID string) *VirtualMachineOverrideValidator {
+func NewVMHandler(vmTmpl *virtv2.VirtualMachine, client client.Client, vmopRestoreUID string) *VMHandler {
 	if vmTmpl.Annotations != nil {
-		vmTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		vmTmpl.Annotations[annotations.AnnVMRestore] = vmopRestoreUID
 	} else {
 		vmTmpl.Annotations = make(map[string]string)
-		vmTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
+		vmTmpl.Annotations[annotations.AnnVMRestore] = vmopRestoreUID
 	}
 
 	vmTmpl.Spec.RunPolicy = virtv2.AlwaysOffPolicy
 
-	return &VirtualMachineOverrideValidator{
+	return &VMHandler{
 		vm: &virtv2.VirtualMachine{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vmTmpl.Kind,
@@ -63,19 +64,19 @@ func NewVirtualMachineOverrideValidator(vmTmpl *virtv2.VirtualMachine, client cl
 			},
 			Spec: vmTmpl.Spec,
 		},
-		client:       client,
-		vmRestoreUID: vmRestoreUID,
+		client:     client,
+		restoreUID: vmopRestoreUID,
 	}
 }
 
-func (v *VirtualMachineOverrideValidator) Override(rules []virtv2.NameReplacement) {
-	v.vm.Name = overrideName(v.vm.Kind, v.vm.Name, rules)
-	v.vm.Spec.VirtualMachineIPAddress = overrideName(virtv2.VirtualMachineIPAddressKind, v.vm.Spec.VirtualMachineIPAddress, rules)
+func (v *VMHandler) Override(rules []virtv2.NameReplacement) {
+	v.vm.Name = common.OverrideName(v.vm.Kind, v.vm.Name, rules)
+	v.vm.Spec.VirtualMachineIPAddress = common.OverrideName(virtv2.VirtualMachineIPAddressKind, v.vm.Spec.VirtualMachineIPAddress, rules)
 
 	if v.vm.Spec.Provisioning != nil {
 		if v.vm.Spec.Provisioning.UserDataRef != nil {
 			if v.vm.Spec.Provisioning.UserDataRef.Kind == virtv2.UserDataRefKindSecret {
-				v.vm.Spec.Provisioning.UserDataRef.Name = overrideName(
+				v.vm.Spec.Provisioning.UserDataRef.Name = common.OverrideName(
 					string(virtv2.UserDataRefKindSecret),
 					v.vm.Spec.Provisioning.UserDataRef.Name,
 					rules,
@@ -89,11 +90,11 @@ func (v *VirtualMachineOverrideValidator) Override(rules []virtv2.NameReplacemen
 			continue
 		}
 
-		v.vm.Spec.BlockDeviceRefs[i].Name = overrideName(virtv2.VirtualDiskKind, v.vm.Spec.BlockDeviceRefs[i].Name, rules)
+		v.vm.Spec.BlockDeviceRefs[i].Name = common.OverrideName(virtv2.VirtualDiskKind, v.vm.Spec.BlockDeviceRefs[i].Name, rules)
 	}
 }
 
-func (v *VirtualMachineOverrideValidator) Validate(ctx context.Context) error {
+func (v *VMHandler) Validate(ctx context.Context) error {
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
 	existed, err := object.FetchObject(ctx, vmKey, v.client, &virtv2.VirtualMachine{})
 	if err != nil {
@@ -101,17 +102,17 @@ func (v *VirtualMachineOverrideValidator) Validate(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		return fmt.Errorf("the virtual machine %q %w", vmKey.Name, ErrAlreadyExists)
+		return fmt.Errorf("the virtual machine %q %w", vmKey.Name, common.ErrAlreadyExists)
 	}
 
 	return nil
 }
 
-func (v *VirtualMachineOverrideValidator) ValidateWithForce(ctx context.Context) error {
+func (v *VMHandler) ValidateWithForce(ctx context.Context) error {
 	return nil
 }
 
-func (v *VirtualMachineOverrideValidator) ProcessWithForce(ctx context.Context) error {
+func (v *VMHandler) Process(ctx context.Context) error {
 	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
 	vmObj, err := object.FetchObject(ctx, vmKey, v.client, &virtv2.VirtualMachine{})
 	if err != nil {
@@ -124,9 +125,9 @@ func (v *VirtualMachineOverrideValidator) ProcessWithForce(ctx context.Context) 
 			vmHasVMSnapshotSpec      bool
 		)
 
-		if value, ok := vmObj.Annotations[annotations.AnnVMRestore]; !ok || value != v.vmRestoreUID {
+		if value, ok := vmObj.Annotations[annotations.AnnVMRestore]; !ok || value != v.restoreUID {
 			vmHasCorrectVMRestoreUID = false
-			vmObj.SetAnnotations(map[string]string{annotations.AnnVMRestore: v.vmRestoreUID})
+			vmObj.SetAnnotations(map[string]string{annotations.AnnVMRestore: v.restoreUID})
 		}
 		if !equality.Semantic.DeepEqual(vmObj.Spec, v.vm.Spec) {
 			vmHasVMSnapshotSpec = false
@@ -137,7 +138,7 @@ func (v *VirtualMachineOverrideValidator) ProcessWithForce(ctx context.Context) 
 			updErr := v.client.Update(ctx, vmObj)
 			if updErr != nil {
 				if apierrors.IsConflict(updErr) {
-					return fmt.Errorf("waiting for the `VirtualMachine` %w", ErrUpdating)
+					return fmt.Errorf("waiting for the `VirtualMachine` %w", common.ErrUpdating)
 				} else {
 					return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
 				}
@@ -148,6 +149,76 @@ func (v *VirtualMachineOverrideValidator) ProcessWithForce(ctx context.Context) 
 	return nil
 }
 
-func (v *VirtualMachineOverrideValidator) Object() client.Object {
+func (v *VMHandler) ProcessWithForce(ctx context.Context) error {
+	vmKey := types.NamespacedName{Namespace: v.vm.Namespace, Name: v.vm.Name}
+	vm, err := object.FetchObject(ctx, vmKey, v.client, &virtv2.VirtualMachine{})
+	if err != nil {
+		return fmt.Errorf("failed to fetch the `VirtualMachine`: %w", err)
+	}
+
+	err = v.deleteCurrentVirtualMachineBlockDeviceAttachments(ctx, vm.Name, vm.Namespace, v.restoreUID)
+	if err != nil {
+		return err
+	}
+
+	if vm != nil {
+		var (
+			vmHasCorrectVMRestoreUID bool
+			vmHasVMSnapshotSpec      bool
+		)
+
+		if value, ok := vm.Annotations[annotations.AnnVMRestore]; !ok || value != v.restoreUID {
+			vmHasCorrectVMRestoreUID = false
+			vm.SetAnnotations(map[string]string{annotations.AnnVMRestore: v.restoreUID})
+		}
+		if !equality.Semantic.DeepEqual(vm.Spec, v.vm.Spec) {
+			vmHasVMSnapshotSpec = false
+			vm.Spec = v.vm.Spec
+		}
+
+		if !vmHasCorrectVMRestoreUID || !vmHasVMSnapshotSpec {
+			updErr := v.client.Update(ctx, vm)
+			if updErr != nil {
+				if apierrors.IsConflict(updErr) {
+					return fmt.Errorf("waiting for the `VirtualMachine` %w", common.ErrUpdating)
+				} else {
+					return fmt.Errorf("failed to update the `VirtualMachine`: %w", updErr)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (v *VMHandler) Object() client.Object {
 	return v.vm
+}
+
+func (v *VMHandler) deleteCurrentVirtualMachineBlockDeviceAttachments(ctx context.Context, vmName, vmNamespace, vmRestoreUID string) error {
+	vmbdas := &virtv2.VirtualMachineBlockDeviceAttachmentList{}
+	err := v.client.List(ctx, vmbdas, &client.ListOptions{Namespace: vmNamespace})
+	if err != nil {
+		return fmt.Errorf("failed to list the `VirtualMachineBlockDeviceAttachment`: %w", err)
+	}
+
+	vmbdasByVM := make([]*virtv2.VirtualMachineBlockDeviceAttachment, 0, len(vmbdas.Items))
+	for _, vmbda := range vmbdas.Items {
+		if vmbda.Spec.VirtualMachineName != vmName {
+			continue
+		}
+		if value, ok := vmbda.Annotations[annotations.AnnVMRestore]; ok && value == vmRestoreUID {
+			continue
+		}
+		vmbdasByVM = append(vmbdasByVM, &vmbda)
+	}
+
+	for _, vmbda := range vmbdasByVM {
+		err := object.DeleteObject(ctx, v.client, client.Object(vmbda))
+		if err != nil {
+			return fmt.Errorf("failed to delete the `VirtualMachineBlockDeviceAttachment` %s: %w", vmbda.Name, err)
+		}
+	}
+
+	return nil
 }

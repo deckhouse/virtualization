@@ -26,23 +26,24 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type VirtualMachineBlockDeviceAttachmentsOverrideValidator struct {
+type VMBDAHandler struct {
 	vmbda        *virtv2.VirtualMachineBlockDeviceAttachment
 	client       client.Client
 	vmRestoreUID string
 }
 
-func NewVirtualMachineBlockDeviceAttachmentsOverrideValidator(vmbdaTmpl *virtv2.VirtualMachineBlockDeviceAttachment, client client.Client, vmRestoreUID string) *VirtualMachineBlockDeviceAttachmentsOverrideValidator {
+func NewVMBDAHandler(vmbdaTmpl *virtv2.VirtualMachineBlockDeviceAttachment, client client.Client, vmRestoreUID string) *VMBDAHandler {
 	if vmbdaTmpl.Annotations != nil {
 		vmbdaTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
 		vmbdaTmpl.Annotations = make(map[string]string)
 		vmbdaTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
-	return &VirtualMachineBlockDeviceAttachmentsOverrideValidator{
+	return &VMBDAHandler{
 		vmbda: &virtv2.VirtualMachineBlockDeviceAttachment{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vmbdaTmpl.Kind,
@@ -61,21 +62,21 @@ func NewVirtualMachineBlockDeviceAttachmentsOverrideValidator(vmbdaTmpl *virtv2.
 	}
 }
 
-func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) Override(rules []virtv2.NameReplacement) {
-	v.vmbda.Name = overrideName(v.vmbda.Kind, v.vmbda.Name, rules)
-	v.vmbda.Spec.VirtualMachineName = overrideName(virtv2.VirtualMachineKind, v.vmbda.Spec.VirtualMachineName, rules)
+func (v *VMBDAHandler) Override(rules []virtv2.NameReplacement) {
+	v.vmbda.Name = common.OverrideName(v.vmbda.Kind, v.vmbda.Name, rules)
+	v.vmbda.Spec.VirtualMachineName = common.OverrideName(virtv2.VirtualMachineKind, v.vmbda.Spec.VirtualMachineName, rules)
 
 	switch v.vmbda.Spec.BlockDeviceRef.Kind {
 	case virtv2.VMBDAObjectRefKindVirtualDisk:
-		v.vmbda.Spec.BlockDeviceRef.Name = overrideName(virtv2.VirtualDiskKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
+		v.vmbda.Spec.BlockDeviceRef.Name = common.OverrideName(virtv2.VirtualDiskKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
 	case virtv2.VMBDAObjectRefKindClusterVirtualImage:
-		v.vmbda.Spec.BlockDeviceRef.Name = overrideName(virtv2.ClusterVirtualImageKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
+		v.vmbda.Spec.BlockDeviceRef.Name = common.OverrideName(virtv2.ClusterVirtualImageKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
 	case virtv2.VMBDAObjectRefKindVirtualImage:
-		v.vmbda.Spec.BlockDeviceRef.Name = overrideName(virtv2.VirtualImageKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
+		v.vmbda.Spec.BlockDeviceRef.Name = common.OverrideName(virtv2.VirtualImageKind, v.vmbda.Spec.BlockDeviceRef.Name, rules)
 	}
 }
 
-func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) Validate(ctx context.Context) error {
+func (v *VMBDAHandler) Validate(ctx context.Context) error {
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
 	existed, err := object.FetchObject(ctx, vmbdaKey, v.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
 	if err != nil {
@@ -83,17 +84,21 @@ func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) Validate(ctx con
 	}
 
 	if existed != nil {
-		return fmt.Errorf("the virtual machine block device attachment %q %w", vmbdaKey.Name, ErrAlreadyExists)
+		return fmt.Errorf("the virtual machine block device attachment %q %w", vmbdaKey.Name, common.ErrAlreadyExists)
 	}
 
 	return nil
 }
 
-func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) ValidateWithForce(ctx context.Context) error {
+func (v *VMBDAHandler) ValidateWithForce(ctx context.Context) error {
 	return nil
 }
 
-func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) ProcessWithForce(ctx context.Context) error {
+func (v *VMBDAHandler) Process(ctx context.Context) error {
+	return nil
+}
+
+func (v *VMBDAHandler) ProcessWithForce(ctx context.Context) error {
 	vmbdaKey := types.NamespacedName{Namespace: v.vmbda.Namespace, Name: v.vmbda.Name}
 	vmbdaObj, err := object.FetchObject(ctx, vmbdaKey, v.client, &virtv2.VirtualMachineBlockDeviceAttachment{})
 	if err != nil {
@@ -101,7 +106,7 @@ func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) ProcessWithForce
 	}
 
 	if object.IsTerminating(vmbdaObj) {
-		return fmt.Errorf("waiting for the `VirtualMachineBlockDeviceAttachment` %s %w", vmbdaObj.Name, ErrRestoring)
+		return fmt.Errorf("waiting for the `VirtualMachineBlockDeviceAttachment` %s %w", vmbdaObj.Name, common.ErrRestoring)
 	}
 
 	if vmbdaObj != nil {
@@ -112,12 +117,12 @@ func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) ProcessWithForce
 		if err != nil {
 			return fmt.Errorf("failed to delete the `VirtualMachineBlockDeviceAttachment`: %w", err)
 		}
-		return fmt.Errorf("waiting for the `VirtualMachineBlockDeviceAttachment` %s %w", vmbdaObj.Name, ErrRestoring)
+		return fmt.Errorf("waiting for the `VirtualMachineBlockDeviceAttachment` %s %w", vmbdaObj.Name, common.ErrRestoring)
 	}
 
 	return nil
 }
 
-func (v *VirtualMachineBlockDeviceAttachmentsOverrideValidator) Object() client.Object {
+func (v *VMBDAHandler) Object() client.Object {
 	return v.vmbda
 }

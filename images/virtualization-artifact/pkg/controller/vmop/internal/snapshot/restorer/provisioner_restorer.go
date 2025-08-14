@@ -29,23 +29,24 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type ProvisionerOverrideValidator struct {
+type ProvisionerHandler struct {
 	secret       *corev1.Secret
 	client       client.Client
 	vmRestoreUID string
 }
 
-func NewProvisionerOverrideValidator(secretTmpl *corev1.Secret, client client.Client, vmRestoreUID string) *ProvisionerOverrideValidator {
+func NewProvisionerHandler(secretTmpl *corev1.Secret, client client.Client, vmRestoreUID string) *ProvisionerHandler {
 	if secretTmpl.Annotations != nil {
 		secretTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
 		secretTmpl.Annotations = make(map[string]string)
 		secretTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
-	return &ProvisionerOverrideValidator{
+	return &ProvisionerHandler{
 		secret: &corev1.Secret{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       secretTmpl.Kind,
@@ -67,11 +68,11 @@ func NewProvisionerOverrideValidator(secretTmpl *corev1.Secret, client client.Cl
 	}
 }
 
-func (v *ProvisionerOverrideValidator) Override(rules []virtv2.NameReplacement) {
-	v.secret.Name = overrideName(v.secret.Kind, v.secret.Name, rules)
+func (v *ProvisionerHandler) Override(rules []virtv2.NameReplacement) {
+	v.secret.Name = common.OverrideName(v.secret.Kind, v.secret.Name, rules)
 }
 
-func (v *ProvisionerOverrideValidator) Validate(ctx context.Context) error {
+func (v *ProvisionerHandler) Validate(ctx context.Context) error {
 	secretKey := types.NamespacedName{Namespace: v.secret.Namespace, Name: v.secret.Name}
 	existed, err := object.FetchObject(ctx, secretKey, v.client, &corev1.Secret{})
 	if err != nil {
@@ -83,20 +84,24 @@ func (v *ProvisionerOverrideValidator) Validate(ctx context.Context) error {
 	}
 
 	if !maps.EqualFunc(existed.Data, v.secret.Data, bytes.Equal) {
-		return fmt.Errorf("the provisioner secret %q %w", secretKey.Name, ErrAlreadyExistsAndHasDiff)
+		return fmt.Errorf("the provisioner secret %q %w", secretKey.Name, common.ErrAlreadyExistsAndHasDiff)
 	}
 
 	return nil
 }
 
-func (v *ProvisionerOverrideValidator) ValidateWithForce(ctx context.Context) error {
+func (v *ProvisionerHandler) ValidateWithForce(ctx context.Context) error {
 	return v.Validate(ctx)
 }
 
-func (v *ProvisionerOverrideValidator) ProcessWithForce(ctx context.Context) error {
+func (v *ProvisionerHandler) Process(ctx context.Context) error {
 	return nil
 }
 
-func (v *ProvisionerOverrideValidator) Object() client.Object {
+func (v *ProvisionerHandler) ProcessWithForce(ctx context.Context) error {
+	return nil
+}
+
+func (v *ProvisionerHandler) Object() client.Object {
 	return v.secret
 }

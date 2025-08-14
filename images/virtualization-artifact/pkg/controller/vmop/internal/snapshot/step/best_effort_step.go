@@ -18,8 +18,8 @@ package step
 
 import (
 	"context"
-	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,25 +28,27 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/resources"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
-	vmrestorecondition "github.com/deckhouse/virtualization/api/core/v1alpha2/vm-restore-condition"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
-type VMSnapshotReadyStep struct {
+type BestEffortRestoreStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
+	restorer Restorer
 	cb       *conditions.ConditionBuilder
 	vmop     *virtv2.VirtualMachineOperation
 }
 
-func NewVMSnapshotReadyStep(
+func NewBestEffortRestoreStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 	vmop *virtv2.VirtualMachineOperation,
-) *VMSnapshotReadyStep {
-	return &VMSnapshotReadyStep{
+) *BestEffortRestoreStep {
+	return &BestEffortRestoreStep{
 		client:   client,
 		recorder: recorder,
 		cb:       cb,
@@ -54,29 +56,43 @@ func NewVMSnapshotReadyStep(
 	}
 }
 
-func (s VMSnapshotReadyStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
-	if s.vmop.Spec.Restore.VirtualMachineSnapshotName == "" {
-		err := fmt.Errorf("the virtual machine snapshot name is empty")
-		common.SetPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
-		return &reconcile.Result{}, err
+func (s BestEffortRestoreStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCanRun)
+
+	if conditions.HasCondition(cb.GetType(), s.vmop.Status.Conditions) && cb.Condition().Status == metav1.ConditionTrue {
+		return nil, nil
 	}
 
 	vmSnapshotKey := types.NamespacedName{Namespace: s.vmop.Namespace, Name: s.vmop.Spec.Restore.VirtualMachineSnapshotName}
 	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &virtv2.VirtualMachineSnapshot{})
 	if err != nil {
-		common.SetPhaseConditionToFailed(s.cb, &s.vmop.Status.Phase, err)
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
-	vmSnapshotReadyToUseCondition, _ := conditions.GetCondition(vmrestorecondition.VirtualMachineSnapshotReadyToUseType, vmSnapshot.Status.Conditions)
-	if vmSnapshotReadyToUseCondition.Status != metav1.ConditionTrue {
-		s.vmop.Status.Phase = virtv2.VMOPPhasePending
-		s.cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmrestorecondition.VirtualMachineSnapshotNotReadyToUse).
-			Message(fmt.Sprintf("Waiting for the virtual machine snapshot %q to be ready to use.", s.vmop.Spec.Restore.VirtualMachineSnapshotName))
-		return &reconcile.Result{}, nil
+	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
+	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
+	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
 	}
 
-	return nil, nil
+	snapshotResources := resources.NewSnapshotResources(s.client, s.restorer, restorerSecret, vmSnapshot, string(s.vmop.UID))
+
+	err = snapshotResources.GetResourcesForRestore(ctx)
+	if err != nil {
+		return &reconcile.Result{}, err
+	}
+
+	err = snapshotResources.Validate(ctx)
+	if err != nil {
+		return &reconcile.Result{}, err
+	}
+
+	err = snapshotResources.Process(ctx)
+	if err != nil {
+		return &reconcile.Result{}, err
+	}
+
+	return &reconcile.Result{}, nil
 }

@@ -27,20 +27,21 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type StartVMStep struct {
+type StrictRestoreStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
+	restorer Restorer
 	cb       *conditions.ConditionBuilder
 	vmop     *virtv2.VirtualMachineOperation
 }
 
-func NewStartVMStep(
+func NewStrictRestoreStep(
 	client client.Client,
 	recorder eventrecord.EventRecorderLogger,
 	cb *conditions.ConditionBuilder,
 	vmop *virtv2.VirtualMachineOperation,
-) *StartVMStep {
-	return &StartVMStep{
+) *StrictRestoreStep {
+	return &StrictRestoreStep{
 		client:   client,
 		recorder: recorder,
 		cb:       cb,
@@ -48,23 +49,6 @@ func NewStartVMStep(
 	}
 }
 
-func (s StartVMStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
-	// if s.vmop.Status.Phase == virtv2.VMOPPhaseInProgress {
-	// 	err := startVirtualMachine(ctx, s.client, s.vmop)
-	// 	if err != nil {
-	// 		s.recorder.Event(
-	// 			s.vmop,
-	// 			corev1.EventTypeWarning,
-	// 			virtv2.ReasonVMStartFailed,
-	// 			err.Error(),
-	// 		)
-	// 	}
-	//
-	// 	s.vmop.Status.Phase = virtv2.VMOPPhaseCompleted
-	// 	s.cb.Status(metav1.ConditionTrue).Reason(vmrestorecondition.VirtualMachineRestoreReady)
-	//
-	// 	return &reconcile.Result{}, nil
-	// }
-
+func (s StrictRestoreStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
 	return &reconcile.Result{}, nil
 }

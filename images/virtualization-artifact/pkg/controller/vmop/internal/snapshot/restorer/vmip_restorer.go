@@ -28,23 +28,24 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/indexer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type VirtualMachineIPAddressOverrideValidator struct {
+type VMIPHandler struct {
 	vmip         *virtv2.VirtualMachineIPAddress
 	client       client.Client
 	vmRestoreUID string
 }
 
-func NewVirtualMachineIPAddressOverrideValidator(vmipTmpl *virtv2.VirtualMachineIPAddress, client client.Client, vmRestoreUID string) *VirtualMachineIPAddressOverrideValidator {
+func NewVirtualMachineIPAddressOverrideValidator(vmipTmpl *virtv2.VirtualMachineIPAddress, client client.Client, vmRestoreUID string) *VMIPHandler {
 	if vmipTmpl.Annotations != nil {
 		vmipTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
 		vmipTmpl.Annotations = make(map[string]string)
 		vmipTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
-	return &VirtualMachineIPAddressOverrideValidator{
+	return &VMIPHandler{
 		vmip: &virtv2.VirtualMachineIPAddress{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vmipTmpl.Kind,
@@ -64,11 +65,11 @@ func NewVirtualMachineIPAddressOverrideValidator(vmipTmpl *virtv2.VirtualMachine
 	}
 }
 
-func (v *VirtualMachineIPAddressOverrideValidator) Override(rules []virtv2.NameReplacement) {
-	v.vmip.Name = overrideName(v.vmip.Kind, v.vmip.Name, rules)
+func (v *VMIPHandler) Override(rules []virtv2.NameReplacement) {
+	v.vmip.Name = common.OverrideName(v.vmip.Kind, v.vmip.Name, rules)
 }
 
-func (v *VirtualMachineIPAddressOverrideValidator) Validate(ctx context.Context) error {
+func (v *VMIPHandler) Validate(ctx context.Context) error {
 	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
 	existed, err := object.FetchObject(ctx, vmipKey, v.client, &virtv2.VirtualMachineIPAddress{})
 	if err != nil {
@@ -92,7 +93,7 @@ func (v *VirtualMachineIPAddressOverrideValidator) Validate(ctx context.Context)
 		if len(vmips.Items) > 0 {
 			return fmt.Errorf(
 				"the set address %q is %w by the different virtual machine ip address %q and cannot be used for the restored virtual machine",
-				v.vmip.Spec.StaticIP, ErrAlreadyInUse, vmips.Items[0].Name,
+				v.vmip.Spec.StaticIP, common.ErrAlreadyInUse, vmips.Items[0].Name,
 			)
 		}
 
@@ -100,13 +101,13 @@ func (v *VirtualMachineIPAddressOverrideValidator) Validate(ctx context.Context)
 	}
 
 	if existed.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached || existed.Status.VirtualMachine != "" {
-		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, ErrAlreadyInUse)
+		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, common.ErrAlreadyInUse)
 	}
 
 	return nil
 }
 
-func (v *VirtualMachineIPAddressOverrideValidator) ValidateWithForce(ctx context.Context) error {
+func (v *VMIPHandler) ValidateWithForce(ctx context.Context) error {
 	vmipKey := types.NamespacedName{Namespace: v.vmip.Namespace, Name: v.vmip.Name}
 	existed, err := object.FetchObject(ctx, vmipKey, v.client, &virtv2.VirtualMachineIPAddress{})
 	if err != nil {
@@ -132,7 +133,7 @@ func (v *VirtualMachineIPAddressOverrideValidator) ValidateWithForce(ctx context
 		if len(vmips.Items) > 0 {
 			return fmt.Errorf(
 				"the set address %q is %w by the different virtual machine ip address %q and cannot be used for the restored virtual machine",
-				v.vmip.Spec.StaticIP, ErrAlreadyInUse, vmips.Items[0].Name,
+				v.vmip.Spec.StaticIP, common.ErrAlreadyInUse, vmips.Items[0].Name,
 			)
 		}
 
@@ -140,21 +141,25 @@ func (v *VirtualMachineIPAddressOverrideValidator) ValidateWithForce(ctx context
 	}
 
 	if existed.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached && existed.Status.VirtualMachine == vmName {
-		return ErrAlreadyExists
+		return common.ErrAlreadyExists
 	}
 
 	if existed.Status.Phase == virtv2.VirtualMachineIPAddressPhaseAttached || existed.Status.VirtualMachine != "" {
-		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, ErrAlreadyInUse)
+		return fmt.Errorf("the virtual machine ip address %q is %w and cannot be used for the restored virtual machine", vmipKey.Name, common.ErrAlreadyInUse)
 	}
 
 	return nil
 }
 
-func (v *VirtualMachineIPAddressOverrideValidator) ProcessWithForce(ctx context.Context) error {
+func (v *VMIPHandler) Process(ctx context.Context) error {
 	return nil
 }
 
-func (v *VirtualMachineIPAddressOverrideValidator) Object() client.Object {
+func (v *VMIPHandler) ProcessWithForce(ctx context.Context) error {
+	return nil
+}
+
+func (v *VMIPHandler) Object() client.Object {
 	return &virtv2.VirtualMachineIPAddress{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v.vmip.Kind,

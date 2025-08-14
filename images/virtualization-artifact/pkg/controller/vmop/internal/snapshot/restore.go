@@ -50,9 +50,10 @@ func (r VMSnapshotRestore) Sync(ctx context.Context, vm *virtv2.VirtualMachine) 
 
 	return steptaker.NewStepTakers(
 		step.NewVMSnapshotReadyStep(r.client, r.recorder, cb, r.vmop),
-		step.NewDryRunStep(r.recorder, cb, vm),
+		step.NewDryRunStep(r.client, r.recorder, cb, r.vmop),
 		step.NewStopVMStep(r.client, r.recorder, cb, r.vmop),
-		step.NewRestoreVMStep(r.client, r.recorder, cb, r.vmop),
+		step.NewBestEffortRestoreStep(r.client, r.recorder, cb, r.vmop),
+		step.NewStrictRestoreStep(r.client, r.recorder, cb, r.vmop),
 		step.NewStartVMStep(r.client, r.recorder, cb, r.vmop),
 	).Run(ctx, vm)
 }

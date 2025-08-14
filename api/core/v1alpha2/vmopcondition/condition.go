@@ -28,6 +28,9 @@ const (
 
 	// TypeSignalSent is a type for condition that indicates operation signal has been sent.
 	TypeSignalSent Type = "SignalSent"
+
+	// TypeRestoreCanRun is a type for condition that indicates success of dry run.
+	TypeRestoreCanRun Type = "CanRun"
 )
 
 // ReasonCompleted represents specific reasons for the 'Completed' condition type.

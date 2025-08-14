@@ -26,23 +26,24 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
-type VirtualDiskOverrideValidator struct {
+type VDHandler struct {
 	vd           *virtv2.VirtualDisk
 	client       client.Client
 	vmRestoreUID string
 }
 
-func NewVirtualDiskOverrideValidator(vdTmpl *virtv2.VirtualDisk, client client.Client, vmRestoreUID string) *VirtualDiskOverrideValidator {
+func NewVDHandler(vdTmpl *virtv2.VirtualDisk, client client.Client, vmRestoreUID string) *VDHandler {
 	if vdTmpl.Annotations != nil {
 		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	} else {
 		vdTmpl.Annotations = make(map[string]string)
 		vdTmpl.Annotations[annotations.AnnVMRestore] = vmRestoreUID
 	}
-	return &VirtualDiskOverrideValidator{
+	return &VDHandler{
 		vd: &virtv2.VirtualDisk{
 			TypeMeta: metav1.TypeMeta{
 				Kind:       vdTmpl.Kind,
@@ -62,11 +63,11 @@ func NewVirtualDiskOverrideValidator(vdTmpl *virtv2.VirtualDisk, client client.C
 	}
 }
 
-func (v *VirtualDiskOverrideValidator) Override(rules []virtv2.NameReplacement) {
-	v.vd.Name = overrideName(v.vd.Kind, v.vd.Name, rules)
+func (v *VDHandler) Override(rules []virtv2.NameReplacement) {
+	v.vd.Name = common.OverrideName(v.vd.Kind, v.vd.Name, rules)
 }
 
-func (v *VirtualDiskOverrideValidator) Validate(ctx context.Context) error {
+func (v *VDHandler) Validate(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
 	existed, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
 	if err != nil {
@@ -74,13 +75,13 @@ func (v *VirtualDiskOverrideValidator) Validate(ctx context.Context) error {
 	}
 
 	if existed != nil {
-		return fmt.Errorf("the virtual disk %q %w", vdKey.Name, ErrAlreadyExists)
+		return fmt.Errorf("the virtual disk %q %w", vdKey.Name, common.ErrAlreadyExists)
 	}
 
 	return nil
 }
 
-func (v *VirtualDiskOverrideValidator) ValidateWithForce(ctx context.Context) error {
+func (v *VDHandler) ValidateWithForce(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
 	existed, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
 	if err != nil {
@@ -92,7 +93,7 @@ func (v *VirtualDiskOverrideValidator) ValidateWithForce(ctx context.Context) er
 	if existed != nil {
 		for _, a := range existed.Status.AttachedToVirtualMachines {
 			if a.Mounted && a.Name != vmName {
-				return fmt.Errorf("the virtual disk %q %w", existed.Name, ErrAlreadyInUse)
+				return fmt.Errorf("the virtual disk %q %w", existed.Name, common.ErrAlreadyInUse)
 			}
 		}
 	}
@@ -100,7 +101,11 @@ func (v *VirtualDiskOverrideValidator) ValidateWithForce(ctx context.Context) er
 	return nil
 }
 
-func (v *VirtualDiskOverrideValidator) ProcessWithForce(ctx context.Context) error {
+func (v *VDHandler) Process(ctx context.Context) error {
+	return nil
+}
+
+func (v *VDHandler) ProcessWithForce(ctx context.Context) error {
 	vdKey := types.NamespacedName{Namespace: v.vd.Namespace, Name: v.vd.Name}
 	vdObj, err := object.FetchObject(ctx, vdKey, v.client, &virtv2.VirtualDisk{})
 	if err != nil {
@@ -108,7 +113,7 @@ func (v *VirtualDiskOverrideValidator) ProcessWithForce(ctx context.Context) err
 	}
 
 	if object.IsTerminating(vdObj) {
-		return fmt.Errorf("waiting for the `VirtualDisk` %s %w", vdObj.Name, ErrRestoring)
+		return fmt.Errorf("waiting for the `VirtualDisk` %s %w", vdObj.Name, common.ErrRestoring)
 	}
 
 	if vdObj != nil {
@@ -119,13 +124,13 @@ func (v *VirtualDiskOverrideValidator) ProcessWithForce(ctx context.Context) err
 		if err != nil {
 			return fmt.Errorf("failed to delete the `VirtualDisk`: %w", err)
 		}
-		return fmt.Errorf("waiting for the `VirtualDisk` %s %w", vdObj.Name, ErrRestoring)
+		return fmt.Errorf("waiting for the `VirtualDisk` %s %w", vdObj.Name, common.ErrRestoring)
 	}
 
 	return nil
 }
 
-func (v *VirtualDiskOverrideValidator) Object() client.Object {
+func (v *VDHandler) Object() client.Object {
 	return &virtv2.VirtualDisk{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       v.vd.Kind,
@@ -141,7 +146,7 @@ func (v *VirtualDiskOverrideValidator) Object() client.Object {
 	}
 }
 
-func (v *VirtualDiskOverrideValidator) getVirtualMachineName() string {
+func (v *VDHandler) getVirtualMachineName() string {
 	for _, a := range v.vd.Status.AttachedToVirtualMachines {
 		if a.Mounted {
 			return a.Name
