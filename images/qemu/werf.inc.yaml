@@ -161,7 +161,7 @@ shell:
   beforeInstall:
   - |
     apt-get install aptitude -y
-    aptitude hold libcrypt
+    aptitude hold libcrypt libcrypt-devel
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
