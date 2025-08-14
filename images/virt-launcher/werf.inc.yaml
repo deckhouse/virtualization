@@ -413,6 +413,9 @@ git:
     stageDependencies:
       install:
       - '**/*'
+import:
+{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: GOPROXY
   value: {{ .GOPROXY }}
@@ -423,6 +426,13 @@ shell:
     echo "install deps libvirt-dev"
     apt-get install -y libvirt-dev
   {{- include "debian packages clean" . | nindent 2 }}
+  - |
+    # Install packages
+    PKGS="{{ $images | join " " }}"
+    for pkg in $PKGS; do
+      cp -a /$pkg/. /
+      rm -rf /$pkg
+    done
   - mkdir -p /binaries
   - export GOPROXY=$(cat /run/secrets/GOPROXY)
   - |
