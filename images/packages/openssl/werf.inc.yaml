@@ -33,6 +33,7 @@ packages:
 - autoconf automake libtool makeinfo
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - autoconf libtool makeinfo gettext-devel po4a
+- zlib-devel
 - tree
 {{- end -}}
 
