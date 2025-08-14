@@ -137,7 +137,7 @@ func (h *MigratingHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv
 	{
 		var inProgressVmops []*virtv2.VirtualMachineOperation
 		for _, op := range vmops {
-			if commonvmop.IsMigration(op) && op.Status.Phase == virtv2.VMOPPhaseInProgress {
+			if commonvmop.IsMigration(op) && isOperationInProgress(op) {
 				inProgressVmops = append(inProgressVmops, op)
 			}
 		}
@@ -148,15 +148,6 @@ func (h *MigratingHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv
 			vmop = inProgressVmops[0]
 		default:
 			log.Error("Found vmops in progress phase. This is unexpected. Please report a bug.", slog.Int("VMOPCount", length))
-		}
-	}
-
-	if vmop == nil {
-		for _, op := range vmops {
-			if commonvmop.IsMigration(op) && op.Status.Phase == virtv2.VMOPPhasePending {
-				vmop = op
-				break
-			}
 		}
 	}
 
@@ -215,4 +206,10 @@ func liveMigrationInProgress(migrationState *virtv2.VirtualMachineMigrationState
 
 func liveMigrationFailed(migrationState *virtv2.VirtualMachineMigrationState) bool {
 	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == virtv2.MigrationResultFailed
+}
+
+func isOperationInProgress(vmop *virtv2.VirtualMachineOperation) bool {
+	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
+	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
+	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue
 }
