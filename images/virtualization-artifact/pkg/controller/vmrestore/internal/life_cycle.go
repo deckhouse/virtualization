@@ -159,19 +159,27 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
 		return reconcile.Result{}, err
 	}
-
+	println("dlopatin len=", len(vmmacs))
+	for _, ns := range vm.Spec.Networks {
+		println("dlopatin c1", ns.Type, ns.Name, ns.VirtualMachineMACAddressName)
+	}
 	if len(vmmacs) > 0 {
 		for _, vmmac := range vmmacs {
 			overrideValidators = append(overrideValidators, restorer.NewVirtualMachineMACAddressOverrideValidator(vmmac, h.client, string(vmRestore.UID)))
 		}
 
-		for i, ns := range vm.Spec.Networks {
+		for i := range vm.Spec.Networks {
+			ns := &vm.Spec.Networks[i]
 			if ns.Type == virtv2.NetworksTypeMain {
 				continue
 			}
 
 			ns.VirtualMachineMACAddressName = vmmacs[i-1].Name
 		}
+	}
+
+	for _, ns := range vm.Spec.Networks {
+		println("dlopatin c2", ns.Type, ns.Name, ns.VirtualMachineMACAddressName)
 	}
 
 	overrideValidators = append(overrideValidators, restorer.NewVirtualMachineOverrideValidator(vm, h.client, string(vmRestore.UID)))
