@@ -376,14 +376,6 @@ func (h *SyncPowerStateHandler) checkNeedStartVM(
 	isConfigurationApplied bool,
 	runPolicy virtv2.RunPolicy,
 ) bool {
-	vm := s.VirtualMachine().Changed()
-	if vm != nil {
-		maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Status.Conditions)
-		if maintenance.Status == metav1.ConditionTrue {
-			return false
-		}
-	}
-
 	if isConfigurationApplied &&
 		(kvvm.Annotations[annotations.AnnVMStartRequested] == "true" || kvvm.Annotations[annotations.AnnVMRestartRequested] == "true") {
 		h.recordStartEventf(ctx, s.VirtualMachine().Current(), "Start initiated by controller for %v policy", runPolicy)
