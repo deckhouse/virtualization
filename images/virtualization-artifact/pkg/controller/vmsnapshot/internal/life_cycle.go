@@ -678,6 +678,10 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 
 	if len(vm.Spec.Networks) > 1 {
 		for _, ns := range vm.Status.Networks {
+			if ns.Type == virtv2.NetworksTypeMain {
+				continue
+			}
+
 			vmmac, err := object.FetchObject(ctx, types.NamespacedName{
 				Namespace: vm.Namespace,
 				Name:      ns.VirtualMachineMACAddressName,
