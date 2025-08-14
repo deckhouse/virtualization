@@ -65,7 +65,6 @@ shell:
       --prefix=/usr \
       --libdir=lib64 \
       --openssldir=/var/lib/ssl \
-      --system-ciphers-file=/etc/openssl/cipher-list.conf \
       enable-egd \
       enable-md2 \
       enable-rfc3779 \
