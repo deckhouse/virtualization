@@ -103,26 +103,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	s := state.New(r.client, vm)
-
-	current := s.VirtualMachine().Current()
 	changed := s.VirtualMachine().Changed()
-
-	// DELETE ME
-	if current.Annotations[annotations.AnnVMMaintenance] == "true" {
-		cb := conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
-			Generation(current.GetGeneration()).
-			Status(metav1.ConditionTrue).
-			Reason(vmcondition.ReasonMaintenanceRestore).
-			Message("VM is in maintenance mode")
-		conditions.SetCondition(cb, &changed.Status.Conditions)
-	} else if current.Annotations[annotations.AnnVMMaintenance] == "false" {
-		cb := conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
-			Generation(current.GetGeneration()).
-			Status(metav1.ConditionFalse).
-			Reason(vmcondition.ReasonMaintenanceRestore).
-			Message("VM maintenance mode disabled")
-		conditions.SetCondition(cb, &changed.Status.Conditions)
-	}
 
 	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, changed.Status.Conditions)
 	if maintenance.Status == metav1.ConditionFalse {
@@ -137,7 +118,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 
 		if kvvmi == nil {
-			log.Info("VM is stopped, cleaning up resources for maintenance mode")
+			log.Info("VM is stopped, cleaning up resources if any for maintenance mode")
 
 			kvvm, err := s.KVVM(ctx)
 			if err != nil {
