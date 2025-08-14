@@ -29,6 +29,7 @@ package:
   libcapstone: 4.0.2
   libfuse3: fuse-3.16.2
   libgcrypt: libgcrypt-1.10.2
+  libxcrypt: v4.4.36
   libtpms: v0.10.0
   libgpg-error: libgpg-error-1.55
   libibverbs: 1.0.0
