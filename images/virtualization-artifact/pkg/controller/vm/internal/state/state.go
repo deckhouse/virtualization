@@ -363,7 +363,9 @@ func (s *state) VirtualMachineMACAddresses(ctx context.Context) ([]*virtv2.Virtu
 			if err != nil {
 				return nil, fmt.Errorf("failed to fetch VirtualMachineMACAddress: %w", err)
 			}
-			vmmacs = append(vmmacs, vmmac)
+			if vmmac != nil {
+				vmmacs = append(vmmacs, vmmac)
+			}
 		}
 		s.vmmacs = vmmacs
 	}
