@@ -22,7 +22,6 @@ import (
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -30,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/powerstate"
@@ -104,7 +104,31 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 
 	s := state.New(r.client, vm)
-	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, vm.Changed().Status.Conditions)
+
+	current := s.VirtualMachine().Current()
+	changed := s.VirtualMachine().Changed()
+
+	// DELETE ME
+	if current.Annotations[annotations.AnnVMMaintenance] == "true" {
+		cb := conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+			Generation(current.GetGeneration()).
+			Status(metav1.ConditionTrue).
+			Reason(vmcondition.ReasonMaintenanceRestore).
+			Message("VM is in maintenance mode")
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+	} else if current.Annotations[annotations.AnnVMMaintenance] == "false" {
+		cb := conditions.NewConditionBuilder(vmcondition.TypeMaintenance).
+			Generation(current.GetGeneration()).
+			Status(metav1.ConditionFalse).
+			Reason(vmcondition.ReasonMaintenanceRestore).
+			Message("VM maintenance mode disabled")
+		conditions.SetCondition(cb, &changed.Status.Conditions)
+	}
+
+	maintenance, _ := conditions.GetCondition(vmcondition.TypeMaintenance, changed.Status.Conditions)
+	if maintenance.Status == metav1.ConditionFalse {
+		conditions.RemoveCondition(vmcondition.TypeMaintenance, &changed.Status.Conditions)
+	}
 	if maintenance.Status == metav1.ConditionTrue {
 		log.Info("Reconcile observe an VirtualMachine in maintenance mode")
 
@@ -113,7 +137,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			return reconcile.Result{}, fmt.Errorf("get KVVMI: %w", err)
 		}
 
-		if kvvmi != nil && kvvmi.Status.Phase != v1.Failed && kvvmi.Status.Phase != v1.Succeeded {
+		if kvvmi != nil && !kvvmi.IsFinal() {
 			log.Info("Stopping VM for maintenance mode")
 
 			force := new(bool)
