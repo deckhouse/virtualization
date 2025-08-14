@@ -1,4 +1,4 @@
-
+---
 {{- $version := get $.PackageVersion $.ImageName }}
 {{- $gitRepoUrl := "libidn/libidn.git" }}
 
@@ -7,15 +7,12 @@
 packages:
 - gcc git make makeinfo automake libtool patch gperf help2man gengetopt
 - python3 python3-module-docutils gtk-doc
-- gnulib gnulib-modules-bootstrap
+- gettext texinfo indent glibc-gconv-modules libabigail-devel libunistring-devel
+- cvs
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
 
-{{/* Temporarily exclude images from build (the build is broken). TODO remove 'if' when build was fixed. */}}
-{{- $build := "false" }}
-{{- if eq $build "true" }}
----
 image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ $.ImageName }}
 final: false
 fromImage: builder/scratch
@@ -37,7 +34,8 @@ shell:
   - |
     mkdir -p ~/.ssh && echo "StrictHostKeyChecking accept-new" > ~/.ssh/config
     git clone --depth=1 $(cat /run/secrets/SOURCE_REPO)/{{ $gitRepoUrl }} --branch {{ $version }} /src
-    git clone $(cat /run/secrets/SOURCE_REPO)/gnulib.git /gnulib
+
+    git clone $(cat /run/secrets/SOURCE_REPO)/gnulib.git /src/gnulib
 
 
 ---
@@ -48,10 +46,6 @@ import:
 - image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
   add: /src
   to: /src
-  before: install
-- image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
-  add: /gnulib
-  to: /gnulib
   before: install
 shell:
   beforeInstall:
@@ -67,17 +61,22 @@ shell:
     OUTDIR=/out
 
     cd /src
+    export GNULIB_REVISION=$(. bootstrap.conf >&2; echo $GNULIB_REVISION)
+    export GNULIB_SRCDIR=$(pwd)/gnulib
 
-    ./bootstrap --gnulib-srcdir=/gnulib --skip-po --no-git
+    cd ./gnulib
+    git checkout $GNULIB_REVISION
+    cd ..
+
+    ./bootstrap --skip-po --no-git
     ./configure \
       --prefix=/usr \
       --libdir=/usr/lib64 \
       --disable-static \
-      --disable-rpath \
       --disable-silent-rules \
       --disable-nls \
       --disable-doc
+
     make -j$(nproc)
     make DESTDIR=$OUTDIR install
     rm -rf /out/usr/share
-{{- end }}
