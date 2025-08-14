@@ -137,7 +137,7 @@ func (o MigrateOperation) createMigration(ctx context.Context) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: o.vmop.GetNamespace(),
-			Name:      KubevirtMigrationName(o.vmop),
+			Name:      migrationName(o.vmop),
 			OwnerReferences: []metav1.OwnerReference{
 				{
 					APIVersion:         virtv2.SchemeGroupVersion.String(),
@@ -157,14 +157,14 @@ func (o MigrateOperation) createMigration(ctx context.Context) error {
 
 func (o MigrateOperation) getMigration(ctx context.Context) (*virtv1.VirtualMachineInstanceMigration, error) {
 	return object.FetchObject(ctx, types.NamespacedName{
-		Name:      KubevirtMigrationName(o.vmop),
+		Name:      migrationName(o.vmop),
 		Namespace: o.vmop.GetNamespace(),
 	}, o.client, &virtv1.VirtualMachineInstanceMigration{})
 }
 
 const vmopPrefix = "vmop-"
 
-func KubevirtMigrationName(vmop *virtv2.VirtualMachineOperation) string {
+func migrationName(vmop *virtv2.VirtualMachineOperation) string {
 	return fmt.Sprintf("%s%s", vmopPrefix, vmop.GetName())
 }
 
@@ -184,7 +184,7 @@ func IsKubeVirtMigrationRejectedDueToQuota(ctx context.Context, client client.Cl
 		return false, nil
 	}
 
-	kubevirtMigrationName := KubevirtMigrationName(vmop)
+	kubevirtMigrationName := migrationName(vmop)
 	kubevirtMigration, err := object.FetchObject(ctx, types.NamespacedName{
 		Namespace: vmop.GetNamespace(),
 		Name:      kubevirtMigrationName,
