@@ -29,7 +29,6 @@ shell:
 {{- define "$name" -}}
 packages:
 - gcc git make libtool gettext-tools
--
 - tree
 {{- end -}}
 
@@ -69,7 +68,7 @@ shell:
       --without-manpages
     make -j$(nproc)
     make DESTDIR=$OUTDIR install-strip
-    rm -rf $OUTDIR/usr/share/locale
-    rm -rf $OUTDIR/usr/share/man
+    # rm -rf $OUTDIR/usr/share/locale
+    # rm -rf $OUTDIR/usr/share/man
     tree $OUTDIR
 
