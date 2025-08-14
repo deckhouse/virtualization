@@ -64,7 +64,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{}, nil
 	}
 
-	rec := reconciler.NewBaseReconciler[Handler](r.handlers)
+	rec := reconciler.NewBaseReconciler(r.handlers)
 	rec.SetHandlerExecutor(func(ctx context.Context, h Handler) (reconcile.Result, error) {
 		return h.Handle(ctx, vmRestore.Changed())
 	})

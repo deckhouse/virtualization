@@ -24,14 +24,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type Operation interface {
-	Do(ctx context.Context) error
+	Do(ctx context.Context) (reconcile.Result, error)
 	Cancel(ctx context.Context) (bool, error)
 	IsApplicableForVMPhase(phase virtv2.MachinePhase) bool
 	IsApplicableForRunPolicy(runPolicy virtv2.RunPolicy) bool
@@ -40,7 +42,7 @@ type Operation interface {
 	IsComplete(ctx context.Context) (bool, string, error)
 }
 
-func NewOperationService(client client.Client, vmop *virtv2.VirtualMachineOperation) (Operation, error) {
+func NewOperationService(client client.Client, recorder eventrecord.EventRecorderLogger, vmop *virtv2.VirtualMachineOperation) (Operation, error) {
 	switch vmop.Spec.Type {
 	case virtv2.VMOPTypeStart:
 		return NewStartOperation(client, vmop), nil
@@ -50,6 +52,8 @@ func NewOperationService(client client.Client, vmop *virtv2.VirtualMachineOperat
 		return NewRestartOperation(client, vmop), nil
 	case virtv2.VMOPTypeEvict, virtv2.VMOPTypeMigrate:
 		return NewMigrateOperation(client, vmop), nil
+	case virtv2.VMOPTypeRestore:
+		return NewRestoreOperation(client, recorder, vmop), nil
 	default:
 		return nil, fmt.Errorf("unknown virtual machine operation type: %v", vmop.Spec.Type)
 	}

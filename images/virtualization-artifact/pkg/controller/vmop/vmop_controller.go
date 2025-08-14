@@ -47,7 +47,7 @@ func SetupController(
 ) error {
 	recorder := eventrecord.NewEventRecorderLogger(mgr, ControllerName)
 	client := mgr.GetClient()
-	svcOpCreator := internal.NewSvcOpCreator(client)
+	svcOpCreator := internal.NewSvcOpCreator(client, recorder)
 
 	handlers := []Handler{
 		internal.NewDeletionHandler(svcOpCreator),
