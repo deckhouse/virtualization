@@ -137,7 +137,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			return reconcile.Result{}, fmt.Errorf("get KVVMI: %w", err)
 		}
 
-		if kvvmi != nil && !kvvmi.IsFinal() {
+		if kvvmi != nil && changed.Status.Phase != virtv2.MachineStopped {
 			log.Info("Stopping VM for maintenance mode")
 
 			force := new(bool)
