@@ -151,7 +151,7 @@ func (h *AttachedHandler) checkUsageMACAddressInKVVM(ctx context.Context, vm *vi
 		return false, fmt.Errorf("fetch kvvm %s: %w", kvvmKey, err)
 	}
 
-	if kvvm != nil {
+	if kvvm != nil && kvvm.Status.PrintableStatus != virtv1.VirtualMachineStatusStopped {
 		for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
 			if iface.MacAddress == macAddress {
 				return true, nil

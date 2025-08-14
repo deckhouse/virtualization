@@ -57,8 +57,10 @@ var _ = Describe("MACHandler", func() {
 				Namespace: namespace,
 				UID:       "test-uid",
 			},
-			Spec:   virtv2.VirtualMachineSpec{},
-			Status: virtv2.VirtualMachineStatus{},
+			Spec: virtv2.VirtualMachineSpec{},
+			Status: virtv2.VirtualMachineStatus{
+				Phase: virtv2.MachinePending,
+			},
 		}
 		recorder = &eventrecord.EventRecorderLoggerMock{
 			EventFunc:       func(_ client.Object, _, _, _ string) {},

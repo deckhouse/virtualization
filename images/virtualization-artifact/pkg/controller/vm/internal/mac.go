@@ -62,10 +62,6 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	}
 	vm := s.VirtualMachine().Changed()
 
-	if vm.Status.Phase != virtv2.MachineStopped && vm.Status.Phase != virtv2.MachinePending {
-		return reconcile.Result{}, nil
-	}
-
 	if isDeletion(vm) {
 		return reconcile.Result{}, nil
 	}
