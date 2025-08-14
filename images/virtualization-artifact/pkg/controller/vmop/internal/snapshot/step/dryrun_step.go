@@ -27,8 +27,8 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/resources"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -37,7 +37,6 @@ import (
 type DryRunStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
-	restorer Restorer
 	cb       *conditions.ConditionBuilder
 	vmop     *virtv2.VirtualMachineOperation
 }
@@ -77,15 +76,17 @@ func (s DryRunStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*recon
 		return &reconcile.Result{}, err
 	}
 
-	snapshotResources := resources.NewSnapshotResources(s.client, s.restorer, restorerSecret, vmSnapshot, string(s.vmop.UID))
+	snapshotResources := restorer.NewSnapshotResources(s.client, restorerSecret, vmSnapshot, string(s.vmop.UID))
 
 	err = snapshotResources.GetResourcesForRestore(ctx)
 	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 
 	err = snapshotResources.Validate(ctx)
 	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
 		return &reconcile.Result{}, err
 	}
 

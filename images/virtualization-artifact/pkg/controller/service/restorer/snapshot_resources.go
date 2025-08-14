@@ -1,4 +1,20 @@
-package resources
+/*
+Copyright 2025 Flant JSC
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package restorer
 
 import (
 	"context"
@@ -10,25 +26,25 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/restorer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/common"
+	restorer "github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer/restorers"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 )
 
 type SnapshotResources struct {
 	uuid           string
 	client         client.Client
-	restorer       Restorer
+	restorer       *SecretRestorer
 	restorerSecret *corev1.Secret
 	vmSnapshot     *virtv2.VirtualMachineSnapshot
 	objectHandlers []ObjectHandler
 }
 
-func NewSnapshotResources(client client.Client, restorer Restorer, restorerSecret *corev1.Secret, vmSnapshot *virtv2.VirtualMachineSnapshot, uuid string) SnapshotResources {
+func NewSnapshotResources(client client.Client, restorerSecret *corev1.Secret, vmSnapshot *virtv2.VirtualMachineSnapshot, uuid string) SnapshotResources {
 	return SnapshotResources{
 		uuid:           uuid,
 		client:         client,
-		restorer:       restorer,
+		restorer:       NewSecretRestorer(client),
 		vmSnapshot:     vmSnapshot,
 		restorerSecret: restorerSecret,
 	}
@@ -65,15 +81,15 @@ func (r *SnapshotResources) GetResourcesForRestore(ctx context.Context) error {
 	}
 
 	for _, vd := range vds {
-		r.objectHandlers = append(r.objectHandlers, restorer.NewVDHandler(vd, r.client, string(r.uuid)))
+		r.objectHandlers = append(r.objectHandlers, restorer.NewVDHandler(vd, r.client, r.uuid))
 	}
 
 	for _, vmbda := range vmbdas {
-		r.objectHandlers = append(r.objectHandlers, restorer.NewVMBDAHandler(vmbda, r.client, string(r.uuid)))
+		r.objectHandlers = append(r.objectHandlers, restorer.NewVMBDAHandler(vmbda, r.client, r.uuid))
 	}
 
 	if provisioner != nil {
-		r.objectHandlers = append(r.objectHandlers, restorer.NewProvisionerHandler(provisioner, r.client, string(r.uuid)))
+		r.objectHandlers = append(r.objectHandlers, restorer.NewProvisionerHandler(provisioner, r.client, r.uuid))
 	}
 
 	r.objectHandlers = append(r.objectHandlers, restorer.NewVMHandler(vm, r.client, string(r.vmSnapshot.UID)))

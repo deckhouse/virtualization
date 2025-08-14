@@ -19,18 +19,24 @@ package step
 import (
 	"context"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/service/restorer"
+	"github.com/deckhouse/virtualization-controller/pkg/controller/vmop/internal/snapshot/common"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
 type StrictRestoreStep struct {
 	client   client.Client
 	recorder eventrecord.EventRecorderLogger
-	restorer Restorer
 	cb       *conditions.ConditionBuilder
 	vmop     *virtv2.VirtualMachineOperation
 }
@@ -50,5 +56,45 @@ func NewStrictRestoreStep(
 }
 
 func (s StrictRestoreStep) Take(ctx context.Context, vm *virtv2.VirtualMachine) (*reconcile.Result, error) {
-	return &reconcile.Result{}, nil
+	cb := conditions.NewConditionBuilder(vmopcondition.TypeRestoreCanRun)
+
+	if conditions.HasCondition(cb.GetType(), s.vmop.Status.Conditions) && cb.Condition().Status == metav1.ConditionTrue {
+		return nil, nil
+	}
+
+	vmSnapshotKey := types.NamespacedName{Namespace: s.vmop.Namespace, Name: s.vmop.Spec.Restore.VirtualMachineSnapshotName}
+	vmSnapshot, err := object.FetchObject(ctx, vmSnapshotKey, s.client, &virtv2.VirtualMachineSnapshot{})
+	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
+
+	restorerSecretKey := types.NamespacedName{Namespace: vmSnapshot.Namespace, Name: vmSnapshot.Status.VirtualMachineSnapshotSecretName}
+	restorerSecret, err := object.FetchObject(ctx, restorerSecretKey, s.client, &corev1.Secret{})
+	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
+
+	snapshotResources := restorer.NewSnapshotResources(s.client, restorerSecret, vmSnapshot, string(s.vmop.UID))
+
+	err = snapshotResources.GetResourcesForRestore(ctx)
+	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
+
+	err = snapshotResources.Validate(ctx)
+	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
+
+	err = snapshotResources.Process(ctx)
+	if err != nil {
+		common.SetPhaseConditionToFailed(cb, &s.vmop.Status.Phase, err)
+		return &reconcile.Result{}, err
+	}
+
+	return nil, nil
 }
