@@ -152,14 +152,13 @@ import:
   includePaths:
   - install-qemu.sh
   - relocate_binaries.sh
-{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" "e2fsprogs" -}}
+{{- $images := list "dmidecode" "libgcrypt" "nettle" "libcap-ng" "libcapstone" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: SOURCE_REPO
   value: {{ $.SOURCE_REPO_GIT }}
 shell:
   beforeInstall:
-  - apt-mark manual e2fsprogs
   {{- include "alt packages proxy" . | nindent 2 }}
   - |
     apt-get install -y \
