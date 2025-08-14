@@ -676,7 +676,7 @@ func (h LifeCycleHandler) fillStatusResources(ctx context.Context, vmSnapshot *v
 		})
 	}
 
-	if vm.Spec.Networks != nil && len(vm.Spec.Networks) > 1 {
+	if len(vm.Spec.Networks) > 1 {
 		for _, ns := range vm.Status.Networks {
 			vmmac, err := object.FetchObject(ctx, types.NamespacedName{
 				Namespace: vm.Namespace,
