@@ -32,8 +32,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	virtualizationv1alpha2 "github.com/deckhouse/virtualization/api/client/generated/clientset/versioned/typed/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
-
 	"github.com/deckhouse/virtualization/src/cli/internal/clientconfig"
 	"github.com/deckhouse/virtualization/src/cli/internal/templates"
 	"github.com/deckhouse/virtualization/src/cli/internal/util"
@@ -128,13 +128,13 @@ func connect(ctx context.Context, name string, namespace string, virtCli kubecli
 	writeStopErr := make(chan error)
 	readStopErr := make(chan error)
 
-	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &kubeclient.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
+	console, err := virtCli.VirtualMachines(namespace).SerialConsole(name, &virtualizationv1alpha2.SerialConsoleOptions{ConnectionTimeout: time.Duration(timeout) * time.Minute})
 	if err != nil {
 		return fmt.Errorf("can't access VM %s: %s", name, err.Error())
 	}
 
 	go func() {
-		err := console.Stream(kubeclient.StreamOptions{
+		err := console.Stream(virtualizationv1alpha2.StreamOptions{
 			In:  stdinReader,
 			Out: stdoutWriter,
 		})

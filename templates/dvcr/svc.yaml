@@ -1,3 +1,4 @@
+{{- if eq (include "dvcr.isEnabled" . ) "true"}}
 apiVersion: v1
 kind: Service
 metadata:
@@ -17,4 +18,4 @@ spec:
       targetPort: https-metrics
   selector:
     app: dvcr
-  
+{{- end }}

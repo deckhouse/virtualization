@@ -178,6 +178,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	clusterSubnets, err := appconfig.LoadClusterSubnetsFromEnvs()
+	if err != nil {
+		log.Error(err.Error())
+		os.Exit(1)
+	}
+
 	viStorageClassSettings := appconfig.LoadVirtualImageStorageClassSettings()
 	vdStorageClassSettings := appconfig.LoadVirtualDiskStorageClassSettings()
 
@@ -371,7 +377,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = mc.SetupWebhookWithManager(mgr); err != nil {
+	if err = mc.SetupWebhookWithManager(mgr, clusterSubnets); err != nil {
 		log.Error(err.Error())
 		os.Exit(1)
 	}

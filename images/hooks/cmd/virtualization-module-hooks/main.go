@@ -15,8 +15,12 @@ limitations under the License.
 
 package main
 
-import "github.com/deckhouse/module-sdk/pkg/app"
+import (
+	"hooks/pkg/readiness"
+
+	"github.com/deckhouse/module-sdk/pkg/app"
+)
 
 func main() {
-	app.Run()
+	app.Run(app.WithReadiness(&readiness.ReadinessConfig))
 }

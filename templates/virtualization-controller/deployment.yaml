@@ -5,6 +5,8 @@ cpu: 10m
 memory: 150Mi
 {{- end }}
 
+{{- if eq (include "virtualization-controller.isEnabled" .) "true" }}
+
 {{- if (.Values.global.enabledModules | has "vertical-pod-autoscaler-crd") }}
 ---
 apiVersion: autoscaling.k8s.io/v1
@@ -142,3 +144,4 @@ spec:
             secretName: virtualization-controller-tls
         {{- include "kube_api_rewriter.kubeconfig_volume" . | nindent 8 }}
 
+{{- end }}

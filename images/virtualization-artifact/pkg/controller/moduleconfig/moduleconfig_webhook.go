@@ -24,14 +24,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/deckhouse/deckhouse/pkg/log"
+	appconfig "github.com/deckhouse/virtualization-controller/pkg/config"
 	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/validator"
 )
 
 const moduleConfigName = "virtualization"
 
-func SetupWebhookWithManager(mgr manager.Manager) error {
-	moduleConfigValidator := NewModuleConfigValidator(mgr.GetClient())
+func SetupWebhookWithManager(mgr manager.Manager, clusterSubnets *appconfig.ClusterSubnets) error {
+	moduleConfigValidator := NewModuleConfigValidator(mgr.GetClient(), clusterSubnets)
 	if err := builder.WebhookManagedBy(mgr).
 		For(&mcapi.ModuleConfig{}).
 		WithValidator(moduleConfigValidator).
@@ -41,11 +42,12 @@ func SetupWebhookWithManager(mgr manager.Manager) error {
 	return nil
 }
 
-func NewModuleConfigValidator(client client.Client) *validator.Validator[*mcapi.ModuleConfig] {
+func NewModuleConfigValidator(client client.Client, clusterSubnets *appconfig.ClusterSubnets) *validator.Validator[*mcapi.ModuleConfig] {
 	logger := log.Default().With(slog.String("validator", "moduleconfig"))
 
-	cidrs := newCIDRsValidator(client)
+	cidrs := newCIDRsValidator(client, clusterSubnets)
 	reduceCIDRs := newRemoveCIDRsValidator(client)
+	viStorageClasses := newViStorageClassValidator(client)
 
 	return validator.NewValidator[*mcapi.ModuleConfig](logger).
 		WithPredicate(&validator.Predicate[*mcapi.ModuleConfig]{
@@ -54,5 +56,5 @@ func NewModuleConfigValidator(client client.Client) *validator.Validator[*mcapi.
 					oldMC.GetGeneration() != newMC.GetGeneration()
 			},
 		}).
-		WithUpdateValidators(cidrs, reduceCIDRs)
+		WithUpdateValidators(cidrs, reduceCIDRs, viStorageClasses)
 }

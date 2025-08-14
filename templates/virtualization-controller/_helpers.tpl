@@ -1,13 +1,19 @@
+{{- define "virtualization-controller.isEnabled" -}}
+{{- if eq (include "hasValidModuleConfig" .) "true" -}}
+true
+{{- end -}}
+{{- end -}}
+
 {{- define "virtualization-controller.envs" -}}
 {{- $registry := include "dvcr.get_registry" (list .) }}
 - name: LOG_LEVEL
-  value: {{ .Values.virtualization.logLevel }}
-{{- if eq .Values.virtualization.logLevel "debug" }}
+  value: {{ include "moduleLogLevel" . }}
+{{- if eq (include "moduleLogLevel" .) "debug" }}
 - name: LOG_DEBUG_VERBOSITY
   value: "10"
 {{- end }}
 - name: LOG_FORMAT
-  value: {{ .Values.virtualization.logFormat }}
+  value: {{ include "moduleLogFormat" . }}
 - name: FORCE_BRIDGE_NETWORK_BINDING
   value: "1"
 - name: DISABLE_HYPERV_SYNIC
@@ -31,23 +37,23 @@
 - name: DVCR_INSECURE_TLS
   value: "true"
 - name: VIRTUAL_MACHINE_CIDRS
-  value: {{ join "," .Values.virtualization.virtualMachineCIDRs | quote }}
-{{- if (hasKey .Values.virtualization "virtualImages") }}
+  value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualMachineCIDRs | quote }}
+{{- if (hasKey .Values.virtualization.internal.moduleConfig "virtualImages") }}
 - name: VIRTUAL_IMAGE_STORAGE_CLASS
-  value: {{ .Values.virtualization.virtualImages.storageClassName }}
+  value: {{ .Values.virtualization.internal.moduleConfig.virtualImages.storageClassName }}
 - name: VIRTUAL_IMAGE_DEFAULT_STORAGE_CLASS
-  value: {{ .Values.virtualization.virtualImages.defaultStorageClassName }}
-{{- if (hasKey .Values.virtualization.virtualImages "allowedStorageClassSelector") }}
+  value: {{ .Values.virtualization.internal.moduleConfig.virtualImages.defaultStorageClassName }}
+{{- if (hasKey .Values.virtualization.internal.moduleConfig.virtualImages "allowedStorageClassSelector") }}
 - name: VIRTUAL_IMAGE_ALLOWED_STORAGE_CLASSES
-  value: {{ join "," .Values.virtualization.virtualImages.allowedStorageClassSelector.matchNames | quote }}
+  value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualImages.allowedStorageClassSelector.matchNames | quote }}
 {{- end }}
 {{- end }}
-{{- if (hasKey .Values.virtualization "virtualDisks") }}
+{{- if (hasKey .Values.virtualization.internal.moduleConfig "virtualDisks") }}
 - name: VIRTUAL_DISK_DEFAULT_STORAGE_CLASS
-  value: {{ .Values.virtualization.virtualDisks.defaultStorageClassName }}
-{{- if (hasKey .Values.virtualization.virtualDisks "allowedStorageClassSelector") }}
+  value: {{ .Values.virtualization.internal.moduleConfig.virtualDisks.defaultStorageClassName }}
+{{- if (hasKey .Values.virtualization.internal.moduleConfig.virtualDisks "allowedStorageClassSelector") }}
 - name: VIRTUAL_DISK_ALLOWED_STORAGE_CLASSES
-  value: {{ join "," .Values.virtualization.virtualDisks.allowedStorageClassSelector.matchNames | quote }}
+  value: {{ join "," .Values.virtualization.internal.moduleConfig.virtualDisks.allowedStorageClassSelector.matchNames | quote }}
 {{- end }}
 {{- end }}
 - name: VIRTUAL_MACHINE_IP_LEASES_RETENTION_DURATION
@@ -72,23 +78,21 @@
   value: "24h"
 - name: GC_VMI_MIGRATION_SCHEDULE
   value: "0 * * * *"
-{{- if (hasKey .Values.virtualization "liveMigration") }}
+{{- if (hasKey .Values.virtualization.internal.moduleConfig "liveMigration") }}
 - name: LIVE_MIGRATION_BANDWIDTH_PER_NODE
-  value: {{ .Values.virtualization.liveMigration.bandwidthPerNode | quote }}
+  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.bandwidthPerNode | quote }}
 - name: LIVE_MIGRATION_MAX_MIGRATIONS_PER_NODE
-  value: {{ .Values.virtualization.liveMigration.maxMigrationsPerNode | quote }}
+  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.maxMigrationsPerNode | quote }}
 - name: LIVE_MIGRATION_NETWORK
-  value: {{ .Values.virtualization.liveMigration.network | quote }}
-{{- if (hasKey .Values.virtualization.liveMigration "dedicated") }}
+  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.network | quote }}
+{{- if (hasKey .Values.virtualization.internal.moduleConfig.liveMigration "dedicated") }}
 - name: LIVE_MIGRATION_DEDICATED_INTERFACE_NAME
-  value: {{ .Values.virtualization.liveMigration.dedicated.interfaceName | quote }}
+  value: {{ .Values.virtualization.internal.moduleConfig.liveMigration.dedicated.interfaceName | quote }}
 {{- end }}
 {{- end }}
 - name: METRICS_BIND_ADDRESS
   value: "127.0.0.1:8080"
-- name: HEALTH_PROBE_BIND_ADDRESS
-  value: ":8083"
-{{- if eq .Values.virtualization.logLevel "debug" }}
+{{- if eq (include "moduleLogLevel" .) "debug" }}
 - name: PPROF_BIND_ADDRESS
   value: ":8081"
 {{- end }}
@@ -96,4 +100,8 @@
   value: {{ include "helm_lib_module_image" (list . "virtLauncher") }}
 - name: CLUSTER_UUID
   value: {{ .Values.global.discovery.clusterUUID }}
+- name: CLUSTER_POD_SUBNET_CIDR
+  value: {{ .Values.global.clusterConfiguration.podSubnetCIDR }}
+- name: CLUSTER_SERVICE_SUBNET_CIDR
+  value: {{ .Values.global.clusterConfiguration.serviceSubnetCIDR }}
 {{- end }}
