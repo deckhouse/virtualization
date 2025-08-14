@@ -138,7 +138,10 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			if pods != nil && len(pods.Items) > 0 {
 				log.Info("Deleting pods for maintenance mode")
 				for _, pod := range pods.Items {
-					object.CleanupObject(ctx, r.client, &pod)
+					err = object.CleanupObject(ctx, r.client, &pod)
+					if err != nil {
+						return reconcile.Result{}, fmt.Errorf("delete pod: %w", err)
+					}
 				}
 			}
 
