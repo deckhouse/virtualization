@@ -154,6 +154,26 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 		overrideValidators = append(overrideValidators, restorer.NewVirtualMachineIPAddressOverrideValidator(vmip, h.client, string(vmRestore.UID)))
 	}
 
+	vmmacs, err := h.restorer.RestoreVirtualMachineMACAddresses(ctx, restorerSecret)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		return reconcile.Result{}, err
+	}
+
+	if len(vmmacs) > 0 {
+		for _, vmmac := range vmmacs {
+			overrideValidators = append(overrideValidators, restorer.NewVirtualMachineMACAddressOverrideValidator(vmmac, h.client, string(vmRestore.UID)))
+		}
+
+		for i, ns := range vm.Spec.Networks {
+			if ns.Type == virtv2.NetworksTypeMain {
+				continue
+			}
+
+			ns.VirtualMachineMACAddressName = vmmacs[i-1].Name
+		}
+	}
+
 	overrideValidators = append(overrideValidators, restorer.NewVirtualMachineOverrideValidator(vm, h.client, string(vmRestore.UID)))
 
 	overridedVMName, err = h.getOverrridedVMName(overrideValidators)
