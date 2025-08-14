@@ -31,7 +31,6 @@ packages:
 - gcc git make libtool gettext-tools
 - patch gperf help2man texinfo gengetopt
 - gtk-doc libgnutls-devel libkrb5-devel libntlm-devel libreadline-devel
-- libidn-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -44,7 +43,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libgcrypt" -}}
+{{- $images := list "libgcrypt" "libidn" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
