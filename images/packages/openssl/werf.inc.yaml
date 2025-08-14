@@ -33,6 +33,7 @@ packages:
 - autoconf automake libtool makeinfo
 - perl-Net-SSLeay perl-IPC-Cmd perl-Pod-Html
 - autoconf libtool makeinfo gettext-devel po4a
+- tree
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
@@ -59,8 +60,19 @@ shell:
     OUTDIR=/out
 
     cd /src
-    
-    ./Configure --prefix=/usr CC=/usr/bin/musl-gcc -static
+
+    ./Configure shared \
+      --prefix=/usr \
+      --libdir=lib64 \
+      --openssldir=/var/lib/ssl \
+      --system-ciphers-file=/etc/openssl/cipher-list.conf \
+      enable-egd \
+      enable-md2 \
+      enable-rfc3779 \
+      enable-ssl3 \
+      zlib
+
     make -j $(nproc)
     make install_sw -j $(nproc) DESTDIR=$OUTDIR
     strip $OUTDIR/usr/bin/openssl
+    tree $OUTDIR
