@@ -114,18 +114,18 @@ spec:
         - containerPort: 8081
           name: health
           protocol: TCP
-        # livenessProbe:
-        #   httpGet:
-        #     path: /healthz
-        #     port: health
-        #     scheme: HTTP
-        #   initialDelaySeconds: 10
-        # readinessProbe:
-        #   httpGet:
-        #     path: /readyz
-        #     port: health
-        #     scheme: HTTP
-        #   initialDelaySeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+            scheme: HTTP
+          initialDelaySeconds: 10
         resources:
           requests:
             {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 12 }}
