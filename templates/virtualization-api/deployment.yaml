@@ -106,6 +106,18 @@ spec:
             - containerPort: 8443
               name: apiserver
               protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: apiserver
+              scheme: HTTPS
+            initialDelaySeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: apiserver
+              scheme: HTTPS
+            initialDelaySeconds: 10
           resources:
             requests:
               {{- include "helm_lib_module_ephemeral_storage_only_logs" . | nindent 14 }}

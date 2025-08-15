@@ -100,6 +100,7 @@ spec:
           volumeMounts: {{ include "dvcr.volumeMounts" . | nindent 12 }}
         {{- $kubeRbacProxySettings := dict }}
         {{- $_ := set $kubeRbacProxySettings "runAsUserNobody" false }}
+        {{- $_ := set $kubeRbacProxySettings "ignorePaths" "/proxy/healthz,/proxy/readyz" }}
         {{- $_ := set $kubeRbacProxySettings "upstreams" (list
             (dict "upstream" "http://127.0.0.1:5001/metrics" "path" "/metrics" "name" "dvcr")
         ) }}
