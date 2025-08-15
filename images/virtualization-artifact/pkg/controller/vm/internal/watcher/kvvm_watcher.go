@@ -19,6 +19,7 @@ package watcher
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -61,7 +62,8 @@ func (w *KVVMWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 						oldSynchronizedCondition.Reason != newSynchronizedCondition.Reason ||
 						oldVM.Status.Ready != newVM.Status.Ready ||
 						oldVM.Annotations[annotations.AnnVMStartRequested] != newVM.Annotations[annotations.AnnVMStartRequested] ||
-						oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested]
+						oldVM.Annotations[annotations.AnnVMRestartRequested] != newVM.Annotations[annotations.AnnVMRestartRequested] ||
+						!equality.Semantic.DeepEqual(oldVM.Status.VolumeSnapshotStatuses, newVM.Status.VolumeSnapshotStatuses)
 				},
 			},
 		),
