@@ -159,13 +159,18 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
 		return reconcile.Result{}, err
 	}
-	println("dlopatin len=", len(vmmacs))
-	for _, ns := range vm.Spec.Networks {
-		println("dlopatin c1", ns.Type, ns.Name, ns.VirtualMachineMACAddressName)
+
+	macAddressOrder, err := h.restorer.RestoreMACAddressOrder(ctx, restorerSecret)
+	if err != nil {
+		setPhaseConditionToFailed(cb, &vmRestore.Status.Phase, err)
+		return reconcile.Result{}, err
 	}
+
 	if len(vmmacs) > 0 {
+		macAddressNamesByAddress := make(map[string]string)
 		for _, vmmac := range vmmacs {
 			overrideValidators = append(overrideValidators, restorer.NewVirtualMachineMACAddressOverrideValidator(vmmac, h.client, string(vmRestore.UID)))
+			macAddressNamesByAddress[vmmac.Status.Address] = vmmac.Name
 		}
 
 		for i := range vm.Spec.Networks {
@@ -174,12 +179,8 @@ func (h LifeCycleHandler) Handle(ctx context.Context, vmRestore *virtv2.VirtualM
 				continue
 			}
 
-			ns.VirtualMachineMACAddressName = vmmacs[i-1].Name
+			ns.VirtualMachineMACAddressName = macAddressNamesByAddress[macAddressOrder[i-1]]
 		}
-	}
-
-	for _, ns := range vm.Spec.Networks {
-		println("dlopatin c2", ns.Type, ns.Name, ns.VirtualMachineMACAddressName)
 	}
 
 	overrideValidators = append(overrideValidators, restorer.NewVirtualMachineOverrideValidator(vm, h.client, string(vmRestore.UID)))

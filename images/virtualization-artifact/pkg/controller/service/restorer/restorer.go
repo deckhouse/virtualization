@@ -109,6 +109,22 @@ func (r SecretRestorer) RestoreVirtualMachineMACAddresses(_ context.Context, sec
 	return get[[]*virtv2.VirtualMachineMACAddress](secret, virtualMachineMACAddressesKey)
 }
 
+func (r SecretRestorer) RestoreMACAddressOrder(_ context.Context, secret *corev1.Secret) ([]string, error) {
+	vm, err := get[*virtv2.VirtualMachine](secret, virtualMachineKey)
+	if err != nil {
+		return nil, err
+	}
+
+	var macAddressOrder []string
+	for _, ns := range vm.Status.Networks {
+		if ns.Type == virtv2.NetworksTypeMain {
+			continue
+		}
+		macAddressOrder = append(macAddressOrder, ns.MAC)
+	}
+	return macAddressOrder, nil
+}
+
 func (r SecretRestorer) RestoreVirtualMachineBlockDeviceAttachments(_ context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error) {
 	return get[[]*virtv2.VirtualMachineBlockDeviceAttachment](secret, virtualMachineBlockDeviceAttachmentKey)
 }
