@@ -14,9 +14,49 @@
         plk_grouped_by__d8_virtualization_dvcr_health: "D8VirtualizationDVCRHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: The dvcr Pod is NOT Ready.
         description: |
-          The recommended course of action:
-          1. Retrieve details of the Deployment: `kubectl -n d8-virtualization describe deploy dvcr`
-          2. View the status of the Pod and try to figure out why it is not running: `kubectl -n d8-virtualization describe pod -l app=dvcr`
+          One or more Pods of the dvcr deployment in the d8-virtualization namespace are not in a Ready state.
+
+          The dvcr component serves as a local registry for virtual machine images and disks. If its Pods are not ready, image uploads and VirtualDisk provisioning may be affected.
+
+          Recommended diagnosis steps:
+
+          1. Check the status of dvcr Pods.
+            ```bash
+            d8 k -n d8-virtualization get pods -l app=dvcr
+            ```
+
+          2. Describe the Deployment to check replicas and events.
+            ```bash
+            d8 k -n d8-virtualization describe deploy dvcr
+            ```
+
+          3. Get detailed information about the Pod, including events and container statuses.
+            ```bash
+            d8 k -n d8-virtualization describe pod -l app=dvcr
+            ```
+
+          4. View logs from the affected Pod.
+            ```bash
+            d8 k -n d8-virtualization logs <pod-name>
+            ```
+
+          5. If the Pod has restarted, check logs from the previous instance.
+            ```bash
+            d8 k -n d8-virtualization logs <pod-name> --previous
+            ```
+
+          Recommended actions:
+
+          - Investigate readiness probe failures, container crashes, or scheduling issues based on the output of the commands above.
+
+          - If the issue persists, consider restarting the dvcr Deployment.
+            ```bash
+            d8 k -n d8-virtualization rollout restart deploy dvcr
+            ```
+
+          - Ensure that required storage volumes (such as PVCs) are available and healthy.
+
+          - Verify that there are no node issues such as disk pressure or memory limits affecting scheduling.
 
     - alert: D8VirtualizationDVCRPodIsNotRunning
       expr: absent(kube_pod_status_phase{namespace="d8-virtualization",phase="Running",pod=~"dvcr-.*"})
@@ -31,6 +71,41 @@
         plk_grouped_by__d8_virtualization_dvcr_health: "D8VirtualizationDVCRHealth,tier=~tier,prometheus=deckhouse,kubernetes=~kubernetes"
         summary: The dvcr Pod is NOT Running.
         description: |
-          The recommended course of action:
-          1. Retrieve details of the Deployment: `kubectl -n d8-virtualization describe deploy dvcr`
-          2. View the status of the Pod and try to figure out why it is not running: `kubectl -n d8-virtualization describe pod -l app=dvcr`
+          No running Pods were found for the dvcr deployment in the d8-virtualization namespace for more than 2 minutes.
+
+          The dvcr component serves as a local registry for virtual machine images and disks. Its unavailability may block image uploads and provisioning of new VirtualDisks or VirtualMachines.
+
+          Recommended diagnosis steps:
+
+          1. Check if any dvcr Pods exist and what their status is.
+            ```bash
+            d8 k -n d8-virtualization get pods -l app=dvcr
+            ```
+
+          2. Describe the Deployment to check replicas and events.
+            ```bash
+            d8 k -n d8-virtualization describe deploy dvcr
+            ```
+
+          3. Get logs from previous Pods (if they have been restarted).
+            ```bash
+            d8 k -n d8-virtualization logs <pod-name> --previous
+            ```
+
+          4. Get events related to the dvcr Deployment and Pods.
+            ```bash
+            d8 k -n d8-virtualization describe pod -l app=dvcr
+            ```
+
+          Recommended actions:
+
+          - If the Deployment has zero replicas, scale it back up.
+            ```bash
+            d8 k -n d8-virtualization scale deploy dvcr --replicas=1
+            ```
+
+          - If Pods are crashing, inspect their logs and events.
+
+          - Ensure that required storage volumes (such as PVCs) are available and healthy.
+
+          - Verify that there are no node issues such as disk pressure or memory limits affecting scheduling.
