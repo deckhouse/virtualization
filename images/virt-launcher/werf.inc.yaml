@@ -414,7 +414,7 @@ git:
       install:
       - '**/*'
 import:
-{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" -}}
+{{- $images := list "libcap-ng" "e2fsprogs" "libxcrypt" "openssl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 secrets:
 - id: GOPROXY
