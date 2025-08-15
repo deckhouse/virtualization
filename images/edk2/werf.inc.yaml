@@ -23,6 +23,7 @@ packages:
 - libssl-devel
 - libssl-devel libdwarf-devel libuuid-devel
 - bc zlib-devel perl-PathTools perl-IPC-Cmd perl-JSON
+- libisofs-devel
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
