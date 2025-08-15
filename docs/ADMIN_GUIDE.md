@@ -457,7 +457,40 @@ spec:
 
 ### Default VirtualMachineClass
 
-It is possible to specify default VirtualMachineClass
+Для удобства можно назначить VirtualMachineClass по умолчанию. Этот класс будет подставляться в поле spec.virtualMachineClassName, если оно не указано в манифесте виртуальной машины.
+
+VirtualMachineClass по умолчанию задаётся с помощью аннотации `virtualmachineclass.virtualization.deckhouse.io/is-default-class`. В кластере может быть только один класс по умолчанию. Чтобы изменить класс по умолчанию, нужно снять аннотацию с одного класса и поставить аннотацию на другой класс.
+
+Не рекомендуется ставить аннотацию на класс `generic`, т.к. при обновлении аннотация может пропасть. Лучше сделать свой класс и назначить его классом по умолчанию.
+
+Пример вывода списка классов без класса по умолчанию:
+
+```shell
+kubectl get vmclass 
+
+NAME                                    PHASE   ISDEFAULT   AGE
+generic                                 Ready               1d
+host-passthrough-custom                 Ready               1d
+```
+
+Пример вызова команды для указания класса по умолчанию:
+
+```shell
+kubectl annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
+virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotated
+```
+
+Пример вывода списка классов с классом по умолчанию:
+
+```shell
+kubectl get vmclass 
+
+NAME                                    PHASE   ISDEFAULT   AGE
+generic                                 Ready               1d
+host-passthrough-custom                 Ready   true        1d
+```
+
+При создании ВМ без указания поля spec.virtualMachineClassName в него будет подставлено имя `host-passthrough-custom`.
 
 ### VirtualMachineClass settings
 
@@ -468,6 +501,9 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass
 metadata:
   name: <vmclass-name>
+  # (optional) Set class as a default.
+  # annotations:
+  #   virtualmachineclass.virtualization.deckhouse.io/is-default-class: "true"
 spec:
   # The section describes virtual processor parameters for virtual machines.
   # This block cannot be changed after the resource has been created.
