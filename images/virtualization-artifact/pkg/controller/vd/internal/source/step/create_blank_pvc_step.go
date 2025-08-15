@@ -126,7 +126,7 @@ func (s CreateBlankPVCStep) Take(ctx context.Context, vd *virtv2.VirtualDisk) (*
 			s.cb.
 				Status(metav1.ConditionFalse).
 				Reason(vdcondition.QuotaExceeded).
-				Message(fmt.Sprintf("Quota exceeded during the creation of underlying PersistentVolumeClaim %q.", pvc.Name))
+				Message(fmt.Sprintf("Quota exceeded during the creation of underlying PersistentVolumeClaim: %s", err))
 
 			return &reconcile.Result{}, nil
 		}
