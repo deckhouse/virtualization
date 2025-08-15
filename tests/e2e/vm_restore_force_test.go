@@ -118,6 +118,16 @@ var _ = Describe("VirtualMachineRestoreForce", SIGRestoration(), ginkgoutil.Comm
 					Timeout:   MaxWaitTimeout,
 				})
 			})
+			By("`VirtualMachineBlockDeviceAttachment` should be attached", func() {
+				WaitPhaseByLabel(
+					virtv2.VirtualMachineBlockDeviceAttachmentKind,
+					string(virtv2.BlockDeviceAttachmentPhaseAttached),
+					kc.WaitOptions{
+						Labels:    testCaseLabel,
+						Namespace: namespace,
+						Timeout:   LongWaitDuration,
+					})
+			})
 		})
 	})
 
