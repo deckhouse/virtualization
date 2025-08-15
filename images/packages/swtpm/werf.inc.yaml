@@ -53,7 +53,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "libgmp" "libtpms" -}}
+{{- $images := list "libgmp" "libtpms" "openssl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
