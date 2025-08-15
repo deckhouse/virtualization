@@ -1,0 +1,11 @@
+module:
+  features:
+    - summary: fix helm templates after PR#1324
+      pull_request: https://github.com/deckhouse/virtualization/pull/1346
+vm:
+  fixes:
+    - summary: A VMBDA should be correctly deleted when a VM is in the stopped phase.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1351
+    - summary: Prevent "Starting" hang when quota is exceeded.
+      pull_request: https://github.com/deckhouse/virtualization/pull/1314
+
