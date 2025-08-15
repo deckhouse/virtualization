@@ -61,13 +61,6 @@ func (w *VMOPWatcher) Watch(mgr manager.Manager, ctr controller.Controller) erro
 					return commonvmop.IsMigration(e.Object)
 				},
 				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualMachineOperation]) bool {
-					if commonvmop.IsMigration(e.ObjectNew) {
-						return false
-					}
-					if e.ObjectNew.Status.Phase != virtv2.VMOPPhaseInProgress {
-						return false
-					}
-
 					oldCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, e.ObjectOld.Status.Conditions)
 					newCompleted, _ := conditions.GetCondition(vmopcondition.TypeCompleted, e.ObjectNew.Status.Conditions)
 

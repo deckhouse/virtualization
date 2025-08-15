@@ -92,6 +92,7 @@ const (
 	ReasonVmIsRunning                    Reason = "VirtualMachineRunning"
 	ReasonInternalVirtualMachineError    Reason = "InternalVirtualMachineError"
 	ReasonPodNotStarted                  Reason = "PodNotStarted"
+	ReasonMigrationIsPending             Reason = "MigrationIsPending"
 
 	// 	ReasonFilesystemFrozen indicates that virtual machine's filesystem has been successfully frozen.
 	ReasonFilesystemFrozen Reason = "Frozen"
