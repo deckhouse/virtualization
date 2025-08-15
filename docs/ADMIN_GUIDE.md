@@ -421,7 +421,7 @@ How to perform the operation in the web interface:
 
 The VirtualMachineClass resource is designed for centralized configuration of preferred virtual machine settings. It allows you to define CPU instructions, configuration policies for CPU and memory resources for virtual machines, as well as define ratios of these resources. In addition, VirtualMachineClass provides management of virtual machine placement across platform nodes. This allows administrators to effectively manage virtualization platform resources and optimally place virtual machines on platform nodes.
 
-By default, a single VirtualMachineClass `generic` resource is automatically created, which represents a universal CPU model that uses the rather old but supported by most modern processors Nehalem model. This allows you to run VMs on any nodes in the cluster with the possibility of live migration.
+During install, a single VirtualMachineClass `generic` resource is automatically created, which represents a universal CPU model that uses the rather old but supported by most modern processors Nehalem model. This allows you to run VMs on any nodes in the cluster with the possibility of live migration.
 
 {{< alert level="info" >}}
 It is recommended that you create at least one VirtualMachineClass resource in the cluster with the `Discovery` type immediately after all nodes are configured and added to the cluster. This allows virtual machines to utilize a generic CPU with the highest possible CPU performance considering the CPUs on the cluster nodes. This allows the virtual machines to utilize the maximum CPU capabilities and migrate seamlessly between cluster nodes if necessary.
@@ -455,6 +455,43 @@ spec:
   ...
 ```
 
+### Default VirtualMachineClass
+
+Для удобства можно назначить VirtualMachineClass по умолчанию. Этот класс будет подставляться в поле spec.virtualMachineClassName, если оно не указано в манифесте виртуальной машины.
+
+VirtualMachineClass по умолчанию задаётся с помощью аннотации `virtualmachineclass.virtualization.deckhouse.io/is-default-class`. В кластере может быть только один класс по умолчанию. Чтобы изменить класс по умолчанию, нужно снять аннотацию с одного класса и поставить аннотацию на другой класс.
+
+Не рекомендуется ставить аннотацию на класс `generic`, т.к. при обновлении аннотация может пропасть. Лучше сделать свой класс и назначить его классом по умолчанию.
+
+Пример вывода списка классов без класса по умолчанию:
+
+```shell
+kubectl get vmclass 
+
+NAME                                    PHASE   ISDEFAULT   AGE
+generic                                 Ready               1d
+host-passthrough-custom                 Ready               1d
+```
+
+Пример вызова команды для указания класса по умолчанию:
+
+```shell
+kubectl annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
+virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotated
+```
+
+Пример вывода списка классов с классом по умолчанию:
+
+```shell
+kubectl get vmclass 
+
+NAME                                    PHASE   ISDEFAULT   AGE
+generic                                 Ready               1d
+host-passthrough-custom                 Ready   true        1d
+```
+
+При создании ВМ без указания поля spec.virtualMachineClassName в него будет подставлено имя `host-passthrough-custom`.
+
 ### VirtualMachineClass settings
 
 The VirtualMachineClass resource structure is as follows:
@@ -464,6 +501,9 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass
 metadata:
   name: <vmclass-name>
+  # (optional) Set class as a default.
+  # annotations:
+  #   virtualmachineclass.virtualization.deckhouse.io/is-default-class: "true"
 spec:
   # The section describes virtual processor parameters for virtual machines.
   # This block cannot be changed after the resource has been created.

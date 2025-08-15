@@ -427,7 +427,7 @@ d8 k describe cvi ubuntu-22-04
 Помимо этого, VirtualMachineClass обеспечивает управление размещением виртуальных машин по узлам платформы.
 Это позволяет администраторам эффективно управлять ресурсами платформы виртуализации и оптимально размещать виртуальные машины на узлах платформы.
 
-По умолчанию автоматически создается один ресурс VirtualMachineClass `generic`, который представляет универсальную модель CPU, использующую достаточно старую, но поддерживаемую большинством современных процессоров модель Nehalem. Это позволяет запускать ВМ на любых узлах кластера с возможностью «живой» миграции.
+Во время установки автоматически создается один ресурс VirtualMachineClass `generic`, который представляет универсальную модель CPU, использующую достаточно старую, но поддерживаемую большинством современных процессоров модель Nehalem. Это позволяет запускать ВМ на любых узлах кластера с возможностью «живой» миграции.
 
 {{< alert level="info" >}}
 Рекомендуется создать как минимум один ресурс VirtualMachineClass в кластере с типом `Discovery` сразу после того, как все узлы будут настроены и добавлены в кластер.
@@ -462,6 +462,43 @@ spec:
   ...
 ```
 
+### VirtualMachineClass по умолчанию
+
+Для удобства можно назначить VirtualMachineClass по умолчанию. Этот класс будет подставляться в поле spec.virtualMachineClassName, если оно не указано в манифесте виртуальной машины.
+
+VirtualMachineClass по умолчанию задаётся с помощью аннотации `virtualmachineclass.virtualization.deckhouse.io/is-default-class`. В кластере может быть только один класс по умолчанию. Чтобы изменить класс по умолчанию, нужно снять аннотацию с одного класса и поставить аннотацию на другой класс.
+
+Не рекомендуется ставить аннотацию на класс `generic`, т.к. при обновлении аннотация может пропасть. Лучше сделать свой класс и назначить его классом по умолчанию.
+
+Пример вывода списка классов без класса по умолчанию:
+
+```shell
+kubectl get vmclass 
+
+NAME                                    PHASE   ISDEFAULT   AGE
+generic                                 Ready               1d
+host-passthrough-custom                 Ready               1d
+```
+
+Пример вызова команды для указания класса по умолчанию:
+
+```shell
+kubectl annotate vmclass host-passthrough-custom virtualmachineclass.virtualization.deckhouse.io/is-default-class=true
+virtualmachineclass.virtualization.deckhouse.io/host-passthrough-custom annotated
+```
+
+Пример вывода списка классов с классом по умолчанию:
+
+```shell
+kubectl get vmclass 
+
+NAME                                    PHASE   ISDEFAULT   AGE
+generic                                 Ready               1d
+host-passthrough-custom                 Ready   true        1d
+```
+
+При создании ВМ без указания поля spec.virtualMachineClassName в него будет подставлено имя `host-passthrough-custom`.
+
 ### Настройки VirtualMachineClass
 
 Структура ресурса VirtualMachineClass выглядит следующим образом:
@@ -471,6 +508,9 @@ apiVersion: virtualization.deckhouse.io/v1alpha2
 kind: VirtualMachineClass
 metadata:
   name: <vmclass-name>
+  # (опционально) Класс по умолчанию.
+  # annotations:
+  #   virtualmachineclass.virtualization.deckhouse.io/is-default-class: "true"
 spec:
   # Блок описывает параметры виртуального процессора для виртуальных машин.
   # Изменять данный блок нельзя после создания ресурса.
