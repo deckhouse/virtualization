@@ -50,6 +50,7 @@ packages:
 - python3-module-psutil
 - python3-module-filelock
 - libnghttp2-tools
+- gnutls-utils
 - tree
 {{- end -}}
 
@@ -67,8 +68,8 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "openssl" "gnutls" "nettle" "libidn2" -}}
-{{- include "importPackageImages" (list . $images "setup") -}}
+{{- $images := list "openssl""libidn2" -}}
+{{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
   {{- include "alt packages proxy" . | nindent 2 }}
