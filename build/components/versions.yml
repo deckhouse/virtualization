@@ -27,6 +27,7 @@ package:
   libcap: libcap-2.69
   libcap-ng: v0.8.5
   libcapstone: 4.0.2
+  libcurl: curl-8_14_1
   libfuse3: fuse-3.16.2
   libgcrypt: libgcrypt-1.10.2
   libxcrypt: v4.4.36
