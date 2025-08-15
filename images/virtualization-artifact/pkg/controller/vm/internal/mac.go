@@ -93,19 +93,21 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 	}
 
 	if len(vmmacs) < expectedMACAddresses {
-		if kvvm != nil && len(vmmacs) == 0 {
-			for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
-				err = h.macManager.CreateMACAddress(ctx, vm, h.client, iface.MacAddress)
-				if err != nil {
-					return reconcile.Result{}, err
+		if needCreateMACAddresses(vm.Spec.Networks) {
+			if kvvm != nil && len(vmmacs) == 0 {
+				for _, iface := range kvvm.Spec.Template.Spec.Domain.Devices.Interfaces {
+					err = h.macManager.CreateMACAddress(ctx, vm, h.client, iface.MacAddress)
+					if err != nil {
+						return reconcile.Result{}, err
+					}
 				}
-			}
-		} else {
-			macsToCreate := expectedMACAddresses - len(vmmacs)
-			for i := 0; i < macsToCreate; i++ {
-				err = h.macManager.CreateMACAddress(ctx, vm, h.client, "")
-				if err != nil {
-					return reconcile.Result{}, err
+			} else {
+				macsToCreate := expectedMACAddresses - len(vmmacs)
+				for i := 0; i < macsToCreate; i++ {
+					err = h.macManager.CreateMACAddress(ctx, vm, h.client, "")
+					if err != nil {
+						return reconcile.Result{}, err
+					}
 				}
 			}
 		}
@@ -161,4 +163,14 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 
 func (h *MACHandler) Name() string {
 	return nameMACHandler
+}
+
+func needCreateMACAddresses(networkSpec []virtv2.NetworksSpec) bool {
+	for _, ns := range networkSpec {
+		if ns.VirtualMachineMACAddressName != "" {
+			return false
+		}
+	}
+
+	return true
 }

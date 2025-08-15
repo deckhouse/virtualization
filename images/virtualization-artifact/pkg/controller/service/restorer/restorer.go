@@ -70,6 +70,11 @@ func (r SecretRestorer) Store(ctx context.Context, vm *virtv2.VirtualMachine, vm
 		return nil, err
 	}
 
+	err = r.setVirtualMachineMACAddresses(ctx, &secret, vm)
+	if err != nil {
+		return nil, err
+	}
+
 	err = r.setProvisioning(ctx, &secret, vm)
 	if err != nil {
 		return nil, err
@@ -98,6 +103,26 @@ func (r SecretRestorer) RestoreProvisioner(_ context.Context, secret *corev1.Sec
 
 func (r SecretRestorer) RestoreVirtualMachineIPAddress(_ context.Context, secret *corev1.Secret) (*virtv2.VirtualMachineIPAddress, error) {
 	return get[*virtv2.VirtualMachineIPAddress](secret, virtualMachineIPAddressKey)
+}
+
+func (r SecretRestorer) RestoreVirtualMachineMACAddresses(_ context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineMACAddress, error) {
+	return get[[]*virtv2.VirtualMachineMACAddress](secret, virtualMachineMACAddressesKey)
+}
+
+func (r SecretRestorer) RestoreMACAddressOrder(_ context.Context, secret *corev1.Secret) ([]string, error) {
+	vm, err := get[*virtv2.VirtualMachine](secret, virtualMachineKey)
+	if err != nil {
+		return nil, err
+	}
+
+	var macAddressOrder []string
+	for _, ns := range vm.Status.Networks {
+		if ns.Type == virtv2.NetworksTypeMain {
+			continue
+		}
+		macAddressOrder = append(macAddressOrder, ns.MAC)
+	}
+	return macAddressOrder, nil
 }
 
 func (r SecretRestorer) RestoreVirtualMachineBlockDeviceAttachments(_ context.Context, secret *corev1.Secret) ([]*virtv2.VirtualMachineBlockDeviceAttachment, error) {
@@ -222,6 +247,38 @@ func (r SecretRestorer) setVirtualMachineIPAddress(ctx context.Context, secret *
 
 	secret.Data[virtualMachineIPAddressKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
 
+	return nil
+}
+
+func (r SecretRestorer) setVirtualMachineMACAddresses(ctx context.Context, secret *corev1.Secret, vm *virtv2.VirtualMachine) error {
+	var vmmacs []virtv2.VirtualMachineMACAddress
+	for _, ns := range vm.Status.Networks {
+		if ns.Type == virtv2.NetworksTypeMain {
+			continue
+		}
+
+		vmmac, err := object.FetchObject(ctx, types.NamespacedName{
+			Namespace: vm.Namespace,
+			Name:      ns.VirtualMachineMACAddressName,
+		}, r.client, &virtv2.VirtualMachineMACAddress{})
+		if err != nil {
+			return err
+		}
+
+		if vmmac == nil {
+			return fmt.Errorf("the virtual machine mac address %q not found", ns.VirtualMachineMACAddressName)
+		}
+
+		vmmac.Spec.Address = vmmac.Status.Address
+		vmmacs = append(vmmacs, *vmmac)
+	}
+
+	JSON, err := json.Marshal(vmmacs)
+	if err != nil {
+		return err
+	}
+
+	secret.Data[virtualMachineMACAddressesKey] = []byte(base64.StdEncoding.EncodeToString(JSON))
 	return nil
 }
 
