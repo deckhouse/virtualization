@@ -114,16 +114,30 @@ func (h *NetworkInterfaceHandler) Handle(ctx context.Context, s state.VirtualMac
 		}
 	}
 
+	vmmacs, err := s.VirtualMachineMACAddresses(ctx)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	vmmacNamesByAddress := make(map[string]string)
+	for _, vmmac := range vmmacs {
+		vmmacNamesByAddress[vmmac.Status.Address] = vmmac.Name
+	}
+
+	// todo
 	networksStatus := []virtv2.NetworksStatus{
 		{
 			Type: virtv2.NetworksTypeMain,
 		},
 	}
-	for _, i := range network.CreateNetworkSpec(vm.Spec) {
+
+	for _, interfaceSpec := range network.CreateNetworkSpec(vm.Spec, vmmacs) {
+		macAddress := macAddressesByInterfaceName[interfaceSpec.InterfaceName]
 		networksStatus = append(networksStatus, virtv2.NetworksStatus{
-			Type: i.Type,
-			Name: i.Name,
-			MAC:  macAddressesByInterfaceName[i.InterfaceName],
+			Type:                         interfaceSpec.Type,
+			Name:                         interfaceSpec.Name,
+			MAC:                          macAddress,
+			VirtualMachineMACAddressName: vmmacNamesByAddress[macAddress],
 		})
 	}
 

@@ -47,17 +47,25 @@ type InterfaceStatus struct {
 
 type InterfaceSpecList []InterfaceSpec
 
-func CreateNetworkSpec(vmSpec virtv2.VirtualMachineSpec) InterfaceSpecList {
+func CreateNetworkSpec(vmSpec virtv2.VirtualMachineSpec, vmmacs []*virtv2.VirtualMachineMACAddress) InterfaceSpecList {
+	var macAddresses []string
+	for _, vmmac := range vmmacs {
+		macAddresses = append(macAddresses, vmmac.Status.Address)
+	}
+
 	var networksSpec InterfaceSpecList
 	for id, network := range vmSpec.Networks {
 		if network.Type == virtv2.NetworksTypeMain {
 			continue
 		}
+		if len(macAddresses) == 0 || id > len(macAddresses) {
+			break
+		}
 
 		networksSpec = append(networksSpec, InterfaceSpec{
 			Type:          network.Type,
 			Name:          network.Name,
-			InterfaceName: generateInterfaceName(id, network.Type),
+			InterfaceName: generateInterfaceName(macAddresses[id-1], network.Type),
 		})
 	}
 
@@ -72,10 +80,10 @@ func (c InterfaceSpecList) ToString() (string, error) {
 	return string(data), nil
 }
 
-func generateInterfaceName(id int, networkType string) string {
+func generateInterfaceName(macAddress, networkType string) string {
 	name := ""
 
-	hash := md5.Sum([]byte(fmt.Sprintf("%d", id)))
+	hash := md5.Sum([]byte(macAddress))
 	hashHex := hex.EncodeToString(hash[:])
 
 	switch networkType {
