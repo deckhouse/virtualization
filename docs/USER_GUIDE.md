@@ -101,7 +101,7 @@ Example of creating a virtual machine with Ubuntu 22.04.
    metadata:
      name: linux-vm
    spec:
-     virtualMachineClassName: host
+     virtualMachineClassName: generic
      cpu:
        cores: 1
      memory:
@@ -890,7 +890,7 @@ metadata:
   name: linux-vm
 spec:
   # VM class name.
-  virtualMachineClassName: host
+  virtualMachineClassName: generic
   # Block of scripts for the initial initialization of the VM.
   provisioning:
     type: UserData
