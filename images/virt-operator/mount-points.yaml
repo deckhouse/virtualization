@@ -1,0 +1,4 @@
+dirs:
+  - /etc/virt-operator/certificates
+  - /profile-data
+  - /kubeconfig.local
