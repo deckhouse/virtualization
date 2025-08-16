@@ -50,7 +50,7 @@ packages:
 - python3-module-psutil
 - python3-module-filelock
 - libnghttp2-tools
-- gnutls-utils libgnutls-devel libnettle
+- gnutls-utils libgnutls-devel libnettle-devel
 - tree nettle
 {{- end -}}
 
