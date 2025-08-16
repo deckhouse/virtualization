@@ -50,7 +50,7 @@ packages:
 - python3-module-psutil
 - python3-module-filelock
 - libnghttp2-tools
-- gnutls-utils libgnutls-devel libnettle-devel libnghttp3-devel libngtcp2-devel 
+- gnutls-utils libnghttp3-devel libngtcp2-devel
 - tree nettle
 {{- end -}}
 
@@ -68,7 +68,7 @@ import:
   add: /src
   to: /src
   before: install
-{{- $images := list "openssl" "libidn2" -}}
+{{- $images := list "openssl" "libidn2" "gnutls" "nettle" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 shell:
   beforeInstall:
