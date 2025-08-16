@@ -50,8 +50,8 @@ packages:
 - python3-module-psutil
 - python3-module-filelock
 - libnghttp2-tools
-- gnutls-utils libgnutls-devel
-- tree
+- gnutls-utils libgnutls-devel nettle
+- tree nettle
 {{- end -}}
 
 {{ $builderDependencies := include "$name" . | fromYaml }}
