@@ -23,7 +23,6 @@ libs:
   - libssh2-devel
   - libxfs-devel
   - zlib-devel
-  - libcurl-devel
   - libpci-devel
   - libgvnc-devel
   - libfdt-devel
@@ -217,7 +216,7 @@ import:
   - node-labeller
   - vlctl
 
-{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" "libcapstone" -}}
+{{- $images := list "swtpm" "libtpms" "numactl" "dmidecode" "libisoburn" "libburn" "libattr" "libaudit" "gnutls" "acl" "libbsd" "libgcrypt" "libmd" "libblkid" "libfuse3" "nettle" "libgsasl" "libcap-ng" "libcapstone" "libcurl" -}}
 {{- include "importPackageImages" (list . $images "install") -}}
 
 # Statically builded
