@@ -27,12 +27,14 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	virtv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/network"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
+	"github.com/deckhouse/virtualization-controller/pkg/common/patch"
 	vmutil "github.com/deckhouse/virtualization-controller/pkg/common/vm"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/kvbuilder"
@@ -185,12 +187,12 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	// 4. Set ConfigurationApplied condition.
 	switch {
-	case errs != nil:
+	case kvvmSyncErr != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, virtv2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
 		cbConfApplied.
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
-			Message(service.CapitalizeFirstLetter(errs.Error()) + ".")
+			Message(service.CapitalizeFirstLetter(kvvmSyncErr.Error()) + ".")
 	case len(changed.Status.RestartAwaitingChanges) > 0:
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonErrRestartAwaitingChanges, "The virtual machine configuration successfully synced")
 		cbConfApplied.
@@ -216,6 +218,23 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		cbConfApplied.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonConfigurationApplied)
 	default:
 		log.Error("Unexpected case during kvvm sync, please report a bug")
+	}
+
+	// 5. Set RestartRequired from KVVM condition.
+	if cbAwaitingRestart.Condition().Status == metav1.ConditionFalse && kvvm != nil {
+		cond, _ := conditions.GetKVVMCondition(virtv1.VirtualMachineRestartRequired, kvvm.Status.Conditions)
+		if cond.Status == corev1.ConditionTrue {
+			cbAwaitingRestart.
+				Status(metav1.ConditionTrue).
+				Reason(vmcondition.ReasonRestartAwaitingUnexpectedState).
+				Message("VirtualMachine has some unexpected state. Restart is required for syncing the configuration.")
+		}
+	}
+
+	// 6. Sync migrating volumes if needed.
+	_, migrateVolumesErr := h.syncMigrateVolumes(ctx, s)
+	if migrateVolumesErr != nil {
+		errs = errors.Join(errs, fmt.Errorf("failed to sync migrating volumes: %w", migrateVolumesErr))
 	}
 
 	return reconcile.Result{}, errs
@@ -533,6 +552,73 @@ func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.Vir
 	}
 
 	return !equality.Semantic.DeepEqual(&currentKvvm.Spec, &newKvvm.Spec), nil
+}
+
+func (h *SyncKvvmHandler) syncMigrateVolumes(ctx context.Context, s state.VirtualMachineState) (bool, error) {
+	kvvm, err := s.KVVM(ctx)
+	if err != nil {
+		return false, err
+	}
+	if kvvm == nil {
+		return false, nil
+	}
+
+	newKvvm, err := h.makeKVVMFromVMSpec(ctx, s)
+	if err != nil {
+		return false, err
+	}
+
+	pvcKvvmVolumes := make(map[string]*virtv1.VolumeSource)
+	for _, v := range kvvm.Spec.Template.Spec.Volumes {
+		pvcKvvmVolumes[v.Name] = &v.VolumeSource
+	}
+
+	newPvcKvvmVolumes := make(map[string]*virtv1.VolumeSource)
+	for _, v := range newKvvm.Spec.Template.Spec.Volumes {
+		newPvcKvvmVolumes[v.Name] = &v.VolumeSource
+	}
+
+	if len(pvcKvvmVolumes) != len(newPvcKvvmVolumes) || len(pvcKvvmVolumes) == 0 {
+		return false, nil
+	}
+
+	needToPatch := false
+	for pvcName, pvcVolume := range pvcKvvmVolumes {
+		newPvcVolume, ok := newPvcKvvmVolumes[pvcName]
+		// Should check that all volumes with the same name
+		if !ok {
+			return false, nil
+		}
+		if pvcVolume.PersistentVolumeClaim != nil && newPvcVolume.PersistentVolumeClaim != nil {
+			if pvcVolume.PersistentVolumeClaim.ClaimName != newPvcVolume.PersistentVolumeClaim.ClaimName {
+				needToPatch = true
+				continue
+			}
+		}
+		// Should check that other volumes has the same spec
+		if !equality.Semantic.DeepEqual(pvcVolume, newPvcVolume) {
+			return false, nil
+		}
+	}
+
+	if !needToPatch {
+		return true, nil
+	}
+
+	patchBytes, err := patch.NewJSONPatch(
+		patch.WithReplace("/spec/updateVolumesStrategy", newKvvm.Spec.UpdateVolumesStrategy),
+		patch.WithReplace("/spec/template/spec/volumes", newKvvm.Spec.Template.Spec.Volumes),
+	).Bytes()
+	if err != nil {
+		return false, err
+	}
+
+	err = h.client.Patch(ctx, kvvm, client.RawPatch(types.JSONPatchType, patchBytes))
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // canApplyChanges returns true if changes can be applied right now.

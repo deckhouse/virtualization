@@ -96,6 +96,8 @@ const (
 	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
+	// AnnVMOPVolumeMigration is an annotation on vmop that represents a vmop created by volume-migration controller
+	AnnVMOPVolumeMigration = AnnAPIGroupV + "/volume-migration"
 
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"
@@ -162,6 +164,9 @@ const (
 	AnnNetworksSpec = "network.deckhouse.io/networks-spec"
 	// AnnNetworksStatus is the annotation for view current network configuration into Pod.
 	AnnNetworksStatus = "network.deckhouse.io/networks-status"
+
+	AnnVolumeMigrationRequest = "virtualization.deckhouse.io/volume-migration-request"
+	AnnVolumeMigrationStatus  = "virtualization.deckhouse.io/volume-migration-status"
 )
 
 // AddAnnotation adds an annotation to an object

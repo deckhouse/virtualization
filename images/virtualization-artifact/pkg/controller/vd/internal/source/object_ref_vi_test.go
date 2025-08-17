@@ -68,7 +68,7 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
 				return "100Mi"
 			},
-			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
 			ProtectFunc: func(_ context.Context, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
@@ -147,13 +147,13 @@ var _ = Describe("ObjectRef VirtualImage", func() {
 		It("must create DataVolume", func() {
 			var dvCreated bool
 			vd.Status = virtv2.VirtualDiskStatus{}
-			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, sc).Build()
-			svc.StartFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ service.ObjectKind, _ *supplements.Generator, _ ...service.Option) error {
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(vi, sc).Build()
+			svc.StartFunc = func(_ context.Context, _ resource.Quantity, _ *storagev1.StorageClass, _ *cdiv1.DataVolumeSource, _ client.Object, _ supplements.DataVolumeSupplement, _ ...service.Option) error {
 				dvCreated = true
 				return nil
 			}
 
-			syncer := NewObjectRefVirtualImage(svc, client)
+			syncer := NewObjectRefVirtualImage(svc, fakeClient)
 
 			res, err := syncer.Sync(ctx, vd)
 			Expect(err).ToNot(HaveOccurred())

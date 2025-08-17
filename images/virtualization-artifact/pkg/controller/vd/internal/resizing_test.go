@@ -84,7 +84,7 @@ var _ = Describe("Resizing handler Run", func() {
 		}
 
 		diskService = &DiskServiceMock{
-			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				return pvc, nil
 			},
 			ResizeFunc: func(ctx context.Context, pvc *corev1.PersistentVolumeClaim, newSize resource.Quantity) error {
@@ -99,7 +99,7 @@ var _ = Describe("Resizing handler Run", func() {
 
 	It("Resizing is in progress", func() {
 		vd.Spec.PersistentVolumeClaim.Size = nil
-		diskService.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+		diskService.GetPersistentVolumeClaimFunc = func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 			pvc.Status.Conditions = []corev1.PersistentVolumeClaimCondition{
 				{
 					Type:   corev1.PersistentVolumeClaimResizing,
@@ -206,7 +206,7 @@ var _ = Describe("Resizing handler Run", func() {
 		}
 
 		diskService := &DiskServiceMock{
-			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
+			GetPersistentVolumeClaimFunc: func(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error) {
 				if args.isPVCGetError {
 					return nil, errors.New("test error")
 				}

@@ -79,14 +79,16 @@ func NewController(
 
 	reconciler := NewReconciler(
 		mgr.GetClient(),
+		internal.NewInitHandler(),
 		internal.NewStorageClassReadyHandler(scService),
 		internal.NewDatasourceReadyHandler(recorder, blank, sources),
 		internal.NewLifeCycleHandler(recorder, blank, sources, mgr.GetClient()),
 		internal.NewSnapshottingHandler(disk),
 		internal.NewResizingHandler(recorder, disk),
-		internal.NewDeletionHandler(sources),
+		internal.NewDeletionHandler(sources, mgr.GetClient()),
 		internal.NewStatsHandler(stat, importer, uploader),
 		internal.NewInUseHandler(mgr.GetClient()),
+		internal.NewMigrationHandler(mgr.GetClient(), scService, disk),
 		internal.NewProtectionHandler(),
 	)
 

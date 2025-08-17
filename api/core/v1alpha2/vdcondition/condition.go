@@ -36,6 +36,8 @@ const (
 	StorageClassReadyType Type = "StorageClassReady"
 	// InUseType indicates whether the VirtualDisk is attached to a running VirtualMachine or is being used in a process of an image creation.
 	InUseType Type = "InUse"
+	// MigrationType indicates whether the VirtualDisk is being volume migrating.
+	MigrationType Type = "Migration"
 )
 
 type (
@@ -51,6 +53,8 @@ type (
 	StorageClassReadyReason string
 	// InUseReason represents the various reasons for the InUse condition type.
 	InUseReason string
+	// MigrationReason represents the various reasons for the Migration condition type.
+	MigrationReason string
 )
 
 func (s DatasourceReadyReason) String() string {
@@ -74,6 +78,10 @@ func (s StorageClassReadyReason) String() string {
 }
 
 func (s InUseReason) String() string {
+	return string(s)
+}
+
+func (s MigrationReason) String() string {
 	return string(s)
 }
 
@@ -167,4 +175,9 @@ const (
 	AttachedToVirtualMachine InUseReason = "AttachedToVirtualMachine"
 	// NotInUse indicates that VirtualDisk free for use.
 	NotInUse InUseReason = "NotInUse"
+)
+
+const (
+	MigratingReason        MigrationReason = "Migrating"
+	PendingMigratingReason MigrationReason = "Pending"
 )
