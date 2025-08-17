@@ -259,7 +259,7 @@ func (ds UploadDataSource) Validate(_ context.Context, _ *virtv2.ClusterVirtualI
 	return nil
 }
 
-func (ds UploadDataSource) getEnvSettings(cvi *virtv2.ClusterVirtualImage, supgen *supplements.Generator) *uploader.Settings {
+func (ds UploadDataSource) getEnvSettings(cvi *virtv2.ClusterVirtualImage, supgen supplements.Generator) *uploader.Settings {
 	var settings uploader.Settings
 
 	uploader.ApplyDVCRDestinationSettings(

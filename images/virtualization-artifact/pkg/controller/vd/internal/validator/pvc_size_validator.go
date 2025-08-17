@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	vsv1 "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -121,7 +122,12 @@ func (v *PVCSizeValidator) ValidateCreate(ctx context.Context, vd *virtv2.Virtua
 }
 
 func (v *PVCSizeValidator) ValidateUpdate(ctx context.Context, oldVD, newVD *virtv2.VirtualDisk) (admission.Warnings, error) {
-	if oldVD.Spec.PersistentVolumeClaim.Size == newVD.Spec.PersistentVolumeClaim.Size {
+	sizeEqual := equality.Semantic.DeepEqual(oldVD.Spec.PersistentVolumeClaim.Size, newVD.Spec.PersistentVolumeClaim.Size)
+	if oldVD.Status.Phase == virtv2.DiskMigrating && !sizeEqual {
+		return nil, errors.New("spec.persistentVolumeClaim.size cannot be changed during migration. Please wait for the migration to finish")
+	}
+
+	if sizeEqual {
 		return nil, nil
 	}
 	var (

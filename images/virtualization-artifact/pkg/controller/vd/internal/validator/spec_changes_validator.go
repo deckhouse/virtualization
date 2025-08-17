@@ -26,8 +26,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -74,7 +76,30 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 		}
 
 		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
+			if commonvd.VolumeMigrationEnabled(featuregates.Default(), newVD) {
+				vmName := commonvd.GetCurrentlyMountedVMName(newVD)
+				if vmName == "" {
+					return nil, errors.New("storage class cannot be changed if the VirtualDisk not mounted to virtual machine")
+				}
+
+				vm := &virtv2.VirtualMachine{}
+				err := v.client.Get(ctx, client.ObjectKey{Name: vmName, Namespace: newVD.Namespace}, vm)
+				if err != nil {
+					return nil, err
+				}
+
+				if !(vm.Status.Phase == virtv2.MachineRunning || vm.Status.Phase == virtv2.MachineMigrating) {
+					return nil, errors.New("storage class cannot be changed unless the VirtualDisk is mounted to a running virtual machine")
+				}
+
+				for _, bd := range vm.Status.BlockDeviceRefs {
+					if bd.Kind == virtv2.DiskDevice && bd.Name == oldVD.Name && bd.Hotplugged {
+						return nil, errors.New("storage class cannot be changed if the VirtualDisk is hotplugged to a running virtual machine")
+					}
+				}
+			} else {
+				return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
+			}
 		}
 	case newVD.Status.Phase == virtv2.DiskTerminating:
 		if !reflect.DeepEqual(oldVD.Spec, newVD.Spec) {

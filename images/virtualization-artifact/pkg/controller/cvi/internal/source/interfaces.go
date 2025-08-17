@@ -23,6 +23,7 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
@@ -35,23 +36,23 @@ import (
 //go:generate go tool moq -rm -out mock.go . Importer Uploader Stat
 
 type Importer interface {
-	Start(ctx context.Context, settings *importer.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-	StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup *supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
-	CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error)
-	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
-	DeletePod(ctx context.Context, obj service.ObjectKind, controllerName string) (bool, error)
+	Start(ctx context.Context, settings *importer.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+	StartWithPodSetting(ctx context.Context, settings *importer.Settings, sup supplements.Generator, caBundle *datasource.CABundle, podSettings *importer.PodSettings) error
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error)
+	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
+	DeletePod(ctx context.Context, obj client.Object, controllerName string) (bool, error)
 	Protect(ctx context.Context, pod *corev1.Pod) error
 	Unprotect(ctx context.Context, pod *corev1.Pod) error
-	GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup *supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings
+	GetPodSettingsWithPVC(ownerRef *metav1.OwnerReference, sup supplements.Generator, pvcName, pvcNamespace string) *importer.PodSettings
 }
 
 type Uploader interface {
-	Start(ctx context.Context, settings *uploader.Settings, obj service.ObjectKind, sup *supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
-	GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error)
-	GetIngress(ctx context.Context, sup *supplements.Generator) (*netv1.Ingress, error)
-	GetService(ctx context.Context, sup *supplements.Generator) (*corev1.Service, error)
+	Start(ctx context.Context, settings *uploader.Settings, obj client.Object, sup supplements.Generator, caBundle *datasource.CABundle, opts ...service.Option) error
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
+	GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error)
+	GetIngress(ctx context.Context, sup supplements.Generator) (*netv1.Ingress, error)
+	GetService(ctx context.Context, sup supplements.Generator) (*corev1.Service, error)
 	Protect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 	Unprotect(ctx context.Context, pod *corev1.Pod, svc *corev1.Service, ing *netv1.Ingress) error
 	GetExternalURL(ctx context.Context, ing *netv1.Ingress) string

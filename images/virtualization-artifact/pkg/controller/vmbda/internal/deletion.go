@@ -93,11 +93,11 @@ func (h *DeletionHandler) detach(ctx context.Context, kvvm *virtv1.VirtualMachin
 	var blockDeviceName string
 	switch vmbda.Spec.BlockDeviceRef.Kind {
 	case virtv2.VMBDAObjectRefKindVirtualDisk:
-		blockDeviceName = kvbuilder.GenerateVMDDiskName(vmbda.Spec.BlockDeviceRef.Name)
+		blockDeviceName = kvbuilder.GenerateVDDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	case virtv2.VMBDAObjectRefKindVirtualImage:
-		blockDeviceName = kvbuilder.GenerateVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
+		blockDeviceName = kvbuilder.GenerateVIDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	case virtv2.VMBDAObjectRefKindClusterVirtualImage:
-		blockDeviceName = kvbuilder.GenerateCVMIDiskName(vmbda.Spec.BlockDeviceRef.Name)
+		blockDeviceName = kvbuilder.GenerateCVIDiskName(vmbda.Spec.BlockDeviceRef.Name)
 	}
 
 	log := logger.FromContext(ctx).With(logger.SlogHandler(deletionHandlerName))

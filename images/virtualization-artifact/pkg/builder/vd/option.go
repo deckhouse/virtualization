@@ -18,7 +18,6 @@ package vd
 
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/utils/ptr"
 
 	"github.com/deckhouse/virtualization-controller/pkg/builder/meta"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -100,9 +99,9 @@ func WithPersistentVolumeClaim(storageClass *string, size *resource.Quantity) Op
 	}
 }
 
-func WithStorageClass(storageClass string) Option {
+func WithStorageClass(storageClass *string) Option {
 	return func(vd *v1alpha2.VirtualDisk) {
-		vd.Spec.PersistentVolumeClaim.StorageClass = ptr.To(storageClass)
+		vd.Spec.PersistentVolumeClaim.StorageClass = storageClass
 	}
 }
 

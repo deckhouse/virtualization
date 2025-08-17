@@ -33,7 +33,7 @@ const (
 	innaddrAny      = "0.0.0.0"
 )
 
-func CheckCilliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamespace string) error {
+func CheckCiliumAgents(ctx context.Context, kubectl kc.Kubectl, vmName, vmNamespace string) error {
 	// Get VM information using kubectl
 	vmIP, nodeName, err := getVMInfo(kubectl, vmName, vmNamespace)
 	if err != nil {

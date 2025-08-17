@@ -14,8 +14,32 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package version
+package object
 
-func GetEdition() string {
-	return edition
+import (
+	"github.com/deckhouse/virtualization-controller/pkg/builder/vi"
+	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+)
+
+func NewHTTPVIUbuntu(name string) *virtv2.VirtualImage {
+	return vi.New(
+		vi.WithName(name),
+		vi.WithDataSourceHTTP(
+			UbuntuHTTP,
+			nil,
+			nil,
+		),
+	)
+}
+
+func NewGeneratedHTTPVIUbuntu(prefix string) *virtv2.VirtualImage {
+	return vi.New(
+		vi.WithGenerateName(prefix),
+		vi.WithDataSourceHTTP(
+			UbuntuHTTP,
+			nil,
+			nil,
+		),
+		vi.WithStorage(virtv2.StorageContainerRegistry),
+	)
 }
