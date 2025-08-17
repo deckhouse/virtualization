@@ -28,6 +28,7 @@ import (
 
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -73,8 +74,10 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 			return nil, errors.New("data source cannot be changed if the VirtualDisk has already been provisioned")
 		}
 
-		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
+		if !featuregates.Default().Enabled(featuregates.VolumeMigration) {
+			if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
+				return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
+			}
 		}
 	case newVD.Status.Phase == virtv2.DiskTerminating:
 		if !reflect.DeepEqual(oldVD.Spec, newVD.Spec) {

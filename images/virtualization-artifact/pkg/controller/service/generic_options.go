@@ -1,8 +1,5 @@
-//go:build !EE
-// +build !EE
-
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,6 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package vmchange
+package service
 
-const placementAction = ActionRestart
+import "github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
+
+type genericOptions struct {
+	nodePlacement *provisioner.NodePlacement
+}
+
+func newGenericOptions(opts ...Option) *genericOptions {
+	o := &genericOptions{}
+	for _, opt := range opts {
+		opt(o)
+	}
+	return o
+}
+
+type Option func(o *genericOptions)
+
+func WithNodePlacement(nodePlacement *provisioner.NodePlacement) Option {
+	return func(o *genericOptions) {
+		o.nodePlacement = nodePlacement
+	}
+}
