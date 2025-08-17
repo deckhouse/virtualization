@@ -29,14 +29,16 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	mcapi "github.com/deckhouse/virtualization-controller/pkg/controller/moduleconfig/api"
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
@@ -74,16 +76,14 @@ var (
 	mc                           *config.ModuleConfig
 	kustomize                    *config.Kustomize
 	kubeClient                   kubernetes.Interface
+	dynamicClient                dynamic.Interface
 	virtClient                   kubeclient.Client
 	kubectl                      kc.Kubectl
 	crClient                     client.Client
 	d8Virtualization             d8.D8Virtualization
 	git                          gt.Git
 	namePrefix                   string
-	phaseByVolumeBindingMode     string
-	logStreamByV12nControllerPod = make(map[string]*el.LogStream, 0)
-	scFromEnv                    *storagev1.StorageClass
-	storageClass                 *storagev1.StorageClass
+	logStreamByV12nControllerPod = make(map[string]*el.LogStream)
 )
 
 func init() {
@@ -119,14 +119,27 @@ func init() {
 	if kubeClient, err = kubernetes.NewForConfig(restConfig); err != nil {
 		log.Fatal(err)
 	}
+
+	if dynamicClient, err = dynamic.NewForConfig(restConfig); err != nil {
+		log.Fatal(err)
+	}
+
 	if virtClient, err = kubeclient.GetClientFromRESTConfig(restConfig); err != nil {
 		log.Fatal(err)
 	}
 
+	// Setup scheme for all resources
 	scheme := runtime.NewScheme()
-	err = virtv2.AddToScheme(scheme)
-	if err != nil {
-		log.Fatal(err)
+
+	for _, f := range []func(*runtime.Scheme) error{
+		clientgoscheme.AddToScheme,
+		virtv2.AddToScheme,
+		mcapi.AddToScheme,
+	} {
+		err = f(scheme)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	if crClient, err = client.New(restConfig, client.Options{Scheme: scheme}); err != nil {
@@ -147,17 +160,18 @@ func init() {
 		}
 	}
 
-	if scFromEnv, err = GetStorageClassFromEnv(storageClassName); err != nil {
+	scFromEnv, err := GetStorageClassFromEnv(storageClassName)
+	if err != nil {
 		log.Fatal(err)
 	}
 
 	if scFromEnv != nil {
-		storageClass = scFromEnv
+		conf.StorageClass.TemplateStorageClass = scFromEnv
 	} else {
-		storageClass = conf.StorageClass.DefaultStorageClass
+		conf.StorageClass.TemplateStorageClass = conf.StorageClass.DefaultStorageClass
 	}
 
-	if err = SetStorageClass(testDataDir, map[string]string{storageClassName: storageClass.Name}); err != nil {
+	if err = SetStorageClass(testDataDir, map[string]string{storageClassName: conf.StorageClass.TemplateStorageClass.Name}); err != nil {
 		log.Fatal(err)
 	}
 
@@ -170,7 +184,6 @@ func init() {
 		log.Fatal(err)
 	}
 	ChmodFile(conf.TestData.Sshkey, 0o600)
-	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(storageClass)
 }
 
 func newRestConfig(transport config.ClusterTransport) (*rest.Config, error) {

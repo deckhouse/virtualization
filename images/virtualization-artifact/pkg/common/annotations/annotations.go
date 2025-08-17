@@ -96,6 +96,8 @@ const (
 	AnnVMRestore = AnnAPIGroupV + "/vmrestore"
 	// AnnVMOPEvacuation is an annotation on vmop that represents a vmop created by evacuation controller
 	AnnVMOPEvacuation = AnnAPIGroupV + "/evacuation"
+	// AnnVMOPVolumeMigration is an annotation on vmop that represents a vmop created by volume-migration controller
+	AnnVMOPVolumeMigration = AnnAPIGroupV + "/volume-migration"
 
 	// LabelsPrefix is a prefix for virtualization-controller labels.
 	LabelsPrefix = "virtualization.deckhouse.io"

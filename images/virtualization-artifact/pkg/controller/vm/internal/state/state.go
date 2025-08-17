@@ -54,6 +54,7 @@ type VirtualMachineState interface {
 	Class(ctx context.Context) (*virtv2.VirtualMachineClass, error)
 	VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, error)
 	Shared(fn func(s *Shared))
+	NonMigratableVirtualDisks(ctx context.Context) ([]*virtv2.VirtualDisk, error)
 }
 
 func New(c client.Client, vm *reconciler.Resource[*virtv2.VirtualMachine, virtv2.VirtualMachineStatus]) VirtualMachineState {
@@ -445,4 +446,38 @@ func (s *state) VMOPs(ctx context.Context) ([]*virtv2.VirtualMachineOperation, e
 	}
 
 	return resultVMOPs, nil
+}
+
+func (s *state) NonMigratableVirtualDisks(ctx context.Context) ([]*virtv2.VirtualDisk, error) {
+	vdByName, err := s.VirtualDisksByName(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var nonMigratableVirtualDisks []*virtv2.VirtualDisk
+
+	for _, vd := range vdByName {
+		pvcKey := types.NamespacedName{Name: vd.Status.Target.PersistentVolumeClaim, Namespace: vd.Namespace}
+		pvc, err := object.FetchObject(ctx, pvcKey, s.client, &corev1.PersistentVolumeClaim{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch PersistentVolumeClaim: %w", err)
+		}
+		if pvc == nil {
+			nonMigratableVirtualDisks = append(nonMigratableVirtualDisks, vd)
+			continue
+		}
+
+		rwx := false
+		for _, mode := range pvc.Spec.AccessModes {
+			if mode == corev1.ReadWriteMany {
+				rwx = true
+				break
+			}
+		}
+		if !rwx {
+			nonMigratableVirtualDisks = append(nonMigratableVirtualDisks, vd)
+		}
+	}
+
+	return nonMigratableVirtualDisks, nil
 }

@@ -80,6 +80,9 @@ const (
 	// ReasonQuotaExceeded is a completed reason that indicates the project's quota has been exceeded and the migration has been paused.
 	ReasonQuotaExceeded ReasonCompleted = "QuotaExceeded"
 
+	// ReasonWaitingForVirtualMachineToBeReadyToMigrate is a ReasonCompleted indicating that the virtual machine is not ready to be migrated.
+	ReasonWaitingForVirtualMachineToBeReadyToMigrate ReasonCompleted = "WaitingForVirtualMachineToBeReadyToMigrate"
+
 	// ReasonOperationFailed is a ReasonCompleted indicating that operation has failed.
 	ReasonOperationFailed ReasonCompleted = "OperationFailed"
 

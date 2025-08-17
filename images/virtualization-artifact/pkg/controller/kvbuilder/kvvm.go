@@ -19,6 +19,7 @@ package kvbuilder
 import (
 	"fmt"
 	"maps"
+	"os"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -65,6 +66,14 @@ func NewKVVM(currentKVVM *virtv1.VirtualMachine, opts KVVMOptions) *KVVM {
 	return &KVVM{
 		ResourceBuilder: resource_builder.NewResourceBuilder(currentKVVM, resource_builder.ResourceBuilderOptions{ResourceExists: true}),
 		opts:            opts,
+	}
+}
+
+func DefaultOptions(current *virtv2.VirtualMachine) KVVMOptions {
+	return KVVMOptions{
+		EnableParavirtualization: current.Spec.EnableParavirtualization,
+		OsType:                   current.Spec.OsType,
+		DisableHypervSyNIC:       os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
 	}
 }
 
@@ -627,4 +636,8 @@ func (b *KVVM) SetMetadata(metadata metav1.ObjectMeta) {
 	}
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Labels, metadata.Labels)
 	maps.Copy(b.Resource.Spec.Template.ObjectMeta.Annotations, metadata.Annotations)
+}
+
+func (b *KVVM) SetUpdateVolumesStrategy(strategy virtv1.UpdateVolumesStrategy) {
+	b.Resource.Spec.UpdateVolumesStrategy = &strategy
 }

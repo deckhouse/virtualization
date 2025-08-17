@@ -38,7 +38,7 @@ type Sources interface {
 
 type DiskService interface {
 	GetStorageClass(ctx context.Context, storageClassName *string) (*storagev1.StorageClass, error)
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 }
 
 type StorageClassService interface {
@@ -46,8 +46,8 @@ type StorageClassService interface {
 	GetModuleStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
 	GetDefaultStorageClass(ctx context.Context) (*storagev1.StorageClass, error)
 	GetStorageClass(ctx context.Context, sc string) (*storagev1.StorageClass, error)
+	GetPersistentVolumeClaim(ctx context.Context, sup supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 	GetStorageProfile(ctx context.Context, name string) (*cdiv1.StorageProfile, error)
-	GetPersistentVolumeClaim(ctx context.Context, sup *supplements.Generator) (*corev1.PersistentVolumeClaim, error)
 	IsStorageClassDeprecated(sc *storagev1.StorageClass) bool
 	ValidateClaimPropertySets(sp *cdiv1.StorageProfile) error
 }

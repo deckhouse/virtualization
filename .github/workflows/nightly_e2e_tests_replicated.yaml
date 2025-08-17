@@ -16,7 +16,7 @@ name: End-to-End tests + Replicated storage
 
 env:
   CSI: replicated.csi.storage.deckhouse.io
-  STORAGE_CLASS_NAME: linstor-thin-r1-immediate
+  STORAGE_CLASS_NAME: linstor-thin-r1
   CI_COMMIT_REF_NAME: ${{ github.ref_name }}
   GO_VERSION: "1.24.5"
   TIMEOUT: "2h"

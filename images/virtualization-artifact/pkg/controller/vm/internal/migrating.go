@@ -19,18 +19,18 @@ package internal
 import (
 	"context"
 	"fmt"
-	"log/slog"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	virtv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/state"
-	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
@@ -38,10 +38,16 @@ import (
 
 const nameMigratingHandler = "MigratingHandler"
 
-type MigratingHandler struct{}
+type MigratingHandler struct {
+	vmopProtection *service.ProtectionService
 
-func NewMigratingHandler() *MigratingHandler {
-	return &MigratingHandler{}
+	finalizers []func(context.Context) error
+}
+
+func NewMigratingHandler(client client.Client) *MigratingHandler {
+	return &MigratingHandler{
+		vmopProtection: service.NewProtectionService(client, virtv2.FinalizerVMOPProtectionByVMController),
+	}
 }
 
 func (h *MigratingHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -65,21 +71,24 @@ func (h *MigratingHandler) Handle(ctx context.Context, s state.VirtualMachineSta
 		return reconcile.Result{}, err
 	}
 
-	vmops, err := s.VMOPs(ctx)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	log := logger.FromContext(ctx).With(logger.SlogHandler(nameLifeCycleHandler))
 	vm.Status.MigrationState = h.wrapMigrationState(kvvmi)
 
-	h.syncMigrating(vm, kvvmi, vmops, log)
 	h.syncMigratable(vm, kvvm)
-	return reconcile.Result{}, nil
+
+	return reconcile.Result{}, h.syncMigrating(ctx, s, vm, kvvmi)
 }
 
 func (h *MigratingHandler) Name() string {
 	return nameMigratingHandler
+}
+
+func (h *MigratingHandler) Finalize(ctx context.Context) error {
+	for _, finalizer := range h.finalizers {
+		if err := finalizer(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (h *MigratingHandler) wrapMigrationState(kvvmi *virtv1.VirtualMachineInstance) *virtv2.VirtualMachineMigrationState {
@@ -121,66 +130,175 @@ func (h *MigratingHandler) getMigrationResult(state *virtv1.VirtualMachineInstan
 	}
 }
 
-func (h *MigratingHandler) syncMigrating(vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance, vmops []*virtv2.VirtualMachineOperation, log *slog.Logger) {
-	cb := conditions.NewConditionBuilder(vmcondition.TypeMigrating).Generation(vm.GetGeneration())
-	defer func() {
-		if cb.Condition().Status == metav1.ConditionTrue ||
-			cb.Condition().Reason == vmcondition.ReasonLastMigrationFinishedWithError.String() ||
-			cb.Condition().Message != "" {
-			conditions.SetCondition(cb, &vm.Status.Conditions)
-		} else {
+func (h *MigratingHandler) syncMigrating(ctx context.Context, s state.VirtualMachineState, vm *virtv2.VirtualMachine, kvvmi *virtv1.VirtualMachineInstance) error {
+	// 0. If KVVMI is nil, migration cannot be in progress. Remove Migrating condition, but keep if migration failed.
+	if kvvmi == nil {
+		migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+		if migrating.Reason != vmcondition.ReasonLastMigrationFinishedWithError.String() {
 			conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
 		}
-	}()
-
-	var vmop *virtv2.VirtualMachineOperation
-	{
-		var inProgressVmops []*virtv2.VirtualMachineOperation
-		for _, op := range vmops {
-			if commonvmop.IsMigration(op) && isOperationInProgress(op) {
-				inProgressVmops = append(inProgressVmops, op)
-			}
-		}
-
-		switch length := len(inProgressVmops); length {
-		case 0:
-		case 1:
-			vmop = inProgressVmops[0]
-		default:
-			log.Error("Found vmops in progress phase. This is unexpected. Please report a bug.", slog.Int("VMOPCount", length))
-		}
+		return nil
 	}
 
-	switch {
-	case liveMigrationInProgress(vm.Status.MigrationState):
-		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonVmIsMigrating)
-		conditions.SetCondition(cb, &vm.Status.Conditions)
+	cb := conditions.NewConditionBuilder(vmcondition.TypeMigrating).Generation(vm.GetGeneration())
 
-	case vmop != nil:
-		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonVmIsNotMigrating)
+	// 1. Check if live migration is in progress
+	if liveMigrationInProgress(vm.Status.MigrationState) {
+		cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonMigratingInProgress)
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
+	}
+
+	// 2. Check if migration requested
+	vmop, err := h.getVMOPCandidate(ctx, s)
+	if err != nil {
+		return err
+	}
+
+	if vmop != nil {
+		// 3. Sync migration status from VMOP
+		cb.Status(metav1.ConditionFalse).Reason(vmcondition.ReasonMigratingPending)
+
 		completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
 		switch completed.Reason {
 		case vmopcondition.ReasonMigrationPending.String():
 			cb.Message("Migration is awaiting start.")
+
+		case vmopcondition.ReasonQuotaExceeded.String():
+			cb.Message(fmt.Sprintf("Migration is pending: %s", completed.Message))
+
 		case vmopcondition.ReasonMigrationPrepareTarget.String():
 			cb.Message("Migration is awaiting target preparation.")
+
 		case vmopcondition.ReasonMigrationTargetReady.String():
 			cb.Message("Migration is awaiting execution.")
-		case vmopcondition.ReasonMigrationRunning.String():
-			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonVmIsMigrating)
-		case vmopcondition.ReasonQuotaExceeded.String():
-			cb.Reason(vmcondition.ReasonMigrationIsPending)
-			cb.Message(fmt.Sprintf("Migration is pending: %s", completed.Message))
-		}
-		conditions.SetCondition(cb, &vm.Status.Conditions)
 
-	case kvvmi != nil && liveMigrationFailed(vm.Status.MigrationState):
+		case vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate.String():
+			if err := h.vmopProtection.AddProtection(ctx, vmop); err != nil {
+				return err
+			}
+
+			// 6.1 Check if virtual disks can be migrated or ready to migrate
+			if err := h.syncWaitingForVMToBeReadyMigrate(ctx, s, cb, kvvmi); err != nil {
+				return err
+			}
+
+		case vmopcondition.ReasonMigrationRunning.String():
+			cb.Status(metav1.ConditionTrue).Reason(vmcondition.ReasonMigratingInProgress)
+
+		case vmopcondition.ReasonOperationFailed.String():
+			h.finalizers = append(h.finalizers, func(ctx context.Context) error {
+				return h.vmopProtection.RemoveProtection(ctx, vmop)
+			})
+
+			cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("")
+
+		case vmopcondition.ReasonOperationCompleted.String():
+			h.finalizers = append(h.finalizers, func(ctx context.Context) error {
+				return h.vmopProtection.RemoveProtection(ctx, vmop)
+			})
+
+			conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
+			return nil
+
+		default:
+			if commonvmop.IsTerminating(vmop) {
+				h.finalizers = append(h.finalizers, func(ctx context.Context) error {
+					return h.vmopProtection.RemoveProtection(ctx, vmop)
+				})
+
+				cb.Reason(vmcondition.ReasonLastMigrationFinishedWithError).Message("VMOP was being terminated before migration was completed.")
+			}
+		}
+
+		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
+	}
+
+	// 4. Set error if migration failed.
+	if liveMigrationFailed(vm.Status.MigrationState) {
 		msg := kvvmi.Status.MigrationState.FailureReason
 		cb.Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonLastMigrationFinishedWithError).
 			Message(msg)
 		conditions.SetCondition(cb, &vm.Status.Conditions)
+		return nil
 	}
+
+	if liveMigrationSucceeded(vm.Status.MigrationState) {
+		conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
+		return nil
+	}
+
+	// 5. Remove Migrating condition if migration is finished successfully. Or migration was not be requested.
+	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	if migrating.Reason != vmcondition.ReasonLastMigrationFinishedWithError.String() {
+		conditions.RemoveCondition(vmcondition.TypeMigrating, &vm.Status.Conditions)
+	}
+	return nil
+}
+
+func (h *MigratingHandler) syncWaitingForVMToBeReadyMigrate(ctx context.Context, s state.VirtualMachineState, cb *conditions.ConditionBuilder, kvvmi *virtv1.VirtualMachineInstance) error {
+	// Check if virtual disks can be migrated or ready to migrate
+	nonMigratableVirtualDisks, err := s.NonMigratableVirtualDisks(ctx)
+	if err != nil {
+		return err
+	}
+
+	var notReadyToMigrateDisks []string
+	targetPVCNames := make(map[string]struct{})
+	for _, vd := range nonMigratableVirtualDisks {
+		// if target pvc is set, it means that the disk is ready to be migrated,
+		// but if end timestamp is set, it means that TargetPVC is old, and we should wait new one.
+		if vd.Status.MigrationState.TargetPVC == "" || !vd.Status.MigrationState.EndTimestamp.IsZero() {
+			notReadyToMigrateDisks = append(notReadyToMigrateDisks, vd.Name)
+		}
+		targetPVCNames[vd.Status.MigrationState.TargetPVC] = struct{}{}
+	}
+
+	if len(notReadyToMigrateDisks) > 0 {
+		cb.Message(fmt.Sprintf("Migration is awaiting virtual disks to be ready to migrate [%s].", strings.Join(notReadyToMigrateDisks, ", ")))
+	} else {
+		var targetSyncCount int
+		for _, vol := range kvvmi.Spec.Volumes {
+			if vol.PersistentVolumeClaim != nil {
+				if _, ok := targetPVCNames[vol.PersistentVolumeClaim.ClaimName]; ok {
+					targetSyncCount++
+				}
+			}
+		}
+
+		if len(targetPVCNames) == targetSyncCount {
+			cb.Reason(vmcondition.ReasonReadyToMigrate).Message("")
+		} else {
+			cb.Message("Target persistent volume claims are not synced yet.")
+		}
+	}
+
+	return nil
+}
+
+func (h *MigratingHandler) getVMOPCandidate(ctx context.Context, s state.VirtualMachineState) (*virtv2.VirtualMachineOperation, error) {
+	vmops, err := s.VMOPs(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var candidate *virtv2.VirtualMachineOperation
+	if len(vmops) > 0 {
+		candidate = vmops[0]
+
+		for _, vmop := range vmops {
+			if !commonvmop.IsMigration(vmop) {
+				continue
+			}
+			if vmop.GetCreationTimestamp().Time.After(candidate.GetCreationTimestamp().Time) {
+				candidate = vmop
+			}
+		}
+	}
+
+	return candidate, nil
 }
 
 func (h *MigratingHandler) syncMigratable(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine) {
@@ -188,10 +306,18 @@ func (h *MigratingHandler) syncMigratable(vm *virtv2.VirtualMachine, kvvm *virtv
 
 	if kvvm != nil {
 		liveMigratable := service.GetKVVMCondition(string(virtv1.VirtualMachineInstanceIsMigratable), kvvm.Status.Conditions)
-		if liveMigratable != nil && liveMigratable.Status == corev1.ConditionFalse && liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonDisksNotMigratable {
+		switch {
+		case liveMigratable == nil:
+		case liveMigratable.Reason == virtv1.VirtualMachineInstanceReasonDisksNotMigratable:
 			cb.Status(metav1.ConditionFalse).
-				Reason(vmcondition.ReasonNotMigratable).
+				Reason(vmcondition.ReasonDisksNotMigratable).
 				Message("Live migration requires that all PVCs must be shared (using ReadWriteMany access mode)")
+			conditions.SetCondition(cb, &vm.Status.Conditions)
+			return
+		case liveMigratable.Status == corev1.ConditionFalse:
+			cb.Status(metav1.ConditionFalse).
+				Reason(vmcondition.ReasonNonMigratable).
+				Message(liveMigratable.Message)
 			conditions.SetCondition(cb, &vm.Status.Conditions)
 			return
 		}
@@ -208,8 +334,6 @@ func liveMigrationFailed(migrationState *virtv2.VirtualMachineMigrationState) bo
 	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == virtv2.MigrationResultFailed
 }
 
-func isOperationInProgress(vmop *virtv2.VirtualMachineOperation) bool {
-	sent, _ := conditions.GetCondition(vmopcondition.TypeSignalSent, vmop.Status.Conditions)
-	completed, _ := conditions.GetCondition(vmopcondition.TypeCompleted, vmop.Status.Conditions)
-	return sent.Status == metav1.ConditionTrue && completed.Status != metav1.ConditionTrue
+func liveMigrationSucceeded(migrationState *virtv2.VirtualMachineMigrationState) bool {
+	return migrationState != nil && migrationState.EndTimestamp != nil && migrationState.Result == virtv2.MigrationResultSucceeded
 }

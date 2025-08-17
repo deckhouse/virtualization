@@ -72,7 +72,7 @@ func SetupController(
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
-		internal.NewMigratingHandler(),
+		internal.NewMigratingHandler(client),
 		internal.NewFirmwareHandler(firmwareImage),
 		internal.NewEvictHandler(),
 		internal.NewStatisticHandler(client),

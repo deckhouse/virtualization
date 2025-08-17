@@ -88,21 +88,24 @@ const (
 	ReasonConfigurationApplied    Reason = "ConfigurationApplied"
 	ReasonConfigurationNotApplied Reason = "ConfigurationNotApplied"
 
+	ReasonRestartAwaitingUnexpectedState     Reason = "RestartAwaitingUnexpectedState"
 	ReasonRestartAwaitingChangesExist        Reason = "RestartAwaitingChangesExist"
 	ReasonRestartAwaitingVMClassChangesExist Reason = "RestartAwaitingVMClassChangesExist"
 	ReasonRestartNoNeed                      Reason = "NoNeedRestart"
 
-	ReasonMigratable    Reason = "VirtualMachineMigratable"
-	ReasonNotMigratable Reason = "VirtualMachineNotMigratable"
+	ReasonMigratable         Reason = "VirtualMachineMigratable"
+	ReasonNonMigratable      Reason = "VirtualMachineNonMigratable"
+	ReasonDisksNotMigratable Reason = "VirtualMachineDisksNotMigratable"
 
-	ReasonVmIsMigrating                  Reason = "VirtualMachineMigrating"
-	ReasonVmIsNotMigrating               Reason = "VirtualMachineNotMigrating"
+	ReasonMigratingPending               Reason = "Pending"
+	ReasonReadyToMigrate                 Reason = "ReadyToMigrate"
+	ReasonMigratingInProgress            Reason = "InProgress"
 	ReasonLastMigrationFinishedWithError Reason = "LastMigrationFinishedWithError"
-	ReasonVmIsNotRunning                 Reason = "VirtualMachineNotRunning"
-	ReasonVmIsRunning                    Reason = "VirtualMachineRunning"
-	ReasonInternalVirtualMachineError    Reason = "InternalVirtualMachineError"
-	ReasonPodNotStarted                  Reason = "PodNotStarted"
-	ReasonMigrationIsPending             Reason = "MigrationIsPending"
+
+	ReasonVmIsNotRunning              Reason = "VirtualMachineNotRunning"
+	ReasonVmIsRunning                 Reason = "VirtualMachineRunning"
+	ReasonInternalVirtualMachineError Reason = "InternalVirtualMachineError"
+	ReasonPodNotStarted               Reason = "PodNotStarted"
 
 	// 	ReasonFilesystemFrozen indicates that virtual machine's filesystem has been successfully frozen.
 	ReasonFilesystemFrozen Reason = "Frozen"

@@ -26,8 +26,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	commonvd "github.com/deckhouse/virtualization-controller/pkg/common/vd"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	intsvc "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/service"
+	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -74,7 +76,14 @@ func (v *SpecChangesValidator) ValidateUpdate(ctx context.Context, oldVD, newVD 
 		}
 
 		if !reflect.DeepEqual(oldVD.Spec.PersistentVolumeClaim.StorageClass, newVD.Spec.PersistentVolumeClaim.StorageClass) {
-			return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
+			if featuregates.Default().Enabled(featuregates.VolumeMigration) {
+				vmName := commonvd.GetCurrentlyMountedVMName(newVD)
+				if vmName == "" {
+					return nil, errors.New("storage class cannot be changed if the VirtualDisk not mounted to virtual machine")
+				}
+			} else {
+				return nil, errors.New("storage class cannot be changed if the VirtualDisk has already been provisioned")
+			}
 		}
 	case newVD.Status.Phase == virtv2.DiskTerminating:
 		if !reflect.DeepEqual(oldVD.Spec, newVD.Spec) {
