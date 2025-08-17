@@ -27,7 +27,7 @@ import (
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	d8 "github.com/deckhouse/virtualization/tests/e2e/d8"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
@@ -38,7 +38,7 @@ const (
 	StageAfter    = "after"
 )
 
-var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelProcess()), ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe(fmt.Sprintf("VirtualMachineConfiguration %d", GinkgoParallelProcess()), framework.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel  = map[string]string{"testcase": "vm-configuration"}
 		automaticLabel = map[string]string{"vm": "automatic-conf"}

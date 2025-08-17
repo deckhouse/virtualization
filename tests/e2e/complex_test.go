@@ -26,17 +26,18 @@ import (
 
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 )
 
-var _ = Describe("ComplexTest", Serial, ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("ComplexTest", Serial, framework.CommonE2ETestDecorators(), func() {
 	var (
-		testCaseLabel      = map[string]string{"testcase": "complex-test"}
-		hasNoConsumerLabel = map[string]string{"hasNoConsumer": "complex-test"}
-		alwaysOnLabel      = map[string]string{"alwaysOn": "complex-test"}
-		notAlwaysOnLabel   = map[string]string{"notAlwaysOn": "complex-test"}
-		ns                 string
+		testCaseLabel            = map[string]string{"testcase": "complex-test"}
+		hasNoConsumerLabel       = map[string]string{"hasNoConsumer": "complex-test"}
+		alwaysOnLabel            = map[string]string{"alwaysOn": "complex-test"}
+		notAlwaysOnLabel         = map[string]string{"notAlwaysOn": "complex-test"}
+		ns                       string
+		phaseByVolumeBindingMode = GetPhaseByVolumeBindingModeForTemplateSc()
 	)
 
 	AfterEach(func() {

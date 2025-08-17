@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -48,18 +47,24 @@ import (
 
 const nameSyncKvvmHandler = "SyncKvvmHandler"
 
-func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder eventrecord.EventRecorderLogger) *SyncKvvmHandler {
+type syncVolumesService interface {
+	SyncVolumes(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error)
+}
+
+func NewSyncKvvmHandler(dvcrSettings *dvcr.Settings, client client.Client, recorder eventrecord.EventRecorderLogger, syncVolumesService syncVolumesService) *SyncKvvmHandler {
 	return &SyncKvvmHandler{
-		dvcrSettings: dvcrSettings,
-		client:       client,
-		recorder:     recorder,
+		dvcrSettings:       dvcrSettings,
+		client:             client,
+		recorder:           recorder,
+		syncVolumesService: syncVolumesService,
 	}
 }
 
 type SyncKvvmHandler struct {
-	client       client.Client
-	recorder     eventrecord.EventRecorderLogger
-	dvcrSettings *dvcr.Settings
+	client             client.Client
+	recorder           eventrecord.EventRecorderLogger
+	dvcrSettings       *dvcr.Settings
+	syncVolumesService syncVolumesService
 }
 
 func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineState) (reconcile.Result, error) {
@@ -185,12 +190,12 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 
 	// 4. Set ConfigurationApplied condition.
 	switch {
-	case errs != nil:
+	case kvvmSyncErr != nil:
 		h.recorder.Event(current, corev1.EventTypeWarning, virtv2.ReasonErrVmNotSynced, kvvmSyncErr.Error())
 		cbConfApplied.
 			Status(metav1.ConditionFalse).
 			Reason(vmcondition.ReasonConfigurationNotApplied).
-			Message(service.CapitalizeFirstLetter(errs.Error()) + ".")
+			Message(service.CapitalizeFirstLetter(kvvmSyncErr.Error()) + ".")
 	case len(changed.Status.RestartAwaitingChanges) > 0:
 		h.recorder.Event(current, corev1.EventTypeNormal, virtv2.ReasonErrRestartAwaitingChanges, "The virtual machine configuration successfully synced")
 		cbConfApplied.
@@ -218,7 +223,23 @@ func (h *SyncKvvmHandler) Handle(ctx context.Context, s state.VirtualMachineStat
 		log.Error("Unexpected case during kvvm sync, please report a bug")
 	}
 
-	return reconcile.Result{}, errs
+	// 5. Set RestartRequired from KVVM condition.
+	if cbAwaitingRestart.Condition().Status == metav1.ConditionFalse && kvvm != nil {
+		cond, _ := conditions.GetKVVMCondition(virtv1.VirtualMachineRestartRequired, kvvm.Status.Conditions)
+		if cond.Status == corev1.ConditionTrue {
+			cbAwaitingRestart.
+				Status(metav1.ConditionTrue).
+				Reason(vmcondition.ReasonRestartAwaitingUnexpectedState).
+				Message("VirtualMachine has some unexpected state. Restart is required for syncing the configuration.")
+		}
+	}
+
+	// 6. Sync migrating volumes if needed.
+	result, migrateVolumesErr := h.syncVolumesService.SyncVolumes(ctx, s)
+	if migrateVolumesErr != nil {
+		errs = errors.Join(errs, fmt.Errorf("failed to sync migrating volumes: %w", migrateVolumesErr))
+	}
+	return result, errs
 }
 
 func (h *SyncKvvmHandler) Name() string {
@@ -298,7 +319,7 @@ func (h *SyncKvvmHandler) createKVVM(ctx context.Context, s state.VirtualMachine
 	if s.VirtualMachine().IsEmpty() {
 		return fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
-	kvvm, err := h.makeKVVMFromVMSpec(ctx, s)
+	kvvm, err := MakeKVVMFromVMSpec(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to make the internal virtual machine: %w", err)
 	}
@@ -327,7 +348,7 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 		return fmt.Errorf("the virtual machine is empty, please report a bug")
 	}
 
-	kvvm, err := h.makeKVVMFromVMSpec(ctx, s)
+	kvvm, err := MakeKVVMFromVMSpec(ctx, s)
 	if err != nil {
 		return fmt.Errorf("failed to prepare the internal virtual machine: %w", err)
 	}
@@ -342,18 +363,14 @@ func (h *SyncKvvmHandler) updateKVVM(ctx context.Context, s state.VirtualMachine
 	return nil
 }
 
-func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
+func MakeKVVMFromVMSpec(ctx context.Context, s state.VirtualMachineState) (*virtv1.VirtualMachine, error) {
 	if s.VirtualMachine().IsEmpty() {
 		return nil, nil
 	}
 	current := s.VirtualMachine().Current()
 	kvvmName := object.NamespacedName(current)
 
-	kvvmOpts := kvbuilder.KVVMOptions{
-		EnableParavirtualization: current.Spec.EnableParavirtualization,
-		OsType:                   current.Spec.OsType,
-		DisableHypervSyNIC:       os.Getenv("DISABLE_HYPERV_SYNIC") == "1",
-	}
+	kvvmOpts := kvbuilder.DefaultOptions(current)
 
 	kvvm, err := s.KVVM(ctx)
 	if err != nil {
@@ -527,7 +544,7 @@ func (h *SyncKvvmHandler) detectKvvmSpecChanges(ctx context.Context, s state.Vir
 		return false, err
 	}
 
-	newKvvm, err := h.makeKVVMFromVMSpec(ctx, s)
+	newKvvm, err := MakeKVVMFromVMSpec(ctx, s)
 	if err != nil {
 		return false, err
 	}

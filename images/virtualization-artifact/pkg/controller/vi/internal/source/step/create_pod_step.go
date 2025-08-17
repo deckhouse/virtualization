@@ -40,8 +40,8 @@ import (
 )
 
 type CreatePodStepImporter interface {
-	GetPodSettingsWithPVC(_ *metav1.OwnerReference, _ *supplements.Generator, _, _ string) *importer.PodSettings
-	StartWithPodSetting(_ context.Context, _ *importer.Settings, _ *supplements.Generator, _ *datasource.CABundle, _ *importer.PodSettings) error
+	GetPodSettingsWithPVC(_ *metav1.OwnerReference, _ supplements.Generator, _, _ string) *importer.PodSettings
+	StartWithPodSetting(_ context.Context, _ *importer.Settings, _ supplements.Generator, _ *datasource.CABundle, _ *importer.PodSettings) error
 }
 
 type CreatePodStepStat interface {
@@ -111,7 +111,7 @@ func (s CreatePodStep) Take(ctx context.Context, vi *virtv2.VirtualImage) (*reco
 	return nil, nil
 }
 
-func (s CreatePodStep) getEnvSettings(vi *virtv2.VirtualImage, sup *supplements.Generator) *importer.Settings {
+func (s CreatePodStep) getEnvSettings(vi *virtv2.VirtualImage, sup supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 	importer.ApplyBlockDeviceSourceSettings(&settings)
 	importer.ApplyDVCRDestinationSettings(

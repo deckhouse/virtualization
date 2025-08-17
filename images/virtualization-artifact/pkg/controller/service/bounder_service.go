@@ -18,7 +18,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -63,16 +62,13 @@ func NewBounderPodService(
 	}
 }
 
-func (s BounderPodService) Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup *supplements.Generator, opts ...Option) error {
+func (s BounderPodService) Start(ctx context.Context, ownerRef *metav1.OwnerReference, sup supplements.Generator, opts ...Option) error {
+	options := newGenericOptions(opts...)
+
 	podSettings := s.GetPodSettings(ownerRef, sup)
 
-	for _, opt := range opts {
-		switch v := opt.(type) {
-		case *NodePlacementOption:
-			podSettings.NodePlacement = v.nodePlacement
-		default:
-			return fmt.Errorf("unknown Start option")
-		}
+	if options.nodePlacement != nil {
+		podSettings.NodePlacement = options.nodePlacement
 	}
 
 	_, err := bounder.NewBounder(podSettings).CreatePod(ctx, s.client)
@@ -83,11 +79,11 @@ func (s BounderPodService) Start(ctx context.Context, ownerRef *metav1.OwnerRefe
 	return nil
 }
 
-func (s BounderPodService) CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s BounderPodService) CleanUp(ctx context.Context, sup supplements.Generator) (bool, error) {
 	return s.CleanUpSupplements(ctx, sup)
 }
 
-func (s BounderPodService) CleanUpSupplements(ctx context.Context, sup *supplements.Generator) (bool, error) {
+func (s BounderPodService) CleanUpSupplements(ctx context.Context, sup supplements.Generator) (bool, error) {
 	pod, err := s.GetPod(ctx, sup)
 	if err != nil {
 		return false, err
@@ -111,7 +107,7 @@ func (s BounderPodService) CleanUpSupplements(ctx context.Context, sup *suppleme
 	return hasDeleted, nil
 }
 
-func (s BounderPodService) GetPod(ctx context.Context, sup *supplements.Generator) (*corev1.Pod, error) {
+func (s BounderPodService) GetPod(ctx context.Context, sup supplements.Generator) (*corev1.Pod, error) {
 	pod, err := bounder.FindPod(ctx, s.client, sup)
 	if err != nil {
 		return nil, err
@@ -120,7 +116,7 @@ func (s BounderPodService) GetPod(ctx context.Context, sup *supplements.Generato
 	return pod, nil
 }
 
-func (s BounderPodService) GetPodSettings(ownerRef *metav1.OwnerReference, sup *supplements.Generator) *bounder.PodSettings {
+func (s BounderPodService) GetPodSettings(ownerRef *metav1.OwnerReference, sup supplements.Generator) *bounder.PodSettings {
 	bounderPod := sup.BounderPod()
 	return &bounder.PodSettings{
 		Name:                 bounderPod.Name,

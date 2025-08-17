@@ -19,6 +19,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
 	commonvmop "github.com/deckhouse/virtualization-controller/pkg/common/vmop"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
@@ -36,6 +38,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/livemigration"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmopcondition"
 )
 
@@ -176,7 +179,11 @@ func (h LifecycleHandler) Handle(ctx context.Context, vmop *v1alpha2.VirtualMach
 		return reconcile.Result{}, nil
 	}
 
-	// 7. The Operation is valid, and can be executed.
+	// 7. Check if the vm is migratable.
+	if !h.canExecute(vmop, vm) {
+		return reconcile.Result{}, nil
+	}
+	// 7.1 The Operation is valid, and can be executed.
 	err = h.execute(ctx, vmop, vm)
 
 	return reconcile.Result{}, err
@@ -314,6 +321,36 @@ func (h LifecycleHandler) otherMigrationsAreInProgress(ctx context.Context, vmop
 	return false, nil
 }
 
+func (h LifecycleHandler) canExecute(vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) bool {
+	migrating, _ := conditions.GetCondition(vmcondition.TypeMigrating, vm.Status.Conditions)
+	if migrating.Reason == vmcondition.ReasonReadyToMigrate.String() {
+		return true
+	}
+
+	isVolumeMigration := isVolumeMigration(vmop)
+	migratable, _ := conditions.GetCondition(vmcondition.TypeMigratable, vm.Status.Conditions)
+	if migratable.Status == metav1.ConditionTrue && !isVolumeMigration || migratable.Reason == vmcondition.ReasonDisksNotMigratable.String() {
+		vmop.Status.Phase = v1alpha2.VMOPPhasePending
+		conditions.SetCondition(
+			conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+				Generation(vmop.GetGeneration()).
+				Reason(vmopcondition.ReasonWaitingForVirtualMachineToBeReadyToMigrate).
+				Status(metav1.ConditionFalse),
+			&vmop.Status.Conditions)
+		return false
+	}
+
+	vmop.Status.Phase = v1alpha2.VMOPPhaseFailed
+	conditions.SetCondition(
+		conditions.NewConditionBuilder(vmopcondition.TypeCompleted).
+			Generation(vmop.GetGeneration()).
+			Reason(vmopcondition.ReasonOperationFailed).
+			Status(metav1.ConditionFalse).
+			Message("VirtualMachine is not migratable, cannot be processed."),
+		&vmop.Status.Conditions)
+	return false
+}
+
 func (h LifecycleHandler) execute(ctx context.Context, vmop *v1alpha2.VirtualMachineOperation, vm *v1alpha2.VirtualMachine) error {
 	log := logger.FromContext(ctx)
 
@@ -394,4 +431,8 @@ var mapMigrationPhaseToReason = map[virtv1.VirtualMachineInstanceMigrationPhase]
 	virtv1.MigrationRunning:     vmopcondition.ReasonMigrationRunning,
 	virtv1.MigrationSucceeded:   vmopcondition.ReasonOperationCompleted,
 	virtv1.MigrationFailed:      vmopcondition.ReasonOperationFailed,
+}
+
+func isVolumeMigration(vmop *v1alpha2.VirtualMachineOperation) bool {
+	return vmop != nil && vmop.GetAnnotations()[annotations.AnnVMOPVolumeMigration] == "true" && strings.HasPrefix(vmop.Name, "volume-migration-")
 }

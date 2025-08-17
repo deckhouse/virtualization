@@ -364,6 +364,32 @@ spec:
                         the cluster.
                       type: string
                   type: object
+                migrationState:
+                  description: Migration information.
+                  properties:
+                    endTimestamp:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    result:
+                      description:
+                        VirtualDiskMigrationResult is the result of the VirtualDisk
+                        migration.
+                      enum:
+                        - Succeeded
+                        - Failed
+                      type: string
+                    sourcePVC:
+                      description: Source PersistentVolumeClaim name.
+                      type: string
+                    startTimestamp:
+                      format: date-time
+                      type: string
+                    targetPVC:
+                      description: Target PersistentVolumeClaim name.
+                      type: string
+                  type: object
                 observedGeneration:
                   description: Resource generation last processed by the controller.
                   format: int64
@@ -381,6 +407,7 @@ spec:
                     * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
                     * `Exporting`: The child PV of the resource is in the process of exporting.
                     * `Terminating`: The resource is being deleted.
+                    * `Migrating`: The resource is being migrating.
                   enum:
                     - Pending
                     - Provisioning
@@ -392,6 +419,7 @@ spec:
                     - PVCLost
                     - Exporting
                     - Terminating
+                    - Migrating
                   type: string
                 progress:
                   description:

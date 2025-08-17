@@ -29,18 +29,15 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
-	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/deckhouse/virtualization/api/client/kubeclient"
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	el "github.com/deckhouse/virtualization/tests/e2e/errlogger"
 	"github.com/deckhouse/virtualization/tests/e2e/framework"
-	gt "github.com/deckhouse/virtualization/tests/e2e/git"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
+	_ "github.com/deckhouse/virtualization/tests/e2e/storage"
 )
 
 const (
@@ -70,88 +67,79 @@ var (
 	conf                         *config.Config
 	mc                           *config.ModuleConfig
 	kustomize                    *config.Kustomize
-	kubeClient                   kubernetes.Interface
 	virtClient                   kubeclient.Client
 	kubectl                      kc.Kubectl
-	crClient                     client.Client
 	d8Virtualization             d8.D8Virtualization
-	git                          gt.Git
 	namePrefix                   string
-	phaseByVolumeBindingMode     string
-	logStreamByV12nControllerPod = make(map[string]*el.LogStream, 0)
-	scFromEnv                    *storagev1.StorageClass
-	storageClass                 *storagev1.StorageClass
+	logStreamByV12nControllerPod = make(map[string]*el.LogStream)
 )
 
-func init() {
+func initE2E() {
 	err := config.CheckReusableOption()
 	if err != nil {
-		log.Fatal(err)
+		Fail(err.Error())
 	}
 	err = config.CheckStorageClassOption()
 	if err != nil {
-		log.Fatal(err)
+		Fail(err.Error())
 	}
 	err = config.CheckWithPostCleanUpOption()
 	if err != nil {
-		log.Fatal(err)
+		Fail(err.Error())
 	}
-	if conf, err = config.GetConfig(); err != nil {
-		log.Fatal(err)
-	}
+
+	conf = framework.GetConfig()
+	defer framework.SetConfig(conf)
+
 	if mc, err = config.GetModuleConfig("virtualization"); err != nil {
-		log.Fatal(err)
+		Fail(err.Error())
 	}
 	clients := framework.GetClients()
 	kubectl = clients.Kubectl()
 	d8Virtualization = clients.D8Virtualization()
 	virtClient = clients.VirtClient()
-	kubeClient = clients.KubeClient()
-	crClient = clients.GenericClient()
-
-	if git, err = gt.NewGit(); err != nil {
-		log.Fatal(err)
-	}
 
 	if conf.StorageClass.DefaultStorageClass, err = GetDefaultStorageClass(); err != nil {
-		log.Fatal(err)
+		Fail(err.Error())
 	}
 
 	if !config.SkipImmediateStorageClassCheck() {
 		if conf.StorageClass.ImmediateStorageClass, err = GetImmediateStorageClass(conf.StorageClass.DefaultStorageClass.Provisioner); err != nil {
-			log.Fatal(err)
+			Fail(err.Error())
 		}
 	}
 
-	if scFromEnv, err = GetStorageClassFromEnv(storageClassName); err != nil {
-		log.Fatal(err)
+	scFromEnv, err := GetStorageClassFromEnv(storageClassName)
+	if err != nil {
+		Fail(err.Error())
 	}
 
 	if scFromEnv != nil {
-		storageClass = scFromEnv
+		conf.StorageClass.TemplateStorageClass = scFromEnv
 	} else {
-		storageClass = conf.StorageClass.DefaultStorageClass
+		conf.StorageClass.TemplateStorageClass = conf.StorageClass.DefaultStorageClass
 	}
 
-	if err = SetStorageClass(testDataDir, map[string]string{storageClassName: storageClass.Name}); err != nil {
-		log.Fatal(err)
+	if err = SetStorageClass(testDataDir, map[string]string{storageClassName: conf.StorageClass.TemplateStorageClass.Name}); err != nil {
+		Fail(err.Error())
 	}
 
 	err = config.CheckDefaultVMClass(virtClient)
 	if err != nil {
-		log.Fatal(err)
+		Fail(err.Error())
 	}
 
 	if namePrefix, err = config.GetNamePrefix(); err != nil {
-		log.Fatal(err)
+		Fail(err.Error())
 	}
-	ChmodFile(conf.TestData.Sshkey, 0o600)
-	phaseByVolumeBindingMode = GetPhaseByVolumeBindingMode(storageClass)
+	if err = ChmodFile(conf.TestData.Sshkey, 0o600); err != nil {
+		Fail(err.Error())
+	}
 }
 
-func TestTests(t *testing.T) {
+func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
-	fmt.Fprintf(GinkgoWriter, "Starting test suite\n")
+	initE2E()
 	RunSpecs(t, "Tests")
 }
 
@@ -343,6 +331,8 @@ func deleteProject() error {
 }
 
 func deleteNamespaces() error {
+	defer GinkgoRecover()
+
 	testCases, cleanupErr := conf.GetTestCases()
 	if cleanupErr != nil {
 		return cleanupErr
@@ -352,6 +342,8 @@ func deleteNamespaces() error {
 
 	for _, tc := range testCases {
 		eg.Go(func() error {
+			defer GinkgoRecover()
+
 			kustomizeFilePath := fmt.Sprintf("%s/kustomization.yaml", tc)
 			namespace, err := kustomize.GetNamespace(kustomizeFilePath)
 			if err != nil {

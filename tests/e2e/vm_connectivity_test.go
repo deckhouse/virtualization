@@ -30,7 +30,7 @@ import (
 	"github.com/deckhouse/virtualization/tests/e2e/config"
 	"github.com/deckhouse/virtualization/tests/e2e/d8"
 	"github.com/deckhouse/virtualization/tests/e2e/executor"
-	"github.com/deckhouse/virtualization/tests/e2e/ginkgoutil"
+	"github.com/deckhouse/virtualization/tests/e2e/framework"
 	kc "github.com/deckhouse/virtualization/tests/e2e/kubectl"
 	"github.com/deckhouse/virtualization/tests/e2e/network"
 )
@@ -41,7 +41,7 @@ const (
 	nginxActiveStatus = "active"
 )
 
-var _ = Describe("VirtualMachineConnectivity", ginkgoutil.CommonE2ETestDecorators(), func() {
+var _ = Describe("VirtualMachineConnectivity", framework.CommonE2ETestDecorators(), func() {
 	var (
 		testCaseLabel = map[string]string{"testcase": "vm-connectivity"}
 		aObjName      = fmt.Sprintf("%s-vm-connectivity-a", namePrefix)
