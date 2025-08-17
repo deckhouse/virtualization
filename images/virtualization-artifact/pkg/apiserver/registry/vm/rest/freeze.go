@@ -94,6 +94,6 @@ func FreezeLocation(
 		newKVVMIPather("freeze"),
 		kubevirt,
 		proxyCertManager,
-		virtualMachineNeedRunning,
+		virtualMachineShouldBeRunning,
 	)
 }

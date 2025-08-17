@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
@@ -67,13 +67,13 @@ var _ = Describe("Blank", func() {
 		}
 
 		svc = &BlankDataSourceDiskServiceMock{
-			GetVolumeAndAccessModesFunc: func(_ context.Context, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
+			GetVolumeAndAccessModesFunc: func(_ context.Context, _ client.Object, _ *storagev1.StorageClass) (corev1.PersistentVolumeMode, corev1.PersistentVolumeAccessMode, error) {
 				return *pvc.Spec.VolumeMode, pvc.Spec.AccessModes[0], nil
 			},
 			GetCapacityFunc: func(_ *corev1.PersistentVolumeClaim) string {
 				return vd.Spec.PersistentVolumeClaim.Size.String()
 			},
-			CleanUpSupplementsFunc: func(_ context.Context, _ *supplements.Generator) (bool, error) {
+			CleanUpSupplementsFunc: func(_ context.Context, _ supplements.Generator) (bool, error) {
 				return false, nil
 			},
 			ProtectFunc: func(_ context.Context, _ client.Object, _ *cdiv1.DataVolume, _ *corev1.PersistentVolumeClaim) error {
@@ -100,10 +100,13 @@ var _ = Describe("Blank", func() {
 			},
 			Status: virtv2.VirtualDiskStatus{
 				StorageClassName: sc.Name,
+				Target: virtv2.DiskTarget{
+					PersistentVolumeClaim: "test-pvc",
+				},
 			},
 		}
 
-		supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+		supgen := vdsupplements.NewGenerator(vd)
 
 		pvc = &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{

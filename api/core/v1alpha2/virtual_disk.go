@@ -79,6 +79,9 @@ type VirtualDiskStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 	// Name of the StorageClass used by the PersistentVolumeClaim if `Kubernetes` storage type is used.
 	StorageClassName string `json:"storageClassName,omitempty"`
+
+	// Migration information.
+	MigrationState VirtualDiskMigrationState `json:"migrationState,omitempty"`
 }
 
 // VirtualDisk statistics.
@@ -198,7 +201,8 @@ type VirtualDiskList struct {
 // * `PVCLost`: The child PVC of the resource is missing. The resource cannot be used.
 // * `Exporting`: The child PV of the resource is in the process of exporting.
 // * `Terminating`: The resource is being deleted.
-// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,WaitForFirstConsumer,Ready,Resizing,Failed,PVCLost,Exporting,Terminating}
+// * `Migrating`: The resource is being migrating.
+// +kubebuilder:validation:Enum:={Pending,Provisioning,WaitForUserUpload,WaitForFirstConsumer,Ready,Resizing,Failed,PVCLost,Exporting,Terminating,Migrating}
 type DiskPhase string
 
 const (
@@ -212,4 +216,25 @@ const (
 	DiskLost                 DiskPhase = "PVCLost"
 	DiskExporting            DiskPhase = "Exporting"
 	DiskTerminating          DiskPhase = "Terminating"
+	DiskMigrating            DiskPhase = "Migrating"
+)
+
+type VirtualDiskMigrationState struct {
+	// Source PersistentVolumeClaim name.
+	SourcePVC string `json:"sourcePVC,omitempty"`
+	// Target PersistentVolumeClaim name.
+	TargetPVC      string                     `json:"targetPVC,omitempty"`
+	Result         VirtualDiskMigrationResult `json:"result,omitempty"`
+	Message        string                     `json:"message,omitempty"`
+	StartTimestamp metav1.Time                `json:"startTimestamp,omitempty"`
+	EndTimestamp   metav1.Time                `json:"endTimestamp,omitempty"`
+}
+
+// VirtualDiskMigrationResult is the result of the VirtualDisk migration.
+// +kubebuilder:validation:Enum=Succeeded;Failed
+type VirtualDiskMigrationResult string
+
+const (
+	VirtualDiskMigrationResultSucceeded VirtualDiskMigrationResult = "Succeeded"
+	VirtualDiskMigrationResultFailed    VirtualDiskMigrationResult = "Failed"
 )

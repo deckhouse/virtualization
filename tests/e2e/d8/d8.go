@@ -34,17 +34,17 @@ const (
 	LongTimeout   = 60 * time.Second
 )
 
-type d8VirtualizationCMD struct {
+type D8VirtualizationCMD struct {
 	executor.Executor
 	cmd string
 }
 
 type SSHOptions struct {
-	Namespace   string
-	Username    string
-	IdenityFile string
-	Port        int
-	Timeout     time.Duration
+	Namespace    string
+	Username     string
+	IdentityFile string
+	Port         int
+	Timeout      time.Duration
 }
 
 type D8VirtualizationConf struct {
@@ -62,7 +62,7 @@ type D8Virtualization interface {
 	RestartVM(vmName string, opts SSHOptions) *executor.CMDResult
 }
 
-func NewD8Virtualization(conf D8VirtualizationConf) (*d8VirtualizationCMD, error) {
+func NewD8Virtualization(conf D8VirtualizationConf) (*D8VirtualizationCMD, error) {
 	if _, found := os.LookupEnv("HOME"); !found {
 		return nil, fmt.Errorf("HOME environment variable shoule be set")
 	}
@@ -76,13 +76,13 @@ func NewD8Virtualization(conf D8VirtualizationConf) (*d8VirtualizationCMD, error
 	}
 
 	e := executor.NewExecutor(connEnvs)
-	return &d8VirtualizationCMD{
+	return &D8VirtualizationCMD{
 		Executor: e,
 		cmd:      strings.Join(append([]string{Cmd}, connArgs...), " "),
 	}, nil
 }
 
-func (v d8VirtualizationCMD) SSHCommand(vmName, command string, opts SSHOptions) *executor.CMDResult {
+func (v D8VirtualizationCMD) SSHCommand(vmName, command string, opts SSHOptions) *executor.CMDResult {
 	timeout := ShortTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout
@@ -98,8 +98,8 @@ func (v d8VirtualizationCMD) SSHCommand(vmName, command string, opts SSHOptions)
 		cmd = fmt.Sprintf("%s --username=%s", cmd, opts.Username)
 	}
 
-	if opts.IdenityFile != "" {
-		cmd = fmt.Sprintf("%s --identity-file=%s", cmd, opts.IdenityFile)
+	if opts.IdentityFile != "" {
+		cmd = fmt.Sprintf("%s --identity-file=%s", cmd, opts.IdentityFile)
 	}
 
 	if opts.Port != 0 {
@@ -112,7 +112,7 @@ func (v d8VirtualizationCMD) SSHCommand(vmName, command string, opts SSHOptions)
 	return v.ExecContext(ctx, cmd)
 }
 
-func (v d8VirtualizationCMD) StartVM(vmName string, opts SSHOptions) *executor.CMDResult {
+func (v D8VirtualizationCMD) StartVM(vmName string, opts SSHOptions) *executor.CMDResult {
 	timeout := ShortTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout
@@ -127,7 +127,7 @@ func (v d8VirtualizationCMD) StartVM(vmName string, opts SSHOptions) *executor.C
 	return v.ExecContext(ctx, cmd)
 }
 
-func (v d8VirtualizationCMD) StopVM(vmName string, opts SSHOptions) *executor.CMDResult {
+func (v D8VirtualizationCMD) StopVM(vmName string, opts SSHOptions) *executor.CMDResult {
 	timeout := ShortTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout
@@ -142,7 +142,7 @@ func (v d8VirtualizationCMD) StopVM(vmName string, opts SSHOptions) *executor.CM
 	return v.ExecContext(ctx, cmd)
 }
 
-func (v d8VirtualizationCMD) RestartVM(vmName string, opts SSHOptions) *executor.CMDResult {
+func (v D8VirtualizationCMD) RestartVM(vmName string, opts SSHOptions) *executor.CMDResult {
 	timeout := ShortTimeout
 	if opts.Timeout != 0 {
 		timeout = opts.Timeout
@@ -157,7 +157,7 @@ func (v d8VirtualizationCMD) RestartVM(vmName string, opts SSHOptions) *executor
 	return v.ExecContext(ctx, cmd)
 }
 
-func (v d8VirtualizationCMD) addNamespace(cmd, ns string) string {
+func (v D8VirtualizationCMD) addNamespace(cmd, ns string) string {
 	if ns != "" {
 		return fmt.Sprintf("%s -n %s", cmd, ns)
 	}

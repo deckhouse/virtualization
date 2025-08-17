@@ -26,10 +26,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
-	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
@@ -52,14 +51,29 @@ func (h StorageClassReadyHandler) Handle(ctx context.Context, vd *virtv2.Virtual
 		return reconcile.Result{}, nil
 	}
 
-	sup := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	sup := vdsupplements.NewGenerator(vd)
+	_, migratingExists := conditions.GetCondition(vdcondition.MigratingType, vd.Status.Conditions)
+
+	// During migration, storage class should be handled from the target PVC, not the current one.
+	// The StorageClassReady condition indicates readiness for the target PVC's storage class.
+	// However, the status must preserve the old storage class as it's still used by the current PVC.
+	// The status storage class will be updated to the new one after migration completes.
+	if migratingExists && vd.Status.MigrationState.TargetPVC != "" {
+		sup.SetClaimName(vd.Status.MigrationState.TargetPVC)
+
+		// Temporarily restore the old storage class from status before proceeding,
+		// as the following code will modify it.
+		// It will be reverted by to defer.
+		oldStorageClassName := vd.Status.StorageClassName
+		defer func() {
+			vd.Status.StorageClassName = oldStorageClassName
+		}()
+	}
+
 	pvc, err := h.svc.GetPersistentVolumeClaim(ctx, sup)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-	// Reset storage class every time.
-	vd.Status.StorageClassName = ""
 
 	// 1. PVC already exists: used storage class is known.
 	if pvc != nil {

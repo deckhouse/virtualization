@@ -33,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -43,6 +42,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -86,7 +86,8 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
+
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -105,7 +106,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 	if dv != nil {
 		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 	}
 
 	var sc *storagev1.StorageClass
@@ -314,7 +315,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		vd.Status.Progress = "100%"
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 	default:
 		log.Info("Provisioning to PVC is in progress", "dvProgress", dv.Status.Progress, "dvPhase", dv.Status.Phase, "pvcPhase", pvc.Status.Phase)
 
@@ -325,7 +326,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 
 		vd.Status.Progress = ds.diskService.GetProgress(dv, vd.Status.Progress, service.NewScaleOption(50, 100))
 		vd.Status.Capacity = ds.diskService.GetCapacity(pvc)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 
 		err = ds.diskService.Protect(ctx, vd, dv, pvc)
 		if err != nil {
@@ -348,7 +349,7 @@ func (ds RegistryDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (
 }
 
 func (ds RegistryDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -364,7 +365,7 @@ func (ds RegistryDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk
 }
 
 func (ds RegistryDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -410,7 +411,7 @@ func (ds RegistryDataSource) Name() string {
 	return registryDataSource
 }
 
-func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
+func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	containerImage := &datasource.ContainerRegistry{
@@ -431,7 +432,7 @@ func (ds RegistryDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supp
 	return &settings
 }
 
-func (ds RegistryDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds RegistryDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.

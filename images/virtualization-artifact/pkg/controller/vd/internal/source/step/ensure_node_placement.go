@@ -27,18 +27,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/provisioner"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
 	"github.com/deckhouse/virtualization/api/core/v1alpha2/vdcondition"
 )
 
 type EnsureNodePlacementStepDiskService interface {
 	CheckProvisioning(ctx context.Context, pvc *corev1.PersistentVolumeClaim) error
-	CleanUp(ctx context.Context, sup *supplements.Generator) (bool, error)
+	CleanUp(ctx context.Context, sup supplements.Generator) (bool, error)
 }
 
 // EnsureNodePlacementStep supports changing the node placement only if the PVC is created using a DataVolume.
@@ -102,7 +102,7 @@ func (s EnsureNodePlacementStep) Take(ctx context.Context, vd *virtv2.VirtualDis
 		return &reconcile.Result{}, nil
 	}
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	_, err = s.disk.CleanUp(ctx, supgen)
 	if err != nil {

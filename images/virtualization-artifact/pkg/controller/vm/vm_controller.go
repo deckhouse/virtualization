@@ -30,6 +30,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/netmanager"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal"
+	vmservice "github.com/deckhouse/virtualization-controller/pkg/controller/vm/internal/service"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/featuregates"
@@ -54,6 +55,9 @@ func SetupController(
 	client := mgr.GetClient()
 	blockDeviceService := service.NewBlockDeviceService(client)
 	vmClassService := service.NewVirtualMachineClassService(client)
+
+	migrateVolumesService := vmservice.NewMigrationVolumesService(client, internal.MakeKVVMFromVMSpec, 10*time.Second)
+
 	handlers := []Handler{
 		internal.NewMaintenanceHandler(client),
 		internal.NewDeletionHandler(client),
@@ -68,11 +72,11 @@ func SetupController(
 		internal.NewPodHandler(client),
 		internal.NewSizePolicyHandler(),
 		internal.NewNetworkInterfaceHandler(featuregates.Default()),
-		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder),
+		internal.NewSyncKvvmHandler(dvcrSettings, client, recorder, migrateVolumesService),
 		internal.NewSyncPowerStateHandler(client, recorder),
 		internal.NewSyncMetadataHandler(client),
 		internal.NewLifeCycleHandler(client, recorder),
-		internal.NewMigratingHandler(),
+		internal.NewMigratingHandler(migrateVolumesService),
 		internal.NewFirmwareHandler(firmwareImage),
 		internal.NewEvictHandler(),
 		internal.NewStatisticHandler(client),

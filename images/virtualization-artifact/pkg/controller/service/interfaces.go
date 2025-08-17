@@ -17,16 +17,9 @@ limitations under the License.
 package service
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 //go:generate go tool moq -rm -out mock.go . Client
 
 type Client = client.Client
-
-type ObjectKind interface {
-	metav1.Object
-	schema.ObjectKind
-}

@@ -86,3 +86,16 @@ func WithVirtualMachineClass(class string) Option {
 		vm.Spec.VirtualMachineClassName = class
 	}
 }
+
+func WithProvisioning(provisioning *v1alpha2.Provisioning) Option {
+	return func(vm *v1alpha2.VirtualMachine) {
+		vm.Spec.Provisioning = provisioning
+	}
+}
+
+func WithProvisioningUserData(cloudInit string) Option {
+	return WithProvisioning(&v1alpha2.Provisioning{
+		Type:     v1alpha2.ProvisioningTypeUserData,
+		UserData: cloudInit,
+	})
+}

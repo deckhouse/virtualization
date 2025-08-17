@@ -113,7 +113,7 @@ func setPhaseConditionForFinishedImage(
 	pvc *corev1.PersistentVolumeClaim,
 	cb *conditions.ConditionBuilder,
 	phase *virtv2.ImagePhase,
-	supgen *supplements.Generator,
+	supgen supplements.Generator,
 ) {
 	switch {
 	case pvc == nil:

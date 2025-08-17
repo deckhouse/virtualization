@@ -19,6 +19,7 @@ package watcher
 import (
 	"fmt"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -45,10 +46,17 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 			handler.TypedEnqueueRequestsFromMapFunc(enqueueRequestsBlockDevice[*virtv2.VirtualDisk](mgr.GetClient())),
 			predicate.TypedFuncs[*virtv2.VirtualDisk]{
 				UpdateFunc: func(e event.TypedUpdateEvent[*virtv2.VirtualDisk]) bool {
+					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase {
+						return true
+					}
+
 					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
 					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
+					if !equality.Semantic.DeepEqual(oldInUseCondition, newInUseCondition) {
+						return true
+					}
 
-					if e.ObjectOld.Status.Phase != e.ObjectNew.Status.Phase || oldInUseCondition != newInUseCondition {
+					if oldInUseCondition != newInUseCondition {
 						return true
 					}
 
@@ -56,7 +64,13 @@ func (w *VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controlle
 						return true
 					}
 
-					return false
+					oldMigrationCondition, _ := conditions.GetCondition(vdcondition.MigratingType, e.ObjectOld.Status.Conditions)
+					newMigrationCondition, _ := conditions.GetCondition(vdcondition.MigratingType, e.ObjectNew.Status.Conditions)
+					if !equality.Semantic.DeepEqual(oldMigrationCondition, newMigrationCondition) {
+						return true
+					}
+
+					return !equality.Semantic.DeepEqual(e.ObjectOld.Status.MigrationState, e.ObjectNew.Status.MigrationState)
 				},
 			},
 		),

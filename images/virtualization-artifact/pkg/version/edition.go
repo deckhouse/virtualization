@@ -1,8 +1,5 @@
-//go:build !EE
-// +build !EE
-
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,4 +16,11 @@ limitations under the License.
 
 package version
 
-const edition = "CE"
+const (
+	EditionEE = "EE"
+	EditionCE = "CE"
+)
+
+func GetEdition() string {
+	return edition
+}

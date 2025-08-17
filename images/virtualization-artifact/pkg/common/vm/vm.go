@@ -19,7 +19,11 @@ package vm
 import (
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/deckhouse/virtualization-controller/pkg/controller/conditions"
 	virtv2 "github.com/deckhouse/virtualization/api/core/v1alpha2"
+	"github.com/deckhouse/virtualization/api/core/v1alpha2/vmcondition"
 )
 
 // VMContainerNameSuffix - a name suffix for container with virt-launcher, libvirt and qemu processes.
@@ -64,6 +68,15 @@ func ApprovalMode(vm *virtv2.VirtualMachine) virtv2.RestartApprovalMode {
 		return virtv2.Manual
 	}
 	return vm.Spec.Disruptions.RestartApprovalMode
+}
+
+func RestartRequired(vm *virtv2.VirtualMachine) bool {
+	if vm == nil {
+		return false
+	}
+
+	cond, _ := conditions.GetCondition(vmcondition.TypeAwaitingRestartToApplyConfiguration, vm.Status.Conditions)
+	return cond.Status == metav1.ConditionTrue
 }
 
 func IsComputeContainer(name string) bool {

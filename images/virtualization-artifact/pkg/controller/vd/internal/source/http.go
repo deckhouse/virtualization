@@ -32,7 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/deckhouse/virtualization-controller/pkg/common"
-	"github.com/deckhouse/virtualization-controller/pkg/common/annotations"
 	"github.com/deckhouse/virtualization-controller/pkg/common/datasource"
 	"github.com/deckhouse/virtualization-controller/pkg/common/imageformat"
 	"github.com/deckhouse/virtualization-controller/pkg/common/object"
@@ -42,6 +41,7 @@ import (
 	"github.com/deckhouse/virtualization-controller/pkg/controller/importer"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/service"
 	"github.com/deckhouse/virtualization-controller/pkg/controller/supplements"
+	vdsupplements "github.com/deckhouse/virtualization-controller/pkg/controller/vd/internal/supplements"
 	"github.com/deckhouse/virtualization-controller/pkg/dvcr"
 	"github.com/deckhouse/virtualization-controller/pkg/eventrecord"
 	"github.com/deckhouse/virtualization-controller/pkg/logger"
@@ -85,7 +85,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 	cb := conditions.NewConditionBuilder(vdcondition.ReadyType).Generation(vd.Generation)
 	defer func() { conditions.SetCondition(cb, &vd.Status.Conditions) }()
 
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 	pod, err := ds.importerService.GetPod(ctx, supgen)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -104,7 +104,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 	if dv != nil {
 		dvQuotaNotExceededCondition = service.GetDataVolumeCondition(DVQoutaNotExceededConditionType, dv.Status.Conditions)
 		dvRunningCondition = service.GetDataVolumeCondition(DVRunningConditionType, dv.Status.Conditions)
-		vd.Status.Target.PersistentVolumeClaim = dv.Status.ClaimName
+		vdsupplements.SetPVCName(vd, dv.Status.ClaimName)
 	}
 
 	var sc *storagev1.StorageClass
@@ -343,7 +343,7 @@ func (ds HTTPDataSource) Sync(ctx context.Context, vd *virtv2.VirtualDisk) (reco
 }
 
 func (ds HTTPDataSource) CleanUp(ctx context.Context, vd *virtv2.VirtualDisk) (bool, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	importerRequeue, err := ds.importerService.CleanUp(ctx, supgen)
 	if err != nil {
@@ -363,7 +363,7 @@ func (ds HTTPDataSource) Validate(_ context.Context, _ *virtv2.VirtualDisk) erro
 }
 
 func (ds HTTPDataSource) CleanUpSupplements(ctx context.Context, vd *virtv2.VirtualDisk) (reconcile.Result, error) {
-	supgen := supplements.NewGenerator(annotations.VDShortName, vd.Name, vd.Namespace, vd.UID)
+	supgen := vdsupplements.NewGenerator(vd)
 
 	importerRequeue, err := ds.importerService.CleanUpSupplements(ctx, supgen)
 	if err != nil {
@@ -386,7 +386,7 @@ func (ds HTTPDataSource) Name() string {
 	return httpDataSource
 }
 
-func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *supplements.Generator) *importer.Settings {
+func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen supplements.Generator) *importer.Settings {
 	var settings importer.Settings
 
 	importer.ApplyHTTPSourceSettings(&settings, vd.Spec.DataSource.HTTP, supgen)
@@ -400,7 +400,7 @@ func (ds HTTPDataSource) getEnvSettings(vd *virtv2.VirtualDisk, supgen *suppleme
 	return &settings
 }
 
-func (ds HTTPDataSource) getSource(sup *supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
+func (ds HTTPDataSource) getSource(sup supplements.Generator, dvcrSourceImageName string) *cdiv1.DataVolumeSource {
 	// The image was preloaded from source into dvcr.
 	// We can't use the same data source a second time, but we can set dvcr as the data source.
 	// Use DV name for the Secret with DVCR auth and the ConfigMap with DVCR CA Bundle.
