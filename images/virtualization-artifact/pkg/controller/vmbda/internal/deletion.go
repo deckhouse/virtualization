@@ -18,7 +18,6 @@ package internal
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -87,7 +86,7 @@ func (h *DeletionHandler) detach(ctx context.Context, vmbda *virtv2.VirtualMachi
 	}
 
 	if kvvm == nil {
-		return reconcile.Result{}, errors.New("intvirtvm not found to unplug")
+		return reconcile.Result{}, nil
 	}
 
 	var blockDeviceName string
