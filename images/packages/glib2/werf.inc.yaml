@@ -29,8 +29,8 @@ image: {{ .ModuleNamePrefix }}{{ .PackagePath }}/{{ .ImageName }}-src-artifact
 final: false
 fromImage: builder/src
 git:
-- add: {{ .ModuleDir }}/images/{{ .ImageName }}
-  to: /src
+- add: {{ .ModuleDir }}/images/packages/{{ .ImageName }}
+  to: /
   includePaths:
   - patches
   stageDependencies:
