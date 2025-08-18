@@ -59,6 +59,13 @@ func (w VirtualDiskWatcher) Watch(mgr manager.Manager, ctr controller.Controller
 						return true
 					}
 
+					oldInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectOld.Status.Conditions)
+					newInUseCondition, _ := conditions.GetCondition(vdcondition.InUseType, e.ObjectNew.Status.Conditions)
+
+					if oldInUseCondition != newInUseCondition {
+						return true
+					}
+
 					oldResized, _ := conditions.GetCondition(vdcondition.ResizingType, e.ObjectOld.Status.Conditions)
 					newResized, _ := conditions.GetCondition(vdcondition.ResizingType, e.ObjectNew.Status.Conditions)
 
