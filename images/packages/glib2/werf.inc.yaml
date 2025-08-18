@@ -93,11 +93,10 @@ shell:
 
     cd /src
 
-    patch -p1 < /patches/glib-2.75.4-alt-compat-version-script.patch
+    patch -p1 -b --suffix .compat_map < /patches/glib-2.75.4-alt-compat-version-script.patch
     patch -p0 < /patches/glib-2.53.5-alt-deprecated_paths-nowarning.patch
-    patch -p1 < /patches/glib-2.75.4-alt-add-xvt.patch
+    patch -p1 -b --suffix .xvt < /patches/glib-2.75.4-alt-add-xvt.patch
     patch -p1 < /patches/glib-2.71.3-alt-lfs.patch
-    patch -p1 < /patches/glib-2.80.0-alt-e2k.patch
 
     meson setup _build -Dprefix=$OUTDIR/usr -Dgtk_doc=false -Dbuildtype=release -Dstrip=true
     meson compile -C _build
