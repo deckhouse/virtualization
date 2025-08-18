@@ -138,7 +138,7 @@ func (h *MACHandler) Handle(ctx context.Context, s state.VirtualMachineState) (r
 
 		// 3. VirtualMachineMACAddress exist and attached to another VirtualMachine
 		if macAddress.Status.VirtualMachine != "" && macAddress.Status.VirtualMachine != vm.Name {
-			msg := fmt.Sprintf("The requested VirtualMachineMACAddress (%s) attached to VirtualMachine '%s': waiting for the MAC address", macAddress.Name, macAddress.Status.VirtualMachine)
+			msg := fmt.Sprintf("The requested VirtualMachineMACAddress (%s) attached to VirtualMachine '%s': please remove VirtualMachine '%s' or reconfigure it", macAddress.Name, macAddress.Status.VirtualMachine, macAddress.Status.VirtualMachine)
 			log.Info(msg)
 			notReadyMessages = append(notReadyMessages, msg)
 			continue

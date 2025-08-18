@@ -20,7 +20,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -92,7 +91,6 @@ func ApplyVirtualMachineSpec(
 	class *virtv2.VirtualMachineClass,
 	ipAddress string,
 	networkSpec network.InterfaceSpecList,
-	vmmacs []*virtv2.VirtualMachineMACAddress,
 ) error {
 	if err := kvvm.SetRunPolicy(vm.Spec.RunPolicy); err != nil {
 		return err
@@ -108,7 +106,7 @@ func ApplyVirtualMachineSpec(
 	}
 
 	kvvm.SetMetadata(vm.ObjectMeta)
-	setNetwork(kvvm, networkSpec, vmmacs)
+	setNetwork(kvvm, networkSpec)
 	kvvm.SetTablet("default-0")
 	kvvm.SetNodeSelector(vm.Spec.NodeSelector, class.Spec.NodeSelector.MatchLabels)
 	kvvm.SetTolerations(vm.Spec.Tolerations, class.Spec.Tolerations)
@@ -254,23 +252,12 @@ func ApplyVirtualMachineSpec(
 	return nil
 }
 
-func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList, vmmacs []*virtv2.VirtualMachineMACAddress) {
+func setNetwork(kvvm *KVVM, networkSpec network.InterfaceSpecList) {
 	kvvm.ClearNetworkInterfaces()
 	kvvm.SetNetworkInterface(network.NameDefaultInterface, "")
 
-	sort.Slice(vmmacs, func(i, j int) bool {
-		return vmmacs[i].CreationTimestamp.Before(&vmmacs[j].CreationTimestamp)
-	})
-
-	var macAddresses []string
-	for _, vmmac := range vmmacs {
-		if vmmac != nil && vmmac.Status.Address != "" {
-			macAddresses = append(macAddresses, vmmac.Status.Address)
-		}
-	}
-
-	for i, n := range networkSpec {
-		kvvm.SetNetworkInterface(n.InterfaceName, macAddresses[i])
+	for _, n := range networkSpec {
+		kvvm.SetNetworkInterface(n.InterfaceName, n.MAC)
 	}
 }
 

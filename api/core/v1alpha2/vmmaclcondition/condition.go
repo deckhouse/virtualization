@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ package vmmaclcondition
 type Type string
 
 const (
-	// BoundType represents the condition type when a Virtual Machine MAC is bound.
+	// BoundType represents the condition type when a Virtual Machine MAC lease is bound.
 	BoundType Type = "Bound"
 )
 
@@ -37,7 +37,4 @@ func (r BoundReason) String() string {
 const (
 	// Bound is a BoundReason indicating the MAC address lease is successfully bound.
 	Bound BoundReason = "Bound"
-
-	// NotBound is a BoundReason indicating the MAC address lease is not bound.
-	NotBound BoundReason = "NotBound"
 )

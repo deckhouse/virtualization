@@ -281,7 +281,8 @@ type VirtualMachineStatus struct {
 	// Name of `virtualMachineIPAddressName` holding the ip address of the VirtualMachine.
 	VirtualMachineIPAddress string `json:"virtualMachineIPAddressName"`
 	// IP address of VM.
-	IPAddress       string                                   `json:"ipAddress"`
+	IPAddress string `json:"ipAddress"`
+	// The list of attached block device attachments.
 	BlockDeviceRefs []BlockDeviceStatusRef                   `json:"blockDeviceRefs,omitempty"`
 	GuestOSInfo     virtv1.VirtualMachineInstanceGuestOSInfo `json:"guestOSInfo,omitempty"`
 	// Detailed state of the virtual machine lifecycle.

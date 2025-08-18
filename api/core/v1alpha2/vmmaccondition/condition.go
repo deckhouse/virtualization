@@ -1,5 +1,5 @@
 /*
-Copyright 2024 Flant JSC
+Copyright 2025 Flant JSC
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,9 +47,6 @@ func (r AttachedReason) String() string {
 }
 
 const (
-	// VirtualMachineMACAddressIsOutOfTheValidRange is a BoundReason indicating when specified MAC address is out of the range in controller settings.
-	VirtualMachineMACAddressIsOutOfTheValidRange BoundReason = "VirtualMachineMACAddressIsOutOfTheValidRange"
-
 	// VirtualMachineMACAddressLeaseAlreadyExists is a BoundReason indicating the MAC address lease already exists.
 	VirtualMachineMACAddressLeaseAlreadyExists BoundReason = "VirtualMachineMACAddressLeaseAlreadyExists"
 

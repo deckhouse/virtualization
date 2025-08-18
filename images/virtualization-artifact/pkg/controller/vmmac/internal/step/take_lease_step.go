@@ -60,11 +60,10 @@ func (s TakeLeaseStep) Take(ctx context.Context, vmmac *virtv2.VirtualMachineMAC
 		return nil, nil
 	}
 
-	// 1. A VirtualMachineMACAddress can only use the Lease that has the same namespace ref.
-	// It cannot override the namespace ref of a Lease for itself.
 	vmmacRef := s.lease.Spec.VirtualMachineMACAddressRef
-	if vmmacRef != nil && vmmacRef.Namespace != "" && vmmacRef.Namespace != vmmac.Namespace {
-		msg := fmt.Sprintf("The VirtualMachineMACAddressLease %q belongs to a different namespace.", s.lease.Name)
+
+	if vmmacRef != nil && (vmmacRef.Namespace != vmmac.Namespace || vmmacRef.Name != "" || s.lease.Labels[annotations.LabelVirtualMachineMACAddressUID] != "") {
+		msg := fmt.Sprintf("The VirtualMachineMACAddressLease %q is already in use by a different virtual machine or belongs to a different namespace.", s.lease.Name)
 		s.cb.
 			Status(metav1.ConditionFalse).
 			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotReady).
@@ -73,16 +72,6 @@ func (s TakeLeaseStep) Take(ctx context.Context, vmmac *virtv2.VirtualMachineMAC
 		return &reconcile.Result{}, nil
 	}
 
-	// 2. Ensure that the Lease is not occupied by another vmmac.
-	if vmmacRef != nil && vmmacRef.Name != "" || s.lease.Labels[annotations.LabelVirtualMachineMACAddressUID] != "" {
-		s.cb.
-			Status(metav1.ConditionFalse).
-			Reason(vmmaccondition.VirtualMachineMACAddressLeaseNotReady).
-			Message(fmt.Sprintf("The VirtualMachineMACAddressLease %q alrady has a reference to another VirtualMachineMACAddress.", s.lease.Name))
-		return &reconcile.Result{}, nil
-	}
-
-	// All checks have passed, the Lease is unoccupied, and it can be taken.
 	s.lease.Spec.VirtualMachineMACAddressRef = &virtv2.VirtualMachineMACAddressLeaseMACAddressRef{
 		Name:      vmmac.Name,
 		Namespace: vmmac.Namespace,

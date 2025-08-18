@@ -388,10 +388,10 @@ func (h *SyncKvvmHandler) makeKVVMFromVMSpec(ctx context.Context, s state.Virtua
 		return nil, err
 	}
 
-	networkSpec := network.CreateNetworkSpec(current.Spec, vmmacs)
+	networkSpec := network.CreateNetworkSpec(current, vmmacs)
 
 	// Create kubevirt VirtualMachine resource from d8 VirtualMachine spec.
-	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ip.Status.Address, networkSpec, vmmacs)
+	err = kvbuilder.ApplyVirtualMachineSpec(kvvmBuilder, current, bdState.VDByName, bdState.VIByName, bdState.CVIByName, class, ip.Status.Address, networkSpec)
 	if err != nil {
 		return nil, err
 	}

@@ -32,11 +32,11 @@ const (
 	FinalizerVICleanup              = "virtualization.deckhouse.io/vi-cleanup"
 	FinalizerVMCleanup              = "virtualization.deckhouse.io/vm-cleanup"
 	FinalizerIPAddressCleanup       = "virtualization.deckhouse.io/vmip-cleanup"
-	FinalizerMACAddressCleanup      = "virtualization.deckhouse.io/vmmac-cleanup"
 	FinalizerIPAddressLeaseCleanup  = "virtualization.deckhouse.io/vmipl-cleanup"
-	FinalizerMACAddressLeaseCleanup = "virtualization.deckhouse.io/vmmacl-cleanup"
 	FinalizerVDSnapshotCleanup      = "virtualization.deckhouse.io/vdsnapshot-cleanup"
 	FinalizerVMOPCleanup            = "virtualization.deckhouse.io/vmop-cleanup"
 	FinalizerVMClassCleanup         = "virtualization.deckhouse.io/vmclass-cleanup"
 	FinalizerVMBDACleanup           = "virtualization.deckhouse.io/vmbda-cleanup"
+	FinalizerMACAddressCleanup      = "virtualization.deckhouse.io/vmmac-cleanup"
+	FinalizerMACAddressLeaseCleanup = "virtualization.deckhouse.io/vmmacl-cleanup"
 )

@@ -46,6 +46,7 @@ func (h *DeletionHandler) Handle(ctx context.Context, vmmac *virtv2.VirtualMachi
 		return reconcile.Result{}, nil
 	}
 
+	// This is done to allow new resources to be created while ensuring they are deleted when the interface is removed from the virtual machine's specification.
 	diff := vmmac.CreationTimestamp.Time.Sub(attachedCondition.LastTransitionTime.Time).Abs()
 	if diff.Seconds() < 1 {
 		return reconcile.Result{}, nil

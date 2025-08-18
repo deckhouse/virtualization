@@ -69,15 +69,6 @@ func (w *VirtualMachineMACAddressWatcher) Watch(mgr manager.Manager, ctr control
 						})
 						continue
 					}
-
-					vmmacRef := lease.Spec.VirtualMachineMACAddressRef
-					if vmmacRef != nil &&
-						vmmacRef.Name == vmmac.Name &&
-						vmmacRef.Namespace == vmmac.Namespace {
-						requests = append(requests, reconcile.Request{
-							NamespacedName: types.NamespacedName{Name: lease.Name},
-						})
-					}
 				}
 
 				return requests

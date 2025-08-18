@@ -21,7 +21,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -36,6 +35,7 @@ type InterfaceSpec struct {
 	Type          string `json:"type"`
 	Name          string `json:"name"`
 	InterfaceName string `json:"ifName"`
+	MAC           string `json:"-"`
 }
 
 type InterfaceStatus struct {
@@ -48,37 +48,56 @@ type InterfaceStatus struct {
 
 type InterfaceSpecList []InterfaceSpec
 
-func CreateNetworkSpec(vmSpec virtv2.VirtualMachineSpec, vmmacs []*virtv2.VirtualMachineMACAddress) InterfaceSpecList {
-	sort.Slice(vmmacs, func(i, j int) bool {
-		return vmmacs[i].CreationTimestamp.Before(&vmmacs[j].CreationTimestamp)
-	})
+func CreateNetworkSpec(vm *virtv2.VirtualMachine, vmmacs []*virtv2.VirtualMachineMACAddress) InterfaceSpecList {
+	var (
+		all     []string
+		status  []struct{ Name, MAC string }
+		taken   = make(map[string]bool)
+		free    []string
+		res     InterfaceSpecList
+		freeIdx int
+	)
 
-	var macAddresses []string
-	for _, vmmac := range vmmacs {
-		macAddresses = append(macAddresses, vmmac.Status.Address)
+	for _, v := range vmmacs {
+		if mac := v.Status.Address; mac != "" {
+			all = append(all, mac)
+		}
 	}
-
-	var networksSpec InterfaceSpecList
-	macCounter := 0
-	for _, network := range vmSpec.Networks {
-		if network.Type == virtv2.NetworksTypeMain {
+	for _, n := range vm.Status.Networks {
+		status = append(status, struct{ Name, MAC string }{n.Name, n.MAC})
+		taken[n.MAC] = true
+	}
+	for _, mac := range all {
+		if !taken[mac] {
+			free = append(free, mac)
+		}
+	}
+	for _, n := range vm.Spec.Networks {
+		if n.Type == virtv2.NetworksTypeMain {
 			continue
 		}
-
-		if macCounter >= len(macAddresses) {
-			break
+		var mac string
+		for i, s := range status {
+			if s.Name == n.Name {
+				mac = s.MAC
+				status = append(status[:i], status[i+1:]...)
+				break
+			}
 		}
-
-		networksSpec = append(networksSpec, InterfaceSpec{
-			Type:          network.Type,
-			Name:          network.Name,
-			InterfaceName: generateInterfaceName(macAddresses[macCounter], network.Type),
-		})
-
-		macCounter++
+		if mac == "" && freeIdx < len(free) {
+			mac = free[freeIdx]
+			freeIdx++
+		}
+		if mac != "" {
+			res = append(res, InterfaceSpec{
+				Type:          n.Type,
+				Name:          n.Name,
+				InterfaceName: generateInterfaceName(mac, n.Type),
+				MAC:           mac,
+			})
+		}
 	}
-
-	return networksSpec
+	return res
 }
 
 func (c InterfaceSpecList) ToString() (string, error) {
