@@ -149,18 +149,33 @@ func (s AttachmentService) HotPlugDisk(ctx context.Context, ad *AttachmentDisk, 
 	})
 }
 
-func (s AttachmentService) IsAttached(vm *virtv2.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool {
-	if vm == nil {
+func (s AttachmentService) IsAttached(vm *virtv2.VirtualMachine, kvvm *virtv1.VirtualMachine, vmbda *virtv2.VirtualMachineBlockDeviceAttachment) bool {
+	if vm == nil || kvvm == nil {
 		return false
 	}
 
+	vmCheck := false
 	for _, bdRef := range vm.Status.BlockDeviceRefs {
 		if bdRef.Kind == virtv2.BlockDeviceKind(vmbda.Spec.BlockDeviceRef.Kind) && bdRef.Name == vmbda.Spec.BlockDeviceRef.Name {
-			return bdRef.Hotplugged && bdRef.VirtualMachineBlockDeviceAttachmentName == vmbda.Name
+			if bdRef.Hotplugged && bdRef.VirtualMachineBlockDeviceAttachmentName == vmbda.Name {
+				vmCheck = true
+				break
+			}
 		}
 	}
 
-	return false
+	if !vmCheck {
+		return false
+	}
+
+	kvvmCheck := false
+	for _, device := range kvvm.Spec.Template.Spec.Domain.Devices.Disks {
+		if device.Name == vmbda.Spec.BlockDeviceRef.Name {
+			kvvmCheck = true
+		}
+	}
+
+	return kvvmCheck
 }
 
 func (s AttachmentService) UnplugDisk(ctx context.Context, kvvm *virtv1.VirtualMachine, diskName string) error {
