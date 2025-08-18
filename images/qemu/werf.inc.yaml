@@ -90,12 +90,10 @@ packages:
 libraries:
 - glibc-devel-static
 - zlib-devel-static
-- glib2-devel-static
 - libpcre2-devel-static
 - libattr-devel-static
 - libdw-devel-static
 - libatomic-devel-static
-- glib2-devel
 - libdw-devel
 - perl-devel
 - libssh-devel
