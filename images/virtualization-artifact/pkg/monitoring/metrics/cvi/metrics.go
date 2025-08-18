@@ -52,4 +52,3 @@ var cviMetrics = map[string]metrics.MetricInfo{
 		nil,
 	),
 }
-

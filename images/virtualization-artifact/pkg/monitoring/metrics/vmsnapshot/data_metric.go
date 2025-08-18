@@ -40,4 +40,3 @@ func newDataMetric(vms *virtv2.VirtualMachineSnapshot) *dataMetric {
 		Phase:     vms.Status.Phase,
 	}
 }
-

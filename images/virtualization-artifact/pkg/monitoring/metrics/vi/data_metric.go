@@ -40,4 +40,3 @@ func newDataMetric(vi *virtv2.VirtualImage) *dataMetric {
 		Phase:     vi.Status.Phase,
 	}
 }
-

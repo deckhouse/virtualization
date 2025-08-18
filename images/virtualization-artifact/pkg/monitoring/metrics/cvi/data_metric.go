@@ -38,4 +38,3 @@ func newDataMetric(cvi *virtv2.ClusterVirtualImage) *dataMetric {
 		Phase: cvi.Status.Phase,
 	}
 }
-

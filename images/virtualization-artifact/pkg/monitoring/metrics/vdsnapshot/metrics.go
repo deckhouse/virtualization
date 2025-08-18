@@ -53,4 +53,3 @@ var vdsnapshotMetrics = map[string]metrics.MetricInfo{
 		nil,
 	),
 }
-

@@ -77,4 +77,3 @@ func (s *scraper) defaultUpdate(descName string, value float64, m *dataMetric, l
 	}
 	s.ch <- metric
 }
-

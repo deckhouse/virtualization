@@ -70,4 +70,3 @@ func (c Collector) Collect(ch chan<- prometheus.Metric) {
 		return
 	}
 }
-

@@ -53,4 +53,3 @@ var viMetrics = map[string]metrics.MetricInfo{
 		nil,
 	),
 }
-

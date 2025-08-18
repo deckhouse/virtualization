@@ -40,4 +40,3 @@ func newDataMetric(vds *virtv2.VirtualDiskSnapshot) *dataMetric {
 		Phase:     vds.Status.Phase,
 	}
 }
-
