@@ -112,7 +112,7 @@ func (s CreateLeaseStep) Take(ctx context.Context, vmmac *virtv2.VirtualMachineM
 		}
 	}
 
-	// 3. Ensure that the allocated MAC address is not represented in the cluster by any lease.
+	// 3. Ensure that the chosen MAC address was not already allocated and no lease was taken.
 	if _, ok := allocatedAddresses[macAddress]; ok {
 		msg := fmt.Sprintf("The MAC address %q belongs to existing VirtualMachineMACAddressLease and cannot be taken.", macAddress)
 		s.cb.
